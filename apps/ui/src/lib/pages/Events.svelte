@@ -835,17 +835,20 @@
         </div>
     {/if}
 
-    <div class="card-base rounded-2xl p-4 grid gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto]">
-        <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
-            <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
-        </select>
-        <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
-            <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
-        </select>
-        <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
-            <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
-        </select>
-        <button
+    <div class="card-base rounded-2xl p-4 space-y-3">
+        <div class="grid gap-3 lg:grid-cols-3">
+            <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
+                <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
+            </select>
+            <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+                <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
+            </select>
+            <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+                <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
+            </select>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <button
             type="button"
             class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
                 {refreshingFilterOptions
@@ -867,8 +870,8 @@
                 </svg>
                 <span>{$_('events.filters.refresh_options', { default: 'Refresh options' })}</span>
             {/if}
-        </button>
-        <button
+            </button>
+            <button
             type="button"
             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
                 {favoritesOnly
@@ -886,8 +889,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
             </svg>
             <span>{$_('events.filters.favorites', { default: 'Favorites' })}</span>
-        </button>
-        <button
+            </button>
+            <button
             type="button"
             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
                 {audioConfirmedOnly
@@ -905,7 +908,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
             </svg>
             <span>{$_('events.filters.audio_confirmed', { default: 'Audio Matches' })}</span>
-        </button>
+            </button>
+        </div>
     </div>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
