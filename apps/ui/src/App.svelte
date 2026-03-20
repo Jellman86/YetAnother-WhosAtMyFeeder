@@ -53,6 +53,7 @@
 
   // Router state
   let currentRoute = $state('/');
+  let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
 
   function syncGlobalProgressSticky() {
@@ -81,6 +82,10 @@
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
       const targetPath = normalizeRouteForCurrentAccess(path);
+      const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
+      if (isDashboardRefresh) {
+          dashboardRefreshKey += 1;
+      }
       currentRoute = targetPath;
       if (opts.replace) window.history.replaceState(null, '', targetPath);
       else window.history.pushState(null, '', targetPath);
@@ -540,7 +545,9 @@
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               {#if currentRoute === '/'}
-                  <Dashboard onnavigate={navigate} />
+                  {#key dashboardRefreshKey}
+                      <Dashboard onnavigate={navigate} />
+                  {/key}
               {:else if currentRoute.startsWith('/events')}
                   <Events />
               {:else if currentRoute.startsWith('/species')}
