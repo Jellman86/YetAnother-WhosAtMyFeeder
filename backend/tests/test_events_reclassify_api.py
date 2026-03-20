@@ -100,10 +100,21 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
         with patch("app.routers.events.get_classifier", return_value=classifier), \
              patch("app.routers.events.frigate_client") as mock_frigate, \
              patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
              patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
              patch("cv2.VideoCapture", _GoodVideoCapture):
-            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_event_with_error = AsyncMock(
+                return_value=(
+                    {
+                        "has_clip": True,
+                        "data": {
+                            "box": [0.2, 0.3, 0.4, 0.5],
+                            "region": [0.1, 0.2, 0.8, 0.9],
+                        },
+                    },
+                    None,
+                )
+            )
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
@@ -112,6 +123,13 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
 
         assert response.status_code == 200, response.text
         mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, b"\x00\x00\x00\x18ftypisomclip")
+        classifier.classify_video_async.assert_awaited_once()
+        assert classifier.classify_video_async.await_args.kwargs["input_context"] == {
+            "is_cropped": False,
+            "event_id": event_id,
+            "frigate_box": [0.2, 0.3, 0.4, 0.5],
+            "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        }
     finally:
         await _delete_detection(event_id)
 

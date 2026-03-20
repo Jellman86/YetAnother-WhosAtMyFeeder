@@ -2511,6 +2511,138 @@ async def test_classifier_service_falls_back_to_original_image_when_high_quality
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_uses_original_image_when_high_quality_source_has_no_crop_candidate(
+    mock_tflite, mock_os_path_exists
+):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    class _FakeCropService:
+        def __init__(self):
+            self.calls = []
+
+        def generate_crop(self, image):
+            self.calls.append(image)
+            return {"crop_image": None, "reason": "no_candidate"}
+
+    class _FakeCropSourceResolver:
+        def __init__(self):
+            self.calls = []
+
+        def resolve(self, image, *, input_context, source_preference):
+            self.calls.append(
+                {
+                    "image": image,
+                    "input_context": input_context,
+                    "source_preference": source_preference,
+                }
+            )
+            return Image.new("RGB", (48, 48), color="blue"), {"source_reason": "high_quality_snapshot"}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+             },
+         ):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        crop_service = _FakeCropService()
+        crop_source_resolver = _FakeCropSourceResolver()
+        service._models["bird"] = bird_model
+        service._bird_crop_service = crop_service
+        service._crop_source_resolver = crop_source_resolver
+
+        image = Image.new("RGB", (32, 32), color="red")
+        results = service.classify(image, input_context={"is_cropped": False, "event_id": "evt-1"})
+
+        assert results[0]["label"] == "Robin"
+        assert crop_service.calls[0].size == (48, 48)
+        assert bird_model.seen_images[0] is image
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_prefers_frigate_box_hint_before_detector(
+    mock_tflite, mock_os_path_exists
+):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    class _FakeCropService:
+        def __init__(self):
+            self.calls = []
+            self.expand_ratio = 0.12
+            self.min_crop_size = 96
+
+        def generate_crop(self, image):
+            self.calls.append(image)
+            return {"crop_image": None, "reason": "no_candidate"}
+
+    class _FakeCropSourceResolver:
+        def resolve(self, image, *, input_context, source_preference):
+            return Image.new("RGB", (400, 400), color="blue"), {"source_reason": "high_quality_snapshot"}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+             },
+         ):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        crop_service = _FakeCropService()
+        service._models["bird"] = bird_model
+        service._bird_crop_service = crop_service
+        service._crop_source_resolver = _FakeCropSourceResolver()
+
+        image = Image.new("RGB", (32, 32), color="red")
+        results = service.classify(
+            image,
+            input_context={
+                "is_cropped": False,
+                "event_id": "evt-1",
+                "frigate_box": [0.25, 0.25, 0.5, 0.5],
+            },
+        )
+
+        assert results[0]["label"] == "Robin"
+        assert crop_service.calls == []
+        assert bird_model.seen_images[0].size == (248, 248)
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_resets_crop_generator_when_active_model_path_missing(
     mock_tflite, mock_os_path_exists
 ):

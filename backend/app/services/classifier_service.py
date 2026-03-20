@@ -10,6 +10,7 @@ import hashlib
 import importlib
 import io
 import json
+import math
 import re
 import subprocess
 import sys
@@ -3174,6 +3175,113 @@ class ClassifierService:
         configured_model = str(getattr(settings.classification, "model", "") or "").strip()
         return configured_model or "unknown"
 
+    def _input_context_extra(self, input_context: ClassificationInputContext, key: str) -> Any | None:
+        extra = getattr(input_context, "__pydantic_extra__", {}) or {}
+        if key in extra:
+            return extra.get(key)
+        return getattr(input_context, key, None)
+
+    def _resolve_frigate_hint_crop(
+        self,
+        image: Image.Image,
+        *,
+        input_context: ClassificationInputContext,
+    ) -> dict[str, Any] | None:
+        for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
+            raw_hint = self._input_context_extra(input_context, hint_key)
+            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            if box is None:
+                continue
+            expanded = self._expand_hint_box(box, image.size)
+            if expanded is None:
+                continue
+            crop_image = image.crop(expanded)
+            return {
+                "crop_image": crop_image,
+                "box": expanded,
+                "confidence": None,
+                "reason": reason,
+            }
+        return None
+
+    def _restore_frigate_hint_box(
+        self,
+        raw_hint: Any,
+        image_size: tuple[int, int],
+    ) -> tuple[int, int, int, int] | None:
+        if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
+            return None
+        try:
+            left = float(raw_hint[0])
+            top = float(raw_hint[1])
+            width = float(raw_hint[2])
+            height = float(raw_hint[3])
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in (left, top, width, height)):
+            return None
+
+        image_width, image_height = image_size
+        normalized = (
+            0.0 <= left <= 1.0
+            and 0.0 <= top <= 1.0
+            and 0.0 <= width <= 1.0
+            and 0.0 <= height <= 1.0
+        )
+        if normalized:
+            left *= float(image_width)
+            top *= float(image_height)
+            width *= float(image_width)
+            height *= float(image_height)
+
+        right = left + width
+        bottom = top + height
+        if right <= left or bottom <= top:
+            return None
+        left_i = max(0, min(image_width, int(math.floor(left))))
+        top_i = max(0, min(image_height, int(math.floor(top))))
+        right_i = max(0, min(image_width, int(math.ceil(right))))
+        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
+        if right_i <= left_i or bottom_i <= top_i:
+            return None
+        return left_i, top_i, right_i, bottom_i
+
+    def _expand_hint_box(
+        self,
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+    ) -> tuple[int, int, int, int] | None:
+        left, top, right, bottom = box
+        width = right - left
+        height = bottom - top
+        if width <= 0 or height <= 0:
+            return None
+        expand_ratio = 0.12
+        min_crop_size = 96
+        crop_service = self._bird_crop_service
+        if crop_service is not None:
+            try:
+                expand_ratio = max(0.0, float(getattr(crop_service, "expand_ratio", expand_ratio)))
+            except Exception:
+                expand_ratio = 0.12
+            try:
+                min_crop_size = max(1, int(getattr(crop_service, "min_crop_size", min_crop_size)))
+            except Exception:
+                min_crop_size = 96
+        pad_x = int(round(width * expand_ratio))
+        pad_y = int(round(height * expand_ratio))
+        expanded_left = max(0, left - pad_x)
+        expanded_top = max(0, top - pad_y)
+        expanded_right = min(int(image_size[0]), right + pad_x)
+        expanded_bottom = min(int(image_size[1]), bottom + pad_y)
+        crop_width = expanded_right - expanded_left
+        crop_height = expanded_bottom - expanded_top
+        if crop_width < min_crop_size or crop_height < min_crop_size:
+            return None
+        if expanded_right <= expanded_left or expanded_bottom <= expanded_top:
+            return None
+        return expanded_left, expanded_top, expanded_right, expanded_bottom
+
     def _resolve_bird_classification_image(
         self,
         image: Image.Image,
@@ -3247,6 +3355,23 @@ class ClassifierService:
                 )
                 crop_source_image = image
 
+        hint_crop = self._resolve_frigate_hint_crop(
+            crop_source_image,
+            input_context=normalized_input_context,
+        )
+        if isinstance(hint_crop, dict) and isinstance(hint_crop.get("crop_image"), Image.Image):
+            diagnostics["crop_applied"] = True
+            diagnostics["crop_reason"] = str(hint_crop.get("reason") or "frigate_hint")
+            log.debug(
+                "Bird crop applied",
+                crop_attempted=True,
+                crop_applied=True,
+                crop_reason=diagnostics["crop_reason"],
+                source_reason=diagnostics.get("source_reason"),
+                crop_box=hint_crop.get("box"),
+            )
+            return hint_crop["crop_image"], diagnostics
+
         crop_result: dict[str, Any] | None = None
         try:
             crop_result = self._bird_crop_service.generate_crop(crop_source_image) if self._bird_crop_service is not None else None
@@ -3285,7 +3410,7 @@ class ClassifierService:
             crop_reason=diagnostics["crop_reason"],
             source_reason=diagnostics.get("source_reason"),
         )
-        return crop_source_image, diagnostics
+        return image, diagnostics
 
     def classify(
         self,

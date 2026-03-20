@@ -27,6 +27,26 @@ from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
 
 router = APIRouter()
+
+
+def _build_event_classification_input_context(
+    *,
+    event_id: str,
+    event_data: dict | None,
+    is_cropped: bool,
+) -> dict[str, object]:
+    context: dict[str, object] = {
+        "is_cropped": bool(is_cropped),
+        "event_id": str(event_id),
+    }
+    payload = dict((event_data or {}).get("data") or {})
+    frigate_box = payload.get("box")
+    frigate_region = payload.get("region")
+    if isinstance(frigate_box, (list, tuple)) and len(frigate_box) == 4:
+        context["frigate_box"] = list(frigate_box)
+    if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
+        context["frigate_region"] = list(frigate_region)
+    return context
 log = structlog.get_logger()
 
 
@@ -1196,7 +1216,11 @@ async def reclassify_event(
                                     tmp_path,
                                     progress_callback=progress_callback,
                                     camera_name=detection.camera_name,
-                                    input_context={"is_cropped": False, "event_id": event_id},
+                                    input_context=_build_event_classification_input_context(
+                                        event_id=event_id,
+                                        event_data=event_data,
+                                        is_cropped=False,
+                                    ),
                                 )
 
                                 # Broadcast completion

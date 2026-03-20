@@ -96,7 +96,22 @@ async def test_process_event_passes_event_id_into_video_classification_context()
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
 
-    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+    with patch.object(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        new=AsyncMock(
+            return_value=(
+                {
+                    "has_clip": True,
+                    "data": {
+                        "box": [0.2, 0.3, 0.4, 0.5],
+                        "region": [0.1, 0.2, 0.8, 0.9],
+                    },
+                },
+                None,
+            )
+        ),
+    ), \
          patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
         await service._process_event("evt-batch-video-context", "cam1", skip_delay=True)
 
@@ -104,6 +119,8 @@ async def test_process_event_passes_event_id_into_video_classification_context()
     assert service._classifier.classify_video_async.await_args.kwargs["input_context"] == {
         "is_cropped": False,
         "event_id": "evt-batch-video-context",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
     }
 
 
