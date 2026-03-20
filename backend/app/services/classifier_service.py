@@ -454,7 +454,11 @@ def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) 
 
 def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
     color_space = str((preprocessing or {}).get("color_space") or "RGB").strip().upper() or "RGB"
-    return "RGB" if color_space != "RGB" else color_space
+    # Only "RGB" and "L" (grayscale) are valid for classification preprocessing.
+    # RGBA is excluded: alpha channels are not used by any supported model and produce
+    # 4-channel tensors that break 3-element mean/std normalisation.
+    # BGR is not a PIL mode; models requiring BGR must be handled explicitly.
+    return color_space if color_space in {"RGB", "L"} else "RGB"
 
 
 def _resolve_resize_mode(preprocessing: Optional[dict[str, Any]], *, default: str = "letterbox") -> str:
@@ -1205,7 +1209,16 @@ class ModelInstance:
 
         # Normalize based on model input type
         if input_details['dtype'] == np.float32:
-            input_data = (input_data - 127.0) / 128.0
+            spec_mean = self.preprocessing.get("mean")
+            spec_std = self.preprocessing.get("std")
+            if spec_mean is not None or spec_std is not None:
+                # Use per-channel mean/std provided in the model spec (ImageNet-style)
+                mean = np.array(spec_mean if spec_mean is not None else [0.485, 0.456, 0.406], dtype=np.float32)
+                std = np.array(spec_std if spec_std is not None else [0.229, 0.224, 0.225], dtype=np.float32)
+                input_data = (input_data / 255.0 - mean) / std
+            else:
+                # Legacy MobileNet-style: maps [0, 255] to [-1, 1] via (x / 127.5) - 1
+                input_data = (input_data - 127.5) / 127.5
         elif input_details['dtype'] == np.uint8:
             input_data = input_data.astype(np.uint8)
 
