@@ -14,12 +14,19 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["mobilenet_v2_birds"].recommended_for
     assert by_id["mobilenet_v2_birds"].status == "stable"
     assert by_id["mobilenet_v2_birds"].sort_order == 10
+    assert by_id["mobilenet_v2_birds"].model_config_url
+    assert by_id["mobilenet_v2_birds"].preprocessing["resize_mode"] == "letterbox"
 
     assert by_id["convnext_large_inat21"].tier == "large"
     assert by_id["convnext_large_inat21"].taxonomy_scope
     assert by_id["convnext_large_inat21"].recommended_for
     assert by_id["convnext_large_inat21"].status == "stable"
     assert by_id["convnext_large_inat21"].sort_order == 20
+    assert by_id["convnext_large_inat21"].model_config_url
+    assert by_id["convnext_large_inat21"].preprocessing["resize_mode"] == "center_crop"
+    assert by_id["convnext_large_inat21"].preprocessing["crop_pct"] == pytest.approx(0.95)
+    assert by_id["convnext_large_inat21"].preprocessing["mean"] == pytest.approx([0.48145466, 0.4578275, 0.40821073])
+    assert by_id["convnext_large_inat21"].preprocessing["std"] == pytest.approx([0.26862954, 0.26130258, 0.27577711])
 
     assert by_id["small_birds"].tier == "small"
     assert by_id["small_birds"].taxonomy_scope == "birds_only"
@@ -28,6 +35,12 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["small_birds"].default_region == "na"
     assert by_id["small_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
     assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["small_birds"].region_variants["eu"]["model_config_url"]
+    assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
+    assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])
+    assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2135, 0.2103, 0.2622])
+    assert by_id["small_birds"].region_variants["na"]["model_config_url"]
+    assert by_id["small_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
 
     assert by_id["medium_birds"].tier == "medium"
     assert by_id["medium_birds"].taxonomy_scope == "birds_only"
@@ -36,6 +49,12 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["na"]["region_scope"] == "na"
     assert by_id["medium_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
     assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["medium_birds"].region_variants["eu"]["model_config_url"]
+    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
+    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5191, 0.5306, 0.4877])
+    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2316, 0.2304, 0.2588])
+    assert by_id["medium_birds"].region_variants["na"]["model_config_url"]
+    assert by_id["medium_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
 
     assert by_id["hieradet_small_inat21"].tier == "small"
     assert by_id["hieradet_small_inat21"].taxonomy_scope == "wildlife_wide"
@@ -49,6 +68,7 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["hieradet_small_inat21"].labels_url != "pending"
     assert "Intel GPU validated" in by_id["hieradet_small_inat21"].notes
     assert "CUDA unverified and best-effort only" in by_id["hieradet_small_inat21"].notes
+    assert by_id["hieradet_small_inat21"].model_config_url
 
     assert by_id["rope_vit_b14_inat21"].tier == "medium"
     assert by_id["rope_vit_b14_inat21"].taxonomy_scope == "wildlife_wide"
@@ -60,6 +80,10 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].advanced_only is False
     assert "CPU and OpenVINO CPU validated" in by_id["rope_vit_b14_inat21"].notes
     assert "CUDA unverified" in by_id["rope_vit_b14_inat21"].notes
+    assert by_id["rope_vit_b14_inat21"].model_config_url
+    assert by_id["rope_vit_b14_inat21"].preprocessing["resize_mode"] == "center_crop"
+    assert by_id["rope_vit_b14_inat21"].preprocessing["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])
+    assert by_id["rope_vit_b14_inat21"].preprocessing["std"] == pytest.approx([0.2135, 0.2103, 0.2622])
 
     assert by_id["eva02_large_inat21"].tier == "advanced"
     assert by_id["eva02_large_inat21"].taxonomy_scope
@@ -67,6 +91,9 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["eva02_large_inat21"].status == "stable"
     assert by_id["eva02_large_inat21"].sort_order == 30
     assert by_id["eva02_large_inat21"].advanced_only is True
+    assert by_id["eva02_large_inat21"].model_config_url
+    assert by_id["eva02_large_inat21"].preprocessing["resize_mode"] == "center_crop"
+    assert by_id["eva02_large_inat21"].preprocessing["crop_pct"] == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -58,6 +59,27 @@ def _build_export_kwargs() -> dict:
     }
 
 
+def _extract_model_config(model_name: str, model, input_size: int) -> dict:
+    pretrained_cfg = getattr(model, "pretrained_cfg", None)
+    if not isinstance(pretrained_cfg, dict):
+        pretrained_cfg = {}
+
+    return {
+        "model_id": model_name,
+        "runtime": "onnx",
+        "input_size": int(input_size),
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": str(pretrained_cfg.get("interpolation") or "bicubic"),
+            "crop_pct": float(pretrained_cfg.get("crop_pct") or 1.0),
+            "mean": list(pretrained_cfg.get("mean") or [0.485, 0.456, 0.406]),
+            "std": list(pretrained_cfg.get("std") or [0.229, 0.224, 0.225]),
+            "normalization": "float32",
+        },
+    }
+
+
 def export_birds_only_model(
     model_name: str,
     output_dir: str | Path,
@@ -71,6 +93,7 @@ def export_birds_only_model(
 
     model_path = output_path / "model.onnx"
     labels_path = output_path / "labels.txt"
+    model_config_path = output_path / "model_config.json"
 
     model = loader(model_name)
     if hasattr(model, "eval"):
@@ -85,6 +108,9 @@ def export_birds_only_model(
         for label in normalized_labels:
             handle.write(f"{label}\n")
 
+    model_config = _extract_model_config(model_name, model, input_size)
+    model_config_path.write_text(json.dumps(model_config, indent=2, sort_keys=True), encoding="utf-8")
+
     export_callable = export_fn or _default_export_fn()
     dummy_input = _build_dummy_input(input_size)
     export_callable(model, dummy_input, str(model_path), **_build_export_kwargs())
@@ -93,6 +119,7 @@ def export_birds_only_model(
         "model_id": model_name,
         "model_path": str(model_path),
         "labels_path": str(labels_path),
+        "model_config_path": str(model_config_path),
     }
     external_data_path = Path(f"{model_path}.data")
     if external_data_path.exists():

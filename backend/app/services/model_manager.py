@@ -27,8 +27,12 @@ REMOTE_REGISTRY = [
         "supported_inference_providers": ["cpu"],
         "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
         "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json",
         "input_size": 224,
         "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "letterbox",
+            "interpolation": "bicubic",
             "padding_color": 128,
             "normalization": "uint8"
         },
@@ -69,16 +73,35 @@ REMOTE_REGISTRY = [
                 "name": "Europe",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_labels.txt",
+                "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
                 "file_size_mb": 122.7,
                 "input_size": 384,
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "center_crop",
+                    "interpolation": "bicubic",
+                    "crop_pct": 1.0,
+                    "mean": [0.5248, 0.5372, 0.5086],
+                    "std": [0.2135, 0.2103, 0.2622],
+                    "normalization": "float32",
+                },
             },
             "na": {
                 "region_scope": "na",
                 "name": "North America",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_efficientnet_b0_nabirds.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_class_labels.txt",
+                "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_na_efficientnet_b0_candidate_model_config.json",
                 "file_size_mb": 18.0,
                 "input_size": 224,
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "direct_resize",
+                    "interpolation": "bilinear",
+                    "mean": [0.485, 0.456, 0.406],
+                    "std": [0.229, 0.224, 0.225],
+                    "normalization": "float32",
+                },
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
@@ -100,10 +123,15 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_model_config.json",
         "input_size": 384,
         "preprocessing": {
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225],
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 0.95,
+            "mean": [0.48145466, 0.4578275, 0.40821073],
+            "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
         },
         "license": "CC-BY-NC-4.0",
@@ -129,8 +157,13 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_model_config.json",
         "input_size": 256,
         "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 1.0,
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225],
             "normalization": "float32"
@@ -173,8 +206,18 @@ REMOTE_REGISTRY = [
                 "name": "Europe",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_labels.txt",
+                "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json",
                 "file_size_mb": 108.5,
                 "input_size": 256,
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "center_crop",
+                    "interpolation": "bicubic",
+                    "crop_pct": 1.0,
+                    "mean": [0.5191, 0.5306, 0.4877],
+                    "std": [0.2316, 0.2304, 0.2588],
+                    "normalization": "float32",
+                },
             },
             "na": {
                 "region_scope": "na",
@@ -182,8 +225,17 @@ REMOTE_REGISTRY = [
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx",
                 "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx.data",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_labels.txt",
+                "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_model_config.json",
                 "file_size_mb": 333.0,
                 "input_size": 224,
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "direct_resize",
+                    "interpolation": "bilinear",
+                    "mean": [0.485, 0.456, 0.406],
+                    "std": [0.229, 0.224, 0.225],
+                    "normalization": "float32",
+                },
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
@@ -204,10 +256,15 @@ REMOTE_REGISTRY = [
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
         "input_size": 224,
         "preprocessing": {
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225],
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 1.0,
+            "mean": [0.5248, 0.5372, 0.5086],
+            "std": [0.2135, 0.2103, 0.2622],
             "normalization": "float32"
         },
         "license": "Apache-2.0",
@@ -233,8 +290,13 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx", 
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_model_config.json",
         "input_size": 336,
         "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 1.0,
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
@@ -339,6 +401,79 @@ class ModelManager:
         merged["download_url"] = variant.get("download_url", model_meta.get("download_url"))
         merged["weights_url"] = variant.get("weights_url", model_meta.get("weights_url"))
         merged["labels_url"] = variant.get("labels_url", model_meta.get("labels_url"))
+        merged["model_config_url"] = variant.get("model_config_url", model_meta.get("model_config_url"))
+        return merged
+
+    def _build_model_config_payload(self, model_meta: dict[str, Any]) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model_id": str(model_meta.get("id") or model_meta.get("family_id") or ""),
+            "runtime": str(model_meta.get("runtime") or "tflite"),
+            "input_size": int(model_meta.get("input_size", 224) or 224),
+            "preprocessing": dict(model_meta.get("preprocessing") or {}),
+            "label_grouping": dict(model_meta.get("label_grouping") or {}),
+            "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+        }
+        region_scope = str(model_meta.get("region_scope") or "").strip()
+        if region_scope:
+            payload["region_scope"] = region_scope
+        return payload
+
+    def _write_model_config_payload(self, staged_dir: str, payload: dict[str, Any]) -> None:
+        config_path = os.path.join(staged_dir, "model_config.json")
+        with open(config_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+
+    def _load_installed_model_config(self, model_dir: str) -> dict[str, Any]:
+        config_path = os.path.join(model_dir, "model_config.json")
+        if not os.path.exists(config_path):
+            return {}
+        try:
+            with open(config_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            return data if isinstance(data, dict) else {}
+        except Exception as exc:
+            log.warning("Failed to load installed model config", model_dir=model_dir, error=str(exc))
+            return {}
+
+    def _apply_installed_model_config(
+        self,
+        spec: dict[str, Any],
+        *,
+        model_dir: str,
+    ) -> dict[str, Any]:
+        config = self._load_installed_model_config(model_dir)
+        if not config:
+            return spec
+
+        merged = dict(spec)
+        merged["model_config_path"] = os.path.join(model_dir, "model_config.json")
+        runtime = config.get("runtime")
+        if isinstance(runtime, str) and runtime.strip():
+            merged["runtime"] = runtime.strip()
+        input_size = config.get("input_size")
+        if input_size is not None:
+            try:
+                merged["input_size"] = int(input_size)
+            except (TypeError, ValueError):
+                log.warning("Ignoring invalid input_size in installed model config", model_dir=model_dir, value=input_size)
+        preprocessing = dict(spec.get("preprocessing") or {})
+        raw_preprocessing = config.get("preprocessing")
+        if isinstance(raw_preprocessing, dict):
+            preprocessing.update(raw_preprocessing)
+        elif raw_preprocessing is not None:
+            log.warning("Ignoring invalid preprocessing block in installed model config", model_dir=model_dir)
+        merged["preprocessing"] = preprocessing
+        label_grouping = dict(spec.get("label_grouping") or {})
+        raw_label_grouping = config.get("label_grouping")
+        if isinstance(raw_label_grouping, dict):
+            label_grouping.update(raw_label_grouping)
+        elif raw_label_grouping is not None:
+            log.warning("Ignoring invalid label_grouping block in installed model config", model_dir=model_dir)
+        merged["label_grouping"] = label_grouping
+        providers = config.get("supported_inference_providers")
+        if isinstance(providers, list) and providers:
+            merged["supported_inference_providers"] = list(providers)
         return merged
 
     def _resolve_family_variant_meta(
@@ -389,7 +524,7 @@ class ModelManager:
             model_path = os.path.join(variant_dir, self._model_filename_for_runtime(str(merged.get("runtime") or "tflite")))
             labels_path = os.path.join(variant_dir, "labels.txt")
             if os.path.exists(model_path):
-                return {
+                spec = {
                     "model_path": model_path,
                     "labels_path": labels_path,
                     "input_size": int(merged.get("input_size", 224) or 224),
@@ -399,7 +534,9 @@ class ModelManager:
                     "supported_inference_providers": list(merged.get("supported_inference_providers") or []),
                     "weights_url": merged.get("weights_url"),
                     "resolved_region": region,
+                    "model_config_url": merged.get("model_config_url"),
                 }
+                return self._apply_installed_model_config(spec, model_dir=variant_dir)
         return None
 
     def get_active_model_spec(
@@ -428,7 +565,7 @@ class ModelManager:
             model_path = os.path.join(target_dir, self._model_filename_for_runtime(runtime))
             labels_path = os.path.join(target_dir, "labels.txt")
             if os.path.exists(model_path):
-                return {
+                spec = {
                     "model_id": model_id,
                     "model_path": model_path,
                     "labels_path": labels_path,
@@ -438,7 +575,9 @@ class ModelManager:
                     "label_grouping": dict(model_meta.get("label_grouping") or {}),
                     "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
                     "weights_url": model_meta.get("weights_url"),
+                    "model_config_url": model_meta.get("model_config_url"),
                 }
+                return self._apply_installed_model_config(spec, model_dir=target_dir)
 
         return {
             "model_id": "mobilenet_v2_birds",
@@ -621,6 +760,8 @@ class ModelManager:
         required_files = [model_filename, "labels.txt"]
         if model_meta.get("runtime") == "onnx" and model_meta.get("weights_url"):
             required_files.append(f"{model_filename}.data")
+        if model_meta.get("model_config_url"):
+            required_files.append("model_config.json")
 
         missing = [name for name in required_files if not os.path.exists(os.path.join(staged_dir, name))]
         if missing:
@@ -729,6 +870,26 @@ class ModelManager:
             end=progress_end,
         )
         self._update_download_status(progress_model_id, progress)
+
+        # 4. Download sidecar model config (optional for backward compatibility, required when configured)
+        model_config_url = str(model_meta.get("model_config_url") or "").strip()
+        if model_config_url:
+            try:
+                log.info("Downloading model config", url=model_config_url, staged_dir=staged_dir)
+                resp = await client.get(model_config_url, follow_redirects=True)
+                resp.raise_for_status()
+                parsed = json.loads(resp.content.decode("utf-8"))
+                if not isinstance(parsed, dict):
+                    raise ValueError("model_config.json did not contain a JSON object")
+                self._write_model_config_payload(staged_dir, parsed)
+            except Exception as exc:
+                log.warning(
+                    "Failed to download model config; synthesizing from registry metadata",
+                    url=model_config_url,
+                    staged_dir=staged_dir,
+                    error=str(exc),
+                )
+                self._write_model_config_payload(staged_dir, self._build_model_config_payload(model_meta))
 
         self._validate_download_payload(model_meta, staged_dir, model_filename)
 

@@ -389,6 +389,107 @@ def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) 
     return not allowed or normalized in allowed
 
 
+def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
+    color_space = str((preprocessing or {}).get("color_space") or "RGB").strip().upper() or "RGB"
+    return "RGB" if color_space != "RGB" else color_space
+
+
+def _resolve_resize_mode(preprocessing: Optional[dict[str, Any]], *, default: str = "letterbox") -> str:
+    mode = str((preprocessing or {}).get("resize_mode") or default).strip().lower()
+    if mode not in {"letterbox", "center_crop", "direct_resize"}:
+        return default
+    return mode
+
+
+def _resolve_padding_color(preprocessing: Optional[dict[str, Any]], *, default: int = 128) -> tuple[int, int, int]:
+    raw = (preprocessing or {}).get("padding_color", default)
+    if isinstance(raw, int):
+        value = max(0, min(255, int(raw)))
+        return (value, value, value)
+    if isinstance(raw, (list, tuple)) and len(raw) == 3:
+        return tuple(max(0, min(255, int(v))) for v in raw)
+    value = max(0, min(255, int(default)))
+    return (value, value, value)
+
+
+def _resolve_interpolation(preprocessing: Optional[dict[str, Any]]) -> Image.Resampling:
+    interpolation = str((preprocessing or {}).get("interpolation") or "bicubic").strip().lower()
+    return {
+        "nearest": Image.Resampling.NEAREST,
+        "bilinear": Image.Resampling.BILINEAR,
+        "bicubic": Image.Resampling.BICUBIC,
+        "lanczos": Image.Resampling.LANCZOS,
+    }.get(interpolation, Image.Resampling.BICUBIC)
+
+
+def _resize_preserving_aspect_shortest_edge(
+    image: Image.Image,
+    shortest_edge: int,
+    *,
+    interpolation: Image.Resampling,
+) -> Image.Image:
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        return image
+    if width <= height:
+        new_width = shortest_edge
+        new_height = max(1, int(round(height * (shortest_edge / width))))
+    else:
+        new_height = shortest_edge
+        new_width = max(1, int(round(width * (shortest_edge / height))))
+    return image.resize((new_width, new_height), interpolation)
+
+
+def _center_crop_to_size(image: Image.Image, target_size: int) -> Image.Image:
+    width, height = image.size
+    left = max(0, int(round((width - target_size) / 2.0)))
+    top = max(0, int(round((height - target_size) / 2.0)))
+    right = left + target_size
+    bottom = top + target_size
+    return image.crop((left, top, right, bottom))
+
+
+def _resize_with_preprocessing(
+    image: Image.Image,
+    target_size: int,
+    *,
+    preprocessing: Optional[dict[str, Any]],
+    default_resize_mode: str = "letterbox",
+    default_padding_color: int = 128,
+) -> Image.Image:
+    image = image.convert(_resolve_color_space(preprocessing))
+    interpolation = _resolve_interpolation(preprocessing)
+    resize_mode = _resolve_resize_mode(preprocessing, default=default_resize_mode)
+
+    if resize_mode == "direct_resize":
+        return image.resize((target_size, target_size), interpolation)
+
+    if resize_mode == "center_crop":
+        crop_pct = float((preprocessing or {}).get("crop_pct") or 1.0)
+        if crop_pct <= 0.0:
+            crop_pct = 1.0
+        scale_size = max(target_size, int(round(target_size / crop_pct)))
+        resized = _resize_preserving_aspect_shortest_edge(
+            image,
+            scale_size,
+            interpolation=interpolation,
+        )
+        return _center_crop_to_size(resized, target_size)
+
+    width, height = image.size
+    scale = min(target_size / width, target_size / height)
+    new_width = max(1, int(round(width * scale)))
+    new_height = max(1, int(round(height * scale)))
+    resized = image.resize((new_width, new_height), interpolation)
+    canvas = Image.new(
+        "RGB",
+        (target_size, target_size),
+        _resolve_padding_color(preprocessing, default=default_padding_color),
+    )
+    canvas.paste(resized, ((target_size - new_width) // 2, (target_size - new_height) // 2))
+    return canvas
+
+
 def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]:
     arr = np.asarray(values)
     finite_mask = np.isfinite(arr)
@@ -1006,40 +1107,16 @@ class ModelInstance:
                 return False
 
     def _preprocess_image(self, image: Image.Image, target_width: int, target_height: int) -> np.ndarray:
-        """
-        Preprocess image: resize with padding (letterbox) to maintain aspect ratio,
-        then normalize.
-        """
-        # Convert to RGB
-        image = image.convert('RGB')
-        
-        # Calculate scale to fit within target dims while maintaining aspect ratio
-        iw, ih = image.size
-        w, h = target_width, target_height
-        scale = min(w / iw, h / ih)
-        nw = int(iw * scale)
-        nh = int(ih * scale)
-
-        # Resize image
-        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
-
-        # Padding color (128 for iNat models, 0 for generic)
-        pad_color = self.preprocessing.get("padding_color", 0)
-        if isinstance(pad_color, int):
-            fill_color = (pad_color, pad_color, pad_color)
-        else:
-            fill_color = tuple(pad_color)
-
-        # Create new image with padding
-        new_image = Image.new('RGB', (w, h), fill_color)
-        
-        # Paste resized image in center
-        new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
-
-        # Convert to numpy array
-        input_data = np.array(new_image, dtype=np.float32)
-        
-        return input_data
+        processed = _resize_with_preprocessing(
+            image,
+            max(int(target_width), int(target_height)),
+            preprocessing=self.preprocessing,
+            default_resize_mode="letterbox",
+            default_padding_color=int(self.preprocessing.get("padding_color", 0) or 0),
+        )
+        if processed.size != (target_width, target_height):
+            processed = processed.resize((target_width, target_height), _resolve_interpolation(self.preprocessing))
+        return np.array(processed, dtype=np.float32)
 
     def _run_inference(self, image: Image.Image) -> np.ndarray:
         """Internal method to run inference and return probability vector.
@@ -1259,28 +1336,16 @@ class ONNXModelInstance:
             log.error(f"Failed to load {self.name} ONNX model", error=str(e))
             return False
 
-    def _resize_with_padding(self, image: Image.Image, target_size: int) -> Image.Image:
-        """Resize image with padding to maintain aspect ratio."""
-        iw, ih = image.size
-        scale = min(target_size / iw, target_size / ih)
-        nw = int(iw * scale)
-        nh = int(ih * scale)
-
-        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
-
-        # Create new image with gray padding (ImageNet standard)
-        new_image = Image.new('RGB', (target_size, target_size), (128, 128, 128))
-        new_image.paste(image, ((target_size - nw) // 2, (target_size - nh) // 2))
-
-        return new_image
-
     def _preprocess(self, image: Image.Image) -> np.ndarray:
         """Preprocess image for ONNX inference."""
-        image = image.convert('RGB')
-        image = self._resize_with_padding(image, self.input_size)
-
-        # Convert to numpy and normalize (ImageNet style for timm models)
-        arr = np.array(image).astype(np.float32) / 255.0
+        processed = _resize_with_preprocessing(
+            image,
+            self.input_size,
+            preprocessing=self.preprocessing,
+            default_resize_mode="letterbox",
+            default_padding_color=128,
+        )
+        arr = np.array(processed).astype(np.float32) / 255.0
         arr = (arr - self.mean) / self.std
         arr = arr.transpose(2, 0, 1)  # HWC -> CHW (ONNX expects NCHW)
         return arr[np.newaxis, ...].astype(np.float32)  # Add batch dimension
@@ -1587,20 +1652,15 @@ class OpenVINOModelInstance:
             report["error"] = _summarize_runtime_exception(exc, max_len=600)
             return report
 
-    def _resize_with_padding(self, image: Image.Image, target_size: int) -> Image.Image:
-        iw, ih = image.size
-        scale = min(target_size / iw, target_size / ih)
-        nw = int(iw * scale)
-        nh = int(ih * scale)
-        image = image.resize((nw, nh), Image.Resampling.BICUBIC)
-        new_image = Image.new('RGB', (target_size, target_size), (128, 128, 128))
-        new_image.paste(image, ((target_size - nw) // 2, (target_size - nh) // 2))
-        return new_image
-
     def _preprocess(self, image: Image.Image) -> np.ndarray:
-        image = image.convert('RGB')
-        image = self._resize_with_padding(image, self.input_size)
-        arr = np.array(image).astype(np.float32) / 255.0
+        processed = _resize_with_preprocessing(
+            image,
+            self.input_size,
+            preprocessing=self.preprocessing,
+            default_resize_mode="letterbox",
+            default_padding_color=128,
+        )
+        arr = np.array(processed).astype(np.float32) / 255.0
         arr = (arr - self.mean) / self.std
         arr = arr.transpose(2, 0, 1)  # NCHW
         return arr[np.newaxis, ...].astype(np.float32)

@@ -1,8 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-class ModelMetadata(BaseModel):
+class YAWAMFBaseModel(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+
+class ModelMetadata(YAWAMFBaseModel):
     id: str
     name: str
     description: str
@@ -13,8 +17,10 @@ class ModelMetadata(BaseModel):
     download_url: str
     weights_url: Optional[str] = None
     labels_url: str
+    model_config_url: Optional[str] = None
     input_size: int = 224
     runtime: Optional[str] = None
+    preprocessing: Optional[Dict[str, Any]] = None
     supported_inference_providers: Optional[List[str]] = None
     tier: str
     taxonomy_scope: str
@@ -29,21 +35,21 @@ class ModelMetadata(BaseModel):
     region_variants: Optional[Dict[str, Dict[str, Any]]] = None
     label_grouping: Optional[Dict[str, Any]] = None
     
-class InstalledModel(BaseModel):
+class InstalledModel(YAWAMFBaseModel):
     id: str
     path: str
     labels_path: str
     is_active: bool
     metadata: Optional[ModelMetadata] = None
 
-class DownloadProgress(BaseModel):
+class DownloadProgress(YAWAMFBaseModel):
     model_id: str
     status: str # "pending", "downloading", "completed", "error"
     progress: float # 0-100
     message: Optional[str] = None
     error: Optional[str] = None
 
-class AIUsageLog(BaseModel):
+class AIUsageLog(YAWAMFBaseModel):
     id: Optional[int] = None
     timestamp: datetime
     provider: str

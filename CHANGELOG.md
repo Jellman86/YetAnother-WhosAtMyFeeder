@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Downloaded model payloads are being standardized around a per-artifact `model_config.json` sidecar so preprocessing and provider metadata can travel with the installed model instead of relying on partially duplicated registry defaults.
+- **Fixed:** Classifier preprocessing is now manifest-driven for ONNX/OpenVINO models, with explicit support for `letterbox`, `center_crop`, and `direct_resize` so models like Birder, timm iNat21, and Binocular no longer all inherit the same generic square-letterbox path.
+- **Fixed:** Registry preprocessing metadata has been corrected for the currently known mismatch cases, including ConvNeXt Large iNat21, RoPE-ViT iNat21, Europe small/medium birds models, and EVA-02 Large.
+- **Added:** Birds-only ONNX export tooling now writes `model_config.json` next to `model.onnx` and `labels.txt`, capturing source model preprocessing defaults for release-backed artifacts.
 - **Changed:** Small and medium ONNX model slots are being reworked toward birds-only replacement artifacts published via GitHub Releases, with validation tracked in [`docs/plans/2026-03-19-birds-only-model-validation-matrix.md`](docs/plans/2026-03-19-birds-only-model-validation-matrix.md).
 - **Added:** Detection Settings now includes a `Bird model region` override (`Auto`, `Europe`, `North America`) wired end-to-end through the UI settings payload so regional birds-only families can be selected manually while location-based auto-selection remains the default.
 - **Added:** New backend exporter [`backend/scripts/export_binocular_model.py`](backend/scripts/export_binocular_model.py) supports converting the North America `jiujiuche/binocular` NABirds checkpoint into ONNX plus labels for release-backed artifact testing.

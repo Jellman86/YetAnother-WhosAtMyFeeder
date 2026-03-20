@@ -52,6 +52,25 @@ def test_validate_download_payload_requires_labels(tmp_path):
         manager._validate_download_payload(meta, str(staged_dir), "model.tflite")
 
 
+def test_validate_download_payload_requires_model_config(tmp_path):
+    manager = ModelManager()
+    staged_dir = tmp_path / "mobilenet_v2_birds.download"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    (staged_dir / "model.tflite").write_bytes(b"fake-model")
+    (staged_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+
+    meta = {
+        "id": "mobilenet_v2_birds",
+        "runtime": "tflite",
+        "labels_url": "https://example.invalid/labels.txt",
+        "download_url": "https://example.invalid/model.tflite",
+        "model_config_url": "https://example.invalid/model_config.json",
+    }
+
+    with pytest.raises(RuntimeError, match="model_config.json"):
+        manager._validate_download_payload(meta, str(staged_dir), "model.tflite")
+
+
 def test_validate_download_payload_requires_onnx_weights_when_configured(tmp_path):
     manager = ModelManager()
     staged_dir = tmp_path / "convnext_large_inat21.download"
@@ -120,6 +139,76 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         settings.classification.bird_model_region_override = original_override
 
 
+def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "input_size": 512,
+                "preprocessing": {
+                    "resize_mode": "center_crop",
+                    "crop_pct": 0.9,
+                    "mean": [0.1, 0.2, 0.3],
+                    "std": [0.4, 0.5, 0.6],
+                },
+                "supported_inference_providers": ["cpu"],
+                "label_grouping": {"strategy": "strip_trailing_parenthetical"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["input_size"] == 512
+    assert spec["preprocessing"]["resize_mode"] == "center_crop"
+    assert spec["preprocessing"]["crop_pct"] == pytest.approx(0.9)
+    assert spec["preprocessing"]["mean"] == [0.1, 0.2, 0.3]
+    assert spec["supported_inference_providers"] == ["cpu"]
+    assert spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
+
+
+def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": {"bad": "type"},
+                "input_size": "not-an-int",
+                "preprocessing": "not-a-dict",
+                "supported_inference_providers": "cpu",
+                "label_grouping": ["bad"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["runtime"] == "onnx"
+    assert spec["input_size"] == 384
+    assert spec["preprocessing"]["resize_mode"] == "center_crop"
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+    assert spec["label_grouping"] == {}
+
+
 @pytest.mark.asyncio
 async def test_list_installed_models_includes_downloaded_family(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
@@ -184,3 +273,155 @@ def test_small_slot_registry_entry_requires_external_data_weights_url():
 
     assert model_meta["runtime"] == "onnx"
     assert model_meta["weights_url"].endswith("hieradet_small_inat21.onnx.data")
+
+
+@pytest.mark.asyncio
+async def test_download_payload_writes_model_config(tmp_path):
+    manager = ModelManager()
+    progress = type("Progress", (), {"progress": 0.0})()
+    updates: list[float] = []
+
+    def update_download_status(_model_id, _progress):
+        updates.append(float(_progress.progress))
+
+    manager._update_download_status = update_download_status  # type: ignore[method-assign]
+
+    class FakeStreamResponse:
+        def __init__(self, content: bytes):
+            self.content = content
+            self.headers = {"content-length": str(len(content))}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_bytes(self):
+            yield self.content
+
+    class FakeResponse:
+        def __init__(self, content: bytes):
+            self.content = content
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def stream(self, _method, url, follow_redirects=True):
+            payloads = {
+                "https://example.invalid/model.onnx": b"onnx",
+            }
+            return FakeStreamResponse(payloads[url])
+
+        async def get(self, url, follow_redirects=True):
+            payloads = {
+                "https://example.invalid/labels.txt": b"label\n",
+                "https://example.invalid/model_config.json": json.dumps(
+                    {
+                        "runtime": "onnx",
+                        "input_size": 224,
+                        "preprocessing": {"resize_mode": "center_crop"},
+                    }
+                ).encode("utf-8"),
+            }
+            return FakeResponse(payloads[url])
+
+    staged_dir = tmp_path / "stage"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "id": "test-model",
+        "runtime": "onnx",
+        "download_url": "https://example.invalid/model.onnx",
+        "labels_url": "https://example.invalid/labels.txt",
+        "model_config_url": "https://example.invalid/model_config.json",
+    }
+
+    await manager._download_payload_to_dir(
+        client=FakeClient(),
+        model_meta=meta,
+        staged_dir=str(staged_dir),
+        progress=progress,
+        progress_model_id="test-model",
+        progress_start=0.0,
+        progress_end=100.0,
+    )
+
+    assert (staged_dir / "model_config.json").exists()
+    assert json.loads((staged_dir / "model_config.json").read_text(encoding="utf-8"))["preprocessing"]["resize_mode"] == "center_crop"
+    assert updates
+
+
+@pytest.mark.asyncio
+async def test_download_payload_synthesizes_model_config_when_sidecar_download_fails(tmp_path):
+    manager = ModelManager()
+    progress = type("Progress", (), {"progress": 0.0})()
+
+    class FakeStreamResponse:
+        def __init__(self, content: bytes):
+            self.content = content
+            self.headers = {"content-length": str(len(content))}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_bytes(self):
+            yield self.content
+
+    class FakeResponse:
+        def __init__(self, content: bytes):
+            self.content = content
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def stream(self, _method, url, follow_redirects=True):
+            return FakeStreamResponse(b"onnx")
+
+        async def get(self, url, follow_redirects=True):
+            if url.endswith("labels.txt"):
+                return FakeResponse(b"label\n")
+            raise RuntimeError("sidecar fetch failed")
+
+    staged_dir = tmp_path / "stage"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "id": "test-model",
+        "runtime": "onnx",
+        "input_size": 256,
+        "download_url": "https://example.invalid/model.onnx",
+        "labels_url": "https://example.invalid/labels.txt",
+        "model_config_url": "https://example.invalid/model_config.json",
+        "preprocessing": {
+            "resize_mode": "center_crop",
+            "crop_pct": 0.95,
+            "mean": [0.1, 0.2, 0.3],
+            "std": [0.4, 0.5, 0.6],
+        },
+        "supported_inference_providers": ["cpu"],
+    }
+
+    await manager._download_payload_to_dir(
+        client=FakeClient(),
+        model_meta=meta,
+        staged_dir=str(staged_dir),
+        progress=progress,
+        progress_model_id="test-model",
+        progress_start=0.0,
+        progress_end=100.0,
+    )
+
+    config = json.loads((staged_dir / "model_config.json").read_text(encoding="utf-8"))
+    assert config["input_size"] == 256
+    assert config["preprocessing"]["resize_mode"] == "center_crop"
+    assert config["supported_inference_providers"] == ["cpu"]

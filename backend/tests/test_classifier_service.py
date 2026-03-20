@@ -100,6 +100,20 @@ class _FallbackReadyModel:
         return {"loaded": True, "error": None}
 
 
+def _make_three_band_image(width: int = 8, height: int = 4) -> Image.Image:
+    image = Image.new("RGB", (width, height))
+    for x in range(width):
+        if x < width // 4:
+            color = (0, 255, 0)
+        elif x >= width - (width // 4):
+            color = (0, 0, 255)
+        else:
+            color = (255, 0, 0)
+        for y in range(height):
+            image.putpixel((x, y), color)
+    return image
+
+
 class _SingleSlotBlockingSupervisor:
     def __init__(self):
         self.calls = []
@@ -224,6 +238,125 @@ def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     assert [item["label"] for item in results] == ["American Goldfinch", "House Sparrow"]
     assert results[0]["score"] == pytest.approx(0.75, rel=1e-3)
     assert results[1]["score"] == pytest.approx(0.25, rel=1e-3)
+
+
+def test_onnx_preprocess_letterbox_respects_configured_padding_color():
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        preprocessing={
+            "resize_mode": "letterbox",
+            "padding_color": [64, 64, 64],
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+        },
+        input_size=4,
+    )
+
+    image = Image.new("RGB", (8, 4), color=(255, 0, 0))
+    arr = model._preprocess(image)[0].transpose(1, 2, 0)
+
+    assert arr[0, 0, 0] == pytest.approx(64.0 / 255.0, abs=1e-3)
+    assert arr[2, 2, 0] == pytest.approx(1.0, abs=1e-3)
+
+
+def test_onnx_preprocess_ignores_invalid_non_rgb_color_space():
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        preprocessing={
+            "color_space": "RGBA",
+            "resize_mode": "direct_resize",
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+        },
+        input_size=4,
+    )
+
+    arr = model._preprocess(Image.new("RGB", (4, 4), color=(255, 0, 0)))
+
+    assert arr.shape == (1, 3, 4, 4)
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda preprocessing: ONNXModelInstance(
+            "test",
+            "model.onnx",
+            "labels.txt",
+            preprocessing=preprocessing,
+            input_size=4,
+        ),
+        lambda preprocessing: OpenVINOModelInstance(
+            "test",
+            "model.onnx",
+            "labels.txt",
+            preprocessing=preprocessing,
+            input_size=4,
+            device_name="CPU",
+            startup_self_test_enabled=False,
+        ),
+    ],
+)
+def test_model_preprocess_center_crop_removes_outer_edge_bands(factory):
+    model = factory(
+        {
+            "resize_mode": "center_crop",
+            "crop_pct": 1.0,
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+        }
+    )
+
+    arr = model._preprocess(_make_three_band_image())[0].transpose(1, 2, 0)
+
+    assert float(arr[:, 0, 0].mean()) > 0.8
+    assert float(arr[:, 0, 1].mean()) < 0.2
+    assert float(arr[:, 0, 2].mean()) < 0.2
+    assert float(arr[:, -1, 0].mean()) > 0.8
+    assert float(arr[:, -1, 1].mean()) < 0.2
+    assert float(arr[:, -1, 2].mean()) < 0.2
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda preprocessing: ONNXModelInstance(
+            "test",
+            "model.onnx",
+            "labels.txt",
+            preprocessing=preprocessing,
+            input_size=4,
+        ),
+        lambda preprocessing: OpenVINOModelInstance(
+            "test",
+            "model.onnx",
+            "labels.txt",
+            preprocessing=preprocessing,
+            input_size=4,
+            device_name="CPU",
+            startup_self_test_enabled=False,
+        ),
+    ],
+)
+def test_model_preprocess_direct_resize_preserves_full_frame_edges(factory):
+    model = factory(
+        {
+            "resize_mode": "direct_resize",
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+        }
+    )
+
+    arr = model._preprocess(_make_three_band_image())[0].transpose(1, 2, 0)
+
+    assert float(arr[:, 0, 1].mean()) > 0.8
+    assert float(arr[:, 0, 0].mean()) < 0.2
+    assert float(arr[:, -1, 2].mean()) > 0.8
+    assert float(arr[:, -1, 0].mean()) < 0.2
 
 
 def test_safe_softmax_sanitizes_non_finite_logits():
