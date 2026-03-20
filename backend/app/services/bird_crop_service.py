@@ -120,6 +120,16 @@ class BirdCropService:
         if env_path:
             candidates.append(env_path)
 
+        try:
+            from app.services.model_manager import model_manager
+
+            detector_spec = model_manager.get_crop_detector_spec()
+            managed_model_path = str(detector_spec.get("model_path") or "").strip()
+            if managed_model_path:
+                candidates.append(managed_model_path)
+        except Exception:
+            pass
+
         base_dirs = [
             "/data/models",
             str((Path(__file__).resolve().parent / "../../data/models").resolve()),
@@ -138,6 +148,18 @@ class BirdCropService:
                 ]
             )
         return candidates
+
+    def get_status(self) -> dict[str, Any]:
+        model_path = self._resolve_model_path()
+        return {
+            "model_id": self.model_id,
+            "installed": model_path is not None,
+            "healthy": model_path is not None,
+            "enabled_for_runtime": model_path is not None,
+            "reason": "ready" if model_path is not None else "not_installed",
+            "model_path": str(model_path) if model_path is not None else None,
+            "load_error": self._model_error,
+        }
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)

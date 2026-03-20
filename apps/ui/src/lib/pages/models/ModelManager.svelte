@@ -32,6 +32,7 @@
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
     let activating = $state<string | null>(null); 
     let showAdvancedModels = $state(false);
+    let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
 
     function t(key: string, fallback: string, values?: Record<string, string | number>): string {
         return get(_)(key, values ? { values, default: fallback } : { default: fallback });
@@ -192,10 +193,11 @@
                     return null;
                 })
             ]);
-            availableModels = getVisibleTieredModelLineup(available, true);
+            availableModels = available;
             installedModels = installed;
             health = healthData;
             classifierStatus = classifierData;
+            cropDetectorStatus = classifierData?.crop_detector ?? null;
         } catch (e) {
             console.error(e);
             error = t('settings.detection.model_manager_load_error', 'Failed to load models');
@@ -258,6 +260,10 @@
 
     function isActive(modelId: string): boolean {
         return installedModels.some(m => m.id === modelId && m.is_active);
+    }
+
+    function isCropDetectorInstalled(): boolean {
+        return installedModels.some((model) => model.id === 'bird_crop_detector');
     }
 
     function getProviderSupport(model: ModelMetadata): string[] {
@@ -464,9 +470,80 @@
             {error}
         </div>
     {:else}
-        {@const visibleModels = getVisibleTieredModelLineup(availableModels, showAdvancedModels)}
-        {@const advancedCount = availableModels.filter((model) => model.advanced_only).length}
+        {@const cropDetectorModel = availableModels.find((model) => model.id === 'bird_crop_detector')}
+        {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
+        {@const cropDetectorDownload = cropDetectorModel ? downloadStatuses[cropDetectorModel.id] : undefined}
+        {@const cropDetectorInstalled = isCropDetectorInstalled()}
+        {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorInstalled)}
+        {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels)}
+        {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
+            {#if cropDetectorModel}
+                <div class="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div class="p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Bird Crop Detector</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                    Shared detector dependency for crop-enabled bird models. Download it once to unlock crop-assisted classification.
+                                </p>
+                            </div>
+                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${cropDetectorReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'}`}>
+                                {cropDetectorReady ? 'Installed' : 'Not installed'}
+                            </span>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</p>
+                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                    {cropDetectorStatus?.reason || (cropDetectorInstalled ? 'installed' : 'not_installed')}
+                                </p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</p>
+                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                    {cropDetectorStatus?.healthy ? 'Healthy' : 'Unavailable'}
+                                </p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Artifact</p>
+                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                    {cropDetectorModel.file_size_mb} MB
+                                </p>
+                            </div>
+                        </div>
+
+                        {#if cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
+                            <div class="mt-4">
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-teal-600 dark:text-teal-400 font-medium">Downloading detector...</span>
+                                    <span class="text-slate-500">{cropDetectorDownload.progress.toFixed(0)}%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-teal-500 h-full transition-all duration-300" style="width: {cropDetectorDownload.progress}%"></div>
+                                </div>
+                            </div>
+                        {/if}
+
+                        <div class="mt-4 flex flex-wrap gap-3">
+                            <button
+                                onclick={() => handleDownload(cropDetectorModel)}
+                                disabled={cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
+                                class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {cropDetectorInstalled ? 'Re-download detector' : 'Download detector'}
+                            </button>
+                            {#if !cropDetectorReady}
+                                <p class="text-sm text-slate-500 dark:text-slate-400">
+                                    Crop-enabled models require the bird crop detector before crop generation can be used.
+                                </p>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_lineup_title', { default: 'Tiered model lineup' })}</h3>
@@ -505,6 +582,7 @@
                 {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
                 {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
                 {@const variantEntries = getCropVariantOverrideEntries(model)}
+                {@const cropControlsDisabled = !cropDetectorReady}
                 
                 <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
@@ -628,6 +706,7 @@
                                     <select
                                         value={getCropModelOverrideValue(model.id)}
                                         onchange={(event) => setCropModelOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                        disabled={cropControlsDisabled}
                                         class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                     >
                                         {#each CROP_MODEL_OVERRIDE_VALUES as option}
@@ -642,6 +721,7 @@
                                     <select
                                         value={getCropSourceOverrideValue(model.id)}
                                         onchange={(event) => setCropSourceOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                        disabled={cropControlsDisabled}
                                         class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                     >
                                         {#each CROP_SOURCE_OVERRIDE_VALUES as option}
@@ -653,6 +733,11 @@
                             <p class="mt-2 text-[11px] font-medium leading-relaxed text-slate-500 dark:text-slate-400">
                                 Source default: {cropDefaultSourceLabel(model.crop_generator)}.
                             </p>
+                            {#if cropControlsDisabled}
+                                <p class="mt-2 text-[11px] font-medium leading-relaxed text-amber-700 dark:text-amber-300">
+                                    Crop behavior requires the bird crop detector to be installed first.
+                                </p>
+                            {/if}
 
                             {#if variantEntries.length > 0}
                                 <details class="mt-3 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-600/80 dark:bg-slate-800/60">
@@ -683,6 +768,7 @@
                                                         <select
                                                             value={getCropModelOverrideValue(variant.id)}
                                                             onchange={(event) => setCropModelOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                            disabled={cropControlsDisabled}
                                                             class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                                         >
                                                             {#each CROP_MODEL_OVERRIDE_VALUES as option}
@@ -697,6 +783,7 @@
                                                         <select
                                                             value={getCropSourceOverrideValue(variant.id)}
                                                             onchange={(event) => setCropSourceOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                            disabled={cropControlsDisabled}
                                                             class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                                                         >
                                                             {#each CROP_SOURCE_OVERRIDE_VALUES as option}

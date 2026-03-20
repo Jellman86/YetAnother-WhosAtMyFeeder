@@ -17,6 +17,36 @@ log = structlog.get_logger()
 # Supports both TFLite and ONNX runtimes
 REMOTE_REGISTRY = [
     {
+        "id": "bird_crop_detector",
+        "name": "Bird Crop Detector",
+        "description": "Shared bird-localization detector used by crop-enabled classifier models.",
+        "architecture": "SSD-MobileNet V1 INT8",
+        "artifact_kind": "crop_detector",
+        "file_size_mb": 12.4,
+        "accuracy_tier": "System",
+        "inference_speed": "Fast",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu"],
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_ssd_mobilenet_v1_12_int8.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_model_config.json",
+        "input_size": 320,
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "letterbox",
+            "interpolation": "bilinear",
+            "normalization": "uint8"
+        },
+        "tier": "dependency",
+        "taxonomy_scope": "system",
+        "recommended_for": "Required dependency for crop-enabled bird classification.",
+        "estimated_ram_mb": 256,
+        "advanced_only": True,
+        "sort_order": 5,
+        "status": "stable",
+        "notes": "Install this once to enable crop-assisted classification for models that opt into bird cropping."
+    },
+    {
         "id": "mobilenet_v2_birds",
         "name": "MobileNet V2 (Fast)",
         "description": "Lightweight iNat bird classifier (~960 species). Fast inference, good for real-time detection.",
@@ -376,6 +406,30 @@ class ModelManager:
 
     def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
+
+    def get_crop_detector_meta(self) -> Optional[dict[str, Any]]:
+        return self._get_registry_model_meta("bird_crop_detector")
+
+    def get_crop_detector_spec(self) -> dict[str, Any]:
+        meta = dict(self.get_crop_detector_meta() or {})
+        model_dir = os.path.join(MODELS_DIR, "bird_crop_detector")
+        model_path = os.path.join(model_dir, "model.onnx")
+        labels_path = os.path.join(model_dir, "labels.txt")
+        config_path = os.path.join(model_dir, "model_config.json")
+        installed = os.path.exists(model_path)
+        healthy = installed and os.path.exists(config_path)
+        return {
+            "model_id": "bird_crop_detector",
+            "artifact_kind": str(meta.get("artifact_kind") or "crop_detector"),
+            "installed": installed,
+            "healthy": healthy,
+            "enabled_for_runtime": healthy,
+            "reason": "ready" if healthy else ("config_missing" if installed else "not_installed"),
+            "model_path": model_path,
+            "labels_path": labels_path,
+            "model_config_path": config_path,
+            "metadata": meta,
+        }
 
     def _is_family_model(self, model_meta: Optional[dict[str, Any]]) -> bool:
         return bool((model_meta or {}).get("region_variants"))

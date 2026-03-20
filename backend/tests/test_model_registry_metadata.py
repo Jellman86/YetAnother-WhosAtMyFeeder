@@ -104,6 +104,13 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["eva02_large_inat21"].preprocessing["resize_mode"] == "center_crop"
     assert by_id["eva02_large_inat21"].preprocessing["crop_pct"] == pytest.approx(1.0)
 
+    assert by_id["bird_crop_detector"].tier == "dependency"
+    assert by_id["bird_crop_detector"].advanced_only is True
+    assert by_id["bird_crop_detector"].runtime == "onnx"
+    assert by_id["bird_crop_detector"].taxonomy_scope == "system"
+    assert by_id["bird_crop_detector"].model_config_url
+    assert by_id["bird_crop_detector"].notes
+
 
 @pytest.mark.asyncio
 async def test_available_models_disable_invalid_crop_generator_metadata(monkeypatch):

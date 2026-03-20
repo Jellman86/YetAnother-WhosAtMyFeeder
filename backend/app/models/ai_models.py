@@ -29,6 +29,7 @@ class ModelMetadata(YAWAMFBaseModel):
     name: str
     description: str
     architecture: str  # e.g., "MobileNetV2", "EfficientNet-Lite4"
+    artifact_kind: str = "classifier"
     file_size_mb: float
     accuracy_tier: str # "High", "Medium", "Low"
     inference_speed: str # "Fast", "Medium", "Slow"

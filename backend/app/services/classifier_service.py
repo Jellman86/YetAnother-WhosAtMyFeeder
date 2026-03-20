@@ -2973,8 +2973,16 @@ class ClassifierService:
         try:
             from app.services.model_manager import model_manager
             active_model_id = getattr(model_manager, "active_model_id", None)
+            crop_detector_status = dict(model_manager.get_crop_detector_spec() or {})
         except Exception:
             active_model_id = None
+            crop_detector_status = {}
+
+        if self._bird_crop_service is not None:
+            try:
+                crop_detector_status.update(dict(self._bird_crop_service.get_status() or {}))
+            except Exception:
+                pass
 
         status = {
             "image_execution_mode": self._image_execution_mode,
@@ -3044,7 +3052,8 @@ class ClassifierService:
             ],
             # legacy compatibility (can be removed later)
             "cuda_enabled": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")) == "cuda",
-            "models": {}
+            "models": {},
+            "crop_detector": crop_detector_status,
         }
         if supervisor_metrics is not None:
             status["worker_pools"] = supervisor_metrics

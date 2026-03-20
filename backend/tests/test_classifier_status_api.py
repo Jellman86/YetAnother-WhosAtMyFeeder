@@ -263,3 +263,34 @@ async def test_classifier_status_endpoint_returns_artifact_fingerprint_and_compa
     assert payload["openvino_runtime"]["compatibility"]["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
     assert payload["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
     assert payload["openvino_runtime"]["compatibility"]["devices"]["CPU"]["artifact_trust_state"] == "trusted"
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_exposes_crop_detector_readiness(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "get_status",
+        lambda: {
+            "loaded": True,
+            "crop_detector": {
+                "model_id": "bird_crop_detector",
+                "installed": False,
+                "healthy": False,
+                "enabled_for_runtime": False,
+                "reason": "not_installed",
+            },
+        },
+    )
+
+    response = await client.get("/api/classifier/status")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["crop_detector"]["model_id"] == "bird_crop_detector"
+    assert payload["crop_detector"]["installed"] is False
+    assert payload["crop_detector"]["healthy"] is False
+    assert payload["crop_detector"]["enabled_for_runtime"] is False
+    assert payload["crop_detector"]["reason"] == "not_installed"

@@ -221,6 +221,21 @@ def test_load_model_autodiscovers_standard_detector_path_without_env(monkeypatch
     assert loaded["model_path"] == str(model_path)
 
 
+def test_candidate_model_paths_include_managed_detector_install(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.delenv("BIRD_CROP_MODEL_PATH", raising=False)
+
+    class _FakeModelManager:
+        def get_crop_detector_spec(self):
+            return {"model_path": "/data/models/bird_crop_detector/model.onnx"}
+
+    monkeypatch.setitem(__import__("sys").modules, "app.services.model_manager", types.SimpleNamespace(model_manager=_FakeModelManager()))
+
+    paths = service._candidate_model_paths()
+
+    assert "/data/models/bird_crop_detector/model.onnx" in paths
+
+
 def test_load_model_handles_nhwc_input_shape(monkeypatch, tmp_path):
     model_path = tmp_path / "bird_crop.onnx"
     model_path.write_bytes(b"fake")

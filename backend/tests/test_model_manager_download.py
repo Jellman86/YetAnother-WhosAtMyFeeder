@@ -242,6 +242,35 @@ def test_get_active_model_spec_variant_crop_override_beats_family_override(tmp_p
             settings.classification.crop_source_overrides = original_crop_source_overrides
 
 
+def test_get_active_model_spec_preserves_crop_policy_when_detector_not_installed(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    family_dir = tmp_path / "small_birds"
+    na_dir = family_dir / "na"
+    na_dir.mkdir(parents=True, exist_ok=True)
+    (na_dir / "model.onnx").write_bytes(b"na")
+    (na_dir / "labels.txt").write_text("na-label\n", encoding="utf-8")
+
+    manager = ModelManager()
+    manager.active_model_id = "small_birds"
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    settings.location.country = "US"
+    settings.classification.bird_model_region_override = "auto"
+    try:
+        spec = manager.get_active_model_spec()
+        detector_spec = manager.get_crop_detector_spec()
+
+        assert spec["resolved_region"] == "na"
+        assert spec["crop_generator"]["enabled"] is True
+        assert detector_spec["enabled_for_runtime"] is False
+        assert detector_spec["reason"] == "not_installed"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
+
+
 def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
@@ -434,6 +463,24 @@ async def test_list_installed_models_includes_downloaded_family(monkeypatch, tmp
 
 
 @pytest.mark.asyncio
+async def test_list_installed_models_includes_crop_detector_when_downloaded(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    detector_dir = tmp_path / "bird_crop_detector"
+    detector_dir.mkdir(parents=True, exist_ok=True)
+    (detector_dir / "model.onnx").write_bytes(b"detector")
+    (detector_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    (detector_dir / "model_config.json").write_text("{}", encoding="utf-8")
+
+    installed = await ModelManager().list_installed_models()
+    by_id = {model.id: model for model in installed}
+
+    assert "bird_crop_detector" in by_id
+    assert by_id["bird_crop_detector"].path == str(detector_dir / "model.onnx")
+    assert by_id["bird_crop_detector"].metadata is not None
+
+
+@pytest.mark.asyncio
 async def test_list_available_models_returns_models_sorted_by_sort_order(monkeypatch):
     from app.services import model_manager as model_manager_module
 
@@ -446,6 +493,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
     models = await ModelManager().list_available_models()
 
     assert [model.id for model in models] == [
+        "bird_crop_detector",
         "mobilenet_v2_birds",
         "small_birds",
         "hieradet_small_inat21",
@@ -454,7 +502,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "convnext_large_inat21",
         "eva02_large_inat21",
     ]
-    assert [model.sort_order for model in models] == [10, 14, 15, 17, 18, 20, 30]
+    assert [model.sort_order for model in models] == [5, 10, 14, 15, 17, 18, 20, 30]
 
 
 def test_build_download_progress_is_monotonic_across_onnx_phases():

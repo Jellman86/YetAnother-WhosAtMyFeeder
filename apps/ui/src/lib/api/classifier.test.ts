@@ -16,6 +16,7 @@ import {
     fetchAvailableModels,
     getVisibleTieredModelLineup,
     summarizeModelMetadata,
+    type ClassifierStatus,
     type InstalledModel,
     type ModelMetadata
 } from './classifier';
@@ -88,6 +89,29 @@ describe('getVisibleTieredModelLineup', () => {
     it('sorts by tier and sort order and hides advanced-only models by default', () => {
         const models: ModelMetadata[] = [
             {
+                id: 'bird_crop_detector',
+                name: 'Bird Crop Detector',
+                description: 'Managed crop detector dependency',
+                architecture: 'SSD-MobileNet',
+                file_size_mb: 12.4,
+                accuracy_tier: 'System',
+                inference_speed: 'Fast',
+                download_url: 'https://example.com/models/bird_crop_detector.onnx',
+                labels_url: 'https://example.com/models/bird_crop_detector_labels.txt',
+                input_size: 320,
+                runtime: 'onnx',
+                supported_inference_providers: ['cpu'],
+                tier: 'dependency',
+                taxonomy_scope: 'system',
+                recommended_for: 'Crop dependency',
+                estimated_ram_mb: 128,
+                advanced_only: true,
+                sort_order: 5,
+                status: 'stable',
+                notes: 'Managed crop detector.',
+                artifact_kind: 'crop_detector',
+            },
+            {
                 id: 'eva02_large_inat21',
                 name: 'EVA-02 Large (Elite Accuracy)',
                 description: 'Advanced option',
@@ -109,6 +133,7 @@ describe('getVisibleTieredModelLineup', () => {
                 sort_order: 30,
                 status: 'stable',
                 notes: 'Elite accuracy model.',
+                artifact_kind: 'classifier',
             },
             {
                 id: 'convnext_large_inat21',
@@ -132,6 +157,7 @@ describe('getVisibleTieredModelLineup', () => {
                 sort_order: 20,
                 status: 'stable',
                 notes: 'Higher-accuracy broad model.',
+                artifact_kind: 'classifier',
             },
             {
                 id: 'rope_vit_b14_inat21',
@@ -154,6 +180,7 @@ describe('getVisibleTieredModelLineup', () => {
                 sort_order: 18,
                 status: 'stable',
                 notes: 'OpenVINO Intel GPU validated; CUDA not validated in this environment.',
+                artifact_kind: 'classifier',
             },
             {
                 id: 'hieradet_small_inat21',
@@ -176,6 +203,7 @@ describe('getVisibleTieredModelLineup', () => {
                 sort_order: 15,
                 status: 'stable',
                 notes: 'OpenVINO Intel GPU validated; CUDA not validated in this environment.',
+                artifact_kind: 'classifier',
             },
             {
                 id: 'mobilenet_v2_birds',
@@ -198,6 +226,7 @@ describe('getVisibleTieredModelLineup', () => {
                 sort_order: 10,
                 status: 'stable',
                 notes: 'Fastest option.',
+                artifact_kind: 'classifier',
             },
         ];
 
@@ -212,5 +241,26 @@ describe('getVisibleTieredModelLineup', () => {
             { id: 'convnext_large_inat21' },
             { id: 'eva02_large_inat21' },
         ]);
+    });
+});
+
+describe('ClassifierStatus', () => {
+    it('supports crop detector readiness telemetry', () => {
+        const status: ClassifierStatus = {
+            loaded: true,
+            error: null,
+            labels_count: 10,
+            enabled: true,
+            crop_detector: {
+                model_id: 'bird_crop_detector',
+                installed: false,
+                healthy: false,
+                enabled_for_runtime: false,
+                reason: 'not_installed',
+            },
+        };
+
+        expect(status.crop_detector?.model_id).toBe('bird_crop_detector');
+        expect(status.crop_detector?.enabled_for_runtime).toBe(false);
     });
 });

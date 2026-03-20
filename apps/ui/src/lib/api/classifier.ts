@@ -38,6 +38,15 @@ export interface ClassifierStatus {
     personalization_min_feedback_tags?: number;
     personalization_feedback_rows?: number;
     personalization_active_camera_models?: number;
+    crop_detector?: {
+        model_id: string;
+        installed: boolean;
+        healthy: boolean;
+        enabled_for_runtime: boolean;
+        reason: string;
+        model_path?: string | null;
+        load_error?: string | null;
+    };
 }
 
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
@@ -103,6 +112,7 @@ export interface ModelMetadata {
     name: string;
     description: string;
     architecture: string;
+    artifact_kind?: string;
     file_size_mb: number;
     accuracy_tier: string;
     inference_speed: string;
@@ -163,6 +173,7 @@ export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): 
 export function getVisibleTieredModelLineup(models: ModelMetadata[], showAdvanced: boolean = false): ModelMetadata[] {
     return [...models]
         .sort(compareTieredModelMetadata)
+        .filter((model) => (model.artifact_kind || 'classifier') === 'classifier')
         .filter((model) => showAdvanced || !model.advanced_only);
 }
 

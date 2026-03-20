@@ -21,4 +21,11 @@ describe('detection crop override wiring', () => {
         expect(modelManagerSource).toContain('getCropVariantOverrideEntries(model)');
         expect(modelManagerSource).toContain('high_quality');
     });
+
+    it('renders managed crop detector status alongside gated crop controls', () => {
+        expect(modelManagerSource).toContain('Bird Crop Detector');
+        expect(modelManagerSource).toContain('cropDetectorStatus');
+        expect(modelManagerSource).toContain('Download detector');
+        expect(modelManagerSource).toContain('requires the bird crop detector');
+    });
 });
