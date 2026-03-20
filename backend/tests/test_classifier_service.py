@@ -1240,10 +1240,39 @@ async def test_classifier_service_recovers_raw_classification_from_invalid_openv
             return {"loaded": True, "error": None}
 
     class _RecoveredRawModel(_FallbackReadyModel):
-        def classify_raw(self, _image):
+        def __init__(self, results):
+            super().__init__(results)
+            self.seen_images = []
+
+        def classify_raw(self, image):
+            self.seen_images.append(image)
             return np.array([0.8, 0.2], dtype=np.float32)
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+    class _FakeCropService:
+        def __init__(self):
+            self.calls = []
+
+        def generate_crop(self, image):
+            self.calls.append(image)
+            return {
+                "crop_image": Image.new("RGB", (8, 8), color="green"),
+                "box": (1, 1, 9, 9),
+                "reason": "selected",
+            }
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ):
         service = ClassifierService()
         broken = _BrokenOpenVINOModel()
         recovered = _RecoveredRawModel([])
@@ -1251,6 +1280,8 @@ async def test_classifier_service_recovers_raw_classification_from_invalid_openv
         service._models["bird"] = broken
         service._inference_backend = "openvino"
         service._active_inference_provider = "intel_gpu"
+        crop_service = _FakeCropService()
+        service._bird_crop_service = crop_service
 
         with patch.object(
             service,
@@ -1262,12 +1293,15 @@ async def test_classifier_service_recovers_raw_classification_from_invalid_openv
                 "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
             ),
         ):
-            scores, active_model = service._classify_raw_with_runtime_recovery(Image.new("RGB", (32, 32), color="white"))
+            image = Image.new("RGB", (32, 32), color="white")
+            scores, active_model = service._classify_raw_with_runtime_recovery(image)
 
         assert np.allclose(scores, np.array([0.8, 0.2], dtype=np.float32))
         assert active_model is recovered
         assert service._models["bird"] is recovered
         assert broken.cleanup_called is True
+        assert crop_service.calls == [image]
+        assert recovered.seen_images[0].size == (8, 8)
         await service.shutdown()
 
 
@@ -2051,23 +2085,24 @@ async def test_classifier_service_skips_crop_when_input_is_already_cropped(mock_
             self.calls.append(image)
             return {"crop_image": Image.new("RGB", (8, 8), color="green"), "box": (1, 1, 9, 9), "reason": "selected"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
         service._models["bird"] = bird_model
         service._bird_crop_service = crop_service
-        service._resolve_active_bird_model_spec = MagicMock(
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "label_grouping": {},
-                "runtime": "onnx",
-                "crop_generator": {"enabled": True},
-            }
-        )
 
         image = Image.new("RGB", (32, 32), color="red")
         results = service.classify(image, input_context={"is_cropped": True})
@@ -2099,23 +2134,24 @@ async def test_classifier_service_skips_crop_when_manifest_disables_it(mock_tfli
             self.calls.append(image)
             return {"crop_image": Image.new("RGB", (8, 8), color="green"), "box": (1, 1, 9, 9), "reason": "selected"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": False},
+             },
+         ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
         service._models["bird"] = bird_model
         service._bird_crop_service = crop_service
-        service._resolve_active_bird_model_spec = MagicMock(
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "label_grouping": {},
-                "runtime": "onnx",
-                "crop_generator": {"enabled": False},
-            }
-        )
 
         image = Image.new("RGB", (32, 32), color="red")
         results = service.classify(image, input_context={"is_cropped": False})
@@ -2149,23 +2185,24 @@ async def test_classifier_service_falls_back_to_original_image_when_crop_service
             self.calls.append(image)
             return {"crop_image": None, "reason": "no_candidate"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
         service._models["bird"] = bird_model
         service._bird_crop_service = crop_service
-        service._resolve_active_bird_model_spec = MagicMock(
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "label_grouping": {},
-                "runtime": "onnx",
-                "crop_generator": {"enabled": True},
-            }
-        )
 
         image = Image.new("RGB", (32, 32), color="red")
         results = service.classify(image, input_context={"is_cropped": False})
@@ -2224,6 +2261,42 @@ async def test_classifier_service_continues_with_original_image_when_crop_genera
         assert results[0]["label"] == "Robin"
         assert crop_service.calls == [image]
         assert bird_model.seen_images[0] is image
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_resets_crop_generator_when_active_model_path_missing(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/missing-model.onnx",
+                 "labels_path": "/tmp/missing-labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ), \
+         patch.object(
+             ClassifierService,
+             "_get_model_paths",
+             return_value=("/tmp/bundled/model.tflite", "/tmp/bundled/labels.txt"),
+         ), \
+         patch(
+             "os.path.exists",
+             side_effect=lambda path: False if path == "/tmp/missing-model.onnx" else True,
+         ):
+        service = ClassifierService()
+
+        spec = service._resolve_active_bird_model_spec()
+
+        assert spec["model_path"] == "/tmp/bundled/model.tflite"
+        assert spec["labels_path"] == "/tmp/bundled/labels.txt"
+        assert spec["crop_generator"]["enabled"] is False
         await service.shutdown()
 
 

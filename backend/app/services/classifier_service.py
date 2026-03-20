@@ -91,7 +91,7 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
-from app.models.ai_models import ClassificationInputContext  # noqa: E402
+from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
 from app.services.bird_crop_service import bird_crop_service  # noqa: E402
 from app.services.classification_admission import (  # noqa: E402
     ClassificationAdmissionCoordinator,
@@ -1987,6 +1987,7 @@ class ClassifierService:
                 "labels.txt",
             )
             runtime = "tflite"
+            crop_generator = CropGeneratorConfig().model_dump(exclude_none=True)
 
         return {
             "model_path": model_path,
@@ -3284,6 +3285,7 @@ class ClassifierService:
         self,
         image: Image.Image,
     ) -> tuple[np.ndarray, ModelType | None]:
+        crop_image, _crop_diagnostics = self._resolve_bird_classification_image(image)
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -3295,7 +3297,7 @@ class ClassifierService:
                 return np.array([]), bird
             attempted_models.add(model_identity)
             try:
-                scores = bird.classify_raw(image)
+                scores = bird.classify_raw(crop_image)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
                 return scores, bird
