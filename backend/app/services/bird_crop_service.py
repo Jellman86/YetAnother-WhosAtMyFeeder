@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import importlib
 import math
 import os
 import threading
 from typing import Any, Callable
 
+import numpy as np
 import structlog
 from PIL import Image
 
@@ -70,7 +72,6 @@ class BirdCropService:
             return self._model
 
     def _load_model(self) -> Any | None:
-        """Placeholder loader for later model/runtime integration."""
         if self._model_loader is not None:
             return self._model_loader()
         model_path = os.getenv("BIRD_CROP_MODEL_PATH")
@@ -78,15 +79,208 @@ class BirdCropService:
             return None
         if not os.path.exists(model_path):
             return None
-        raise RuntimeError("Bird crop runtime integration is not wired yet")
+        ort = self._import_onnxruntime()
+        sess_options = ort.SessionOptions()
+        session = ort.InferenceSession(
+            model_path,
+            sess_options=sess_options,
+            providers=["CPUExecutionProvider"],
+        )
+        model_input = session.get_inputs()[0]
+        input_height, input_width = self._resolve_input_hw(getattr(model_input, "shape", None))
+        return {
+            "session": session,
+            "input_name": str(getattr(model_input, "name", "images") or "images"),
+            "input_height": input_height,
+            "input_width": input_width,
+            "model_path": model_path,
+        }
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
-        """Placeholder inference hook for later runtime integration."""
         infer_fn = getattr(model, "infer", None)
         if callable(infer_fn):
             results = infer_fn(image)
             return list(results or [])
+        if not isinstance(model, dict):
+            return []
+        session = model.get("session")
+        input_name = str(model.get("input_name") or "images")
+        input_height = int(model.get("input_height") or 640)
+        input_width = int(model.get("input_width") or 640)
+        if session is None:
+            return []
+        input_tensor, transform = self._prepare_detector_input(
+            image,
+            input_width=input_width,
+            input_height=input_height,
+        )
+        outputs = session.run(None, {input_name: input_tensor})
+        return self._parse_detector_outputs(outputs, transform=transform, image_size=image.size)
+ 
+    def _import_onnxruntime(self):
+        return importlib.import_module("onnxruntime")
+
+    def _resolve_input_hw(self, shape: Any) -> tuple[int, int]:
+        if isinstance(shape, (list, tuple)) and len(shape) >= 4:
+            candidates: list[tuple[Any, Any]] = []
+            if len(shape) >= 4:
+                candidates.append((shape[2], shape[3]))  # NCHW
+                candidates.append((shape[1], shape[2]))  # NHWC
+            for raw_height, raw_width in candidates:
+                try:
+                    height = int(raw_height)
+                    width = int(raw_width)
+                except (TypeError, ValueError):
+                    continue
+                if height > 0 and width > 0 and height != 3 and width != 3:
+                    return height, width
+        return 640, 640
+
+    def _prepare_detector_input(
+        self,
+        image: Image.Image,
+        *,
+        input_width: int,
+        input_height: int,
+    ) -> tuple[np.ndarray, dict[str, float]]:
+        rgb = image.convert("RGB")
+        src_w, src_h = rgb.size
+        scale = min(float(input_width) / float(src_w), float(input_height) / float(src_h))
+        resized_w = max(1, int(round(src_w * scale)))
+        resized_h = max(1, int(round(src_h * scale)))
+        resized = rgb.resize((resized_w, resized_h), Image.Resampling.BILINEAR)
+        canvas = Image.new("RGB", (input_width, input_height), color=(114, 114, 114))
+        pad_x = int(round((input_width - resized_w) / 2.0))
+        pad_y = int(round((input_height - resized_h) / 2.0))
+        canvas.paste(resized, (pad_x, pad_y))
+
+        arr = np.asarray(canvas, dtype=np.float32) / 255.0
+        arr = np.transpose(arr, (2, 0, 1))[None, ...]
+        return arr, {
+            "scale": float(scale),
+            "pad_x": float(pad_x),
+            "pad_y": float(pad_y),
+        }
+
+    def _parse_detector_outputs(
+        self,
+        outputs: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+    ) -> list[dict[str, Any]]:
+        if not isinstance(outputs, (list, tuple)) or not outputs:
+            return []
+        parsed = self._parse_single_tensor_detections(outputs[0], transform=transform, image_size=image_size)
+        if parsed:
+            return parsed
+        if len(outputs) >= 2:
+            parsed = self._parse_split_tensor_detections(outputs, transform=transform, image_size=image_size)
+            if parsed:
+                return parsed
         return []
+
+    def _parse_single_tensor_detections(
+        self,
+        output: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+    ) -> list[dict[str, Any]]:
+        try:
+            arr = np.asarray(output)
+        except Exception:
+            return []
+        if arr.size == 0:
+            return []
+        if arr.ndim >= 2 and arr.shape[-1] < 5 and arr.shape[-2] >= 5:
+            arr = np.swapaxes(arr, -1, -2)
+        if arr.shape[-1] < 5:
+            return []
+        rows = arr.reshape(-1, arr.shape[-1])
+        candidates: list[dict[str, Any]] = []
+        for row in rows:
+            if row.shape[0] < 5 or row.shape[0] > 6:
+                continue
+            confidence = self._finite_float(row[4])
+            if confidence is None:
+                continue
+            box = self._restore_box_to_image(row[:4], transform=transform, image_size=image_size)
+            if box is None:
+                continue
+            candidates.append({"box": box, "confidence": confidence})
+        return candidates
+
+    def _parse_split_tensor_detections(
+        self,
+        outputs: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+    ) -> list[dict[str, Any]]:
+        try:
+            boxes = np.asarray(outputs[0]).reshape(-1, 4)
+            scores = np.asarray(outputs[1]).reshape(-1)
+        except Exception:
+            return []
+        count = min(len(boxes), len(scores))
+        candidates: list[dict[str, Any]] = []
+        for idx in range(count):
+            confidence = self._finite_float(scores[idx])
+            if confidence is None:
+                continue
+            box = self._restore_box_to_image(boxes[idx], transform=transform, image_size=image_size)
+            if box is None:
+                continue
+            candidates.append({"box": box, "confidence": confidence})
+        return candidates
+
+    def _restore_box_to_image(
+        self,
+        box: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+    ) -> tuple[float, float, float, float] | None:
+        try:
+            left, top, right, bottom = [float(value) for value in box[:4]]
+        except Exception:
+            return None
+        box_format = str(os.getenv("BIRD_CROP_BOX_FORMAT") or "xyxy").strip().lower()
+        if box_format == "cxcywh":
+            center_x, center_y, width, height = left, top, right, bottom
+            left = center_x - (width / 2.0)
+            right = center_x + (width / 2.0)
+            top = center_y - (height / 2.0)
+            bottom = center_y + (height / 2.0)
+        if not all(math.isfinite(value) for value in (left, top, right, bottom)):
+            return None
+        scale = float(transform.get("scale") or 1.0)
+        pad_x = float(transform.get("pad_x") or 0.0)
+        pad_y = float(transform.get("pad_y") or 0.0)
+        if scale <= 0.0:
+            return None
+        left = (left - pad_x) / scale
+        right = (right - pad_x) / scale
+        top = (top - pad_y) / scale
+        bottom = (bottom - pad_y) / scale
+        width, height = image_size
+        left = max(0.0, min(float(width), left))
+        right = max(0.0, min(float(width), right))
+        top = max(0.0, min(float(height), top))
+        bottom = max(0.0, min(float(height), bottom))
+        if right <= left or bottom <= top:
+            return None
+        return left, top, right, bottom
+
+    def _finite_float(self, value: Any) -> float | None:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(parsed):
+            return None
+        return parsed
 
     def _select_candidate(self, candidates: Any) -> dict[str, Any] | None:
         if not candidates:

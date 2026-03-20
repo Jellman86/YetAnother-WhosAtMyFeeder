@@ -1,3 +1,6 @@
+import types
+
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -157,3 +160,134 @@ def test_generate_crop_retries_loading_after_initial_empty_load(monkeypatch):
     assert second["confidence"] == pytest.approx(0.91)
     assert second["crop_image"].size == (20, 30)
     assert len(load_calls) == 2
+
+
+def test_load_model_uses_local_onnx_detector_path(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 640, 640])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            assert path == str(model_path)
+            assert providers == ["CPUExecutionProvider"]
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+
+    loaded = service._load_model()
+
+    assert loaded["input_name"] == "images"
+    assert loaded["input_height"] == 640
+    assert loaded["input_width"] == 640
+    assert loaded["session"].__class__.__name__ == "_FakeSession"
+
+
+def test_load_model_handles_nhwc_input_shape(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 640, 640, 3])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+
+    loaded = service._load_model()
+
+    assert loaded["input_height"] == 640
+    assert loaded["input_width"] == 640
+
+
+def test_infer_candidates_parses_single_output_detection_tensor():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            assert "images" in feeds
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["box"] == pytest.approx((16.0, 32.0, 80.0, 96.0))
+    assert candidates[0]["confidence"] == pytest.approx(0.91)
+
+
+def test_infer_candidates_supports_cxcywh_box_format(monkeypatch):
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[48.0, 64.0, 64.0, 64.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_BOX_FORMAT", "cxcywh")
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["box"] == pytest.approx((16.0, 32.0, 80.0, 96.0))
+
+
+def test_infer_candidates_rejects_unsupported_multiclass_row_layout():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.10, 0.90]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert candidates == []
