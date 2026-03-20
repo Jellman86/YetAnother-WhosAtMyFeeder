@@ -797,7 +797,7 @@
                         : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
                 onclick={toggleSelectionMode}
             >
-                <span>{selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })}</span>
+                <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
             </button>
         </div>
     </div>
@@ -835,14 +835,14 @@
         </div>
     {/if}
 
-    <div class="card-base rounded-2xl p-4 flex flex-wrap gap-3">
-        <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-[10rem]">
+    <div class="card-base rounded-2xl p-4 grid gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto]">
+        <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
             <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
         </select>
-        <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
+        <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
             <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
         </select>
-        <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-[12rem]">
+        <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
             <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
         </select>
         <button
