@@ -40,6 +40,7 @@ Current implementation target:
 - local ONNX detector loaded with ONNX Runtime CPU
 - no release-backed download flow
 - no per-model detector paths
+- current best-fit candidate: ONNX Model Zoo `ssd_mobilenet_v1_12-int8`
 
 ### Per-Model Policy
 
@@ -84,6 +85,7 @@ The supported output contract should stay intentionally narrow:
 
 - single tensor with rows shaped like `x1, y1, x2, y2, score[, class]`
 - or split outputs that can be interpreted as `boxes` and `scores`
+- or SSD-style named outputs: `detection_boxes`, `detection_classes`, `detection_scores`, optional `num_detections`
 
 Incompatible detector outputs should fail soft and yield no crop instead of trying to guess.
 
@@ -91,6 +93,7 @@ In particular:
 
 - multi-class row layouts with extra class-probability columns should be treated as unsupported by default
 - `cxcywh` coordinates should only be interpreted when explicitly configured
+- SSD-style normalized `ymin, xmin, ymax, xmax` boxes should be handled explicitly instead of going through the generic parser
 
 ## Failure Policy
 

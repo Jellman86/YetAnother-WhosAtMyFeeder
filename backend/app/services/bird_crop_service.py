@@ -87,12 +87,24 @@ class BirdCropService:
             providers=["CPUExecutionProvider"],
         )
         model_input = session.get_inputs()[0]
-        input_height, input_width = self._resolve_input_hw(getattr(model_input, "shape", None))
+        input_shape = getattr(model_input, "shape", None)
+        input_layout = self._infer_input_layout(input_shape)
+        dynamic_input_hw = self._has_dynamic_hw(input_shape, layout=input_layout)
+        input_height, input_width = self._resolve_input_hw(input_shape, layout=input_layout)
+        get_outputs = getattr(session, "get_outputs", None)
+        session_outputs = get_outputs() if callable(get_outputs) else []
         return {
             "session": session,
             "input_name": str(getattr(model_input, "name", "images") or "images"),
             "input_height": input_height,
             "input_width": input_width,
+            "input_layout": input_layout,
+            "input_type": str(getattr(model_input, "type", "") or ""),
+            "dynamic_input_hw": dynamic_input_hw,
+            "output_names": [
+                str(getattr(output, "name", "") or "")
+                for output in (session_outputs or [])
+            ],
             "model_path": model_path,
         }
 
@@ -107,25 +119,64 @@ class BirdCropService:
         input_name = str(model.get("input_name") or "images")
         input_height = int(model.get("input_height") or 640)
         input_width = int(model.get("input_width") or 640)
+        input_layout = str(model.get("input_layout") or "nchw").strip().lower()
+        input_type = str(model.get("input_type") or "tensor(float)").strip().lower()
+        dynamic_input_hw = bool(model.get("dynamic_input_hw", False))
+        output_names = [str(name or "") for name in (model.get("output_names") or [])]
         if session is None:
             return []
         input_tensor, transform = self._prepare_detector_input(
             image,
             input_width=input_width,
             input_height=input_height,
+            input_layout=input_layout,
+            input_type=input_type,
+            dynamic_input_hw=dynamic_input_hw,
         )
         outputs = session.run(None, {input_name: input_tensor})
-        return self._parse_detector_outputs(outputs, transform=transform, image_size=image.size)
+        return self._parse_detector_outputs(
+            outputs,
+            transform=transform,
+            image_size=image.size,
+            output_names=output_names,
+        )
  
     def _import_onnxruntime(self):
         return importlib.import_module("onnxruntime")
 
-    def _resolve_input_hw(self, shape: Any) -> tuple[int, int]:
+    def _infer_input_layout(self, shape: Any) -> str:
+        if isinstance(shape, (list, tuple)) and len(shape) >= 4:
+            last_dim = shape[-1]
+            try:
+                if int(last_dim) == 3:
+                    return "nhwc"
+            except (TypeError, ValueError):
+                pass
+        return "nchw"
+
+    def _has_dynamic_hw(self, shape: Any, *, layout: str = "nchw") -> bool:
+        if not isinstance(shape, (list, tuple)) or len(shape) < 4:
+            return False
+        if layout == "nhwc":
+            values = (shape[1], shape[2])
+        else:
+            values = (shape[2], shape[3])
+        for value in values:
+            try:
+                int(value)
+            except (TypeError, ValueError):
+                return True
+        return False
+
+    def _resolve_input_hw(self, shape: Any, *, layout: str = "nchw") -> tuple[int, int]:
         if isinstance(shape, (list, tuple)) and len(shape) >= 4:
             candidates: list[tuple[Any, Any]] = []
-            if len(shape) >= 4:
-                candidates.append((shape[2], shape[3]))  # NCHW
-                candidates.append((shape[1], shape[2]))  # NHWC
+            if layout == "nhwc":
+                candidates.append((shape[1], shape[2]))
+                candidates.append((shape[2], shape[3]))
+            else:
+                candidates.append((shape[2], shape[3]))
+                candidates.append((shape[1], shape[2]))
             for raw_height, raw_width in candidates:
                 try:
                     height = int(raw_height)
@@ -142,8 +193,25 @@ class BirdCropService:
         *,
         input_width: int,
         input_height: int,
+        input_layout: str = "nchw",
+        input_type: str = "tensor(float)",
+        dynamic_input_hw: bool = False,
     ) -> tuple[np.ndarray, dict[str, float]]:
         rgb = image.convert("RGB")
+        if input_layout == "nhwc" and input_type == "tensor(uint8)":
+            if dynamic_input_hw:
+                prepared = rgb
+                scale = 1.0
+            else:
+                prepared = rgb.resize((input_width, input_height), Image.Resampling.BILINEAR)
+                scale = min(float(input_width) / float(rgb.size[0]), float(input_height) / float(rgb.size[1]))
+            arr = np.asarray(prepared, dtype=np.uint8)[None, ...]
+            return arr, {
+                "scale": float(scale),
+                "pad_x": 0.0,
+                "pad_y": 0.0,
+                "normalized_yxyx": False,
+            }
         src_w, src_h = rgb.size
         scale = min(float(input_width) / float(src_w), float(input_height) / float(src_h))
         resized_w = max(1, int(round(src_w * scale)))
@@ -160,6 +228,7 @@ class BirdCropService:
             "scale": float(scale),
             "pad_x": float(pad_x),
             "pad_y": float(pad_y),
+            "normalized_yxyx": False,
         }
 
     def _parse_detector_outputs(
@@ -168,9 +237,18 @@ class BirdCropService:
         *,
         transform: dict[str, float],
         image_size: tuple[int, int],
+        output_names: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         if not isinstance(outputs, (list, tuple)) or not outputs:
             return []
+        parsed, matched_named_route = self._parse_named_detection_outputs(
+            outputs,
+            transform=transform,
+            image_size=image_size,
+            output_names=output_names or [],
+        )
+        if matched_named_route:
+            return parsed
         parsed = self._parse_single_tensor_detections(outputs[0], transform=transform, image_size=image_size)
         if parsed:
             return parsed
@@ -179,6 +257,82 @@ class BirdCropService:
             if parsed:
                 return parsed
         return []
+
+    def _parse_named_detection_outputs(
+        self,
+        outputs: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+        output_names: list[str],
+    ) -> tuple[list[dict[str, Any]], bool]:
+        normalized_names = [name.strip().lower() for name in output_names]
+        if not normalized_names:
+            return [], False
+        by_name = {name: outputs[idx] for idx, name in enumerate(normalized_names) if idx < len(outputs)}
+        if {"detection_boxes", "detection_classes", "detection_scores"} <= set(by_name.keys()):
+            return self._parse_ssd_detection_outputs(
+                boxes_output=by_name["detection_boxes"],
+                classes_output=by_name["detection_classes"],
+                scores_output=by_name["detection_scores"],
+                count_output=by_name.get("num_detections"),
+                transform=transform,
+                image_size=image_size,
+            ), True
+        return [], False
+
+    def _parse_ssd_detection_outputs(
+        self,
+        *,
+        boxes_output: Any,
+        classes_output: Any,
+        scores_output: Any,
+        count_output: Any,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+    ) -> list[dict[str, Any]]:
+        try:
+            boxes = np.asarray(boxes_output).reshape(-1, 4)
+            classes = np.asarray(classes_output).reshape(-1)
+            scores = np.asarray(scores_output).reshape(-1)
+        except Exception:
+            return []
+        count = min(len(boxes), len(classes), len(scores))
+        if count_output is not None:
+            try:
+                reported = int(float(np.asarray(count_output).reshape(-1)[0]))
+                if reported >= 0:
+                    count = min(count, reported)
+            except Exception:
+                pass
+        candidates: list[dict[str, Any]] = []
+        target_class_id = self._resolve_target_class_id()
+        for idx in range(count):
+            class_id = self._finite_float(classes[idx])
+            confidence = self._finite_float(scores[idx])
+            if class_id is None or confidence is None:
+                continue
+            if int(round(class_id)) != target_class_id:
+                continue
+            box = self._restore_box_to_image(
+                boxes[idx],
+                transform={
+                    **transform,
+                    "normalized_yxyx": True,
+                },
+                image_size=image_size,
+            )
+            if box is None:
+                continue
+            candidates.append({"box": box, "confidence": confidence})
+        return candidates
+
+    def _resolve_target_class_id(self) -> int:
+        raw = os.getenv("BIRD_CROP_CLASS_ID")
+        try:
+            return int(raw) if raw is not None else 16
+        except (TypeError, ValueError):
+            return 16
 
     def _parse_single_tensor_detections(
         self,
@@ -258,6 +412,14 @@ class BirdCropService:
         scale = float(transform.get("scale") or 1.0)
         pad_x = float(transform.get("pad_x") or 0.0)
         pad_y = float(transform.get("pad_y") or 0.0)
+        normalized_yxyx = bool(transform.get("normalized_yxyx"))
+        if normalized_yxyx:
+            image_width, image_height = image_size
+            top_norm, left_norm, bottom_norm, right_norm = left, top, right, bottom
+            left = left_norm * float(image_width)
+            right = right_norm * float(image_width)
+            top = top_norm * float(image_height)
+            bottom = bottom_norm * float(image_height)
         if scale <= 0.0:
             return None
         left = (left - pad_x) / scale
