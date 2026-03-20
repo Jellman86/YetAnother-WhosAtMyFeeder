@@ -689,6 +689,49 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_forwards_video_input_context_through_supervisor(
+    mock_tflite, mock_os_path_exists
+):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "subprocess"
+
+    class _FakeSupervisor:
+        def __init__(self):
+            self.calls = []
+
+        async def classify_video(self, **kwargs):
+            self.calls.append(kwargs)
+            return [{"label": "Robin", "score": 0.95, "index": 0}]
+
+        def get_metrics(self):
+            return {
+                "live": {"workers": 1, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "background": {"workers": 1, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "video": {"workers": 1, "restarts": 0, "last_exit_reason": None, "last_runtime_recovery": None},
+                "late_results_ignored": 0,
+            }
+
+    supervisor = _FakeSupervisor()
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            results = await service.classify_video_async(
+                "/tmp/demo.mp4",
+                max_frames=3,
+                camera_name="front",
+                input_context={"is_cropped": False, "event_id": "evt-video"},
+            )
+
+            assert results[0]["label"] == "Robin"
+            assert supervisor.calls[0]["input_context"]["is_cropped"] is False
+            assert supervisor.calls[0]["input_context"]["event_id"] == "evt-video"
+            await service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_uses_extended_video_deadline_for_supervisor_workers(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     original_worker_deadline = settings.classification.worker_hard_deadline_seconds
@@ -2006,6 +2049,67 @@ async def test_classifier_service_accepts_input_context_and_normalizes_is_croppe
         assert async_results[0]["label"] == "Robin"
         assert bird_model.seen_input_contexts[0].is_cropped is True
         assert bird_model.seen_input_contexts[1].is_cropped is False
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_video_forwards_input_context_to_frame_classification(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    frames = [
+        np.full((8, 8, 3), 32, dtype=np.uint8),
+        np.full((8, 8, 3), 64, dtype=np.uint8),
+    ]
+
+    class _FakeCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            import cv2
+
+            if prop == cv2.CAP_PROP_FRAME_COUNT:
+                return len(frames)
+            return 0
+
+        def set(self, _prop, value):
+            self._index = int(value)
+
+        def read(self):
+            if 0 <= self._index < len(frames):
+                frame = frames[self._index]
+                self._index += 1
+                return True, frame
+            return False, None
+
+        def release(self):
+            return None
+
+    seen_contexts = []
+
+    def _fake_classify_raw(_image, input_context=None):
+        seen_contexts.append(input_context)
+        return np.array([0.8, 0.2], dtype=np.float32), service._models["bird"]
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = MagicMock(labels=["Robin", "Sparrow"])
+        monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
+        monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
+
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=2,
+            input_context={"is_cropped": False, "event_id": "evt-video"},
+        )
+
+        assert results[0]["label"] == "Robin"
+        assert len(seen_contexts) == 2
+        assert all(context.is_cropped is False for context in seen_contexts)
+        assert all(getattr(context, "event_id", None) == "evt-video" for context in seen_contexts)
         await service.shutdown()
 
 

@@ -154,6 +154,7 @@ def build_classify_video_request(
     video_path: str,
     stride: int = 5,
     max_frames: int | None = None,
+    input_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     message = {
         "type": "classify_video",
@@ -166,6 +167,8 @@ def build_classify_video_request(
     }
     if max_frames is not None:
         message["max_frames"] = int(max_frames)
+    if input_context is not None:
+        message["input_context"] = dict(input_context)
     return message
 
 

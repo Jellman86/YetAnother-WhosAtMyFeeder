@@ -221,6 +221,7 @@ class ClassifierWorkerProcess:
                 stride=int(message.get("stride") or 5),
                 max_frames=message.get("max_frames"),
                 progress_callback=_progress_callback,
+                input_context=message.get("input_context"),
             )
             after_recovery = self._runtime_recovery_snapshot()
             if after_recovery is not None and after_recovery != before_recovery:
@@ -274,6 +275,18 @@ class ClassifierWorkerProcess:
             for param in signature.parameters.values()
         )
 
+    def _classify_video_accepts_input_context(self) -> bool:
+        if self.classify_video_fn is None:
+            return False
+        try:
+            signature = inspect.signature(self.classify_video_fn)
+        except (TypeError, ValueError):
+            return False
+        return any(
+            param.kind == inspect.Parameter.VAR_KEYWORD or param.name == "input_context"
+            for param in signature.parameters.values()
+        )
+
     async def _run_classify(self, **kwargs: Any) -> list[dict[str, Any]]:
         if "input_context" in kwargs and not self._classify_accepts_input_context():
             kwargs = dict(kwargs)
@@ -286,6 +299,9 @@ class ClassifierWorkerProcess:
     async def _run_classify_video(self, **kwargs: Any) -> list[dict[str, Any]]:
         if self.classify_video_fn is None:
             raise RuntimeError("video classification is not configured")
+        if "input_context" in kwargs and not self._classify_video_accepts_input_context():
+            kwargs = dict(kwargs)
+            kwargs.pop("input_context", None)
         if inspect.iscoroutinefunction(self.classify_video_fn):
             return list(await self.classify_video_fn(**kwargs))
         return list(await asyncio.to_thread(self.classify_video_fn, **kwargs))

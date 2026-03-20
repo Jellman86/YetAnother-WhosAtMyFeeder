@@ -3322,8 +3322,12 @@ class ClassifierService:
     def _classify_raw_with_runtime_recovery(
         self,
         image: Image.Image,
+        input_context: Any | None = None,
     ) -> tuple[np.ndarray, ModelType | None]:
-        crop_image, _crop_diagnostics = self._resolve_bird_classification_image(image)
+        crop_image, _crop_diagnostics = self._resolve_bird_classification_image(
+            image,
+            input_context=input_context,
+        )
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -3767,7 +3771,14 @@ class ClassifierService:
         ):
             executor.shutdown(wait=False, cancel_futures=True)
 
-    def classify_video(self, video_path: str, stride: int = 5, max_frames: Optional[int] = None, progress_callback=None) -> list[dict]:
+    def classify_video(
+        self,
+        video_path: str,
+        stride: int = 5,
+        max_frames: Optional[int] = None,
+        progress_callback=None,
+        input_context: Any | None = None,
+    ) -> list[dict]:
         """
         Classify a video clip using Temporal Ensemble (Soft Voting) with Normal Distribution sampling.
 
@@ -3780,6 +3791,7 @@ class ClassifierService:
         Returns:
             List of classifications with aggregated scores.
         """
+        normalized_input_context = _normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
@@ -3851,7 +3863,10 @@ class ClassifierService:
                 image = Image.fromarray(frame_rgb)
 
                 # Get raw probability vector, recovering from invalid runtime output if possible.
-                scores, active_bird_model = self._classify_raw_with_runtime_recovery(image)
+                scores, active_bird_model = self._classify_raw_with_runtime_recovery(
+                    image,
+                    input_context=normalized_input_context,
+                )
                 if active_bird_model is not None:
                     bird_model = active_bird_model
 
@@ -3965,7 +3980,7 @@ class ClassifierService:
         propagate_worker_failure: bool = False,
     ) -> list[dict]:
         """Async wrapper for video classification."""
-        _normalize_classification_input_context(input_context)
+        normalized_input_context = _normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
@@ -3978,6 +3993,7 @@ class ClassifierService:
                     stride=stride,
                     max_frames=max_frames,
                     progress_callback=progress_callback,
+                    input_context=dict(normalized_input_context.model_dump()),
                 )
             except (
                 ClassifierWorkerCircuitOpenError,
@@ -4047,6 +4063,7 @@ class ClassifierService:
                     stride,
                     max_frames,
                     sync_callback,
+                    normalized_input_context,
                 )
             else:
                 base_results = await loop.run_in_executor(
@@ -4056,6 +4073,7 @@ class ClassifierService:
                     stride,
                     max_frames,
                     None,
+                    normalized_input_context,
                 )
 
         if not base_results:

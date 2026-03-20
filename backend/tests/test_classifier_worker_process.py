@@ -310,9 +310,18 @@ async def test_classifier_worker_process_emits_runtime_recovery_event():
 async def test_classifier_worker_process_handles_video_request_and_progress():
     reader = asyncio.StreamReader()
     writer = _MemoryWriter()
+    seen_contexts = []
 
-    def _classify_video_fn(*, video_path: str, stride: int, max_frames: int | None, progress_callback):
+    def _classify_video_fn(
+        *,
+        video_path: str,
+        stride: int,
+        max_frames: int | None,
+        progress_callback,
+        input_context=None,
+    ):
         assert video_path == "/tmp/demo.mp4"
+        seen_contexts.append(input_context)
         progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
         return [{"label": "Robin", "score": 0.91, "index": 0}]
 
@@ -337,6 +346,7 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
                 video_path="/tmp/demo.mp4",
                 stride=5,
                 max_frames=3,
+                input_context={"is_cropped": False, "event_id": "evt-video"},
             )
         )
     )
@@ -346,6 +356,7 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
 
     assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
+    assert seen_contexts[0]["event_id"] == "evt-video"
 
 
 @pytest.mark.asyncio

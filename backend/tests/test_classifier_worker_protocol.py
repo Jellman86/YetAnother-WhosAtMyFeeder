@@ -149,6 +149,7 @@ def test_classifier_worker_protocol_round_trips_video_messages():
         video_path="/tmp/demo.mp4",
         stride=5,
         max_frames=12,
+        input_context={"is_cropped": False, "event_id": "evt-video"},
     )
     progress = build_progress_event(
         worker_generation=7,
@@ -166,6 +167,7 @@ def test_classifier_worker_protocol_round_trips_video_messages():
 
     assert decoded_request["type"] == "classify_video"
     assert decoded_request["video_path"] == "/tmp/demo.mp4"
+    assert decoded_request["input_context"]["event_id"] == "evt-video"
     assert decoded_progress["type"] == "progress"
     assert decoded_progress["current_frame"] == 3
     assert decoded_progress["top_label"] == "Robin"

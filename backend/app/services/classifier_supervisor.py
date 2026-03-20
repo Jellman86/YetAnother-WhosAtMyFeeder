@@ -283,6 +283,7 @@ class ClassifierSupervisor:
         stride: int = 5,
         max_frames: int | None = None,
         progress_callback: Callable[..., Awaitable[None] | None] | None = None,
+        input_context: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         return await self._submit_request(
             priority="video",
@@ -296,6 +297,7 @@ class ClassifierSupervisor:
                 video_path=video_path,
                 stride=int(stride),
                 max_frames=max_frames,
+                input_context=input_context,
             ),
             progress_callback=progress_callback,
         )
