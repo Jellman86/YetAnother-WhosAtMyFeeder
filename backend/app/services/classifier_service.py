@@ -92,6 +92,7 @@ OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
 from app.models.ai_models import ClassificationInputContext  # noqa: E402
+from app.services.bird_crop_service import bird_crop_service  # noqa: E402
 from app.services.classification_admission import (  # noqa: E402
     ClassificationAdmissionCoordinator,
     ClassificationAdmissionTimeoutError,
@@ -1856,6 +1857,7 @@ class ClassifierService:
         ).strip().lower()
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
+        self._bird_crop_service = bird_crop_service
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
         video_workers = max(
