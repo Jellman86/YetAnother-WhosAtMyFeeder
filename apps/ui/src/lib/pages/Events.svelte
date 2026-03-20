@@ -763,6 +763,13 @@
             toastStore.success(
                 `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
             );
+            if (result.failed_count > 0 || result.missing_count > 0) {
+                toastStore.warning(
+                    $_('notifications.reclassify_fallback', {
+                        default: `${result.failed_count + result.missing_count} selected events were not updated.`
+                    })
+                );
+            }
         } catch (e: any) {
             toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
         } finally {

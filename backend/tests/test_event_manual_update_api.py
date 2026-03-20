@@ -323,3 +323,41 @@ async def test_bulk_manual_update_applies_same_species_to_multiple_events(client
             await db.commit()
         for index, event_id in enumerate(event_ids):
             await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+
+@pytest.mark.asyncio
+async def test_bulk_manual_update_reports_partial_failures_without_aborting_batch(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    base_taxa_id = 950000 + int(uuid.uuid4().hex[:4], 16)
+    event_ids = [f"manual-{uuid.uuid4().hex[:10]}", f"manual-{uuid.uuid4().hex[:10]}"]
+    for index, event_id in enumerate(event_ids):
+        await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+    try:
+        with patch(
+            "app.routers.events._apply_manual_tag_update",
+            new=AsyncMock(side_effect=[
+                {"status": "updated", "event_id": event_ids[0], "new_species": "Great Tit"},
+                RuntimeError("boom"),
+            ]),
+        ):
+            response = await client.patch(
+                "/api/events/bulk/manual-tag",
+                json={"event_ids": event_ids, "display_name": "Great Tit"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "updated"
+        assert payload["requested_count"] == 2
+        assert payload["updated_count"] == 1
+        assert payload["failed_count"] == 1
+        assert payload["updated_event_ids"] == [event_ids[0]]
+        assert payload["failed_event_ids"] == [event_ids[1]]
+        assert payload["new_species"] == "Great Tit"
+    finally:
+        for index, event_id in enumerate(event_ids):
+            await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)

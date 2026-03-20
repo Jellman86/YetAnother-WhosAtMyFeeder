@@ -91,9 +91,11 @@ export interface BulkUpdateDetectionResult {
     updated_count: number;
     unchanged_count: number;
     missing_count: number;
+    failed_count: number;
     updated_event_ids: string[];
     unchanged_event_ids: string[];
     missing_event_ids: string[];
+    failed_event_ids: string[];
     new_species?: string | null;
 }
 

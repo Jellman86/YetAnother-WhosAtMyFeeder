@@ -173,6 +173,7 @@ export interface SearchResult {
     display_name: string;
     scientific_name?: string | null;
     common_name?: string | null;
+    taxa_id?: number | null;
 }
 
 export async function searchSpecies(query: string, limit?: number, hydrateMissing: boolean = false): Promise<SearchResult[]> {

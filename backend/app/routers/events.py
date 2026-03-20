@@ -773,9 +773,11 @@ class BulkManualTagResponse(BaseModel):
     updated_count: int
     unchanged_count: int
     missing_count: int
+    failed_count: int
     updated_event_ids: List[str]
     unchanged_event_ids: List[str]
     missing_event_ids: List[str]
+    failed_event_ids: List[str]
     new_species: str | None = None
 
 
@@ -1321,6 +1323,7 @@ async def bulk_manual_tag_events(
     updated_event_ids: list[str] = []
     unchanged_event_ids: list[str] = []
     missing_event_ids: list[str] = []
+    failed_event_ids: list[str] = []
     last_new_species: str | None = None
 
     async with get_db() as db:
@@ -1331,13 +1334,25 @@ async def bulk_manual_tag_events(
                 missing_event_ids.append(event_id)
                 continue
 
-            result = await _apply_manual_tag_update(
-                db=db,
-                repo=repo,
-                detection=detection,
-                requested_species=update_request.display_name,
-                lang=lang,
-            )
+            try:
+                result = await _apply_manual_tag_update(
+                    db=db,
+                    repo=repo,
+                    detection=detection,
+                    requested_species=update_request.display_name,
+                    lang=lang,
+                )
+            except Exception as exc:
+                failed_event_ids.append(event_id)
+                log.error(
+                    "Bulk manual tag update failed for event",
+                    event_id=event_id,
+                    requested_species=update_request.display_name,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                await db.rollback()
+                continue
             if result.get("status") == "updated":
                 updated_event_ids.append(event_id)
                 last_new_species = result.get("new_species") or last_new_species
@@ -1345,16 +1360,18 @@ async def bulk_manual_tag_events(
                 unchanged_event_ids.append(event_id)
                 last_new_species = result.get("new_species") or last_new_species
 
-    status = "updated" if updated_event_ids else ("unchanged" if unchanged_event_ids else "missing")
+    status = "updated" if updated_event_ids else ("unchanged" if unchanged_event_ids else ("failed" if failed_event_ids else "missing"))
     return BulkManualTagResponse(
         status=status,
         requested_count=len(requested_ids),
         updated_count=len(updated_event_ids),
         unchanged_count=len(unchanged_event_ids),
         missing_count=len(missing_event_ids),
+        failed_count=len(failed_event_ids),
         updated_event_ids=updated_event_ids,
         unchanged_event_ids=unchanged_event_ids,
         missing_event_ids=missing_event_ids,
+        failed_event_ids=failed_event_ids,
         new_species=last_new_species,
     )
 
