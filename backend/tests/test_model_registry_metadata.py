@@ -74,6 +74,7 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["hieradet_small_inat21"].download_url != "pending"
     assert by_id["hieradet_small_inat21"].weights_url != "pending"
     assert by_id["hieradet_small_inat21"].labels_url != "pending"
+    assert by_id["hieradet_small_inat21"].advanced_only is True
     assert "Intel GPU validated" in by_id["hieradet_small_inat21"].notes
     assert "CUDA unverified and best-effort only" in by_id["hieradet_small_inat21"].notes
     assert by_id["hieradet_small_inat21"].model_config_url
@@ -85,7 +86,7 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].sort_order == 18
     assert by_id["rope_vit_b14_inat21"].download_url != "pending"
     assert by_id["rope_vit_b14_inat21"].labels_url != "pending"
-    assert by_id["rope_vit_b14_inat21"].advanced_only is False
+    assert by_id["rope_vit_b14_inat21"].advanced_only is True
     assert "CPU and OpenVINO CPU validated" in by_id["rope_vit_b14_inat21"].notes
     assert "CUDA unverified" in by_id["rope_vit_b14_inat21"].notes
     assert by_id["rope_vit_b14_inat21"].model_config_url

@@ -150,7 +150,7 @@ describe('getVisibleTieredModelLineup', () => {
                 taxonomy_scope: 'birds_only',
                 recommended_for: 'Bird-only medium inference',
                 estimated_ram_mb: 1536,
-                advanced_only: false,
+                advanced_only: true,
                 sort_order: 18,
                 status: 'stable',
                 notes: 'OpenVINO Intel GPU validated; CUDA not validated in this environment.',
@@ -172,7 +172,7 @@ describe('getVisibleTieredModelLineup', () => {
                 taxonomy_scope: 'birds_only',
                 recommended_for: 'Bird-only small inference',
                 estimated_ram_mb: 1024,
-                advanced_only: false,
+                advanced_only: true,
                 sort_order: 15,
                 status: 'stable',
                 notes: 'OpenVINO Intel GPU validated; CUDA not validated in this environment.',
@@ -203,8 +203,6 @@ describe('getVisibleTieredModelLineup', () => {
 
         expect(getVisibleTieredModelLineup(models)).toMatchObject([
             { id: 'mobilenet_v2_birds' },
-            { id: 'hieradet_small_inat21' },
-            { id: 'rope_vit_b14_inat21' },
             { id: 'convnext_large_inat21' },
         ]);
         expect(getVisibleTieredModelLineup(models, true)).toMatchObject([

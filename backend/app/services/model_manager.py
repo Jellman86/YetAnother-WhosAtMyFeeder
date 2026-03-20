@@ -184,7 +184,7 @@ REMOTE_REGISTRY = [
         "taxonomy_scope": "wildlife_wide",
         "recommended_for": "Broad wildlife classification on CPU or Intel GPU when you want a lighter recommendation before stepping up to RoPE or ConvNeXt.",
         "estimated_ram_mb": 1024,
-        "advanced_only": False,
+        "advanced_only": True,
         "sort_order": 15,
         "status": "experimental",
         "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
@@ -293,7 +293,7 @@ REMOTE_REGISTRY = [
         "taxonomy_scope": "wildlife_wide",
         "recommended_for": "Broader wildlife coverage with stronger accuracy than the small model while staying lighter than ConvNeXt large.",
         "estimated_ram_mb": 1536,
-        "advanced_only": False,
+        "advanced_only": True,
         "sort_order": 18,
         "status": "experimental",
         "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
