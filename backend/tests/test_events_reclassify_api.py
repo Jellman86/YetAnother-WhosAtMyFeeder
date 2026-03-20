@@ -336,3 +336,32 @@ async def test_classifier_wildlife_test_endpoint_passes_full_frame_input_context
         }
     finally:
         app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_events_classify_wildlife_passes_cropped_input_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-classify-wildlife-context"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    classifier = MagicMock()
+    classifier.classify_wildlife_async = AsyncMock(
+        return_value=[{"label": "Mammal", "score": 0.94, "index": 2}]
+    )
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.routers.events.Image.open", return_value=MagicMock()):
+            mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
+
+            response = await client.post(f"/api/events/{event_id}/classify-wildlife")
+
+        assert response.status_code == 200, response.text
+        classifier.classify_wildlife_async.assert_awaited_once()
+        assert classifier.classify_wildlife_async.await_args.kwargs["input_context"] == {"is_cropped": True}
+    finally:
+        await _delete_detection(event_id)
+        app.dependency_overrides.pop(require_owner, None)

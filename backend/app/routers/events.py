@@ -1344,7 +1344,10 @@ async def classify_wildlife(
         # Classify with wildlife model
         image = Image.open(BytesIO(snapshot_data))
         classifier = get_classifier()
-        results = await classifier.classify_wildlife_async(image)
+        results = await classifier.classify_wildlife_async(
+            image,
+            input_context={"is_cropped": True},
+        )
 
         if not results:
             # Wildlife model not available or no results
