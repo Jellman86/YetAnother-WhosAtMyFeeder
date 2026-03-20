@@ -101,7 +101,7 @@ REMOTE_REGISTRY = [
         "region_variants": {
             "eu": {
                 "region_scope": "eu",
-                "name": "Europe",
+                "name": "Small Birds",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
@@ -122,7 +122,7 @@ REMOTE_REGISTRY = [
             },
             "na": {
                 "region_scope": "na",
-                "name": "North America",
+                "name": "Small Birds",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_efficientnet_b0_nabirds.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_class_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_na_efficientnet_b0_candidate_model_config.json",
@@ -244,7 +244,7 @@ REMOTE_REGISTRY = [
         "region_variants": {
             "eu": {
                 "region_scope": "eu",
-                "name": "Europe",
+                "name": "Medium Birds",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json",
@@ -265,7 +265,7 @@ REMOTE_REGISTRY = [
             },
             "na": {
                 "region_scope": "na",
-                "name": "North America",
+                "name": "Medium Birds",
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx",
                 "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx.data",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_labels.txt",

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { fade, scale } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
-    import { getThumbnailUrl } from '../api';
+    import { getThumbnailUrl, fetchClassifierStatus } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
 
@@ -46,6 +46,26 @@
     let autoDismissSecondsRemaining = $state<number | null>(null);
     const AUTO_DISMISS_MS = 30_000;
 
+    let videoInferenceProvider = $state<string | null>(null);
+    let videoInferenceBackend = $state<string | null>(null);
+
+    $effect(() => {
+        let mounted = true;
+        async function fetchProvider() {
+            try {
+                const status = await fetchClassifierStatus();
+                if (mounted) {
+                    videoInferenceProvider = status.active_provider ?? null;
+                    videoInferenceBackend = status.inference_backend ?? null;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        void fetchProvider();
+        return () => { mounted = false; };
+    });
+
     function handleDismiss() {
         detectionsStore.dismissReclassification(progress.eventId);
     }
@@ -79,18 +99,6 @@
     class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-4 sm:p-6'} bg-white/35 dark:bg-slate-900/45 border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
     transition:fade={{ duration: 200 }}
 >
-    {#if !small}
-        <button
-            type="button"
-            onclick={handleDismiss}
-            class="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-600/70 hover:bg-white dark:hover:bg-slate-800 transition-colors"
-            aria-label={$_('common.close', { default: 'Close' })}
-            title={$_('common.close', { default: 'Close' })}
-        >
-            <span aria-hidden="true">&times;</span>
-        </button>
-    {/if}
-
     <!-- Current frame backdrop -->
     {#if backdropImageUrl}
         <div
@@ -140,8 +148,23 @@
                     <!-- Live Label Feedback -->
                     <div class="flex flex-col items-center gap-1 min-h-[64px] px-4">
                         {#if !isComplete}
-                            <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
-                                {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
+                            <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                {#if videoInferenceProvider}
+                                    <svg class="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <title>{videoInferenceProvider}</title>
+                                        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                        <rect x="9" y="9" width="6" height="6"></rect>
+                                        <line x1="9" y1="1" x2="9" y2="4"></line>
+                                        <line x1="15" y1="1" x2="15" y2="4"></line>
+                                        <line x1="9" y1="20" x2="9" y2="23"></line>
+                                        <line x1="15" y1="20" x2="15" y2="23"></line>
+                                        <line x1="20" y1="9" x2="23" y2="9"></line>
+                                        <line x1="20" y1="14" x2="23" y2="14"></line>
+                                        <line x1="1" y1="9" x2="4" y2="9"></line>
+                                        <line x1="1" y1="14" x2="4" y2="14"></line>
+                                    </svg>
+                                {/if}
+                                <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                             </span>
                         {/if}
                         {#if isAutoVideoReclassification}
@@ -225,8 +248,23 @@
             {#if displayLabel}
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small && !isComplete}
-                        <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5">
-                            {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
+                        <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                            {#if videoInferenceProvider}
+                                <svg class="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <title>{videoInferenceProvider}</title>
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                                </svg>
+                            {/if}
+                            <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                         </span>
                     {/if}
                     {#if !small && isComplete}
