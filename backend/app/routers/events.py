@@ -1035,7 +1035,11 @@ async def reclassify_event(
                     )
 
                 image = Image.open(BytesIO(snapshot_data))
-                results = await classifier.classify_async(image, camera_name=detection.camera_name)
+                results = await classifier.classify_async(
+                    image,
+                    camera_name=detection.camera_name,
+                    input_context={"is_cropped": True},
+                )
 
                 # Broadcast completion
                 await broadcast_reclassification_completed(results)

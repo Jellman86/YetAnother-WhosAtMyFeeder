@@ -52,6 +52,8 @@ async def test_process_mqtt_message_valid_bird():
 
         await processor.process_mqtt_message(payload)
 
+        classifier.classify_async_live.assert_awaited_once()
+        assert classifier.classify_async_live.await_args.kwargs["input_context"] == {"is_cropped": True}
         mock_det_service.save_detection.assert_called_once()
         mock_frigate.set_sublabel.assert_called_with("123", "Cardinal")
 

@@ -912,7 +912,11 @@ class AutoVideoClassifierService:
 
         await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
         image = Image.open(BytesIO(snapshot_data))
-        results = await self._classifier.classify_async(image, camera_name=camera)
+        results = await self._classifier.classify_async(
+            image,
+            camera_name=camera,
+            input_context={"is_cropped": True},
+        )
         if not results:
             await self._update_status(frigate_event, 'failed', error="snapshot_no_results", broadcast=True)
             await broadcaster.broadcast({

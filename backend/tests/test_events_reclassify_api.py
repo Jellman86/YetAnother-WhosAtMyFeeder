@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import io
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,10 +7,13 @@ import cv2
 import httpx
 import pytest
 import pytest_asyncio
+from PIL import Image
 
+from app.auth import AuthContext, AuthLevel, require_owner
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
+from app.routers import classifier as classifier_router
 
 
 @pytest_asyncio.fixture
@@ -241,3 +245,94 @@ async def test_reclassify_video_falls_back_to_snapshot_when_clip_not_retained(cl
         classifier.classify_async.assert_awaited_once()
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_snapshot_passes_cropped_input_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-context"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.routers.events.Image.open", return_value=MagicMock()):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "snapshot"})
+
+        assert response.status_code == 200, response.text
+        classifier.classify_async.assert_awaited_once()
+        assert classifier.classify_async.await_args.kwargs["input_context"] == {"is_cropped": True}
+    finally:
+        await _delete_detection(event_id)
+        app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_classifier_test_endpoint_passes_full_frame_input_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original_mode = classifier_router.classifier_service._image_execution_mode
+    classifier_router.classifier_service._image_execution_mode = "subprocess"
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    try:
+        classifier_router.classifier_service.classify = MagicMock(
+            side_effect=AssertionError("direct classify should not be used")
+        )
+        classifier_router.classifier_service.classify_async_background = AsyncMock(
+            return_value=[{"label": "Robin", "score": 0.93, "index": 1}]
+        )
+
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+        response = await client.post(
+            "/api/classifier/test",
+            files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+        )
+
+        assert response.status_code == 200, response.text
+        classifier_router.classifier_service.classify_async_background.assert_awaited_once()
+        assert classifier_router.classifier_service.classify_async_background.await_args.kwargs["input_context"] == {
+            "is_cropped": False
+        }
+    finally:
+        classifier_router.classifier_service._image_execution_mode = original_mode
+        app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_classifier_wildlife_test_endpoint_passes_full_frame_input_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    try:
+        classifier_router.classifier_service.classify_wildlife = MagicMock(
+            return_value=[{"label": "Mammal", "score": 0.94, "index": 2}]
+        )
+
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+        response = await client.post(
+            "/api/classifier/wildlife/test",
+            files={"image": ("animal.png", image_buffer.getvalue(), "image/png")},
+        )
+
+        assert response.status_code == 200, response.text
+        classifier_router.classifier_service.classify_wildlife.assert_called_once()
+        assert classifier_router.classifier_service.classify_wildlife.call_args.kwargs["input_context"] == {
+            "is_cropped": False
+        }
+    finally:
+        app.dependency_overrides.pop(require_owner, None)

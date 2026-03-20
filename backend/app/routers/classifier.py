@@ -175,9 +175,12 @@ async def test_bird_classifier(
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
         if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
-            results = await classifier_service.classify_async_background(pil_image)
+            results = await classifier_service.classify_async_background(
+                pil_image,
+                input_context={"is_cropped": False},
+            )
         else:
-            results = classifier_service.classify(pil_image)
+            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
 
         return {
             "status": "ok",
@@ -290,7 +293,7 @@ async def test_wildlife_classifier(
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
 
-        results = classifier_service.classify_wildlife(pil_image)
+        results = classifier_service.classify_wildlife(pil_image, input_context={"is_cropped": False})
 
         return {
             "status": "ok",

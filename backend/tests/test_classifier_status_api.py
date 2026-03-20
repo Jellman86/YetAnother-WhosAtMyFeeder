@@ -88,7 +88,8 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
     classifier_router.classifier_service._image_execution_mode = "subprocess"
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
 
-    async def _fake_background_classify(_image, camera_name=None, model_id=None):
+    async def _fake_background_classify(_image, camera_name=None, model_id=None, input_context=None):
+        assert input_context == {"is_cropped": False}
         return [{"label": "Robin", "score": 0.93, "index": 1}]
 
     monkeypatch.setattr(

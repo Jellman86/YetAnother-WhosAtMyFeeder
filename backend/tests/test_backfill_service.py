@@ -124,6 +124,8 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
     assert status == "new"
     assert reason is None
     assert observed["frigate_score"] == pytest.approx(0.91)
+    classifier.classify_async_background.assert_awaited_once()
+    assert classifier.classify_async_background.await_args.kwargs["input_context"] == {"is_cropped": True}
     save_mock.assert_awaited_once()
 
 

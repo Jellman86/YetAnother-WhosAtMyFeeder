@@ -206,6 +206,7 @@ class BackfillService:
             results = await self.classifier.classify_async_background(
                 image,
                 camera_name=event.get("camera"),
+                input_context={"is_cropped": True},
             )
 
             if not results:

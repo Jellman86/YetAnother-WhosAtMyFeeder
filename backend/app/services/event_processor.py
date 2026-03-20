@@ -667,7 +667,11 @@ class EventProcessor:
                 return None
 
             image = Image.open(BytesIO(snapshot_data))
-            results = await self.classifier.classify_async_live(image, camera_name=event.camera)
+            results = await self.classifier.classify_async_live(
+                image,
+                camera_name=event.camera,
+                input_context={"is_cropped": True},
+            )
 
             if not results:
                 log.info("Skipping MQTT event - classifier returned empty results", event_id=event.frigate_event)
