@@ -8,7 +8,24 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
-### 0. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
+### 0. Labeled Feeder Model Evaluation Harness 📊
+**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Planned
+
+Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
+
+**Scope:**
+- Add a manifest-driven backend evaluation script for labeled feeder images.
+- Reuse the real classifier pipeline, including crop and high-quality source diagnostics.
+- Support temporary per-run crop/source overrides without mutating persisted settings.
+- Write detailed per-image results plus aggregate summary metrics.
+
+**Acceptance Criteria:**
+- A labeled CSV manifest can be evaluated against one or more requested models.
+- Outputs include top-1/top-3 hit rates plus crop/source diagnostics.
+- The harness leaves live app settings and active model selection unchanged after the run.
+- Results are good enough to decide default crop behavior per model based on evidence.
+
+### 1. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
 **Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Planned
 
 Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
@@ -34,7 +51,7 @@ Normalize detection identity to canonical taxonomy keys to prevent localization/
 - Add regression tests for cross-language/alias cases (for example Woodpigeon vs Common Wood-Pigeon).
 - Run dual-read comparison metrics during rollout, then finalize once parity is confirmed.
 
-### 1. Favourite Detections (Owner Curation) ⭐
+### 2. Favourite Detections (Owner Curation) ⭐
 **Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (v2.8.1)
 
 Add a first-class way to pin standout detections so users can build a curated set of highlights.
@@ -68,7 +85,7 @@ Add a first-class way to pin standout detections so users can build a curated se
 **Future-safe extension path:**
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
-### 2. Settings Architecture Refactor (Stability + Maintainability) 🧱
+### 3. Settings Architecture Refactor (Stability + Maintainability) 🧱
 **Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Planned
 
 Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
@@ -83,7 +100,7 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Reduced repeated logic in component files.
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
-### 3. Explorer Filter: Show Audio Matches Only 🎧
+### 4. Explorer Filter: Show Audio Matches Only 🎧
 **Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Planned
 
 Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
@@ -640,4 +657,4 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 ---
 
 **Last Updated:** 2026-02-27
-**Version:** 2.8.3-dev
+**Version:** 2.8.5-dev
