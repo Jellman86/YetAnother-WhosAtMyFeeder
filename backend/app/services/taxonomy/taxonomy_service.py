@@ -419,7 +419,10 @@ class TaxonomyService:
                         taxonomy = None
                         for lookup_name in row["lookup_candidates"]:
                             # Force refresh if we know the current data is non-English
-                            candidate_taxonomy = await self.get_names(lookup_name, db=db, force_refresh=must_refresh)
+                            if must_refresh:
+                                candidate_taxonomy = await self.get_names(lookup_name, db=db, force_refresh=True)
+                            else:
+                                candidate_taxonomy = await self.get_names(lookup_name, db=db)
                             if improves(candidate_taxonomy):
                                 taxonomy = candidate_taxonomy
                                 break
