@@ -134,12 +134,6 @@ REMOTE_REGISTRY = [
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
         },
-        "crop_generator": {
-            "enabled": True,
-            "input_context": {
-                "is_cropped": True,
-            },
-        },
         "license": "CC-BY-NC-4.0",
         "tier": "large",
         "taxonomy_scope": "wildlife_wide",
@@ -273,12 +267,6 @@ REMOTE_REGISTRY = [
             "std": [0.2135, 0.2103, 0.2622],
             "normalization": "float32"
         },
-        "crop_generator": {
-            "enabled": True,
-            "input_context": {
-                "is_cropped": True,
-            },
-        },
         "license": "Apache-2.0",
         "tier": "medium",
         "taxonomy_scope": "wildlife_wide",
@@ -312,12 +300,6 @@ REMOTE_REGISTRY = [
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
             "normalization": "float32"
-        },
-        "crop_generator": {
-            "enabled": True,
-            "input_context": {
-                "is_cropped": True,
-            },
         },
         "license": "CC-BY-NC-4.0",
         "tier": "advanced",

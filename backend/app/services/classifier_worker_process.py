@@ -114,12 +114,14 @@ class ClassifierWorkerProcess:
         self._current_request_id = str(message["request_id"])
         try:
             before_recovery = self._runtime_recovery_snapshot()
-            results = await self._run_classify(
-                image_b64=message["image_b64"],
-                camera_name=message.get("camera_name"),
-                model_id=message.get("model_id"),
-                input_context=message.get("input_context"),
-            )
+            classify_kwargs = {
+                "image_b64": message["image_b64"],
+                "camera_name": message.get("camera_name"),
+                "model_id": message.get("model_id"),
+            }
+            if "input_context" in message:
+                classify_kwargs["input_context"] = message.get("input_context")
+            results = await self._run_classify(**classify_kwargs)
             after_recovery = self._runtime_recovery_snapshot()
             if after_recovery is not None and after_recovery != before_recovery:
                 await self._emit(
@@ -262,7 +264,21 @@ class ClassifierWorkerProcess:
             return None
         return dict(recovery)
 
+    def _classify_accepts_input_context(self) -> bool:
+        try:
+            signature = inspect.signature(self.classify_fn)
+        except (TypeError, ValueError):
+            return False
+        return any(
+            param.kind == inspect.Parameter.VAR_KEYWORD or param.name == "input_context"
+            for param in signature.parameters.values()
+        )
+
     async def _run_classify(self, **kwargs: Any) -> list[dict[str, Any]]:
+        if "input_context" in kwargs and not self._classify_accepts_input_context():
+            kwargs = dict(kwargs)
+            kwargs.pop("input_context", None)
+
         if inspect.iscoroutinefunction(self.classify_fn):
             return list(await self.classify_fn(**kwargs))
         return list(await asyncio.to_thread(self.classify_fn, **kwargs))

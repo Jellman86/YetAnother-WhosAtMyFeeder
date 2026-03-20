@@ -111,6 +111,98 @@ async def test_classifier_worker_process_handles_classify_request():
 
 
 @pytest.mark.asyncio
+async def test_classifier_worker_process_handles_classify_request_with_input_context_and_legacy_callback():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+    seen: list[tuple[str | None, str | None]] = []
+
+    def _classify_fn(*, image_b64: str, camera_name: str | None, model_id: str | None):
+        seen.append((camera_name, model_id))
+        assert image_b64 == "payload"
+        return [{"label": "Robin", "score": 0.92}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=_classify_fn,
+        worker_generation=10,
+        heartbeat_interval_seconds=0.5,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_request(
+                worker_generation=10,
+                request_id="req-1",
+                work_id="live-1",
+                lease_token=4,
+                image_b64="payload",
+                camera_name="front",
+                model_id="default",
+                input_context={"is_cropped": True},
+            )
+        )
+    )
+    await asyncio.sleep(0.05)
+    reader.feed_eof()
+    await task
+
+    assert seen == [("front", "default")]
+    assert any(
+        message["type"] == "result" and message["results"][0]["label"] == "Robin"
+        for message in writer.messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_forwards_input_context_to_new_callback_signature():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+    seen: list[dict | None] = []
+
+    def _classify_fn(*, image_b64: str, camera_name: str | None, model_id: str | None, input_context=None):
+        seen.append(input_context)
+        assert image_b64 == "payload"
+        return [{"label": "Robin", "score": 0.92}]
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=_classify_fn,
+        worker_generation=10,
+        heartbeat_interval_seconds=0.5,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0)
+    reader.feed_data(
+        process.encode_message(
+            build_classify_request(
+                worker_generation=10,
+                request_id="req-1",
+                work_id="live-1",
+                lease_token=4,
+                image_b64="payload",
+                camera_name="front",
+                model_id="default",
+                input_context={"is_cropped": True},
+            )
+        )
+    )
+    await asyncio.sleep(0.05)
+    reader.feed_eof()
+    await task
+
+    assert seen[0]["is_cropped"] is True
+    assert any(
+        message["type"] == "result" and message["results"][0]["label"] == "Robin"
+        for message in writer.messages
+    )
+
+
+@pytest.mark.asyncio
 async def test_classifier_worker_process_emits_structured_error():
     reader = asyncio.StreamReader()
     writer = _MemoryWriter()

@@ -27,8 +27,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["convnext_large_inat21"].preprocessing["crop_pct"] == pytest.approx(0.95)
     assert by_id["convnext_large_inat21"].preprocessing["mean"] == pytest.approx([0.48145466, 0.4578275, 0.40821073])
     assert by_id["convnext_large_inat21"].preprocessing["std"] == pytest.approx([0.26862954, 0.26130258, 0.27577711])
-    assert by_id["convnext_large_inat21"].crop_generator.enabled is True
-    assert by_id["convnext_large_inat21"].crop_generator.input_context.is_cropped is True
+    assert by_id["convnext_large_inat21"].crop_generator.enabled is False
+    assert by_id["convnext_large_inat21"].crop_generator.input_context is None
 
     assert by_id["small_birds"].tier == "small"
     assert by_id["small_birds"].taxonomy_scope == "birds_only"

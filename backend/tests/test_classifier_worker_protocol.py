@@ -112,6 +112,7 @@ def test_classifier_worker_protocol_builds_classify_request():
         image_b64="abc123",
         camera_name="front",
         model_id="default",
+        input_context={"is_cropped": True},
     )
 
     assert message["type"] == "classify"
@@ -119,6 +120,24 @@ def test_classifier_worker_protocol_builds_classify_request():
     assert message["image_b64"] == "abc123"
     assert message["camera_name"] == "front"
     assert message["model_id"] == "default"
+    assert message["input_context"]["is_cropped"] is True
+
+
+def test_classifier_worker_protocol_round_trips_classify_request_with_input_context():
+    message = build_classify_request(
+        worker_generation=6,
+        request_id="req-4",
+        work_id="live-10",
+        lease_token=2,
+        image_b64="abc123",
+        camera_name="front",
+        model_id="default",
+        input_context={"is_cropped": False},
+    )
+
+    decoded = decode_protocol_message(encode_protocol_message(message))
+
+    assert decoded["input_context"]["is_cropped"] is False
 
 
 def test_classifier_worker_protocol_round_trips_video_messages():
