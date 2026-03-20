@@ -385,7 +385,10 @@ def test_prepare_detector_input_resizes_fixed_nhwc_uint8_models():
 
     assert tensor.dtype == np.uint8
     assert tensor.shape == (1, 224, 224, 3)
-    assert transform["scale"] == pytest.approx(224.0 / 320.0)
+    assert transform["resize_mode"] == "direct_resize"
+    assert transform["scale"] == pytest.approx(1.0)
+    assert transform["scale_x"] == pytest.approx(224.0 / 320.0)
+    assert transform["scale_y"] == pytest.approx(224.0 / 160.0)
 
 
 def test_infer_candidates_returns_empty_when_named_ssd_outputs_have_no_bird_class():
@@ -449,3 +452,73 @@ def test_infer_candidates_allows_overriding_target_bird_class(monkeypatch):
     candidates = service._infer_candidates(model, image)
 
     assert len(candidates) == 1
+
+
+def test_infer_candidates_does_not_fall_through_when_named_ssd_outputs_are_malformed():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                ),
+                np.array([[16.0]], dtype=np.float32),
+                np.array([[0.95]], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "dynamic_input_hw": True,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert candidates == []
+
+
+def test_infer_candidates_parses_fixed_size_ssd_outputs_and_restores_image_box():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            payload = feeds["inputs"]
+            assert payload.dtype == np.uint8
+            assert payload.shape == (1, 224, 224, 3)
+            return [
+                np.array([[[0.25, 0.25, 0.75, 0.75]]], dtype=np.float32),
+                np.array([[16.0]], dtype=np.float32),
+                np.array([[0.93]], dtype=np.float32),
+                np.array([1.0], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "input_width": 224,
+        "input_height": 224,
+        "dynamic_input_hw": False,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+            "num_detections",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["confidence"] == pytest.approx(0.93)
+    assert candidates[0]["box"] == pytest.approx((80.0, 40.0, 240.0, 120.0))

@@ -198,21 +198,28 @@ class BirdCropService:
         dynamic_input_hw: bool = False,
     ) -> tuple[np.ndarray, dict[str, float]]:
         rgb = image.convert("RGB")
+        src_w, src_h = rgb.size
         if input_layout == "nhwc" and input_type == "tensor(uint8)":
             if dynamic_input_hw:
                 prepared = rgb
-                scale = 1.0
+                scale_x = 1.0
+                scale_y = 1.0
+                resize_mode = "native"
             else:
                 prepared = rgb.resize((input_width, input_height), Image.Resampling.BILINEAR)
-                scale = min(float(input_width) / float(rgb.size[0]), float(input_height) / float(rgb.size[1]))
+                scale_x = float(input_width) / float(src_w)
+                scale_y = float(input_height) / float(src_h)
+                resize_mode = "direct_resize"
             arr = np.asarray(prepared, dtype=np.uint8)[None, ...]
             return arr, {
-                "scale": float(scale),
+                "scale": 1.0,
+                "scale_x": float(scale_x),
+                "scale_y": float(scale_y),
                 "pad_x": 0.0,
                 "pad_y": 0.0,
                 "normalized_yxyx": False,
+                "resize_mode": resize_mode,
             }
-        src_w, src_h = rgb.size
         scale = min(float(input_width) / float(src_w), float(input_height) / float(src_h))
         resized_w = max(1, int(round(src_w * scale)))
         resized_h = max(1, int(round(src_h * scale)))
@@ -226,9 +233,12 @@ class BirdCropService:
         arr = np.transpose(arr, (2, 0, 1))[None, ...]
         return arr, {
             "scale": float(scale),
+            "scale_x": float(scale),
+            "scale_y": float(scale),
             "pad_x": float(pad_x),
             "pad_y": float(pad_y),
             "normalized_yxyx": False,
+            "resize_mode": "letterbox",
         }
 
     def _parse_detector_outputs(
@@ -410,9 +420,12 @@ class BirdCropService:
         if not all(math.isfinite(value) for value in (left, top, right, bottom)):
             return None
         scale = float(transform.get("scale") or 1.0)
+        scale_x = float(transform.get("scale_x") or scale or 1.0)
+        scale_y = float(transform.get("scale_y") or scale or 1.0)
         pad_x = float(transform.get("pad_x") or 0.0)
         pad_y = float(transform.get("pad_y") or 0.0)
         normalized_yxyx = bool(transform.get("normalized_yxyx"))
+        resize_mode = str(transform.get("resize_mode") or "letterbox").strip().lower()
         if normalized_yxyx:
             image_width, image_height = image_size
             top_norm, left_norm, bottom_norm, right_norm = left, top, right, bottom
@@ -420,12 +433,22 @@ class BirdCropService:
             right = right_norm * float(image_width)
             top = top_norm * float(image_height)
             bottom = bottom_norm * float(image_height)
-        if scale <= 0.0:
+            scale_x = 1.0
+            scale_y = 1.0
+            pad_x = 0.0
+            pad_y = 0.0
+        if scale_x <= 0.0 or scale_y <= 0.0:
             return None
-        left = (left - pad_x) / scale
-        right = (right - pad_x) / scale
-        top = (top - pad_y) / scale
-        bottom = (bottom - pad_y) / scale
+        if resize_mode == "direct_resize":
+            left = left / scale_x
+            right = right / scale_x
+            top = top / scale_y
+            bottom = bottom / scale_y
+        else:
+            left = (left - pad_x) / scale_x
+            right = (right - pad_x) / scale_x
+            top = (top - pad_y) / scale_y
+            bottom = (bottom - pad_y) / scale_y
         width, height = image_size
         left = max(0.0, min(float(width), left))
         right = max(0.0, min(float(width), right))
