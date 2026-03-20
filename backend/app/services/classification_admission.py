@@ -164,11 +164,11 @@ class ClassificationAdmissionCoordinator:
                     self._rejected[priority] += 1
                     self._record_recent_outcome_locked(item, "rejected", reason="queue_timeout")
                     if not item.result_future.done():
-                        item.result_future.set_exception(
-                            ClassificationAdmissionTimeoutError(priority, item.kind, queue_timeout)
-                        )
+                        item.result_future.cancel()
                     self._condition.notify_all()
-            raise ClassificationAdmissionTimeoutError(priority, item.kind, queue_timeout) from exc
+                    raise ClassificationAdmissionTimeoutError(priority, item.kind, queue_timeout) from exc
+            # The item may have been admitted just as the queue timeout fired.
+            # In that race, preserve the admitted work and await its real result.
 
         try:
             return await asyncio.shield(item.result_future)
@@ -189,7 +189,7 @@ class ClassificationAdmissionCoordinator:
                     if not item.admitted_future.done():
                         item.admitted_future.set_exception(RuntimeError("classification coordinator shutdown"))
                     if not item.result_future.done():
-                        item.result_future.set_exception(RuntimeError("classification coordinator shutdown"))
+                        item.result_future.cancel()
             self._condition.notify_all()
 
         if self._reaper_task is not None:

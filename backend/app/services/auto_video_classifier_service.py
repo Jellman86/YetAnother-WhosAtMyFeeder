@@ -13,18 +13,25 @@ from PIL import Image
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
-from app.services.classifier_service import get_classifier
+from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
-from app.services.classifier_service import VideoClassificationWorkerError
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
+SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
+BackgroundImageClassificationUnavailableError = getattr(
+    classifier_service_module,
+    "BackgroundImageClassificationUnavailableError",
+    RuntimeError,
+)
+get_classifier = classifier_service_module.get_classifier
+VideoClassificationWorkerError = classifier_service_module.VideoClassificationWorkerError
 
 class AutoVideoClassifierService:
     """
@@ -533,8 +540,11 @@ class AutoVideoClassifierService:
                         "Falling back to snapshot classification for missing retained clip",
                         event_id=frigate_event,
                     )
-                    await self._classify_from_snapshot(frigate_event, camera)
-                    self._record_success(frigate_event)
+                    snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
+                    if snapshot_error is None:
+                        self._record_success(frigate_event)
+                    else:
+                        self._record_failure(frigate_event, snapshot_error)
                     return
                 log.warning("Clip not available after retries", event_id=frigate_event)
                 self._record_diagnostic(
@@ -925,7 +935,7 @@ class AutoVideoClassifierService:
         )
         # _record_success is already called on completion in _process_event.
 
-    async def _classify_from_snapshot(self, frigate_event: str, camera: str) -> None:
+    async def _classify_from_snapshot(self, frigate_event: str, camera: str) -> str | None:
         """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
         snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
         if not snapshot_data:
@@ -934,22 +944,59 @@ class AutoVideoClassifierService:
                 "type": "reclassification_completed",
                 "data": {"event_id": frigate_event, "results": []}
             })
-            return
+            return "snapshot_fetch_failed"
 
         await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
         image = Image.open(BytesIO(snapshot_data))
-        results = await self._classifier.classify_async(
-            image,
-            camera_name=camera,
-            input_context={"is_cropped": True, "event_id": frigate_event},
-        )
+        results: list[dict] = []
+        input_context = {"is_cropped": True, "event_id": frigate_event}
+        last_unavailable_error: str | None = None
+        for attempt in range(1, SNAPSHOT_FALLBACK_MAX_ATTEMPTS + 1):
+            try:
+                results = await self._classifier.classify_async_background(
+                    image,
+                    camera_name=camera,
+                    input_context=input_context,
+                )
+                last_unavailable_error = None
+                break
+            except BackgroundImageClassificationUnavailableError as exc:
+                last_unavailable_error = str(exc) or "background_image_unavailable"
+                if attempt >= SNAPSHOT_FALLBACK_MAX_ATTEMPTS:
+                    break
+                backoff_seconds = min(0.5 * attempt, 1.5)
+                log.info(
+                    "Snapshot fallback classification delayed by background image pressure; retrying",
+                    event_id=frigate_event,
+                    attempt=attempt,
+                    max_attempts=SNAPSHOT_FALLBACK_MAX_ATTEMPTS,
+                    retry_in_seconds=backoff_seconds,
+                    error=last_unavailable_error,
+                )
+                await asyncio.sleep(backoff_seconds)
+
+        if last_unavailable_error is not None:
+            self._record_diagnostic(
+                frigate_event,
+                reason_code=last_unavailable_error,
+                message="Snapshot fallback classification could not acquire background image capacity",
+                severity="warning",
+                context={"attempts": SNAPSHOT_FALLBACK_MAX_ATTEMPTS},
+            )
+            await self._update_status(frigate_event, 'failed', error=last_unavailable_error, broadcast=True)
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {"event_id": frigate_event, "results": []}
+            })
+            return last_unavailable_error
+
         if not results:
             await self._update_status(frigate_event, 'failed', error="snapshot_no_results", broadcast=True)
             await broadcaster.broadcast({
                 "type": "reclassification_completed",
                 "data": {"event_id": frigate_event, "results": []}
             })
-            return
+            return "snapshot_no_results"
 
         top = results[0]
         await self._save_results(frigate_event, top)
@@ -963,6 +1010,7 @@ class AutoVideoClassifierService:
             label=top['label'],
             score=top['score'],
         )
+        return None
 
 # Global singleton
 auto_video_classifier = AutoVideoClassifierService()

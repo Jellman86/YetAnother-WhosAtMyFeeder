@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Batch/manual video analysis snapshot fallback now uses the low-priority background image-classification path instead of the generic image path, retries temporary background-capacity pressure, and records overload as `background_image_overloaded` instead of incorrectly collapsing it into `snapshot_no_results`.
+- **Fixed:** Snapshot-fallback video analysis now only records success when snapshot classification actually succeeds. Failed snapshot fallback no longer clears the video-classifier failure state by calling the success path unconditionally.
+- **Fixed:** The classification admission coordinator now handles queue-timeout races more defensively and cancels rejected queued result futures instead of leaving unconsumed timeout exceptions behind, eliminating the noisy `Future exception was never retrieved` warnings seen during overloaded batch fallback runs.
 - **Added:** The roadmap now puts a labeled feeder model evaluation harness at the top of the maintenance queue so crop defaults and model choices can be decided from real ground-truth feeder data instead of plausibility checks.
 - **Added:** Detection Settings now lets owners override crop behavior and crop-source preference per model family and per regional variant, with shipped model-config defaults preserved underneath and high-quality snapshot preference available where crop generation is enabled.
 - **Added:** YA-WAMF now manages the bird crop detector as a first-class downloadable artifact instead of assuming a manually placed local file. The detector has its own install status in the model manager, reuses the normal global download progress system, and crop controls stay blocked in the UI until the detector is installed.

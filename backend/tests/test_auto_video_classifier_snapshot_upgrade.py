@@ -6,7 +6,10 @@ from app.config import settings
 from app.services import auto_video_classifier_service as auto_video_classifier_module
 
 AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
-from app.services.classifier_service import VideoClassificationWorkerError
+from app.services.classifier_service import (
+    BackgroundImageClassificationUnavailableError,
+    VideoClassificationWorkerError,
+)
 from app.services.error_diagnostics import error_diagnostics_history
 
 
@@ -65,25 +68,83 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
 async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_batch_mode():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
-    service._classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
+    service._classifier.classify_async_background = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
 
     with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
-        patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
+         patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
          patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
          patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()):
         await service._process_event("evt-batch-fallback", "cam1", skip_delay=True, fallback_to_snapshot=True)
 
-    service._classifier.classify_async.assert_awaited_once()
-    assert service._classifier.classify_async.await_args.kwargs["input_context"] == {
+    service._classifier.classify_async_background.assert_awaited_once()
+    assert service._classifier.classify_async_background.await_args.kwargs["input_context"] == {
         "is_cropped": True,
         "event_id": "evt-batch-fallback",
     }
     service._save_results.assert_awaited_once_with("evt-batch-fallback", {"label": "Robin", "score": 0.88, "index": 1})
     service._auto_delete_if_missing.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_event_snapshot_fallback_retries_background_overload_then_succeeds():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_async_background = AsyncMock(
+        side_effect=[
+            BackgroundImageClassificationUnavailableError("background_image_overloaded"),
+            [{"label": "Robin", "score": 0.88, "index": 1}],
+        ]
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()), \
+         patch.object(auto_video_classifier_module.asyncio, "sleep", new=AsyncMock()):
+        await service._process_event("evt-batch-fallback-retry", "cam1", skip_delay=True, fallback_to_snapshot=True)
+
+    assert service._classifier.classify_async_background.await_count == 2
+    service._save_results.assert_awaited_once_with("evt-batch-fallback-retry", {"label": "Robin", "score": 0.88, "index": 1})
+    service._record_success.assert_called_once_with("evt-batch-fallback-retry")
+    service._record_failure.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_event_snapshot_fallback_marks_background_overload_distinctly():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_async_background = AsyncMock(
+        side_effect=BackgroundImageClassificationUnavailableError("background_image_overloaded")
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()), \
+         patch.object(auto_video_classifier_module.asyncio, "sleep", new=AsyncMock()):
+        await service._process_event("evt-batch-fallback-overloaded", "cam1", skip_delay=True, fallback_to_snapshot=True)
+
+    assert service._classifier.classify_async_background.await_count == 3
+    service._update_status.assert_any_await("evt-batch-fallback-overloaded", "failed", error="background_image_overloaded", broadcast=True)
+    service._save_results.assert_not_awaited()
+    service._record_success.assert_not_called()
+    service._record_failure.assert_called_once_with("evt-batch-fallback-overloaded", "background_image_overloaded")
 
 
 @pytest.mark.asyncio
