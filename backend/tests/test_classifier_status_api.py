@@ -1,5 +1,6 @@
 import uuid
 import io
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -116,6 +117,44 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
         assert payload["results"][0]["label"] == "Robin"
     finally:
         classifier_router.classifier_service._image_execution_mode = original_execution_mode
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_test_endpoint_uses_in_process_path_by_default(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "in_process"
+
+    fake_classifier = SimpleNamespace(_image_execution_mode="in_process")
+    fake_classifier.classify = lambda _image, input_context=None: [
+        {"label": "Robin", "score": 0.93, "index": 1}
+    ]
+
+    classify_async_background_called = False
+
+    async def _unexpected_async_background(*_args, **_kwargs):
+        nonlocal classify_async_background_called
+        classify_async_background_called = True
+        raise AssertionError("async background path should not be used in in-process mode")
+
+    fake_classifier.classify_async_background = _unexpected_async_background
+    monkeypatch.setattr(classifier_router, "classifier_service", fake_classifier)
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+
+    try:
+        response = await client.post(
+            "/api/classifier/test",
+            files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "ok"
+        assert payload["results"][0]["label"] == "Robin"
+        assert classify_async_background_called is False
+    finally:
         settings.classification.image_execution_mode = original_mode
 
 
