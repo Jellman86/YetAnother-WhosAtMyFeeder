@@ -41,6 +41,7 @@ SPECIES_SEARCH_HYDRATE_MAX = 30
 SPECIES_SEARCH_HYDRATE_CONCURRENCY = 6
 SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT = 2.5
 SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT = 1.5
+SCIENTIFIC_NAME_PATTERN = re.compile(r"^[A-Z][a-z]+(?: [a-z][a-z-]+){1,3}$")
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {
@@ -142,6 +143,118 @@ def _should_hydrate_species_label(label: str) -> bool:
     if normalized in {str(name).lower() for name in unknown_labels}:
         return False
     return True
+
+
+def _looks_like_scientific_name(value: str | None) -> bool:
+    return bool(value and SCIENTIFIC_NAME_PATTERN.match(value.strip()))
+
+
+def _split_species_alias_parts(label: str | None) -> tuple[str | None, str | None]:
+    raw = str(label or "").strip()
+    if not raw:
+        return None, None
+
+    match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", raw)
+    if not match:
+        return None, None
+    left = match.group(1).strip()
+    right = match.group(2).strip()
+    return (left or None), (right or None)
+
+
+def _parse_species_alias_label(label: str | None) -> tuple[str | None, str | None]:
+    left, right = _split_species_alias_parts(label)
+    if not left or not right:
+        return None, None
+
+    left_is_scientific = _looks_like_scientific_name(left)
+    right_is_scientific = _looks_like_scientific_name(right)
+    if left_is_scientific and not right_is_scientific:
+        return left, right
+    if right_is_scientific and not left_is_scientific:
+        return right, left
+    return None, None
+
+
+async def _lookup_species_search_taxonomy(
+    db,
+    *,
+    label: str,
+    lang: str,
+) -> tuple[str | None, str | None, int | None]:
+    candidates: list[str] = []
+    left, right = _split_species_alias_parts(label)
+    for candidate in [label, left, right, *_parse_species_alias_label(label)]:
+        text = str(candidate or "").strip()
+        if text and text not in candidates:
+            candidates.append(text)
+
+    for candidate in candidates:
+        async with db.execute(
+            """
+            SELECT scientific_name, common_name, taxa_id
+            FROM taxonomy_cache
+            WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
+            LIMIT 1
+            """,
+            (candidate, candidate),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row:
+            scientific_name = row[0]
+            common_name = row[1]
+            taxa_id = row[2]
+            if lang != "en" and taxa_id:
+                async with db.execute(
+                    "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
+                    (taxa_id, lang),
+                ) as cursor:
+                    translated = await cursor.fetchone()
+                if translated and translated[0]:
+                    common_name = translated[0]
+            return scientific_name, common_name, taxa_id
+
+    scientific_name, common_name = _parse_species_alias_label(label)
+    return scientific_name, common_name, None
+
+
+def _species_search_result_key(result: dict) -> str:
+    taxa_id = result.get("taxa_id")
+    if taxa_id is not None:
+        return f"taxa:{taxa_id}"
+    scientific_name = str(result.get("scientific_name") or "").strip()
+    if scientific_name:
+        return f"sci:{scientific_name.casefold()}"
+    common_name = str(result.get("common_name") or "").strip()
+    if common_name:
+        return f"common:{common_name.casefold()}"
+    display_name = str(result.get("display_name") or result.get("id") or "").strip()
+    return f"label:{display_name.casefold()}"
+
+
+def _pick_preferred_species_search_result(existing: dict, candidate: dict) -> dict:
+    existing_taxa = existing.get("taxa_id")
+    candidate_taxa = candidate.get("taxa_id")
+    if existing_taxa is None and candidate_taxa is not None:
+        return candidate
+    if candidate_taxa is None and existing_taxa is not None:
+        return existing
+
+    existing_sci = bool(existing.get("scientific_name"))
+    candidate_sci = bool(candidate.get("scientific_name"))
+    if not existing_sci and candidate_sci:
+        return candidate
+    if existing_sci and not candidate_sci:
+        return existing
+
+    existing_common = bool(existing.get("common_name"))
+    candidate_common = bool(candidate.get("common_name"))
+    if not existing_common and candidate_common:
+        return candidate
+    if existing_common and not candidate_common:
+        return existing
+
+    return existing
 
 
 async def _hydrate_species_search_results(
@@ -453,33 +566,26 @@ async def search_species(
 
         matches = matches[:limit]
 
-        results = []
+        deduped_results: dict[str, dict] = {}
         for label in matches:
-            async with db.execute(
-                "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE scientific_name = ? OR common_name = ?",
-                (label, label)
-            ) as cursor:
-                row = await cursor.fetchone()
-
-            sci_name = row[0] if row else None
-            common_name = row[1] if row else None
-            taxa_id = row[2] if row else None
-
-            if lang != "en" and taxa_id:
-                async with db.execute(
-                    "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
-                    (taxa_id, lang)
-                ) as cursor:
-                    translated = await cursor.fetchone()
-                if translated and translated[0]:
-                    common_name = translated[0]
-
-            results.append({
-                "id": label,  # The value to save
-                "display_name": label,  # Fallback display
+            sci_name, common_name, taxa_id = await _lookup_species_search_taxonomy(
+                db,
+                label=label,
+                lang=lang,
+            )
+            canonical_id = sci_name or common_name or label
+            result = {
+                "id": canonical_id,
+                "display_name": canonical_id,
                 "scientific_name": sci_name,
-                "common_name": common_name
-            })
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+            }
+            key = _species_search_result_key(result)
+            existing = deduped_results.get(key)
+            deduped_results[key] = _pick_preferred_species_search_result(existing, result) if existing else result
+
+        results = list(deduped_results.values())
 
     if hydrate_missing and results:
         await _hydrate_species_search_results(results, lang)

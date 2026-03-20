@@ -761,6 +761,24 @@ class UpdateDetectionRequest(BaseModel):
     display_name: str = Field(..., min_length=1, description="New species name")
 
 
+class BulkManualTagRequest(BaseModel):
+    """Request to manually update multiple detections to the same species."""
+    event_ids: List[str] = Field(..., min_length=1, max_length=200, description="Frigate event IDs to retag")
+    display_name: str = Field(..., min_length=1, description="New species name")
+
+
+class BulkManualTagResponse(BaseModel):
+    status: str
+    requested_count: int
+    updated_count: int
+    unchanged_count: int
+    missing_count: int
+    updated_event_ids: List[str]
+    unchanged_event_ids: List[str]
+    missing_event_ids: List[str]
+    new_species: str | None = None
+
+
 class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
     status: str
@@ -811,6 +829,187 @@ async def get_event_classification_status(
             video_classification_model_id=detection.video_classification_model_id,
             video_classification_model_name=_video_classification_model_name(detection.video_classification_model_id),
         )
+
+
+async def _apply_manual_tag_update(
+    *,
+    db,
+    repo: DetectionRepository,
+    detection,
+    requested_species: str,
+    lang: str,
+) -> dict:
+    old_species = detection.display_name
+    old_category_name = detection.category_name
+    old_score = detection.score
+    new_species = requested_species.strip()
+    event_id = detection.frigate_event
+
+    log.debug("Manual tag request",
+              event_id=event_id,
+              old_species=old_species,
+              new_species=new_species,
+              frigate_event=detection.frigate_event)
+
+    if _normalize_species_name(old_species) == _normalize_species_name(new_species):
+        return {
+            "status": "unchanged",
+            "event_id": event_id,
+            "species": old_species or new_species,
+            "new_species": old_species or new_species,
+        }
+
+    resolved_aliases = await repo.resolve_species_aliases(new_species, language=lang)
+    if _manual_update_is_alias_noop(detection, new_species, resolved_aliases):
+        log.info(
+            "Manual tag request resolved to existing species alias",
+            event_id=event_id,
+            old_species=old_species,
+            requested_species=new_species,
+            scientific_name=resolved_aliases.get("scientific_name"),
+            taxa_id=resolved_aliases.get("taxa_id"),
+        )
+        return {
+            "status": "unchanged",
+            "event_id": event_id,
+            "species": old_species or new_species,
+            "new_species": old_species or new_species,
+        }
+
+    unknown_labels = {
+        *(label.lower() for label in settings.classification.unknown_bird_labels),
+        "unknown bird",
+    }
+    normalized_label = "Unknown Bird" if new_species.lower() in unknown_labels else new_species
+
+    taxonomy_lookup_name = (
+        resolved_aliases.get("scientific_name")
+        or resolved_aliases.get("common_name")
+        or normalized_label
+    )
+    taxonomy: dict = {}
+    if normalized_label != "Unknown Bird":
+        try:
+            taxonomy = await taxonomy_service.get_names(taxonomy_lookup_name, force_refresh=True)
+        except Exception as exc:
+            log.warning(
+                "Manual tag taxonomy lookup failed; using local alias resolution fallback",
+                event_id=event_id,
+                requested_species=new_species,
+                taxonomy_lookup_name=taxonomy_lookup_name,
+                error=str(exc),
+            )
+
+    sci_name = (
+        taxonomy.get("scientific_name")
+        or resolved_aliases.get("scientific_name")
+        or normalized_label
+    )
+    com_name = taxonomy.get("common_name") or resolved_aliases.get("common_name")
+    t_id = taxonomy.get("taxa_id") if taxonomy.get("taxa_id") is not None else resolved_aliases.get("taxa_id")
+
+    if sci_name and (not com_name or t_id is None):
+        canonical_cache_names = await repo.get_taxonomy_names(sci_name)
+        if canonical_cache_names.get("scientific_name"):
+            sci_name = canonical_cache_names["scientific_name"]
+        if not com_name and canonical_cache_names.get("common_name"):
+            com_name = canonical_cache_names["common_name"]
+        if t_id is None and canonical_cache_names.get("taxa_id") is not None:
+            t_id = canonical_cache_names["taxa_id"]
+
+    stored_category_name = sci_name or normalized_label
+    stored_display_name = stored_category_name
+    if settings.classification.display_common_names and com_name:
+        stored_display_name = com_name
+    elif not settings.classification.display_common_names and sci_name:
+        stored_display_name = sci_name
+
+    try:
+        audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+            target_time=detection.detection_time,
+            species_name=sci_name,
+            camera_name=detection.camera_name
+        )
+    except Exception as exc:
+        log.warning(
+            "Audio re-correlation failed during manual tag update; continuing without audio confirmation",
+            event_id=event_id,
+            requested_species=new_species,
+            scientific_name=sci_name,
+            error=str(exc),
+        )
+        audio_confirmed, audio_species, audio_score = False, None, None
+
+    detection.display_name = stored_display_name
+    detection.category_name = stored_category_name
+    detection.scientific_name = sci_name
+    detection.common_name = com_name
+    detection.taxa_id = t_id
+
+    await db.execute("""
+        UPDATE detections
+        SET display_name = ?, category_name = ?,
+            scientific_name = ?, common_name = ?, taxa_id = ?,
+            audio_confirmed = ?, audio_species = ?, audio_score = ?,
+            manual_tagged = 1
+        WHERE frigate_event = ?
+    """, (stored_display_name, stored_category_name,
+          sci_name, com_name, t_id,
+          1 if audio_confirmed else 0, audio_species, audio_score,
+          event_id))
+
+    model_id = _get_active_model_id_for_feedback()
+    predicted_label = (old_category_name or old_species or "").strip()
+    corrected_label = (stored_category_name or stored_display_name or "").strip()
+    if predicted_label and corrected_label and predicted_label != corrected_label:
+        await repo.insert_classification_feedback(
+            frigate_event=event_id,
+            camera_name=detection.camera_name,
+            model_id=model_id,
+            predicted_label=predicted_label,
+            corrected_label=corrected_label,
+            predicted_score=old_score,
+            source="manual_tag",
+        )
+    await db.commit()
+
+    log.info("Manually updated detection species",
+             event_id=event_id,
+             old_species=old_species,
+             new_species=stored_display_name,
+             requested_species=new_species,
+             scientific=sci_name,
+             audio_confirmed=audio_confirmed,
+             audio_species=audio_species)
+
+    refreshed_detection = await repo.get_by_frigate_event(event_id)
+    payload_source = refreshed_detection or detection
+    await broadcaster.broadcast({
+        "type": "detection_updated",
+        "data": _detection_updated_payload(
+            payload_source,
+            overrides={
+                "display_name": stored_display_name,
+                "manual_tagged": True,
+                "audio_confirmed": audio_confirmed,
+                "audio_species": audio_species,
+                "audio_score": audio_score,
+                "scientific_name": sci_name,
+                "common_name": com_name,
+                "taxa_id": t_id,
+            }
+        )
+    })
+
+    return {
+        "status": "updated",
+        "event_id": event_id,
+        "old_species": old_species,
+        "new_species": stored_display_name,
+        "scientific_name": sci_name,
+        "common_name": com_name,
+        "taxa_id": t_id,
+    }
 
 
 @router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
@@ -1100,6 +1299,66 @@ async def reclassify_event(
             ) from exc
 
 
+@router.patch("/events/bulk/manual-tag", response_model=BulkManualTagResponse)
+async def bulk_manual_tag_events(
+    update_request: BulkManualTagRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    lang = get_user_language(request)
+    requested_ids = []
+    seen_ids = set()
+    for raw_event_id in update_request.event_ids:
+        event_id = str(raw_event_id or "").strip()
+        if not event_id or event_id in seen_ids:
+            continue
+        seen_ids.add(event_id)
+        requested_ids.append(event_id)
+
+    if not requested_ids:
+        raise HTTPException(status_code=400, detail="No valid event IDs supplied")
+
+    updated_event_ids: list[str] = []
+    unchanged_event_ids: list[str] = []
+    missing_event_ids: list[str] = []
+    last_new_species: str | None = None
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        for event_id in requested_ids:
+            detection = await repo.get_by_frigate_event(event_id)
+            if not detection:
+                missing_event_ids.append(event_id)
+                continue
+
+            result = await _apply_manual_tag_update(
+                db=db,
+                repo=repo,
+                detection=detection,
+                requested_species=update_request.display_name,
+                lang=lang,
+            )
+            if result.get("status") == "updated":
+                updated_event_ids.append(event_id)
+                last_new_species = result.get("new_species") or last_new_species
+            else:
+                unchanged_event_ids.append(event_id)
+                last_new_species = result.get("new_species") or last_new_species
+
+    status = "updated" if updated_event_ids else ("unchanged" if unchanged_event_ids else "missing")
+    return BulkManualTagResponse(
+        status=status,
+        requested_count=len(requested_ids),
+        updated_count=len(updated_event_ids),
+        unchanged_count=len(unchanged_event_ids),
+        missing_count=len(missing_event_ids),
+        updated_event_ids=updated_event_ids,
+        unchanged_event_ids=unchanged_event_ids,
+        missing_event_ids=missing_event_ids,
+        new_species=last_new_species,
+    )
+
+
 @router.patch("/events/{event_id}")
 async def update_event(
     event_id: str,
@@ -1122,180 +1381,13 @@ async def update_event(
                 detail=i18n_service.translate("errors.detection_not_found", lang)
             )
 
-        old_species = detection.display_name
-        old_category_name = detection.category_name
-        old_score = detection.score
-        new_species = update_request.display_name.strip()
-
-        log.debug("Manual tag request",
-                  event_id=event_id,
-                  old_species=old_species,
-                  new_species=new_species,
-                  frigate_event=detection.frigate_event)
-
-        if _normalize_species_name(old_species) == _normalize_species_name(new_species):
-            return {
-                "status": "unchanged",
-                "event_id": event_id,
-                "species": old_species or new_species
-            }
-
-        resolved_aliases = await repo.resolve_species_aliases(new_species, language=lang)
-        if _manual_update_is_alias_noop(detection, new_species, resolved_aliases):
-            log.info(
-                "Manual tag request resolved to existing species alias",
-                event_id=event_id,
-                old_species=old_species,
-                requested_species=new_species,
-                scientific_name=resolved_aliases.get("scientific_name"),
-                taxa_id=resolved_aliases.get("taxa_id"),
-            )
-            return {
-                "status": "unchanged",
-                "event_id": event_id,
-                "species": old_species or new_species
-            }
-
-        unknown_labels = {
-            *(label.lower() for label in settings.classification.unknown_bird_labels),
-            "unknown bird",
-        }
-        normalized_label = "Unknown Bird" if new_species.lower() in unknown_labels else new_species
-
-        # 1. Get taxonomy for the new species (Force refresh to fix potential bad cache).
-        # If the user entered a localized alias, prefer the resolved scientific/common name.
-        taxonomy_lookup_name = (
-            resolved_aliases.get("scientific_name")
-            or resolved_aliases.get("common_name")
-            or normalized_label
+        return await _apply_manual_tag_update(
+            db=db,
+            repo=repo,
+            detection=detection,
+            requested_species=update_request.display_name,
+            lang=lang,
         )
-        taxonomy: dict = {}
-        if normalized_label != "Unknown Bird":
-            try:
-                taxonomy = await taxonomy_service.get_names(taxonomy_lookup_name, force_refresh=True)
-            except Exception as exc:
-                log.warning(
-                    "Manual tag taxonomy lookup failed; using local alias resolution fallback",
-                    event_id=event_id,
-                    requested_species=new_species,
-                    taxonomy_lookup_name=taxonomy_lookup_name,
-                    error=str(exc),
-                )
-
-        sci_name = (
-            taxonomy.get("scientific_name")
-            or resolved_aliases.get("scientific_name")
-            or normalized_label
-        )
-        com_name = taxonomy.get("common_name") or resolved_aliases.get("common_name")
-        t_id = taxonomy.get("taxa_id") if taxonomy.get("taxa_id") is not None else resolved_aliases.get("taxa_id")
-
-        # Avoid persisting localized or partial taxonomy when refresh fails:
-        # once we know the scientific name, prefer canonical cache names for storage
-        # and let UI localization render translations.
-        if sci_name and (not com_name or t_id is None):
-            canonical_cache_names = await repo.get_taxonomy_names(sci_name)
-            if canonical_cache_names.get("scientific_name"):
-                sci_name = canonical_cache_names["scientific_name"]
-            if not com_name and canonical_cache_names.get("common_name"):
-                com_name = canonical_cache_names["common_name"]
-            if t_id is None and canonical_cache_names.get("taxa_id") is not None:
-                t_id = canonical_cache_names["taxa_id"]
-
-        stored_category_name = sci_name or normalized_label
-        stored_display_name = stored_category_name
-        if settings.classification.display_common_names and com_name:
-            stored_display_name = com_name
-        elif not settings.classification.display_common_names and sci_name:
-            stored_display_name = sci_name
-
-        # 2. Re-correlate audio with the new species
-        try:
-            audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-                target_time=detection.detection_time,
-                species_name=sci_name,  # Use scientific name for matching
-                camera_name=detection.camera_name
-            )
-        except Exception as exc:
-            log.warning(
-                "Audio re-correlation failed during manual tag update; continuing without audio confirmation",
-                event_id=event_id,
-                requested_species=new_species,
-                scientific_name=sci_name,
-                error=str(exc),
-            )
-            audio_confirmed, audio_species, audio_score = False, None, None
-
-        # 3. Update the detection with new species, taxonomy, and re-correlated audio
-        detection.display_name = stored_display_name
-        detection.category_name = stored_category_name
-        detection.scientific_name = sci_name
-        detection.common_name = com_name
-        detection.taxa_id = t_id
-
-        # Execute update directly for reliability
-        await db.execute("""
-            UPDATE detections
-            SET display_name = ?, category_name = ?,
-                scientific_name = ?, common_name = ?, taxa_id = ?,
-                audio_confirmed = ?, audio_species = ?, audio_score = ?,
-                manual_tagged = 1
-            WHERE frigate_event = ?
-        """, (stored_display_name, stored_category_name,
-              sci_name, com_name, t_id,
-              1 if audio_confirmed else 0, audio_species, audio_score,
-              event_id))
-
-        model_id = _get_active_model_id_for_feedback()
-        predicted_label = (old_category_name or old_species or "").strip()
-        corrected_label = (stored_category_name or stored_display_name or "").strip()
-        if predicted_label and corrected_label and predicted_label != corrected_label:
-            await repo.insert_classification_feedback(
-                frigate_event=event_id,
-                camera_name=detection.camera_name,
-                model_id=model_id,
-                predicted_label=predicted_label,
-                corrected_label=corrected_label,
-                predicted_score=old_score,
-                source="manual_tag",
-            )
-        await db.commit()
-
-        log.info("Manually updated detection species",
-                 event_id=event_id,
-                 old_species=old_species,
-                 new_species=stored_display_name,
-                 requested_species=new_species,
-                 scientific=sci_name,
-                 audio_confirmed=audio_confirmed,
-                 audio_species=audio_species)
-
-        # Broadcast update with re-correlated audio
-        refreshed_detection = await repo.get_by_frigate_event(event_id)
-        payload_source = refreshed_detection or detection
-        await broadcaster.broadcast({
-            "type": "detection_updated",
-            "data": _detection_updated_payload(
-                payload_source,
-                overrides={
-                    "display_name": stored_display_name,
-                    "manual_tagged": True,
-                    "audio_confirmed": audio_confirmed,
-                    "audio_species": audio_species,
-                    "audio_score": audio_score,
-                    "scientific_name": sci_name,
-                    "common_name": com_name,
-                    "taxa_id": t_id,
-                }
-            )
-        })
-
-        return {
-            "status": "updated",
-            "event_id": event_id,
-            "old_species": old_species,
-            "new_species": stored_display_name
-        }
 
 
 class WildlifeClassification(BaseModel):

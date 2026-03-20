@@ -9,12 +9,15 @@
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
+        bulkUpdateDetectionSpecies,
         fetchHiddenCount,
         fetchEventsCount,
         analyzeDetection,
+        searchSpecies,
         type Detection,
         type EventFilters,
-        type EventFilterSpecies
+        type EventFilterSpecies,
+        type SearchResult
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -63,6 +66,15 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
+    let selectionMode = $state(false);
+    let selectedEventIds = $state<string[]>([]);
+    let showBulkTagModal = $state(false);
+    let bulkTagSearchQuery = $state('');
+    let bulkSearchResults = $state<SearchResult[]>([]);
+    let bulkTagging = $state(false);
+    let bulkTagPendingId = $state<string | null>(null);
+    let bulkSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+    let bulkSearching = $state(false);
 
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
@@ -321,6 +333,72 @@
         }
     });
 
+    $effect(() => {
+        if (selectedEvent || showVideo) {
+            selectionMode = false;
+            selectedEventIds = [];
+        }
+    });
+
+    $effect(() => {
+        if (!showBulkTagModal) {
+            if (bulkSearchTimeout) {
+                clearTimeout(bulkSearchTimeout);
+                bulkSearchTimeout = null;
+            }
+            bulkTagSearchQuery = '';
+            bulkSearchResults = [];
+            bulkSearching = false;
+            bulkTagPendingId = null;
+            return;
+        }
+
+        const query = bulkTagSearchQuery.trim();
+        if (bulkSearchTimeout) {
+            clearTimeout(bulkSearchTimeout);
+            bulkSearchTimeout = null;
+        }
+
+        if (query.length === 0) {
+            bulkSearching = true;
+            (async () => {
+                try {
+                    bulkSearchResults = await searchSpecies('', 20, true);
+                } catch (e) {
+                    console.error('Bulk species search failed', e);
+                    bulkSearchResults = classifierLabels.slice(0, 20).map((label) => ({
+                        id: label,
+                        display_name: label,
+                        common_name: null,
+                        scientific_name: null
+                    }));
+                } finally {
+                    bulkSearching = false;
+                }
+            })();
+            return;
+        }
+
+        bulkSearchTimeout = setTimeout(async () => {
+            bulkSearching = true;
+            try {
+                bulkSearchResults = await searchSpecies(query);
+            } catch (e) {
+                console.error('Bulk species search failed', e);
+                bulkSearchResults = classifierLabels
+                    .filter((label) => String(label).toLowerCase().includes(query.toLowerCase()))
+                    .map((label) => ({
+                        id: String(label),
+                        display_name: String(label),
+                        common_name: null,
+                        scientific_name: null
+                    }));
+            } finally {
+                bulkSearching = false;
+            }
+        }, 300);
+    });
+
     function applyStoreUpdatesToEventList() {
         if (!events.length) return;
         let changed = false;
@@ -439,6 +517,10 @@
         if (eventMetadataRefreshTimeout !== null && typeof window !== 'undefined') {
             window.clearTimeout(eventMetadataRefreshTimeout);
             eventMetadataRefreshTimeout = null;
+        }
+        if (bulkSearchTimeout !== null) {
+            clearTimeout(bulkSearchTimeout);
+            bulkSearchTimeout = null;
         }
     });
 
@@ -610,6 +692,84 @@
         const eventTime = event?.detection_time ?? '';
         return `${eventId}:${eventIndex}:${eventTime}`;
     }
+
+    function getSearchResultNames(result: SearchResult) {
+        const common = result.common_name?.trim() || null;
+        const scientific = result.scientific_name?.trim() || null;
+        const fallback = result.display_name || result.id;
+        if (common && scientific && common !== scientific) {
+            return { primary: common, secondary: scientific };
+        }
+        return { primary: common || scientific || fallback, secondary: null };
+    }
+
+    function toggleSelectionMode() {
+        selectionMode = !selectionMode;
+        selectedEventIds = [];
+        showBulkTagModal = false;
+    }
+
+    function toggleEventSelection(eventId: string) {
+        if (selectedEventIds.includes(eventId)) {
+            selectedEventIds = selectedEventIds.filter((id) => id !== eventId);
+        } else {
+            selectedEventIds = [...selectedEventIds, eventId];
+        }
+    }
+
+    function handleEventCardClick(event: Detection) {
+        if (selectionMode) {
+            toggleEventSelection(event.frigate_event);
+            return;
+        }
+        selectedEvent = event;
+    }
+
+    async function applyBulkManualTag(selection: SearchResult) {
+        const eventIds = [...selectedEventIds];
+        if (!eventIds.length || bulkTagging) return;
+
+        bulkTagging = true;
+        bulkTagPendingId = selection.id;
+        try {
+            const result = await bulkUpdateDetectionSpecies(eventIds, selection.id);
+            const appliedSpecies = result.new_species || selection.common_name || selection.scientific_name || selection.display_name || selection.id;
+            const updatedSet = new Set(result.updated_event_ids);
+
+            events = events.map((event) => (
+                updatedSet.has(event.frigate_event)
+                    ? { ...event, display_name: appliedSpecies, manual_tagged: true }
+                    : event
+            ));
+
+            for (const eventId of result.updated_event_ids) {
+                const existing = events.find((event) => event.frigate_event === eventId);
+                if (existing) {
+                    detectionsStore.updateDetection({
+                        ...existing,
+                        display_name: appliedSpecies,
+                        manual_tagged: true
+                    });
+                }
+            }
+
+            showBulkTagModal = false;
+            selectionMode = false;
+            selectedEventIds = [];
+            await loadEvents();
+            scheduleEventMetadataRefresh();
+
+            const names = getSearchResultNames(selection);
+            toastStore.success(
+                `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
+            );
+        } catch (e: any) {
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
+        } finally {
+            bulkTagPendingId = null;
+            bulkTagging = false;
+        }
+    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -620,8 +780,53 @@
             <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('events.title')}</h2>
             <p class="text-xs text-slate-500">{$_('events.classification_legend')}</p>
         </div>
-        <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+        <div class="flex items-center gap-3">
+            <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+            <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors
+                    {selectionMode
+                        ? 'bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-100 dark:border-cyan-400/60'
+                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+                onclick={toggleSelectionMode}
+            >
+                <span>{selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })}</span>
+            </button>
+        </div>
     </div>
+
+    {#if selectionMode}
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-200/80 dark:border-cyan-500/30 bg-cyan-50/70 dark:bg-cyan-500/10">
+            <div>
+                <p class="text-sm font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-100">
+                    {$_('actions.manual_tag')}
+                </p>
+                <p class="text-xs text-cyan-700/80 dark:text-cyan-100/80">
+                    {selectedEventIds.length
+                        ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
+                        : $_('common.select', { default: 'Select' }) + ' events to tag together.'}
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+                    onclick={() => selectedEventIds = []}
+                    disabled={selectedEventIds.length === 0}
+                >
+                    {$_('common.clear', { default: 'Clear' })}
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-cyan-600 text-white border-cyan-500 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onclick={() => showBulkTagModal = true}
+                    disabled={selectedEventIds.length === 0}
+                >
+                    {$_('actions.manual_tag')}
+                </button>
+            </div>
+        </div>
+    {/if}
 
     <div class="card-base rounded-2xl p-4 flex flex-wrap gap-3">
         <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-[10rem]">
@@ -783,7 +988,7 @@
                 <DetectionCard 
                     detection={event} 
                     {index}
-                    onclick={() => selectedEvent = event} 
+                    onclick={() => handleEventCardClick(event)}
                     onPlay={() => {
                         videoEventId = event.frigate_event;
                         videoShareToken = null;
@@ -792,6 +997,8 @@
                         selectedEvent = null;
                     }}
                     hideProgress={selectedEvent?.frigate_event === event.frigate_event}
+                    selectionMode={selectionMode}
+                    selected={selectedEventIds.includes(event.frigate_event)}
                 />
             {/each}
         </div>
@@ -827,6 +1034,84 @@
     />
 {/if}
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+{#if showBulkTagModal}
+    <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        onclick={(e) => {
+            if (e.target === e.currentTarget && !bulkTagging) {
+                showBulkTagModal = false;
+            }
+        }}
+        onkeydown={(e) => {
+            if ((e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && !bulkTagging) {
+                e.preventDefault();
+                showBulkTagModal = false;
+            }
+        }}
+        role="button"
+        tabindex="0"
+    >
+        <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                    <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                        {$_('actions.manual_tag')}
+                    </h4>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {selectedEventIds.length} {$_('common.selected', { default: 'selected' })}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onclick={() => showBulkTagModal = false}
+                    disabled={bulkTagging}
+                    class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                    {$_('common.cancel')}
+                </button>
+            </div>
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                <input
+                    type="text"
+                    bind:value={bulkTagSearchQuery}
+                    disabled={bulkTagging}
+                    placeholder={$_('detection.tagging.search_placeholder')}
+                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                />
+            </div>
+            <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
+                {#each bulkSearchResults as result}
+                    {@const names = getSearchResultNames(result)}
+                    {@const isPending = bulkTagging && bulkTagPendingId === result.id}
+                    <button
+                        type="button"
+                        onclick={() => applyBulkManualTag(result)}
+                        disabled={bulkTagging}
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                    >
+                        <span class="block text-sm leading-tight">
+                            {names.primary}
+                            {#if isPending}
+                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-teal-500">
+                                    <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
+                                    {$_('common.saving')}
+                                </span>
+                            {/if}
+                        </span>
+                        {#if names.secondary}
+                            <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                        {/if}
+                    </button>
+                {/each}
+                {#if bulkSearchResults.length === 0}
+                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
+                        {bulkSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
+                    </p>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 {#if showVideo && videoEventId}
     <VideoPlayer
         frigateEvent={videoEventId}

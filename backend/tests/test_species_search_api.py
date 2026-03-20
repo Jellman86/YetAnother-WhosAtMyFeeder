@@ -7,6 +7,7 @@ import pytest_asyncio
 
 from app.main import app
 from app.config import settings
+from app.database import get_db, init_db, close_db
 
 
 class _MockClassifier:
@@ -19,6 +20,15 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def ensure_db_initialized():
+    await init_db()
+    try:
+        yield
+    finally:
+        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -101,3 +111,40 @@ async def test_species_search_hydration_failure_is_non_fatal(client: httpx.Async
     assert payload[0]["scientific_name"] is None
     assert payload[0]["common_name"] is None
     mock_get_names.assert_awaited_once_with(label)
+
+
+@pytest.mark.asyncio
+async def test_species_search_deduplicates_classifier_alias_labels_to_one_canonical_species(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    taxa_id = 145252
+
+    async with get_db() as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Parus major", "Great Tit", taxa_id),
+        )
+        await db.commit()
+
+    labels = [
+        "Great tit",
+        "Great tit (Parus major)",
+        "Parus major (Great tit)",
+    ]
+
+    try:
+        with patch("app.routers.species.get_classifier", return_value=_MockClassifier(labels)):
+            response = await client.get("/api/species/search?q=great&limit=20")
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert len(payload) == 1
+        assert payload[0]["id"] == "Parus major"
+        assert payload[0]["scientific_name"] == "Parus major"
+        assert payload[0]["common_name"] == "Great Tit"
+        assert payload[0]["display_name"] == "Parus major"
+        assert payload[0]["taxa_id"] == taxa_id
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
+            await db.commit()

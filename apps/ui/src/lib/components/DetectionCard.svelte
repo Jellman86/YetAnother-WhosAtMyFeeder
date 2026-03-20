@@ -27,9 +27,11 @@
         onPlay?: (detection: Detection) => void;
         hideProgress?: boolean;
         index?: number;
+        selectionMode?: boolean;
+        selected?: boolean;
     }
 
-    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false, index = 0 }: Props = $props();
+    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false, index = 0, selectionMode = false, selected = false }: Props = $props();
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -302,7 +304,8 @@
            hover:-translate-y-1.5 flex flex-col h-full
            text-left w-full animate-entrance
            {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-           {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
+           {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
+           {selected ? 'ring-2 ring-cyan-500/60 border-cyan-400/70 dark:border-cyan-400/60 shadow-card-hover dark:shadow-card-dark-hover' : ''}"
     style="animation-delay: {index * 40}ms"
 >
     <button
@@ -315,6 +318,19 @@
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
         <ReclassificationOverlay progress={reclassifyProgress} small={true} />
+    {/if}
+
+    {#if selectionMode}
+        <div class="absolute left-3 top-3 z-30 pointer-events-none">
+            <div class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm
+                {selected
+                    ? 'bg-cyan-500 text-white border-cyan-300'
+                    : 'bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-200 border-slate-300/80 dark:border-slate-600/70'}"
+            >
+                <span class="inline-block h-2.5 w-2.5 rounded-full {selected ? 'bg-white' : 'bg-slate-300 dark:bg-slate-500'}"></span>
+                <span>{selected ? $_('common.selected', { default: 'Selected' }) : $_('common.select', { default: 'Select' })}</span>
+            </div>
+        </div>
     {/if}
 
     <!-- Image Section -->

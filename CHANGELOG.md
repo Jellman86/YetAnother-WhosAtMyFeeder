@@ -676,3 +676,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [2.6.5] - 2026-01-24
 
 - **Changed:** Version bump to 2.6.5.
+# 2.8.5
+
+- Fixed Explorer manual-tag species search so alias-style labels like `Great tit`, `Great tit (Parus major)`, and `Parus major (Great tit)` collapse to a single canonical selectable species entry instead of showing duplicates.
+- Added bulk manual tagging in the Explorer with multi-select support and a shared backend bulk-tag endpoint that reuses the existing taxonomy/audio/manual-feedback flow.

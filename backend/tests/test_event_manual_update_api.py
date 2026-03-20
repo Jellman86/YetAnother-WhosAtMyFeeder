@@ -248,3 +248,78 @@ async def test_manual_update_backfills_canonical_common_name_from_cache_when_tax
             await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (replacement_taxa_id,))
             await db.commit()
         await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_bulk_manual_update_applies_same_species_to_multiple_events(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    base_taxa_id = 940000 + int(uuid.uuid4().hex[:4], 16)
+    replacement_taxa_id = 145252
+    event_ids = [f"manual-{uuid.uuid4().hex[:10]}", f"manual-{uuid.uuid4().hex[:10]}"]
+    for index, event_id in enumerate(event_ids):
+        await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+    try:
+        async with get_db() as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+                ("Parus major", "Great Tit", replacement_taxa_id),
+            )
+            await db.commit()
+
+        with patch(
+            "app.routers.events.taxonomy_service.get_names",
+            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": replacement_taxa_id}),
+        ) as mock_get_names, patch(
+            "app.routers.events.audio_service.correlate_species",
+            new=AsyncMock(return_value=(False, None, None)),
+        ) as mock_audio, patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ) as mock_broadcast:
+            response = await client.patch(
+                "/api/events/bulk/manual-tag",
+                json={"event_ids": event_ids, "display_name": "Great Tit"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "updated"
+        assert payload["requested_count"] == 2
+        assert payload["updated_count"] == 2
+        assert payload["updated_event_ids"] == event_ids
+        assert payload["new_species"] == "Great Tit"
+
+        assert mock_get_names.await_count == 2
+        assert mock_audio.await_count == 2
+        assert mock_broadcast.await_count == 2
+
+        async with get_db() as db:
+            async with db.execute(
+                """
+                SELECT frigate_event, display_name, category_name, scientific_name, common_name, taxa_id, manual_tagged
+                FROM detections
+                WHERE frigate_event IN (?, ?)
+                ORDER BY frigate_event
+                """,
+                (event_ids[0], event_ids[1]),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        assert len(rows) == 2
+        for row in rows:
+            assert row[1] == "Great Tit"
+            assert row[2] == "Parus major"
+            assert row[3] == "Parus major"
+            assert row[4] == "Great Tit"
+            assert row[5] == replacement_taxa_id
+            assert row[6] == 1
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (replacement_taxa_id,))
+            await db.commit()
+        for index, event_id in enumerate(event_ids):
+            await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)

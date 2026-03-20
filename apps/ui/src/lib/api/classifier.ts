@@ -85,6 +85,18 @@ export interface UpdateDetectionResult {
     species?: string;
 }
 
+export interface BulkUpdateDetectionResult {
+    status: string;
+    requested_count: number;
+    updated_count: number;
+    unchanged_count: number;
+    missing_count: number;
+    updated_event_ids: string[];
+    unchanged_event_ids: string[];
+    missing_event_ids: string[];
+    new_species?: string | null;
+}
+
 export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
     const response = await apiFetch(`${API_BASE}/classifier/labels`);
     return handleResponse<{ labels: string[] }>(response);
@@ -105,6 +117,15 @@ export async function updateDetectionSpecies(eventId: string, displayName: strin
         body: JSON.stringify({ display_name: displayName }),
     });
     return handleResponse<UpdateDetectionResult>(response);
+}
+
+export async function bulkUpdateDetectionSpecies(eventIds: string[], displayName: string): Promise<BulkUpdateDetectionResult> {
+    const response = await apiFetch(`${API_BASE}/events/bulk/manual-tag`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_ids: eventIds, display_name: displayName }),
+    });
+    return handleResponse<BulkUpdateDetectionResult>(response);
 }
 
 export interface ModelMetadata {
