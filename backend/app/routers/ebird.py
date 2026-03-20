@@ -36,7 +36,7 @@ def _format_ebird_row(
     video_classification_provider: str | None,
     video_classification_backend: str | None,
 ) -> list[str]:
-    date_str = detection_time.strftime("%m/%d/%Y")
+    date_str = detection_time.strftime("%Y-%m-%d")
     time_str = detection_time.strftime("%H:%M")
 
     genus = ""
@@ -76,13 +76,14 @@ def _format_ebird_row(
         submission_parts.append(f"confidence {confidence:.2f}")
 
     submission_comment = "; ".join(submission_parts)
+    species_comment = f"AI confidence {confidence:.2f}" if confidence is not None and math.isfinite(confidence) else ""
 
     return [
         export_common_name,
         genus,
         species,
         "1",
-        "",
+        species_comment,
         location_name,
         f"{lat:.6f}" if lat is not None else "",
         f"{lon:.6f}" if lon is not None else "",

@@ -2,6 +2,7 @@ import httpx
 import structlog
 import asyncio
 import aiosqlite
+import re
 from typing import Optional, Dict
 from datetime import datetime
 from app.database import get_db
@@ -61,7 +62,23 @@ class TaxonomyService:
         # 2. Lookup from iNaturalist (Base)
         # We always need iNat for the taxa_id and scientific name structure
         log.info("Taxonomy lookup (iNaturalist)", query=query_name, force_refresh=force_refresh)
-        result = await self._lookup_inaturalist(query_name)
+        
+        # Try raw name first, then try splitting parentheticals if it looks like an alias
+        lookup_names = [query_name]
+        match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", query_name)
+        if match:
+            left = match.group(1).strip()
+            right = match.group(2).strip()
+            if left and left not in lookup_names:
+                lookup_names.append(left)
+            if right and right not in lookup_names:
+                lookup_names.append(right)
+
+        result = None
+        for name in lookup_names:
+            result = await self._lookup_inaturalist(name)
+            if result:
+                break
 
         if not result:
              # 4. Save Failure to Cache (to prevent retrying forever)
@@ -281,7 +298,9 @@ class TaxonomyService:
                 async with db.execute("""
                     SELECT rowid, display_name, category_name, scientific_name, common_name, taxa_id
                     FROM detections
-                    WHERE scientific_name IS NULL OR common_name IS NULL
+                    WHERE scientific_name IS NULL 
+                       OR common_name IS NULL
+                       OR taxa_id IS NULL
                 """) as cursor:
                     rows = await cursor.fetchall()
 
@@ -304,9 +323,18 @@ class TaxonomyService:
                         if not isinstance(candidate, str):
                             continue
                         normalized = candidate.strip()
-                        if not normalized or normalized.lower() in unknown_labels or normalized in lookup_candidates:
+                        if not normalized or normalized.lower() in unknown_labels:
                             continue
-                        lookup_candidates.append(normalized)
+                        if normalized not in lookup_candidates:
+                            lookup_candidates.append(normalized)
+                        match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", normalized)
+                        if match:
+                            left = match.group(1).strip()
+                            right = match.group(2).strip()
+                            if left and left not in lookup_candidates:
+                                lookup_candidates.append(left)
+                            if right and right not in lookup_candidates:
+                                lookup_candidates.append(right)
 
                     if taxa_id is None and not lookup_candidates:
                         continue
@@ -360,19 +388,38 @@ class TaxonomyService:
                                 "thumbnail_url": cached[4],
                             }
 
+                    def is_english_safe(val):
+                        candidate = str(val or "").strip()
+                        if not candidate:
+                            return False
+                        return candidate.isascii()
+
                     def improves(candidate_taxonomy):
                         if not candidate_taxonomy:
                             return False
+                        
+                        # Refresh if current common name is not English-safe but we found one that is
+                        if row["common_name"] and not is_english_safe(row["common_name"]):
+                            if is_english_safe(candidate_taxonomy.get("common_name")):
+                                return True
+
                         return (
                             (not row["scientific_name"] and bool(candidate_taxonomy.get("scientific_name")))
                             or (not row["common_name"] and bool(candidate_taxonomy.get("common_name")))
                             or (row["taxa_id"] is None and candidate_taxonomy.get("taxa_id") is not None)
                         )
 
-                    if not improves(taxonomy):
+                    # Also refresh if the detection's stored common name is not English-safe
+                    must_refresh = row["common_name"] and not is_english_safe(row["common_name"])
+
+                    if not must_refresh and taxonomy and improves(taxonomy):
+                        # Use cached taxonomy if it improves the row and we don't need a force-refresh
+                        pass
+                    else:
                         taxonomy = None
                         for lookup_name in row["lookup_candidates"]:
-                            candidate_taxonomy = await self.get_names(lookup_name, db=db)
+                            # Force refresh if we know the current data is non-English
+                            candidate_taxonomy = await self.get_names(lookup_name, db=db, force_refresh=must_refresh)
                             if improves(candidate_taxonomy):
                                 taxonomy = candidate_taxonomy
                                 break
