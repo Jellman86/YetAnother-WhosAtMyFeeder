@@ -1,7 +1,7 @@
 import argparse
 import json
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 from app.utils.classifier_labels import normalize_classifier_labels
 
@@ -59,12 +59,29 @@ def _build_export_kwargs() -> dict:
     }
 
 
-def _extract_model_config(model_name: str, model, input_size: int) -> dict:
+def _merge_config_dict(base: dict[str, Any], overrides: dict[str, Any] | None) -> dict[str, Any]:
+    merged = dict(base)
+    if not isinstance(overrides, dict):
+        return merged
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config_dict(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _extract_model_config(
+    model_name: str,
+    model,
+    input_size: int,
+    model_config_overrides: dict[str, Any] | None = None,
+) -> dict:
     pretrained_cfg = getattr(model, "pretrained_cfg", None)
     if not isinstance(pretrained_cfg, dict):
         pretrained_cfg = {}
 
-    return {
+    base_config = {
         "model_id": model_name,
         "runtime": "onnx",
         "input_size": int(input_size),
@@ -78,6 +95,7 @@ def _extract_model_config(model_name: str, model, input_size: int) -> dict:
             "normalization": "float32",
         },
     }
+    return _merge_config_dict(base_config, model_config_overrides)
 
 
 def export_birds_only_model(
@@ -85,6 +103,7 @@ def export_birds_only_model(
     output_dir: str | Path,
     input_size: int,
     labels: Iterable[str] | None = None,
+    model_config_overrides: dict[str, Any] | None = None,
     loader: Callable[[str], object] = load_timm_model,
     export_fn=None,
 ) -> dict[str, str]:
@@ -108,7 +127,12 @@ def export_birds_only_model(
         for label in normalized_labels:
             handle.write(f"{label}\n")
 
-    model_config = _extract_model_config(model_name, model, input_size)
+    model_config = _extract_model_config(
+        model_name,
+        model,
+        input_size,
+        model_config_overrides=model_config_overrides,
+    )
     model_config_path.write_text(json.dumps(model_config, indent=2, sort_keys=True), encoding="utf-8")
 
     export_callable = export_fn or _default_export_fn()
@@ -134,17 +158,27 @@ def main() -> int:
     parser.add_argument("--output_dir", required=True, help="Output directory for model.onnx and labels.txt")
     parser.add_argument("--size", type=int, required=True, help="Input image size")
     parser.add_argument("--labels_file", help="Optional labels file to use instead of model metadata")
+    parser.add_argument(
+        "--model_config_overrides_file",
+        help="Optional JSON file with model_config.json overrides",
+    )
     args = parser.parse_args()
 
     labels = None
     if args.labels_file:
         labels = Path(args.labels_file).read_text(encoding="utf-8").splitlines()
+    model_config_overrides = None
+    if args.model_config_overrides_file:
+        model_config_overrides = json.loads(
+            Path(args.model_config_overrides_file).read_text(encoding="utf-8")
+        )
 
     report = export_birds_only_model(
         model_name=args.model,
         output_dir=args.output_dir,
         input_size=args.size,
         labels=labels,
+        model_config_overrides=model_config_overrides,
     )
     for key, value in report.items():
         print(f"{key}: {value}")

@@ -81,3 +81,31 @@ def test_export_birds_only_model_reports_external_data_sidecar(tmp_path):
     )
 
     assert report["external_data_path"] == str(tmp_path / "model.onnx.data")
+
+
+def test_export_birds_only_model_preserves_crop_generator_config(tmp_path):
+    def fake_loader(model_name: str):
+        return FakeModel()
+
+    def fake_export(model, dummy_input, output_path, **kwargs):
+        Path(output_path).write_bytes(b"fake-onnx")
+
+    export_birds_only_model(
+        model_name="efficientnet_b0_nabirds",
+        output_dir=tmp_path,
+        input_size=224,
+        labels=["bird-a"],
+        loader=fake_loader,
+        export_fn=fake_export,
+        model_config_overrides={
+            "crop_generator": {
+                "enabled": True,
+                "input_context": {"is_cropped": True},
+            }
+        },
+    )
+
+    config = json.loads((tmp_path / "model_config.json").read_text(encoding="utf-8"))
+
+    assert config["crop_generator"]["enabled"] is True
+    assert config["crop_generator"]["input_context"]["is_cropped"] is True

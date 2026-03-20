@@ -63,17 +63,12 @@ The crop service is an enhancement, not a dependency. Failure must never block d
 
 ### Model Manifest Contract
 
-Extend `model_config.json` with a `crop_generator` block:
+The first implementation extends `model_config.json` with a minimal `crop_generator` block:
 
 - `enabled`
-- `skip_if_already_cropped`
-- `model_id`
-- `confidence_threshold`
-- `expand_ratio`
-- `min_crop_size`
-- `fallback_to_original`
+- `input_context.is_cropped`
 
-Optional future fields can be added later, but this is enough for the first implementation.
+This is enough to activate crop generation per model and skip it when the caller already knows the image is cropped. Richer per-model fields like crop-model selection or thresholds can be added later once the baseline behavior is proven.
 
 Example:
 
@@ -91,12 +86,9 @@ Example:
   },
   "crop_generator": {
     "enabled": true,
-    "skip_if_already_cropped": true,
-    "model_id": "bird_crop_yolo",
-    "confidence_threshold": 0.35,
-    "expand_ratio": 0.12,
-    "min_crop_size": 96,
-    "fallback_to_original": true
+    "input_context": {
+      "is_cropped": true
+    }
   }
 }
 ```
@@ -106,7 +98,7 @@ Example:
 1. Caller fetches image and passes classification context.
 2. `ClassifierService` resolves the active model spec and installed manifest.
 3. If `crop_generator.enabled` is false, classification proceeds normally.
-4. If `crop_generator.enabled` is true and `is_cropped` is true and `skip_if_already_cropped` is true, classification proceeds normally.
+4. If `crop_generator.enabled` is true and `is_cropped` is true, classification proceeds normally.
 5. Otherwise, `ClassifierService` asks the crop service for a candidate crop.
 6. If the crop service returns a valid crop, classification uses that crop.
 7. If the crop service fails, returns no box, or returns an invalid box, classification uses the original image.

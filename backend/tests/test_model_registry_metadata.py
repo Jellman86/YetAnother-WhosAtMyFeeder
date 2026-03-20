@@ -43,6 +43,9 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2135, 0.2103, 0.2622])
     assert by_id["small_birds"].region_variants["na"]["model_config_url"]
     assert by_id["small_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
+    assert by_id["small_birds"].region_variants["na"]["crop_generator"]["enabled"] is True
+    assert by_id["small_birds"].region_variants["na"]["crop_generator"]["input_context"]["is_cropped"] is True
+    assert by_id["small_birds"].region_variants["eu"]["crop_generator"]["enabled"] is False
 
     assert by_id["medium_birds"].tier == "medium"
     assert by_id["medium_birds"].taxonomy_scope == "birds_only"
@@ -57,6 +60,9 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2316, 0.2304, 0.2588])
     assert by_id["medium_birds"].region_variants["na"]["model_config_url"]
     assert by_id["medium_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
+    assert by_id["medium_birds"].region_variants["na"]["crop_generator"]["enabled"] is True
+    assert by_id["medium_birds"].region_variants["na"]["crop_generator"]["input_context"]["is_cropped"] is True
+    assert by_id["medium_birds"].region_variants["eu"]["crop_generator"]["enabled"] is False
 
     assert by_id["hieradet_small_inat21"].tier == "small"
     assert by_id["hieradet_small_inat21"].taxonomy_scope == "wildlife_wide"

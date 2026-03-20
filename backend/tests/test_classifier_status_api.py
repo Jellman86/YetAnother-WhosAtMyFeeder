@@ -126,9 +126,13 @@ async def test_classifier_test_endpoint_uses_in_process_path_by_default(client: 
     settings.classification.image_execution_mode = "in_process"
 
     fake_classifier = SimpleNamespace(_image_execution_mode="in_process")
-    fake_classifier.classify = lambda _image, input_context=None: [
-        {"label": "Robin", "score": 0.93, "index": 1}
-    ]
+    seen_input_contexts: list[object] = []
+
+    def _fake_classify(_image, input_context=None):
+        seen_input_contexts.append(input_context)
+        return [{"label": "Robin", "score": 0.93, "index": 1}]
+
+    fake_classifier.classify = _fake_classify
 
     classify_async_background_called = False
 
@@ -153,6 +157,7 @@ async def test_classifier_test_endpoint_uses_in_process_path_by_default(client: 
         payload = response.json()
         assert payload["status"] == "ok"
         assert payload["results"][0]["label"] == "Robin"
+        assert seen_input_contexts == [{"is_cropped": False}]
         assert classify_async_background_called is False
     finally:
         settings.classification.image_execution_mode = original_mode

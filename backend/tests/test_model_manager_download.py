@@ -127,6 +127,8 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert na_spec["input_size"] == 224
         assert na_spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
         assert na_spec["supported_inference_providers"] == ["cpu", "intel_cpu"]
+        assert na_spec["crop_generator"]["enabled"] is True
+        assert na_spec["crop_generator"]["input_context"]["is_cropped"] is True
 
         eu_spec = manager.get_active_model_spec(override="eu")
         assert eu_spec["resolved_region"] == "eu"
@@ -134,6 +136,7 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert eu_spec["labels_path"] == str(eu_dir / "labels.txt")
         assert eu_spec["input_size"] == 384
         assert "intel_gpu" in eu_spec["supported_inference_providers"]
+        assert eu_spec["crop_generator"]["enabled"] is False
     finally:
         settings.location.country = original_country
         settings.classification.bird_model_region_override = original_override

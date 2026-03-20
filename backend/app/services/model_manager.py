@@ -85,6 +85,9 @@ REMOTE_REGISTRY = [
                     "std": [0.2135, 0.2103, 0.2622],
                     "normalization": "float32",
                 },
+                "crop_generator": {
+                    "enabled": False,
+                },
             },
             "na": {
                 "region_scope": "na",
@@ -105,6 +108,12 @@ REMOTE_REGISTRY = [
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
+                },
+                "crop_generator": {
+                    "enabled": True,
+                    "input_context": {
+                        "is_cropped": True,
+                    },
                 },
             },
         },
@@ -218,6 +227,9 @@ REMOTE_REGISTRY = [
                     "std": [0.2316, 0.2304, 0.2588],
                     "normalization": "float32",
                 },
+                "crop_generator": {
+                    "enabled": False,
+                },
             },
             "na": {
                 "region_scope": "na",
@@ -239,6 +251,12 @@ REMOTE_REGISTRY = [
                 "supported_inference_providers": ["cpu", "intel_cpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
+                },
+                "crop_generator": {
+                    "enabled": True,
+                    "input_context": {
+                        "is_cropped": True,
+                    },
                 },
             },
         },
