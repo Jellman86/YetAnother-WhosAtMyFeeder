@@ -27,6 +27,28 @@ def test_generate_crop_selects_and_expands_box(monkeypatch):
     assert result["crop_image"].size == (30, 30)
 
 
+def test_generate_crop_skips_invalid_high_confidence_candidate(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.0, min_crop_size=10)
+    image = _make_image()
+
+    monkeypatch.setattr(service, "_load_model", lambda: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [
+            {"box": (10, 10, 12, 12), "confidence": 0.99},
+            {"box": (20, 20, 40, 50), "confidence": 0.80},
+        ],
+    )
+
+    result = service.generate_crop(image)
+
+    assert result["reason"] == "selected"
+    assert result["confidence"] == pytest.approx(0.80)
+    assert result["box"] == (20, 20, 40, 50)
+    assert result["crop_image"].size == (20, 30)
+
+
 def test_generate_crop_clamps_expanded_box_to_image_bounds(monkeypatch):
     service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.5, min_crop_size=10)
     image = _make_image(width=60, height=40)
@@ -107,3 +129,31 @@ def test_generate_crop_soft_fails_when_model_load_or_inference_fails(
     assert result["box"] is None
     assert result["confidence"] is None
     assert result["reason"] == expected_reason
+
+
+def test_generate_crop_retries_loading_after_initial_empty_load(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.0, min_crop_size=10)
+    image = _make_image()
+    load_calls = []
+
+    def _load_model():
+        load_calls.append(len(load_calls))
+        return None if len(load_calls) == 1 else object()
+
+    monkeypatch.setattr(service, "_load_model", _load_model)
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [{"box": (20, 20, 40, 50), "confidence": 0.91}],
+    )
+
+    first = service.generate_crop(image)
+    second = service.generate_crop(image)
+
+    assert first["reason"] == "load_failed"
+    assert first["crop_image"] is None
+    assert second["reason"] == "selected"
+    assert second["box"] == (20, 20, 40, 50)
+    assert second["confidence"] == pytest.approx(0.91)
+    assert second["crop_image"].size == (20, 30)
+    assert len(load_calls) == 2

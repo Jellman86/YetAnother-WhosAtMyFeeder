@@ -56,44 +56,7 @@ class BirdCropService:
             log.warning("Bird crop inference failed", model_id=self.model_id, error=str(exc))
             return self._empty_result("inference_failed")
 
-        candidate = self._select_candidate(candidates)
-        if candidate is None:
-            return self._empty_result("no_candidate")
-
-        confidence = self._coerce_confidence(candidate)
-        if confidence is None or confidence < self.confidence_threshold:
-            return self._empty_result("below_threshold", confidence=confidence)
-
-        raw_box = self._extract_box(candidate)
-        if raw_box is None:
-            return self._empty_result("invalid_box", confidence=confidence)
-
-        box = self._normalize_box(raw_box)
-        if box is None:
-            return self._empty_result("invalid_box", confidence=confidence)
-
-        left, top, right, bottom = box
-        if (right - left) < self.min_crop_size or (bottom - top) < self.min_crop_size:
-            return self._empty_result("too_small", confidence=confidence)
-
-        expanded = self._expand_and_clamp_box(box, image.size)
-        if expanded is None:
-            return self._empty_result("invalid_box", confidence=confidence)
-
-        crop_width = expanded[2] - expanded[0]
-        crop_height = expanded[3] - expanded[1]
-        if crop_width < 1 or crop_height < 1:
-            return self._empty_result("invalid_box", confidence=confidence)
-        if crop_width < self.min_crop_size or crop_height < self.min_crop_size:
-            return self._empty_result("too_small", confidence=confidence)
-
-        crop_image = image.crop(expanded)
-        return {
-            "crop_image": crop_image,
-            "box": expanded,
-            "confidence": confidence,
-            "reason": "selected",
-        }
+        return self._select_best_valid_candidate(image, candidates)
 
     def _ensure_model(self) -> Any | None:
         if self._model_loaded:
@@ -103,7 +66,7 @@ class BirdCropService:
             if self._model_loaded:
                 return self._model
             self._model = self._load_model()
-            self._model_loaded = True
+            self._model_loaded = self._model is not None
             return self._model
 
     def _load_model(self) -> Any | None:
@@ -136,6 +99,80 @@ class BirdCropService:
 
         normalized.sort(key=lambda candidate: self._coerce_confidence(candidate) or float("-inf"), reverse=True)
         return normalized[0] if normalized else None
+
+    def _select_best_valid_candidate(self, image: Image.Image, candidates: Any) -> dict[str, Any]:
+        normalized: list[dict[str, Any]] = []
+        for candidate in candidates or []:
+            if isinstance(candidate, dict):
+                normalized.append(candidate)
+        normalized.sort(key=lambda candidate: self._coerce_confidence(candidate) or float("-inf"), reverse=True)
+
+        highest_confidence: float | None = None
+        failure_reason: str | None = None
+        failure_confidence: float | None = None
+        for candidate in normalized:
+            confidence = self._coerce_confidence(candidate)
+            if confidence is None:
+                continue
+            if highest_confidence is None:
+                highest_confidence = confidence
+            if confidence < self.confidence_threshold:
+                break
+
+            raw_box = self._extract_box(candidate)
+            if raw_box is None:
+                if failure_reason is None:
+                    failure_reason = "invalid_box"
+                    failure_confidence = confidence
+                continue
+
+            box = self._normalize_box(raw_box)
+            if box is None:
+                if failure_reason is None:
+                    failure_reason = "invalid_box"
+                    failure_confidence = confidence
+                continue
+
+            left, top, right, bottom = box
+            if (right - left) < self.min_crop_size or (bottom - top) < self.min_crop_size:
+                if failure_reason is None:
+                    failure_reason = "too_small"
+                    failure_confidence = confidence
+                continue
+
+            expanded = self._expand_and_clamp_box(box, image.size)
+            if expanded is None:
+                if failure_reason is None:
+                    failure_reason = "invalid_box"
+                    failure_confidence = confidence
+                continue
+
+            crop_width = expanded[2] - expanded[0]
+            crop_height = expanded[3] - expanded[1]
+            if crop_width < 1 or crop_height < 1:
+                if failure_reason is None:
+                    failure_reason = "invalid_box"
+                    failure_confidence = confidence
+                continue
+            if crop_width < self.min_crop_size or crop_height < self.min_crop_size:
+                if failure_reason is None:
+                    failure_reason = "too_small"
+                    failure_confidence = confidence
+                continue
+
+            crop_image = image.crop(expanded)
+            return {
+                "crop_image": crop_image,
+                "box": expanded,
+                "confidence": confidence,
+                "reason": "selected",
+            }
+
+        if highest_confidence is not None and highest_confidence < self.confidence_threshold:
+            return self._empty_result("below_threshold", confidence=highest_confidence)
+        if failure_reason is not None:
+            return self._empty_result(failure_reason, confidence=failure_confidence)
+        return self._empty_result("no_candidate")
 
     def _coerce_confidence(self, candidate: Any) -> float | None:
         if not isinstance(candidate, dict):
