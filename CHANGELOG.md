@@ -10,6 +10,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Changed:** Regional birds-only model variants now use generic functional names ("Small Birds", "Medium Birds") instead of strict geographic labels in the model manager.
 - **Changed:** Removed the generic "Tiered model lineup" explanatory block from Detection Settings to reclaim vertical space.
 - **Fixed:** Removed the absolute close button from the Reclassification overlay to prevent conflict with the primary modal close controls.
+- **Fixed:** eBird CSV export now uses `YYYY-MM-DD` date format to prevent Excel from auto-splitting columns on slashes, and includes AI confidence scores in the "Species Comments" column (Issue #23).
+- **Fixed:** Species filters in the Explorer no longer show duplicate entities for different name formats (e.g., "Great Tit" vs "Great tit (Parus major)"). The taxonomy service now automatically parses and normalizes these aliases during sync and live lookups (Issue #26).
 
 - **Fixed:** Explorer now keeps the desktop `Time`, `Species`, and `Camera` filters in a compact three-column layout instead of stretching each control full width, and the page-level bulk-tagging toggle is labeled `Multi Select` to better communicate its purpose.
 - **Fixed:** Clicking the Dashboard navigation item while already on `/` now forces the dashboard view to remount and refresh, preventing stale summary content from lingering across repeated nav clicks.
