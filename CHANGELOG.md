@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Reclassification overlay UI now dynamically displays the active inference provider icon and real-time backend RAM usage.
+- **Changed:** Regional birds-only model variants now use generic functional names ("Small Birds", "Medium Birds") instead of strict geographic labels in the model manager.
+- **Changed:** Removed the generic "Tiered model lineup" explanatory block from Detection Settings to reclaim vertical space.
+- **Fixed:** Removed the absolute close button from the Reclassification overlay to prevent conflict with the primary modal close controls.
+
 - **Fixed:** Explorer now keeps the desktop `Time`, `Species`, and `Camera` filters in a compact three-column layout instead of stretching each control full width, and the page-level bulk-tagging toggle is labeled `Multi Select` to better communicate its purpose.
 - **Fixed:** Clicking the Dashboard navigation item while already on `/` now forces the dashboard view to remount and refresh, preventing stale summary content from lingering across repeated nav clicks.
 - **Fixed:** Batch/manual video analysis snapshot fallback now uses the low-priority background image-classification path instead of the generic image path, retries temporary background-capacity pressure, and records overload as `background_image_overloaded` instead of incorrectly collapsing it into `snapshot_no_results`.
