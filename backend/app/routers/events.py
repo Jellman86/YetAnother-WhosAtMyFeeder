@@ -25,6 +25,7 @@ from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
+from app.utils.system_stats import get_ram_usage_string
 
 router = APIRouter()
 
@@ -1208,7 +1209,8 @@ async def reclassify_event(
                                             "frame_thumb": frame_thumb,
                                             "frame_index": frame_index,
                                             "clip_total": clip_total,
-                                            "model_name": model_name
+                                            "model_name": model_name,
+                                            "ram_usage": get_ram_usage_string()
                                         }
                                     })
 

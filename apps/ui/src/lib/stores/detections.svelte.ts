@@ -18,6 +18,7 @@ export interface ReclassificationProgress {
     frameIndex?: number | null;
     clipTotal?: number | null;
     modelName?: string | null;
+    ramUsage?: string | null;
     frameResults: FrameResult[];
     status: 'running' | 'completed';
     startedAt: number;
@@ -211,7 +212,8 @@ class DetectionsStore {
         frameThumb?: string | null,
         frameIndex?: number | null,
         clipTotal?: number | null,
-        modelName?: string | null
+        modelName?: string | null,
+        ramUsage?: string | null
     ) {
         if (!eventId || typeof eventId !== 'string') return;
         const now = Date.now();
@@ -240,6 +242,7 @@ class DetectionsStore {
             const nextFrameIndex = frameIndex ?? existing.frameIndex ?? null;
             const nextClipTotal = clipTotal ?? existing.clipTotal ?? null;
             const nextModelName = modelName ?? existing.modelName ?? null;
+            const nextRamUsage = ramUsage ?? existing.ramUsage ?? null;
             const previousFrame = existing.frameResults[slot];
             const safeFrameScore = Number.isFinite(frameScore) ? frameScore : 0;
             const safeTopLabel = typeof topLabel === 'string' ? topLabel : String(topLabel ?? '');
@@ -256,7 +259,8 @@ class DetectionsStore {
                 nextTotalFrames === existing.totalFrames &&
                 nextFrameIndex === (existing.frameIndex ?? null) &&
                 nextClipTotal === (existing.clipTotal ?? null) &&
-                nextModelName === (existing.modelName ?? null)
+                nextModelName === (existing.modelName ?? null) &&
+                nextRamUsage === (existing.ramUsage ?? null)
             ) {
                 return;
             }
@@ -279,6 +283,7 @@ class DetectionsStore {
                 frameIndex: nextFrameIndex,
                 clipTotal: nextClipTotal,
                 modelName: nextModelName,
+                ramUsage: nextRamUsage,
                 frameResults,
                 status: 'running',
                 lastUpdateAt: now

@@ -21,6 +21,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
+from app.utils.system_stats import get_ram_usage_string
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
@@ -595,7 +596,8 @@ class AutoVideoClassifierService:
                             "frame_thumb": frame_thumb,
                             "frame_index": frame_index,
                             "clip_total": clip_total,
-                            "model_name": model_name
+                            "model_name": model_name,
+                            "ram_usage": get_ram_usage_string()
                         }
                     })
 

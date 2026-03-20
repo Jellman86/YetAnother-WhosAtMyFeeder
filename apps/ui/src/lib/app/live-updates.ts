@@ -34,7 +34,8 @@ interface DetectionsStoreLike {
         frameThumb: string,
         frameIndex: number,
         clipTotal: number,
-        modelName: string
+        modelName: string,
+        ramUsage?: string | null
     ): void;
     completeReclassification(eventId: string, results: any): void;
 }
@@ -404,7 +405,8 @@ export class LiveUpdateCoordinator {
                     payload.data.frame_thumb,
                     payload.data.frame_index,
                     payload.data.clip_total,
-                    payload.data.model_name
+                    payload.data.model_name,
+                    payload.data.ram_usage
                 );
                 this.updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
                 return;
