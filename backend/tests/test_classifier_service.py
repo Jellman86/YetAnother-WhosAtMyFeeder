@@ -2001,23 +2001,24 @@ async def test_classifier_service_applies_crop_when_enabled_and_input_is_not_cro
                 "reason": "selected",
             }
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
         service._models["bird"] = bird_model
         service._bird_crop_service = crop_service
-        service._resolve_active_bird_model_spec = MagicMock(
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "label_grouping": {},
-                "runtime": "onnx",
-                "crop_generator": {"enabled": True},
-            }
-        )
 
         image = Image.new("RGB", (32, 32), color="red")
         results = service.classify(image, input_context={"is_cropped": False})
@@ -2165,6 +2166,57 @@ async def test_classifier_service_falls_back_to_original_image_when_crop_service
                 "crop_generator": {"enabled": True},
             }
         )
+
+        image = Image.new("RGB", (32, 32), color="red")
+        results = service.classify(image, input_context={"is_cropped": False})
+
+        assert results[0]["label"] == "Robin"
+        assert crop_service.calls == [image]
+        assert bird_model.seen_images[0] is image
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_continues_with_original_image_when_crop_generation_raises(
+    mock_tflite, mock_os_path_exists
+):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    class _ExplodingCropService:
+        def __init__(self):
+            self.calls = []
+
+        def generate_crop(self, image):
+            self.calls.append(image)
+            raise RuntimeError("crop boom")
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+         patch(
+             "app.services.model_manager.model_manager.get_active_model_spec",
+             return_value={
+                 "model_path": "/tmp/model.onnx",
+                 "labels_path": "/tmp/labels.txt",
+                 "input_size": 224,
+                 "preprocessing": {},
+                 "label_grouping": {},
+                 "runtime": "onnx",
+                 "crop_generator": {"enabled": True},
+             },
+         ):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        crop_service = _ExplodingCropService()
+        service._models["bird"] = bird_model
+        service._bird_crop_service = crop_service
 
         image = Image.new("RGB", (32, 32), color="red")
         results = service.classify(image, input_context={"is_cropped": False})

@@ -1971,7 +1971,7 @@ class ClassifierService:
     def _resolve_active_bird_model_spec(self) -> dict[str, Any]:
         from app.services.model_manager import model_manager
 
-        spec = model_manager.get_active_model_spec()
+        spec = dict(model_manager.get_active_model_spec() or {})
         model_path = str(spec.get("model_path") or "")
         labels_path = str(spec.get("labels_path") or "")
         input_size = int(spec.get("input_size") or 224)
@@ -1979,6 +1979,7 @@ class ClassifierService:
         label_grouping = spec.get("label_grouping")
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
         runtime = str(spec.get("runtime") or "tflite")
+        crop_generator = dict(spec.get("crop_generator") or {})
 
         if not os.path.exists(model_path):
             model_path, labels_path = self._get_model_paths(
@@ -1996,6 +1997,7 @@ class ClassifierService:
             "runtime": runtime,
             "resolved_region": spec.get("resolved_region"),
             "supported_inference_providers": supported_inference_providers,
+            "crop_generator": crop_generator,
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
