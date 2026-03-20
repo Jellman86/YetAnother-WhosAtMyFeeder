@@ -1,7 +1,7 @@
 import ipaddress
 import secrets as secrets_lib
 import socket
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import structlog
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -9,6 +9,32 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 
 log = structlog.get_logger()
+
+
+def normalize_crop_model_override(value: Any) -> str:
+    normalized = str(value or "default").strip().lower()
+    return normalized if normalized in {"default", "on", "off"} else "default"
+
+
+def normalize_crop_source_override(value: Any) -> str:
+    normalized = str(value or "default").strip().lower()
+    return normalized if normalized in {"default", "standard", "high_quality"} else "default"
+
+
+def normalize_crop_override_map(
+    raw_value: Any,
+    *,
+    value_normalizer,
+) -> dict[str, str]:
+    if not isinstance(raw_value, dict):
+        return {}
+    normalized: dict[str, str] = {}
+    for raw_key, raw_override in raw_value.items():
+        key = str(raw_key or "").strip()
+        if not key:
+            continue
+        normalized[key] = value_normalizer(raw_override)
+    return normalized
 
 LEGACY_DEFAULT_AI_ANALYSIS_PROMPT = """
 You are an expert ornithologist and naturalist.
@@ -237,6 +263,14 @@ class ClassificationSettings(BaseModel):
         default="auto",
         description="Bird model region override: auto|eu|na",
     )
+    crop_model_overrides: dict[str, str] = Field(
+        default_factory=dict,
+        description="Crop enablement overrides keyed by model/family id or variant id",
+    )
+    crop_source_overrides: dict[str, str] = Field(
+        default_factory=dict,
+        description="Crop source overrides keyed by model/family id or variant id",
+    )
 
     # Classification output settings
     max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
@@ -272,6 +306,16 @@ class ClassificationSettings(BaseModel):
         if normalized != (v or "auto").strip().lower():
             log.warning("Invalid bird_model_region_override in config; falling back to auto", value=v)
         return normalized
+
+    @field_validator("crop_model_overrides", mode="before")
+    @classmethod
+    def validate_crop_model_overrides(cls, value: Any) -> dict[str, str]:
+        return normalize_crop_override_map(value, value_normalizer=normalize_crop_model_override)
+
+    @field_validator("crop_source_overrides", mode="before")
+    @classmethod
+    def validate_crop_source_overrides(cls, value: Any) -> dict[str, str]:
+        return normalize_crop_override_map(value, value_normalizer=normalize_crop_source_override)
 
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")

@@ -14,7 +14,14 @@ class ClassificationInputContext(YAWAMFBaseModel):
 class CropGeneratorConfig(YAWAMFBaseModel):
     model_config = ConfigDict(protected_namespaces=(), extra="allow")
     enabled: StrictBool = False
+    source_preference: str = "standard"
     input_context: Optional[ClassificationInputContext] = None
+
+    @field_validator("source_preference", mode="before")
+    @classmethod
+    def _normalize_source_preference(cls, value: Any) -> str:
+        normalized = str(value or "standard").strip().lower()
+        return normalized if normalized in {"standard", "high_quality"} else "standard"
 
 
 class ModelMetadata(YAWAMFBaseModel):

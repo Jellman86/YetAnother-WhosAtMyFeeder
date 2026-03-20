@@ -5,6 +5,7 @@
     import type { ClassifierStatus } from '../../api';
     import { getDetectionModelGuidance } from './detection-model-guidance';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
+    import type { CropModelOverride, CropSourceOverride } from '../../settings/crop-overrides';
     const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
     // Props
@@ -20,6 +21,8 @@
         videoClassificationMaxConcurrent = $bindable(5),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
+        cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
+        cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
         classifierStatus = null,
@@ -42,6 +45,8 @@
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         birdModelRegionOverride: BirdModelRegionOverride;
+        cropModelOverrides: Record<string, CropModelOverride>;
+        cropSourceOverrides: Record<string, CropSourceOverride>;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
         classifierStatus: ClassifierStatus | null;
@@ -111,7 +116,7 @@
                 {/each}
             </select>
         </div>
-        <ModelManager />
+        <ModelManager bind:cropModelOverrides bind:cropSourceOverrides />
     </section>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

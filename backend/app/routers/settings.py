@@ -22,6 +22,7 @@ from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
 from app.services.ai_service import AIService
 from app.services.bird_model_region_resolver import normalize_bird_model_region
+from app.config_models import normalize_crop_override_map, normalize_crop_model_override, normalize_crop_source_override
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
@@ -291,6 +292,8 @@ class SettingsUpdate(BaseModel):
     )
     inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
+    crop_model_overrides: dict[str, str] = Field(default_factory=dict, description="Crop enablement overrides keyed by model or variant")
+    crop_source_overrides: dict[str, str] = Field(default_factory=dict, description="Crop source overrides keyed by model or variant")
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -579,6 +582,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
         "bird_model_region_override": settings.classification.bird_model_region_override,
+        "crop_model_overrides": settings.classification.crop_model_overrides,
+        "crop_source_overrides": settings.classification.crop_source_overrides,
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
         "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
@@ -816,6 +821,16 @@ async def update_settings(
         inference_provider_changed = previous_provider != update.inference_provider
     if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:
         settings.classification.bird_model_region_override = normalize_bird_model_region(update.bird_model_region_override)
+    if "crop_model_overrides" in fields_set:
+        settings.classification.crop_model_overrides = normalize_crop_override_map(
+            update.crop_model_overrides,
+            value_normalizer=normalize_crop_model_override,
+        )
+    if "crop_source_overrides" in fields_set:
+        settings.classification.crop_source_overrides = normalize_crop_override_map(
+            update.crop_source_overrides,
+            value_normalizer=normalize_crop_source_override,
+        )
 
     # Media cache settings
     if "media_cache_enabled" in fields_set:

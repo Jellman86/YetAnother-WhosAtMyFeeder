@@ -215,6 +215,19 @@ class MediaCacheService:
             log.error("Failed to read cached snapshot", event_id=event_id, error=str(e))
             return None
 
+    def get_snapshot_sync(self, event_id: str) -> Optional[bytes]:
+        """Get a cached snapshot synchronously for in-process classifier helpers."""
+        try:
+            path = self._snapshot_path(event_id)
+            if path.exists():
+                data = path.read_bytes()
+                os.utime(path, None)
+                return data
+            return None
+        except Exception as e:
+            log.error("Failed to read cached snapshot synchronously", event_id=event_id, error=str(e))
+            return None
+
     def has_snapshot(self, event_id: str) -> bool:
         """Check if a snapshot is cached (sync version for quick checks)."""
         try:

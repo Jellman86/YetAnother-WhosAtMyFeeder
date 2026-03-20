@@ -5,6 +5,23 @@
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
+    import {
+        CROP_MODEL_OVERRIDE_VALUES,
+        CROP_SOURCE_OVERRIDE_VALUES,
+        getCropVariantOverrideEntries,
+        normalizeCropModelOverride,
+        normalizeCropSourceOverride,
+        type CropModelOverride,
+        type CropSourceOverride,
+    } from '../../settings/crop-overrides';
+
+    let {
+        cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
+        cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
+    }: {
+        cropModelOverrides: Record<string, CropModelOverride>;
+        cropSourceOverrides: Record<string, CropSourceOverride>;
+    } = $props();
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
@@ -35,6 +52,68 @@
             default:
                 return formatMetadataLabel(tier);
         }
+    }
+
+    function cropOverrideLabel(value: CropModelOverride): string {
+        switch (value) {
+            case 'on':
+                return 'Force on';
+            case 'off':
+                return 'Force off';
+            default:
+                return 'Use model default';
+        }
+    }
+
+    function cropSourceLabel(value: CropSourceOverride): string {
+        switch (value) {
+            case 'standard':
+                return 'Standard source';
+            case 'high_quality':
+                return 'High-quality snapshot';
+            default:
+                return 'Use model default';
+        }
+    }
+
+    function cropDefaultEnabledLabel(cropGenerator: ModelMetadata['crop_generator'] | undefined): string {
+        return cropGenerator?.enabled ? 'On' : 'Off';
+    }
+
+    function cropDefaultSourceLabel(cropGenerator: ModelMetadata['crop_generator'] | undefined): string {
+        return normalizeCropSourceOverride(cropGenerator?.source_preference) === 'high_quality'
+            ? 'High-quality snapshot'
+            : 'Standard source';
+    }
+
+    function getCropModelOverrideValue(key: string): CropModelOverride {
+        return normalizeCropModelOverride(cropModelOverrides[key]);
+    }
+
+    function getCropSourceOverrideValue(key: string): CropSourceOverride {
+        return normalizeCropSourceOverride(cropSourceOverrides[key]);
+    }
+
+    function setCropModelOverride(key: string, value: string): void {
+        const normalized = normalizeCropModelOverride(value);
+        const next = { ...cropModelOverrides };
+        if (normalized === 'default') {
+            delete next[key];
+        } else {
+            next[key] = normalized;
+        }
+        cropModelOverrides = next;
+    }
+
+    function setCropSourceOverride(key: string, value: string): void {
+        const normalized = normalizeCropSourceOverride(value);
+        const next = { ...cropSourceOverrides };
+        if (normalized === 'default') {
+            delete next[key];
+        } else {
+            next[key] = normalized;
+        }
+        cropSourceOverrides = next;
     }
 
     function scopeLabel(scope: string): string {
@@ -420,11 +499,12 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {#each visibleModels as model}
-{@const installed = isInstalled(model.id)}
+                {@const installed = isInstalled(model.id)}
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
                 {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
                 {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
+                {@const variantEntries = getCropVariantOverrideEntries(model)}
                 
                 <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
@@ -528,6 +608,107 @@
                                         </span>
                                     {/each}
                                 </div>
+                            {/if}
+                        </div>
+
+                        <div class="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                            <div class="mb-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                    Crop behavior
+                                </p>
+                                <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                    Model default: {cropDefaultEnabledLabel(model.crop_generator)}. Force this model on or off if the shipped default does not fit your feeder.
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label class="flex flex-col gap-1.5">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                        Crop behavior
+                                    </span>
+                                    <select
+                                        value={getCropModelOverrideValue(model.id)}
+                                        onchange={(event) => setCropModelOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                    >
+                                        {#each CROP_MODEL_OVERRIDE_VALUES as option}
+                                            <option value={option}>{cropOverrideLabel(option)}</option>
+                                        {/each}
+                                    </select>
+                                </label>
+                                <label class="flex flex-col gap-1.5">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                        Crop source
+                                    </span>
+                                    <select
+                                        value={getCropSourceOverrideValue(model.id)}
+                                        onchange={(event) => setCropSourceOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                    >
+                                        {#each CROP_SOURCE_OVERRIDE_VALUES as option}
+                                            <option value={option}>{cropSourceLabel(option)}</option>
+                                        {/each}
+                                    </select>
+                                </label>
+                            </div>
+                            <p class="mt-2 text-[11px] font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                                Source default: {cropDefaultSourceLabel(model.crop_generator)}.
+                            </p>
+
+                            {#if variantEntries.length > 0}
+                                <details class="mt-3 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-600/80 dark:bg-slate-800/60">
+                                    <summary class="cursor-pointer text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                        Regional variant overrides
+                                    </summary>
+                                    <div class="mt-3 space-y-3">
+                                        {#each variantEntries as variant}
+                                            {@const variantMeta = model.region_variants?.[variant.region]}
+                                            <div class="rounded-lg border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-600/80 dark:bg-slate-900/40">
+                                                <div class="mb-2 flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <p class="text-xs font-black text-slate-900 dark:text-white">{variant.label}</p>
+                                                        <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                                            {variant.id}
+                                                        </p>
+                                                    </div>
+                                                    <div class="text-right text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                                        <div>Default crop: {cropDefaultEnabledLabel(variantMeta?.crop_generator)}</div>
+                                                        <div>Default source: {cropDefaultSourceLabel(variantMeta?.crop_generator)}</div>
+                                                    </div>
+                                                </div>
+                                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                    <label class="flex flex-col gap-1.5">
+                                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                            Crop behavior
+                                                        </span>
+                                                        <select
+                                                            value={getCropModelOverrideValue(variant.id)}
+                                                            onchange={(event) => setCropModelOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                        >
+                                                            {#each CROP_MODEL_OVERRIDE_VALUES as option}
+                                                                <option value={option}>{cropOverrideLabel(option)}</option>
+                                                            {/each}
+                                                        </select>
+                                                    </label>
+                                                    <label class="flex flex-col gap-1.5">
+                                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                            Crop source
+                                                        </span>
+                                                        <select
+                                                            value={getCropSourceOverrideValue(variant.id)}
+                                                            onchange={(event) => setCropSourceOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                        >
+                                                            {#each CROP_SOURCE_OVERRIDE_VALUES as option}
+                                                                <option value={option}>{cropSourceLabel(option)}</option>
+                                                            {/each}
+                                                        </select>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        {/each}
+                                    </div>
+                                </details>
                             {/if}
                         </div>
 

@@ -154,3 +154,29 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
     finally:
         settings.location.country = original_country
         settings.classification.bird_model_region_override = original_override
+
+
+@pytest.mark.asyncio
+async def test_available_models_apply_crop_overrides_from_settings():
+    manager = ModelManager()
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    original_crop_model_overrides = settings.classification.crop_model_overrides
+    original_crop_source_overrides = settings.classification.crop_source_overrides
+    try:
+        settings.location.country = "US"
+        settings.classification.bird_model_region_override = "auto"
+        settings.classification.crop_model_overrides = {"small_birds": "off", "small_birds.na": "on"}
+        settings.classification.crop_source_overrides = {"small_birds": "standard", "small_birds.na": "high_quality"}
+
+        models = await manager.list_available_models()
+        by_id = {model.id: model for model in models}
+
+        assert by_id["small_birds"].crop_generator.enabled is True
+        assert by_id["small_birds"].crop_generator.source_preference == "high_quality"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
+        settings.classification.crop_model_overrides = original_crop_model_overrides
+        settings.classification.crop_source_overrides = original_crop_source_overrides

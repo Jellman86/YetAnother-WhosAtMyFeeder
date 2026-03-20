@@ -93,6 +93,7 @@ OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 from app.config import settings  # noqa: E402
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
 from app.services.bird_crop_service import bird_crop_service  # noqa: E402
+from app.services.crop_source_resolver import crop_source_resolver  # noqa: E402
 from app.services.classification_admission import (  # noqa: E402
     ClassificationAdmissionCoordinator,
     ClassificationAdmissionTimeoutError,
@@ -1858,6 +1859,7 @@ class ClassifierService:
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._bird_crop_service = bird_crop_service
+        self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
         video_workers = max(
@@ -3174,6 +3176,7 @@ class ClassifierService:
             "crop_attempted": False,
             "crop_applied": False,
             "crop_reason": "crop_disabled",
+            "source_reason": "standard",
         }
 
         try:
@@ -3212,9 +3215,32 @@ class ClassifierService:
             return image, diagnostics
 
         diagnostics["crop_attempted"] = True
+        source_preference = str(crop_generator.get("source_preference") or "standard").strip().lower()
+        crop_source_image = image
+        if self._crop_source_resolver is not None:
+            try:
+                crop_source_image, source_diagnostics = self._crop_source_resolver.resolve(
+                    image,
+                    input_context=normalized_input_context,
+                    source_preference=source_preference,
+                )
+                if isinstance(source_diagnostics, dict):
+                    diagnostics.update(source_diagnostics)
+            except Exception as exc:
+                diagnostics["source_reason"] = "source_resolver_error"
+                log.warning(
+                    "Bird crop source resolution failed",
+                    crop_attempted=True,
+                    crop_applied=False,
+                    crop_reason=diagnostics["crop_reason"],
+                    source_reason=diagnostics["source_reason"],
+                    error=_summarize_runtime_exception(exc),
+                )
+                crop_source_image = image
+
         crop_result: dict[str, Any] | None = None
         try:
-            crop_result = self._bird_crop_service.generate_crop(image) if self._bird_crop_service is not None else None
+            crop_result = self._bird_crop_service.generate_crop(crop_source_image) if self._bird_crop_service is not None else None
         except Exception as exc:
             diagnostics["crop_reason"] = "crop_service_error"
             log.warning(
@@ -3222,6 +3248,7 @@ class ClassifierService:
                 crop_attempted=True,
                 crop_applied=False,
                 crop_reason=diagnostics["crop_reason"],
+                source_reason=diagnostics.get("source_reason"),
                 error=_summarize_runtime_exception(exc),
             )
             return image, diagnostics
@@ -3236,6 +3263,7 @@ class ClassifierService:
                 crop_attempted=True,
                 crop_applied=True,
                 crop_reason=diagnostics["crop_reason"],
+                source_reason=diagnostics.get("source_reason"),
                 crop_box=(crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
             )
             return crop_image, diagnostics
@@ -3246,8 +3274,9 @@ class ClassifierService:
             crop_attempted=True,
             crop_applied=False,
             crop_reason=diagnostics["crop_reason"],
+            source_reason=diagnostics.get("source_reason"),
         )
-        return image, diagnostics
+        return crop_source_image, diagnostics
 
     def classify(
         self,

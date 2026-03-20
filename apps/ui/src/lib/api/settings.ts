@@ -1,5 +1,6 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
+import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
 
 export interface Settings {
     frigate_url: string;
@@ -28,6 +29,8 @@ export interface Settings {
     video_classification_max_concurrent: number;
     video_classification_frames: number;
     bird_model_region_override?: BirdModelRegionOverride;
+    crop_model_overrides?: Record<string, CropModelOverride>;
+    crop_source_overrides?: Record<string, CropSourceOverride>;
     image_execution_mode?: 'in_process' | 'subprocess' | string;
     strict_non_finite_output?: boolean;
     inference_provider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | string;

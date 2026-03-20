@@ -89,6 +89,8 @@
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
     } from '../settings/bird-model-region-override';
+    import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
+    import { buildCropOverrideSettings, resolveCropOverridesFromSettings } from '../settings/crop-overrides';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -118,6 +120,8 @@
     let videoClassificationMaxConcurrent = $state(5);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
+    let cropModelOverrides = $state<Record<string, CropModelOverride>>({});
+    let cropSourceOverrides = $state<Record<string, CropSourceOverride>>({});
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('in_process');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
@@ -1608,6 +1612,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 5 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
+            {
+                key: 'cropModelOverrides',
+                val: JSON.stringify(cropModelOverrides),
+                store: JSON.stringify(resolveCropOverridesFromSettings(s.crop_model_overrides, s.crop_source_overrides).cropModelOverrides),
+            },
+            {
+                key: 'cropSourceOverrides',
+                val: JSON.stringify(cropSourceOverrides),
+                store: JSON.stringify(resolveCropOverridesFromSettings(s.crop_model_overrides, s.crop_source_overrides).cropSourceOverrides),
+            },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: (s as any).strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
@@ -2399,6 +2413,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 5;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
+            ({ cropModelOverrides, cropSourceOverrides } = resolveCropOverridesFromSettings(
+                settings.crop_model_overrides,
+                settings.crop_source_overrides
+            ));
             imageExecutionMode = settings.image_execution_mode ?? 'in_process';
             strictNonFiniteOutput = (settings as any).strict_non_finite_output ?? true;
             inferenceProvider = (settings.inference_provider as any) ?? 'auto';
@@ -2681,6 +2699,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
+                ...buildCropOverrideSettings(cropModelOverrides, cropSourceOverrides),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
                 inference_provider: inferenceProvider,
@@ -3066,6 +3085,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
                     bind:birdModelRegionOverride
+                    bind:cropModelOverrides
+                    bind:cropSourceOverrides
                     bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}

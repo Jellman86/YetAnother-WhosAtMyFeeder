@@ -120,6 +120,20 @@ export interface ModelMetadata {
     sort_order: number;
     status: string;
     notes?: string;
+    family_id?: string;
+    default_region?: string;
+    region_variants?: Record<string, {
+        region_scope?: string;
+        name?: string;
+        crop_generator?: {
+            enabled?: boolean;
+            source_preference?: string;
+        };
+    }>;
+    crop_generator?: {
+        enabled?: boolean;
+        source_preference?: string;
+    };
 }
 
 export interface ModelMetadataSummary {

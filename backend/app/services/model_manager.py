@@ -8,6 +8,7 @@ from datetime import datetime, UTC
 from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
+from app.config_models import normalize_crop_model_override, normalize_crop_source_override
 from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 log = structlog.get_logger()
@@ -111,6 +112,7 @@ REMOTE_REGISTRY = [
                 },
                 "crop_generator": {
                     "enabled": True,
+                    "source_preference": "high_quality",
                     "input_context": {
                         "is_cropped": True,
                     },
@@ -254,6 +256,7 @@ REMOTE_REGISTRY = [
                 },
                 "crop_generator": {
                     "enabled": True,
+                    "source_preference": "high_quality",
                     "input_context": {
                         "is_cropped": True,
                     },
@@ -402,6 +405,67 @@ class ModelManager:
             config = CropGeneratorConfig()
         return config.model_dump(exclude_none=True)
 
+    def _get_crop_model_overrides(self) -> dict[str, str]:
+        raw = getattr(settings.classification, "crop_model_overrides", {}) or {}
+        if not isinstance(raw, dict):
+            return {}
+        normalized: dict[str, str] = {}
+        for raw_key, raw_value in raw.items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            normalized[key] = normalize_crop_model_override(raw_value)
+        return normalized
+
+    def _get_crop_source_overrides(self) -> dict[str, str]:
+        raw = getattr(settings.classification, "crop_source_overrides", {}) or {}
+        if not isinstance(raw, dict):
+            return {}
+        normalized: dict[str, str] = {}
+        for raw_key, raw_value in raw.items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            normalized[key] = normalize_crop_source_override(raw_value)
+        return normalized
+
+    def _apply_crop_overrides(self, spec: dict[str, Any]) -> dict[str, Any]:
+        merged = dict(spec)
+        crop_generator = self._normalize_crop_generator_block(merged.get("crop_generator"))
+
+        model_id = str(merged.get("model_id") or merged.get("id") or "").strip()
+        family_id = str(merged.get("family_id") or model_id or "").strip()
+        resolved_region = str(merged.get("resolved_region") or merged.get("region_scope") or "").strip()
+        variant_id = f"{family_id}.{resolved_region}" if family_id and resolved_region else ""
+
+        model_overrides = self._get_crop_model_overrides()
+        source_overrides = self._get_crop_source_overrides()
+
+        family_crop_override = model_overrides.get(family_id) or model_overrides.get(model_id) or "default"
+        variant_crop_override = model_overrides.get(variant_id, "default") if variant_id else "default"
+        effective_crop_override = (
+            variant_crop_override
+            if variant_crop_override != "default"
+            else family_crop_override
+        )
+        if effective_crop_override == "on":
+            crop_generator["enabled"] = True
+        elif effective_crop_override == "off":
+            crop_generator["enabled"] = False
+
+        family_source_override = source_overrides.get(family_id) or source_overrides.get(model_id) or "default"
+        variant_source_override = source_overrides.get(variant_id, "default") if variant_id else "default"
+        effective_source_override = (
+            variant_source_override
+            if variant_source_override != "default"
+            else family_source_override
+        )
+        if effective_source_override != "default":
+            crop_generator["source_preference"] = effective_source_override
+
+        merged["crop_generator"] = self._normalize_crop_generator_block(crop_generator)
+        return merged
+
     def _merge_family_variant_meta(
         self,
         model_meta: dict[str, Any],
@@ -501,10 +565,13 @@ class ModelManager:
         elif raw_label_grouping is not None:
             log.warning("Ignoring invalid label_grouping block in installed model config", model_dir=model_dir)
         merged["label_grouping"] = label_grouping
-        if "crop_generator" in config:
-            merged["crop_generator"] = self._normalize_crop_generator_block(config.get("crop_generator"))
-        else:
-            merged["crop_generator"] = self._normalize_crop_generator_block(spec.get("crop_generator"))
+        crop_generator = self._normalize_crop_generator_block(spec.get("crop_generator"))
+        raw_crop_generator = config.get("crop_generator")
+        if isinstance(raw_crop_generator, dict):
+            crop_generator.update(raw_crop_generator)
+        elif raw_crop_generator is not None:
+            log.warning("Ignoring invalid crop_generator block in installed model config", model_dir=model_dir)
+        merged["crop_generator"] = self._normalize_crop_generator_block(crop_generator)
         providers = config.get("supported_inference_providers")
         if isinstance(providers, list) and providers:
             merged["supported_inference_providers"] = list(providers)
@@ -559,6 +626,8 @@ class ModelManager:
             labels_path = os.path.join(variant_dir, "labels.txt")
             if os.path.exists(model_path):
                 spec = {
+                    "model_id": str(model_meta.get("id") or model_meta.get("family_id") or ""),
+                    "family_id": str(merged.get("family_id") or model_meta.get("family_id") or model_meta.get("id") or ""),
                     "model_path": model_path,
                     "labels_path": labels_path,
                     "input_size": int(merged.get("input_size", 224) or 224),
@@ -571,7 +640,9 @@ class ModelManager:
                     "model_config_url": merged.get("model_config_url"),
                     "crop_generator": self._normalize_crop_generator_block(merged.get("crop_generator")),
                 }
-                return self._apply_installed_model_config(spec, model_dir=variant_dir)
+                return self._apply_crop_overrides(
+                    self._apply_installed_model_config(spec, model_dir=variant_dir)
+                )
         return None
 
     def get_active_model_spec(
@@ -613,9 +684,11 @@ class ModelManager:
                     "model_config_url": model_meta.get("model_config_url"),
                     "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
                 }
-                return self._apply_installed_model_config(spec, model_dir=target_dir)
+                return self._apply_crop_overrides(
+                    self._apply_installed_model_config(spec, model_dir=target_dir)
+                )
 
-        return {
+        return self._apply_crop_overrides({
             "model_id": "mobilenet_v2_birds",
             "model_path": "model.tflite",
             "labels_path": "labels.txt",
@@ -626,7 +699,7 @@ class ModelManager:
             "supported_inference_providers": ["cpu"],
             "weights_url": None,
             "crop_generator": self._normalize_crop_generator_block(None),
-        }
+        })
 
     async def list_available_models(self) -> List[ModelMetadata]:
         """Fetch list of available models from remote registry."""
@@ -637,6 +710,7 @@ class ModelManager:
                 if self._is_family_model(model)
                 else dict(model)
             )
+            payload = self._apply_crop_overrides(payload)
             resolved_models.append(ModelMetadata(**payload))
         return resolved_models
 

@@ -142,6 +142,106 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         settings.classification.bird_model_region_override = original_override
 
 
+def test_get_active_model_spec_applies_family_crop_override_over_manifest_default(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    family_dir = tmp_path / "small_birds"
+    na_dir = family_dir / "na"
+    na_dir.mkdir(parents=True, exist_ok=True)
+    (na_dir / "model.onnx").write_bytes(b"na")
+    (na_dir / "labels.txt").write_text("na-label\n", encoding="utf-8")
+
+    manager = ModelManager()
+    manager.active_model_id = "small_birds"
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    original_crop_model_overrides = getattr(settings.classification, "crop_model_overrides", None)
+    original_crop_source_overrides = getattr(settings.classification, "crop_source_overrides", None)
+    settings.location.country = "US"
+    settings.classification.bird_model_region_override = "auto"
+    monkeypatch.setattr(settings.classification, "crop_model_overrides", {"small_birds": "off"}, raising=False)
+    monkeypatch.setattr(settings.classification, "crop_source_overrides", {"small_birds": "high_quality"}, raising=False)
+    try:
+        spec = manager.get_active_model_spec()
+
+        assert spec["resolved_region"] == "na"
+        assert spec["crop_generator"]["enabled"] is False
+        assert spec["crop_generator"]["source_preference"] == "high_quality"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
+        if original_crop_model_overrides is None:
+            try:
+                delattr(settings.classification, "crop_model_overrides")
+            except AttributeError:
+                pass
+        else:
+            settings.classification.crop_model_overrides = original_crop_model_overrides
+        if original_crop_source_overrides is None:
+            try:
+                delattr(settings.classification, "crop_source_overrides")
+            except AttributeError:
+                pass
+        else:
+            settings.classification.crop_source_overrides = original_crop_source_overrides
+
+
+def test_get_active_model_spec_variant_crop_override_beats_family_override(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    family_dir = tmp_path / "small_birds"
+    na_dir = family_dir / "na"
+    na_dir.mkdir(parents=True, exist_ok=True)
+    (na_dir / "model.onnx").write_bytes(b"na")
+    (na_dir / "labels.txt").write_text("na-label\n", encoding="utf-8")
+
+    manager = ModelManager()
+    manager.active_model_id = "small_birds"
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    original_crop_model_overrides = getattr(settings.classification, "crop_model_overrides", None)
+    original_crop_source_overrides = getattr(settings.classification, "crop_source_overrides", None)
+    settings.location.country = "US"
+    settings.classification.bird_model_region_override = "auto"
+    monkeypatch.setattr(
+        settings.classification,
+        "crop_model_overrides",
+        {"small_birds": "off", "small_birds.na": "on"},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        settings.classification,
+        "crop_source_overrides",
+        {"small_birds": "standard", "small_birds.na": "high_quality"},
+        raising=False,
+    )
+    try:
+        spec = manager.get_active_model_spec()
+
+        assert spec["resolved_region"] == "na"
+        assert spec["crop_generator"]["enabled"] is True
+        assert spec["crop_generator"]["source_preference"] == "high_quality"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
+        if original_crop_model_overrides is None:
+            try:
+                delattr(settings.classification, "crop_model_overrides")
+            except AttributeError:
+                pass
+        else:
+            settings.classification.crop_model_overrides = original_crop_model_overrides
+        if original_crop_source_overrides is None:
+            try:
+                delattr(settings.classification, "crop_source_overrides")
+            except AttributeError:
+                pass
+        else:
+            settings.classification.crop_source_overrides = original_crop_source_overrides
+
+
 def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
@@ -208,6 +308,47 @@ def test_get_active_model_spec_preserves_crop_generator_from_installed_model_con
 
     assert spec["crop_generator"]["enabled"] is True
     assert spec["crop_generator"]["input_context"]["is_cropped"] is True
+
+
+def test_get_active_model_spec_merges_partial_installed_crop_generator_with_registry_defaults(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    family_dir = tmp_path / "small_birds"
+    na_dir = family_dir / "na"
+    na_dir.mkdir(parents=True, exist_ok=True)
+    (na_dir / "model.onnx").write_bytes(b"onnx")
+    (na_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (na_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "input_size": 224,
+                "crop_generator": {
+                    "enabled": True,
+                    "input_context": {"is_cropped": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "small_birds"
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    settings.location.country = "US"
+    settings.classification.bird_model_region_override = "auto"
+    try:
+        spec = manager.get_active_model_spec()
+
+        assert spec["resolved_region"] == "na"
+        assert spec["crop_generator"]["enabled"] is True
+        assert spec["crop_generator"]["input_context"]["is_cropped"] is True
+        assert spec["crop_generator"]["source_preference"] == "high_quality"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
 
 
 def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp_path, monkeypatch):

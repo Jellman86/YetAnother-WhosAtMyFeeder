@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Detection Settings now lets owners override crop behavior and crop-source preference per model family and per regional variant, with shipped model-config defaults preserved underneath and high-quality snapshot preference available where crop generation is enabled.
+- **Fixed:** Installed `model_config.json` crop settings now merge with registry defaults instead of replacing them wholesale, so newly added defaults like `source_preference=high_quality` survive older sidecars that only specify `enabled` or input-context fields.
 - **Changed:** Downloaded model payloads are being standardized around a per-artifact `model_config.json` sidecar so preprocessing and provider metadata can travel with the installed model instead of relying on partially duplicated registry defaults.
 - **Added:** Bird-crop generation is now model-config-driven. Classification entrypoints pass `is_cropped` source context end-to-end, the classifier can run a shared fail-soft crop stage before preprocessing, and the current North America birds-only manifests explicitly opt into that stage while Frigate `crop=True` paths skip double-cropping.
 - **Added:** The bird-crop stage can now use a locally configured ONNX detector via `BIRD_CROP_MODEL_PATH`. If the detector is missing, unloadable, or returns unusable detections, classification falls back to the original image without breaking crop-enabled models.
