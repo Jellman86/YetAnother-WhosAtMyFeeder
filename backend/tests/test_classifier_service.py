@@ -1976,6 +1976,57 @@ async def test_classifier_service_accepts_input_context_and_normalizes_is_croppe
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_forwards_input_context_through_subprocess_supervisor(mock_tflite, mock_os_path_exists):
+    class _FakeSupervisor:
+        def __init__(self):
+            self.calls = []
+
+        async def classify(self, **kwargs):
+            self.calls.append(kwargs)
+            return [{"label": "Robin", "score": 0.93, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService(supervisor=_FakeSupervisor())
+        image = Image.new("RGB", (32, 32))
+
+        results = await service._run_supervised_inference(
+            "background",
+            image,
+            "front",
+            "bird-model",
+            {"is_cropped": True},
+        )
+
+        assert results[0]["label"] == "Robin"
+        assert service._classifier_supervisor.calls[0]["input_context"]["is_cropped"] is True
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_classify_wildlife_async_forwards_input_context(mock_tflite, mock_os_path_exists):
+    class _WildlifeModel:
+        def __init__(self):
+            self.loaded = True
+            self.calls = []
+
+        def classify(self, image, input_context=None):
+            self.calls.append(input_context)
+            return [{"label": "Sparrow", "score": 0.88, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        wildlife = _WildlifeModel()
+        service._models["wildlife"] = wildlife
+        image = Image.new("RGB", (32, 32))
+
+        results = await service.classify_wildlife_async(image, input_context={"is_cropped": True})
+
+        assert results[0]["label"] == "Sparrow"
+        assert wildlife.calls[0].is_cropped is True
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False

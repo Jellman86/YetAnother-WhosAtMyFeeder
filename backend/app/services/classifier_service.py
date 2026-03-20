@@ -3220,13 +3220,14 @@ class ClassifierService:
         image: Image.Image,
         camera_name: Optional[str],
         model_id: Optional[str],
-        input_context: ClassificationInputContext | None = None,
+        input_context: Any | None = None,
         *,
         work_id: str | None = None,
         lease_token: int | None = None,
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
+        normalized_input_context = _normalize_classification_input_context(input_context)
         try:
             return await self._classifier_supervisor.classify(
                 priority=priority,
@@ -3235,6 +3236,7 @@ class ClassifierService:
                 image_b64=self._encode_image_for_worker(image),
                 camera_name=camera_name,
                 model_id=model_id,
+                input_context=dict(normalized_input_context.model_dump()) if normalized_input_context is not None else None,
             )
         except ClassifierWorkerCircuitOpenError:
             if priority == "live":
@@ -3588,7 +3590,14 @@ class ClassifierService:
 
     async def classify_wildlife_async(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
         """Async wrapper for wildlife classification."""
-        return await self._run_image_inference(self.classify_wildlife, image)
+        return await self._run_coordinated_executor_inference(
+            "background",
+            self._image_executor,
+            "wildlife_image_inference",
+            self.classify_wildlife,
+            image,
+            input_context,
+        )
 
     def get_wildlife_labels(self) -> list[str]:
         wildlife = self._get_wildlife_model()

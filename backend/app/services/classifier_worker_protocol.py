@@ -126,6 +126,7 @@ def build_classify_request(
     image_b64: str,
     camera_name: str | None,
     model_id: str | None,
+    input_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     message = {
         "type": "classify",
@@ -139,6 +140,8 @@ def build_classify_request(
         message["camera_name"] = str(camera_name)
     if model_id is not None:
         message["model_id"] = str(model_id)
+    if input_context is not None:
+        message["input_context"] = dict(input_context)
     return message
 
 
