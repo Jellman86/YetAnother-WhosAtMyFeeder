@@ -30,7 +30,8 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
-    let activating = $state<string | null>(null); 
+    let activating = $state<string | null>(null);
+    let selectedModelId = $state<string | null>(null); 
     let showAdvancedModels = $state(false);
     let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
 
@@ -198,6 +199,15 @@
             health = healthData;
             classifierStatus = classifierData;
             cropDetectorStatus = classifierData?.crop_detector ?? null;
+            
+            if (!selectedModelId && installed.length > 0) {
+                const activeModel = installed.find(m => m.is_active);
+                if (activeModel) selectedModelId = activeModel.id;
+            }
+            if (!selectedModelId && available.length > 0) {
+                const classModels = available.filter(m => (m.artifact_kind || 'classifier') === 'classifier');
+                if (classModels.length > 0) selectedModelId = classModels[0].id;
+            }
         } catch (e) {
             console.error(e);
             error = t('settings.detection.model_manager_load_error', 'Failed to load models');
@@ -544,38 +554,59 @@
                 </div>
             {/if}
 
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+                <div class="flex-1">
                     <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_lineup_title', { default: 'Tiered model lineup' })}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
                         {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Advanced options stay collapsed until you open them.' })}
                     </p>
+                    <div class="w-full sm:max-w-md relative">
+                        <select
+                            bind:value={selectedModelId}
+                            class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
+                        >
+                            {#each visibleModels as m}
+                                <option value={m.id}>
+                                    {m.name} {isActive(m.id) ? '— Active' : isInstalled(m.id) ? '— Installed' : ''}
+                                </option>
+                            {/each}
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2 flex-wrap justify-end">
+                <div class="flex items-center gap-2 flex-wrap justify-start sm:justify-end pb-1">
                     {#if advancedCount > 0}
                         <button
-                            onclick={() => showAdvancedModels = !showAdvancedModels}
-                            class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            onclick={() => { 
+                                showAdvancedModels = !showAdvancedModels; 
+                                if (!showAdvancedModels) {
+                                    const m = visibleModels.find(x => x.id === selectedModelId);
+                                    if (m && m.advanced_only) {
+                                        selectedModelId = visibleModels.find(x => !x.advanced_only)?.id || null;
+                                    }
+                                }
+                            }}
+                            class="px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                         >
                             {showAdvancedModels
                                 ? $_('settings.detection.model_manager_hide_advanced', { default: 'Hide advanced models' })
                                 : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show advanced models ({count})' })}
                         </button>
                     {/if}
-                    <span class="shrink-0 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">
-                        {$_('settings.detection.model_manager_count', { values: { count: visibleModels.length }, default: '{count} visible' })}
-                    </span>
                 </div>
             </div>
 
             {#if !showAdvancedModels && advancedCount > 0}
-                <div class="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-{$_('settings.detection.model_manager_advanced_hidden', { default: 'Advanced models are hidden by default. Reveal them when you need the larger ONNX options.' })}
+                <div class="mb-6 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+                    {$_('settings.detection.model_manager_advanced_hidden', { default: 'Advanced models are hidden by default. Reveal them when you need the larger ONNX options.' })}
                 </div>
             {/if}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {#each visibleModels as model}
+            {#if selectedModelId}
+                {@const model = visibleModels.find(m => m.id === selectedModelId) || visibleModels[0]}
+                {#if model}
                 {@const installed = isInstalled(model.id)}
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
@@ -587,299 +618,299 @@
                 <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
                             {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
                     
-                    <div class="p-5 flex-1">
-                        <div class="flex justify-between items-start gap-2 mb-2 min-w-0">
-                            <h3 class="min-w-0 text-lg font-bold text-slate-900 dark:text-white break-words leading-tight">{model.name}</h3>
-                            {#if active}
-                                <span class="shrink-0 px-2 py-1 text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">
-                                    {$_('settings.detection.model_manager_active', { default: 'ACTIVE' })}
-                                </span>
-                            {/if}
-                        </div>
-                        
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3 h-10 line-clamp-2">
-                            {model.description}
-                        </p>
-
-                        <div class="mb-4 flex flex-wrap gap-2">
-                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${tierChipClass(model.tier)}`}>
-                                {tierLabel(model.tier)}
-                            </span>
-                            <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
-                                {scopeLabel(model.taxonomy_scope)}
-                            </span>
-                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${statusChipClass(model.status)}`}>
-                                {statusLabel(model.status)}
-                            </span>
-                            {#if formatRamLabel(model)}
-                                <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
-                                    {formatRamLabel(model)}
-                                </span>
-                            {/if}
-                        </div>
-
-                        <div class="mb-4 space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                    <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Left Col: Model details -->
+                        <div class="flex flex-col gap-5">
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended For' })}</p>
-                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">{model.recommended_for}</p>
-                            </div>
-                            {#if model.notes}
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_notes', { default: 'Notes' })}</p>
-                                    <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{model.name}</h3>
+                                    {#if active}
+                                        <span class="shrink-0 px-2.5 py-1 text-[10px] font-black tracking-wider bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 rounded-full border border-teal-200 dark:border-teal-800/50">
+                                            {$_('settings.detection.model_manager_active', { default: 'ACTIVE' })}
+                                        </span>
+                                    {/if}
                                 </div>
-                            {/if}
+                                <p class="text-sm text-slate-500 dark:text-slate-400">
+                                    {model.description}
+                                </p>
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${tierChipClass(model.tier)}`}>
+                                    {tierLabel(model.tier)}
+                                </span>
+                                <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
+                                    {scopeLabel(model.taxonomy_scope)}
+                                </span>
+                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${statusChipClass(model.status)}`}>
+                                    {statusLabel(model.status)}
+                                </span>
+                                {#if formatRamLabel(model)}
+                                    <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
+                                        {formatRamLabel(model)}
+                                    </span>
+                                {/if}
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4 space-y-3">
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended For' })}</p>
+                                    <p class="mt-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">{model.recommended_for}</p>
+                                </div>
+                                {#if model.notes}
+                                    <div>
+                                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_notes', { default: 'Notes' })}</p>
+                                        <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
+                                    </div>
+                                {/if}
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 text-sm text-slate-600 dark:text-slate-400">
+                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</span>
+                                    <span class="font-bold text-slate-700 dark:text-slate-200 mt-1">{model.architecture}</span>
+                                </div>
+                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_size', { default: 'Size' })}</span>
+                                    <span class="font-bold text-slate-700 dark:text-slate-200 mt-1">{model.file_size_mb} MB</span>
+                                </div>
+                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</span>
+                                    <span class="font-bold mt-1 {model.accuracy_tier === 'High' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}">
+                                        {model.accuracy_tier}
+                                    </span>
+                                </div>
+                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_speed', { default: 'Speed' })}</span>
+                                    <span class="font-bold mt-1 {model.inference_speed === 'Fast' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}">
+                                        {model.inference_speed}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 mb-4">
-                            <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</span>
-                                <span class="font-medium">{model.architecture}</span>
-                            </div>
-                            <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_size', { default: 'Size' })}</span>
-                                <span class="font-medium">{model.file_size_mb} MB</span>
-                            </div>
-                            <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</span>
-                                <span class="font-medium {model.accuracy_tier === 'High' ? 'text-emerald-600 dark:text-emerald-400' : ''}">
-                                    {model.accuracy_tier}
-                                </span>
-                            </div>
-                            <div class="flex flex-col p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-<span class="text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_speed', { default: 'Speed' })}</span>
-                                <span class="font-medium {model.inference_speed === 'Fast' ? 'text-emerald-600 dark:text-emerald-400' : ''}">
-                                    {model.inference_speed}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-2.5">
-                            <div class="flex items-center justify-between gap-2 mb-2">
-<span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</span>
-                                <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200">
-                                    {(model.runtime || 'cpu').toUpperCase()}
-                                </span>
-                            </div>
-                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
-{$_('settings.detection.model_manager_provider_pills', { default: 'Inference Provider Pills' })}
-                            </div>
-                            {#if active}
-                                {#if dynamicProviderChips.length > 0}
-                                    <div class="flex flex-wrap items-center gap-2 min-w-0">
-                                        {#each dynamicProviderChips as chip}
-                                            <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
-                                                {chip.label}
+                        <!-- Right Col: Config / Runtime -->
+                        <div class="flex flex-col gap-5">
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4">
+                                <div class="flex items-center justify-between gap-2 mb-4">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</span>
+                                    <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-sm">
+                                        {(model.runtime || 'cpu').toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">
+                                    {$_('settings.detection.model_manager_provider_pills', { default: 'Inference Provider Pills' })}
+                                </div>
+                                {#if active}
+                                    {#if dynamicProviderChips.length > 0}
+                                        <div class="flex flex-wrap items-center gap-2 min-w-0">
+                                            {#each dynamicProviderChips as chip}
+                                                <span class={`px-3 py-1.5 rounded-lg border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
+                                                    {chip.label}
+                                                </span>
+                                            {/each}
+                                        </div>
+                                    {:else}
+                                        <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                            {$_('settings.detection.model_manager_host_verification', { default: 'OpenVINO host verification is shown for the active ONNX model.' })}
+                                        </p>
+                                    {/if}
+                                {:else}
+                                    <div class="flex flex-wrap gap-2">
+                                        {#each getProviderSupport(model) as provider}
+                                            <span class={`px-3 py-1.5 rounded-lg border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
+                                                {providerLabel(provider)}
                                             </span>
                                         {/each}
                                     </div>
-                                {:else}
-                                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-{$_('settings.detection.model_manager_host_verification', { default: 'OpenVINO host verification is shown for the active ONNX model.' })}
+                                {/if}
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4">
+                                <div class="mb-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                        Crop behavior
+                                    </p>
+                                    <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                        Model default: <strong>{cropDefaultEnabledLabel(model.crop_generator)}</strong>. Force this model on or off if the shipped default does not fit your feeder.
+                                    </p>
+                                </div>
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <label class="flex flex-col gap-2">
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                            Crop behavior
+                                        </span>
+                                        <select
+                                            value={getCropModelOverrideValue(model.id)}
+                                            onchange={(event) => setCropModelOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                            disabled={cropControlsDisabled}
+                                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                        >
+                                            {#each CROP_MODEL_OVERRIDE_VALUES as option}
+                                                <option value={option}>{cropOverrideLabel(option)}</option>
+                                            {/each}
+                                        </select>
+                                    </label>
+                                    <label class="flex flex-col gap-2">
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                            Crop source
+                                        </span>
+                                        <select
+                                            value={getCropSourceOverrideValue(model.id)}
+                                            onchange={(event) => setCropSourceOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
+                                            disabled={cropControlsDisabled}
+                                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                        >
+                                            {#each CROP_SOURCE_OVERRIDE_VALUES as option}
+                                                <option value={option}>{cropSourceLabel(option)}</option>
+                                            {/each}
+                                        </select>
+                                    </label>
+                                </div>
+                                <p class="mt-3 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                                    Source default: <strong>{cropDefaultSourceLabel(model.crop_generator)}</strong>.
+                                </p>
+                                {#if cropControlsDisabled}
+                                    <p class="mt-3 text-xs font-medium leading-relaxed text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800/50">
+                                        Crop behavior requires the bird crop detector to be installed first.
                                     </p>
                                 {/if}
-                            {:else}
-                                <div class="flex flex-wrap gap-1.5">
-                                    {#each getProviderSupport(model) as provider}
-                                        <span class={`max-w-full px-2 py-1 rounded-full border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
-                                            {providerLabel(provider)}
-                                        </span>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
 
-                        <div class="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                            <div class="mb-3">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                    Crop behavior
-                                </p>
-                                <p class="mt-1 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">
-                                    Model default: {cropDefaultEnabledLabel(model.crop_generator)}. Force this model on or off if the shipped default does not fit your feeder.
-                                </p>
-                            </div>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <label class="flex flex-col gap-1.5">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                        Crop behavior
-                                    </span>
-                                    <select
-                                        value={getCropModelOverrideValue(model.id)}
-                                        onchange={(event) => setCropModelOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
-                                        disabled={cropControlsDisabled}
-                                        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                    >
-                                        {#each CROP_MODEL_OVERRIDE_VALUES as option}
-                                            <option value={option}>{cropOverrideLabel(option)}</option>
-                                        {/each}
-                                    </select>
-                                </label>
-                                <label class="flex flex-col gap-1.5">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                        Crop source
-                                    </span>
-                                    <select
-                                        value={getCropSourceOverrideValue(model.id)}
-                                        onchange={(event) => setCropSourceOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
-                                        disabled={cropControlsDisabled}
-                                        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                    >
-                                        {#each CROP_SOURCE_OVERRIDE_VALUES as option}
-                                            <option value={option}>{cropSourceLabel(option)}</option>
-                                        {/each}
-                                    </select>
-                                </label>
-                            </div>
-                            <p class="mt-2 text-[11px] font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                                Source default: {cropDefaultSourceLabel(model.crop_generator)}.
-                            </p>
-                            {#if cropControlsDisabled}
-                                <p class="mt-2 text-[11px] font-medium leading-relaxed text-amber-700 dark:text-amber-300">
-                                    Crop behavior requires the bird crop detector to be installed first.
-                                </p>
-                            {/if}
-
-                            {#if variantEntries.length > 0}
-                                <details class="mt-3 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-600/80 dark:bg-slate-800/60">
-                                    <summary class="cursor-pointer text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                        Regional variant overrides
-                                    </summary>
-                                    <div class="mt-3 space-y-3">
-                                        {#each variantEntries as variant}
-                                            {@const variantMeta = model.region_variants?.[variant.region]}
-                                            <div class="rounded-lg border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-600/80 dark:bg-slate-900/40">
-                                                <div class="mb-2 flex items-center justify-between gap-3">
-                                                    <div>
-                                                        <p class="text-xs font-black text-slate-900 dark:text-white">{variant.label}</p>
-                                                        <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                                            {variant.id}
-                                                        </p>
+                                {#if variantEntries.length > 0}
+                                    <details class="mt-4 rounded-xl border border-slate-200/80 bg-white/70 px-4 py-3 dark:border-slate-600/80 dark:bg-slate-800/60">
+                                        <summary class="cursor-pointer text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                            Regional variant overrides
+                                        </summary>
+                                        <div class="mt-4 space-y-4">
+                                            {#each variantEntries as variant}
+                                                {@const variantMeta = model.region_variants?.[variant.region]}
+                                                <div class="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-600/80 dark:bg-slate-900/40">
+                                                    <div class="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                        <div>
+                                                            <p class="text-sm font-black text-slate-900 dark:text-white">{variant.label}</p>
+                                                            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                                                {variant.id}
+                                                            </p>
+                                                        </div>
+                                                        <div class="text-left sm:text-right text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded shadow-sm border border-slate-100 dark:border-slate-700">
+                                                            <div>Default crop: <span class="text-slate-700 dark:text-slate-300">{cropDefaultEnabledLabel(variantMeta?.crop_generator)}</span></div>
+                                                            <div>Default source: <span class="text-slate-700 dark:text-slate-300">{cropDefaultSourceLabel(variantMeta?.crop_generator)}</span></div>
+                                                        </div>
                                                     </div>
-                                                    <div class="text-right text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                                        <div>Default crop: {cropDefaultEnabledLabel(variantMeta?.crop_generator)}</div>
-                                                        <div>Default source: {cropDefaultSourceLabel(variantMeta?.crop_generator)}</div>
+                                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+                                                        <label class="flex flex-col gap-2">
+                                                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                                Crop behavior
+                                                            </span>
+                                                            <select
+                                                                value={getCropModelOverrideValue(variant.id)}
+                                                                onchange={(event) => setCropModelOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                                disabled={cropControlsDisabled}
+                                                                class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                            >
+                                                                {#each CROP_MODEL_OVERRIDE_VALUES as option}
+                                                                    <option value={option}>{cropOverrideLabel(option)}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </label>
+                                                        <label class="flex flex-col gap-2">
+                                                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                                Crop source
+                                                            </span>
+                                                            <select
+                                                                value={getCropSourceOverrideValue(variant.id)}
+                                                                onchange={(event) => setCropSourceOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
+                                                                disabled={cropControlsDisabled}
+                                                                class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                                                            >
+                                                                {#each CROP_SOURCE_OVERRIDE_VALUES as option}
+                                                                    <option value={option}>{cropSourceLabel(option)}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </label>
                                                     </div>
                                                 </div>
-                                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    <label class="flex flex-col gap-1.5">
-                                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                                            Crop behavior
-                                                        </span>
-                                                        <select
-                                                            value={getCropModelOverrideValue(variant.id)}
-                                                            onchange={(event) => setCropModelOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
-                                                            disabled={cropControlsDisabled}
-                                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                        >
-                                                            {#each CROP_MODEL_OVERRIDE_VALUES as option}
-                                                                <option value={option}>{cropOverrideLabel(option)}</option>
-                                                            {/each}
-                                                        </select>
-                                                    </label>
-                                                    <label class="flex flex-col gap-1.5">
-                                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                                            Crop source
-                                                        </span>
-                                                        <select
-                                                            value={getCropSourceOverrideValue(variant.id)}
-                                                            onchange={(event) => setCropSourceOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
-                                                            disabled={cropControlsDisabled}
-                                                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                        >
-                                                            {#each CROP_SOURCE_OVERRIDE_VALUES as option}
-                                                                <option value={option}>{cropSourceLabel(option)}</option>
-                                                            {/each}
-                                                        </select>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        {/each}
-                                    </div>
-                                </details>
-                            {/if}
+                                            {/each}
+                                        </div>
+                                    </details>
+                                {/if}
+                            </div>
                         </div>
+                    </div>
 
+                    <!-- Bottom Bar: Actions & Progress -->
+                    <div class="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-xl flex flex-col gap-4">
                         {#if inProgress}
-                            <div class="mt-4">
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-teal-600 dark:text-teal-400 font-medium">
+                            <div class="w-full">
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-2">
+                                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
                                         {installed
                                             ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading...' })
                                             : $_('settings.detection.model_manager_downloading', { default: 'Downloading...' })}
                                     </span>
-                                    <span class="text-slate-500">{download.progress.toFixed(0)}%</span>
+                                    <span class="text-slate-600 dark:text-slate-300 font-medium">{download.progress.toFixed(0)}%</span>
                                 </div>
-                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
                                     <div class="bg-teal-500 h-full transition-all duration-300" style="width: {download.progress}%"></div>
                                 </div>
                             </div>
-                        {/if}
-                        {#if download?.status === 'error' && download.error}
-                            <div class="mt-4 p-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20 text-[11px] font-medium text-red-700 dark:text-red-300">
-                                {download.error}
-                            </div>
-                        {/if}
-                    </div>
+                        {:else}
+                            {#if download?.status === 'error' && download.error}
+                                <div class="w-full p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20 text-sm font-medium text-red-700 dark:text-red-300">
+                                    {download.error}
+                                </div>
+                            {/if}
 
-                    <div class="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-xl">
-                        {#if inProgress}
-                            <button
-                                disabled
-                                class="w-full px-4 py-2 text-sm font-medium text-slate-400 bg-slate-100 dark:bg-slate-700 rounded-lg cursor-default flex items-center justify-center gap-2"
-                            >
-                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                {installed
-                                    ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading...' })
-                                    : $_('settings.detection.model_manager_downloading', { default: 'Downloading...' })}
-                            </button>
-                        {:else if installed}
-                            <div class="space-y-2">
-                                {#if active}
+                            <div class="flex flex-col sm:flex-row gap-3 w-full justify-end">
+                                {#if installed}
                                     <button
-                                        disabled
-                                        class="w-full px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-lg opacity-75 cursor-default"
+                                        onclick={() => handleDownload(model)}
+                                        class="px-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-xl transition-colors flex items-center justify-center gap-2"
                                     >
-                                        {$_('settings.detection.model_manager_currently_active', { default: 'Currently Active' })}
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        {$_('settings.detection.model_manager_redownload', { default: 'Re-download' })}
                                     </button>
+                                    {#if active}
+                                        <button
+                                            disabled
+                                            class="px-6 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-xl opacity-75 cursor-default border border-teal-200 dark:border-teal-800/50"
+                                        >
+                                            {$_('settings.detection.model_manager_currently_active', { default: 'Currently Active' })}
+                                        </button>
+                                    {:else}
+                                        <button
+                                            onclick={() => handleActivate(model.id)}
+                                            disabled={activating !== null}
+                                            class="px-6 py-2.5 text-sm font-bold text-white bg-teal-500 hover:bg-teal-600 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+                                        >
+                                            {activating === model.id
+                                                ? $_('settings.detection.model_manager_activating', { default: 'Activating...' })
+                                                : $_('settings.detection.model_manager_activate', { default: 'Activate Model' })}
+                                        </button>
+                                    {/if}
                                 {:else}
                                     <button
-                                        onclick={() => handleActivate(model.id)}
-                                        disabled={activating !== null}
-                                        class="w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors disabled:opacity-50"
+                                        onclick={() => handleDownload(model)}
+                                        class="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
                                     >
-                                        {activating === model.id
-                                            ? $_('settings.detection.model_manager_activating', { default: 'Activating...' })
-                                            : $_('settings.detection.model_manager_activate', { default: 'Activate' })}
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        {$_('settings.detection.model_manager_download', { default: 'Download Model' })}
                                     </button>
                                 {/if}
-                                <button
-                                    onclick={() => handleDownload(model)}
-                                    class="w-full px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                    {$_('settings.detection.model_manager_redownload', { default: 'Re-download' })}
-                                </button>
                             </div>
-                        {:else}
-                            <button
-                                onclick={() => handleDownload(model)}
-                                class="w-full px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                {$_('settings.detection.model_manager_download', { default: 'Download' })}
-                            </button>
                         {/if}
                     </div>
                 </div>
-            {/each}
-            </div>
+                {/if}
+            {/if}
         </div>
     {/if}
 </div>
