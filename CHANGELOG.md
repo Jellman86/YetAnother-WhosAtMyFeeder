@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Explorer now keeps the desktop `Time`, `Species`, and `Camera` filters in a compact three-column layout instead of stretching each control full width, and the page-level bulk-tagging toggle is labeled `Multi Select` to better communicate its purpose.
+- **Fixed:** Clicking the Dashboard navigation item while already on `/` now forces the dashboard view to remount and refresh, preventing stale summary content from lingering across repeated nav clicks.
 - **Fixed:** Batch/manual video analysis snapshot fallback now uses the low-priority background image-classification path instead of the generic image path, retries temporary background-capacity pressure, and records overload as `background_image_overloaded` instead of incorrectly collapsing it into `snapshot_no_results`.
 - **Fixed:** Snapshot-fallback video analysis now only records success when snapshot classification actually succeeds. Failed snapshot fallback no longer clears the video-classifier failure state by calling the success path unconditionally.
 - **Fixed:** The classification admission coordinator now handles queue-timeout races more defensively and cancels rejected queued result futures instead of leaving unconsumed timeout exceptions behind, eliminating the noisy `Future exception was never retrieved` warnings seen during overloaded batch fallback runs.
