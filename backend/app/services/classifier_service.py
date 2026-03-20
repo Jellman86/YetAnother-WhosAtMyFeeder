@@ -3952,9 +3952,11 @@ class ClassifierService:
         progress_callback=None,
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_context: Any | None = None,
         propagate_worker_failure: bool = False,
     ) -> list[dict]:
         """Async wrapper for video classification."""
+        _normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 

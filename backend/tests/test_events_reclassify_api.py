@@ -272,7 +272,10 @@ async def test_reclassify_snapshot_passes_cropped_input_context(client: httpx.As
 
         assert response.status_code == 200, response.text
         classifier.classify_async.assert_awaited_once()
-        assert classifier.classify_async.await_args.kwargs["input_context"] == {"is_cropped": True}
+        assert classifier.classify_async.await_args.kwargs["input_context"] == {
+            "is_cropped": True,
+            "event_id": event_id,
+        }
     finally:
         await _delete_detection(event_id)
         app.dependency_overrides.pop(require_owner, None)

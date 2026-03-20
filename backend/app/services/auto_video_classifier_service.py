@@ -577,6 +577,7 @@ class AutoVideoClassifierService:
                             max_frames=settings.classification.video_classification_frames,
                             progress_callback=progress_callback,
                             camera_name=camera,
+                            input_context={"is_cropped": False, "event_id": frigate_event},
                             propagate_worker_failure=True,
                         ),
                         timeout=timeout
@@ -915,7 +916,7 @@ class AutoVideoClassifierService:
         results = await self._classifier.classify_async(
             image,
             camera_name=camera,
-            input_context={"is_cropped": True},
+            input_context={"is_cropped": True, "event_id": frigate_event},
         )
         if not results:
             await self._update_status(frigate_event, 'failed', error="snapshot_no_results", broadcast=True)

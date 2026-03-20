@@ -6,7 +6,7 @@ Wire the existing crop-generator stage to a real locally managed detector so cro
 
 ## Decision
 
-Use one global local detector path for the backend, and keep crop application controlled per classifier model via `model_config.json`.
+Use one global local detector for the backend, discovered from the standard models directory by default, and keep crop application controlled per classifier model via `model_config.json`.
 
 That splits responsibility cleanly:
 
@@ -20,6 +20,7 @@ This is better than putting detector paths into every model manifest:
 - one detector is loaded once instead of duplicating config
 - fewer opportunities for inconsistent local paths
 - simpler debugging when crop generation is unavailable
+- no compose-file requirement when the detector is placed under the normal models directory
 - still flexible enough because per-model manifests already control opt-in
 
 ## Runtime Contract
@@ -101,8 +102,8 @@ The detector is an enhancement, not a dependency.
 
 Rules:
 
-- if `BIRD_CROP_MODEL_PATH` is unset, crop generation returns `load_failed`
-- if the file does not exist or is unreadable, crop generation returns `load_failed`
+- if no detector is found in autodiscovery paths and `BIRD_CROP_MODEL_PATH` is unset, crop generation returns `load_failed`
+- if the discovered file or overridden file does not exist or is unreadable, crop generation returns `load_failed`
 - if ONNX Runtime cannot create a session, crop generation returns `load_failed`
 - if inference errors, crop generation returns `inference_failed`
 - if detector output is malformed or yields no valid bird box, classification uses the original image

@@ -670,7 +670,7 @@ class EventProcessor:
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,
-                input_context={"is_cropped": True},
+                input_context={"is_cropped": True, "event_id": event.frigate_event},
             )
 
             if not results:

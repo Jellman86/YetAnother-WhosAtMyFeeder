@@ -4,6 +4,7 @@ import importlib
 import math
 import os
 import threading
+from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
@@ -74,15 +75,13 @@ class BirdCropService:
     def _load_model(self) -> Any | None:
         if self._model_loader is not None:
             return self._model_loader()
-        model_path = os.getenv("BIRD_CROP_MODEL_PATH")
-        if not model_path:
-            return None
-        if not os.path.exists(model_path):
+        model_path = self._resolve_model_path()
+        if model_path is None:
             return None
         ort = self._import_onnxruntime()
         sess_options = ort.SessionOptions()
         session = ort.InferenceSession(
-            model_path,
+            str(model_path),
             sess_options=sess_options,
             providers=["CPUExecutionProvider"],
         )
@@ -105,8 +104,40 @@ class BirdCropService:
                 str(getattr(output, "name", "") or "")
                 for output in (session_outputs or [])
             ],
-            "model_path": model_path,
+            "model_path": str(model_path),
         }
+
+    def _resolve_model_path(self) -> Path | None:
+        for candidate in self._candidate_model_paths():
+            normalized = Path(str(candidate or "")).expanduser()
+            if normalized.is_file():
+                return normalized
+        return None
+
+    def _candidate_model_paths(self) -> list[str]:
+        env_path = str(os.getenv("BIRD_CROP_MODEL_PATH") or "").strip()
+        candidates: list[str] = []
+        if env_path:
+            candidates.append(env_path)
+
+        base_dirs = [
+            "/data/models",
+            str((Path(__file__).resolve().parent / "../../data/models").resolve()),
+        ]
+        seen: set[str] = set()
+        for base_dir in base_dirs:
+            normalized_base = str(base_dir or "").strip()
+            if not normalized_base or normalized_base in seen:
+                continue
+            seen.add(normalized_base)
+            candidates.extend(
+                [
+                    os.path.join(normalized_base, self.model_id, "model.onnx"),
+                    os.path.join(normalized_base, f"{self.model_id}.onnx"),
+                    os.path.join(normalized_base, self.model_id, f"{self.model_id}.onnx"),
+                ]
+            )
+        return candidates
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)

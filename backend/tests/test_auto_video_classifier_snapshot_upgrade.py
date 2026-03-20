@@ -78,9 +78,33 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
         await service._process_event("evt-batch-fallback", "cam1", skip_delay=True, fallback_to_snapshot=True)
 
     service._classifier.classify_async.assert_awaited_once()
-    assert service._classifier.classify_async.await_args.kwargs["input_context"] == {"is_cropped": True}
+    assert service._classifier.classify_async.await_args.kwargs["input_context"] == {
+        "is_cropped": True,
+        "event_id": "evt-batch-fallback",
+    }
     service._save_results.assert_awaited_once_with("evt-batch-fallback", {"label": "Robin", "score": 0.88, "index": 1})
     service._auto_delete_if_missing.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_event_passes_event_id_into_video_classification_context():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 1}])
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+        await service._process_event("evt-batch-video-context", "cam1", skip_delay=True)
+
+    service._classifier.classify_video_async.assert_awaited_once()
+    assert service._classifier.classify_video_async.await_args.kwargs["input_context"] == {
+        "is_cropped": False,
+        "event_id": "evt-batch-video-context",
+    }
 
 
 @pytest.mark.asyncio

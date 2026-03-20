@@ -995,6 +995,7 @@ async def reclassify_event(
                                     tmp_path,
                                     progress_callback=progress_callback,
                                     camera_name=detection.camera_name,
+                                    input_context={"is_cropped": False, "event_id": event_id},
                                 )
 
                                 # Broadcast completion
@@ -1038,7 +1039,7 @@ async def reclassify_event(
                 results = await classifier.classify_async(
                     image,
                     camera_name=detection.camera_name,
-                    input_context={"is_cropped": True},
+                    input_context={"is_cropped": True, "event_id": event_id},
                 )
 
                 # Broadcast completion

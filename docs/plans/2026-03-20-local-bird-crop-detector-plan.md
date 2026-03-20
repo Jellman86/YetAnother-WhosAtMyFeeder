@@ -4,7 +4,7 @@
 
 **Goal:** Wire the existing crop-generator stage to a real locally configured ONNX bird detector without making classification depend on that detector being present.
 
-**Architecture:** Keep crop policy model-driven via `model_config.json`, but load one global local detector from `BIRD_CROP_MODEL_PATH` inside `BirdCropService`. The service should use ONNX Runtime, parse detector candidates into bounding boxes, and fail soft back to the original image whenever the detector is missing, unloadable, or returns unusable results.
+**Architecture:** Keep crop policy model-driven via `model_config.json`, but load one global local detector inside `BirdCropService` by autodiscovering standard model paths first and honoring `BIRD_CROP_MODEL_PATH` as an explicit override. The service should use ONNX Runtime, parse detector candidates into bounding boxes, and fail soft back to the original image whenever the detector is missing, unloadable, or returns unusable results.
 
 **Tech Stack:** Python, ONNX Runtime, Pillow, FastAPI backend services, pytest
 
@@ -174,7 +174,7 @@ git commit -m "test(classifier): verify detector crop fallback behavior"
 **Step 1: Update docs**
 
 Document:
-- that the crop detector is now locally configurable via `BIRD_CROP_MODEL_PATH`
+- that the crop detector is now locally discoverable from the standard models directory and still overrideable via `BIRD_CROP_MODEL_PATH`
 - that crop-enabled models still fail soft when the detector is unavailable
 
 **Step 2: Run regression verification**

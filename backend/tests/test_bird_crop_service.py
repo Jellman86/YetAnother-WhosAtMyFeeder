@@ -191,6 +191,36 @@ def test_load_model_uses_local_onnx_detector_path(monkeypatch, tmp_path):
     assert loaded["session"].__class__.__name__ == "_FakeSession"
 
 
+def test_load_model_autodiscovers_standard_detector_path_without_env(monkeypatch, tmp_path):
+    model_dir = tmp_path / "bird_crop"
+    model_dir.mkdir(parents=True)
+    model_path = model_dir / "model.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 640, 640])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            assert path == str(model_path)
+            assert providers == ["CPUExecutionProvider"]
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.delenv("BIRD_CROP_MODEL_PATH", raising=False)
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_candidate_model_paths", lambda: [str(model_path)])
+
+    loaded = service._load_model()
+
+    assert loaded is not None
+    assert loaded["model_path"] == str(model_path)
+
+
 def test_load_model_handles_nhwc_input_shape(monkeypatch, tmp_path):
     model_path = tmp_path / "bird_crop.onnx"
     model_path.write_bytes(b"fake")
