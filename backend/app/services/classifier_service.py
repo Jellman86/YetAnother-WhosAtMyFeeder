@@ -41,14 +41,16 @@ except ImportError:
 def _detect_openvino_support() -> dict:
     """Resolve OpenVINO Core import across package versions.
 
-    OpenVINO 2026+ exposes `openvino.Core`, while older versions commonly use
-    `openvino.runtime.Core`.
+    OpenVINO 2025+ exposes the stable ``openvino.Core`` directly.
+    The legacy ``openvino.runtime.Core`` path was deprecated in 2025.x and
+    removed in 2026.0. We try the new path first and fall back for pre-2025
+    installations.
     """
     attempts: list[str] = []
 
     for module_name, attr_name, import_path in (
-        ("openvino.runtime", "Core", "openvino.runtime.Core"),
         ("openvino", "Core", "openvino.Core"),
+        ("openvino.runtime", "Core", "openvino.runtime.Core"),
     ):
         try:
             module = importlib.import_module(module_name)

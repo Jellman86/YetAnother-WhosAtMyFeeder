@@ -114,8 +114,8 @@ REMOTE_REGISTRY = [
                     "resize_mode": "center_crop",
                     "interpolation": "bicubic",
                     "crop_pct": 1.0,
-                    "mean": [0.5248, 0.5372, 0.5086],
-                    "std": [0.2135, 0.2103, 0.2622],
+                    "mean": [0.5191, 0.5306, 0.4877],
+                    "std": [0.2316, 0.2304, 0.2588],
                     "normalization": "float32",
                 },
                 "crop_generator": {
@@ -190,7 +190,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces near-uniform/degenerate output in end-to-end inference and is not supported. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
     },
     {
         "id": "hieradet_small_inat21",

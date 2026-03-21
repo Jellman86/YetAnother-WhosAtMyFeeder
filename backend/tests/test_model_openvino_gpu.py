@@ -55,7 +55,7 @@ GPU_VALIDATED: set[str] = set()
 #: Models where Intel GPU is NOT supported, with the failure reason.
 #: These have all been tested on Intel integrated GPU with OpenVINO 2024.6.
 GPU_NOT_SUPPORTED: dict[str, str] = {
-    "convnext_large_inat21":      "Degenerate output — compiles without NaN but produces near-uniform (~0.0001) confidences on real images in full pipeline; effectively unusable",
+    "convnext_large_inat21":      "Wrong predictions — compiles and runs without NaN/crash (static reshape required), but GPU logit spread is ~3-7 vs ~15 on CPU; top predictions are entirely wrong species (including plants) while CPU achieves 96% confidence on the same image. Root cause: numeric precision degradation in ConvNeXt depthwise-conv + LayerNorm on this Intel iGPU.",
     "rope_vit_b14_inat21":        "NaN output — RoPE attention ops produce non-finite values in f32 on Intel GPU (caught by startup self-test)",
     "hieradet_small_inat21":      "NaN output — ViT attention produces non-finite values in f32 on Intel GPU (caught by startup self-test)",
     "hieradet_dino_small_inat21": "Compile error — HieraDeT architecture fails to load on OpenVINO GPU plugin",

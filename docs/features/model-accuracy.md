@@ -44,7 +44,7 @@ All models were tested on OpenVINO 2024.6 with an Intel integrated GPU. **No mod
 
 | Model | Intel GPU Status | Failure Mode |
 |-------|-----------------|--------------|
-| ConvNeXt Large | ❌ Not supported | Near-uniform output (~0.0001 per class) on real images — passes NaN check but produces garbage predictions |
+| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~15 on CPU; top-1 is completely wrong species (including plants) while CPU gives 96% correct. Numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. Static batch reshape prevents crash but cannot fix output quality. |
 | EVA-02 Large | ❌ Not supported | OpenCL execution crash (`clWaitForEvents -14`) |
 | RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops in f32 (caught by startup self-test) |
 | HieraDeT Small | ❌ Not supported | NaN output — ViT attention in f32 (caught by startup self-test) |
