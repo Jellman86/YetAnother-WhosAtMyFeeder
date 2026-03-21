@@ -372,11 +372,19 @@ class DetectionService:
                 required_score = max(required_score, disagreement_min_score)
                 override_reason = "score_gate_passed_with_sublabel_disagreement"
 
+            # Minimum confidence required to promote a video result onto an
+            # Unknown-Bird detection.  Deliberately permissive (much lower than
+            # the main threshold) so genuine identifications still get through,
+            # but high enough to block noise-level scores (e.g. 0.05 from a
+            # blank or corrupt frame) from replacing the Unknown label with an
+            # implausible species.
+            _UNKNOWN_UPGRADE_MIN_SCORE = 0.10
+
             if manual_tagged:
                 should_override = True
                 override_reason = "manual_tagged"
             elif existing_is_unknown:
-                should_override = True
+                should_override = video_score >= _UNKNOWN_UPGRADE_MIN_SCORE
                 override_reason = "existing_unknown"
             else:
                 should_override = bool(video_score >= required_score)

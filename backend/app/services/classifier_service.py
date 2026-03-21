@@ -3582,7 +3582,11 @@ class ClassifierService:
                 raise LiveImageClassificationOverloadedError("classify_snapshot_overloaded") from None
 
             self._image_admission_timeouts += 1
-            log.warning(
+            # Emit WARNING on the first timeout in a burst so it surfaces in
+            # logs, then drop to DEBUG for subsequent ones to avoid flooding
+            # during bulk backfill runs where many events hit the gate at once.
+            _timeout_log = log.warning if self._image_admission_timeouts == 1 else log.debug
+            _timeout_log(
                 "Image classification admission timed out; dropping request",
                 timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
                 max_concurrent=capacity,

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import tempfile
 import structlog
 import time
@@ -541,6 +542,12 @@ class AutoVideoClassifierService:
                         "Falling back to snapshot classification for missing retained clip",
                         event_id=frigate_event,
                     )
+                    # Small random jitter before the first snapshot admission
+                    # attempt.  During bulk backfill runs many workers hit
+                    # "clip not retained" simultaneously; without jitter they
+                    # all race the single background-image admission slot at the
+                    # same instant, generating a burst of admission timeouts.
+                    await asyncio.sleep(random.uniform(0.0, 0.5))
                     snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
                     if snapshot_error is None:
                         self._record_success(frigate_event)

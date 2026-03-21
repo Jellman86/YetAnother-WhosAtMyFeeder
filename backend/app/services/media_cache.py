@@ -19,6 +19,12 @@ SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
 PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 
+# Frigate returns a ~78-byte stub body for clips whose recordings were not
+# retained (expired or never saved).  Any cached file smaller than this
+# threshold is treated as a corrupt placeholder and is rejected at every
+# cache boundary so callers always receive None rather than an unusable path.
+_MIN_VALID_CLIP_BYTES = 512
+
 
 class MediaCacheService:
     """Manages local caching of snapshots and clips from Frigate.
@@ -249,6 +255,14 @@ class MediaCacheService:
         if not self._available:
             log.warning("Media cache unavailable; skipping clip cache write", error=self._init_error)
             return None
+        if len(clip_bytes) < _MIN_VALID_CLIP_BYTES:
+            log.warning(
+                "Refusing to cache stub clip (Frigate clip not retained)",
+                event_id=event_id,
+                size=len(clip_bytes),
+                min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+            )
+            return None
         try:
             path = self._clip_path(event_id)
             async with aiofiles.open(path, 'wb') as f:
@@ -288,9 +302,14 @@ class MediaCacheService:
                         await f.write(chunk)
                         total_size += len(chunk)
             
-            if total_size == 0:
-                log.warning("Downloaded empty clip (0 bytes)", event_id=event_id)
-                # Clean up empty file
+            if total_size < _MIN_VALID_CLIP_BYTES:
+                log.warning(
+                    "Downloaded clip is too small to be valid (Frigate clip not retained)",
+                    event_id=event_id,
+                    size=total_size,
+                    min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+                )
+                # Clean up the stub file so it is not treated as a real clip later
                 try:
                     if path.exists():
                         path.unlink()
@@ -322,25 +341,31 @@ class MediaCacheService:
         """
         path = self._clip_path(event_id)
         if path.exists():
-            # Check that file has content (not 0 bytes from failed download)
-            if path.stat().st_size > 0:
-                # Update access time
+            size = path.stat().st_size
+            if size >= _MIN_VALID_CLIP_BYTES:
+                # Update access time for LRU-like behaviour
                 os.utime(path, None)
                 return path
             else:
-                # Remove empty/corrupt file so it will be refetched
+                # Remove stub / empty files so they are refetched rather than
+                # silently served to callers (e.g. thumbnail generator → OpenCV).
                 try:
                     path.unlink()
-                    log.warning("Removed empty cached clip", event_id=event_id)
+                    log.warning(
+                        "Removed invalid cached clip (stub or empty)",
+                        event_id=event_id,
+                        size=size,
+                        min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+                    )
                 except Exception:
                     pass
         return None
 
     def has_clip(self, event_id: str) -> bool:
-        """Check if a clip is cached and has content."""
+        """Check if a clip is cached and has valid content (not a stub)."""
         try:
             path = self._clip_path(event_id)
-            return path.exists() and path.stat().st_size > 0
+            return path.exists() and path.stat().st_size >= _MIN_VALID_CLIP_BYTES
         except ValueError:
             # Invalid event_id
             return False
@@ -452,7 +477,8 @@ class MediaCacheService:
             except Exception as e:
                 log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
 
-        # Clean empty clips
+        # Clean empty clips (0-byte artifacts from failed writes).
+        # Sub-threshold stub files are handled by get_clip_path at read time.
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
                 if path.stat().st_size == 0:

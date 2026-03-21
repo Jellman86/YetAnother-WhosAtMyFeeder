@@ -523,6 +523,16 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
                         status_code=502,
                         detail=i18n_service.translate("errors.proxy.empty_clip", lang)
                     )
+                # Reject Frigate stub responses (clip not retained).
+                # Frigate returns ~78 bytes for expired clips; no valid MP4 is
+                # this small, so treat anything under the same threshold used by
+                # the media cache as a missing clip rather than crashing OpenCV.
+                from app.services.media_cache import _MIN_VALID_CLIP_BYTES
+                if len(resp.content) < _MIN_VALID_CLIP_BYTES:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                    )
                 with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
                     tmp.write(resp.content)
                     temp_clip = FilePath(tmp.name)
