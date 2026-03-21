@@ -64,11 +64,12 @@ REMOTE_REGISTRY = [
             "color_space": "RGB",
             "resize_mode": "letterbox",
             "interpolation": "bicubic",
-            "padding_color": 128,
+            "padding_color": 0,
             "normalization": "uint8"
         },
         "tier": "cpu_only",
         "taxonomy_scope": "birds_only",
+        "recommended_threshold": 0.70,
         "recommended_for": "Default bird-only inference on CPU and low-RAM devices.",
         "estimated_ram_mb": 128,
         "advanced_only": False,
@@ -91,6 +92,7 @@ REMOTE_REGISTRY = [
         "input_size": 224,
         "tier": "small",
         "taxonomy_scope": "birds_only",
+        "recommended_threshold": 0.65,
         "recommended_for": "Regional birds-only small model with auto region selection.",
         "estimated_ram_mb": 768,
         "advanced_only": False,
@@ -130,8 +132,9 @@ REMOTE_REGISTRY = [
                 "input_size": 224,
                 "preprocessing": {
                     "color_space": "RGB",
-                    "resize_mode": "direct_resize",
-                    "interpolation": "bilinear",
+                    "resize_mode": "center_crop",
+                    "interpolation": "bicubic",
+                    "crop_pct": 0.875,
                     "mean": [0.485, 0.456, 0.406],
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
@@ -178,12 +181,13 @@ REMOTE_REGISTRY = [
         "license": "CC-BY-NC-4.0",
         "tier": "large",
         "taxonomy_scope": "wildlife_wide",
+        "recommended_threshold": 0.45,
         "recommended_for": "General-purpose wildlife classification with strong accuracy across birds, mammals, and insects.",
         "estimated_ram_mb": 2048,
         "advanced_only": False,
         "sort_order": 20,
         "status": "stable",
-        "notes": "Higher-accuracy broad model."
+        "notes": "Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
     },
     {
         "id": "hieradet_small_inat21",
@@ -212,12 +216,13 @@ REMOTE_REGISTRY = [
         "license": "Apache-2.0",
         "tier": "small",
         "taxonomy_scope": "wildlife_wide",
+        "recommended_threshold": 0.45,
         "recommended_for": "Broad wildlife classification on CPU or Intel GPU when you want a lighter recommendation before stepping up to RoPE or ConvNeXt.",
         "estimated_ram_mb": 1024,
         "advanced_only": True,
         "sort_order": 15,
         "status": "experimental",
-        "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
+        "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "medium_birds",
@@ -234,6 +239,7 @@ REMOTE_REGISTRY = [
         "input_size": 224,
         "tier": "medium",
         "taxonomy_scope": "birds_only",
+        "recommended_threshold": 0.65,
         "recommended_for": "Regional birds-only medium model with auto region selection.",
         "estimated_ram_mb": 1536,
         "advanced_only": False,
@@ -274,8 +280,9 @@ REMOTE_REGISTRY = [
                 "input_size": 224,
                 "preprocessing": {
                     "color_space": "RGB",
-                    "resize_mode": "direct_resize",
-                    "interpolation": "bilinear",
+                    "resize_mode": "center_crop",
+                    "interpolation": "bicubic",
+                    "crop_pct": 0.875,
                     "mean": [0.485, 0.456, 0.406],
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
@@ -321,12 +328,13 @@ REMOTE_REGISTRY = [
         "license": "Apache-2.0",
         "tier": "medium",
         "taxonomy_scope": "wildlife_wide",
+        "recommended_threshold": 0.45,
         "recommended_for": "Broader wildlife coverage with stronger accuracy than the small model while staying lighter than ConvNeXt large.",
         "estimated_ram_mb": 1536,
         "advanced_only": True,
         "sort_order": 18,
         "status": "experimental",
-        "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed."
+        "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "eva02_large_inat21",
@@ -355,12 +363,13 @@ REMOTE_REGISTRY = [
         "license": "CC-BY-NC-4.0",
         "tier": "advanced",
         "taxonomy_scope": "wildlife_wide",
+        "recommended_threshold": 0.45,
         "recommended_for": "Highest-accuracy wildlife classification for advanced users with more compute and RAM.",
         "estimated_ram_mb": 3072,
         "advanced_only": True,
         "sort_order": 30,
         "status": "stable",
-        "notes": "Elite accuracy model."
+        "notes": "Elite accuracy model. Uses a 10,000-class label space; recommended threshold is 0.45."
     }
 ]
 

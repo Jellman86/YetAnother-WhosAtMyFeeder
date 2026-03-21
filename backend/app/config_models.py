@@ -195,7 +195,7 @@ class FrigateSettings(BaseModel):
     audio_correlation_window_seconds: int = Field(default=300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
 
 class ClassificationSettings(BaseModel):
-    model: str = "model.tflite"
+    model: str = "convnext_large_inat21"
     threshold: float = 0.7
     min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
     blocked_labels: list[str] = Field(

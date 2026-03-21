@@ -663,6 +663,14 @@
                                         <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
                                     </div>
                                 {/if}
+                                {#if model.recommended_threshold != null}
+                                    <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-900/20">
+                                        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <p class="text-[10px] font-bold leading-relaxed text-amber-700 dark:text-amber-300">
+                                            {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })} <span class="font-black">{Math.round(model.recommended_threshold * 100)}%</span>
+                                        </p>
+                                    </div>
+                                {/if}
                             </div>
 
                             <div class="grid grid-cols-2 gap-3 text-sm text-slate-600 dark:text-slate-400">

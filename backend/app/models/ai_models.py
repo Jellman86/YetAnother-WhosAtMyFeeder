@@ -49,6 +49,7 @@ class ModelMetadata(YAWAMFBaseModel):
     sort_order: int = 0
     status: str = "stable"
     notes: Optional[str] = None
+    recommended_threshold: Optional[float] = None
     family_id: Optional[str] = None
     default_region: Optional[str] = None
     region_variants: Optional[Dict[str, Dict[str, Any]]] = None

@@ -153,6 +153,7 @@ export interface ModelMetadata {
     sort_order: number;
     status: string;
     notes?: string;
+    recommended_threshold?: number;
     family_id?: string;
     default_region?: string;
     region_variants?: Record<string, {
