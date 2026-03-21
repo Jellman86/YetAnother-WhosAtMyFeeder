@@ -17,10 +17,7 @@ Results are measured against 60 labeled bird images drawn from iNaturalist (15 s
 | **RoPE ViT-B14** | medium | wildlife_wide | **70.0%** | **86.7%** | 474ms | intel_cpu |
 | **EVA-02 Large** | advanced | wildlife_wide | **75.0%** | **88.3%** | 1621ms | intel_cpu |
 | **ConvNeXt Large** | large | wildlife_wide | **70.0%** | **86.7%** | 832ms | intel_cpu |
-| **HieraDeT Small (DINO)** | small | wildlife_wide | 70.0% | 81.7% | 551ms | cpu |
-| **HieraDeT Small** | small | wildlife_wide | 61.7% | 81.7% | 271ms | intel_cpu |
 | **MobileNet V2** (legacy TFLite) | cpu_only | birds_only | 66.7% | 73.3% | 13ms | tflite |
-| **EfficientNet Lite4** (legacy TFLite) | cpu_only | birds_only | 66.7% | 73.3% | 13ms | tflite |
 | **EU FocalNet-B** | medium | birds_only (EU) | 56.7% | 65.0% | 716ms | intel_cpu |
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 46.7% | 56.7% | 64ms | intel_cpu |
 | **Small Birds** (EU variant) | small | birds_only (EU) | 46.7% | 53.3% | 62ms | intel_cpu |
@@ -32,25 +29,22 @@ Results are measured against 60 labeled bird images drawn from iNaturalist (15 s
 ### Key Takeaways
 
 - **EVA-02 Large** achieves the highest top-1 accuracy (75%) but is slow (~1.6s) and requires ~3GB RAM.
-- **RoPE ViT-B14** and **ConvNeXt Large** tie at 70% top-1 / 86.7% top-5 — RoPE is faster (474ms vs 832ms) making it the recommended default.
-- **HieraDeT Small (DINOv2)** matches RoPE ViT on top-1 accuracy (70%) at slightly faster speed and smaller model size — worth considering for constrained systems.
-- **Legacy TFLite models** (MobileNet V2, EfficientNet Lite4) are fast (13ms) but accuracy is lower. They are hidden in the UI by default and labeled as legacy/lower-performing.
+- **RoPE ViT-B14** and **ConvNeXt Large** tie at 70% top-1 / 86.7% top-5 — RoPE is faster (474ms vs 832ms) making it the recommended default for wildlife-wide classification.
+- **Legacy TFLite MobileNet V2** is fast (13ms) but lower accuracy. Hidden in the UI by default and labelled as legacy.
 
 ---
 
 ## Intel GPU Support
 
-All models were tested on OpenVINO 2024.6 with an Intel integrated GPU. **No model currently produces correct output on Intel GPU** on this hardware:
+Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 
 | Model | Intel GPU Status | Failure Mode |
 |-------|-----------------|--------------|
-| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~15 on CPU; top-1 is completely wrong species (including plants) while CPU gives 96% correct. Numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. Static batch reshape prevents crash but cannot fix output quality. |
-| EVA-02 Large | ❌ Not supported | OpenCL execution crash (`clWaitForEvents -14`) |
-| RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops in f32 (caught by startup self-test) |
-| HieraDeT Small | ❌ Not supported | NaN output — ViT attention in f32 (caught by startup self-test) |
-| HieraDeT DINO Small | ❌ Not supported | Compile error — architecture fails to load on GPU plugin |
-| FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention in f32 (caught by startup self-test) |
-| EU FocalNet-B | ❌ Not supported | Degrades to CPU after startup — GPU output not reliable end-to-end |
+| EU FocalNet-B | ✅ Validated | Correct finite output. Static-batch reshape required (applied automatically). |
+| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~15 on CPU; top-1 is entirely wrong species. Numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. |
+| RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops produce non-finite values in f32. |
+| FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention produces non-finite values in f32. |
+| EVA-02 Large | ❌ Fatal crash | `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES` — kills the process. Do not use with Intel GPU. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. Set the provider to `Intel CPU (OpenVINO)` for best performance without a GPU.
 
