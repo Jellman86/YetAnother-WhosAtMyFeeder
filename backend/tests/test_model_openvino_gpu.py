@@ -448,6 +448,8 @@ def test_preprocessing_config_matches_ground_truth(model_id: str, expected: dict
         model_dir = base / model_id
         if not model_dir.exists():
             pytest.skip(f"{model_id} not installed — download it first")
+        if not (model_dir / "model_config.json").exists():
+            pytest.skip(f"{model_id} model_config.json missing — download it first")
 
     config = _load_config(model_dir)
     preproc = config.get("preprocessing") or {}
