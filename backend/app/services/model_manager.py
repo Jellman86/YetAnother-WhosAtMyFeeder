@@ -275,7 +275,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (87%+)",
         "inference_speed": "Medium-Slow (~300-500ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_model_config.json",
