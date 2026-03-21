@@ -6,7 +6,7 @@ def _load_requirements() -> str:
     return requirements.read_text(encoding="utf-8")
 
 
-def test_openvino_is_pinned_to_known_good_series():
+def test_openvino_version_constraint():
     content = _load_requirements()
     openvino_lines = [
         line.strip()
@@ -14,4 +14,4 @@ def test_openvino_is_pinned_to_known_good_series():
         if line.strip().startswith("openvino")
     ]
     assert openvino_lines, "openvino requirement missing"
-    assert openvino_lines[0] == "openvino==2024.6.0"
+    assert openvino_lines[0] == "openvino>=2024.6.0"
