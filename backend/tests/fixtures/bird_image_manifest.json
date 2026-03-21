@@ -110,7 +110,7 @@
       "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "All-black thrush, very common EU garden bird"
+      "notes": "All-black thrush, very common EU garden bird. eurasian_blackbird_01/02/03 are very dark/underexposed — known cross-model failures predicting reptiles at low confidence."
     },
     {
       "id": "house_sparrow",
@@ -130,7 +130,7 @@
       "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "Cosmopolitan swallow, present in all regional model scopes"
+      "notes": "Cosmopolitan swallow, present in all regional model scopes. barn_swallow_01 has squirrel in foreground; barn_swallow_02 had an egret dominating frame — both are known cross-model failures."
     },
     {
       "id": "mallard",

@@ -187,6 +187,9 @@ REMOTE_REGISTRY = [
         "advanced_only": False,
         "sort_order": 20,
         "status": "stable",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
     },
     {
@@ -222,6 +225,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 15,
         "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
@@ -256,6 +262,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 16,
         "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "Exported from Birder pretrained weights (hieradet_d_small_dino-v2-inat21-256px). Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
@@ -290,6 +299,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 19,
         "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
     },
     {
@@ -325,6 +337,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 13,
         "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "Exported from Birder pretrained weights (flexivit_reg1_s16_rms_ls_dino-v2-il-all). 550 global bird species, uses ONNX external data file."
     },
     {
@@ -437,6 +452,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 18,
         "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
@@ -472,6 +490,9 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 30,
         "status": "stable",
+        "crop_generator": {
+            "enabled": True,
+        },
         "notes": "Elite accuracy model. Uses a 10,000-class label space; recommended threshold is 0.45."
     }
 ]
