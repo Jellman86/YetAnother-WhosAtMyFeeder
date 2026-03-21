@@ -54,11 +54,13 @@ async def clear_detections():
     async with get_db() as db:
         await db.execute("DELETE FROM detections")
         await db.execute("DELETE FROM taxonomy_cache")
+        await db.execute("DELETE FROM taxonomy_translations")
         await db.commit()
     yield
     async with get_db() as db:
         await db.execute("DELETE FROM detections")
         await db.execute("DELETE FROM taxonomy_cache")
+        await db.execute("DELETE FROM taxonomy_translations")
         await db.commit()
 
 
@@ -112,6 +114,18 @@ async def _insert_taxonomy_cache(*, scientific_name: str, common_name: str, taxa
             VALUES (?, ?, ?, 0)
             """,
             (scientific_name, common_name, taxa_id),
+        )
+        await db.commit()
+
+
+async def _insert_taxonomy_translation(*, taxa_id: int, language_code: str, common_name: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_translations (taxa_id, language_code, common_name)
+            VALUES (?, ?, ?)
+            """,
+            (taxa_id, language_code, common_name),
         )
         await db.commit()
 
@@ -605,3 +619,81 @@ async def test_ebird_export_range_filter_still_applies_after_strict_row_suppress
     assert len(rows) == 1
     assert rows[0][0] == "Great Tit"
     assert rows[0][8] == "03/13/2026"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_uses_taxonomy_translations_english_when_cache_is_localized(
+    client: httpx.AsyncClient,
+):
+    """When taxonomy_cache holds a localized (non-ASCII) name and taxonomy_translations
+    has an English entry, the export must use the English translation rather than
+    falling back to the scientific name.  This is the real-world scenario for Russian
+    (or any non-Latin-script) locale users whose taxonomy_cache is populated in their
+    native language.
+    """
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    taxa_id = 848484
+    # taxonomy_cache has the Russian name — no English entry here
+    await _insert_taxonomy_cache(
+        scientific_name="Parus major",
+        common_name="Большая синица",
+        taxa_id=taxa_id,
+    )
+    # taxonomy_translations has the English name
+    await _insert_taxonomy_translation(taxa_id=taxa_id, language_code="en", common_name="Great Tit")
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 18, 8, 0, 0),
+        score=0.94,
+        display_name="Большая синица",
+        scientific_name="Parus major",
+        common_name="Большая синица",
+        taxa_id=taxa_id,
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    # Must resolve to the English translation, not "Parus major"
+    assert rows[0][0] == "Great Tit"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_uses_taxonomy_translations_english_via_scientific_name_join(
+    client: httpx.AsyncClient,
+):
+    """English name should be found via the scientific_name → taxonomy_cache → taxa_id
+    → taxonomy_translations chain even when the detection has no taxa_id stored.
+    """
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    taxa_id = 919191
+    await _insert_taxonomy_cache(
+        scientific_name="Cyanistes caeruleus",
+        common_name="Лазоревка",  # Russian — localized
+        taxa_id=taxa_id,
+    )
+    await _insert_taxonomy_translation(taxa_id=taxa_id, language_code="en", common_name="Eurasian Blue Tit")
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 18, 9, 0, 0),
+        score=0.91,
+        display_name="Лазоревка",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Лазоревка",
+        taxa_id=None,  # no taxa_id stored on detection — must resolve via sci_name chain
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 1
+    assert rows[0][0] == "Eurasian Blue Tit"

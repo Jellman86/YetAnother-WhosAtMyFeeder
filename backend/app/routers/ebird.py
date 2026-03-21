@@ -240,6 +240,31 @@ async def export_ebird_csv(
                     d.video_classification_provider,
                     d.video_classification_backend,
                     COALESCE(
+                        -- 1. English name from taxonomy_translations keyed by the
+                        --    detection's taxa_id (most reliable English source when the
+                        --    taxonomy_cache common_name is a localized/non-ASCII name).
+                        (
+                            SELECT tt_by_taxa.common_name
+                            FROM taxonomy_translations tt_by_taxa
+                            WHERE d.taxa_id IS NOT NULL
+                              AND tt_by_taxa.taxa_id = d.taxa_id
+                              AND tt_by_taxa.language_code = 'en'
+                            LIMIT 1
+                        ),
+                        -- 2. English name from taxonomy_translations resolved via
+                        --    scientific_name → taxonomy_cache → taxa_id chain.
+                        (
+                            SELECT tt_by_sci.common_name
+                            FROM taxonomy_translations tt_by_sci
+                            JOIN taxonomy_cache tc_sci
+                              ON tc_sci.taxa_id = tt_by_sci.taxa_id
+                            WHERE d.scientific_name IS NOT NULL
+                              AND LOWER(tc_sci.scientific_name) = LOWER(d.scientific_name)
+                              AND tt_by_sci.language_code = 'en'
+                            LIMIT 1
+                        ),
+                        -- 3. taxonomy_cache common_name matched by scientific_name
+                        --    (may be localized; Python _is_english_safe_name will filter).
                         (
                             SELECT tc_by_name.common_name
                             FROM taxonomy_cache tc_by_name
@@ -251,6 +276,7 @@ async def export_ebird_csv(
                             ORDER BY tc_by_name.id ASC
                             LIMIT 1
                         ),
+                        -- 4. taxonomy_cache common_name matched by taxa_id.
                         (
                             SELECT tc_by_taxa.common_name
                             FROM taxonomy_cache tc_by_taxa
