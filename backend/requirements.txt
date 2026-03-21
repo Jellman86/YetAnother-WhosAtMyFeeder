@@ -19,10 +19,15 @@ tensorflow-cpu; python_version >= '3.12'
 # ONNX Runtime (GPU wheel includes CPU fallback and CUDA provider when host libs are present)
 onnxruntime-gpu>=1.16.0
 # OpenVINO runtime for Intel CPU/iGPU acceleration.
-# Unpinned: the code handles both the legacy openvino.runtime.Core API (<=2024.x)
-# and the new openvino.Core API (2025.x/2026.x). OpenVINO 2025.4 contains a
-# LayerNorm GPU fix that may improve iGPU inference for ViT-based models.
-openvino>=2024.6.0
+# Pinned to 2025.4.x: 2025.4 introduced a LayerNorm scale/bias reshape fix
+# (confirmed in Intel release notes) that is required for correct ViT-based
+# model inference. Upper bound <2026.0 excludes the 2026.0 major release —
+# openvino.runtime is removed there (handled in code) but empirical testing
+# showed EVA-02 triggers a fatal process crash (clWaitForEvents -14 /
+# terminate called) on Intel iGPU under 2026.0.0; 2026.0.1 is not on PyPI.
+# The code uses openvino.Core (2025+ API); openvino.runtime fallback retained
+# for any pre-2025 installations that may be present in existing environments.
+openvino>=2025.4.0,<2026.0
 aiomqtt==2.0.1
 alembic==1.13.1
 opencv-python-headless<4.11

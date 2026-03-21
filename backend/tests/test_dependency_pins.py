@@ -14,4 +14,4 @@ def test_openvino_version_constraint():
         if line.strip().startswith("openvino")
     ]
     assert openvino_lines, "openvino requirement missing"
-    assert openvino_lines[0] == "openvino>=2024.6.0"
+    assert openvino_lines[0] == "openvino>=2025.4.0,<2026.0"
