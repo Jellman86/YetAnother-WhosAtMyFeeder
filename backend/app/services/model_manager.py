@@ -192,81 +192,6 @@ REMOTE_REGISTRY = [
         "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
     },
     {
-        "id": "hieradet_small_inat21",
-        "name": "ViT Small (Balanced)",
-        "description": "Compact iNat21 classifier tuned for broad wildlife coverage with a smaller ONNX footprint than the medium and large models.",
-        "architecture": "ViT Reg4 M16 RMS Avg (I-JEPA)",
-        "file_size_mb": 167,
-        "accuracy_tier": "High (83%+)",
-        "inference_speed": "Medium (~150-300ms)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx",
-        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx.data",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_model_config.json",
-        "input_size": 256,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225],
-            "normalization": "float32"
-        },
-        "license": "Apache-2.0",
-        "tier": "small",
-        "taxonomy_scope": "wildlife_wide",
-        "recommended_threshold": 0.45,
-        "recommended_for": "Broad wildlife classification on CPU or Intel CPU (OpenVINO) when you want a lighter model before stepping up to RoPE or ConvNeXt.",
-        "estimated_ram_mb": 1024,
-        "advanced_only": True,
-        "sort_order": 15,
-        "status": "experimental",
-        "crop_generator": {
-            "enabled": True,
-        },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this model architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
-    },
-    {
-        "id": "hieradet_dino_small_inat21",
-        "name": "HieraDeT DINOv2 Small (Wildlife)",
-        "description": "Compact iNat21 wildlife classifier using HieraDeT architecture pretrained with DINOv2. 10,000 species at 256px — lighter than the large models with strong broad-wildlife coverage.",
-        "architecture": "HieraDeT-D-Small + DINOv2",
-        "file_size_mb": 159,
-        "accuracy_tier": "High (84%+)",
-        "inference_speed": "Medium (~120-250ms)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21_model_config.json",
-        "input_size": 256,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5191, 0.5306, 0.4877],
-            "std": [0.2316, 0.2304, 0.2588],
-            "normalization": "float32"
-        },
-        "license": "Apache-2.0",
-        "tier": "small",
-        "taxonomy_scope": "wildlife_wide",
-        "recommended_threshold": 0.45,
-        "recommended_for": "Broad wildlife classification — lighter alternative to RoPE ViT for CPU-constrained systems.",
-        "estimated_ram_mb": 768,
-        "advanced_only": True,
-        "sort_order": 16,
-        "status": "experimental",
-        "crop_generator": {
-            "enabled": True,
-        },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU fails to compile this architecture. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
-    },
-    {
         "id": "eu_medium_focalnet_b",
         "name": "FocalNet-B EU Medium (Birds Only)",
         "description": "EU-focused birds-only FocalNet-B model from the Birder project. Covers 707 European species at 384px resolution with excellent regional accuracy.",
@@ -301,7 +226,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU shows degenerate output in end-to-end tests and is not supported. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
+        "notes": "CPU, Intel CPU (OpenVINO), and Intel GPU validated (OpenVINO 2025.4.1, static-batch reshape required). CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
     },
     {
         "id": "flexivit_il_all",
@@ -331,7 +256,7 @@ REMOTE_REGISTRY = [
         "tier": "small",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.60,
-        "recommended_for": "Global feeder setups or regions without a dedicated regional model. Compact and fast.",
+        "recommended_for": "Global feeder setups or regions without a dedicated regional model (Asia, South America, Africa). Compact and fast.",
         "estimated_ram_mb": 512,
         "advanced_only": True,
         "sort_order": 13,
@@ -339,7 +264,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this model architecture and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file."
     },
     {
         "id": "medium_birds",

@@ -83,14 +83,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "(caught by startup self-test). Model uses standard LayerNorm; may benefit from "
         "2025.4 LayerNorm fix — re-test after upgrading containers."
     ),
-    "hieradet_small_inat21": (
-        "NaN output — ViT Reg4 with RMSNorm produces non-finite values in f32 on Intel GPU "
-        "(caught by startup self-test). Uses RMSNorm not LayerNorm, so 2025.4 LayerNorm fix "
-        "is unlikely to help."
-    ),
-    "hieradet_dino_small_inat21": (
-        "Compile error — HieraDeT architecture fails to load on OpenVINO GPU plugin."
-    ),
     "flexivit_il_all": (
         "NaN output — FlexiViT DINOv2 with RMSNorm produces non-finite values in f32 on "
         "Intel GPU (caught by startup self-test). Uses RMSNorm not LayerNorm."
@@ -136,22 +128,6 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "interpolation": "bicubic",
         "mean": [0.48145466, 0.4578275, 0.40821073],
         "std":  [0.26862954, 0.26130258, 0.27577711],
-    },
-    "hieradet_small_inat21": {
-        "input_size": 256,
-        "resize_mode": "center_crop",
-        "crop_pct": 1.0,
-        "interpolation": "bicubic",
-        "mean": [0.485, 0.456, 0.406],
-        "std":  [0.229, 0.224, 0.225],
-    },
-    "hieradet_dino_small_inat21": {
-        "input_size": 256,
-        "resize_mode": "center_crop",
-        "crop_pct": 1.0,
-        "interpolation": "bicubic",
-        "mean": [0.5191, 0.5306, 0.4877],
-        "std":  [0.2316, 0.2304, 0.2588],
     },
     "rope_vit_b14_inat21": {
         "input_size": 224,
@@ -633,7 +609,7 @@ def test_gpu_unsupported_model_fails_or_produces_degenerate_output(
     )
 
     if not compile_ok:
-        # Expected for hieradet_dino (compile error)
+        # Some models fail to compile on GPU (e.g. architecture plugin incompatibility)
         return
 
     assert compiled is not None
