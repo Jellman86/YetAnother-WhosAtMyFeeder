@@ -193,6 +193,60 @@ async def test_bird_classifier(
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
+@router.post("/classify")
+async def classify_image(
+    image: UploadFile = File(...),
+    top_n: int = Query(default=10, ge=1, le=50),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Classify an uploaded image through the full pipeline and return rich diagnostics.
+
+    Returns top-N predictions with scores, inference timing, active provider,
+    and model metadata. Useful for validating model accuracy and pipeline health.
+    Owner only.
+    """
+    import io
+    import time as _time
+    from PIL import Image
+
+    try:
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+    except Exception as e:
+        return {"status": "error", "error": f"Failed to decode image: {e}"}
+
+    status = classifier_service.get_status()
+    active_model_id = status.get("active_model_id")
+    inference_backend = status.get("inference_backend")
+    active_provider = status.get("active_provider")
+
+    t0 = _time.perf_counter()
+    try:
+        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
+            results = await classifier_service.classify_async_background(
+                pil_image, input_context={"is_cropped": False}
+            )
+        else:
+            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+    except Exception as e:
+        import traceback
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+    inference_ms = round((_time.perf_counter() - t0) * 1000, 1)
+
+    return {
+        "status": "ok",
+        "model_id": active_model_id,
+        "inference_backend": inference_backend,
+        "active_provider": active_provider,
+        "inference_ms": inference_ms,
+        "image_size": list(pil_image.size),
+        "predictions": [
+            {"rank": i + 1, "label": r.get("label", ""), "score": round(float(r.get("score", 0)), 6)}
+            for i, r in enumerate((results or [])[:top_n])
+        ],
+    }
+
+
 @router.post("/probe")
 async def probe_bird_classifier_runtime(
     device: str = Query(default="GPU"),

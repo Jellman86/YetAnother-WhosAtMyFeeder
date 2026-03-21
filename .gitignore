@@ -204,3 +204,7 @@ backend/data/models/**/*.onnx
 apps/telemetry-worker/.wrangler/
 
 backend/venv/
+
+# Test fixture images (downloaded at test-time, not committed)
+backend/tests/fixtures/bird_images/
+backend/tests/fixtures/synthetic/

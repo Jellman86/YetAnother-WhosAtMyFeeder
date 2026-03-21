@@ -1,0 +1,179 @@
+{
+  "_comment": "Test fixture manifest for model accuracy validation. Images are downloaded from iNaturalist (CC-BY/CC0 research-grade observations). Run scripts/download_test_fixtures.py to fetch images before running integration tests.",
+  "version": "1",
+  "test_cases": [
+    {
+      "id": "northern_cardinal",
+      "common_name": "Northern Cardinal",
+      "scientific_name": "Cardinalis cardinalis",
+      "inat_taxon_id": 9083,
+      "acceptable_labels": ["Northern Cardinal", "Cardinalis cardinalis", "cardinal"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Highly distinctive red plumage, common NA feeder bird"
+    },
+    {
+      "id": "blue_jay",
+      "common_name": "Blue Jay",
+      "scientific_name": "Cyanocitta cristata",
+      "inat_taxon_id": 9109,
+      "acceptable_labels": ["Blue Jay", "Cyanocitta cristata"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Bold blue/white coloring, very common NA feeder bird"
+    },
+    {
+      "id": "american_robin",
+      "common_name": "American Robin",
+      "scientific_name": "Turdus migratorius",
+      "inat_taxon_id": 20380,
+      "acceptable_labels": ["American Robin", "Turdus migratorius"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Orange breast, very common and distinctive"
+    },
+    {
+      "id": "house_finch",
+      "common_name": "House Finch",
+      "scientific_name": "Haemorhous mexicanus",
+      "inat_taxon_id": 12727,
+      "acceptable_labels": ["House Finch", "Haemorhous mexicanus", "Carpodacus mexicanus"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Red-headed finch, ubiquitous at NA feeders"
+    },
+    {
+      "id": "american_goldfinch",
+      "common_name": "American Goldfinch",
+      "scientific_name": "Spinus tristis",
+      "inat_taxon_id": 13892,
+      "acceptable_labels": ["American Goldfinch", "Spinus tristis", "goldfinch"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Bright yellow male, common NA feeder bird"
+    },
+    {
+      "id": "downy_woodpecker",
+      "common_name": "Downy Woodpecker",
+      "scientific_name": "Dryobates pubescens",
+      "inat_taxon_id": 18788,
+      "acceptable_labels": ["Downy Woodpecker", "Dryobates pubescens", "Picoides pubescens"],
+      "scope": ["na", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Black-and-white woodpecker, common at suet feeders"
+    },
+    {
+      "id": "european_robin",
+      "common_name": "European Robin",
+      "scientific_name": "Erithacus rubecula",
+      "inat_taxon_id": 14886,
+      "acceptable_labels": ["European Robin", "Erithacus rubecula", "Robin", "robin"],
+      "scope": ["eu", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Iconic EU feeder bird with orange-red breast"
+    },
+    {
+      "id": "great_tit",
+      "common_name": "Great Tit",
+      "scientific_name": "Parus major",
+      "inat_taxon_id": 12570,
+      "acceptable_labels": ["Great Tit", "Parus major"],
+      "scope": ["eu", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Black/yellow/white tit, very common EU garden bird"
+    },
+    {
+      "id": "blue_tit",
+      "common_name": "Blue Tit",
+      "scientific_name": "Cyanistes caeruleus",
+      "inat_taxon_id": 12572,
+      "acceptable_labels": ["Blue Tit", "Cyanistes caeruleus", "Parus caeruleus"],
+      "scope": ["eu", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Small blue/yellow tit, iconic EU feeder bird"
+    },
+    {
+      "id": "chaffinch",
+      "common_name": "Chaffinch",
+      "scientific_name": "Fringilla coelebs",
+      "inat_taxon_id": 12583,
+      "acceptable_labels": ["Chaffinch", "Fringilla coelebs", "common chaffinch"],
+      "scope": ["eu", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Very common EU garden finch"
+    },
+    {
+      "id": "eurasian_blackbird",
+      "common_name": "Eurasian Blackbird",
+      "scientific_name": "Turdus merula",
+      "inat_taxon_id": 20370,
+      "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
+      "scope": ["eu", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "All-black thrush, very common EU garden bird"
+    },
+    {
+      "id": "house_sparrow",
+      "common_name": "House Sparrow",
+      "scientific_name": "Passer domesticus",
+      "inat_taxon_id": 9781,
+      "acceptable_labels": ["House Sparrow", "Passer domesticus"],
+      "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Cosmopolitan species present on all continents, good cross-model test"
+    },
+    {
+      "id": "barn_swallow",
+      "common_name": "Barn Swallow",
+      "scientific_name": "Hirundo rustica",
+      "inat_taxon_id": 9887,
+      "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
+      "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Cosmopolitan swallow, present in all regional model scopes"
+    },
+    {
+      "id": "mallard",
+      "common_name": "Mallard",
+      "scientific_name": "Anas platyrhynchos",
+      "inat_taxon_id": 6930,
+      "acceptable_labels": ["Mallard", "Anas platyrhynchos"],
+      "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Very common duck, should be easy for any model"
+    },
+    {
+      "id": "rock_pigeon",
+      "common_name": "Rock Pigeon",
+      "scientific_name": "Columba livia",
+      "inat_taxon_id": 4521,
+      "acceptable_labels": ["Rock Pigeon", "Columba livia", "Feral Pigeon", "Rock Dove", "pigeon"],
+      "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
+      "min_top_n": 5,
+      "notes": "Cosmopolitan, very common, useful global baseline"
+    }
+  ],
+  "rejection_cases": [
+    {
+      "id": "synthetic_white",
+      "description": "Solid white image - should score very low on all labels",
+      "image_type": "synthetic",
+      "max_confidence": 0.5,
+      "notes": "A white image has no bird features. Top score should be well below any meaningful threshold."
+    },
+    {
+      "id": "synthetic_noise",
+      "description": "Random pixel noise - should not confidently predict any species",
+      "image_type": "synthetic",
+      "max_confidence": 0.5,
+      "notes": "Pure noise has no structure. Confidence should be low and near-uniform."
+    },
+    {
+      "id": "synthetic_gradient",
+      "description": "Smooth blue-to-green gradient - no bird features",
+      "image_type": "synthetic",
+      "max_confidence": 0.5,
+      "notes": "A gradient has color but no shape or texture cues."
+    }
+  ]
+}
