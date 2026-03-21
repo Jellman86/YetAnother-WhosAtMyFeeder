@@ -446,7 +446,7 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('settings.detection.model_manager_title', { default: 'Model Manager' })}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_subtitle', { default: 'Tiered models are sorted by readiness, with advanced options collapsed by default.' })}</p></div>
+        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('settings.detection.model_manager_title', { default: 'Model Manager' })}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}</p></div>
         
         {#if health}
             <div class="flex items-center gap-2">
@@ -558,7 +558,7 @@
                 <div class="flex-1">
                     <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_lineup_title', { default: 'Tiered model lineup' })}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                        {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Advanced options stay collapsed until you open them.' })}
+                        {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Lower-performing and niche options are collapsed below.' })}
                     </p>
                     <div class="w-full sm:max-w-md relative">
                         <select
@@ -591,16 +591,16 @@
                             class="px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                         >
                             {showAdvancedModels
-                                ? $_('settings.detection.model_manager_hide_advanced', { default: 'Hide advanced models' })
-                                : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show advanced models ({count})' })}
+                                ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
+                                : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
                         </button>
                     {/if}
                 </div>
             </div>
 
             {#if !showAdvancedModels && advancedCount > 0}
-                <div class="mb-6 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-                    {$_('settings.detection.model_manager_advanced_hidden', { default: 'Advanced models are hidden by default. Reveal them when you need the larger ONNX options.' })}
+                <div class="mb-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-800/30 px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                    {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use "Show all models" to see every option.' })}
                 </div>
             {/if}
 

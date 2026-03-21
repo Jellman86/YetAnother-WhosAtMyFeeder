@@ -72,10 +72,10 @@ REMOTE_REGISTRY = [
         "recommended_threshold": 0.70,
         "recommended_for": "Default bird-only inference on CPU and low-RAM devices.",
         "estimated_ram_mb": 128,
-        "advanced_only": False,
+        "advanced_only": True,
         "sort_order": 10,
         "status": "stable",
-        "notes": "Fastest option for the default bird classifier."
+        "notes": "Legacy TFLite model — lower accuracy than the ONNX models. Kept for CPU-only environments with very limited RAM."
     },
     {
         "id": "small_birds",
@@ -361,7 +361,7 @@ REMOTE_REGISTRY = [
         "recommended_for": "Regional birds-only medium model with auto region selection.",
         "estimated_ram_mb": 1536,
         "advanced_only": False,
-        "sort_order": 17,
+        "sort_order": 18,
         "status": "planned",
         "family_id": "medium_birds",
         "default_region": "na",
@@ -447,10 +447,10 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "wildlife_wide",
         "recommended_threshold": 0.45,
-        "recommended_for": "Broader wildlife coverage with stronger accuracy than the small model while staying lighter than ConvNeXt large.",
+        "recommended_for": "Best all-around wildlife model — strong accuracy across 10,000 species at moderate speed. Recommended default for most setups.",
         "estimated_ram_mb": 1536,
-        "advanced_only": True,
-        "sort_order": 18,
+        "advanced_only": False,
+        "sort_order": 17,
         "status": "experimental",
         "crop_generator": {
             "enabled": True,

@@ -27,7 +27,7 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["convnext_large_inat21"].preprocessing["crop_pct"] == pytest.approx(0.95)
     assert by_id["convnext_large_inat21"].preprocessing["mean"] == pytest.approx([0.48145466, 0.4578275, 0.40821073])
     assert by_id["convnext_large_inat21"].preprocessing["std"] == pytest.approx([0.26862954, 0.26130258, 0.27577711])
-    assert by_id["convnext_large_inat21"].crop_generator.enabled is False
+    assert by_id["convnext_large_inat21"].crop_generator.enabled is True
     assert by_id["convnext_large_inat21"].crop_generator.input_context is None
 
     assert by_id["small_birds"].tier == "small"
@@ -85,10 +85,10 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].taxonomy_scope == "wildlife_wide"
     assert by_id["rope_vit_b14_inat21"].recommended_for
     assert by_id["rope_vit_b14_inat21"].status == "experimental"
-    assert by_id["rope_vit_b14_inat21"].sort_order == 18
+    assert by_id["rope_vit_b14_inat21"].sort_order == 17
     assert by_id["rope_vit_b14_inat21"].download_url != "pending"
     assert by_id["rope_vit_b14_inat21"].labels_url != "pending"
-    assert by_id["rope_vit_b14_inat21"].advanced_only is True
+    assert by_id["rope_vit_b14_inat21"].advanced_only is False
     assert "CPU and OpenVINO CPU validated" in by_id["rope_vit_b14_inat21"].notes
     assert "CUDA unverified" in by_id["rope_vit_b14_inat21"].notes
     assert by_id["rope_vit_b14_inat21"].model_config_url
