@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Three new ONNX models exported from the [Birder](https://github.com/birder-project/birder) pretrained model library and published to the GitHub models release, now downloadable and activatable via the Model Manager:
+  - **FocalNet-B EU Medium** (`eu_medium_focalnet_b`) — 707 European bird species, 384px input, 338 MB. Strong birds-only accuracy for European feeders.
+  - **HieraDeT DINOv2 Small Wildlife** (`hieradet_dino_small_inat21`) — 10,000-species iNat21 wildlife model, 256px, 159 MB. Lighter alternative to RoPE ViT or ConvNeXt for CPU-constrained setups.
+  - **FlexiViT Global Birds** (`flexivit_il_all`) — 550 worldwide bird species, 240px, 85 MB. Fast and compact; good for regions without a dedicated regional model.
+- **Added:** `scripts/export_and_config_birder_model.py` — utility script to download any Birder pretrained model, extract its preprocessing stats (`rgb_stats`, input resolution) from the checkpoint, export to ONNX, and write a `model_config.json` sidecar alongside `labels.txt`.
+- **Added:** `scripts/eval_model_accuracy.py` — accuracy evaluation harness for ONNX bird classifiers. Supports CUB-200-2011 and labelled-directory datasets, threshold sweeping, per-class breakdown, inference timing, and JSON/CSV output.
+
 - **Changed:** Default classification model changed from `MobileNet V2 (Fast)` (2019-era 960-class Google Coral TFLite) to `ConvNeXt Large` for new installs. Users who have not changed their model setting were silently using a severely underpowered baseline; any install that already has a model selected is unaffected.
 - **Fixed:** North America birds-only models (EfficientNet-B0 NA small, Binocular/DINOv2 NA medium) were configured with `direct_resize` preprocessing, which squashes Frigate's landscape-orientation snapshots into a square without cropping, significantly distorting bird shapes. Both are now set to `center_crop` with `crop_pct: 0.875`, matching the standard preprocessing used during training. When the bird-crop detector is active the effect is minimal (crops are already roughly square); on uncropped full-frame inference this is a meaningful accuracy improvement.
 - **Fixed:** MobileNet V2 letterbox padding colour changed from grey (128) to black (0) to match the original Google Coral training preprocessing.
