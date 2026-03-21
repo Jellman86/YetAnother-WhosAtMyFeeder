@@ -1668,7 +1668,17 @@ class OpenVINOModelInstance:
             if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
                 config["INFERENCE_PRECISION_HINT"] = "f32"
                 config.update(_openvino_gpu_optional_compile_properties())
-                
+                # Some Intel GPU drivers crash with clWaitForEvents -14 when the model
+                # has a dynamic batch dimension (e.g. [?,3,224,224]).  Reshaping to a
+                # fixed batch=1 before compile avoids this without affecting accuracy.
+                try:
+                    partial = model.inputs[0].get_partial_shape()
+                    if partial.rank.is_static and partial[0].is_dynamic:
+                        static_shape = [1] + [partial[d].get_length() for d in range(1, partial.rank.get_length())]
+                        model.reshape(static_shape)
+                except Exception:
+                    pass  # Non-fatal; proceed with original dynamic shape
+
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
             if self._startup_self_test_enabled and (
