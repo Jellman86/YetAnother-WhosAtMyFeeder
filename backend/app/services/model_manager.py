@@ -86,7 +86,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -163,7 +163,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -190,7 +190,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces near-uniform/degenerate output in end-to-end inference and is not supported. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
     },
     {
         "id": "hieradet_small_inat21",
@@ -201,7 +201,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High (83%+)",
         "inference_speed": "Medium (~150-300ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_small_inat21_labels.txt",
@@ -228,7 +228,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "ONNX Runtime CPU, OpenVINO CPU, and Intel GPU validated locally; CUDA unverified and best-effort only in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this model architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "hieradet_dino_small_inat21",
@@ -239,7 +239,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High (84%+)",
         "inference_speed": "Medium (~120-250ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/hieradet_dino_small_inat21_model_config.json",
@@ -265,7 +265,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Exported from Birder pretrained weights (hieradet_d_small_dino-v2-inat21-256px). Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU fails to compile this architecture. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "eu_medium_focalnet_b",
@@ -276,7 +276,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (87%+)",
         "inference_speed": "Medium-Slow (~300-500ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_model_config.json",
@@ -302,7 +302,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU shows degenerate output in end-to-end tests and is not supported. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
     },
     {
         "id": "flexivit_il_all",
@@ -313,7 +313,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast (~80-150ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
@@ -340,7 +340,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Exported from Birder pretrained weights (flexivit_reg1_s16_rms_ls_dino-v2-il-all). 550 global bird species, uses ONNX external data file."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this model architecture and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file."
     },
     {
         "id": "medium_birds",
@@ -351,7 +351,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High",
         "inference_speed": "Medium-Slow",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -429,7 +429,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (89%+)",
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -455,7 +455,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and OpenVINO CPU validated locally; CUDA unverified in this environment. Candidate remains experimental until broader runtime coverage is confirmed. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "eva02_large_inat21",
@@ -466,8 +466,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx", 
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_model_config.json",
@@ -493,7 +493,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Elite accuracy model. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU produces an OpenCL execution error (clWaitForEvents -14) with this architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     }
 ]
 

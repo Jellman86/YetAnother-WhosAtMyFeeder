@@ -44,25 +44,41 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 
 ### Available Tiers
 
-#### 1. Fast (MobileNet V2)
-- **Format:** TFLite
-- **Accuracy:** ~70-80%
-- **Speed:** Extremely Fast (~30ms)
-- **Best for:** Low-power devices, ARM trials, or when you want instant results.
+> **See [Model Accuracy & Benchmarks](model-accuracy.md)** for full benchmark results, GPU support details, and how to run the accuracy tests yourself.
 
-#### 2. High Accuracy (ConvNeXt Large)
-- **Format:** ONNX
-- **Accuracy:** ~90%
-- **Speed:** Moderate (~500ms)
-- **Memory:** Requires ~1GB RAM
-- **Best for:** General use where accuracy is more important than raw speed.
+#### Recommended: RoPE ViT-B14 (Default)
+- **Format:** ONNX, 375MB
+- **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
+- **Speed:** ~474ms on Intel CPU
+- **Best for:** General-purpose wildlife identification — best balance of accuracy and speed.
 
-#### 3. Elite Accuracy (EVA-02 Large)
-- **Format:** ONNX
-- **Accuracy:** ~91.6%
-- **Speed:** Slow (~1s)
-- **Memory:** Requires ~2GB RAM
-- **Best for:** Identifying rare or similar-looking species.
+#### Large: ConvNeXt Large
+- **Format:** ONNX, 760MB
+- **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
+- **Speed:** ~832ms on Intel CPU
+- **Best for:** Alternative to RoPE ViT with similar accuracy but higher memory usage.
+
+#### Advanced: EVA-02 Large
+- **Format:** ONNX, 1.2GB
+- **Accuracy:** ~75% top-1, 88% top-5 (10,000 species)
+- **Speed:** ~1.6s on Intel CPU
+- **Memory:** Requires ~3GB RAM
+- **Best for:** Highest available accuracy — worth the extra cost for rare or difficult species.
+
+#### Small: HieraDeT / FlexiViT
+- Compact models for lower-memory systems or quick checks.
+- HieraDeT DINOv2: 70% top-1, 159MB
+- HieraDeT ViT Small: 62% top-1, 167MB
+
+#### Regional Birds-Only (Small/Medium)
+- Dedicated EU or NA models with higher confidence scores within their region.
+- Smaller label space (707 species) — use when you want cleaner confidence scores for feeder birds.
+
+#### Legacy TFLite (MobileNet V2 / EfficientNet Lite4)
+- **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
+- **Accuracy:** ~67% top-1, ~73% top-5 (965 species)
+- **Speed:** ~13ms
+- Hidden by default in the UI. Use only for very constrained hardware.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.

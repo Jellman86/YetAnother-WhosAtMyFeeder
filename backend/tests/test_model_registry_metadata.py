@@ -77,8 +77,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["hieradet_small_inat21"].weights_url != "pending"
     assert by_id["hieradet_small_inat21"].labels_url != "pending"
     assert by_id["hieradet_small_inat21"].advanced_only is True
-    assert "Intel GPU validated" in by_id["hieradet_small_inat21"].notes
-    assert "CUDA unverified and best-effort only" in by_id["hieradet_small_inat21"].notes
+    assert "Intel GPU" in by_id["hieradet_small_inat21"].notes
+    assert "not supported" in by_id["hieradet_small_inat21"].notes
     assert by_id["hieradet_small_inat21"].model_config_url
 
     assert by_id["rope_vit_b14_inat21"].tier == "medium"
@@ -89,8 +89,9 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].download_url != "pending"
     assert by_id["rope_vit_b14_inat21"].labels_url != "pending"
     assert by_id["rope_vit_b14_inat21"].advanced_only is False
-    assert "CPU and OpenVINO CPU validated" in by_id["rope_vit_b14_inat21"].notes
-    assert "CUDA unverified" in by_id["rope_vit_b14_inat21"].notes
+    assert "CPU and Intel CPU" in by_id["rope_vit_b14_inat21"].notes
+    assert "Intel GPU" in by_id["rope_vit_b14_inat21"].notes
+    assert "not supported" in by_id["rope_vit_b14_inat21"].notes
     assert by_id["rope_vit_b14_inat21"].model_config_url
     assert by_id["rope_vit_b14_inat21"].preprocessing["resize_mode"] == "center_crop"
     assert by_id["rope_vit_b14_inat21"].preprocessing["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])
@@ -149,8 +150,8 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
 
         assert eu_by_id["small_birds"].file_size_mb == pytest.approx(122.7, abs=0.1)
         assert eu_by_id["medium_birds"].file_size_mb == pytest.approx(108.5, abs=0.1)
-        assert "intel_gpu" in (eu_by_id["small_birds"].supported_inference_providers or [])
-        assert "intel_gpu" in (eu_by_id["medium_birds"].supported_inference_providers or [])
+        assert "intel_cpu" in (eu_by_id["small_birds"].supported_inference_providers or [])
+        assert "intel_cpu" in (eu_by_id["medium_birds"].supported_inference_providers or [])
 
         settings.location.country = "US"
         settings.classification.bird_model_region_override = "auto"

@@ -1621,6 +1621,22 @@ class OpenVINOModelInstance:
                 detail=f"{self.name} inference produced no finite probabilities during startup self-test",
                 diagnostics=dict(self._last_startup_self_test_diagnostics),
             )
+        # Also detect near-uniform/degenerate output: if the logit range is
+        # extremely small (<0.5), the softmax will be nearly uniform regardless
+        # of the input — a sign that GPU inference is silently broken.
+        finite_logits = logits[np.isfinite(logits)]
+        if finite_logits.size > 1:
+            logit_range = float(finite_logits.max() - finite_logits.min())
+            if logit_range < 0.5:
+                raise InvalidInferenceOutputError(
+                    backend="openvino",
+                    provider=self.device_name,
+                    detail=(
+                        f"{self.name} inference produced near-uniform logits (range={logit_range:.4f}) "
+                        "during startup self-test — GPU may be silently producing degenerate output"
+                    ),
+                    diagnostics=dict(self._last_startup_self_test_diagnostics),
+                )
 
     def load(self) -> bool:
         if self.loaded:

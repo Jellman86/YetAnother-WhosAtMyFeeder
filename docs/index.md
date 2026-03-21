@@ -42,7 +42,8 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 - [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
-- [🧠 AI Models & Performance](features/ai-models.md) - Understanding MobileNet vs ConvNeXt vs EVA-02, plus CPU/CUDA/OpenVINO provider behavior
+- [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
+- [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics

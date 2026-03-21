@@ -83,13 +83,16 @@ def _dim(s: str) -> str: return f"{_DIM}{s}{_RESET}"
 
 class APIClient:
     def __init__(self, base_url: str, api_key: str | None = None,
-                 username: str | None = None, password: str | None = None) -> None:
+                 username: str | None = None, password: str | None = None,
+                 token: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self._headers: dict[str, str] = {}
         if api_key:
             self._headers["X-API-Key"] = api_key
-        if username and password:
+        if token:
+            self._headers["Authorization"] = f"Bearer {token}"
+        elif username and password:
             self._jwt_login(username, password)
 
     def _jwt_login(self, username: str, password: str) -> None:
@@ -656,6 +659,7 @@ def main() -> int:
     )
     parser.add_argument("--base_url", default="http://localhost:8946", help="Backend base URL (default: http://localhost:8946)")
     parser.add_argument("--api_key", default=None, help="Legacy API key (if auth is enabled)")
+    parser.add_argument("--token", default=None, help="Bearer JWT token (if auth is enabled, alternative to --username/--password)")
     parser.add_argument("--username", default=None, help="Username for JWT login")
     parser.add_argument("--password", default=None, help="Password for JWT login")
     parser.add_argument("--top_n", type=int, default=10, help="Top-N predictions to request (default: 10)")
@@ -697,7 +701,8 @@ def main() -> int:
     filter_cases = [c.strip() for c in args.cases.split(",")] if args.cases else None
 
     client = APIClient(args.base_url, api_key=args.api_key,
-                       username=args.username, password=args.password)
+                       username=args.username, password=args.password,
+                       token=args.token)
 
     if args.all_models:
         installed = _get_installed_models(client)
