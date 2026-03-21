@@ -1,9 +1,11 @@
 import os
 import sys
+import shutil
 import asyncio
 import time
 import aiosqlite
 import structlog
+from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -107,6 +109,49 @@ REQUIRED_COLUMNS = {
 }
 
 
+def _backup_db(db_path: str) -> Optional[str]:
+    """
+    Copy the database to a timestamped backup file in the same directory.
+
+    Called before running migrations so users have a restore point when
+    switching between image versions (e.g. live ↔ dev).  Returns the
+    backup path on success, None if the DB does not exist yet or the copy
+    fails (non-fatal — a missing backup is better than blocking startup).
+    """
+    src = Path(db_path)
+    if not src.exists():
+        return None
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dst = src.with_name(f"{src.stem}.pre-migration-{ts}{src.suffix}")
+    try:
+        shutil.copy2(src, dst)
+        log.info("Pre-migration database backup created", backup_path=str(dst))
+        return str(dst)
+    except Exception as e:
+        log.warning("Could not create pre-migration database backup", error=str(e))
+        return None
+
+
+def _db_is_ahead_of_codebase(db_versions: set, backend_dir: str) -> bool:
+    """
+    Return True when the database's current revision is not reachable from
+    the codebase's migration tree.  This is the "rolled-forward then reverted"
+    scenario: a user ran the dev image (which applied new migrations) and has
+    now switched back to the live image, which doesn't know those revisions.
+    """
+    try:
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from alembic.util.exc import ResolutionError
+
+        cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+        script = ScriptDirectory.from_config(cfg)
+        known = {rev.revision for rev in script.walk_revisions()}
+        return bool(db_versions and not db_versions.issubset(known))
+    except Exception:
+        return False
+
+
 async def _verify_schema(backend_dir: str, db_path: str) -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -130,7 +175,26 @@ async def _verify_schema(backend_dir: str, db_path: str) -> None:
             raise RuntimeError("Missing alembic_version table") from e
 
         db_versions = {row[0] for row in rows if row and row[0]}
+
         if db_versions != expected_heads:
+            # Distinguish "ahead" (downgrade scenario) from genuinely broken.
+            if _db_is_ahead_of_codebase(db_versions, backend_dir):
+                log.warning(
+                    "Database schema is ahead of this image version — "
+                    "the database was previously migrated by a newer build "
+                    "(e.g. the dev image).  The extra schema is additive and "
+                    "this image can run safely, but some newer features will "
+                    "not be available.  To fully restore, either upgrade back "
+                    "to the newer image or restore from the pre-migration "
+                    "backup (speciesid.db.pre-migration-*.db) created before "
+                    "the last migration run.",
+                    db_versions=sorted(db_versions),
+                    expected_heads=sorted(expected_heads),
+                )
+                # Do not raise — additive schema is backwards-compatible with
+                # SQLite; live code that does not reference the new columns
+                # continues to function correctly.
+                return
             log.error(
                 "Database schema is not at Alembic head",
                 db_versions=sorted(db_versions),
@@ -329,6 +393,8 @@ async def init_db():
     if os.environ.get("YA_WAMF_TEST_DB_INITIALIZED") == "1":
         log.info("Test DB already initialized, skipping migrations")
     else:
+        backup_path = _backup_db(db_path)
+
         log.info("Running database migrations...")
         try:
             import subprocess
@@ -347,14 +413,67 @@ async def init_db():
             if result.returncode == 0:
                 log.info("Database migrations completed successfully")
             else:
-                log.error(
-                    "Database migration failed",
-                    error=result.stderr,
-                    output=result.stdout
+                # Detect the "rolled-forward then reverted" scenario: a newer
+                # image (e.g. dev) applied migrations this image doesn't know
+                # about.  Alembic fails with "Can't locate revision identified
+                # by ..." in this case.  The extra schema is additive-only so
+                # the live image can run safely — warn and continue instead of
+                # blocking startup.
+                stderr_lower = result.stderr.lower()
+                is_unknown_revision = (
+                    "can't locate revision" in stderr_lower
+                    or "can't locate revision identified by" in stderr_lower
+                    or "no such revision" in stderr_lower
                 )
-                raise RuntimeError("Database migration failed")
+
+                if is_unknown_revision:
+                    # Read the DB's current alembic_version so we can call
+                    # _db_is_ahead_of_codebase with accurate data.
+                    try:
+                        import aiosqlite as _aiosqlite
+                        async with _aiosqlite.connect(db_path) as _db:
+                            async with _db.execute(
+                                "SELECT version_num FROM alembic_version"
+                            ) as _cur:
+                                _rows = await _cur.fetchall()
+                        db_versions = {r[0] for r in _rows if r and r[0]}
+                    except Exception:
+                        db_versions = set()
+
+                    if _db_is_ahead_of_codebase(db_versions, backend_dir):
+                        log.warning(
+                            "Database schema is ahead of this image version — "
+                            "the database was previously migrated by a newer build "
+                            "(e.g. the dev image).  Alembic cannot upgrade because "
+                            "it does not recognise the current head revision.  "
+                            "The extra schema is additive and this image can run "
+                            "safely, but some newer features will not be available.  "
+                            "To fully restore, either upgrade back to the newer image "
+                            "or restore from the pre-migration backup created at startup.",
+                            db_versions=sorted(db_versions),
+                            alembic_stderr=result.stderr.strip(),
+                            backup_path=backup_path or "none (backup failed or DB was new)",
+                        )
+                        # Fall through — _verify_schema below will also detect
+                        # the ahead-case and warn rather than raise.
+                    else:
+                        log.error(
+                            "Database migration failed",
+                            error=result.stderr,
+                            output=result.stdout,
+                        )
+                        raise RuntimeError("Database migration failed")
+                else:
+                    log.error(
+                        "Database migration failed",
+                        error=result.stderr,
+                        output=result.stdout,
+                    )
+                    raise RuntimeError("Database migration failed")
         except subprocess.TimeoutExpired:
             log.error("Database migration timed out after 60 seconds")
+            raise
+        except RuntimeError:
             raise
         except Exception as e:
             log.error("Failed to run database migrations", error=str(e))
