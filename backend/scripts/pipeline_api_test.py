@@ -12,8 +12,8 @@ Usage:
     # Test active model against all fixture images
     python scripts/pipeline_api_test.py --base_url http://localhost:8946
 
-    # Test with API key auth
-    python scripts/pipeline_api_test.py --base_url http://localhost:8946 --api_key SECRET
+    # Test with JWT auth
+    python scripts/pipeline_api_test.py --base_url http://localhost:8946 --username user --password pw
 
     # Test only specific cases
     python scripts/pipeline_api_test.py --base_url http://localhost:8946 --cases house_sparrow,blue_jay
@@ -26,6 +26,12 @@ Usage:
 
     # Cycle through all installed models (activates each in turn, tests, restores)
     python scripts/pipeline_api_test.py --base_url http://localhost:8946 --all_models
+
+    # Compare letterbox vs center-crop preprocessing on every image
+    python scripts/pipeline_api_test.py --base_url http://localhost:8946 --preprocess compare
+
+    # All models + preprocessing comparison
+    python scripts/pipeline_api_test.py --base_url http://localhost:8946 --all_models --preprocess compare
 """
 
 from __future__ import annotations
@@ -76,12 +82,36 @@ def _dim(s: str) -> str: return f"{_DIM}{s}{_RESET}"
 # ---------------------------------------------------------------------------
 
 class APIClient:
-    def __init__(self, base_url: str, api_key: str | None = None) -> None:
+    def __init__(self, base_url: str, api_key: str | None = None,
+                 username: str | None = None, password: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self._headers: dict[str, str] = {}
         if api_key:
             self._headers["X-API-Key"] = api_key
+        if username and password:
+            self._jwt_login(username, password)
+
+    def _jwt_login(self, username: str, password: str) -> None:
+        """Obtain a JWT token via /api/auth/login and set as Bearer auth."""
+        import json as _json
+        payload = _json.dumps({"username": username, "password": password}).encode()
+        url = f"{self.base_url}/api/auth/login"
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = _json.loads(r.read().decode())
+            token = data.get("access_token") or data.get("token")
+            if not token:
+                raise RuntimeError(f"No token in login response: {data}")
+            self._headers["Authorization"] = f"Bearer {token}"
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            raise RuntimeError(f"Login failed ({e.code}): {body[:200]}") from e
 
     def _request(self, method: str, path: str, data: bytes | None = None,
                  content_type: str | None = None) -> dict:
@@ -146,6 +176,49 @@ def _find_match_rank(predictions: list[dict], acceptable: list[str]) -> int | No
 
 
 # ---------------------------------------------------------------------------
+# Client-side preprocessing modes
+# ---------------------------------------------------------------------------
+
+def _preprocess_image(image_bytes: bytes, mode: str) -> bytes:
+    """Apply client-side preprocessing before upload.
+
+    mode:
+      "raw"        — send as-is (server handles all preprocessing)
+      "letterbox"  — pad shorter dimension to square with gray (128) border
+      "center_crop"— resize so shorter edge = 512, crop centre 512×512 square
+    """
+    if mode == "raw":
+        return image_bytes
+
+    try:
+        from PIL import Image
+        import io
+        import numpy as np
+
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        w, h = img.size
+
+        if mode == "letterbox":
+            size = max(w, h)
+            padded = Image.new("RGB", (size, size), (128, 128, 128))
+            padded.paste(img, ((size - w) // 2, (size - h) // 2))
+            result = padded
+        elif mode == "center_crop":
+            crop_size = min(w, h)
+            left = (w - crop_size) // 2
+            top = (h - crop_size) // 2
+            result = img.crop((left, top, left + crop_size, top + crop_size))
+        else:
+            return image_bytes
+
+        buf = io.BytesIO()
+        result.save(buf, format="JPEG", quality=92)
+        return buf.getvalue()
+    except ImportError:
+        return image_bytes
+
+
+# ---------------------------------------------------------------------------
 # Synthetic image generation
 # ---------------------------------------------------------------------------
 
@@ -207,6 +280,7 @@ class PipelineTestRunner:
         top_n: int = 10,
         verbose: bool = False,
         filter_cases: list[str] | None = None,
+        preprocess: str = "raw",
     ) -> None:
         self.client = client
         self.manifest = manifest
@@ -214,15 +288,19 @@ class PipelineTestRunner:
         self.top_n = top_n
         self.verbose = verbose
         self.filter_cases = filter_cases
+        # "raw", "letterbox", "center_crop", or "compare" (runs raw + letterbox)
+        self.preprocess = preprocess
         self.results: list[dict] = []
 
-    def _classify_image(self, image_bytes: bytes, filename: str = "test.jpg") -> dict:
+    def _classify_image(self, image_bytes: bytes, filename: str = "test.jpg",
+                        preprocess_mode: str = "raw") -> dict:
+        data = _preprocess_image(image_bytes, preprocess_mode)
         return self.client.post_multipart(
             f"/api/classifier/classify?top_n={self.top_n}",
-            filename, image_bytes,
+            filename, data,
         )
 
-    def _run_labeled_case(self, case: dict) -> list[dict]:
+    def _run_labeled_case(self, case: dict, preprocess_mode: str = "raw") -> list[dict]:
         case_id = case["id"]
         images = self.downloaded.get("cases", {}).get(case_id, [])
         if not images:
@@ -240,13 +318,14 @@ class PipelineTestRunner:
             image_bytes = img_path.read_bytes()
             t0 = time.perf_counter()
             try:
-                response = self._classify_image(image_bytes, img_path.name)
+                response = self._classify_image(image_bytes, img_path.name, preprocess_mode)
                 round_trip_ms = round((time.perf_counter() - t0) * 1000, 1)
             except Exception as e:
                 print(f"    {_red('ERROR')} {img_path.name}: {e}")
                 case_results.append({
                     "case_id": case_id,
                     "image": img_path.name,
+                    "preprocess": preprocess_mode,
                     "status": "error",
                     "error": str(e),
                 })
@@ -264,6 +343,7 @@ class PipelineTestRunner:
             result = {
                 "case_id": case_id,
                 "image": img_path.name,
+                "preprocess": preprocess_mode,
                 "status": "pass" if passed else "fail",
                 "match_rank": match_rank,
                 "top_label": top_label,
@@ -279,8 +359,9 @@ class PipelineTestRunner:
             if self.verbose or not passed:
                 status_str = _green("PASS") if passed else _red("FAIL")
                 rank_str = f"@{match_rank}" if match_rank else "not found"
+                pre_tag = f"{_dim(preprocess_mode):<12}" if self.preprocess == "compare" else ""
                 print(
-                    f"    {status_str}  {img_path.name:<40}  "
+                    f"    {status_str}  {pre_tag}{img_path.name:<40}  "
                     f"{top_label:<35} {top_score:.3f}  "
                     f"{inference_ms:6.0f}ms  [{rank_str}]"
                 )
@@ -373,9 +454,16 @@ class PipelineTestRunner:
         if self.filter_cases:
             test_cases = [c for c in test_cases if c["id"] in self.filter_cases]
 
+        compare_mode = self.preprocess == "compare"
+        preprocess_modes = ["raw", "letterbox"] if compare_mode else [self.preprocess]
+
         print(f"\n{_bold('--- Labeled Bird Cases ---')}")
-        print(f"  {'STATUS':<6}  {'IMAGE':<40}  {'PREDICTED':<35} {'CONF':>5}  {'INF_MS':>7}  RANK")
-        print(f"  {'-'*6}  {'-'*40}  {'-'*35} {'-'*5}  {'-'*7}  {'-'*8}")
+        if compare_mode:
+            print(f"  {'STATUS':<6}  {'PRE':<12} {'IMAGE':<40}  {'PREDICTED':<35} {'CONF':>5}  {'INF_MS':>7}  RANK")
+            print(f"  {'-'*6}  {'-'*12} {'-'*40}  {'-'*35} {'-'*5}  {'-'*7}  {'-'*8}")
+        else:
+            print(f"  {'STATUS':<6}  {'IMAGE':<40}  {'PREDICTED':<35} {'CONF':>5}  {'INF_MS':>7}  RANK")
+            print(f"  {'-'*6}  {'-'*40}  {'-'*35} {'-'*5}  {'-'*7}  {'-'*8}")
 
         labeled_results: list[dict] = []
         for case in test_cases:
@@ -385,9 +473,10 @@ class PipelineTestRunner:
                 print(f"    {_dim(f'SKIP  {case_id} — no images (run download_test_fixtures.py)')} ")
                 continue
             print(f"\n  {_bold(case['common_name'])} ({case['scientific_name']})")
-            results = self._run_labeled_case(case)
-            labeled_results.extend(results)
-            all_results.extend(results)
+            for mode in preprocess_modes:
+                results = self._run_labeled_case(case, preprocess_mode=mode)
+                labeled_results.extend(results)
+                all_results.extend(results)
 
         # --- Rejection cases ---
         print(f"\n{_bold('--- Synthetic Rejection Cases ---')}")
@@ -434,6 +523,22 @@ class PipelineTestRunner:
                 print(f"  Failed:          {_red(str(labeled_fail))} images not identified in top-5")
             if labeled_error > 0:
                 print(f"  Errors:          {_red(str(labeled_error))} images had API errors")
+
+            # Per-mode breakdown when comparing preprocessing
+            if compare_mode:
+                print()
+                print(f"  {_bold('Preprocessing comparison:')}")
+                for mode in preprocess_modes:
+                    mode_results = [r for r in labeled_results if r.get("preprocess") == mode]
+                    mode_eval = sum(1 for r in mode_results if r.get("status") in ("pass", "fail"))
+                    if mode_eval == 0:
+                        continue
+                    m1 = sum(1 for r in mode_results if r.get("match_rank") == 1)
+                    m5 = sum(1 for r in mode_results if (r.get("match_rank") or 99) <= 5)
+                    print(
+                        f"    {mode:<12}  top-1 {_green(f'{m1/mode_eval*100:.1f}%')} ({m1}/{mode_eval})"
+                        f"   top-5 {_green(f'{m5/mode_eval*100:.1f}%')} ({m5}/{mode_eval})"
+                    )
         else:
             print(f"  {_yellow('No labeled images evaluated — run scripts/download_test_fixtures.py first')}")
 
@@ -463,6 +568,23 @@ class PipelineTestRunner:
         overall_ok = labeled_fail == 0 and labeled_error == 0
         print(f"\n  Overall: {_green('PASS') if overall_ok else _red('FAIL')}")
 
+        # Per-preprocessing-mode accuracy for JSON report
+        per_preprocess: dict[str, dict] = {}
+        if compare_mode:
+            for mode in preprocess_modes:
+                mode_results = [r for r in labeled_results if r.get("preprocess") == mode]
+                mode_eval = sum(1 for r in mode_results if r.get("status") in ("pass", "fail"))
+                if mode_eval:
+                    m1 = sum(1 for r in mode_results if r.get("match_rank") == 1)
+                    m3 = sum(1 for r in mode_results if (r.get("match_rank") or 99) <= 3)
+                    m5 = sum(1 for r in mode_results if (r.get("match_rank") or 99) <= 5)
+                    per_preprocess[mode] = {
+                        "top1_accuracy": round(m1 / mode_eval, 4),
+                        "top3_accuracy": round(m3 / mode_eval, 4),
+                        "top5_accuracy": round(m5 / mode_eval, 4),
+                        "evaluated": mode_eval,
+                    }
+
         return {
             "model_id": model_id,
             "provider": provider,
@@ -474,6 +596,7 @@ class PipelineTestRunner:
                 "top1_accuracy": round(len(top1_matches) / evaluated, 4) if evaluated else None,
                 "top3_accuracy": round(len(top3_matches) / evaluated, 4) if evaluated else None,
                 "top5_accuracy": round(len(top5_matches) / evaluated, 4) if evaluated else None,
+                "per_preprocess": per_preprocess,
             },
             "rejection": {
                 "total": len(rejection_results),
@@ -503,7 +626,7 @@ def _get_installed_models(client: APIClient) -> list[dict]:
 def _activate_model(client: APIClient, model_id: str) -> bool:
     try:
         result = client.post_json(f"/api/models/{model_id}/activate", {})
-        return result.get("status") == "ok"
+        return result.get("status") in ("ok", "success")
     except Exception as e:
         print(f"  {_red(f'Failed to activate {model_id}: {e}')}")
         return False
@@ -514,7 +637,8 @@ def _wait_for_model_loaded(client: APIClient, expected_id: str, timeout: float =
     while time.time() < deadline:
         try:
             status = client.get("/api/classifier/status")
-            if status.get("loaded") and status.get("active_model_id") == expected_id:
+            bird_loaded = status.get("loaded") or status.get("models", {}).get("bird", {}).get("loaded", False)
+            if bird_loaded and status.get("active_model_id") == expected_id:
                 return True
         except Exception:
             pass
@@ -531,12 +655,25 @@ def main() -> int:
         description="YA-WAMF pipeline test runner — exercises the live API with labeled bird images"
     )
     parser.add_argument("--base_url", default="http://localhost:8946", help="Backend base URL (default: http://localhost:8946)")
-    parser.add_argument("--api_key", default=None, help="API key (if auth is enabled)")
+    parser.add_argument("--api_key", default=None, help="Legacy API key (if auth is enabled)")
+    parser.add_argument("--username", default=None, help="Username for JWT login")
+    parser.add_argument("--password", default=None, help="Password for JWT login")
     parser.add_argument("--top_n", type=int, default=10, help="Top-N predictions to request (default: 10)")
     parser.add_argument("--cases", help="Comma-separated list of case IDs to run (default: all)")
     parser.add_argument("--verbose", action="store_true", help="Print every image result, not just failures")
     parser.add_argument("--output", help="Write JSON report to this file")
     parser.add_argument("--all_models", action="store_true", help="Cycle through all installed models (activates each in turn)")
+    parser.add_argument(
+        "--preprocess", default="raw",
+        choices=["raw", "letterbox", "center_crop", "compare"],
+        help=(
+            "Client-side image preprocessing before upload: "
+            "'raw' = send as-is (default), "
+            "'letterbox' = pad to square with gray border, "
+            "'center_crop' = crop centre square, "
+            "'compare' = run each image with both raw and letterbox and show accuracy per mode"
+        ),
+    )
     parser.add_argument("--manifest", default=str(_MANIFEST_PATH), help="Path to bird_image_manifest.json")
     parser.add_argument("--images_dir", default=str(_IMAGES_DIR), help="Path to downloaded fixture images")
     args = parser.parse_args()
@@ -559,7 +696,8 @@ def main() -> int:
     downloaded = json.loads(downloaded_path.read_text())
     filter_cases = [c.strip() for c in args.cases.split(",")] if args.cases else None
 
-    client = APIClient(args.base_url, api_key=args.api_key)
+    client = APIClient(args.base_url, api_key=args.api_key,
+                       username=args.username, password=args.password)
 
     if args.all_models:
         installed = _get_installed_models(client)
@@ -592,6 +730,7 @@ def main() -> int:
             runner = PipelineTestRunner(
                 client, manifest, downloaded,
                 top_n=args.top_n, verbose=args.verbose, filter_cases=filter_cases,
+                preprocess=args.preprocess,
             )
             report = runner.run()
             report["model_id"] = model_id
@@ -603,16 +742,29 @@ def main() -> int:
             _activate_model(client, original_model)
 
         # Multi-model summary
+        compare_mode_multi = args.preprocess == "compare"
         print(f"\n{_bold('=== Multi-Model Comparison ===')}")
-        print(f"  {'MODEL':<35} {'TOP-1':>6} {'TOP-5':>6} {'MEAN_INF':>9} {'PROVIDER'}")
-        print(f"  {'-'*35} {'-'*6} {'-'*6} {'-'*9} {'-'*20}")
+        if compare_mode_multi:
+            print(f"  {'MODEL':<35} {'PRE':<12} {'TOP-1':>6} {'TOP-5':>6} {'MEAN_INF':>9} {'PROVIDER'}")
+            print(f"  {'-'*35} {'-'*12} {'-'*6} {'-'*6} {'-'*9} {'-'*20}")
+        else:
+            print(f"  {'MODEL':<35} {'TOP-1':>6} {'TOP-5':>6} {'MEAN_INF':>9} {'PROVIDER'}")
+            print(f"  {'-'*35} {'-'*6} {'-'*6} {'-'*9} {'-'*20}")
         for r in all_reports:
             labeled = r.get("labeled", {})
-            t1 = f"{labeled.get('top1_accuracy', 0)*100:.1f}%" if labeled.get("top1_accuracy") is not None else "—"
-            t5 = f"{labeled.get('top5_accuracy', 0)*100:.1f}%" if labeled.get("top5_accuracy") is not None else "—"
             inf = f"{r.get('timing', {}).get('mean_inference_ms', 0):.0f}ms"
             prov = r.get("provider", "?")
-            print(f"  {r['model_id']:<35} {t1:>6} {t5:>6} {inf:>9} {prov}")
+            if compare_mode_multi:
+                for mode in ["raw", "letterbox"]:
+                    per_mode = labeled.get("per_preprocess", {}).get(mode, {})
+                    t1 = f"{per_mode.get('top1_accuracy', 0)*100:.1f}%" if per_mode.get("top1_accuracy") is not None else "—"
+                    t5 = f"{per_mode.get('top5_accuracy', 0)*100:.1f}%" if per_mode.get("top5_accuracy") is not None else "—"
+                    label_col = r["model_id"] if mode == "raw" else ""
+                    print(f"  {label_col:<35} {mode:<12} {t1:>6} {t5:>6} {inf:>9} {prov}")
+            else:
+                t1 = f"{labeled.get('top1_accuracy', 0)*100:.1f}%" if labeled.get("top1_accuracy") is not None else "—"
+                t5 = f"{labeled.get('top5_accuracy', 0)*100:.1f}%" if labeled.get("top5_accuracy") is not None else "—"
+                print(f"  {r['model_id']:<35} {t1:>6} {t5:>6} {inf:>9} {prov}")
 
         if args.output:
             Path(args.output).write_text(json.dumps(all_reports, indent=2))
@@ -624,6 +776,7 @@ def main() -> int:
     runner = PipelineTestRunner(
         client, manifest, downloaded,
         top_n=args.top_n, verbose=args.verbose, filter_cases=filter_cases,
+        preprocess=args.preprocess,
     )
     report = runner.run()
 

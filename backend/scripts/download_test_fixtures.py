@@ -57,7 +57,7 @@ def fetch_observation_photos(
         f"?taxon_id={taxon_id}"
         f"&quality_grade={quality_grade}"
         f"&photos=true"
-        f"&license=cc0,cc-by,cc-by-nc"
+        f"&license[]=cc0&license[]=cc-by&license[]=cc-by-nc"
         f"&per_page={count * 3}"
         f"&order_by=votes"
         f"&order=desc"
