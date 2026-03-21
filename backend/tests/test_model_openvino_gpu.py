@@ -870,3 +870,115 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
     rows.append(f"{'='*90}")
     print("\n".join(rows))
     # Always pass — this is purely diagnostic
+
+
+def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
+    """Probe NaN-failing models with potential GPU fixes and report what helps.
+
+    Tests three strategies for each model currently producing NaN on GPU:
+      1. HETERO:GPU,CPU  — route unstable ops automatically to CPU
+      2. GPU + SDPA off  — disable fused scaled-dot-product attention
+      3. HETERO + SDPA off — both combined
+
+    This test NEVER fails. Run with -s to see the output:
+
+        pytest tests/test_model_openvino_gpu.py::test_gpu_nan_fix_probe -v -s
+    """
+    if not gpu_available:
+        pytest.skip("No Intel GPU available")
+
+    # Models known to produce NaN on plain GPU (excludes CRASH_RISK)
+    nan_candidates = {
+        m for m in GPU_NOT_SUPPORTED
+        if m not in GPU_CRASH_RISK
+        and "NaN" in GPU_NOT_SUPPORTED[m]
+    }
+
+    models = dict(_installed_onnx_models())
+    candidates = [(m, models[m]) for m in sorted(nan_candidates) if m in models]
+    if not candidates:
+        pytest.skip("No NaN-candidate models installed")
+
+    core = ov.Core()
+    if "GPU" not in core.available_devices:
+        pytest.skip("No Intel GPU device available")
+
+    rows: list[str] = []
+    rows.append(f"\n{'='*100}")
+    rows.append(f"NaN Fix Probe — OpenVINO {openvino_version}")
+    rows.append(f"{'='*100}")
+    rows.append(
+        f"{'Model':<35} {'Strategy':<20} {'GPU range':>10} {'ratio':>6} "
+        f"{'spearman':>9} {'top5 ∩':>7} {'result'}"
+    )
+    rows.append(f"{'-'*100}")
+
+    strategies: list[tuple[str, str, dict[str, str]]] = [
+        ("HETERO",       "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        ("SDPA off",     "GPU",            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_ENABLE_SDPA_OPTIMIZATION": "NO"}),
+        ("HETERO+SDPA-", "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_ENABLE_SDPA_OPTIMIZATION": "NO"}),
+    ]
+
+    for model_id, model_dir in candidates:
+        config = _load_config(model_dir)
+        input_size = config.get("input_size", 224)
+        img = _make_test_image(max(input_size, 640))
+        tensor = _preprocess_image(img, config=config)
+
+        # CPU reference
+        try:
+            model = core.read_model(str(model_dir / "model.onnx"))
+            partial = model.inputs[0].get_partial_shape()
+            if partial.rank.is_static and partial[0].is_dynamic:
+                static_shape = [1] + [partial[d].get_length() for d in range(1, partial.rank.get_length())]
+                model.reshape(static_shape)
+            cpu_compiled = core.compile_model(model, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"})
+            cpu_out = _run_inference(cpu_compiled, tensor)
+            cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
+        except Exception as e:
+            rows.append(f"{model_id:<35} {'(CPU ref failed)':<20} {str(e)[:50]}")
+            continue
+
+        for strategy_name, device, cfg in strategies:
+            try:
+                model2 = core.read_model(str(model_dir / "model.onnx"))
+                partial2 = model2.inputs[0].get_partial_shape()
+                if partial2.rank.is_static and partial2[0].is_dynamic:
+                    static_shape2 = [1] + [partial2[d].get_length() for d in range(1, partial2.rank.get_length())]
+                    model2.reshape(static_shape2)
+                compiled = core.compile_model(model2, device, config=cfg)
+                out = _run_inference(compiled, tensor)
+            except Exception as e:
+                rows.append(
+                    f"{model_id:<35} {strategy_name:<20} {'FAIL':>10} {'':>6} {'':>9} {'':>7} {str(e)[:30]}"
+                )
+                continue
+
+            finite = out[np.isfinite(out)]
+            gpu_range = float(finite.ptp()) if finite.size > 1 else 0.0
+            ratio = gpu_range / cpu_range if cpu_range > 0 else 0.0
+            spearman = _spearman_r(cpu_out, out) if np.isfinite(out).any() else float("nan")
+            top5_cpu = set(np.argsort(cpu_out)[-5:])
+            top5_out = set(np.argsort(out)[-5:])
+            overlap = len(top5_cpu & top5_out)
+
+            if not np.isfinite(out).any():
+                result = "STILL NaN"
+            elif ratio < 0.5:
+                result = "low range"
+            elif spearman < 0.50:
+                result = "diverged"
+            elif overlap == 0:
+                result = "top5 mismatch"
+            else:
+                result = "*** FIXED ***"
+
+            rows.append(
+                f"{model_id:<35} {strategy_name:<20} {gpu_range:>10.2f} {ratio:>6.2f} "
+                f"{spearman:>9.3f} {overlap:>7d} {result}"
+            )
+
+        rows.append(f"{'-'*100}")
+
+    rows.append(f"{'='*100}")
+    print("\n".join(rows))

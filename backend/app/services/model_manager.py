@@ -219,7 +219,7 @@ REMOTE_REGISTRY = [
         "tier": "small",
         "taxonomy_scope": "wildlife_wide",
         "recommended_threshold": 0.45,
-        "recommended_for": "Broad wildlife classification on CPU or Intel GPU when you want a lighter recommendation before stepping up to RoPE or ConvNeXt.",
+        "recommended_for": "Broad wildlife classification on CPU or Intel CPU (OpenVINO) when you want a lighter model before stepping up to RoPE or ConvNeXt.",
         "estimated_ram_mb": 1024,
         "advanced_only": True,
         "sort_order": 15,
@@ -491,7 +491,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU produces an OpenCL execution error (clWaitForEvents -14) with this architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     }
 ]
 
