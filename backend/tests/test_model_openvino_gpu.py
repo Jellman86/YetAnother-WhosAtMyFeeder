@@ -863,11 +863,14 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
     if not gpu_available:
         pytest.skip("No Intel GPU available")
 
-    # Models known to produce NaN on plain GPU (excludes CRASH_RISK)
+    # Models known to produce bad output on plain GPU (NaN *or* wrong predictions).
+    # ConvNeXt is deliberately included here even though it doesn't produce NaN —
+    # it produces wrong predictions, which the same set of strategies may fix.
     nan_candidates = {
         m for m in GPU_NOT_SUPPORTED
         if m not in GPU_CRASH_RISK
-        and "NaN" in GPU_NOT_SUPPORTED[m]
+        and m not in ("mobilenet_v2_birds", "bird_crop_detector")
+        and ("NaN" in GPU_NOT_SUPPORTED[m] or "Wrong predictions" in GPU_NOT_SUPPORTED[m])
     }
 
     models = dict(_installed_onnx_models())
@@ -958,3 +961,127 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
 
     rows.append(f"{'='*100}")
     print("\n".join(rows))
+
+
+def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str) -> None:
+    """Dedicated precision-degradation probe for ConvNeXt Large on Intel GPU.
+
+    ConvNeXt Large compiles and runs without NaN on GPU but produces wrong predictions
+    because the logit dynamic range collapses (~3–7 GPU vs ~15 CPU).  Root cause is
+    numeric precision degradation in the 7×7 depthwise convolution + LayerNorm path.
+
+    The NaN fix probe skipped ConvNeXt historically (no NaN); this test covers it
+    with a wider set of strategies specifically targeting precision rather than NaN:
+
+      f32/LATENCY      — current production config (baseline, expected to fail)
+      f16/LATENCY      — native iGPU precision; may avoid f32 emulation artifacts
+      f32/ACCURACY     — forces slower, more numerically stable GPU algorithms
+      f16/ACCURACY     — native precision + stable algorithms
+      f32/WINOGRAD-off — disables Winograd conv (known precision tradeoff)
+      f32/HETERO       — route precision-sensitive ops automatically to CPU
+      f16/HETERO       — HETERO with native GPU precision
+
+    This test NEVER fails (purely diagnostic).  Run with -s to see the table:
+
+        pytest tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
+
+    If any strategy shows *** FIXED ***, update GPU_NOT_SUPPORTED/GPU_VALIDATED and
+    the production compile config in classifier_service.py accordingly.
+    """
+    if not gpu_available:
+        pytest.skip("No Intel GPU available")
+
+    models = dict(_installed_onnx_models())
+    if "convnext_large_inat21" not in models:
+        pytest.skip("convnext_large_inat21 not installed")
+
+    core = ov.Core()
+    if "GPU" not in core.available_devices:
+        pytest.skip("No Intel GPU device available")
+
+    model_dir = models["convnext_large_inat21"]
+    config = _load_config(model_dir)
+    input_size = config.get("input_size", 384)
+    img = _make_test_image(max(input_size, 640))
+    tensor = _preprocess_image(img, config=config)
+
+    strategies: list[tuple[str, str, dict[str, str]]] = [
+        # Current production config — expected to show degraded logit range
+        ("f32/LATENCY (baseline)",  "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        # Native iGPU precision — f16 is hardware-native; avoids f32-emulation artefacts
+        # in depthwise conv accumulation.  ConvNeXt activations are small enough that
+        # f16 overflow (>65504) is unlikely.
+        ("f16/LATENCY",             "GPU",            {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        # ACCURACY hint selects slower but numerically more stable GPU algorithms
+        ("f32/ACCURACY",            "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"}),
+        ("f16/ACCURACY",            "GPU",            {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"}),
+        # Winograd is fast but accumulates error; disabling forces direct conv
+        ("f32/noWinograd",          "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}),
+        # HETERO routes precision-sensitive ops to CPU automatically
+        ("f32/HETERO",              "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        ("f16/HETERO",              "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+    ]
+
+    # CPU reference
+    model_ref = core.read_model(str(model_dir / "model.onnx"))
+    partial_ref = model_ref.inputs[0].get_partial_shape()
+    if partial_ref.rank.is_static and partial_ref[0].is_dynamic:
+        static_shape = [1] + [partial_ref[d].get_length() for d in range(1, partial_ref.rank.get_length())]
+        model_ref.reshape(static_shape)
+    cpu_compiled = core.compile_model(model_ref, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"})
+    cpu_out = _run_inference(cpu_compiled, tensor)
+    cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
+    top5_cpu = set(np.argsort(cpu_out)[-5:])
+
+    rows: list[str] = []
+    rows.append(f"\n{'='*110}")
+    rows.append(f"ConvNeXt Large GPU Precision Probe — OpenVINO {openvino_version}")
+    rows.append(f"CPU logit range: {cpu_range:.2f}  |  target: GPU range ≥ 0.5×CPU  AND  Spearman ≥ 0.50  AND  top-5 ∩ ≥ 1")
+    rows.append(f"{'='*110}")
+    rows.append(
+        f"{'Strategy':<28} {'device':<16} {'GPU range':>10} {'ratio':>6} "
+        f"{'spearman':>9} {'top5 ∩':>7} {'NaN?':>6} {'result'}"
+    )
+    rows.append(f"{'-'*110}")
+
+    for strategy_name, device, cfg in strategies:
+        try:
+            model2 = core.read_model(str(model_dir / "model.onnx"))
+            partial2 = model2.inputs[0].get_partial_shape()
+            if partial2.rank.is_static and partial2[0].is_dynamic:
+                static_shape2 = [1] + [partial2[d].get_length() for d in range(1, partial2.rank.get_length())]
+                model2.reshape(static_shape2)
+            compiled = core.compile_model(model2, device, config=cfg)
+            out = _run_inference(compiled, tensor)
+        except Exception as e:
+            rows.append(f"{strategy_name:<28} {device:<16} {'COMPILE/RUN FAIL':>10}  {str(e)[:40]}")
+            continue
+
+        has_nan = not np.isfinite(out).all()
+        finite = out[np.isfinite(out)]
+        gpu_range = float(finite.ptp()) if finite.size > 1 else 0.0
+        ratio = gpu_range / cpu_range if cpu_range > 0 else 0.0
+        spearman = _spearman_r(cpu_out, out) if np.isfinite(out).any() else float("nan")
+        top5_out = set(np.argsort(out)[-5:])
+        overlap = len(top5_cpu & top5_out)
+        nan_flag = "yes" if has_nan else "no"
+
+        if has_nan:
+            result = "NaN"
+        elif ratio < 0.5:
+            result = "low range"
+        elif spearman < 0.50:
+            result = "diverged"
+        elif overlap == 0:
+            result = "top5 mismatch"
+        else:
+            result = "*** FIXED ***"
+
+        rows.append(
+            f"{strategy_name:<28} {device:<16} {gpu_range:>10.2f} {ratio:>6.2f} "
+            f"{spearman:>9.3f} {overlap:>7d} {nan_flag:>6} {result}"
+        )
+
+    rows.append(f"{'='*110}")
+    print("\n".join(rows))
+    # Always pass — diagnostic only
