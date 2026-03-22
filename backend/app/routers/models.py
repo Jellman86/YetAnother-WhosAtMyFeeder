@@ -58,7 +58,11 @@ async def activate_model(
     success = await model_manager.activate_model(model_id)
     if not success:
         raise HTTPException(status_code=404, detail="Model not installed")
-    
+
+    # Keep settings.classification.model in sync so config.json reflects the active model
+    settings.classification.model = model_id
+    await settings.save()
+
     # Reload the classifier in the background to prevent blocking API timeouts
     # when loading heavy models across multiple worker processes.
     classifier = get_classifier()

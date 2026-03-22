@@ -406,7 +406,7 @@ async def _revoke_video_share_link(event_id: str, link_id: int) -> bool:
 
 async def cleanup_expired_video_share_links() -> int:
     """Delete stale share links (expired and revoked) to keep table size bounded."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     async with get_db() as db:
         await db.execute(
             """

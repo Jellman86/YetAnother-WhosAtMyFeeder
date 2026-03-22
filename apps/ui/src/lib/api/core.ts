@@ -142,6 +142,10 @@ export async function fetchWithAbort<T>(
             abortControllers.delete(key);
         }
 
+        if (response.status === 401 && authErrorCallback) {
+            authErrorCallback();
+        }
+
         return await handleResponse<T>(response);
     } catch (error) {
         if (key) {

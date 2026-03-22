@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import threading
 import aiofiles
 import httpx
 import structlog
@@ -434,6 +435,7 @@ class ModelManager:
     def __init__(self):
         # Ensure models directory exists
         os.makedirs(MODELS_DIR, exist_ok=True)
+        self._active_model_lock = threading.Lock()
         self.active_model_id = self._load_active_model_id()
         self.active_downloads: Dict[str, tuple[DownloadProgress, datetime]] = {}
 
@@ -444,23 +446,23 @@ class ModelManager:
             try:
                 with open(config_path, 'r') as f:
                     data = json.load(f)
-                    model_id = data.get("active_model_id", "mobilenet_v2_birds")
-                    return str(model_id or "mobilenet_v2_birds").strip() or "mobilenet_v2_birds"
+                    model_id = data.get("active_model_id", "")
+                    result = str(model_id or "").strip()
+                    if result:
+                        return result
             except Exception:
-                return "mobilenet_v2_birds"
-        return "mobilenet_v2_birds"
+                pass
+        # No persisted selection — fall back to the configured default
+        config_default = str(getattr(settings.classification, "model", "") or "").strip()
+        return config_default or "mobilenet_v2_birds"
 
     def _save_active_model_id(self, model_id: str):
-        """Save the active model ID."""
+        """Save the active model ID (thread-safe)."""
         config_path = os.path.join(MODELS_DIR, "active_model.json")
-        with open(config_path, 'w') as f:
-            json.dump(
-                {
-                    "active_model_id": model_id,
-                },
-                f,
-            )
-        self.active_model_id = model_id
+        with self._active_model_lock:
+            with open(config_path, 'w') as f:
+                json.dump({"active_model_id": model_id}, f)
+            self.active_model_id = model_id
 
     def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
@@ -800,6 +802,10 @@ class ModelManager:
                     self._apply_installed_model_config(spec, model_dir=target_dir)
                 )
 
+        log.warning(
+            "Active model not found in registry or on disk, falling back to bundled TFLite model",
+            active_model_id=model_id,
+        )
         return self._apply_crop_overrides({
             "model_id": "mobilenet_v2_birds",
             "model_path": "model.tflite",

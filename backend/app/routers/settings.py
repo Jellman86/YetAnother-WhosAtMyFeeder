@@ -2,7 +2,7 @@ import platform
 import re
 import asyncio
 from typing import List, Optional, Literal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 import structlog
@@ -92,13 +92,13 @@ async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
         return {"status": "error", "message": str(e)}
 
 class NotificationTestRequest(BaseModel):
-    platform: str  # discord, pushover, telegram
+    platform: str = Field(..., max_length=32)  # discord, pushover, telegram
     # Optional overrides for testing uncommitted settings
-    webhook_url: Optional[str] = None
-    user_key: Optional[str] = None
-    api_token: Optional[str] = None
-    bot_token: Optional[str] = None
-    chat_id: Optional[str] = None
+    webhook_url: Optional[str] = Field(None, max_length=2048)
+    user_key: Optional[str] = Field(None, max_length=256)
+    api_token: Optional[str] = Field(None, max_length=512)
+    bot_token: Optional[str] = Field(None, max_length=512)
+    chat_id: Optional[str] = Field(None, max_length=128)
 
 @router.post("/settings/notifications/test")
 async def test_notification(
@@ -111,7 +111,7 @@ async def test_notification(
     common_name = "Eurasian Blue Tit (Test)"
     confidence = 0.95
     camera = "test_camera"
-    timestamp = datetime.now()
+    timestamp = datetime.now(timezone.utc)
     snapshot_url = "https://placehold.co/600x400.jpg"
     
     try:
@@ -1158,7 +1158,7 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
         # Calculate how many would be deleted with current retention
         to_delete = 0
         if settings.maintenance.retention_days > 0:
-            cutoff = datetime.now() - timedelta(days=settings.maintenance.retention_days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=settings.maintenance.retention_days)
             to_delete = await repo.get_count(end_date=cutoff, exclude_favorites=True)
 
         return {
@@ -1178,7 +1178,7 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
             "deleted_count": 0
         }
 
-    cutoff = datetime.now() - timedelta(days=settings.maintenance.retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.maintenance.retention_days)
 
     async with get_db() as db:
         repo = DetectionRepository(db)

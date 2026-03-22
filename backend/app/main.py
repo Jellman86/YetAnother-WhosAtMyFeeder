@@ -168,7 +168,7 @@ CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 async def run_cleanup():
     """Execute cleanup of old detections and media cache."""
     try:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         favorite_event_ids: set[str] = set()
 
         # Detection cleanup
