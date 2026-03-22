@@ -28,7 +28,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 
 > **EU/regional model note:** Medium Birds, Small Birds, EU FocalNet, and FlexiViT are designed for European or global species lists. The test fixture is approximately 60% North American species, so their apparent low accuracy is expected. On an EU-only fixture their real accuracy would be substantially higher.
 
-> **EU FocalNet-B runs on Intel GPU:** This model is the only one validated to produce correct output on the Intel integrated GPU. All other ONNX models run on Intel CPU (OpenVINO). See the Intel GPU Support table below.
+> **Intel GPU support:** EU FocalNet-B, Small Birds EU, and Medium Birds EU are validated on Intel integrated GPU. All other ONNX models run on Intel CPU (OpenVINO). See the Intel GPU Support table below.
 
 ### Key Takeaways
 
@@ -46,12 +46,16 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 
 Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 
-| Model | Intel GPU Status | Failure Mode |
-|-------|-----------------|--------------|
+| Model | Intel GPU Status | Notes |
+|-------|-----------------|-------|
 | EU FocalNet-B | ✅ Validated | Correct finite output. Static-batch reshape required (applied automatically). |
+| Small Birds EU (MobileNetV4-L) | ✅ Validated | ratio=1.03, Spearman=0.996, top5∩=5. Excellent GPU match. Probed 22 March 2026. |
+| Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | ratio=0.98, Spearman=0.959, top5∩=3. Smaller kernel avoids ConvNeXt Large's precision issue. Probed 22 March 2026. |
 | ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
 | RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops produce non-finite values in f32. |
 | FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention produces non-finite values in f32. |
+| Small Birds NA (EfficientNet-B0) | ❌ Not supported | NaN output — EfficientNet-B0 produces non-finite values in f32 on Intel GPU. |
+| Medium Birds NA (Binocular) | ❌ Not supported | NaN output — Binocular architecture produces non-finite values in f32 on Intel GPU. |
 | EVA-02 Large | ❌ Fatal crash | `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES` — kills the process. Do not use with Intel GPU. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. Set the provider to `Intel CPU (OpenVINO)` for best performance without a GPU.

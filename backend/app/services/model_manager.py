@@ -109,6 +109,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
                 "file_size_mb": 122.7,
                 "input_size": 384,
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -298,6 +299,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json",
                 "file_size_mb": 108.5,
                 "input_size": 256,
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",

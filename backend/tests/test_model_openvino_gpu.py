@@ -58,6 +58,14 @@ GPU_VALIDATED: set[str] = {
     # prior GPU load in the same process, confirming it works correctly in the isolated
     # production context (one model running at a time). Tested on Intel iGPU, OV 2025.4.1.
     "eu_medium_focalnet_b",
+    # small_birds EU (MobileNetV4-L): ratio=1.03, Spearman=0.996, top5∩=5.
+    # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
+    "small_birds_eu",
+    # medium_birds EU (ConvNeXt-V2-Tiny): ratio=0.98, Spearman=0.959, top5∩=3.
+    # Distinct from ConvNeXt Large — smaller kernel + different BN structure avoids
+    # the depthwise-conv precision issue seen in convnext_large_inat21.
+    # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
+    "medium_birds_eu",
 }
 
 # GPU_CRASH_RISK: models that cause an unrecoverable process crash (SIGABRT /
@@ -96,6 +104,10 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
     ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector":  "Crop detector — CPU-only by design",
+    # small_birds NA (EfficientNet-B0): NaN output on Intel GPU. Probed 22 March 2026.
+    "small_birds_na": "NaN output — EfficientNet-B0 produces non-finite values in f32 on Intel GPU.",
+    # medium_birds NA (Binocular): NaN output on Intel GPU. Probed 22 March 2026.
+    "medium_birds_na": "NaN output — Binocular architecture produces non-finite values in f32 on Intel GPU.",
 }
 
 # ---------------------------------------------------------------------------
