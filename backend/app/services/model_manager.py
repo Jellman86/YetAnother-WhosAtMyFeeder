@@ -1211,6 +1211,74 @@ class ModelManager:
             shutil.rmtree(staged_dir, ignore_errors=True)
             return False
 
+    async def _fetch_and_write_model_config(
+        self,
+        model_meta: dict[str, Any],
+        model_dir: str,
+    ) -> None:
+        """Download model_config.json from model_config_url, or synthesize from registry."""
+        model_config_url = str(model_meta.get("model_config_url") or "").strip()
+        if model_config_url:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.get(model_config_url, follow_redirects=True)
+                    resp.raise_for_status()
+                    parsed = json.loads(resp.content.decode("utf-8"))
+                    if not isinstance(parsed, dict):
+                        raise ValueError("model_config.json response was not a JSON object")
+                    self._write_model_config_payload(model_dir, parsed)
+                    log.info("Model config fetched and written", model_dir=model_dir)
+                    return
+            except Exception as exc:
+                log.warning(
+                    "Failed to fetch model config; synthesizing from registry",
+                    model_dir=model_dir,
+                    url=model_config_url,
+                    error=str(exc),
+                )
+        self._write_model_config_payload(model_dir, self._build_model_config_payload(model_meta))
+        log.info("Model config synthesized from registry", model_dir=model_dir)
+
+    async def ensure_installed_model_configs(self) -> None:
+        """Write model_config.json for every installed model that is missing one.
+
+        Called once at startup to handle upgrades from versions that did not
+        write the model_config.json sidecar during download.  Missing sidecars
+        are fetched from model_config_url or synthesized from the in-code
+        registry as a fallback.
+        """
+        if not os.path.isdir(MODELS_DIR):
+            return
+        for entry in os.scandir(MODELS_DIR):
+            if not entry.is_dir():
+                continue
+            model_meta = self._get_registry_model_meta(entry.name)
+            if not model_meta:
+                continue  # Not in registry (backup dirs, active_model.json, etc.)
+            if self._is_family_model(model_meta):
+                variants = model_meta.get("region_variants") or {}
+                for region in variants:
+                    variant_dir = os.path.join(entry.path, region)
+                    if not os.path.isdir(variant_dir):
+                        continue
+                    # Only act on variants that have the model weights on disk
+                    runtime = str(
+                        (variants[region] or {}).get("runtime")
+                        or model_meta.get("runtime")
+                        or "tflite"
+                    )
+                    if not os.path.exists(os.path.join(variant_dir, self._model_filename_for_runtime(runtime))):
+                        continue
+                    if not os.path.exists(os.path.join(variant_dir, "model_config.json")):
+                        merged = self._merge_family_variant_meta(model_meta, region=region)
+                        await self._fetch_and_write_model_config(merged, variant_dir)
+            else:
+                runtime = str(model_meta.get("runtime") or "tflite")
+                if not os.path.exists(os.path.join(entry.path, self._model_filename_for_runtime(runtime))):
+                    continue
+                if not os.path.exists(os.path.join(entry.path, "model_config.json")):
+                    await self._fetch_and_write_model_config(model_meta, entry.path)
+
     async def activate_model(self, model_id: str) -> bool:
         """Set a model as active."""
         # 1. Check if it's a directory-based model in persistent storage

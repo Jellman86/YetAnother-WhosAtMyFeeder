@@ -321,6 +321,8 @@ async def lifespan(app: FastAPI):
     else:
         await _run_lifecycle_phase(app, "db_init", init_db, fatal=True)
         await _run_lifecycle_phase(app, "notification_dispatcher_start", notification_dispatcher.start, fatal=False)
+        from app.services.model_manager import model_manager
+        create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
