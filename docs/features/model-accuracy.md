@@ -8,29 +8,37 @@ This document describes how to run the model accuracy benchmark, explains the me
 
 Results are measured against 60 labeled bird images drawn from iNaturalist (15 species × 4 images each). Images cover both North American and European feeder birds, plus common rejection cases (out-of-scope birds that should still be classified but at lower confidence).
 
+Each run tests two preprocessing modes — **raw** (image sent as-is) and **letterbox** (padded to a square with gray borders) — to identify whether padding helps or hurts each model.
+
 > **Note on scope mismatch:** Birds-only regional models (Small Birds, Medium Birds, EU FocalNet, FlexiViT) are trained on European species. When tested against our fixture set which includes many North American species (Northern Cardinal, Blue Jay, American Robin, etc.), their scores reflect correct handling of out-of-scope input — not a real-world performance failure on their intended region.
 
-### Accuracy Table (15 March 2026)
+### Accuracy Table (22 March 2026)
 
-| Model | Tier | Scope | Top-1 | Top-5 | Mean Inference | Provider |
-|-------|------|-------|-------|-------|---------------|----------|
-| **RoPE ViT-B14** | medium | wildlife_wide | **70.0%** | **86.7%** | 474ms | intel_cpu |
-| **EVA-02 Large** | advanced | wildlife_wide | **75.0%** | **88.3%** | 1621ms | intel_cpu |
-| **ConvNeXt Large** | large | wildlife_wide | **70.0%** | **86.7%** | 832ms | intel_cpu |
-| **MobileNet V2** (legacy TFLite) | cpu_only | birds_only | 66.7% | 73.3% | 13ms | tflite |
-| **EU FocalNet-B** | medium | birds_only (EU) | 56.7% | 65.0% | 716ms | intel_cpu |
-| **Medium Birds** (EU variant) | medium | birds_only (EU) | 46.7% | 56.7% | 64ms | intel_cpu |
-| **Small Birds** (EU variant) | small | birds_only (EU) | 46.7% | 53.3% | 62ms | intel_cpu |
-| **FlexiViT Global** | small | birds_only (global) | 33.3% | 40.0% | 231ms | intel_cpu |
-| **Bird Crop Detector** | dependency | system | n/a | n/a | 3ms | cpu |
+| Model | Tier | Scope | Top-1 (raw) | Top-1 (lbx) | Top-5 (raw) | Top-5 (lbx) | Mean Inference | Provider |
+|-------|------|-------|-------------|-------------|-------------|-------------|---------------|----------|
+| **EVA-02 Large** | advanced | wildlife_wide | **68.3%** | 66.7% | **81.7%** | 78.3% | 1595ms | intel_cpu |
+| **RoPE ViT-B14** | medium | wildlife_wide | 63.3% | **65.0%** | **80.0%** | 75.0% | 493ms | intel_cpu |
+| **ConvNeXt Large** | large | wildlife_wide | 63.3% | 60.0% | **80.0%** | 78.3% | 976ms | intel_cpu |
+| **MobileNet V2** (legacy TFLite) | cpu_only | birds_only | 61.7% | 63.3% | 68.3% | 70.0% | 13ms | tflite |
+| **Small Birds** (EU variant) | small | birds_only (EU) | 41.7% | 38.3% | 48.3% | 50.0% | 55ms | intel_cpu |
+| **EU FocalNet-B** | medium | birds_only (EU) | 41.7% | 36.7% | 53.3% | 48.3% | 266ms | intel_gpu |
+| **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
+| **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
+| **Bird Crop Detector** | dependency | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 
 > **EU/regional model note:** Medium Birds, Small Birds, EU FocalNet, and FlexiViT are designed for European or global species lists. The test fixture is approximately 60% North American species, so their apparent low accuracy is expected. On an EU-only fixture their real accuracy would be substantially higher.
 
+> **EU FocalNet-B runs on Intel GPU:** This model is the only one validated to produce correct output on the Intel integrated GPU. All other ONNX models run on Intel CPU (OpenVINO). See the Intel GPU Support table below.
+
 ### Key Takeaways
 
-- **EVA-02 Large** achieves the highest top-1 accuracy (75%) but is slow (~1.6s) and requires ~3GB RAM.
-- **RoPE ViT-B14** and **ConvNeXt Large** tie at 70% top-1 / 86.7% top-5 — RoPE is faster (474ms vs 832ms) making it the recommended default for wildlife-wide classification.
-- **Legacy TFLite MobileNet V2** is fast (13ms) but lower accuracy. Hidden in the UI by default and labelled as legacy.
+- **EVA-02 Large** achieves the highest top-1 accuracy (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
+- **RoPE ViT-B14** is the recommended default: 63.3% top-1 / 80.0% top-5 at 493ms — the best speed/accuracy balance for wildlife-wide classification. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
+- **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
+- **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
+- **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
+
+> **Note on score changes from previous run (15 March 2026):** Accuracy is 5–7% lower than the March 15 results. This is due to iNaturalist serving different photos on re-download — the fixture set is the same 15 species but the 4 images per species changed. Scores will vary slightly between runs for this reason.
 
 ---
 
@@ -65,6 +73,8 @@ python3 backend/scripts/download_test_fixtures.py
 # Downloads 60 images (15 species × 4 each) to backend/tests/fixtures/bird_images/
 ```
 
+Alternatively, pass `--auto_download` and the script will fetch them automatically if not already present.
+
 ### Run against the active model
 
 ```bash
@@ -87,6 +97,15 @@ python3 backend/scripts/pipeline_api_test.py \
   --base_url http://localhost:8946 \
   --username YOUR_USERNAME --password YOUR_PASSWORD \
   --all_models
+```
+
+With auto-download and preprocessing comparison (letterbox vs center-crop):
+
+```bash
+python3 backend/scripts/pipeline_api_test.py \
+  --base_url http://localhost:8946 \
+  --username YOUR_USERNAME --password YOUR_PASSWORD \
+  --all_models --preprocess compare --auto_download
 ```
 
 ### Save a JSON report

@@ -7,6 +7,7 @@ and which are not — with GPU backing if the container has it.
 
 Prerequisites:
     python scripts/download_test_fixtures.py   # fetch iNaturalist images once
+    # Or pass --auto_download to have the script fetch them automatically
 
 Usage:
     # Test active model against all fixture images
@@ -32,6 +33,9 @@ Usage:
 
     # All models + preprocessing comparison
     python scripts/pipeline_api_test.py --base_url http://localhost:8946 --all_models --preprocess compare
+
+    # Auto-download fixture images if not already present
+    python scripts/pipeline_api_test.py --base_url http://localhost:8946 --auto_download --all_models
 """
 
 from __future__ import annotations
@@ -680,6 +684,10 @@ def main() -> int:
     )
     parser.add_argument("--manifest", default=str(_MANIFEST_PATH), help="Path to bird_image_manifest.json")
     parser.add_argument("--images_dir", default=str(_IMAGES_DIR), help="Path to downloaded fixture images")
+    parser.add_argument(
+        "--auto_download", action="store_true",
+        help="Automatically download fixture images if not already present (runs download_test_fixtures.py)"
+    )
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -689,12 +697,29 @@ def main() -> int:
         print(f"ERROR: manifest not found at {manifest_path}", file=sys.stderr)
         return 1
     if not downloaded_path.exists():
-        print(
-            f"ERROR: no downloaded images found at {downloaded_path}\n"
-            f"Run:  python scripts/download_test_fixtures.py",
-            file=sys.stderr,
-        )
-        return 1
+        if args.auto_download:
+            import subprocess as _sp
+            download_script = Path(__file__).resolve().parent / "download_test_fixtures.py"
+            print(f"Fixture images not found — downloading automatically (--auto_download)...")
+            result = _sp.run(
+                [sys.executable, str(download_script),
+                 "--manifest", str(manifest_path),
+                 "--output_dir", str(args.images_dir),
+                 "--count", "4"],
+                check=False,
+            )
+            if result.returncode != 0 or not downloaded_path.exists():
+                print("ERROR: auto-download failed. Run manually:", file=sys.stderr)
+                print(f"  python scripts/download_test_fixtures.py", file=sys.stderr)
+                return 1
+        else:
+            print(
+                f"ERROR: no downloaded images found at {downloaded_path}\n"
+                f"Run:  python scripts/download_test_fixtures.py\n"
+                f"  or pass --auto_download to fetch them automatically.",
+                file=sys.stderr,
+            )
+            return 1
 
     manifest = json.loads(manifest_path.read_text())
     downloaded = json.loads(downloaded_path.read_text())
