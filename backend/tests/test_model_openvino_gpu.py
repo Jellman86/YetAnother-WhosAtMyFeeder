@@ -576,17 +576,22 @@ def test_registry_intel_gpu_matches_validation_matrix() -> None:
         model_id = entry.get("id", "")
         providers = entry.get("supported_inference_providers") or []
 
-        # For family models, check all region variants too
-        all_providers = list(providers)
-        for variant in (entry.get("region_variants") or {}).values():
-            all_providers.extend(variant.get("supported_inference_providers") or [])
-
-        claims_gpu = "intel_gpu" in all_providers
-
+        # Check the top-level entry against its own providers (not variant providers)
+        claims_gpu = "intel_gpu" in providers
         if claims_gpu and model_id not in GPU_VALIDATED:
             mismatches.append(f"{model_id}: claims intel_gpu but is not in GPU_VALIDATED")
         if not claims_gpu and model_id in GPU_VALIDATED:
             mismatches.append(f"{model_id}: is in GPU_VALIDATED but does not list intel_gpu")
+
+        # For family models, check each region variant independently using variant_id = f"{family_id}_{region}"
+        for region, variant in (entry.get("region_variants") or {}).items():
+            variant_id = f"{model_id}_{region}"
+            variant_providers = variant.get("supported_inference_providers") or []
+            variant_claims_gpu = "intel_gpu" in variant_providers
+            if variant_claims_gpu and variant_id not in GPU_VALIDATED:
+                mismatches.append(f"{variant_id}: claims intel_gpu but is not in GPU_VALIDATED")
+            if not variant_claims_gpu and variant_id in GPU_VALIDATED:
+                mismatches.append(f"{variant_id}: is in GPU_VALIDATED but does not list intel_gpu")
 
     assert not mismatches, (
         "Registry and GPU validation matrix are out of sync:\n"
