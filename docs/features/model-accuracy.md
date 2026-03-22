@@ -152,6 +152,36 @@ pytest tests/test_model_openvino_gpu.py -v
 
 These tests skip automatically if no Intel GPU is detected.
 
+#### Running inside Docker (required for GPU access)
+
+The GPU is only accessible inside the running backend container. Run the tests there:
+
+```bash
+docker exec yawamf-backend python -m pytest tests/test_model_openvino_gpu.py -v
+```
+
+#### Diagnostic probes (no pass/fail — print a results table)
+
+Two additional probes help investigate GPU failures. They never fail; use `-s` to see the output table.
+
+**NaN / wrong-prediction fix probe** — tries HETERO, SDPA-off, and combined strategies on every model currently failing on GPU:
+
+```bash
+docker exec yawamf-backend python -m pytest \
+  tests/test_model_openvino_gpu.py::test_gpu_nan_fix_probe -v -s
+```
+
+**ConvNeXt Large precision probe** — tries seven compilation strategies specifically for ConvNeXt's precision-degradation failure (f16, ACCURACY hint, no-Winograd, HETERO, combinations):
+
+```bash
+docker exec yawamf-backend python -m pytest \
+  tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
+```
+
+The table columns are: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`. A strategy is considered fixed when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
+
+Results from OV 2025.4.1 on an Intel integrated GPU are documented in the Intel GPU Support table above and in the `GPU_NOT_SUPPORTED` dict in `tests/test_model_openvino_gpu.py`.
+
 ---
 
 ## Test Fixture Details
