@@ -99,8 +99,9 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
     ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
-        "SIGABRT on Intel GPU. Fatal crash observed on 2024.6.0, 2026.0.0, and 2025.4. "
-        "Do NOT attempt GPU inference; test runner skips this model to prevent abort."
+        "SIGABRT on Intel GPU. Behaviour is non-deterministic: first inference attempt may "
+        "return NaN, second attempt crashes the process. Observed on OV 2024.6.0, 2026.0.0, "
+        "and 2025.4.1. Do NOT attempt GPU inference; test runner skips this model to prevent abort."
     ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector":  "Crop detector — CPU-only by design",

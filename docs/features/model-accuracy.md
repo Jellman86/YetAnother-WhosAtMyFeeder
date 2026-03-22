@@ -56,7 +56,7 @@ Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 | FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention produces non-finite values in f32. |
 | Small Birds NA (EfficientNet-B0) | ❌ Not supported | NaN output — EfficientNet-B0 produces non-finite values in f32 on Intel GPU. |
 | Medium Birds NA (Binocular) | ❌ Not supported | NaN output — Binocular architecture produces non-finite values in f32 on Intel GPU. |
-| EVA-02 Large | ❌ Fatal crash | `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES` — kills the process. Do not use with Intel GPU. |
+| EVA-02 Large | ❌ Fatal crash | Non-deterministic: first attempt may return NaN, second attempt crashes the process with `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES`. Confirmed on OV 2024.6.0, 2026.0.0, and 2025.4.1. Do not use with Intel GPU. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. Set the provider to `Intel CPU (OpenVINO)` for best performance without a GPU.
 
