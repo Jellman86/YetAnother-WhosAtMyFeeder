@@ -101,7 +101,10 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
         "SIGABRT on Intel GPU. Behaviour is non-deterministic: first inference attempt may "
         "return NaN, second attempt crashes the process. Observed on OV 2024.6.0, 2026.0.0, "
-        "and 2025.4.1. Do NOT attempt GPU inference; test runner skips this model to prevent abort."
+        "and 2025.4.1. NOT a RAM limitation: iGPU has access to 28.7 GB system RAM with a "
+        "4 GB max allocation — the 1.2 GB model fits easily. Root cause is an EVA-CLIP attention "
+        "op / OpenCL kernel incompatibility on this iGPU generation. "
+        "Do NOT attempt GPU inference; test runner skips this model to prevent abort."
     ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector":  "Crop detector — CPU-only by design",
