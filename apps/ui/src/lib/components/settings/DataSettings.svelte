@@ -356,13 +356,10 @@
 
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
-                <div class="mb-6 space-y-3">
+                <div class="mb-6">
                     <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
                         <span class="text-slate-400">{taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
                         <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
-                    </div>
-                    <div class="w-full h-3 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700" role="progressbar" aria-valuenow={taxonomyStatus.processed} aria-valuemin="0" aria-valuemax={taxonomyStatus.total}>
-                        <div class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-1000 ease-out" style="width: {(taxonomyStatus.processed / (taxonomyStatus.total || 1)) * 100}%"></div>
                     </div>
                 </div>
             {:else if taxonomyStatus.current_item}
@@ -466,29 +463,6 @@
             {/if}
 
             {#if backfillResult}
-                {#if backfillTotal > 0}
-                    {@const backfillProcessed = safeCount(backfillResult.processed)}
-                    {@const backfillProgress = Math.min(100, Math.round((backfillProcessed / Math.max(1, backfillTotal)) * 100))}
-                    <div class="mb-3">
-                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                            <span>{fmtCount(backfillProcessed)} / {fmtCount(backfillTotal)}</span>
-                            <span>{backfillProgress}%</span>
-                        </div>
-                        <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-                            <div class="h-full bg-teal-500 transition-all" style={`width: ${backfillProgress}%`}></div>
-                        </div>
-                    </div>
-                {:else if backfilling}
-                    <div class="mb-3">
-                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                            <span>{fmtCount(backfillResult.processed)} / ?</span>
-                            <span>{$_('settings.data.backfill_scanning')}</span>
-                        </div>
-                        <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-                            <div class="h-full w-1/3 bg-teal-500/80 animate-pulse"></div>
-                        </div>
-                    </div>
-                {/if}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
                     <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
                     <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
@@ -530,29 +504,6 @@
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{$_('settings.data.weather_backfill_title')}</p>
                 {#if weatherBackfillResult}
-                    {#if weatherBackfillTotal > 0}
-                        {@const weatherProcessed = safeCount(weatherBackfillResult.processed)}
-                        {@const weatherProgress = Math.min(100, Math.round((weatherProcessed / Math.max(1, weatherBackfillTotal)) * 100))}
-                        <div class="mb-3">
-                            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                                <span>{fmtCount(weatherProcessed)} / {fmtCount(weatherBackfillTotal)}</span>
-                                <span>{weatherProgress}%</span>
-                            </div>
-                            <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-                                <div class="h-full bg-slate-700 transition-all" style={`width: ${weatherProgress}%`}></div>
-                            </div>
-                        </div>
-                    {:else if weatherBackfilling}
-                        <div class="mb-3">
-                            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                                <span>{fmtCount(weatherBackfillResult.processed)} / ?</span>
-                                <span>{$_('settings.data.weather_backfill_filling')}</span>
-                            </div>
-                            <div class="h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-                                <div class="h-full w-1/3 bg-slate-700/80 animate-pulse"></div>
-                            </div>
-                        </div>
-                    {/if}
                     <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center mb-3">
                         <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
                         <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
@@ -612,15 +563,11 @@
             {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
                 {@const remaining = analysisStatus.pending + analysisStatus.active}
                 {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
-                {@const progress = analysisTotal > 0 ? (processed / analysisTotal) * 100 : 0}
-                
+
                 <div class="mt-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700/30 space-y-3 animate-in fade-in slide-in-from-top-2">
                     <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
                         <span class="text-indigo-600 dark:text-indigo-400">{$_('settings.data.batch_analysis_processing')}</span>
                         <span class="text-slate-500">{processed} / {analysisTotal}</span>
-                    </div>
-                    <div class="w-full h-2 bg-white dark:bg-slate-800 rounded-full overflow-hidden border border-indigo-100 dark:border-indigo-700/50">
-                        <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out" style="width: {progress}%"></div>
                     </div>
                     <div class="flex justify-between text-[10px] font-bold text-slate-400">
                         <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
@@ -722,11 +669,6 @@
                 {/if}
                 {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
             </button>
-            {#if resettingDatabase}
-                <div class="h-2 rounded-full bg-red-100 dark:bg-red-900/30 overflow-hidden">
-                    <div class="h-full bg-gradient-to-r from-red-500 via-rose-500 to-orange-400 animate-pulse"></div>
-                </div>
-            {/if}
         </div>
     </section>
 </div>

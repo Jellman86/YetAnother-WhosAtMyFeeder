@@ -1934,6 +1934,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function loadTaxonomyStatus() {
         try {
             taxonomyStatus = await fetchTaxonomyStatus();
+            if (taxonomyStatus.is_running) {
+                jobProgressStore.upsertRunning({
+                    id: 'taxonomy:sync',
+                    kind: 'taxonomy_sync',
+                    title: $_('settings.data.taxonomy_title'),
+                    message: taxonomyStatus.current_item || $_('settings.data.taxonomy_syncing'),
+                    current: taxonomyStatus.processed,
+                    total: taxonomyStatus.total,
+                    source: 'poll'
+                });
+            } else {
+                jobProgressStore.closeActiveByPrefix('taxonomy:', 'stale');
+            }
         } catch (e) {
             console.error('Failed to load taxonomy status', e);
         }
@@ -2338,7 +2351,30 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     clearInterval(analysisPollInterval);
                     analysisPollInterval = null;
                 }
+                if (analysisTotal > 0) {
+                    jobProgressStore.markCompleted({
+                        id: 'analysis:batch',
+                        kind: 'batch_analysis',
+                        title: $_('settings.data.batch_analysis_title'),
+                        current: analysisTotal,
+                        total: analysisTotal,
+                        source: 'poll'
+                    });
+                } else {
+                    jobProgressStore.closeActiveByPrefix('analysis:', 'stale');
+                }
                 analysisTotal = 0;
+            } else if (remaining > 0) {
+                const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0;
+                jobProgressStore.upsertRunning({
+                    id: 'analysis:batch',
+                    kind: 'batch_analysis',
+                    title: $_('settings.data.batch_analysis_title'),
+                    message: `${processed.toLocaleString()} / ${analysisTotal > 0 ? analysisTotal.toLocaleString() : '?'}`,
+                    current: processed,
+                    total: analysisTotal > 0 ? analysisTotal : 0,
+                    source: 'poll'
+                });
             }
         } catch (e) {
             console.error('Failed to load analysis status', e);

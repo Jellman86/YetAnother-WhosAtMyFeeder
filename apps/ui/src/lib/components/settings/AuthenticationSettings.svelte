@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     let {
         authEnabled = $bindable(false),
@@ -111,7 +112,12 @@
 
             <div class="grid grid-cols-1 gap-3">
                 <div>
-                    <label for="auth-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.password')}</label>
+                    <div class="flex items-center gap-2 mb-2">
+                        <label for="auth-password" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.auth.password')}</label>
+                        {#if authHasPassword}
+                            <SecretSavedBadge />
+                        {/if}
+                    </div>
                     <input
                         id="auth-password"
                         type="password"

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { onMount } from 'svelte';
+    import SecretSavedBadge from './SecretSavedBadge.svelte';
     import { fetchAiUsage, clearAiUsage, type AIUsageResponse } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
 
@@ -232,21 +233,19 @@
                 </div>
 
                 <div>
-                    <label for="llm-api-key" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.api_key')}</label>
-                    <div class="relative">
-                        <input
-                            id="llm-api-key"
-                            type="password"
-                            bind:value={llmApiKey}
-                            placeholder={llmApiKeySaved ? '***REDACTED***' : 'sk-...'}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-mono text-xs transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900 outline-none"
-                        />
-                        {#if llmApiKeySaved && !llmApiKey}
-                            <div class="absolute inset-y-0 right-4 flex items-center">
-                                <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-black rounded uppercase">{$_('settings.common.saved', { default: 'Saved' })}</span>
-                            </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <label for="llm-api-key" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.llm.api_key')}</label>
+                        {#if llmApiKeySaved}
+                            <SecretSavedBadge />
                         {/if}
                     </div>
+                    <input
+                        id="llm-api-key"
+                        type="password"
+                        bind:value={llmApiKey}
+                        placeholder={llmApiKeySaved ? '***REDACTED***' : 'sk-...'}
+                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-mono text-xs transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900 outline-none"
+                    />
                 </div>
 
                 <div>
