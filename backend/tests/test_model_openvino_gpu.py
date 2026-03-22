@@ -72,11 +72,13 @@ GPU_CRASH_RISK: set[str] = {
 GPU_NOT_SUPPORTED: dict[str, str] = {
     "convnext_large_inat21": (
         "Wrong predictions — compiles and runs without NaN/crash (static reshape required), "
-        "but GPU logit spread is ~3–7 vs ~15 on CPU; top predictions are entirely wrong species "
-        "(including plants) while CPU achieves 96% confidence on the same image. "
-        "Root cause: numeric precision degradation in ConvNeXt depthwise-conv + LayerNorm on "
-        "this Intel iGPU. The 2025.4 LayerNorm scale/bias fix addresses flattened shapes; "
-        "it is unclear whether it resolves this model's precision degradation."
+        "but GPU logit spread is ~3–7 vs ~18 on CPU; top predictions are entirely wrong species. "
+        "Root cause: numeric precision degradation in ConvNeXt 7×7 depthwise-conv + LayerNorm "
+        "on this Intel iGPU. Exhaustive precision probe (OV 2025.4.1) confirms no strategy fixes it: "
+        "f16 → NaN; PERFORMANCE_HINT=ACCURACY → compile crash; noWinograd → still low range (0.18×); "
+        "HETERO:GPU,CPU → range recovers (0.74×) but Spearman 0.16 / top-5 ∩ 0 (rankings wrong). "
+        "The GPU sub-graph scrambles feature rankings even when output magnitude is near-correct. "
+        "Not fixable without OpenVINO depthwise-conv precision fixes for this iGPU generation."
     ),
     "rope_vit_b14_inat21": (
         "NaN output — RoPE attention ops produce non-finite values in f32 on Intel GPU "

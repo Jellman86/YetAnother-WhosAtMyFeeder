@@ -41,7 +41,7 @@ Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 | Model | Intel GPU Status | Failure Mode |
 |-------|-----------------|--------------|
 | EU FocalNet-B | ✅ Validated | Correct finite output. Static-batch reshape required (applied automatically). |
-| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~15 on CPU; top-1 is entirely wrong species. Numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. |
+| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
 | RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops produce non-finite values in f32. |
 | FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention produces non-finite values in f32. |
 | EVA-02 Large | ❌ Fatal crash | `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES` — kills the process. Do not use with Intel GPU. |
