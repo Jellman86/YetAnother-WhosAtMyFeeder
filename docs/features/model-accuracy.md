@@ -52,10 +52,10 @@ Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 | Small Birds EU (MobileNetV4-L) | ✅ Validated | ratio=1.03, Spearman=0.996, top5∩=5. Excellent GPU match. Probed 22 March 2026. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | ratio=0.98, Spearman=0.959, top5∩=3. Smaller kernel avoids ConvNeXt Large's precision issue. Probed 22 March 2026. |
 | ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
-| RoPE ViT-B14 | ❌ Not supported | NaN output — RoPE attention ops produce non-finite values in f32. |
-| FlexiViT Global | ❌ Not supported | NaN output — FlexiViT DINOv2 attention produces non-finite values in f32. |
-| Small Birds NA (EfficientNet-B0) | ❌ Not supported | NaN output — EfficientNet-B0 produces non-finite values in f32 on Intel GPU. |
-| Medium Birds NA (Binocular) | ❌ Not supported | NaN output — Binocular architecture produces non-finite values in f32 on Intel GPU. |
+| RoPE ViT-B14 | ❌ Not supported | NaN in both f32 and f16. RoPE attention ops are not finite on this iGPU. |
+| FlexiViT Global | ❌ Not supported | NaN in both f32 and f16. FlexiViT DINOv2 RMSNorm produces non-finite values. |
+| Small Birds NA (EfficientNet-B0) | ❌ Not supported | Non-deterministic crash — first inference after clean state may pass (f32: ratio=0.83, Spearman=0.821), but subsequent GPU compilations crash with `CL_OUT_OF_RESOURCES`. f16 → NaN. Too unreliable for production use. |
+| Medium Birds NA (Binocular) | ❌ Not supported | NaN in both f32 and f16. |
 | EVA-02 Large | ❌ Fatal crash | Non-deterministic: first attempt may return NaN, second attempt crashes the process with `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES`. Not a RAM issue — iGPU can address 28.7 GB with 4 GB max allocation; the 1.2 GB model fits easily. Root cause is an EVA-CLIP attention op incompatibility on this iGPU generation. Confirmed on OV 2024.6.0, 2026.0.0, and 2025.4.1. Do not use with Intel GPU. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. Set the provider to `Intel CPU (OpenVINO)` for best performance without a GPU.

@@ -89,13 +89,12 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "Not fixable without OpenVINO depthwise-conv precision fixes for this iGPU generation."
     ),
     "rope_vit_b14_inat21": (
-        "NaN output — RoPE attention ops produce non-finite values in f32 on Intel GPU "
-        "(caught by startup self-test). Model uses standard LayerNorm; may benefit from "
-        "2025.4 LayerNorm fix — re-test after upgrading containers."
+        "NaN output — RoPE attention ops produce non-finite values in both f32 and f16 on "
+        "Intel GPU. Probed 22 March 2026, OV 2025.4.1: f32 → NaN, f16 → NaN."
     ),
     "flexivit_il_all": (
-        "NaN output — FlexiViT DINOv2 with RMSNorm produces non-finite values in f32 on "
-        "Intel GPU (caught by startup self-test). Uses RMSNorm not LayerNorm."
+        "NaN output — FlexiViT DINOv2 with RMSNorm produces non-finite values in both f32 "
+        "and f16 on Intel GPU. Probed 22 March 2026, OV 2025.4.1: f32 → NaN, f16 → NaN."
     ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
@@ -108,10 +107,20 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
     ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector":  "Crop detector — CPU-only by design",
-    # small_birds NA (EfficientNet-B0): NaN output on Intel GPU. Probed 22 March 2026.
-    "small_birds_na": "NaN output — EfficientNet-B0 produces non-finite values in f32 on Intel GPU.",
-    # medium_birds NA (Binocular): NaN output on Intel GPU. Probed 22 March 2026.
-    "medium_birds_na": "NaN output — Binocular architecture produces non-finite values in f32 on Intel GPU.",
+    # small_birds NA (EfficientNet-B0): non-deterministic on Intel GPU. Probed 22 March 2026.
+    # First inference after a clean GPU state may pass (ratio=0.83, Spearman=0.821),
+    # but subsequent GPU compilations crash with CL_OUT_OF_RESOURCES. f16 → NaN.
+    # Treated as unsupported due to non-deterministic crash risk.
+    "small_birds_na": (
+        "Non-deterministic GPU failure — first inference after clean GPU state may pass "
+        "(f32: ratio=0.83, Spearman=0.821, top5∩=1), but subsequent GPU compilations crash "
+        "with CL_OUT_OF_RESOURCES. f16 → NaN. Probed 22 March 2026, OV 2025.4.1."
+    ),
+    # medium_birds NA (Binocular): NaN in both f32 and f16. Probed 22 March 2026.
+    "medium_birds_na": (
+        "NaN output in both f32 and f16 on Intel GPU. "
+        "Probed 22 March 2026, OV 2025.4.1."
+    ),
 }
 
 # ---------------------------------------------------------------------------
