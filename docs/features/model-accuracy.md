@@ -184,6 +184,64 @@ Results from OV 2025.4.1 on an Intel integrated GPU are documented in the Intel 
 
 ---
 
+### NVIDIA GPU diagnostic probes
+
+Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests every installed model through ONNX Runtime's `CUDAExecutionProvider` and `TensorrtExecutionProvider`.  These tests **never fail** — they only print a results table.  The data helps determine whether models that are broken on Intel iGPU work correctly on NVIDIA hardware.
+
+#### Prerequisites
+
+NVIDIA Container Toolkit must be installed on the host.  Add GPU access to `docker-compose.yml`:
+
+```yaml
+services:
+  yawamf-backend:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+```
+
+Or for a one-off run without modifying compose:
+
+```bash
+docker run --gpus all ghcr.io/jellman86/wamf-backend:dev \
+    python -m pytest tests/test_model_nvidia_gpu.py -v -s
+```
+
+#### Full per-model survey (all strategies)
+
+Tests every installed ONNX model through CUDA/fp32, CUDA/fp32+exhaustive, TRT/fp32, TRT/fp16, and TRT/fp16+exhaust:
+
+```bash
+docker exec yawamf-backend python -m pytest \
+  tests/test_model_nvidia_gpu.py::test_nvidia_gpu_full_probe -v -s
+```
+
+#### ConvNeXt Large focused probe
+
+ConvNeXt Large is broken on Intel iGPU (precision degradation, not fixable with OV 2025.4).  This probe checks whether NVIDIA GPU gives correct results and includes Intel iGPU reference data for direct comparison:
+
+```bash
+docker exec yawamf-backend python -m pytest \
+  tests/test_model_nvidia_gpu.py::test_convnext_nvidia_probe -v -s
+```
+
+The table columns are the same as the Intel probes: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`.  A strategy passes when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
+
+#### Sharing results
+
+If you run these probes, please paste the printed table into the relevant GitHub issue along with:
+
+```bash
+nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
+python -c "import onnxruntime; print(onnxruntime.__version__)"
+```
+
+---
+
 ## Test Fixture Details
 
 The benchmark uses 60 research-grade photos from iNaturalist (CC-BY/CC0 licensed), covering:
