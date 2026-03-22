@@ -132,7 +132,7 @@ If you want to share a read‑only public view:
 See [Authentication & Access](../features/authentication.md) for the full guest mode checklist and proxy guidance.
 
 ## 🌍 The Importance of Timezone (`TZ`)
-Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London`).
+Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London` — the correct choice, obviously).
 
 If the timezone is incorrect:
 - **Audio correlation will fail:** Visual events from Frigate and Audio events from BirdNET won't align, and birds won't be "Verified".

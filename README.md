@@ -28,7 +28,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 ## Features at a Glance
 
-- **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to 91% accuracy)
+- **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to ~75% top-1 / 88% top-5 across 10,000 species)
 - **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
@@ -237,6 +237,35 @@ docker compose logs yawamf-backend -f  # Follow backend logs
 
 For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troubleshooting/diagnostics.md).
 
+## Frequently Asked Questions
+
+**Q: What model should I use?**
+For most users, **ConvNeXt Large** (the default) is the best balance of accuracy and speed on standard CPU. If you have GPU acceleration available and need maximum accuracy on rare or difficult species, try **EVA-02 Large**. For constrained hardware, **MobileNet V2** (legacy) is the fastest option. See [AI Models & Performance](docs/features/ai-models.md) for a full comparison.
+
+**Q: My birds are classified as "Unknown Bird" — how do I fix this?**
+Lower the `Min Confidence Floor` (e.g., from 0.4 to 0.2), or lower the `Confidence Threshold` (e.g., from 0.7 to 0.5). Note that wildlife-wide models (ConvNeXt, EVA-02) naturally produce lower per-class scores than birds-only models due to competing against ~8,500 non-bird classes — the recommended threshold shown in the Model Manager card already accounts for this. Enabling Deep Video Analysis also helps for difficult identifications.
+
+**Q: What is "Trust Frigate Sublabels" and should I enable it?**
+When enabled, if Frigate has already identified a bird species (via its own classifier or Frigate+), YA-WAMF will trust that label instantly and skip local AI inference. This saves CPU and is useful if you've already tuned Frigate's detection. Disable it to always run YA-WAMF's own AI independently.
+
+**Q: How do I share my dashboard publicly?**
+Enable **Guest Mode** in **Settings > Security**. Guests get a read-only view with rate limiting. You can optionally hide camera names and restrict how far back the public history goes. See [Authentication & Access](docs/features/authentication.md).
+
+**Q: What Frigate version is required?**
+YA-WAMF works best with **Frigate 0.17+**. The recommended Frigate config in this project uses Frigate 0.17's tiered recording retention format. See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
+
+**Q: Can I run YA-WAMF without Frigate?**
+YA-WAMF is designed specifically as a Frigate companion and requires Frigate as its event source. It listens for `frigate/events` MQTT messages and fetches media from the Frigate HTTP API.
+
+**Q: How do I run the model accuracy tests?**
+See [Model Accuracy & Benchmarks](docs/features/model-accuracy.md) for full instructions — it covers CPU accuracy benchmarks, Intel GPU validation, and NVIDIA GPU diagnostic probes.
+
+**Q: Why are my clips very short?**
+This is expected behaviour for birds. If a bird is only at the feeder for 2 seconds, the Frigate event is 2 seconds. Configure `record.alerts.pre_capture` and `record.detections.pre_capture` in your Frigate config to add context around each detection (e.g., `pre_capture: 5, post_capture: 25`). See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
+
+**Q: How do I update YA-WAMF?**
+Run `docker compose pull && docker compose up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
+
 ## Configuration
 
 All settings are managed through the web UI under **Settings**. Configuration is persisted to `config/config.json`.
@@ -251,7 +280,7 @@ All settings are managed through the web UI under **Settings**. Configuration is
 | **Min Confidence Floor** | Reject detections below this score | `0.4` |
 | **Trust Frigate Sublabels** | Use Frigate's labels instead of local AI | `Enabled` |
 | **Auto Video Analysis** | Analyze full video clips for accuracy | `Disabled` |
-| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `MobileNet` |
+| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `ConvNeXt Large` |
 | **BirdWeather Token** | Upload detections to BirdWeather | _(none)_ |
 | **BirdNET-Go Topic** | MQTT topic for audio detections | `birdnet/text` |
 

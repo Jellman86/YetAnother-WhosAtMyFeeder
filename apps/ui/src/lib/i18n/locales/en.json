@@ -1193,7 +1193,7 @@
     "license_notice": "© {year} Jellman86 • Licensed under the {license}",
     "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
     "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
-    "project_desc_2": "The entire application has been built with help from AI coding assistants - it's been an interesting exploration of what's possible with these tools. If you spot any rough edges, that's probably why!",
+    "project_desc_2": "The application is built with AI coding assistance and has grown into a fully-featured bird identification platform — from a simple feeder camera to multi-sensor correlation, GPU-accelerated models, and real-time Home Assistant integration.",
     "steps": {
       "1": {
         "title": "Frigate Detects",
@@ -1231,7 +1231,7 @@
     "feature_list": {
       "ai_models": {
         "title": "Advanced AI Models",
-        "desc": "Choose from MobileNetV2 (fast), ConvNeXt (high accuracy), or EVA-02 (elite ~91% accuracy)"
+        "desc": "Multiple model tiers: MobileNetV2 (fast, CPU-only), ConvNeXt Large (recommended default), or EVA-02 (elite — up to 75% top-1 / 88% top-5 across 10,000 species). Regional birds-only models also available."
       },
       "multi_sensor": {
         "title": "Multi-Sensor Correlation",
@@ -1285,6 +1285,18 @@
       "guest_mode": {
         "title": "Public View (Guest Mode)",
         "desc": "Share a read-only dashboard with rate limits and optional camera name hiding"
+      },
+      "gpu_acceleration": {
+        "title": "GPU Acceleration",
+        "desc": "Auto-select between NVIDIA CUDA and Intel OpenVINO for fast ONNX inference, with runtime fallback and live provider diagnostics in the UI"
+      },
+      "personalized_reranking": {
+        "title": "Personalized Re-ranking",
+        "desc": "Learns from your manual species corrections per camera and model, re-ranking predictions to match your local birds over time. Activates after 20 corrections."
+      },
+      "ebird_export": {
+        "title": "eBird Export",
+        "desc": "Export your detections as a standard eBird Record Format CSV — ready to submit directly to your eBird account"
       }
     },
     "tech": {

@@ -109,6 +109,21 @@
             icon: '🔓',
             titleKey: 'about.feature_list.guest_mode.title',
             descriptionKey: 'about.feature_list.guest_mode.desc'
+        },
+        {
+            icon: '🖥️',
+            titleKey: 'about.feature_list.gpu_acceleration.title',
+            descriptionKey: 'about.feature_list.gpu_acceleration.desc'
+        },
+        {
+            icon: '🎯',
+            titleKey: 'about.feature_list.personalized_reranking.title',
+            descriptionKey: 'about.feature_list.personalized_reranking.desc'
+        },
+        {
+            icon: '📋',
+            titleKey: 'about.feature_list.ebird_export.title',
+            descriptionKey: 'about.feature_list.ebird_export.desc'
         }
     ];
 

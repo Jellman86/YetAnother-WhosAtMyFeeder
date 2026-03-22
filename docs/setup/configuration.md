@@ -23,6 +23,9 @@ Fine-tune how AI identifications are handled. This is the most important section
 | **Confidence Threshold** | The "Species Gatekeeper". If the AI score is higher than this (e.g., 0.7), the bird is saved with its specific species name. |
 | **Min Confidence Floor** | The "Existence Gatekeeper". Anything below this score (e.g., 0.2) is discarded as a false positive (shadows, bugs, etc.). |
 | **Trust Frigate Sublabels** | The "Fast Path". If enabled and Frigate provides an identification, YA-WAMF trusts it instantly, bypassing both the local AI and the Confidence Floor. |
+| **Write Frigate Sublabel** | Controls whether YA-WAMF pushes its own species identification back to Frigate as a sublabel. Disable if you do not want YA-WAMF writing back to Frigate events. |
+| **Bird Model Region** | Override automatic regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
+| **Execution Mode** | `In-Process` (default, lower RAM — shares one model instance) or `Subprocess` (isolated workers with independent restart/circuit-breaker logic). |
 | **Personalized Re-ranking** | Optional learning layer that uses your manual species corrections to re-rank future predictions for the same camera and active model. Activates after at least 20 manual tags for that camera/model pair. |
 
 ### 🛠 How Thresholds Work Together
@@ -50,10 +53,12 @@ If you have **"Trust Frigate Sublabels"** enabled, and Frigate identifies a "Blu
 ## Integration Settings
 Configure third-party services.
 
-- **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs.
+- **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs. Multiple source names per camera are supported (comma-separated).
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
 - **iNaturalist:** Owner-reviewed submissions via OAuth. Requires App Owner approval (currently untested).
-- **AI Insights:** Connect Google Gemini (default: `gemini-3-flash-preview`), OpenAI, or Claude to get behavioral analysis of your visitors.
+- **AI Insights:** Connect Google Gemini (default: `gemini-2.0-flash`), OpenAI, or Claude to get behavioral analysis of your visitors.
+- **Location:** Set your latitude/longitude for weather enrichment. Also configure **Weather Units** (`Metric`, `Imperial`, or `British` for °C + mph + mm) and optional `state`/`country` values for eBird export.
+- **eBird Export:** Download detections as a standard eBird CSV record file from **Settings > Data**. Supports full export or a filtered date range. `Unknown Bird` entries are excluded. Requires English species names in the taxonomy cache.
 
 ## Notification Settings
 Configure how and where alerts are sent.

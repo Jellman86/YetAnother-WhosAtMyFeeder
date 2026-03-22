@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
-## [Unreleased]
+## [2.8.5] - 2026-03-22
 
 - **Added:** Three new ONNX models exported from the [Birder](https://github.com/birder-project/birder) pretrained model library and published to the GitHub models release, now downloadable and activatable via the Model Manager:
   - **FocalNet-B EU Medium** (`eu_medium_focalnet_b`) — 707 European bird species, 384px input, 338 MB. Strong birds-only accuracy for European feeders.

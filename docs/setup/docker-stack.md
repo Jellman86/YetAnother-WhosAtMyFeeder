@@ -5,8 +5,6 @@ This is a complete, "batteries-included" Docker Compose example. It includes eve
 ## Example `docker-compose.yml`
 
 ```yaml
-version: '3.9'
-
 services:
   # --- The Core: Bird Identification ---
   yawamf-backend:

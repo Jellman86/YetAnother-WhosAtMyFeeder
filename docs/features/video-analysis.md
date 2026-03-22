@@ -5,7 +5,7 @@ While real-time detection uses a single snapshot, YA-WAMF provides a "Deep Video
 ## How it works
 When you click **"Reclassify > Deep Video Analysis"** on a detection:
 1. The backend fetches the full video clip from Frigate.
-2. It extracts **15 frames** using a Normal Distribution sampling (focusing on the middle of the clip).
+2. It extracts up to **15 frames** using deterministic stratified sampling (evenly spread across the full clip duration — unlike British rail, they arrive on time).
 3. Each frame is classified individually.
 4. The system uses a **Soft-Voting Ensemble** logic to average the top predictions.
 5. This multi-frame approach significantly reduces "glitch" identifications caused by motion blur or bad angles in a single snapshot.

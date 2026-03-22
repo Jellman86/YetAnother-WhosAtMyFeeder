@@ -1,5 +1,7 @@
 # Recommended Frigate Configuration
 
+> **Frigate version:** This guide targets **Frigate 0.17+**. If you are on an older version, the `record` section structure differs — see the [Frigate updating guide](https://docs.frigate.video/frigate/updating/) before upgrading.
+
 To get the best results with YA-WAMF, your Frigate NVR should be configured to capture high-quality snapshots and recordings of birds. Using **go2rtc** is highly recommended for low-latency streaming and efficient handling of multiple roles (detect, record, etc.).
 
 ## Full Configuration Example (`config.yml`)
@@ -59,16 +61,23 @@ cameras:
     # --- REQUIRED FOR DEEP VIDEO ANALYSIS ---
     record:
       enabled: True
-      retain:
+      # Frigate 0.17+ uses tiered retention. Keep raw video for 3 days so
+      # YA-WAMF can always fetch clips for Deep Video Analysis.
+      continuous:
         days: 3
-        mode: all # Ensure clips are available for YA-WAMF to scan
       # Optional: Add context before/after motion so bird clips aren't "blink-and-you-miss-it".
       # This affects Frigate review/detection recording segments (and therefore what YA-WAMF can analyze),
       # but the raw Frigate event duration can still be short if the bird only appears briefly.
       alerts:
+        retain:
+          days: 30
+          mode: all # Keep all segments overlapping alerts
         pre_capture: 5
         post_capture: 25
       detections:
+        retain:
+          days: 7
+          mode: all # Keep all segments overlapping detections
         pre_capture: 5
         post_capture: 25
 
@@ -92,11 +101,11 @@ Using the `go2rtc` section in Frigate provides several major benefits:
 ### 📷 Snapshot Resolution
 While Frigate's detection model often runs at a low resolution (e.g., 320x320), YA-WAMF's high-accuracy models (EVA-02) perform much better if the source snapshot is clear. Ensure your `detect` role is assigned to a stream with decent resolution (720p or higher) for the best identification results.
 
-### 🎥 Record Mode
-YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and I recommend `mode: all` for at least a few days to ensure the system can go back and re-analyze any event you click on.
+### 🎥 Record Mode (Frigate 0.17+)
+YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least a few days so the system can go back and re-analyze any event. Use `mode: all` under `alerts.retain` and `detections.retain` to ensure all recording segments overlapping bird events are kept.
 
 ### ⏱️ “My clips are too short”
-This is usually expected for birds.
+This is usually expected for birds. Much like the British summer, bird visits tend to be over before you've had time to put the kettle on.
 
 Frigate “events” have a `start_time` and `end_time`. If the bird only triggers motion/detection for 1-3 seconds, the event is only 1-3 seconds long, and the event clip can be very short.
 
