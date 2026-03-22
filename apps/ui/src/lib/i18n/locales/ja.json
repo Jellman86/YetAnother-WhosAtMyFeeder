@@ -197,7 +197,12 @@
         "sensor_id_label": "{camera} の音声センサーID",
         "sensor_mapping_empty": "カメラが検出されません。Frigate接続を確認してください。",
         "sensor_mapping_help": "Frigateのカメラを追加して音声センサーに割り当てます。* を使用してランダム/動的センサーIDを指定できます。",
-        "mqtt_topic_placeholder": "birdnet/text"
+        "mqtt_topic_placeholder": "birdnet/text",
+        "source_discovery_title": "最近検出されたBirdNETソース",
+        "source_discovery_loading": "最近のソース名を読み込み中...",
+        "source_discovery_empty": "BirdNETソース名がまだ検出されていません。音声検出を待ってから設定を再読み込みしてください。",
+        "source_discovery_error": "最近のBirdNETソース名の読み込みに失敗しました。",
+        "source_discovery_help": "これらの検出されたソース名を上のマッピングフィールドに使用してください。名前はBirdNET-Go再起動時の動的IDより安定しています。"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -753,7 +758,12 @@
       "personalization_min_tags": "最小",
       "openvino_compile_failure": "このホストでは OpenVINO モデルに互換性がありません",
       "openvino_compile_failure_detail": "このモデルは現在選択されている OpenVINO デバイスではコンパイルできません。YA-WAMF はモデルをインストールしたまま保持しますが、推論は {fallback} で実行します。",
-      "openvino_diagnostics": "OpenVINO 診断"
+      "openvino_diagnostics": "OpenVINO 診断",
+      "region_override_title": "鳥モデルの地域",
+      "region_override_desc": "自動では設定された国を使用します。手動選択が常に優先されます。",
+      "region_override_auto": "自動",
+      "region_override_eu": "ヨーロッパ",
+      "region_override_na": "北米"
     },
     "llm": {
       "title": "AI インサイト",
@@ -968,7 +978,59 @@
         "frigate_unavailable": "Frigate に接続できません。スナップショット解析を使用します。",
         "no_results": "ビデオ分析で結果が得られませんでした。",
         "event_missing": "Frigate にイベントが見つかりません。",
-        "unknown": "ビデオ分析に失敗しました。スナップショット解析を使用します。"
+        "unknown": "ビデオ分析に失敗しました。スナップショット解析を使用します。",
+        "clip_not_retained": "クリップはFrigateに保持されていません（保持期間外）。"
+      },
+      "error_details": {
+        "why": "発生する可能性がある理由",
+        "checks": "確認事項",
+        "show": "エラー詳細を表示",
+        "hide": "エラー詳細を非表示",
+        "error_code": "エラーコード: {code}",
+        "pipeline_summary": "ビデオ分析パイプラインが完了前に失敗しました。",
+        "video_timeout_summary": "ビデオ分類器が結果を出す前にタイムアウトしました。",
+        "causes": {
+          "clip_corrupt": "クリップのバイトが不完全または破損しており、有効な再生可能メディアファイルではありませんでした。",
+          "clip_pending": "ビデオ分析が取得しようとした時点で、Frigateはクリップの生成を完了していませんでした。",
+          "clip_policy": "この録画ポリシーはスナップショット/イベントを保持しますが、このカメラのクリップは保持しない場合があります。",
+          "clip_removed": "イベントが検出されたにもかかわらず、クリップが削除されたか書き込まれませんでした。",
+          "clip_retention": "ビデオ分析が実行される前にクリップの保持期間が切れました。",
+          "event_missing_restart": "Frigateが再起動またはデータベース状態が変わり、このイベントIDがなくなりました。",
+          "event_missing_retention": "フォローアップチェックが完了する前にFrigateがイベントを削除または保持しなくなりました。",
+          "frigate_http_error": "FrigateまたはリバースプロキシがHTTPエラー応答を返しました。",
+          "frigate_unreachable": "この時点でYA-WMAFからFrigate APIに到達できませんでした。",
+          "no_results_frames": "サンプリングされたフレームに使用可能な鳥の特徴が含まれていませんでした。",
+          "no_results_quality": "モーションブラー、遮蔽、または低照度により信頼性の高い分類ができませんでした。",
+          "pipeline_exception": "ランタイム例外またはキャンセルにより分類タスクが中断されました。",
+          "pipeline_guard": "安全ガード/サーキットブレーカーが繰り返しの失敗後にバックグラウンドビデオジョブを一時停止しました。",
+          "timeout_load": "イベント/クリップメタデータのリクエスト中にFrigateが遅いか過負荷でした。",
+          "timeout_network": "一時的なネットワークまたはリバースプロキシの遅延によりリクエストタイムアウトが発生しました。",
+          "transcode_issue": "Frigate/ffmpegのエンコード出力が互換性がないか中断された可能性があります。",
+          "unknown_1": "メディア取得またはビデオ処理で予期しないエラーが発生しました。",
+          "unknown_2": "分析中にイベントの状態が変わりました。",
+          "video_timeout_large_clip": "クリップ処理が設定されたタイムアウトより長くかかりました。",
+          "video_timeout_resource": "推論中にGPU/CPUリソースが飽和していました。"
+        },
+        "checks_items": {
+          "api_health": "FrigateのAPIヘルスエンドポイントと認証設定を確認する。",
+          "backend_logs": "この検出周辺のYA-WMAFバックエンドログで正確な例外を確認する。",
+          "camera_quality": "フィーダーエリアのカメラのフォーカスと露出を確認する。",
+          "clip_endpoint": "このイベントのFrigateクリップエンドポイントがメディアを返すことを確認する。",
+          "container_load": "検出時のFrigateコンテナのCPU/IO負荷を確認する。",
+          "ffmpeg_health": "Frigateのffmpeg/録画ヘルスとハードウェアアクセラレーションのログを確認する。",
+          "frigate_event_page": "Frigateで同じイベントを開き、まだ存在することを確認する。",
+          "frigate_logs": "このイベント時刻周辺のFrigateログで録画エラーを確認する。",
+          "inference_resources": "推論ランタイム/デバイスの使用率を確認する。",
+          "network_path": "コンテナ間ネットワークとプロキシパスの安定性を確認する。",
+          "play_clip": "Frigateからクリップを直接ダウンロードして再生してみる。",
+          "proxy_config": "リバースプロキシのルーティングと信頼済みプロキシ設定を確認する。",
+          "recording_policy": "Frigateカメラの録画/検出保持ポリシーを確認する。",
+          "reduce_delay": "クリップが早くクリーンアップされる場合はビデオ分析の遅延を減らす。",
+          "retention_settings": "Frigateの保持設定とストレージの状態を確認する。",
+          "retry_manual": "サービスが安定した後に手動再分類を再試行する。",
+          "retry_snapshot": "後で手動スナップショットまたはビデオ再分類を試みる。",
+          "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。"
+        }
       }
     },
     "reclassification": {
@@ -1029,7 +1091,8 @@
     "frigate_media_missing_detail_unavailable": "メディア状態の確認中にFrigateが一時的に利用できませんでした。",
     "frigate_media_missing_detail_unknown": "この検出のメディアはFrigateで利用できません。",
     "audio_possible_nearby": "近くの音声一致の可能性",
-    "audio_no_direct_match": "直接の音声確認なし"
+    "audio_no_direct_match": "直接の音声確認なし",
+    "frigate_badge": "Frigate"
   },
   "events": {
     "title": "イベント",
@@ -1040,7 +1103,10 @@
       "month": "今月",
       "custom": "カスタム",
       "all_species": "すべての種",
-      "all_cameras": "すべてのカメラ"
+      "all_cameras": "すべてのカメラ",
+      "audio_confirmed": "オーディオ一致",
+      "audio_confirmed_only": "オーディオ確認済みのみ",
+      "favorites": "お気に入り"
     },
     "sort": {
       "newest": "新しい順",
@@ -1146,7 +1212,7 @@
     "license_notice": "© {year} Jellman86 • {license} の下で公開",
     "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
     "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
-    "project_desc_2": "アプリケーション全体がAIコーディングアシスタントの助けを借りて構築されています。これらのツールで何が可能かを探求する興味深い試みとなりました。不十分な点があれば、おそらくそれが理由です！",
+    "project_desc_2": "このアプリはAIコーディング支援で構築され、シンプルな給餌カメラから始まり、マルチセンサー相関、GPU高速モデル、リアルタイムHome Assistant連携を備えた本格的な野鳥識別プラットフォームへと成長しました。",
     "steps": {
       "1": {
         "title": "Frigateが検知",
@@ -1238,6 +1304,18 @@
       "guest_mode": {
         "title": "公開ビュー（ゲストモード）",
         "desc": "読み取り専用のダッシュボードを共有。レート制限とカメラ名の非表示に対応"
+      },
+      "gpu_acceleration": {
+        "title": "GPU高速化",
+        "desc": "NVIDIA CUDAとIntel OpenVINOの自動切替によるONNX高速推論、ランタイムフォールバックとUIでのプロバイダー診断をサポート"
+      },
+      "personalized_reranking": {
+        "title": "パーソナライズド再ランキング",
+        "desc": "カメラとモデルごとの手動種修正から学習し、時間の経過とともに地元の野鳥に合わせた予測に再ランク付けします。20回の修正後に有効化されます。"
+      },
+      "ebird_export": {
+        "title": "eBirdエクスポート",
+        "desc": "検出データを標準eBirdレコード形式のCSVとしてエクスポート — eBirdアカウントへの直接提出に対応"
       }
     },
     "tech": {

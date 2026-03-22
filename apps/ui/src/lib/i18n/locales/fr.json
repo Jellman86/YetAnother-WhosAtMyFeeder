@@ -197,7 +197,12 @@
         "sensor_id_label": "ID du capteur audio pour {camera}",
         "sensor_mapping_empty": "Aucune caméra détectée. Vérifiez la connexion Frigate.",
         "sensor_mapping_help": "Ajoutez vos caméras Frigate pour les mapper aux capteurs audio. Utilisez * pour des ID de capteur aléatoires/dynamiques.",
-        "mqtt_topic_placeholder": "birdnet/text"
+        "mqtt_topic_placeholder": "birdnet/text",
+        "source_discovery_title": "Sources BirdNET récemment détectées",
+        "source_discovery_loading": "Chargement des noms de sources récents...",
+        "source_discovery_empty": "Aucun nom de source BirdNET détecté pour l'instant. Attendez les détections audio, puis rechargez les paramètres.",
+        "source_discovery_error": "Échec du chargement des noms de sources BirdNET récents.",
+        "source_discovery_help": "Utilisez ces noms de sources détectés dans les champs de mapping ci-dessus. Les noms sont plus stables que les ID dynamiques entre les redémarrages de BirdNET-Go."
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -753,7 +758,12 @@
       "personalization_min_tags": "min.",
       "openvino_compile_failure": "Incompatibilité du modèle OpenVINO sur cet hôte",
       "openvino_compile_failure_detail": "Ce modèle ne peut pas être compilé sur le périphérique OpenVINO actuellement sélectionné. YA-WAMF conservera le modèle installé, mais exécutera l’inférence sur {fallback}.",
-      "openvino_diagnostics": "Diagnostic OpenVINO"
+      "openvino_diagnostics": "Diagnostic OpenVINO",
+      "region_override_title": "Région du modèle de détection",
+      "region_override_desc": "Auto utilise votre pays configuré. La sélection manuelle a toujours priorité.",
+      "region_override_auto": "Automatique",
+      "region_override_eu": "Europe",
+      "region_override_na": "Amérique du Nord"
     },
     "llm": {
       "title": "Analyses IA",
@@ -968,7 +978,59 @@
         "frigate_unavailable": "Frigate indisponible. Analyse via instantané.",
         "no_results": "L'analyse vidéo n'a donné aucun résultat.",
         "event_missing": "Événement introuvable dans Frigate.",
-        "unknown": "Échec de l'analyse vidéo. Analyse via instantané."
+        "unknown": "Échec de l'analyse vidéo. Analyse via instantané.",
+        "clip_not_retained": "Le clip n'est plus conservé dans Frigate (hors de la fenêtre de rétention)."
+      },
+      "error_details": {
+        "why": "Pourquoi cela peut arriver",
+        "checks": "Que vérifier",
+        "show": "Afficher les détails de l'erreur",
+        "hide": "Masquer les détails de l'erreur",
+        "error_code": "Code d'erreur : {code}",
+        "pipeline_summary": "Le pipeline d'analyse vidéo a échoué avant la fin.",
+        "video_timeout_summary": "Le classificateur vidéo a dépassé le délai avant de produire un résultat.",
+        "causes": {
+          "clip_corrupt": "Les octets du clip étaient incomplets/corrompus ou ne constituaient pas un fichier média lisible valide.",
+          "clip_pending": "Frigate n'avait pas terminé la génération du clip lorsque l'analyse vidéo a tenté de le récupérer.",
+          "clip_policy": "La politique d'enregistrement peut conserver les snapshots/événements mais pas les clips pour cette caméra.",
+          "clip_removed": "Le clip a été supprimé ou n'a jamais été écrit bien que l'événement ait été détecté.",
+          "clip_retention": "La fenêtre de rétention du clip a expiré avant l'exécution de l'analyse vidéo.",
+          "event_missing_restart": "Frigate a redémarré ou son état de base de données a changé, cet ID d'événement n'est donc plus présent.",
+          "event_missing_retention": "Frigate a supprimé ou ne conserve plus l'événement avant la fin des vérifications de suivi.",
+          "frigate_http_error": "Frigate ou le proxy inverse a renvoyé une réponse HTTP non réussie.",
+          "frigate_unreachable": "L'API Frigate n'a pas pu être atteinte depuis YA-WAMF à ce moment.",
+          "no_results_frames": "Les images échantillonnées ne contenaient pas de caractéristiques d'oiseaux exploitables.",
+          "no_results_quality": "Le flou de mouvement, l'occlusion ou une faible luminosité ont empêché une classification fiable.",
+          "pipeline_exception": "Une exception d'exécution ou une annulation a interrompu la tâche de classification.",
+          "pipeline_guard": "Le gardien de sécurité/disjoncteur a mis en pause les tâches vidéo en arrière-plan après des échecs répétés.",
+          "timeout_load": "Frigate était lent ou surchargé lors de la demande des métadonnées d'événement/clip.",
+          "timeout_network": "Une latence réseau ou de proxy inverse temporaire a provoqué un délai d'expiration de la requête.",
+          "transcode_issue": "La sortie d'encodage Frigate/ffmpeg peut être incompatible ou a été interrompue.",
+          "unknown_1": "Une erreur inattendue s'est produite lors de la récupération des médias ou du traitement vidéo.",
+          "unknown_2": "L'état de l'événement a changé pendant l'analyse.",
+          "video_timeout_large_clip": "Le traitement du clip a pris plus longtemps que le délai configuré.",
+          "video_timeout_resource": "Les ressources GPU/CPU étaient saturées lors de l'inférence."
+        },
+        "checks_items": {
+          "api_health": "Vérifier l'endpoint de santé de l'API Frigate et la configuration d'authentification.",
+          "backend_logs": "Consulter les logs du backend YA-WAMF autour de cette détection pour l'exception exacte.",
+          "camera_quality": "Vérifier la mise au point et l'exposition de la caméra autour de la zone de mangeoire.",
+          "clip_endpoint": "Confirmer que l'endpoint du clip Frigate pour cet événement renvoie des médias.",
+          "container_load": "Vérifier la charge CPU/IO du conteneur Frigate au moment de la détection.",
+          "ffmpeg_health": "Consulter les logs de santé ffmpeg/enregistrement de Frigate et l'accélération matérielle.",
+          "frigate_event_page": "Ouvrir le même événement dans Frigate et vérifier qu'il existe encore.",
+          "frigate_logs": "Consulter les logs Frigate autour de cet événement pour des erreurs d'enregistrement.",
+          "inference_resources": "Vérifier l'utilisation du runtime d'inférence et du périphérique.",
+          "network_path": "Vérifier la stabilité du réseau entre conteneurs et du chemin proxy.",
+          "play_clip": "Essayer de télécharger et de lire le clip directement depuis Frigate.",
+          "proxy_config": "Revoir le routage du proxy inverse et les paramètres de proxies de confiance.",
+          "recording_policy": "Vérifier la politique de rétention des enregistrements/détections de la caméra Frigate.",
+          "reduce_delay": "Réduire le délai d'analyse vidéo si les clips sont nettoyés trop rapidement.",
+          "retention_settings": "Revoir les paramètres de rétention Frigate et l'état du stockage.",
+          "retry_manual": "Réessayer la reclassification manuelle après la stabilisation du service.",
+          "retry_snapshot": "Réessayer la reclassification manuelle du snapshot ou de la vidéo ultérieurement.",
+          "video_timeout_setting": "Augmenter le délai d'analyse vidéo ou réduire les images échantillonnées."
+        }
       }
     },
     "reclassification": {
@@ -1029,7 +1091,8 @@
     "frigate_media_missing_detail_unavailable": "Frigate était temporairement indisponible pendant la vérification du média.",
     "frigate_media_missing_detail_unknown": "Le média est indisponible dans Frigate pour cette détection.",
     "audio_possible_nearby": "Correspondance audio proche possible",
-    "audio_no_direct_match": "Aucune confirmation audio directe"
+    "audio_no_direct_match": "Aucune confirmation audio directe",
+    "frigate_badge": "Frigate"
   },
   "events": {
     "title": "Événements",
@@ -1040,7 +1103,10 @@
       "month": "Mois",
       "custom": "Personnalisé",
       "all_species": "Toutes les espèces",
-      "all_cameras": "Toutes les caméras"
+      "all_cameras": "Toutes les caméras",
+      "audio_confirmed": "Correspondances audio",
+      "audio_confirmed_only": "Confirmés audio uniquement",
+      "favorites": "Favoris"
     },
     "sort": {
       "newest": "Plus récent",
@@ -1146,7 +1212,7 @@
     "license_notice": "© {year} Jellman86 • Sous licence {license}",
     "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦",
     "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
-    "project_desc_2": "L'ensemble de l'application a été construit avec l'aide d'assistants de codage IA - cela a été une exploration intéressante de ce qui est possible avec ces outils. Si vous remarquez des imperfections, c'est probablement pour cette raison !",
+    "project_desc_2": "L'application a été construite avec l'aide de l'IA et s'est développée en une plateforme d'identification des oiseaux complète — depuis une simple caméra de mangeoire jusqu'à la corrélation multi-capteurs, les modèles accélérés par GPU et l'intégration en temps réel avec Home Assistant.",
     "steps": {
       "1": {
         "title": "Frigate Détecte",
@@ -1238,6 +1304,18 @@
       "guest_mode": {
         "title": "Vue publique (mode invité)",
         "desc": "Partagez un tableau de bord en lecture seule avec des limites de débit et la possibilité de masquer les noms de caméras"
+      },
+      "gpu_acceleration": {
+        "title": "Accélération GPU",
+        "desc": "Sélection automatique entre NVIDIA CUDA et Intel OpenVINO pour une inférence ONNX rapide, avec repli automatique et diagnostics du fournisseur en direct dans l'interface"
+      },
+      "personalized_reranking": {
+        "title": "Reclassement personnalisé",
+        "desc": "Apprend de vos corrections manuelles d'espèces par caméra et modèle, reclassant les prédictions pour correspondre à vos oiseaux locaux au fil du temps. S'active après 20 corrections."
+      },
+      "ebird_export": {
+        "title": "Export eBird",
+        "desc": "Exportez vos détections sous forme de CSV au format standard eBird Record — prêt à soumettre directement à votre compte eBird"
       }
     },
     "tech": {

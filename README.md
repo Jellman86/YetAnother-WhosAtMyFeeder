@@ -280,7 +280,7 @@ All settings are managed through the web UI under **Settings**. Configuration is
 | **Min Confidence Floor** | Reject detections below this score | `0.4` |
 | **Trust Frigate Sublabels** | Use Frigate's labels instead of local AI | `Enabled` |
 | **Auto Video Analysis** | Analyze full video clips for accuracy | `Disabled` |
-| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `ConvNeXt Large` |
+| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `RoPE ViT-B14` |
 | **BirdWeather Token** | Upload detections to BirdWeather | _(none)_ |
 | **BirdNET-Go Topic** | MQTT topic for audio detections | `birdnet/text` |
 

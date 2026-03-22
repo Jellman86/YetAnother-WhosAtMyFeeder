@@ -197,7 +197,12 @@
         "sensor_id_label": "{camera} 的音频传感器ID",
         "sensor_mapping_empty": "未检测到摄像头。请检查 Frigate 连接。",
         "sensor_mapping_help": "添加 Frigate 摄像头以映射到音频传感器。使用 * 作为随机/动态传感器ID。",
-        "mqtt_topic_placeholder": "birdnet/text"
+        "mqtt_topic_placeholder": "birdnet/text",
+        "source_discovery_title": "最近检测到的BirdNET来源",
+        "source_discovery_loading": "正在加载最近的来源名称...",
+        "source_discovery_empty": "尚未检测到BirdNET来源名称。等待音频检测后重新加载设置。",
+        "source_discovery_error": "加载最近的BirdNET来源名称失败。",
+        "source_discovery_help": "在上方的映射字段中使用这些检测到的来源名称。名称比BirdNET-Go重启时的动态ID更稳定。"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -753,7 +758,12 @@
       "personalization_min_tags": "最少",
       "openvino_compile_failure": "此主机上的 OpenVINO 模型不兼容",
       "openvino_compile_failure_detail": "该模型无法在当前选定的 OpenVINO 设备上编译。YA-WAMF 会保留已安装模型，但改为通过 {fallback} 运行推理。",
-      "openvino_diagnostics": "OpenVINO 诊断"
+      "openvino_diagnostics": "OpenVINO 诊断",
+      "region_override_title": "鸟类模型区域",
+      "region_override_desc": "自动使用您配置的国家。手动选择始终优先。",
+      "region_override_auto": "自动",
+      "region_override_eu": "欧洲",
+      "region_override_na": "北美"
     },
     "llm": {
       "title": "AI 洞察",
@@ -968,7 +978,59 @@
         "frigate_unavailable": "Frigate 不可用。将改用快照分析。",
         "no_results": "视频分析没有返回结果。",
         "event_missing": "Frigate 中未找到事件。",
-        "unknown": "视频分析失败。将改用快照分析。"
+        "unknown": "视频分析失败。将改用快照分析。",
+        "clip_not_retained": "片段不再保留在Frigate中（超出保留窗口）。"
+      },
+      "error_details": {
+        "why": "可能发生的原因",
+        "checks": "需要检查的内容",
+        "show": "显示错误详情",
+        "hide": "隐藏错误详情",
+        "error_code": "错误代码：{code}",
+        "pipeline_summary": "视频分析管道在完成前失败。",
+        "video_timeout_summary": "视频分类器在产生结果前超时。",
+        "causes": {
+          "clip_corrupt": "片段字节不完整/损坏，或不是有效的可播放媒体文件。",
+          "clip_pending": "视频分析尝试获取时，Frigate尚未完成片段生成。",
+          "clip_policy": "录制策略可能保留快照/事件但不保留此摄像头的片段。",
+          "clip_removed": "片段被删除或从未写入，尽管事件已被检测到。",
+          "clip_retention": "视频分析运行前片段保留窗口已过期。",
+          "event_missing_restart": "Frigate重启或数据库状态更改，此事件ID不再存在。",
+          "event_missing_retention": "后续检查完成前Frigate已删除或不再保留该事件。",
+          "frigate_http_error": "Frigate或反向代理返回了非成功的HTTP响应。",
+          "frigate_unreachable": "此时YA-WAMF无法访问Frigate API。",
+          "no_results_frames": "采样帧中没有可用的鸟类特征。",
+          "no_results_quality": "运动模糊、遮挡或低光照阻止了可信的分类。",
+          "pipeline_exception": "运行时异常或取消中断了分类任务。",
+          "pipeline_guard": "安全保护/断路器在重复失败后暂停了后台视频作业。",
+          "timeout_load": "请求事件/片段元数据时Frigate缓慢或过载。",
+          "timeout_network": "临时网络或反向代理延迟导致请求超时。",
+          "transcode_issue": "Frigate/ffmpeg编码输出可能不兼容或被中断。",
+          "unknown_1": "媒体检索或视频处理中发生意外错误。",
+          "unknown_2": "分析进行时事件状态发生了变化。",
+          "video_timeout_large_clip": "片段处理时间超过了配置的超时时间。",
+          "video_timeout_resource": "推理过程中GPU/CPU资源已饱和。"
+        },
+        "checks_items": {
+          "api_health": "验证Frigate API健康端点和认证配置。",
+          "backend_logs": "检查此检测周围的YA-WAMF后端日志以获取确切异常。",
+          "camera_quality": "检查喂食器区域的摄像头对焦/曝光。",
+          "clip_endpoint": "确认此事件的Frigate片段端点返回媒体。",
+          "container_load": "检查检测时Frigate容器的CPU/IO负载。",
+          "ffmpeg_health": "查看Frigate的ffmpeg/录制健康状况和硬件加速日志。",
+          "frigate_event_page": "在Frigate中打开相同事件并确认其仍然存在。",
+          "frigate_logs": "检查此事件时间附近的Frigate日志是否有录制错误。",
+          "inference_resources": "检查推理运行时/设备利用率。",
+          "network_path": "验证容器间网络和代理路径稳定性。",
+          "play_clip": "尝试直接从Frigate下载并播放片段。",
+          "proxy_config": "检查反向代理路由和可信代理设置。",
+          "recording_policy": "检查Frigate摄像头录制/检测保留策略。",
+          "reduce_delay": "如果片段被过快清理，减少视频分析延迟。",
+          "retention_settings": "检查Frigate保留设置和存储健康状况。",
+          "retry_manual": "服务稳定后重试手动重分类。",
+          "retry_snapshot": "稍后尝试手动快照或视频重分类。",
+          "video_timeout_setting": "增加视频分析超时时间或减少采样帧数。"
+        }
       }
     },
     "reclassification": {
@@ -1029,7 +1091,8 @@
     "frigate_media_missing_detail_unavailable": "检查媒体状态时，Frigate 暂时不可用。",
     "frigate_media_missing_detail_unknown": "该检测在 Frigate 中没有可用媒体。",
     "audio_possible_nearby": "可能存在附近音频匹配",
-    "audio_no_direct_match": "无直接音频确认"
+    "audio_no_direct_match": "无直接音频确认",
+    "frigate_badge": "Frigate"
   },
   "events": {
     "title": "事件",
@@ -1040,7 +1103,10 @@
       "month": "本月",
       "custom": "自定义",
       "all_species": "所有物种",
-      "all_cameras": "所有摄像头"
+      "all_cameras": "所有摄像头",
+      "audio_confirmed": "音频匹配",
+      "audio_confirmed_only": "仅音频确认",
+      "favorites": "收藏夹"
     },
     "sort": {
       "newest": "最新",
@@ -1146,7 +1212,7 @@
     "license_notice": "© {year} Jellman86 • 采用 {license} 许可",
     "built_with_ai": "出于对观鸟的热爱，在 AI 协助下构建 🐦",
     "project_desc_1": "YA-WAMF 是一个个人项目，最初是为了尝试 AI 辅助编程。当原来的 {link} 项目停止维护时，本项目作为一个学习机会和鸟类爱好者的实用工具应运而生。",
-    "project_desc_2": "整个应用程序都是在 AI 编程助手的帮助下构建的 - 这是一次对这些工具可能性的有趣探索。如果您发现任何粗糙之处，那可能就是原因！",
+    "project_desc_2": "本应用在AI编程助手的帮助下构建，已发展成为一个功能完整的鸟类识别平台——从简单的喂食器摄像头，到多传感器关联、GPU加速模型以及实时Home Assistant集成。",
     "steps": {
       "1": {
         "title": "Frigate 检测",
@@ -1238,6 +1304,18 @@
       "guest_mode": {
         "title": "公共视图（访客模式）",
         "desc": "分享只读仪表板，带速率限制，并可选隐藏摄像头名称"
+      },
+      "gpu_acceleration": {
+        "title": "GPU加速",
+        "desc": "自动选择NVIDIA CUDA或Intel OpenVINO进行快速ONNX推理，支持运行时回退和界面实时提供商诊断"
+      },
+      "personalized_reranking": {
+        "title": "个性化重排",
+        "desc": "通过每个摄像头和模型的手动物种校正进行学习，随时间推移重新排列预测以匹配本地鸟类。20次校正后激活。"
+      },
+      "ebird_export": {
+        "title": "eBird导出",
+        "desc": "将检测结果导出为标准eBird记录格式CSV——可直接提交到您的eBird账户"
       }
     },
     "tech": {

@@ -205,7 +205,12 @@
         "sensor_id_label": "ID do sensor de áudio para {camera}",
         "sensor_mapping_empty": "Nenhuma câmera detectada. Verifique a conexão com o Frigate.",
         "sensor_mapping_help": "Adicione suas câmeras do Frigate para mapeá-las para sensores de áudio. Use * para IDs de sensor aleatórios/dinâmicos.",
-        "mqtt_topic_placeholder": "birdnet/text"
+        "mqtt_topic_placeholder": "birdnet/text",
+        "source_discovery_title": "Fontes BirdNET detectadas recentemente",
+        "source_discovery_loading": "Carregando nomes de fontes recentes...",
+        "source_discovery_empty": "Nenhum nome de fonte BirdNET detectado ainda. Aguarde detecções de áudio, depois recarregue as configurações.",
+        "source_discovery_error": "Falha ao carregar nomes de fontes BirdNET recentes.",
+        "source_discovery_help": "Use esses nomes de fontes detectados nos campos de mapeamento acima. Os nomes são mais estáveis do que IDs dinâmicos entre reinicializações do BirdNET-Go."
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -761,7 +766,12 @@
       "personalization_min_tags": "mín.",
       "openvino_compile_failure": "Incompatibilidade do modelo OpenVINO neste host",
       "openvino_compile_failure_detail": "Este modelo não pode ser compilado no dispositivo OpenVINO selecionado no momento. O YA-WAMF manterá o modelo instalado, mas executará a inferência em {fallback}.",
-      "openvino_diagnostics": "Diagnóstico OpenVINO"
+      "openvino_diagnostics": "Diagnóstico OpenVINO",
+      "region_override_title": "Região do modelo de aves",
+      "region_override_desc": "Auto usa seu país configurado. A seleção manual sempre tem prioridade.",
+      "region_override_auto": "Automático",
+      "region_override_eu": "Europa",
+      "region_override_na": "América do Norte"
     },
     "llm": {
       "title": "Análises de IA",
@@ -976,7 +986,59 @@
         "frigate_unavailable": "Frigate indisponível. Usando análise de snapshot.",
         "no_results": "Análise de vídeo não retornou resultados.",
         "event_missing": "Evento não encontrado no Frigate.",
-        "unknown": "Análise de vídeo falhou. Usando análise de snapshot."
+        "unknown": "Análise de vídeo falhou. Usando análise de snapshot.",
+        "clip_not_retained": "O clipe não está mais retido no Frigate (fora da janela de retenção)."
+      },
+      "error_details": {
+        "why": "Por que isso pode acontecer",
+        "checks": "O que verificar",
+        "show": "Mostrar detalhes do erro",
+        "hide": "Ocultar detalhes do erro",
+        "error_code": "Código de erro: {code}",
+        "pipeline_summary": "O pipeline de análise de vídeo falhou antes de ser concluído.",
+        "video_timeout_summary": "O classificador de vídeo excedeu o tempo limite antes de produzir um resultado.",
+        "causes": {
+          "clip_corrupt": "Os bytes do clipe estavam incompletos/corrompidos ou não eram um arquivo de mídia reproduzível válido.",
+          "clip_pending": "O Frigate não havia terminado a geração do clipe quando a análise de vídeo tentou recuperá-lo.",
+          "clip_policy": "A política de gravação pode manter snapshots/eventos, mas não clipes para esta câmera.",
+          "clip_removed": "O clipe foi removido ou nunca foi gravado, embora o evento tenha sido detectado.",
+          "clip_retention": "A janela de retenção do clipe expirou antes de a análise de vídeo ser executada.",
+          "event_missing_restart": "O Frigate reiniciou ou o estado do seu banco de dados mudou, então este ID de evento não está mais presente.",
+          "event_missing_retention": "O Frigate removeu ou não reteve mais o evento antes de as verificações de acompanhamento serem concluídas.",
+          "frigate_http_error": "O Frigate ou o proxy reverso retornou uma resposta HTTP sem sucesso.",
+          "frigate_unreachable": "A API do Frigate não pôde ser alcançada a partir do YA-WAMF neste momento.",
+          "no_results_frames": "Os frames amostrados não continham características de aves utilizáveis.",
+          "no_results_quality": "Desfoque de movimento, oclusão ou pouca luz impediram uma classificação confiável.",
+          "pipeline_exception": "Uma exceção de tempo de execução ou cancelamento interrompeu a tarefa de classificação.",
+          "pipeline_guard": "O guardião de segurança/disjuntor pausou jobs de vídeo em segundo plano após falhas repetidas.",
+          "timeout_load": "O Frigate estava lento ou sobrecarregado ao solicitar metadados de evento/clipe.",
+          "timeout_network": "Latência temporária de rede ou proxy reverso causou timeout de solicitação.",
+          "transcode_issue": "A saída de codificação do Frigate/ffmpeg pode ser incompatível ou foi interrompida.",
+          "unknown_1": "Ocorreu um erro inesperado na recuperação de mídia ou no processamento de vídeo.",
+          "unknown_2": "O estado do evento mudou durante a análise.",
+          "video_timeout_large_clip": "O processamento do clipe demorou mais do que o timeout configurado.",
+          "video_timeout_resource": "Os recursos de GPU/CPU estavam saturados durante a inferência."
+        },
+        "checks_items": {
+          "api_health": "Verificar o endpoint de saúde da API do Frigate e a configuração de autenticação.",
+          "backend_logs": "Verificar os logs do backend YA-WAMF em torno desta detecção para a exceção exata.",
+          "camera_quality": "Revisar o foco/exposição da câmera na área do comedouro.",
+          "clip_endpoint": "Confirmar que o endpoint de clipe do Frigate para este evento retorna mídia.",
+          "container_load": "Verificar a carga de CPU/IO do container Frigate no momento da detecção.",
+          "ffmpeg_health": "Revisar os logs de saúde do ffmpeg/gravação do Frigate e a aceleração de hardware.",
+          "frigate_event_page": "Abrir o mesmo evento no Frigate e verificar se ainda existe.",
+          "frigate_logs": "Verificar os logs do Frigate em torno deste evento para erros de gravação.",
+          "inference_resources": "Verificar a utilização do runtime de inferência/dispositivo.",
+          "network_path": "Verificar a rede entre containers e a estabilidade do caminho do proxy.",
+          "play_clip": "Tentar baixar e reproduzir o clipe diretamente do Frigate.",
+          "proxy_config": "Revisar o roteamento do proxy reverso e as configurações de proxies confiáveis.",
+          "recording_policy": "Verificar a política de retenção de gravação/detecção da câmera Frigate.",
+          "reduce_delay": "Reduzir o atraso de análise de vídeo se os clipes estiverem sendo limpos muito rapidamente.",
+          "retention_settings": "Revisar as configurações de retenção do Frigate e a integridade do armazenamento.",
+          "retry_manual": "Tentar reclassificação manual novamente após a estabilização do serviço.",
+          "retry_snapshot": "Tentar reclassificação manual de snapshot ou vídeo mais tarde.",
+          "video_timeout_setting": "Aumentar o timeout de análise de vídeo ou reduzir os frames amostrados."
+        }
       }
     },
     "reclassification": {
@@ -1037,7 +1099,8 @@
     "frigate_media_missing_detail_unavailable": "O Frigate ficou temporariamente indisponível durante a verificação do status da mídia.",
     "frigate_media_missing_detail_unknown": "A mídia não está disponível no Frigate para esta detecção.",
     "audio_possible_nearby": "Possível correspondência de áudio próxima",
-    "audio_no_direct_match": "Sem confirmação direta por áudio"
+    "audio_no_direct_match": "Sem confirmação direta por áudio",
+    "frigate_badge": "Frigate"
   },
   "events": {
     "title": "Eventos",
@@ -1048,7 +1111,10 @@
       "month": "Mês",
       "custom": "Personalizado",
       "all_species": "Todas as Espécies",
-      "all_cameras": "Todas as Câmeras"
+      "all_cameras": "Todas as Câmeras",
+      "audio_confirmed": "Correspondências de áudio",
+      "audio_confirmed_only": "Somente confirmados por áudio",
+      "favorites": "Favoritos"
     },
     "sort": {
       "newest": "Mais recente",
@@ -1154,7 +1220,7 @@
     "license_notice": "© {year} Jellman86 • Licenciado sob {license}",
     "built_with_ai": "Construído com assistência de IA pelo amor à observação de pássaros 🐦",
     "project_desc_1": "YA-WAMF é um projeto pessoal iniciado para experimentar com codificação assistida por IA. Quando o projeto original {link} deixou de ser mantido, este nasceu como uma oportunidade de aprendizado e uma ferramenta útil para entusiastas de pássaros.",
-    "project_desc_2": "Todo o aplicativo foi construído com a ajuda de assistentes de codificação de IA - tem sido uma exploração interessante do que é possível com essas ferramentas. Se você encontrar arestas, provavelmente é por isso!",
+    "project_desc_2": "O aplicativo foi construído com assistência de IA e cresceu para se tornar uma plataforma completa de identificação de aves — de uma simples câmera de comedouro até correlação multissensor, modelos acelerados por GPU e integração em tempo real com o Home Assistant.",
     "steps": {
       "1": {
         "title": "Frigate Detecta",
@@ -1246,6 +1312,18 @@
       "guest_mode": {
         "title": "Visualização Pública (Modo Convidado)",
         "desc": "Compartilhe um painel somente leitura com limites de taxa e ocultação opcional de nomes de câmeras"
+      },
+      "gpu_acceleration": {
+        "title": "Aceleração GPU",
+        "desc": "Seleção automática entre NVIDIA CUDA e Intel OpenVINO para inferência ONNX rápida, com fallback em tempo de execução e diagnóstico de provedor ao vivo na interface"
+      },
+      "personalized_reranking": {
+        "title": "Reordenação personalizada",
+        "desc": "Aprende com suas correções manuais de espécies por câmera e modelo, reordenando previsões para corresponder às aves locais ao longo do tempo. Ativa após 20 correções."
+      },
+      "ebird_export": {
+        "title": "Exportação eBird",
+        "desc": "Exporte suas detecções como CSV no formato padrão eBird Record — pronto para envio direto à sua conta do eBird"
       }
     },
     "tech": {
