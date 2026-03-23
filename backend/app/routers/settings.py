@@ -371,6 +371,7 @@ class SettingsUpdate(BaseModel):
     notifications_pushover_user_key: Optional[str] = None
     notifications_pushover_api_token: Optional[str] = None
     notifications_pushover_priority: Optional[int] = 0
+    notifications_pushover_device: Optional[str] = None
     
     notifications_telegram_enabled: Optional[bool] = False
     notifications_telegram_bot_token: Optional[str] = None
@@ -661,6 +662,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_pushover_user_key": "***REDACTED***" if settings.notifications.pushover.user_key else None,
         "notifications_pushover_api_token": "***REDACTED***" if settings.notifications.pushover.api_token else None,
         "notifications_pushover_priority": settings.notifications.pushover.priority,
+        "notifications_pushover_device": settings.notifications.pushover.device,
 
         "notifications_telegram_enabled": settings.notifications.telegram.enabled,
         "notifications_telegram_bot_token": "***REDACTED***" if settings.notifications.telegram.bot_token else None,
@@ -1041,6 +1043,8 @@ async def update_settings(
         settings.notifications.pushover.api_token = update.notifications_pushover_api_token
     if "notifications_pushover_priority" in fields_set and update.notifications_pushover_priority is not None:
         settings.notifications.pushover.priority = update.notifications_pushover_priority
+    if "notifications_pushover_device" in fields_set:
+        settings.notifications.pushover.device = update.notifications_pushover_device or None
 
     # Notifications - Telegram
     if "notifications_telegram_enabled" in fields_set and update.notifications_telegram_enabled is not None:

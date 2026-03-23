@@ -47,6 +47,7 @@
         pushoverApiToken = $bindable(''),
         pushoverTokenSaved = $bindable(false),
         pushoverPriority = $bindable(0),
+        pushoverDevice = $bindable(''),
 
         // Telegram
         telegramEnabled = $bindable(false),
@@ -107,6 +108,7 @@
         pushoverApiToken: string;
         pushoverTokenSaved: boolean;
         pushoverPriority: number;
+        pushoverDevice: string;
         telegramEnabled: boolean;
         telegramBotToken: string;
         telegramTokenSaved: boolean;
@@ -621,6 +623,18 @@
                         <option value={1}>{$_('settings.pushover.priority_high')}</option>
                         <option value={2}>{$_('settings.pushover.priority_emergency')}</option>
                     </select>
+                </div>
+                <div>
+                    <label for="pushover-device" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
+                    <input
+                        id="pushover-device"
+                        type="text"
+                        bind:value={pushoverDevice}
+                        placeholder={$_('settings.pushover.device_placeholder')}
+                        aria-label={$_('settings.pushover.device')}
+                        class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                    <p class="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
                 </div>
                 <button
                     onclick={sendTestPushover}

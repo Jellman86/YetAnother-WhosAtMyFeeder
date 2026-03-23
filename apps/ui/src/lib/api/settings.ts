@@ -97,6 +97,7 @@ export interface Settings {
     notifications_pushover_user_key?: string | null;
     notifications_pushover_api_token?: string | null;
     notifications_pushover_priority: number;
+    notifications_pushover_device?: string | null;
     notifications_telegram_enabled: boolean;
     notifications_telegram_bot_token?: string | null;
     notifications_telegram_chat_id?: string | null;

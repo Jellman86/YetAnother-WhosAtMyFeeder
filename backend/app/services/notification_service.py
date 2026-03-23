@@ -262,6 +262,8 @@ class NotificationService:
             "url": snapshot_url,
             "url_title": "View Snapshot"
         }
+        if cfg.device:
+            data["device"] = cfg.device
 
         files = {}
         if cfg.include_snapshot and snapshot_data:

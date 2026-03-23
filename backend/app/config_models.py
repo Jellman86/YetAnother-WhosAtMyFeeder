@@ -452,6 +452,7 @@ class PushoverSettings(BaseModel):
     user_key: Optional[str] = Field(default=None, description="Pushover User Key")
     api_token: Optional[str] = Field(default=None, description="Pushover API Token")
     priority: int = Field(default=0, ge=-2, le=2, description="Notification priority (-2 to 2)")
+    device: Optional[str] = Field(default=None, description="Target device name(s), comma-separated. Leave blank to send to all devices.")
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
 
 class TelegramSettings(BaseModel):

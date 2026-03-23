@@ -631,6 +631,9 @@
       "priority_normal": "Normal",
       "priority_high": "High",
       "priority_emergency": "Emergency",
+      "device": "Device(s)",
+      "device_placeholder": "e.g. iphone,nexus5 (leave blank for all)",
+      "device_hint": "Comma-separated device names. Leave blank to send to all active devices.",
       "test_notification": "Send test notification",
       "test_sending": "Sending..."
     },

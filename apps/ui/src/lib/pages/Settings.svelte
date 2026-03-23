@@ -1185,6 +1185,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let pushoverToken = $state('');
     let pushoverTokenSaved = $state(false);
     let pushoverPriority = $state(0);
+    let pushoverDevice = $state('');
 
     let telegramEnabled = $state(false);
     let telegramToken = $state('');
@@ -1698,6 +1699,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'pushoverUser', val: pushoverUser, store: normalizeSecret(s.notifications_pushover_user_key) },
             { key: 'pushoverToken', val: pushoverToken, store: normalizeSecret(s.notifications_pushover_api_token) },
             { key: 'pushoverPriority', val: pushoverPriority, store: s.notifications_pushover_priority ?? 0 },
+            { key: 'pushoverDevice', val: pushoverDevice, store: s.notifications_pushover_device ?? '' },
 
             { key: 'telegramEnabled', val: telegramEnabled, store: s.notifications_telegram_enabled ?? false },
             { key: 'telegramToken', val: telegramToken, store: normalizeSecret(s.notifications_telegram_bot_token) },
@@ -2610,6 +2612,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 pushoverToken = settings.notifications_pushover_api_token || '';
             }
             pushoverPriority = settings.notifications_pushover_priority ?? 0;
+            pushoverDevice = settings.notifications_pushover_device ?? '';
 
             telegramEnabled = settings.notifications_telegram_enabled ?? false;
             if (settings.notifications_telegram_bot_token === '***REDACTED***') {
@@ -2823,6 +2826,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_pushover_user_key: pushoverUser,
                 notifications_pushover_api_token: pushoverToken,
                 notifications_pushover_priority: pushoverPriority,
+                notifications_pushover_device: pushoverDevice || null,
 
                 notifications_telegram_enabled: telegramEnabled,
                 notifications_telegram_bot_token: telegramToken,
@@ -3171,6 +3175,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:pushoverApiToken={pushoverToken}
                     bind:pushoverTokenSaved
                     bind:pushoverPriority
+                    bind:pushoverDevice
                     bind:telegramEnabled
                     bind:telegramBotToken={telegramToken}
                     bind:telegramTokenSaved
