@@ -121,6 +121,7 @@
                     <input
                         id="auth-password"
                         type="password"
+                        autocomplete="new-password"
                         bind:value={authPassword}
                         placeholder={authHasPassword ? $_('settings.auth.password_placeholder') : $_('settings.auth.password_new')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
@@ -131,6 +132,7 @@
                     <input
                         id="auth-password-confirm"
                         type="password"
+                        autocomplete="new-password"
                         bind:value={authPasswordConfirm}
                         placeholder={$_('settings.auth.password_confirm_placeholder')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"

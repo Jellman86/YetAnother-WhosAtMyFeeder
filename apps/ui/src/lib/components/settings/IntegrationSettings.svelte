@@ -364,6 +364,7 @@
                         <input
                             id="inat-client-secret"
                             type="password"
+                            autocomplete="off"
                             bind:value={inaturalistClientSecret}
                             placeholder={$_('settings.integrations.inaturalist.client_secret_placeholder')}
                             aria-label={$_('settings.integrations.inaturalist.client_secret_label')}
@@ -521,6 +522,7 @@
                 <input
                     id="ebird-api-key"
                     type="password"
+                    autocomplete="off"
                     bind:value={ebirdApiKey}
                     placeholder={$_('settings.integrations.ebird.api_key_placeholder')}
                     aria-label={$_('settings.integrations.ebird.api_key_label')}
@@ -701,6 +703,7 @@
                 <input
                     id="birdweather-token"
                     type="password"
+                    autocomplete="off"
                     bind:value={birdweatherStationToken}
                     placeholder={$_('settings.integrations.birdweather.token_placeholder')}
                     aria-label={$_('settings.integrations.birdweather.token_label')}

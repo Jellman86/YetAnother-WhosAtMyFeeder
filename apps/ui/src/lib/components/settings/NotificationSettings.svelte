@@ -686,6 +686,7 @@
                     <input
                         id="telegram-bottoken"
                         type="password"
+                        autocomplete="off"
                         bind:value={telegramBotToken}
                         placeholder={$_('settings.telegram.bot_token_placeholder')}
                         aria-label={$_('settings.telegram.bot_token')}
@@ -898,6 +899,7 @@
                             <input
                                 id="smtp-password"
                                 type="password"
+                                autocomplete="off"
                                 bind:value={emailSmtpPassword}
                                 aria-label={$_('settings.email.smtp_password')}
                                 class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"

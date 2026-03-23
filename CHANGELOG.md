@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+- **Added:** Scheduled cleanup actions are now individually configurable. Three new toggles in Settings → Data allow "Remove Detections Without Clips", "Remove Detections Without Snapshots", and "Analyze Unknown Species" to run automatically as part of the existing 24-hour cleanup cycle. All default to off (opt-in). Manual action buttons are unchanged.
+- **Added:** Pushover notifications now support device targeting. A new "Device(s)" field in notification settings accepts one or more comma-separated Pushover device names. Leave blank to send to all active devices (existing behaviour).
+- **Fixed:** Safari/WebKit autofill crash on the login form. The `autofillFieldData.autoCompleteType.includes` null-reference error, which blocked login entirely when autofill was active, is resolved by adding explicit `autocomplete="username"` and `autocomplete="current-password"` attributes so WebKit can identify field types without hitting its internal null path.
+
 ## [2.8.5] - 2026-03-22
 
 - **Added:** Three new ONNX models exported from the [Birder](https://github.com/birder-project/birder) pretrained model library and published to the GitHub models release, now downloadable and activatable via the Model Manager:
