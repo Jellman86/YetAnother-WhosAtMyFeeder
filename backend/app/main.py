@@ -205,6 +205,37 @@ async def run_cleanup():
         deleted_share_links = await proxy.cleanup_expired_video_share_links()
         if deleted_share_links > 0:
             log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
+
+        # Scheduled purge: missing clips
+        if settings.maintenance.auto_purge_missing_clips:
+            try:
+                from app.routers.settings import _purge_missing_media
+                result = await _purge_missing_media("clip")
+                if result.get("deleted_count", 0) > 0:
+                    log.info("Scheduled purge missing clips completed", **result)
+            except Exception as e:
+                log.error("Scheduled purge missing clips failed", error=str(e))
+
+        # Scheduled purge: missing snapshots
+        if settings.maintenance.auto_purge_missing_snapshots:
+            try:
+                from app.routers.settings import _purge_missing_media
+                result = await _purge_missing_media("snapshot")
+                if result.get("deleted_count", 0) > 0:
+                    log.info("Scheduled purge missing snapshots completed", **result)
+            except Exception as e:
+                log.error("Scheduled purge missing snapshots failed", error=str(e))
+
+        # Scheduled analyze unknowns
+        if settings.maintenance.auto_analyze_unknowns:
+            try:
+                from app.routers.settings import _run_analyze_unknowns
+                result = await _run_analyze_unknowns()
+                if result.get("accepted", 0) > 0:
+                    log.info("Scheduled analyze unknowns completed", **result)
+            except Exception as e:
+                log.error("Scheduled analyze unknowns failed", error=str(e))
+
     except Exception as e:
         log.error("Error during cleanup execution", error=str(e))
 

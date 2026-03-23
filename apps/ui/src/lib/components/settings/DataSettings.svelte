@@ -7,6 +7,9 @@
     let {
         maintenanceStats,
         retentionDays = $bindable(0),
+        autoPurgeMissingClips = $bindable(false),
+        autoPurgeMissingSnapshots = $bindable(false),
+        autoAnalyzeUnknowns = $bindable(false),
         cacheRetentionDays = $bindable(0),
         cleaningUp,
         clearingFavorites,
@@ -51,6 +54,9 @@
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
+        autoPurgeMissingClips: boolean;
+        autoPurgeMissingSnapshots: boolean;
+        autoAnalyzeUnknowns: boolean;
         cacheRetentionDays: number;
         cleaningUp: boolean;
         clearingFavorites: boolean;
@@ -227,6 +233,20 @@
                             ? $_('settings.data.cleaning', { default: 'Cleaning...' })
                             : $_('settings.data.purge_missing_clips', { default: 'Remove detections without clips' })}
                     </button>
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}</span>
+                        <button
+                            role="switch"
+                            aria-checked={autoPurgeMissingClips}
+                            aria-label={$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}
+                            onclick={() => autoPurgeMissingClips = !autoPurgeMissingClips}
+                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoPurgeMissingClips = !autoPurgeMissingClips; } }}
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoPurgeMissingClips ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                        >
+                            <span class="sr-only">{$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}</span>
+                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoPurgeMissingClips ? 'translate-x-5' : 'translate-x-0'}"></span>
+                        </button>
+                    </div>
                     <button
                         onclick={handlePurgeMissingSnapshots}
                         disabled={purgingMissingSnapshots}
@@ -237,6 +257,20 @@
                             ? $_('settings.data.cleaning', { default: 'Cleaning...' })
                             : $_('settings.data.purge_missing_snapshots', { default: 'Remove detections without snapshots' })}
                     </button>
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}</span>
+                        <button
+                            role="switch"
+                            aria-checked={autoPurgeMissingSnapshots}
+                            aria-label={$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}
+                            onclick={() => autoPurgeMissingSnapshots = !autoPurgeMissingSnapshots}
+                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoPurgeMissingSnapshots = !autoPurgeMissingSnapshots; } }}
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoPurgeMissingSnapshots ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                        >
+                            <span class="sr-only">{$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}</span>
+                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoPurgeMissingSnapshots ? 'translate-x-5' : 'translate-x-0'}"></span>
+                        </button>
+                    </div>
                     <p class="text-[10px] text-slate-400 font-bold italic">
                         {$_('settings.data.media_integrity_note', { default: 'Deletes detections when Frigate media is missing.' })}
                     </p>
@@ -559,6 +593,20 @@
                 {/if}
                 {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
             </button>
+            <div class="flex items-center justify-between px-1">
+                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}</span>
+                <button
+                    role="switch"
+                    aria-checked={autoAnalyzeUnknowns}
+                    aria-label={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
+                    onclick={() => autoAnalyzeUnknowns = !autoAnalyzeUnknowns}
+                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoAnalyzeUnknowns = !autoAnalyzeUnknowns; } }}
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoAnalyzeUnknowns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                >
+                    <span class="sr-only">{$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}</span>
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoAnalyzeUnknowns ? 'translate-x-5' : 'translate-x-0'}"></span>
+                </button>
+            </div>
 
             {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
                 {@const remaining = analysisStatus.pending + analysisStatus.active}

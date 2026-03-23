@@ -129,6 +129,9 @@
     let videoCircuitFailures = $state(0);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
+    let autoPurgeMissingClips = $state(false);
+    let autoPurgeMissingSnapshots = $state(false);
+    let autoAnalyzeUnknowns = $state(false);
     let blockedLabels = $state<string[]>([]);
     let newBlockedLabel = $state('');
 
@@ -1627,6 +1630,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
+            { key: 'autoPurgeMissingClips', val: autoPurgeMissingClips, store: s.auto_purge_missing_clips ?? false },
+            { key: 'autoPurgeMissingSnapshots', val: autoPurgeMissingSnapshots, store: s.auto_purge_missing_snapshots ?? false },
+            { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
             { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled ?? true },
             { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
@@ -2461,6 +2467,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
+            autoPurgeMissingClips = settings.auto_purge_missing_clips ?? false;
+            autoPurgeMissingSnapshots = settings.auto_purge_missing_snapshots ?? false;
+            autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
             blockedLabels = settings.blocked_labels || [];
             // Media cache settings
             cacheEnabled = settings.media_cache_enabled ?? true;
@@ -2741,6 +2750,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 inference_provider: inferenceProvider,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
+                auto_purge_missing_clips: autoPurgeMissingClips,
+                auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
+                auto_analyze_unknowns: autoAnalyzeUnknowns,
                 blocked_labels: blockedLabels,
                 media_cache_enabled: cacheEnabled,
                 media_cache_snapshots: cacheSnapshots,
@@ -3321,6 +3333,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'data'}
                 <DataSettings
                     bind:retentionDays
+                    bind:autoPurgeMissingClips
+                    bind:autoPurgeMissingSnapshots
+                    bind:autoAnalyzeUnknowns
                     bind:cacheEnabled
                     bind:cacheSnapshots
                     bind:cacheClips

@@ -270,6 +270,9 @@ class SettingsUpdate(BaseModel):
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
+    auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
+    auto_purge_missing_snapshots: bool = Field(False, description="Purge detections without snapshots during scheduled cleanup")
+    auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     write_frigate_sublabel: bool = Field(True, description="Write YA-WAMF labels back to Frigate sublabels")
@@ -568,6 +571,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
         "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
+        "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
+        "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
+        "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
         "blocked_labels": settings.classification.blocked_labels,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "write_frigate_sublabel": settings.classification.write_frigate_sublabel,
@@ -783,6 +789,12 @@ async def update_settings(
         settings.maintenance.retention_days = update.retention_days
     if "auto_delete_missing_clips" in fields_set:
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
+    if "auto_purge_missing_clips" in fields_set:
+        settings.maintenance.auto_purge_missing_clips = update.auto_purge_missing_clips
+    if "auto_purge_missing_snapshots" in fields_set:
+        settings.maintenance.auto_purge_missing_snapshots = update.auto_purge_missing_snapshots
+    if "auto_analyze_unknowns" in fields_set:
+        settings.maintenance.auto_analyze_unknowns = update.auto_analyze_unknowns
     if "blocked_labels" in fields_set:
         settings.classification.blocked_labels = update.blocked_labels
     if "trust_frigate_sublabel" in fields_set:
@@ -1368,9 +1380,8 @@ async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
     return result
 
 
-@router.post("/maintenance/analyze-unknowns")
-async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
-    """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
+async def _run_analyze_unknowns() -> dict:
+    """Core logic for analyzing unknown detections. Used by endpoint and scheduler."""
     accepted = 0
     skipped_duplicate = 0
     dropped_full = 0
@@ -1496,6 +1507,12 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
         "total_candidates": len(unknowns),
         "message": msg
     }
+
+
+@router.post("/maintenance/analyze-unknowns")
+async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
+    """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
+    return await _run_analyze_unknowns()
 
 
 @router.get("/maintenance/analysis/status")

@@ -324,6 +324,18 @@ class MaintenanceSettings(BaseModel):
         default=False,
         description="Auto-delete detections when the Frigate event/clip is missing"
     )
+    auto_purge_missing_clips: bool = Field(
+        default=False,
+        description="Purge detections without clips during scheduled cleanup"
+    )
+    auto_purge_missing_snapshots: bool = Field(
+        default=False,
+        description="Purge detections without snapshots during scheduled cleanup"
+    )
+    auto_analyze_unknowns: bool = Field(
+        default=False,
+        description="Analyze unknown detections during scheduled cleanup"
+    )
 
 
 class MediaCacheSettings(BaseModel):
