@@ -2,6 +2,16 @@ import './app.css'
 import './lib/i18n'
 import { mount } from 'svelte' // Trigger CI rebuild
 import App from './App.svelte'
+
+// Safari/WebKit has a bug where its internal autofill scanner throws a null
+// reference on any page with password-type inputs, surfaced as an unhandled
+// promise rejection. Suppress it so it doesn't interfere with navigation.
+window.addEventListener('unhandledrejection', (event) => {
+    const msg = event.reason?.message ?? String(event.reason ?? '');
+    if (msg.includes('autofillFieldData')) {
+        event.preventDefault();
+    }
+});
 import { toastStore } from './lib/stores/toast.svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
