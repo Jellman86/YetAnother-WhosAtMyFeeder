@@ -57,7 +57,7 @@
                 </p>
             </div>
             
-            <form class="space-y-5" onsubmit={handleSubmit}>
+            <form class="space-y-5" onsubmit={handleSubmit} autocomplete="on">
                 <div class="space-y-4">
                     <div>
                         <label for="username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
@@ -65,6 +65,7 @@
                             id="username"
                             name="username"
                             type="text"
+                            autocomplete="username"
                             required
                             bind:value={username}
                             class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-teal-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
@@ -77,6 +78,7 @@
                             id="password"
                             name="password"
                             type="password"
+                            autocomplete="current-password"
                             required
                             bind:value={password}
                             class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-teal-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
