@@ -1729,6 +1729,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'notifyVideoFallbackTimeout', val: notifyVideoFallbackTimeout, store: s.notifications_video_fallback_timeout ?? 45 },
             { key: 'notifyCooldownMinutes', val: notifyCooldownMinutes, store: s.notifications_notification_cooldown_minutes ?? 0 },
 
+            { key: 'birdModelRegionOverride', val: birdModelRegionOverride, store: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
+
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },

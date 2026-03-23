@@ -10,7 +10,7 @@ import pt from './locales/pt.json';
 import it from './locales/it.json';
 
 const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
-console.log(`Running YA-WAMF ${appVersion}`);
+void appVersion; // version available in diagnostics reports and window.__APP_VERSION__
 
 const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'];
 

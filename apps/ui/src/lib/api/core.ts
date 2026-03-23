@@ -153,7 +153,7 @@ export async function fetchWithAbort<T>(
         }
 
         if (error instanceof Error && error.name === 'AbortError') {
-            console.log(`Request cancelled: ${key || url}`);
+            console.debug(`Request cancelled: ${key || url}`);
         }
         throw error;
     }

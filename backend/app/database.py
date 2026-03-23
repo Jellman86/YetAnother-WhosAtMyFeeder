@@ -142,7 +142,6 @@ def _db_is_ahead_of_codebase(db_versions: set, backend_dir: str) -> bool:
     try:
         from alembic.config import Config
         from alembic.script import ScriptDirectory
-        from alembic.util.exc import ResolutionError
 
         cfg = Config(os.path.join(backend_dir, "alembic.ini"))
         script = ScriptDirectory.from_config(cfg)

@@ -4,7 +4,7 @@ import inspect
 import itertools
 import time
 from collections import Counter, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Literal
 
 

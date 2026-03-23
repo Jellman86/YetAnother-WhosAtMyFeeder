@@ -2864,11 +2864,6 @@ class ClassifierService:
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
         }
         supervisor_metrics = self._get_supervisor_metrics()
-        effective_runtime_recovery = (
-            self._latest_worker_runtime_recovery(supervisor_metrics)
-            if self._image_execution_mode == "subprocess"
-            else None
-        ) or self._last_runtime_recovery
         if supervisor_metrics is not None:
             status["worker_pools"] = supervisor_metrics
             status["late_results_ignored"] = int(supervisor_metrics.get("late_results_ignored") or 0)
