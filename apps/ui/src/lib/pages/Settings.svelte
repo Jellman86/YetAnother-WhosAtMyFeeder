@@ -1208,6 +1208,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let emailToEmail = $state('');
     let emailIncludeSnapshot = $state(true);
     let emailDashboardUrl = $state('');
+    let emailGmailClientId = $state('');
+    let emailGmailClientSecret = $state('');
+    let emailGmailClientSecretSaved = $state(false);
+    let emailOutlookClientId = $state('');
+    let emailOutlookClientSecret = $state('');
+    let emailOutlookClientSecretSaved = $state(false);
+
+    let notificationLanguage = $state('en');
 
     let filterWhitelist = $state<string[]>([]);
     let newWhitelistSpecies = $state('');
@@ -1226,6 +1234,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let highContrast = $state(false);
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
+    let reducedMotion = $state(false);
+    let zenMode = $state(false);
     let aiDiagnosticsEnabled = $state(false);
 
     // eBird
@@ -1285,6 +1295,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     $effect(() => {
+        if (reducedMotion) document.documentElement.classList.add('reduced-motion');
+        else document.documentElement.classList.remove('reduced-motion');
+    });
+
+    $effect(() => {
+        if (zenMode) document.documentElement.classList.add('zen-mode');
+        else document.documentElement.classList.remove('zen-mode');
+    });
+
+    $effect(() => {
         if (mqttPasswordSaved && mqttPassword) {
             mqttPasswordSaved = false;
         }
@@ -1311,6 +1331,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     $effect(() => {
         if (llmApiKeySaved && llmApiKey) {
             llmApiKeySaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (emailGmailClientSecretSaved && emailGmailClientSecret) {
+            emailGmailClientSecretSaved = false;
+        }
+    });
+
+    $effect(() => {
+        if (emailOutlookClientSecretSaved && emailOutlookClientSecret) {
+            emailOutlookClientSecretSaved = false;
         }
     });
 
@@ -1709,6 +1741,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'emailUseOAuth', val: emailUseOAuth, store: s.notifications_email_use_oauth ?? false },
             { key: 'emailOAuthProvider', val: emailOAuthProvider || '', store: s.notifications_email_oauth_provider || '' },
             { key: 'emailOnlyOnEnd', val: emailOnlyOnEnd, store: s.notifications_email_only_on_end ?? false },
+            { key: 'emailGmailClientId', val: emailGmailClientId, store: s.notifications_email_gmail_client_id || '' },
+            { key: 'emailGmailClientSecret', val: emailGmailClientSecret, store: normalizeSecret(s.notifications_email_gmail_client_secret) },
+            { key: 'emailOutlookClientId', val: emailOutlookClientId, store: s.notifications_email_outlook_client_id || '' },
+            { key: 'emailOutlookClientSecret', val: emailOutlookClientSecret, store: normalizeSecret(s.notifications_email_outlook_client_secret) },
             { key: 'emailSmtpHost', val: emailSmtpHost, store: s.notifications_email_smtp_host || '' },
             { key: 'emailSmtpPort', val: emailSmtpPort, store: s.notifications_email_smtp_port ?? 587 },
             { key: 'emailSmtpUsername', val: emailSmtpUsername, store: s.notifications_email_smtp_username || '' },
@@ -1718,6 +1754,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'emailToEmail', val: emailToEmail, store: s.notifications_email_to_email || '' },
             { key: 'emailIncludeSnapshot', val: emailIncludeSnapshot, store: s.notifications_email_include_snapshot ?? true },
             { key: 'emailDashboardUrl', val: emailDashboardUrl, store: s.notifications_email_dashboard_url || '' },
+
+            { key: 'notificationLanguage', val: notificationLanguage, store: s.notification_language ?? 'en' },
 
             { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
@@ -1734,7 +1772,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
-            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true }
+            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
+            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false },
+            { key: 'zenMode', val: zenMode, store: s.accessibility_zen_mode ?? false }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -2637,6 +2677,23 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             emailOAuthProvider = settings.notifications_email_oauth_provider || null;
             emailConnectedEmail = settings.notifications_email_connected_email || null;
             emailOnlyOnEnd = settings.notifications_email_only_on_end ?? false;
+            emailGmailClientId = settings.notifications_email_gmail_client_id || '';
+            if (settings.notifications_email_gmail_client_secret === '***REDACTED***') {
+                emailGmailClientSecretSaved = true;
+                emailGmailClientSecret = '';
+            } else {
+                emailGmailClientSecretSaved = false;
+                emailGmailClientSecret = settings.notifications_email_gmail_client_secret || '';
+            }
+            emailOutlookClientId = settings.notifications_email_outlook_client_id || '';
+            if (settings.notifications_email_outlook_client_secret === '***REDACTED***') {
+                emailOutlookClientSecretSaved = true;
+                emailOutlookClientSecret = '';
+            } else {
+                emailOutlookClientSecretSaved = false;
+                emailOutlookClientSecret = settings.notifications_email_outlook_client_secret || '';
+            }
+            notificationLanguage = settings.notification_language ?? 'en';
             emailSmtpHost = settings.notifications_email_smtp_host || '';
             emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
             emailSmtpUsername = settings.notifications_email_smtp_username || '';
@@ -2677,6 +2734,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             highContrast = settings.accessibility_high_contrast ?? false;
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
+            reducedMotion = settings.accessibility_reduced_motion ?? false;
+            zenMode = settings.accessibility_zen_mode ?? false;
 
             // Appearance (persisted)
             if (settings.appearance_font_theme) {
@@ -2838,6 +2897,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_email_only_on_end: emailOnlyOnEnd,
                 notifications_email_use_oauth: emailUseOAuth,
                 notifications_email_oauth_provider: emailOAuthProvider,
+                notifications_email_gmail_client_id: emailGmailClientId || null,
+                notifications_email_gmail_client_secret: emailGmailClientSecret || undefined,
+                notifications_email_outlook_client_id: emailOutlookClientId || null,
+                notifications_email_outlook_client_secret: emailOutlookClientSecret || undefined,
                 notifications_email_smtp_host: emailSmtpHost,
                 notifications_email_smtp_port: emailSmtpPort,
                 notifications_email_smtp_username: emailSmtpUsername,
@@ -2848,6 +2911,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_email_include_snapshot: emailIncludeSnapshot,
                 notifications_email_dashboard_url: emailDashboardUrl,
 
+                notification_language: notificationLanguage,
                 notifications_filter_species_whitelist: filterWhitelist,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
@@ -2862,6 +2926,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 accessibility_high_contrast: highContrast,
                 accessibility_dyslexia_font: dyslexiaFont,
                 accessibility_live_announcements: liveAnnouncements,
+                accessibility_reduced_motion: reducedMotion,
+                accessibility_zen_mode: zenMode,
 
                 // Appearance
                 appearance_font_theme: currentFontTheme
@@ -3183,10 +3249,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:telegramTokenSaved
                     bind:telegramChatId
                     bind:telegramChatIdSaved
+                    bind:notificationLanguage
                     bind:emailEnabled
                     bind:emailUseOAuth
                     bind:emailConnectedEmail
                     bind:emailOAuthProvider
+                    bind:emailGmailClientId
+                    bind:emailGmailClientSecret
+                    bind:emailGmailClientSecretSaved
+                    bind:emailOutlookClientId
+                    bind:emailOutlookClientSecret
+                    bind:emailOutlookClientSecretSaved
                     bind:emailOnlyOnEnd
                     bind:emailSmtpHost
                     bind:emailSmtpPort
@@ -3412,6 +3485,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:highContrast
                     bind:dyslexiaFont
                     bind:liveAnnouncements
+                    bind:reducedMotion
+                    bind:zenMode
                 />
             {/if}
 

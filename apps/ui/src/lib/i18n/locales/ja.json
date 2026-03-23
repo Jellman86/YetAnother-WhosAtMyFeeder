@@ -408,6 +408,16 @@
       "oauth_error": "OAuthエラー: {error}",
       "credentials_required": "まずOAuthまたはSMTP認証情報を設定してください",
       "test_email_error_generic": "Failed to send test email",
+      "oauth_app_credentials": "OAuthアプリ認証情報",
+      "oauth_app_credentials_desc": "アカウントを接続する前に必要なGoogleまたはMicrosoftのOAuthアプリ認証情報。",
+      "gmail_client_id": "GmailクライアントID",
+      "gmail_client_id_placeholder": "Google OAuthクライアントID",
+      "gmail_client_secret": "Gmailクライアントシークレット",
+      "gmail_client_secret_placeholder": "Google OAuthクライアントシークレット",
+      "outlook_client_id": "OutlookクライアントID",
+      "outlook_client_id_placeholder": "Microsoft OAuthアプリケーション（クライアント）ID",
+      "outlook_client_secret": "Outlookクライアントシークレット",
+      "outlook_client_secret_placeholder": "Microsoft OAuthクライアントシークレット",
       "test_email_sent": "テストメールを送信しました。"
     },
     "notifications": {
@@ -451,7 +461,9 @@
       "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
-      "remove_species_label": "Remove {species} from whitelist"
+      "remove_species_label": "Remove {species} from whitelist",
+      "notification_language": "通知言語",
+      "notification_language_desc": "全チャンネルに送信する通知メッセージのテキストに使用する言語"
     },
     "discord": {
       "title": "Discord通知",

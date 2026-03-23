@@ -56,11 +56,20 @@
         telegramChatId = $bindable(''),
         telegramChatIdSaved = $bindable(false),
 
+        // Notification language
+        notificationLanguage = $bindable('en'),
+
         // Email
         emailEnabled = $bindable(false),
         emailUseOAuth = $bindable(true),
         emailConnectedEmail = $bindable<string | null>(null),
         emailOAuthProvider = $bindable<string | null>(null),
+        emailGmailClientId = $bindable(''),
+        emailGmailClientSecret = $bindable(''),
+        emailGmailClientSecretSaved = $bindable(false),
+        emailOutlookClientId = $bindable(''),
+        emailOutlookClientSecret = $bindable(''),
+        emailOutlookClientSecretSaved = $bindable(false),
         emailOnlyOnEnd = $bindable(false),
         emailSmtpHost = $bindable(''),
         emailSmtpPort = $bindable(587),
@@ -114,10 +123,17 @@
         telegramTokenSaved: boolean;
         telegramChatId: string;
         telegramChatIdSaved: boolean;
+        notificationLanguage: string;
         emailEnabled: boolean;
         emailUseOAuth: boolean;
         emailConnectedEmail: string | null;
         emailOAuthProvider: string | null;
+        emailGmailClientId: string;
+        emailGmailClientSecret: string;
+        emailGmailClientSecretSaved: boolean;
+        emailOutlookClientId: string;
+        emailOutlookClientSecret: string;
+        emailOutlookClientSecretSaved: boolean;
         emailOnlyOnEnd: boolean;
         emailSmtpHost: string;
         emailSmtpPort: number;
@@ -439,6 +455,32 @@
                     <span class="sr-only">{$_('settings.notifications.audio_only')}</span>
                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyAudioOnly ? 'translate-x-5' : 'translate-x-0'}"></span>
                 </button>
+            </div>
+
+            <!-- Notification Language -->
+            <div class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <label for="notification-language" class="block text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-1">{$_('settings.notifications.notification_language')}</label>
+                        <p class="text-[10px] text-slate-500 font-medium">{$_('settings.notifications.notification_language_desc')}</p>
+                    </div>
+                    <select
+                        id="notification-language"
+                        bind:value={notificationLanguage}
+                        aria-label={$_('settings.notifications.notification_language')}
+                        class="min-w-[9rem] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ja">日本語</option>
+                        <option value="zh">中文</option>
+                        <option value="ru">Русский</option>
+                        <option value="pt">Português</option>
+                        <option value="it">Italiano</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Species Whitelist -->
@@ -773,6 +815,78 @@
                 </div>
 
                 {#if emailUseOAuth}
+                    <!-- OAuth App Credentials -->
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
+                        <div>
+                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.oauth_app_credentials')}</h5>
+                            <p class="text-xs text-slate-500">{$_('settings.email.oauth_app_credentials_desc')}</p>
+                        </div>
+                        <!-- Gmail credentials -->
+                        <div class="grid grid-cols-1 gap-2">
+                            <div>
+                                <label for="gmail-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_id')}</label>
+                                <input
+                                    id="gmail-client-id"
+                                    type="text"
+                                    autocomplete="off"
+                                    bind:value={emailGmailClientId}
+                                    placeholder={$_('settings.email.gmail_client_id_placeholder')}
+                                    aria-label={$_('settings.email.gmail_client_id')}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                />
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="gmail-client-secret" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.gmail_client_secret')}</label>
+                                    {#if emailGmailClientSecretSaved}
+                                        <SecretSavedBadge />
+                                    {/if}
+                                </div>
+                                <input
+                                    id="gmail-client-secret"
+                                    type="password"
+                                    autocomplete="off"
+                                    bind:value={emailGmailClientSecret}
+                                    placeholder={$_('settings.email.gmail_client_secret_placeholder')}
+                                    aria-label={$_('settings.email.gmail_client_secret')}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                />
+                            </div>
+                        </div>
+                        <!-- Outlook credentials -->
+                        <div class="grid grid-cols-1 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <div>
+                                <label for="outlook-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_id')}</label>
+                                <input
+                                    id="outlook-client-id"
+                                    type="text"
+                                    autocomplete="off"
+                                    bind:value={emailOutlookClientId}
+                                    placeholder={$_('settings.email.outlook_client_id_placeholder')}
+                                    aria-label={$_('settings.email.outlook_client_id')}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                />
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="outlook-client-secret" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.outlook_client_secret')}</label>
+                                    {#if emailOutlookClientSecretSaved}
+                                        <SecretSavedBadge />
+                                    {/if}
+                                </div>
+                                <input
+                                    id="outlook-client-secret"
+                                    type="password"
+                                    autocomplete="off"
+                                    bind:value={emailOutlookClientSecret}
+                                    placeholder={$_('settings.email.outlook_client_secret_placeholder')}
+                                    aria-label={$_('settings.email.outlook_client_secret')}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- OAuth Section -->
                     <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.oauth_desc')}</p>

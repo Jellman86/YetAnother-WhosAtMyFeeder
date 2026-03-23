@@ -5,11 +5,15 @@
     let {
         highContrast = $bindable(false),
         dyslexiaFont = $bindable(false),
-        liveAnnouncements = $bindable(true)
+        liveAnnouncements = $bindable(true),
+        reducedMotion = $bindable(false),
+        zenMode = $bindable(false)
     }: {
         highContrast: boolean;
         dyslexiaFont: boolean;
         liveAnnouncements: boolean;
+        reducedMotion: boolean;
+        zenMode: boolean;
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
@@ -29,6 +33,16 @@
     $effect(() => {
         if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
         else document.documentElement.classList.remove('font-dyslexic');
+    });
+
+    $effect(() => {
+        if (reducedMotion) document.documentElement.classList.add('reduced-motion');
+        else document.documentElement.classList.remove('reduced-motion');
+    });
+
+    $effect(() => {
+        if (zenMode) document.documentElement.classList.add('zen-mode');
+        else document.documentElement.classList.remove('zen-mode');
     });
 </script>
 
@@ -90,6 +104,54 @@
                 </button>
             </div>
         {/if}
+
+        <!-- Reduced Motion -->
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <div id="reduced-motion-label">
+                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.reduced_motion')}</span>
+                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.reduced_motion_desc')}</span>
+            </div>
+            <button
+                role="switch"
+                aria-checked={reducedMotion}
+                aria-labelledby="reduced-motion-label"
+                onclick={() => reducedMotion = !reducedMotion}
+                onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        reducedMotion = !reducedMotion;
+                    }
+                }}
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {reducedMotion ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+            >
+                <span class="sr-only">{$_('settings.accessibility.reduced_motion')}</span>
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {reducedMotion ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+        </div>
+
+        <!-- Zen Mode -->
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <div id="zen-mode-label">
+                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.zen_mode')}</span>
+                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.zen_mode_desc')}</span>
+            </div>
+            <button
+                role="switch"
+                aria-checked={zenMode}
+                aria-labelledby="zen-mode-label"
+                onclick={() => zenMode = !zenMode}
+                onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        zenMode = !zenMode;
+                    }
+                }}
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {zenMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+            >
+                <span class="sr-only">{$_('settings.accessibility.zen_mode')}</span>
+                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {zenMode ? 'translate-x-5' : 'translate-x-0'}"></span>
+            </button>
+        </div>
 
         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
             <div id="live-announcements-label">

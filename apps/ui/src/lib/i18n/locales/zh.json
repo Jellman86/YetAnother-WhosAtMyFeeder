@@ -408,6 +408,16 @@
       "oauth_error": "OAuth 错误：{error}",
       "credentials_required": "请先配置 OAuth 或 SMTP 凭据",
       "test_email_error_generic": "Failed to send test email",
+      "oauth_app_credentials": "OAuth应用凭据",
+      "oauth_app_credentials_desc": "您的Google或Microsoft OAuth应用凭据，连接账户前需要填写。",
+      "gmail_client_id": "Gmail客户端ID",
+      "gmail_client_id_placeholder": "Google OAuth客户端ID",
+      "gmail_client_secret": "Gmail客户端密钥",
+      "gmail_client_secret_placeholder": "Google OAuth客户端密钥",
+      "outlook_client_id": "Outlook客户端ID",
+      "outlook_client_id_placeholder": "Microsoft OAuth应用程序（客户端）ID",
+      "outlook_client_secret": "Outlook客户端密钥",
+      "outlook_client_secret_placeholder": "Microsoft OAuth客户端密钥",
       "test_email_sent": "测试邮件已发送。"
     },
     "notifications": {
@@ -451,7 +461,9 @@
       "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
-      "remove_species_label": "Remove {species} from whitelist"
+      "remove_species_label": "Remove {species} from whitelist",
+      "notification_language": "通知语言",
+      "notification_language_desc": "发送到所有渠道的通知消息文本所使用的语言"
     },
     "discord": {
       "title": "Discord 通知",

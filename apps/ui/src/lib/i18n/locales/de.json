@@ -557,7 +557,17 @@
       "oauth_disconnect_success": "{provider} getrennt",
       "oauth_error": "OAuth-Fehler: {error}",
       "credentials_required": "Bitte konfigurieren Sie zuerst OAuth- oder SMTP-Anmeldedaten",
-      "test_email_error_generic": "Failed to send test email"
+      "test_email_error_generic": "Failed to send test email",
+      "oauth_app_credentials": "OAuth-App-Anmeldedaten",
+      "oauth_app_credentials_desc": "Ihre Google- oder Microsoft-OAuth-App-Anmeldedaten, die vor dem Verbinden eines Kontos erforderlich sind.",
+      "gmail_client_id": "Gmail Client-ID",
+      "gmail_client_id_placeholder": "Google OAuth Client-ID",
+      "gmail_client_secret": "Gmail Client-Secret",
+      "gmail_client_secret_placeholder": "Google OAuth Client-Secret",
+      "outlook_client_id": "Outlook Client-ID",
+      "outlook_client_id_placeholder": "Microsoft OAuth Anwendungs-ID (Client)",
+      "outlook_client_secret": "Outlook Client-Secret",
+      "outlook_client_secret_placeholder": "Microsoft OAuth Client-Secret"
     },
     "notifications": {
       "global_filters": "Globale Benachrichtigungsfilter",
@@ -600,7 +610,9 @@
       "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden.",
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
-      "remove_species_label": "Remove {species} from whitelist"
+      "remove_species_label": "Remove {species} from whitelist",
+      "notification_language": "Benachrichtigungssprache",
+      "notification_language_desc": "Sprache für den Text der Benachrichtigungen an alle Kanäle"
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",

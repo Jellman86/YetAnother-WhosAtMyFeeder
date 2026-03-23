@@ -565,7 +565,17 @@
       "oauth_connect_success": "{provider} connected successfully!",
       "oauth_disconnect_success": "{provider} disconnected",
       "oauth_error": "OAuth error: {error}",
-      "credentials_required": "Please configure OAuth or SMTP credentials first"
+      "credentials_required": "Please configure OAuth or SMTP credentials first",
+      "oauth_app_credentials": "OAuth App Credentials",
+      "oauth_app_credentials_desc": "Your Google or Microsoft OAuth app credentials, required before connecting an account.",
+      "gmail_client_id": "Gmail Client ID",
+      "gmail_client_id_placeholder": "Google OAuth Client ID",
+      "gmail_client_secret": "Gmail Client Secret",
+      "gmail_client_secret_placeholder": "Google OAuth Client Secret",
+      "outlook_client_id": "Outlook Client ID",
+      "outlook_client_id_placeholder": "Microsoft OAuth Application (client) ID",
+      "outlook_client_secret": "Outlook Client Secret",
+      "outlook_client_secret_placeholder": "Microsoft OAuth Client Secret"
     },
     "notifications": {
       "global_filters": "Global Notification Filters",
@@ -608,7 +618,9 @@
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
       "remove_species_label": "Remove {species} from whitelist",
-      "species_placeholder": "Add a species (e.g., Northern Cardinal)"
+      "species_placeholder": "Add a species (e.g., Northern Cardinal)",
+      "notification_language": "Notification Language",
+      "notification_language_desc": "Language used for the text of notification messages sent to all channels"
     },
     "discord": {
       "title": "Discord Notifications",

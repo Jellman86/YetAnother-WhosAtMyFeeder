@@ -416,6 +416,16 @@
       "oauth_error": "Erro OAuth: {error}",
       "credentials_required": "Por favor configure credenciais OAuth ou SMTP primeiro",
       "test_email_error_generic": "Failed to send test email",
+      "oauth_app_credentials": "Credenciais de app OAuth",
+      "oauth_app_credentials_desc": "Suas credenciais de app OAuth do Google ou Microsoft, necessárias antes de conectar uma conta.",
+      "gmail_client_id": "ID do cliente Gmail",
+      "gmail_client_id_placeholder": "ID do cliente OAuth do Google",
+      "gmail_client_secret": "Segredo do cliente Gmail",
+      "gmail_client_secret_placeholder": "Segredo do cliente OAuth do Google",
+      "outlook_client_id": "ID do cliente Outlook",
+      "outlook_client_id_placeholder": "ID do aplicativo (cliente) OAuth da Microsoft",
+      "outlook_client_secret": "Segredo do cliente Outlook",
+      "outlook_client_secret_placeholder": "Segredo do cliente OAuth da Microsoft",
       "test_email_sent": "Email de teste enviado."
     },
     "notifications": {
@@ -459,7 +469,9 @@
       "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
-      "remove_species_label": "Remove {species} from whitelist"
+      "remove_species_label": "Remove {species} from whitelist",
+      "notification_language": "Idioma das notificações",
+      "notification_language_desc": "Idioma usado para o texto das mensagens de notificação enviadas a todos os canais"
     },
     "discord": {
       "title": "Notificações Discord",

@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Added:** Scheduled cleanup actions are now individually configurable. Three new toggles in Settings → Data allow "Remove Detections Without Clips", "Remove Detections Without Snapshots", and "Analyze Unknown Species" to run automatically as part of the existing 24-hour cleanup cycle. All default to off (opt-in). Manual action buttons are unchanged.
 - **Added:** Pushover notifications now support device targeting. A new "Device(s)" field in notification settings accepts one or more comma-separated Pushover device names. Leave blank to send to all active devices (existing behaviour).
+- **Added:** Notification language is now configurable in Settings → Notifications. A new "Notification Language" dropdown controls the language used for message text sent to Discord, Telegram, Pushover, and Email — independent of the UI language.
+- **Added:** Gmail and Outlook OAuth app credentials (Client ID and Client Secret) are now configurable directly in Settings → Notifications → Email. Previously these could only be set via environment variables; they can now be entered and saved through the UI, unblocking the OAuth "Connect Gmail" / "Connect Outlook" flow for users without direct container access.
+- **Added:** Reduced Motion and Zen Mode accessibility toggles are now wired in Settings → Accessibility. Both settings persist to the backend config and apply their respective CSS classes (`reduced-motion`, `zen-mode`) on load.
 - **Fixed:** Safari/WebKit autofill crash on the login form. The `autofillFieldData.autoCompleteType.includes` null-reference error, which blocked login entirely when autofill was active, is resolved by adding explicit `autocomplete="username"` and `autocomplete="current-password"` attributes so WebKit can identify field types without hitting its internal null path.
 
 ## [2.8.5] - 2026-03-22

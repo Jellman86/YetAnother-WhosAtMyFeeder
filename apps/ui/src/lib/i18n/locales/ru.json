@@ -416,6 +416,16 @@
       "oauth_error": "Ошибка OAuth: {error}",
       "credentials_required": "Пожалуйста, сначала настройте учетные данные OAuth или SMTP",
       "test_email_error_generic": "Failed to send test email",
+      "oauth_app_credentials": "Учётные данные OAuth-приложения",
+      "oauth_app_credentials_desc": "Учётные данные вашего OAuth-приложения Google или Microsoft, необходимые перед подключением аккаунта.",
+      "gmail_client_id": "Идентификатор клиента Gmail",
+      "gmail_client_id_placeholder": "Идентификатор клиента OAuth Google",
+      "gmail_client_secret": "Секрет клиента Gmail",
+      "gmail_client_secret_placeholder": "Секрет клиента OAuth Google",
+      "outlook_client_id": "Идентификатор клиента Outlook",
+      "outlook_client_id_placeholder": "Идентификатор приложения (клиента) OAuth Microsoft",
+      "outlook_client_secret": "Секрет клиента Outlook",
+      "outlook_client_secret_placeholder": "Секрет клиента OAuth Microsoft",
       "test_email_sent": "Тестовое письмо отправлено."
     },
     "notifications": {
@@ -459,7 +469,9 @@
       "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
       "min_confidence_label": "Notification minimum confidence: {value}%",
       "add_species_label": "Add species to whitelist",
-      "remove_species_label": "Remove {species} from whitelist"
+      "remove_species_label": "Remove {species} from whitelist",
+      "notification_language": "Язык уведомлений",
+      "notification_language_desc": "Язык текста сообщений уведомлений, отправляемых по всем каналам"
     },
     "discord": {
       "title": "Уведомления Discord",
