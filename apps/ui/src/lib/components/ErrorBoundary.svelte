@@ -37,6 +37,10 @@
             if (reason.message.includes('Failed to fetch') || reason.message.includes('NetworkError')) {
                 return;
             }
+            // Ignore Safari/WebKit internal autofill scanner bug
+            if (reason.message.includes('autofillFieldData')) {
+                return;
+            }
             
             error = reason;
             errorInfo = 'Unhandled Promise Rejection';
