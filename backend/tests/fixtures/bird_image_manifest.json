@@ -47,7 +47,7 @@
       "common_name": "American Goldfinch",
       "scientific_name": "Spinus tristis",
       "inat_taxon_id": 145310,
-      "acceptable_labels": ["American Goldfinch", "Spinus tristis", "goldfinch"],
+      "acceptable_labels": ["American Goldfinch", "Spinus tristis"],
       "scope": ["na", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
       "notes": "Bright yellow male, common NA feeder bird"
@@ -110,7 +110,8 @@
       "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "All-black thrush, very common EU garden bird. eurasian_blackbird_01/02/03 are very dark/underexposed — known cross-model failures predicting reptiles at low confidence."
+      "exclude_photo_ids": [299611076, 299939604],
+      "notes": "All-black thrush, very common EU garden bird. Photos 299611076 and 299939604 (obs/172578277) are very dark/underexposed — excluded as known cross-model failures."
     },
     {
       "id": "house_sparrow",
@@ -130,7 +131,8 @@
       "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "Cosmopolitan swallow, present in all regional model scopes. barn_swallow_01 has squirrel in foreground; barn_swallow_02 had an egret dominating frame — both are known cross-model failures."
+      "exclude_photo_ids": [13758585],
+      "notes": "Cosmopolitan swallow, present in all regional model scopes. Photo 13758585 (obs/10006129) has a white egret dominating the frame — excluded as a known cross-model failure."
     },
     {
       "id": "mallard",

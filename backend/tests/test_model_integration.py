@@ -116,6 +116,9 @@ def _load_installed_models() -> dict[str, dict[str, Any]]:
 def _scope_matches(model_config: dict, case_scope: list[str]) -> bool:
     """Return True if the model's taxonomy_scope and source_model_id match any of the case scopes."""
     taxonomy = model_config.get("taxonomy_scope", "")
+    # System-role models (crop detectors, etc.) are never species classifiers.
+    if taxonomy == "system":
+        return False
     source = model_config.get("source_model_id", "")
     # Determine geographic scope from source model ID
     geo_scope = "global"
@@ -139,6 +142,20 @@ def _scope_matches(model_config: dict, case_scope: list[str]) -> bool:
     return False
 
 
+def _labels_cover_case(model_labels: list[str], acceptable_labels: list[str]) -> bool:
+    """Return True if at least one acceptable label has a fuzzy match in the model's label set.
+
+    Uses the same substring matching as the correctness test so a model is only
+    tested against species it was actually trained on.
+    """
+    norm_model = [_normalise(l) for l in model_labels]
+    norm_acceptable = [_normalise(a) for a in acceptable_labels]
+    return any(
+        any(acc in pred or pred in acc for pred in norm_model)
+        for acc in norm_acceptable
+    )
+
+
 def _build_test_params() -> list[tuple]:
     """Build pytest parameters: (model_id, image_path, expected_labels, min_top_n, case_id)."""
     if not _MANIFEST_PATH.exists() or not _DOWNLOADED_PATH.exists():
@@ -155,11 +172,17 @@ def _build_test_params() -> list[tuple]:
         if not case_images:
             continue
 
+        exclude_ids = set(case.get("exclude_photo_ids", []))
+
         for model_id, model_meta in installed.items():
             if not _scope_matches(model_meta["config"], case.get("scope", [])):
                 continue
+            if not _labels_cover_case(model_meta["labels"], case["acceptable_labels"]):
+                continue
 
             for img_record in case_images:
+                if img_record.get("photo_id") in exclude_ids:
+                    continue
                 img_path = Path(img_record.get("path", ""))
                 if not img_path.exists():
                     continue
