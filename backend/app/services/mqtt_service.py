@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import structlog
@@ -25,6 +26,8 @@ MQTT_PRESSURE_CRITICAL_RATIO = 0.90
 MQTT_FRIGATE_TOPIC_STALE_SECONDS = max(30.0, float(os.getenv("MQTT_FRIGATE_TOPIC_STALE_SECONDS", "300")))
 MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES = max(1, int(os.getenv("MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", "20")))
 MQTT_TOPIC_STALL_GRACE_SECONDS = max(10.0, float(os.getenv("MQTT_TOPIC_STALL_GRACE_SECONDS", "60")))
+MQTT_WATCHDOG_INTERVAL_SECONDS = max(10.0, float(os.getenv("MQTT_WATCHDOG_INTERVAL_SECONDS", "30")))
+MAX_HANDLER_WAIT_SECONDS = max(30.0, float(os.getenv("MQTT_MAX_HANDLER_WAIT_SECONDS", "120")))
 
 class MQTTService:
     def __init__(self, version: str = "unknown"):
@@ -40,6 +43,7 @@ class MQTTService:
         self._connection_started_monotonic: float | None = None
         self._topic_liveness_reconnects = 0
         self._last_reconnect_reason: str | None = None
+        self._intentional_reconnect: bool = False
         # Simplified Client ID: yawamf-{git_hash}
         # version format is usually "2.0.0+abc1234"
         git_hash = version.split('+')[-1] if '+' in version else "unknown"
@@ -98,6 +102,7 @@ class MQTTService:
             "frigate_topic_stale_seconds": MQTT_FRIGATE_TOPIC_STALE_SECONDS,
             "topic_liveness_reconnects": self._topic_liveness_reconnects,
             "last_reconnect_reason": self._last_reconnect_reason,
+            "intentional_reconnect_pending": self._intentional_reconnect,
         }
 
     def is_under_pressure(self, min_level: str = "high") -> bool:
@@ -143,12 +148,17 @@ class MQTTService:
         ts = now if now is not None else self._now_monotonic()
         return max(0.0, ts - last)
 
-    def _should_reconnect_for_stalled_frigate_topic(
+    def _should_reconnect_independent(
         self,
         frigate_topic: str,
-        birdnet_topic: str,
         now: float | None = None,
     ) -> bool:
+        """Check whether the Frigate topic appears stalled without requiring BirdNET traffic.
+
+        Works for users who don't have BirdNET-Go configured. Only fires when at
+        least one Frigate message has been seen this session, so a legitimately
+        quiet feeder (zero motion) does not trigger spurious reconnects.
+        """
         if not self.running or self.paused:
             return False
 
@@ -158,14 +168,8 @@ class MQTTService:
         if ts - self._connection_started_monotonic < MQTT_TOPIC_STALL_GRACE_SECONDS:
             return False
 
-        # Only evaluate this guard while BirdNET traffic is healthy.
-        birdnet_age = self._topic_age_seconds(birdnet_topic, ts)
-        if birdnet_age is None or birdnet_age > max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0):
-            return False
-        if self._topic_message_counts.get(birdnet_topic, 0) < MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES:
-            return False
-
-        # Avoid reconnect loops when no Frigate traffic has ever been seen in this session.
+        # Require at least one Frigate message; avoids churning when Frigate is quiet
+        # or the topic subscription has never delivered a message.
         if self._topic_message_counts.get(frigate_topic, 0) <= 0:
             return False
 
@@ -173,6 +177,32 @@ class MQTTService:
         if frigate_age is None:
             return False
         return frigate_age >= MQTT_FRIGATE_TOPIC_STALE_SECONDS
+
+    def _should_reconnect_for_stalled_frigate_topic(
+        self,
+        frigate_topic: str,
+        birdnet_topic: str,
+        now: float | None = None,
+    ) -> bool:
+        """BirdNET-assisted stall check (higher confidence; used in the message loop)."""
+        if not self.running or self.paused:
+            return False
+
+        ts = now if now is not None else self._now_monotonic()
+        if self._connection_started_monotonic is None:
+            return False
+        if ts - self._connection_started_monotonic < MQTT_TOPIC_STALL_GRACE_SECONDS:
+            return False
+
+        # Only evaluate while BirdNET traffic is healthy — guards against false positives
+        # when the feeder is genuinely quiet.
+        birdnet_age = self._topic_age_seconds(birdnet_topic, ts)
+        if birdnet_age is None or birdnet_age > max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0):
+            return False
+        if self._topic_message_counts.get(birdnet_topic, 0) < MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES:
+            return False
+
+        return self._should_reconnect_independent(frigate_topic, ts)
 
     async def _wait_for_handler_slot(self):
         wait_started: float | None = None
@@ -184,17 +214,24 @@ class MQTTService:
                 return_when=asyncio.FIRST_COMPLETED,
                 timeout=5.0,
             )
+            waited = asyncio.get_running_loop().time() - wait_started
             if not done:
-                waited = asyncio.get_running_loop().time() - wait_started
                 log.warning(
                     "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
                     in_flight=len(self._in_flight_tasks),
                     limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
                     waited_seconds=round(waited, 1),
                 )
-                continue
             for task in done:
                 self._in_flight_tasks.discard(task)
+            if waited >= MAX_HANDLER_WAIT_SECONDS:
+                log.error(
+                    "MQTT handler slot wait exceeded maximum; unblocking message loop to prevent stall",
+                    waited_seconds=round(waited, 1),
+                    in_flight=len(self._in_flight_tasks),
+                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+                )
+                break
 
     def _parse_frigate_payload_meta(self, payload: bytes) -> dict | None:
         try:
@@ -308,6 +345,31 @@ class MQTTService:
         self._track_handler_task(task)
         return task
 
+    async def _connection_watchdog(self, client, frigate_topic: str) -> None:
+        """Periodic watchdog that forces reconnection when the Frigate topic stalls.
+
+        Runs independently of BirdNET, so visual-only deployments also get
+        self-healing behaviour when Frigate stops publishing events.
+        """
+        while self.running:
+            await asyncio.sleep(MQTT_WATCHDOG_INTERVAL_SECONDS)
+            now = self._now_monotonic()
+            if self._should_reconnect_independent(frigate_topic, now):
+                self._topic_liveness_reconnects += 1
+                self._last_reconnect_reason = "frigate_topic_stalled_watchdog"
+                log.warning(
+                    "Watchdog: Frigate topic stalled; forcing MQTT reconnection",
+                    frigate_silence_seconds=round(
+                        self._topic_age_seconds(frigate_topic, now) or 0.0, 1
+                    ),
+                    frigate_messages_seen=self._topic_message_counts.get(frigate_topic, 0),
+                    stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
+                )
+                self._intentional_reconnect = True
+                with contextlib.suppress(Exception):
+                    await client.disconnect()
+                return
+
     def _cancel_in_flight_tasks(self):
         for task in list(self._in_flight_tasks):
             task.cancel()
@@ -359,58 +421,74 @@ class MQTTService:
                     # Reset backoff on successful connection
                     self._reset_backoff()
 
-                    async for message in client.messages:
-                        if self.paused:
-                            continue
-                        # Check for topic changes in settings
-                        if settings.frigate.audio_topic != birdnet_topic:
-                            log.info("MQTT Audio topic changed in settings, reconnecting...", 
-                                     old=birdnet_topic, new=settings.frigate.audio_topic)
-                            self._last_reconnect_reason = "audio_topic_changed"
-                            break # This breaks the 'async for', causing a reconnection with new settings
-
-                        topic = message.topic.value
-                        self._record_topic_message(topic)
-                        if topic == frigate_topic:
-                            log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
-                            meta = self._parse_frigate_payload_meta(message.payload)
-                            if meta is not None and not meta.get("should_process", False):
-                                continue
-                            await self._wait_for_handler_slot()
-                            self._schedule_frigate_message(
-                                event_processor,
-                                message.payload,
-                                event_id=(meta or {}).get("event_id"),
-                            )
-                        elif topic == birdnet_topic:
-                            log.info("Received MQTT message on birdnet topic", payload_len=len(message.payload))
-                            await self._wait_for_handler_slot()
-                            self._schedule_audio_message(event_processor, message.payload)
-                            now = self._now_monotonic()
-                            if self._should_reconnect_for_stalled_frigate_topic(
-                                frigate_topic=frigate_topic,
-                                birdnet_topic=birdnet_topic,
-                                now=now,
-                            ):
-                                self._topic_liveness_reconnects += 1
-                                self._last_reconnect_reason = "frigate_topic_stalled"
-                                log.warning(
-                                    "Frigate topic appears stalled while BirdNET remains active; reconnecting MQTT session",
-                                    frigate_silence_seconds=round(
-                                        self._topic_age_seconds(frigate_topic, now) or 0.0, 1
-                                    ),
-                                    birdnet_last_message_seconds_ago=round(
-                                        self._topic_age_seconds(birdnet_topic, now) or 0.0, 1
-                                    ),
-                                    birdnet_messages_seen=self._topic_message_counts.get(birdnet_topic, 0),
-                                    frigate_messages_seen=self._topic_message_counts.get(frigate_topic, 0),
-                                    stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
-                                )
+                    watchdog_task = create_background_task(
+                        self._connection_watchdog(client, frigate_topic),
+                        name="mqtt_connection_watchdog",
+                    )
+                    try:
+                        async for message in client.messages:
+                            # Watchdog requested a reconnect; bail out of the loop cleanly.
+                            if self._intentional_reconnect:
                                 break
-                    self.client = None
+                            if self.paused:
+                                continue
+                            # Check for topic changes in settings
+                            if settings.frigate.audio_topic != birdnet_topic:
+                                log.info("MQTT Audio topic changed in settings, reconnecting...",
+                                         old=birdnet_topic, new=settings.frigate.audio_topic)
+                                self._last_reconnect_reason = "audio_topic_changed"
+                                break  # This breaks the 'async for', causing a reconnection with new settings
+
+                            topic = message.topic.value
+                            self._record_topic_message(topic)
+                            if topic == frigate_topic:
+                                log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
+                                meta = self._parse_frigate_payload_meta(message.payload)
+                                if meta is not None and not meta.get("should_process", False):
+                                    continue
+                                await self._wait_for_handler_slot()
+                                self._schedule_frigate_message(
+                                    event_processor,
+                                    message.payload,
+                                    event_id=(meta or {}).get("event_id"),
+                                )
+                            elif topic == birdnet_topic:
+                                log.info("Received MQTT message on birdnet topic", payload_len=len(message.payload))
+                                await self._wait_for_handler_slot()
+                                self._schedule_audio_message(event_processor, message.payload)
+                                now = self._now_monotonic()
+                                if self._should_reconnect_for_stalled_frigate_topic(
+                                    frigate_topic=frigate_topic,
+                                    birdnet_topic=birdnet_topic,
+                                    now=now,
+                                ):
+                                    self._topic_liveness_reconnects += 1
+                                    self._last_reconnect_reason = "frigate_topic_stalled"
+                                    log.warning(
+                                        "Frigate topic appears stalled while BirdNET remains active; reconnecting MQTT session",
+                                        frigate_silence_seconds=round(
+                                            self._topic_age_seconds(frigate_topic, now) or 0.0, 1
+                                        ),
+                                        birdnet_last_message_seconds_ago=round(
+                                            self._topic_age_seconds(birdnet_topic, now) or 0.0, 1
+                                        ),
+                                        birdnet_messages_seen=self._topic_message_counts.get(birdnet_topic, 0),
+                                        frigate_messages_seen=self._topic_message_counts.get(frigate_topic, 0),
+                                        stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
+                                    )
+                                    break
+                        self.client = None
+                    finally:
+                        watchdog_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await watchdog_task
                             
             except MqttError as e:
                 self.client = None
+                if self._intentional_reconnect:
+                    self._intentional_reconnect = False
+                    log.info("MQTT session ended by stall-recovery watchdog; reconnecting immediately")
+                    continue
                 delay = self._calculate_backoff()
                 log.error("MQTT connection lost, retrying...",
                          error=str(e),
@@ -420,6 +498,7 @@ class MQTTService:
                 self._increase_backoff()
             except Exception as e:
                 self.client = None
+                self._intentional_reconnect = False
                 delay = self._calculate_backoff()
                 log.error("Unexpected error in MQTT service, retrying...",
                          error=str(e),
