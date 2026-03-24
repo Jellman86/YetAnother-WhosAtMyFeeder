@@ -2,6 +2,7 @@ import csv
 import io
 import uuid
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ import pytest_asyncio
 from app.config import settings
 from app.database import get_db
 from app.main import app
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 
 @pytest_asyncio.fixture
@@ -553,6 +555,8 @@ async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient
 
 @pytest.mark.asyncio
 async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missing(client: httpx.AsyncClient):
+    """When all stored names are non-ASCII and iNaturalist is unavailable,
+    the exporter should fall back to the scientific name rather than crashing."""
     settings.ebird.enabled = False
     settings.ebird.api_key = None
 
@@ -565,12 +569,19 @@ async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missi
         common_name="Большая синица",
     )
 
-    response = await client.get("/api/ebird/export")
+    # Simulate iNaturalist being unreachable so the enrichment pass finds nothing —
+    # the exporter must still fall back to scientific name gracefully.
+    with (
+        patch.object(taxonomy_service, "get_names", new_callable=AsyncMock,
+                     return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None}),
+        patch.object(taxonomy_service, "get_localized_common_name", new_callable=AsyncMock, return_value=None),
+    ):
+        response = await client.get("/api/ebird/export")
 
     assert response.status_code == 200, response.text
     rows = _read_csv_rows(response.text)
     assert len(rows) == 1
-    # Should fallback to scientific name in the common name column (index 0)
+    # Should fall back to scientific name in the common name column (index 0)
     assert rows[0][0] == "Parus major"
 
 

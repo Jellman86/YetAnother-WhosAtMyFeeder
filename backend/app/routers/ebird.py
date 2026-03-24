@@ -353,18 +353,29 @@ async def export_ebird_csv(
             for bucket, (min_dt, max_dt) in min_max_by_date.items():
                 durations_by_date[bucket] = max(0, int((max_dt - min_dt).total_seconds() // 60))
 
-            # Pre-enrichment pass: for rows where the SQL COALESCE returned no
-            # English name (e.g. taxonomy_cache only has a localised common name
-            # like "Большая синица", or the species has never been viewed in the
-            # UI), attempt a DB-first English lookup via taxonomy_service.
+            # Pre-enrichment pass: for rows where no local source provides a
+            # usable English common name (e.g. taxonomy_cache only has a
+            # localised name like "Большая синица" and taxonomy_translations has
+            # no English entry), attempt a taxonomy lookup via taxonomy_service.
             # get_localized_common_name('en') checks taxonomy_translations first
             # and only calls iNaturalist if no English entry is cached yet —
             # so the hot path is a single SQLite read per distinct species.
-            sci_to_enrich: set[str] = {
-                row[1]
-                for row in parsed_rows
-                if row[1] and not row[8]
-            }
+            # We skip enrichment when common_name or display_name already
+            # provides a usable English value so we don't replace e.g.
+            # "Common Blackbird" with a different iNat preferred name.
+            sci_to_enrich: set[str] = set()
+            for _row in parsed_rows:
+                _display, _sci, _, _, _, _common, _, _, _en, _ = _row
+                if not _sci:
+                    continue
+                _sci_lower = str(_sci).strip().lower()
+
+                def _locally_usable(val: str | None) -> bool:
+                    v = str(val or "").strip()
+                    return bool(v) and v.lower() != _sci_lower and _is_english_safe_name(v)
+
+                if not _locally_usable(_en) and not _locally_usable(_common) and not _locally_usable(_display):
+                    sci_to_enrich.add(_sci)
             enrichment_map: dict[str, str] = {}
             if sci_to_enrich:
                 enrich_sem = asyncio.Semaphore(5)
