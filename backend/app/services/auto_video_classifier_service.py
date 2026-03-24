@@ -521,7 +521,9 @@ class AutoVideoClassifierService:
             _PRECHECK_RETRIES = 3
             _PRECHECK_RETRY_DELAY = 2.0
             event_data, event_error = None, None
+            _precheck_attempts = 0
             for _attempt in range(_PRECHECK_RETRIES + 1):
+                _precheck_attempts = _attempt + 1
                 event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
                 if not event_error or event_error != "event_not_found":
                     break
@@ -536,13 +538,18 @@ class AutoVideoClassifierService:
                     await asyncio.sleep(_PRECHECK_RETRY_DELAY)
 
             if event_error:
-                log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
+                log.warning(
+                    "Frigate event precheck failed",
+                    event_id=frigate_event,
+                    error=event_error,
+                    attempts=_precheck_attempts,
+                )
                 self._record_diagnostic(
                     frigate_event,
                     reason_code=event_error,
                     message="Frigate event precheck failed during video classification",
                     severity="warning",
-                    context={"error": event_error},
+                    context={"error": event_error, "attempts": _precheck_attempts},
                 )
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
                 self._record_failure(frigate_event)
