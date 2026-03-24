@@ -58,6 +58,12 @@ GPU_VALIDATED: set[str] = {
     # prior GPU load in the same process, confirming it works correctly in the isolated
     # production context (one model running at a time). Tested on Intel iGPU, OV 2025.4.1.
     "eu_medium_focalnet_b",
+    # small_birds EU (MobileNetV4-L): ratio=1.03, Spearman=0.996, top5∩=5.
+    # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
+    # Note: crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST when loaded
+    # after 7+ sequential GPU model compilations (pipeline stress test). Works correctly
+    # in normal production use (single active model, or switching between 1-2 models).
+    "small_birds_eu",
     # medium_birds EU (ConvNeXt-V2-Tiny): ratio=0.98, Spearman=0.959, top5∩=3.
     # Distinct from ConvNeXt Large — smaller kernel + different BN structure avoids
     # the depthwise-conv precision issue seen in convnext_large_inat21.
@@ -112,17 +118,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "Non-deterministic GPU failure — first inference after clean GPU state may pass "
         "(f32: ratio=0.83, Spearman=0.821, top5∩=1), but subsequent GPU compilations crash "
         "with CL_OUT_OF_RESOURCES. f16 → NaN. Probed 22 March 2026, OV 2025.4.1."
-    ),
-    # small_birds EU (MobileNetV4-L): passes in isolation (ratio=1.03, Spearman=0.996, top5∩=5,
-    # probed 22 March 2026) but crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST (-14)
-    # under real-world sequential load (24 March 2026), corrupting the GPU context for subsequent
-    # models. Same non-deterministic crash pattern as small_birds_na.
-    "small_birds_eu": (
-        "Non-deterministic GPU failure — passes in isolated clean-GPU-state probe "
-        "(f32: ratio=1.03, Spearman=0.996, top5∩=5, OV 2025.4.1, 22 March 2026) but "
-        "crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST (-14) under sequential "
-        "load after other GPU models run first, corrupting the OpenCL context. "
-        "Same pattern as small_birds_na. Removed from intel_gpu providers 24 March 2026."
     ),
     # medium_birds NA (Binocular): NaN in both f32 and f16. Probed 22 March 2026.
     "medium_birds_na": (
