@@ -1364,7 +1364,6 @@ class ONNXModelInstance:
         self.loaded = False
         self.error: Optional[str] = None
         self._lock = threading.Lock()
-        self._onnx_input_type = "tensor(float)"  # updated from model metadata in load()
 
         # ImageNet normalization defaults (used by timm models)
         self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
@@ -1406,9 +1405,6 @@ class ONNXModelInstance:
             # Use providers resolved by ClassifierService (already validated/fallback-aware)
             providers = list(self.ort_providers or ["CPUExecutionProvider"])
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
-            self._onnx_input_type = str(
-                getattr(self.session.get_inputs()[0], "type", "") or "tensor(float)"
-            ).strip().lower()
             self.loaded = True
             self.error = None
             log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
@@ -1427,7 +1423,7 @@ class ONNXModelInstance:
             default_resize_mode="letterbox",
             default_padding_color=128,
         )
-        if self._onnx_input_type == "tensor(uint8)":
+        if self.preprocessing.get("normalization") == "uint8":
             # Quantized/SSD-style models expect raw uint8 NHWC input
             return np.array(processed, dtype=np.uint8)[np.newaxis, ...]
         arr = np.array(processed).astype(np.float32) / 255.0
