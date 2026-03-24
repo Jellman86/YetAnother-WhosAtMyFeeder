@@ -58,12 +58,6 @@ GPU_VALIDATED: set[str] = {
     # prior GPU load in the same process, confirming it works correctly in the isolated
     # production context (one model running at a time). Tested on Intel iGPU, OV 2025.4.1.
     "eu_medium_focalnet_b",
-    # small_birds EU (MobileNetV4-L): ratio=1.03, Spearman=0.996, top5∩=5.
-    # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
-    # Note: crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST when loaded
-    # after 7+ sequential GPU model compilations (pipeline stress test). Works correctly
-    # in normal production use (single active model, or switching between 1-2 models).
-    "small_birds_eu",
     # medium_birds EU (ConvNeXt-V2-Tiny): ratio=0.98, Spearman=0.959, top5∩=3.
     # Distinct from ConvNeXt Large — smaller kernel + different BN structure avoids
     # the depthwise-conv precision issue seen in convnext_large_inat21.
@@ -118,6 +112,18 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "Non-deterministic GPU failure — first inference after clean GPU state may pass "
         "(f32: ratio=0.83, Spearman=0.821, top5∩=1), but subsequent GPU compilations crash "
         "with CL_OUT_OF_RESOURCES. f16 → NaN. Probed 22 March 2026, OV 2025.4.1."
+    ),
+    # small_birds EU (MobileNetV4-L): isolated probe passes (ratio=1.03, Spearman=0.996,
+    # top5∩=5, 22 March 2026) but crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST
+    # (-14) after sustained production load (~9 min, single session, no prior GPU models),
+    # corrupting the OpenCL context and causing terminate() / process abort (24 March 2026).
+    "small_birds_eu": (
+        "GPU instability under sustained load — passes a single-shot probe but crashes "
+        "with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST (-14) after ~9 minutes of "
+        "production inference, then terminate() on GPU context cleanup. "
+        "Observed 24 March 2026, OV 2025.4.1, Intel iGPU. Probe passed 22 March 2026 "
+        "(ratio=1.03, Spearman=0.996, top5∩=5) — single-shot probes are insufficient "
+        "to validate this model on this GPU."
     ),
     # medium_birds NA (Binocular): NaN in both f32 and f16. Probed 22 March 2026.
     "medium_birds_na": (
