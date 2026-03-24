@@ -123,6 +123,10 @@ def _scope_matches(model_config: dict, case_scope: list[str]) -> bool:
         geo_scope = "eu"
     elif "-na-" in source or source.endswith("-na"):
         geo_scope = "na"
+    # If the model has a known geographic scope, the test case must include
+    # that geography — taxonomy alone is not sufficient.
+    if geo_scope != "global" and geo_scope not in case_scope:
+        return False
     # Check taxonomy scope
     if taxonomy in case_scope:
         return True
