@@ -1201,6 +1201,22 @@ class ModelManager:
                 self._update_download_status(model_id, progress)
 
             log.info("Model downloaded successfully", model_id=model_id, runtime=max_runtime)
+
+            # If the downloaded model is the currently active selection, reload the
+            # classifier immediately so the new model takes effect without a restart.
+            if model_id == self.active_model_id:
+                try:
+                    from app.services.classifier_service import get_classifier
+                    classifier = get_classifier()
+                    log.info("Active model downloaded; reloading classifier", model_id=model_id)
+                    await classifier.reload_bird_model()
+                except Exception as reload_exc:
+                    log.warning(
+                        "Classifier reload after download failed",
+                        model_id=model_id,
+                        error=str(reload_exc),
+                    )
+
             return True
         except Exception as e:
             log.error("Failed to download model", model_id=model_id, error=str(e))

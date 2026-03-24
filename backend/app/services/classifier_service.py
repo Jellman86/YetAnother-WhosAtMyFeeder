@@ -2027,7 +2027,7 @@ class ClassifierService:
 
         if not os.path.exists(model_path):
             model_path, labels_path = self._get_model_paths(
-                settings.classification.model,
+                "model.tflite",
                 "labels.txt",
             )
             runtime = "tflite"
