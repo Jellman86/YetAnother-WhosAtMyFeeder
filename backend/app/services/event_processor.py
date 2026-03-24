@@ -661,9 +661,15 @@ class EventProcessor:
 
         # Normal classification path
         try:
+            # Retry once on snapshot unavailability to handle the Frigate race condition
+            # where the MQTT `end` event fires before the snapshot is queryable.
             snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
             if not snapshot_data:
-                log.info("Skipping MQTT event - snapshot unavailable", event_id=event.frigate_event)
+                log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
+                await asyncio.sleep(2.0)
+                snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
+            if not snapshot_data:
+                log.info("Skipping MQTT event - snapshot unavailable after retry", event_id=event.frigate_event)
                 return None
 
             image = Image.open(BytesIO(snapshot_data))

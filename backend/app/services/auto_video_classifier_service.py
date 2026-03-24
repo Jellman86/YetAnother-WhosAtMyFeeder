@@ -515,7 +515,26 @@ class AutoVideoClassifierService:
                 }
             })
 
-            event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
+            # Retry precheck on event_not_found to handle the Frigate race condition
+            # where the MQTT `end` event fires before the event is queryable via API.
+            # Only retry for 404 (transient); fail fast on timeouts, 5xx, etc.
+            _PRECHECK_RETRIES = 3
+            _PRECHECK_RETRY_DELAY = 2.0
+            event_data, event_error = None, None
+            for _attempt in range(_PRECHECK_RETRIES + 1):
+                event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
+                if not event_error or event_error != "event_not_found":
+                    break
+                if _attempt < _PRECHECK_RETRIES:
+                    log.info(
+                        "Frigate event not yet available, retrying precheck",
+                        event_id=frigate_event,
+                        attempt=_attempt + 1,
+                        max_attempts=_PRECHECK_RETRIES,
+                        delay=_PRECHECK_RETRY_DELAY,
+                    )
+                    await asyncio.sleep(_PRECHECK_RETRY_DELAY)
+
             if event_error:
                 log.warning("Frigate event precheck failed", event_id=frigate_event, error=event_error)
                 self._record_diagnostic(
