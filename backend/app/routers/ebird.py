@@ -353,6 +353,43 @@ async def export_ebird_csv(
             for bucket, (min_dt, max_dt) in min_max_by_date.items():
                 durations_by_date[bucket] = max(0, int((max_dt - min_dt).total_seconds() // 60))
 
+            # Pre-enrichment pass: for rows where the SQL COALESCE returned no
+            # English name (e.g. taxonomy_cache only has a localised common name
+            # like "Большая синица", or the species has never been viewed in the
+            # UI), attempt a DB-first English lookup via taxonomy_service.
+            # get_localized_common_name('en') checks taxonomy_translations first
+            # and only calls iNaturalist if no English entry is cached yet —
+            # so the hot path is a single SQLite read per distinct species.
+            sci_to_enrich: set[str] = {
+                row[1]
+                for row in parsed_rows
+                if row[1] and not row[8]
+            }
+            enrichment_map: dict[str, str] = {}
+            if sci_to_enrich:
+                enrich_sem = asyncio.Semaphore(5)
+
+                async def _enrich_english(sci: str) -> tuple[str, str | None]:
+                    async with enrich_sem:
+                        try:
+                            tax = await taxonomy_service.get_names(sci)
+                            taxa_id = tax.get("taxa_id")
+                            if taxa_id:
+                                en = await taxonomy_service.get_localized_common_name(taxa_id, "en")
+                                if en and _is_english_safe_name(en) and en.strip().lower() != sci.strip().lower():
+                                    return sci, en
+                            # taxonomy_cache common_name as fallback (already English
+                            # when populated by _lookup_inaturalist with locale=en)
+                            common = tax.get("common_name")
+                            if common and _is_english_safe_name(common) and common.strip().lower() != sci.strip().lower():
+                                return sci, common
+                        except Exception as exc:
+                            log.warning("eBird export enrichment failed", scientific_name=sci, error=str(exc))
+                    return sci, None
+
+                pairs = await asyncio.gather(*(_enrich_english(sci) for sci in sci_to_enrich))
+                enrichment_map = {sci: name for sci, name in pairs if name}
+
             for (
                 display_name,
                 scientific_name,
@@ -365,6 +402,7 @@ async def export_ebird_csv(
                 english_common_name,
                 bucket,
             ) in parsed_rows:
+                effective_english = english_common_name or enrichment_map.get(scientific_name or "")
                 writer.writerow(
                     _format_ebird_row(
                         display_name=display_name,
@@ -373,7 +411,7 @@ async def export_ebird_csv(
                         score=score,
                         camera_name=camera_name,
                         common_name=common_name,
-                        english_common_name=english_common_name,
+                        english_common_name=effective_english,
                         duration_minutes=durations_by_date.get(bucket, 0),
                         video_classification_provider=video_classification_provider,
                         video_classification_backend=video_classification_backend,
