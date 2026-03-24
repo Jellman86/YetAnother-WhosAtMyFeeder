@@ -100,7 +100,8 @@
       "acceptable_labels": ["Chaffinch", "Fringilla coelebs", "common chaffinch"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "Very common EU garden finch"
+      "exclude_photo_ids": [352779229],
+      "notes": "Very common EU garden finch. Photo 352779229 (chaffinch_01) is a known poor-quality image — cross-model failure, excluded."
     },
     {
       "id": "eurasian_blackbird",
@@ -110,8 +111,8 @@
       "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [299611076, 299939604],
-      "notes": "All-black thrush, very common EU garden bird. Photos 299611076 and 299939604 (obs/172578277) are very dark/underexposed — excluded as known cross-model failures."
+      "exclude_photo_ids": [299609865, 299611076, 299939604],
+      "notes": "All-black thrush, very common EU garden bird. Photos 299609865/_02/_03 (obs/172578277) are very dark/underexposed — excluded as known cross-model failures."
     },
     {
       "id": "house_sparrow",
@@ -131,8 +132,8 @@
       "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [13758585],
-      "notes": "Cosmopolitan swallow, present in all regional model scopes. Photo 13758585 (obs/10006129) has a white egret dominating the frame — excluded as a known cross-model failure."
+      "exclude_photo_ids": [13758585, 575999585],
+      "notes": "Cosmopolitan swallow, present in all regional model scopes. Photo 13758585 (obs/10006129) has a white egret dominating the frame; 575999585 shows no recognisable swallow features (cross-model failure) — both excluded."
     },
     {
       "id": "mallard",
@@ -142,7 +143,8 @@
       "acceptable_labels": ["Mallard", "Anas platyrhynchos"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "Very common duck, should be easy for any model"
+      "exclude_photo_ids": [10826269],
+      "notes": "Very common duck, should be easy for any model. Photo 10826269 produces seabird predictions (eider/booby) at high confidence — likely mislabelled or wrong frame, excluded."
     },
     {
       "id": "rock_pigeon",
