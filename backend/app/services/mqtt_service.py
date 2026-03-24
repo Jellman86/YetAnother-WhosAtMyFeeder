@@ -207,24 +207,12 @@ class MQTTService:
     async def _wait_for_handler_slot(self):
         wait_started: float | None = None
         while len(self._in_flight_tasks) >= MQTT_MAX_IN_FLIGHT_MESSAGES and self.running:
+            loop = asyncio.get_running_loop()
             if wait_started is None:
-                wait_started = asyncio.get_running_loop().time()
-            done, _pending = await asyncio.wait(
-                self._in_flight_tasks,
-                return_when=asyncio.FIRST_COMPLETED,
-                timeout=5.0,
-            )
-            waited = asyncio.get_running_loop().time() - wait_started
-            if not done:
-                log.warning(
-                    "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
-                    in_flight=len(self._in_flight_tasks),
-                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
-                    waited_seconds=round(waited, 1),
-                )
-            for task in done:
-                self._in_flight_tasks.discard(task)
-            if waited >= MAX_HANDLER_WAIT_SECONDS:
+                wait_started = loop.time()
+            waited = loop.time() - wait_started
+            remaining = MAX_HANDLER_WAIT_SECONDS - waited
+            if remaining <= 0:
                 log.error(
                     "MQTT handler slot wait exceeded maximum; unblocking message loop to prevent stall",
                     waited_seconds=round(waited, 1),
@@ -232,6 +220,20 @@ class MQTTService:
                     limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
                 )
                 break
+            done, _pending = await asyncio.wait(
+                self._in_flight_tasks,
+                return_when=asyncio.FIRST_COMPLETED,
+                timeout=min(5.0, remaining),
+            )
+            if not done:
+                log.warning(
+                    "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
+                    in_flight=len(self._in_flight_tasks),
+                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+                    waited_seconds=round(loop.time() - wait_started, 1),
+                )
+            for task in done:
+                self._in_flight_tasks.discard(task)
 
     def _parse_frigate_payload_meta(self, payload: bytes) -> dict | None:
         try:

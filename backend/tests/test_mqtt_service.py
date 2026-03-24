@@ -250,3 +250,111 @@ def test_should_not_reconnect_without_prior_frigate_traffic(monkeypatch):
         now=400.0,
     )
     assert should_reconnect is False
+
+
+# --- _should_reconnect_independent tests ---
+
+
+def test_should_reconnect_independent_when_frigate_stalled_no_birdnet(monkeypatch):
+    """Watchdog fires on a stalled Frigate topic even with zero BirdNET traffic."""
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {"frigate/events": 200.0}
+    service._topic_message_counts = {"frigate/events": 5, "birdnet/detections": 0}
+
+    # now=400, last frigate message at 200 → 200s silence > 120s threshold
+    assert service._should_reconnect_independent("frigate/events", now=400.0) is True
+
+
+def test_should_not_reconnect_independent_before_grace_period(monkeypatch):
+    """Watchdog respects the grace period after initial connection."""
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+
+    service._connection_started_monotonic = 350.0
+    service._topic_last_message_monotonic = {"frigate/events": 200.0}
+    service._topic_message_counts = {"frigate/events": 5}
+
+    # now=400, connection started at 350 → only 50s uptime < 60s grace
+    assert service._should_reconnect_independent("frigate/events", now=400.0) is False
+
+
+def test_should_not_reconnect_independent_when_no_prior_frigate_traffic(monkeypatch):
+    """Watchdog does not fire when Frigate has never sent a message this session."""
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {}
+    service._topic_message_counts = {"frigate/events": 0}
+
+    assert service._should_reconnect_independent("frigate/events", now=400.0) is False
+
+
+def test_should_not_reconnect_independent_when_frigate_recently_active(monkeypatch):
+    """Watchdog does not fire when the Frigate topic is still within the stale window."""
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {"frigate/events": 350.0}
+    service._topic_message_counts = {"frigate/events": 10}
+
+    # now=400, last frigate message at 350 → only 50s silence < 120s threshold
+    assert service._should_reconnect_independent("frigate/events", now=400.0) is False
+
+
+def test_should_not_reconnect_independent_when_paused(monkeypatch):
+    """Watchdog does not fire while the service is paused."""
+    service = MQTTService("test+abc123")
+    service.running = True
+    service.paused = True
+
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {"frigate/events": 200.0}
+    service._topic_message_counts = {"frigate/events": 5}
+
+    assert service._should_reconnect_independent("frigate/events", now=400.0) is False
+
+
+@pytest.mark.asyncio
+async def test_wait_for_handler_slot_breaks_after_max_wait(monkeypatch):
+    """_wait_for_handler_slot exits after MAX_HANDLER_WAIT_SECONDS even if tasks never drain."""
+    service = MQTTService("test+abc123")
+    service.running = True
+
+    # Use a tiny max-wait so the test doesn't actually block for 120 s
+    monkeypatch.setattr(mqtt_module, "MAX_HANDLER_WAIT_SECONDS", 0.05, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_MAX_IN_FLIGHT_MESSAGES", 1, raising=False)
+
+    # Plant a never-completing task so the slot is always full
+    async def _hang():
+        await asyncio.sleep(60)
+
+    hanging = asyncio.ensure_future(_hang())
+    service._in_flight_tasks = {hanging}
+
+    try:
+        # Should return promptly (well under 1 s) rather than blocking forever
+        await asyncio.wait_for(service._wait_for_handler_slot(), timeout=1.0)
+    finally:
+        hanging.cancel()
+        with __import__("contextlib").suppress(asyncio.CancelledError):
+            await hanging
