@@ -8,7 +8,110 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
-### 0. Labeled Feeder Model Evaluation Harness 📊
+### 0. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
+**Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Planned
+
+Frigate's event clips are bounded by its object tracker start/stop. For a feeder camera the bird's full visit is often much longer — the tracker fires briefly when the bird enters, drops when it moves or is occluded, and the clip closes after `post_capture`. The resulting clip can miss the arrival, the full feeding session, or the departure entirely.
+
+**Solution:**
+Add a "Full visit" recording proxy that serves a configurable time window from Frigate's continuous recordings, centered on the detection event, using Frigate's camera-level clip endpoint:
+
+```
+GET /api/{camera}/clip.mp4?after={unix_start}&before={unix_end}
+```
+
+The VideoPlayer gains a toggle so users can switch between the existing short event clip and the full recording window without changing any default behaviour.
+
+**Backend — 1. New proxy endpoint**
+`GET /api/proxy/frigate/{event_id}/recording-clip.mp4`
+- Resolves camera_name and detection_time from the YAWAMF DB (no extra Frigate round-trip needed for the common case).
+- Builds the time window: `detection_time - recording_clip_before_seconds` … `detection_time + recording_clip_after_seconds`.
+- Proxies Frigate's `/{camera}/clip.mp4?after=&before=` with full HTTP Range request pass-through so the VideoPlayer can seek.
+- Returns 404 with a clear JSON error message when Frigate responds with "No recordings found" (recordings not retained or retention window expired).
+- Enforces the same auth and public-access rules as the existing event clip endpoint.
+
+**Backend — 2. FrigateClient method**
+Add `get_camera_recording_clip_url(camera, after, before) -> str` (or equivalent streaming helper) so the proxy endpoint has a single, tested call site.
+
+**Backend — 3. Config**
+Add two new settings under the `frigate` section of `config.py` / Settings UI:
+- `recording_clip_before_seconds: int = 30` — seconds of recording to include before the detection.
+- `recording_clip_after_seconds: int = 90` — seconds of recording to include after the detection.
+
+Expose both as number inputs in the Frigate settings panel with a clear label ("Full-visit clip window").
+
+**Backend — 4. Media cache**
+Cache recording clips under the key `{event_id}_recording.mp4` (separate from `{event_id}.mp4`) so the two clip types don't collide and can be evicted independently.
+
+**Frontend — 5. VideoPlayer toggle**
+- When the player opens, HEAD-probe `/recording-clip.mp4` (same pattern as the existing clip probe).
+- If the probe succeeds, show a segmented control or icon button: **Event clip** / **Full visit**.
+- Default: event clip (no behaviour change for existing users).
+- Switching sources resets playback position to 0 and reloads the player cleanly; no full component remount required.
+- Show a contextual label under the player indicating which mode is active and the clip type (e.g. "Event clip · 8 s" vs "Full visit · ~2 min").
+- If the recording probe returns 404, hide the toggle and show no error — the user simply never sees the option.
+
+**Acceptance Criteria:**
+- Recording clip proxy streams the correct time window from Frigate recordings.
+- Range requests work; the VideoPlayer can seek within the extended clip.
+- When recordings are not retained, the proxy returns a clean 404 and the toggle is hidden in the UI.
+- Switching between event clip and full-visit clip in the VideoPlayer works without error.
+- Settings sliders for before/after seconds persist and are reflected immediately in subsequent recording clip requests.
+- Auth and public-access enforcement is identical to the existing `/clip.mp4` endpoint.
+- Unit tests cover: proxy happy path, recordings-not-retained fallback, auth enforcement, cache key isolation.
+
+---
+
+### 1. Blocked Species — Species Picker + Reliable Matching 🚫
+**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Planned
+
+The current blocked labels feature is broken in practice. It stores raw strings typed by the user and does a single exact string match against the normalized classifier output label. Because different models produce different label formats (common name, scientific name, or hybrids), and because the check is case-sensitive, user-entered values rarely match — particularly when the user types a common name and the model outputs a scientific name or vice versa. A second bug means that manual reclassification can assign a species that is already on the blocked list.
+
+**Root cause (confirmed):**
+- `blocked_labels: list[str]` in config — raw free-text strings.
+- `detection_service.filter_and_label()` checks `if label in blocked_labels` — one exact case-sensitive match on the raw classifier token, before taxonomy enrichment has run.
+- There is no second check after taxonomy enrichment, so blocking by scientific name when the model outputs a common name (or vice versa) never fires.
+- The reclassification path (`_apply_manual_tag_update` in `events.py`) bypasses `filter_and_label` entirely and writes the detection directly, ignoring the blocklist.
+
+**Backend — 1. Config schema**
+Add a new config field `blocked_species: list[dict]` alongside the existing `blocked_labels` for backward compatibility. Each entry stores:
+```json
+{ "scientific_name": "Columba livia", "common_name": "Rock Pigeon", "taxa_id": 3017 }
+```
+Keep `blocked_labels` as a legacy plain-string list; the detection service checks both.
+
+**Backend — 2. Detection service matching**
+Replace the single `label in blocked_labels` check with a helper `_is_blocked(label, scientific_name, common_name, taxa_id)` that:
+1. Checks the raw label (case-insensitive) against `blocked_labels` — preserves backward compat.
+2. After taxonomy enrichment runs in `save_detection()`, checks `scientific_name` and `common_name` (case-insensitive) against both `blocked_labels` and `blocked_species`.
+3. For `blocked_species` entries, prefers `taxa_id` match when available, falls back to `scientific_name` casefold match.
+
+The second check must sit inside `save_detection()` after the taxonomy lookup resolves, so that a user who blocks "Columba livia" catches any model that outputs "Rock Pigeon", "Feral Pigeon", "Rock Dove", or the scientific name directly.
+
+**Backend — 3. Reclassification guard**
+Add the same `_is_blocked` check at the top of `_apply_manual_tag_update` in `events.py`. If the species the user is tagging is on the blocklist, return a 422 with a clear message explaining why ("This species is on your blocked list — remove it from the blocklist first").
+
+**Backend — 4. Settings API**
+Extend the settings read/write endpoints to include `blocked_species` as a structured list alongside `blocked_labels`.
+
+**Frontend — 5. Replace text input with species picker**
+In `DetectionSettings.svelte`, replace the free-text add-label input with the same search-as-you-type species picker used in `DetectionModal.svelte` for manual tagging:
+- Search box calling `/api/species/search` as the user types.
+- Results show localised common name (primary) + scientific name (secondary italic), same row layout as the manual tag dropdown.
+- Selecting a result adds a structured entry to `blocked_species` (not a raw string to `blocked_labels`).
+- Existing `blocked_labels` raw-string entries continue to render as plain-text chips (clearly marked "legacy") with a remove button, so nothing is lost on upgrade.
+- New blocked-species chips render as `Common Name (Scientific name)` with a remove button.
+
+**Acceptance Criteria:**
+- Blocking "Rock Pigeon" via the picker suppresses detections regardless of whether the active model outputs the common name, scientific name, or an alias.
+- Blocking "Columba livia" by scientific name behaves identically to blocking by common name.
+- Attempting to reclassify a detection to a blocked species returns a clear error in the UI.
+- Existing `blocked_labels` string entries continue to work as before (backward compat).
+- Tests cover: the `_is_blocked` helper (label/scientific/common/taxa_id paths), the reclassification guard (422 on blocked species), and the settings API round-trip for `blocked_species`.
+
+---
+
+### 2. Labeled Feeder Model Evaluation Harness 📊
 **Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Planned
 
 Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
@@ -25,7 +128,7 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 - The harness leaves live app settings and active model selection unchanged after the run.
 - Results are good enough to decide default crop behavior per model based on evidence.
 
-### 1. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
+### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
 **Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Planned
 
 Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
@@ -51,7 +154,7 @@ Normalize detection identity to canonical taxonomy keys to prevent localization/
 - Add regression tests for cross-language/alias cases (for example Woodpigeon vs Common Wood-Pigeon).
 - Run dual-read comparison metrics during rollout, then finalize once parity is confirmed.
 
-### 2. Favourite Detections (Owner Curation) ⭐
+### 4. Favourite Detections (Owner Curation) ⭐
 **Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (v2.8.1)
 
 Add a first-class way to pin standout detections so users can build a curated set of highlights.
@@ -85,7 +188,7 @@ Add a first-class way to pin standout detections so users can build a curated se
 **Future-safe extension path:**
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
-### 3. Settings Architecture Refactor (Stability + Maintainability) 🧱
+### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
 **Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Planned
 
 Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
@@ -100,7 +203,7 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Reduced repeated logic in component files.
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
-### 4. Explorer Filter: Show Audio Matches Only 🎧
+### 6. Explorer Filter: Show Audio Matches Only 🎧
 **Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Planned
 
 Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
