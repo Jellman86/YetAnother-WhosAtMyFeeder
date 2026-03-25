@@ -9,7 +9,7 @@ from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
-from app.utils.classifier_labels import normalize_classifier_label
+from app.utils.classifier_labels import normalize_classifier_label, collapse_classifier_label
 from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
 from app.database import get_db
@@ -61,8 +61,17 @@ class DetectionService:
             label = "Unknown Bird"
             top = {**top, 'label': label}
 
-        # Filter out blocked labels
-        if label in settings.classification.blocked_labels:
+        # Filter out blocked labels (case-insensitive).
+        # Also check the parenthetical-stripped label (e.g. "Cassin's Finch (Adult Male)" →
+        # "Cassin's Finch") so that users can block a species by its base name regardless of
+        # the plumage/age variant the model outputs.  Also check the Frigate sub_label, which
+        # is always the plain common name and may differ from the (possibly parenthetical-laden)
+        # local-model label.
+        _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
+        _collapsed_label = collapse_classifier_label(label, strategy="strip_trailing_parenthetical")
+        if (label.casefold() in _blocked_lower
+                or _collapsed_label.casefold() in _blocked_lower
+                or (normalized_frigate_sub_label and normalized_frigate_sub_label in _blocked_lower)):
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None, "blocked_label"
 
@@ -185,6 +194,15 @@ class DetectionService:
         scientific_name = taxonomy.get("scientific_name") or label
         common_name = taxonomy.get("common_name")
         taxa_id = taxonomy.get("taxa_id")
+
+        # Re-check blocked list against taxonomy-resolved canonical names so that
+        # blocking by scientific name catches models that output common names and vice versa.
+        _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
+        if (scientific_name and scientific_name.casefold() in _blocked_lower) or \
+                (common_name and common_name.casefold() in _blocked_lower):
+            log.debug("Filtered blocked species via taxonomy", label=label,
+                      scientific_name=scientific_name, event_id=frigate_event)
+            return False, False
 
         # 2. Determine display name based on user preference
         display_name = label
@@ -321,9 +339,19 @@ class DetectionService:
                 log.warning("Cannot apply video result: event not found", event_id=frigate_event)
                 return
 
+            # Check whether the video result is a blocked species.  Check both the
+            # raw label and the parenthetical-stripped form so that labels like
+            # "Cassin's Finch (Adult Male)" are caught when "Cassin's Finch" is blocked.
+            _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
+            _collapsed_video_label = collapse_classifier_label(video_label, strategy="strip_trailing_parenthetical")
+            is_blocked = (video_label.casefold() in _blocked_lower
+                          or _collapsed_video_label.casefold() in _blocked_lower)
+
             normalized_video_label = normalize_classifier_label(video_label)
 
-            # 1. Update video-specific columns first
+            # 1. Always update video-specific columns, even when the result is blocked.
+            # This marks the job as 'completed' so the stale watchdog and re-queue logic
+            # don't pick it up again.  We just skip the promotion step below.
             await repo.update_video_classification(
                 frigate_event=frigate_event,
                 label=normalized_video_label,
@@ -334,6 +362,11 @@ class DetectionService:
                 backend=video_backend,
                 model_id=video_model_id,
             )
+
+            if is_blocked:
+                log.debug("Video result is a blocked species; recorded but not promoted",
+                          label=video_label, event_id=frigate_event)
+                return
 
             # 2. Only promote video results when they are trustworthy enough, but
             # always allow explicit/manual reclassifications and unknown-bird upgrades.

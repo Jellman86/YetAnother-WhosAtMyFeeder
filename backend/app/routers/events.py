@@ -949,6 +949,14 @@ async def _apply_manual_tag_update(
         if t_id is None and canonical_cache_names.get("taxa_id") is not None:
             t_id = canonical_cache_names["taxa_id"]
 
+    # Guard: prevent tagging a detection as a species on the blocked list
+    _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
+    if any(n and n.casefold() in _blocked_lower for n in (new_species, sci_name, com_name)):
+        raise HTTPException(
+            status_code=422,
+            detail="This species is on your blocked labels list. Remove it from the blocklist first."
+        )
+
     stored_category_name = sci_name or normalized_label
     stored_display_name = stored_category_name
     if settings.classification.display_common_names and com_name:
