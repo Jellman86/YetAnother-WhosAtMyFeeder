@@ -222,6 +222,41 @@ Add an Explorer filter toggle to show only detections with direct BirdNET audio 
 
 ---
 
+### 7. Manual Tag Picker — Common Name Resolution 🏷️
+**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** Planned
+
+When using the manual tag / reclassify picker, results frequently show only a scientific name or a raw parenthetical label (e.g. `"Cassin's Finch (Adult Male)"`) with no clean common-name subtitle. This is caused by three interacting gaps in the search-to-display pipeline.
+
+**Root cause (confirmed):**
+
+1. **Hydration is skipped during typed searches.** The picker calls `searchSpecies(query)` with `hydrate_missing=false` (the default). Hydration — which triggers a live iNaturalist lookup for species missing from the local cache — only fires on the initial empty-query load (first 20 results). Once the user starts typing, uncached species are returned raw.
+
+2. **`taxonomy_cache` only contains previously-detected species.** Any species the model knows about but which has never visited the feeder is absent from the cache. For EVA-02/ConvNeXt models (scientific-name labels) this means every undetected species shows only its scientific name. For `medium_birds` (common-name + parenthetical labels) it shows the raw parenthetical string.
+
+3. **Hydration passes the parenthetical label to iNaturalist.** Even when hydration does run (empty query, first 20 results), `_hydrate_one` sends `"Cassin's Finch (Adult Male)"` verbatim to `taxonomy_service.get_names()`. iNaturalist does not recognise the parenthetical form so the lookup silently fails and no common name is stored.
+
+**Backend fix — `backend/app/routers/species.py`**
+
+In `_hydrate_one` (~line 282), strip the trailing parenthetical from the label before calling `taxonomy_service.get_names()`, so the lookup uses `"Cassin's Finch"` rather than `"Cassin's Finch (Adult Male)"`. Apply the result to the original item as usual. Import `collapse_classifier_label` (already used elsewhere) — one-line call.
+
+**Frontend fix — `apps/ui/src/lib/components/DetectionModal.svelte`**
+
+At line 728, pass `hydrate_missing=true` for typed queries (or at least for queries longer than 2 characters). The backend already caps hydration at 30 items with a concurrency semaphore of 6, so the cost is bounded. This ensures uncached species get a live lookup while the user is searching.
+
+```javascript
+// Before
+searchResults = await searchSpecies(query);
+// After
+searchResults = await searchSpecies(query, 50, query.length > 2);
+```
+
+**Acceptance Criteria:**
+- Typing a species name in the manual tag picker shows the clean common name as primary and scientific name as italic subtitle, even for species never previously detected.
+- Parenthetical model labels (`"Cassin's Finch (Adult Male)"`) resolve to `"Cassin's Finch"` in the picker.
+- No regressions to picker performance — debounce and semaphore keep iNaturalist requests bounded.
+
+---
+
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
 **Status:** Planned, not yet hardware-validated.
