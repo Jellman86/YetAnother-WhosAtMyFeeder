@@ -538,13 +538,22 @@ async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, in
     return detection.camera_name, start_ts, end_ts
 
 
-def _is_no_recordings_response(response: httpx.Response) -> bool:
+async def _is_no_recordings_response(response: httpx.Response) -> bool:
     if response.status_code not in {400, 404}:
         return False
     try:
         payload = response.json()
     except Exception:
         payload = None
+    if payload is None:
+        try:
+            await response.aread()
+        except Exception:
+            return False
+        try:
+            payload = response.json()
+        except Exception:
+            payload = None
     message = str((payload or {}).get("message") or response.text or "")
     return "No recordings found for the specified time range" in message
 
@@ -573,7 +582,7 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
     headers = frigate_client._get_headers()
     _client, response = await _probe_recording_clip_response(clip_url, headers, timeout=10.0)
     try:
-        if _is_no_recordings_response(response) or response.status_code == 404:
+        if await _is_no_recordings_response(response) or response.status_code == 404:
             return False
         response.raise_for_status()
         return True
@@ -602,7 +611,7 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
         req = client.build_request("GET", clip_url, headers=headers)
         response = await client.send(req, stream=True)
         try:
-            if _is_no_recordings_response(response) or response.status_code == 404:
+            if await _is_no_recordings_response(response) or response.status_code == 404:
                 raise HTTPException(
                     status_code=404,
                     detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
@@ -1293,7 +1302,7 @@ async def check_recording_clip_exists(
 
     try:
         _client, resp = await _probe_recording_clip_response(clip_url, headers, timeout=10.0)
-        if _is_no_recordings_response(resp):
+        if await _is_no_recordings_response(resp):
             raise HTTPException(
                 status_code=404,
                 detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
@@ -1635,7 +1644,7 @@ async def proxy_recording_clip(
     req = client.build_request("GET", clip_url, headers=headers)
     r = await client.send(req, stream=True)
 
-    if _is_no_recordings_response(r) or r.status_code == 404:
+    if await _is_no_recordings_response(r) or r.status_code == 404:
         await r.aclose()
         await client.aclose()
         raise HTTPException(

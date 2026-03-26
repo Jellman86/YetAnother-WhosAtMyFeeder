@@ -182,7 +182,7 @@ async def test_proxy_recording_clip_enabled(client: httpx.AsyncClient, mock_frig
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -221,7 +221,7 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -264,7 +264,7 @@ async def test_proxy_recording_clip_allows_valid_share_token_without_auth(client
         }
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -307,7 +307,7 @@ async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.As
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -317,6 +317,47 @@ async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.As
             mock_client.send.assert_awaited_once()
             _args, kwargs = mock_client.send.await_args
             assert kwargs["stream"] is True
+            mock_response.aclose.assert_awaited_once()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_check_recording_clip_exists_returns_404_for_streamed_no_recordings_response(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+
+    mock_response = MagicMock()
+    mock_response.status_code = 404
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.json = MagicMock(side_effect=[
+        ValueError("response not read yet"),
+        {"message": "No recordings found for the specified time range"},
+    ])
+    mock_response.aread = AsyncMock(return_value=b'{"message":"No recordings found for the specified time range"}')
+    mock_response.text = '{"message":"No recordings found for the specified time range"}'
+    mock_response.aclose = AsyncMock()
+
+    mock_client = MagicMock()
+    mock_client.build_request = MagicMock(return_value=object())
+    mock_client.send = AsyncMock(return_value=mock_response)
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        try:
+            response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
+            assert response.status_code == 404
+            mock_response.aread.assert_awaited_once()
             mock_response.aclose.assert_awaited_once()
         finally:
             settings.frigate.clips_enabled = original_clips
@@ -341,7 +382,7 @@ async def test_recording_clip_fetch_warms_cache_when_available(client: httpx.Asy
          patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
         mock_cache.return_value = Path("/config/media_cache/clips/test_event_id_recording.mp4")
@@ -390,7 +431,7 @@ async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: ht
          patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
-            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+            return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
         )
         mock_frigate._get_headers = MagicMock(return_value={})
 

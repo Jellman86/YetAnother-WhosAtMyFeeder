@@ -6,7 +6,6 @@ with connection pooling, authentication, and consistent error handling.
 
 import httpx
 import structlog
-from urllib.parse import urlencode
 from typing import Optional
 from app.config import settings
 
@@ -238,8 +237,7 @@ class FrigateClient:
 
     def get_camera_recording_clip_url(self, camera: str, after: int, before: int) -> str:
         """Build the Frigate camera clip URL for a recording time window."""
-        query = urlencode({"after": after, "before": before})
-        return f"{self.base_url}/api/{camera}/clip.mp4?{query}"
+        return f"{self.base_url}/api/{camera}/start/{after}/end/{before}/clip.mp4"
 
     async def list_events(
         self,

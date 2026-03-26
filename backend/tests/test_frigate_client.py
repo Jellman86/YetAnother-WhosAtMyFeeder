@@ -4,6 +4,14 @@ import pytest
 from app.services.frigate_client import FrigateClient
 
 
+def test_get_camera_recording_clip_url_uses_start_end_path_segments():
+    client = FrigateClient()
+    assert (
+        client.get_camera_recording_clip_url("BirdCam", 1774511034, 1774511094)
+        == f"{client.base_url}/api/BirdCam/start/1774511034/end/1774511094/clip.mp4"
+    )
+
+
 @pytest.mark.asyncio
 async def test_get_clip_with_error_maps_missing_recordings_400_to_clip_not_retained():
     async def handler(request: httpx.Request) -> httpx.Response:
