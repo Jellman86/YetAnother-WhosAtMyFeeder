@@ -1280,6 +1280,7 @@ async def check_recording_clip_exists(
     auth: AuthContext = Depends(get_proxy_auth_context),
 ):
     lang = get_user_language(request)
+    from app.services.media_cache import media_cache
 
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(
@@ -1295,6 +1296,11 @@ async def check_recording_clip_exists(
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    if settings.media_cache.enabled and settings.media_cache.cache_clips:
+        cached_path = media_cache.get_recording_clip_path(event_id)
+        if cached_path:
+            return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
 
     camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
@@ -1313,7 +1319,7 @@ async def check_recording_clip_exists(
                 detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
             )
         resp.raise_for_status()
-        return Response(status_code=200)
+        return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "available"})
     except HTTPException:
         raise
     except httpx.TimeoutException:

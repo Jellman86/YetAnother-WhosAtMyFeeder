@@ -11,6 +11,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitFetchState');
         expect(detectionModalSource).toContain('Fetch full clip');
         expect(detectionModalSource).toContain('Full visit');
+        expect(detectionModalSource).toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
 
         expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(eventsPageSource).toContain('selectedEventFullVisitHandler');

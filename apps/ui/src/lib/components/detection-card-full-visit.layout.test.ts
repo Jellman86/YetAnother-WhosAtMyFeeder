@@ -8,6 +8,7 @@ describe('detection card full-visit fetch wiring', () => {
     it('threads recording availability and fetch state into the card flow', () => {
         expect(mediaApiSource).toContain('getRecordingClipUrl');
         expect(mediaApiSource).toContain('recording-clip.mp4');
+        expect(mediaApiSource).toContain('X-YAWAMF-Recording-Clip-Ready');
 
         expect(detectionCardSource).toContain('fullVisitAvailable');
         expect(detectionCardSource).toContain('fullVisitFetched');
@@ -15,6 +16,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('onFetchFullVisit');
         expect(detectionCardSource).toContain('Fetch full clip');
         expect(detectionCardSource).toContain('Full visit');
+        expect(detectionCardSource).toContain('absolute bottom-3 left-3 z-20 flex flex-col items-start gap-2');
 
         expect(eventsPageSource).toContain('fullVisitAvailability');
         expect(eventsPageSource).toContain('fullVisitFetchState');

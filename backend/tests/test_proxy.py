@@ -365,6 +365,31 @@ async def test_check_recording_clip_exists_returns_404_for_streamed_no_recording
 
 
 @pytest.mark.asyncio
+async def test_check_recording_clip_exists_uses_cached_recording_clip_when_present(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=Path("/tmp/test_recording.mp4")), \
+         patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context:
+        try:
+            response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
+            assert response.status_code == 200
+            assert response.headers["x-yawamf-recording-clip-ready"] == "cached"
+            mock_context.assert_not_called()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+
+
+@pytest.mark.asyncio
 async def test_recording_clip_fetch_warms_cache_when_available(client: httpx.AsyncClient, mock_frigate_response):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled

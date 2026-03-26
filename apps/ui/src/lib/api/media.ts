@@ -16,11 +16,18 @@ export function getRecordingClipUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`);
 }
 
+export const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';
+
 export interface RecordingClipFetchResponse {
     event_id: string;
     status: 'ready';
     clip_variant: 'recording';
     cached: boolean;
+}
+
+export interface RecordingClipAvailabilityResponse {
+    available: boolean;
+    fetched: boolean;
 }
 
 export function getClipPreviewTrackUrl(frigateEvent: string): string {
@@ -127,14 +134,17 @@ export async function checkClipAvailable(frigateEvent: string): Promise<boolean>
     }
 }
 
-export async function checkRecordingClipAvailable(frigateEvent: string): Promise<boolean> {
+export async function checkRecordingClipAvailable(frigateEvent: string): Promise<RecordingClipAvailabilityResponse> {
     try {
         const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`, {
             method: 'HEAD'
         });
-        return response.ok;
+        return {
+            available: response.ok,
+            fetched: response.headers.get(RECORDING_CLIP_READY_HEADER)?.toLowerCase() === 'cached'
+        };
     } catch {
-        return false;
+        return { available: false, fetched: false };
     }
 }
 

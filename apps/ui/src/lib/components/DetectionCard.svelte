@@ -495,42 +495,42 @@
                 {/if}
             </div>
         </div>
-        <div class="absolute bottom-3 left-3 flex items-center gap-2">
+        <div class="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-2">
             <div class="px-2.5 py-1.5 rounded-xl bg-black/40 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
                 <svg class="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {formatTime(detection.detection_time)}
             </div>
+            {#if showFetchFullVisitAction}
+                <button
+                    onclick={handleFetchFullVisitClick}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleFetchFullVisitClick(e as any);
+                        }
+                    }}
+                    disabled={fullVisitFetchState === 'fetching'}
+                    aria-label={fullVisitFetchLabel}
+                    class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55 px-3 text-[11px] font-black uppercase tracking-wide text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90 disabled:cursor-wait disabled:opacity-70"
+                >
+                    {#if fullVisitFetchState === 'fetching'}
+                        <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                    {:else}
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M10 3v8"></path>
+                            <path d="M7 8l3 3 3-3"></path>
+                            <path d="M4 14h12"></path>
+                        </svg>
+                    {/if}
+                    <span>{fullVisitFetchLabel}</span>
+                </button>
+            {/if}
         </div>
-        {#if onReclassify || onRetag || showFetchFullVisitAction}
+        {#if onReclassify || onRetag}
             <div class="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                {#if showFetchFullVisitAction}
-                    <button
-                        onclick={handleFetchFullVisitClick}
-                        onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleFetchFullVisitClick(e as any);
-                            }
-                        }}
-                        disabled={fullVisitFetchState === 'fetching'}
-                        aria-label={fullVisitFetchLabel}
-                        class="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200/50 bg-white px-3 text-[11px] font-black uppercase tracking-wide text-slate-700 shadow-2xl transition-all duration-200 hover:bg-teal-500 hover:text-white disabled:cursor-wait disabled:opacity-70 dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-100"
-                    >
-                        {#if fullVisitFetchState === 'fetching'}
-                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                        {:else}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M10 3v8"></path>
-                                <path d="M7 8l3 3 3-3"></path>
-                                <path d="M4 14h12"></path>
-                            </svg>
-                        {/if}
-                        <span>{fullVisitFetchLabel}</span>
-                    </button>
-                {/if}
                 {#if onReclassify}
                     <button
                         onclick={handleReclassifyClick}

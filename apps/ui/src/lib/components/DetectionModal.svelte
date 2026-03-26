@@ -1596,45 +1596,8 @@
                         <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                             {formatDateTime(detection.detection_time)}
                         </p>
-                    </div>
-
-                    {#if fullVisitFetched}
-                        <div class="absolute top-4 right-14 z-30 inline-flex items-center gap-1.5 rounded-full bg-teal-500/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M5 5h7a3 3 0 013 3v7"></path>
-                                <path d="M7 15h8V7"></path>
-                            </svg>
-                            <span>{$_('video_player.full_visit_badge', { default: 'Full visit' })}</span>
-                        </div>
-                    {/if}
-
-                    {#if canPlayVideo || showFetchFullVisitAction}
-                        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-                            {#if canPlayVideo}
-                                <button
-                                    type="button"
-                                    onclick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onPlayVideo?.(detection.frigate_event, 'user');
-                                    }}
-                                    onpointerdown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    ontouchstart={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                    class="pointer-events-auto relative z-30 w-16 h-16 rounded-full bg-white/92 dark:bg-slate-800/92 flex items-center justify-center shadow-xl text-teal-600 dark:text-teal-400 hover:scale-105 active:scale-95 transition-transform duration-150 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M8 5v14l11-7z"/>
-                                    </svg>
-                                </button>
-                            {/if}
-                            {#if showFetchFullVisitAction}
+                        {#if showFetchFullVisitAction}
+                            <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
                                 <button
                                     type="button"
                                     onclick={handleFetchFullVisitClick}
@@ -1648,7 +1611,7 @@
                                     }}
                                     disabled={fullVisitFetchState === 'fetching'}
                                     aria-label={fullVisitFetchLabel}
-                                    class="pointer-events-auto relative z-30 inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
                                 >
                                     {#if fullVisitFetchState === 'fetching'}
                                         <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
@@ -1661,7 +1624,44 @@
                                     {/if}
                                     <span>{fullVisitFetchLabel}</span>
                                 </button>
-                            {/if}
+                            </div>
+                        {/if}
+                    </div>
+
+                    {#if fullVisitFetched}
+                        <div class="absolute top-4 right-14 z-30 inline-flex items-center gap-1.5 rounded-full bg-teal-500/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm">
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M5 5h7a3 3 0 013 3v7"></path>
+                                <path d="M7 15h8V7"></path>
+                            </svg>
+                            <span>{$_('video_player.full_visit_badge', { default: 'Full visit' })}</span>
+                        </div>
+                    {/if}
+
+                    {#if canPlayVideo}
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <button
+                                type="button"
+                                onclick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onPlayVideo?.(detection.frigate_event, 'user');
+                                }}
+                                onpointerdown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }}
+                                ontouchstart={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }}
+                                aria-label={$_('detection.play_video', { values: { species: primaryName } })}
+                                class="pointer-events-auto relative z-30 w-16 h-16 rounded-full bg-white/92 dark:bg-slate-800/92 flex items-center justify-center shadow-xl text-teal-600 dark:text-teal-400 hover:scale-105 active:scale-95 transition-transform duration-150 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
                         </div>
                     {/if}
                     {/if}
