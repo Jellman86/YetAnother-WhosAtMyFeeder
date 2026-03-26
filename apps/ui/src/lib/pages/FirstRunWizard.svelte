@@ -2,6 +2,10 @@
     import { authStore } from '../stores/auth.svelte';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
+    import {
+        AUTH_PASSWORD_COMPLEXITY_MESSAGE,
+        validateAuthPasswordPolicy
+    } from '../auth-password-policy';
 
     let username = $state('admin');
     let password = $state('');
@@ -38,6 +42,11 @@
             }
             if (password.length < 8) {
                 error = get(_)('first_run.password_min', { default: 'Password must be at least 8 characters' });
+                return;
+            }
+            const passwordPolicyError = validateAuthPasswordPolicy(password);
+            if (passwordPolicyError) {
+                error = passwordPolicyError;
                 return;
             }
         }
@@ -114,6 +123,7 @@
                         class="input-base mt-1"
                     />
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{$_('first_run.password_hint')}</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{AUTH_PASSWORD_COMPLEXITY_MESSAGE}</p>
                 </div>
 
                 <div>

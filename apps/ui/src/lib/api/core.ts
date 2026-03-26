@@ -1,5 +1,7 @@
 export const API_BASE = '/api';
 
+import { readApiErrorMessage } from './error-message';
+
 // API Key Management
 let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
 
@@ -168,8 +170,8 @@ export function cancelRequest(key: string) {
 
 export async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || `HTTP ${response.status}`);
+        const error = await readApiErrorMessage(response, `HTTP ${response.status}`);
+        throw new Error(error);
     }
     return response.json();
 }

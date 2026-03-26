@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import { AUTH_PASSWORD_COMPLEXITY_MESSAGE } from '../../auth-password-policy';
 
     let {
         authEnabled = $bindable(false),
@@ -126,6 +127,7 @@
                         placeholder={authHasPassword ? $_('settings.auth.password_placeholder') : $_('settings.auth.password_new')}
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                     />
+                    <p class="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">{AUTH_PASSWORD_COMPLEXITY_MESSAGE}</p>
                 </div>
                 <div>
                     <label for="auth-password-confirm" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.password_confirm')}</label>

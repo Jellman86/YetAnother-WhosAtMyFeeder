@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, getHeaders, setAuthToken } from './core';
+import { readApiErrorMessage } from './error-message';
 
 export interface AuthStatusResponse {
     auth_required: boolean;
@@ -58,8 +59,7 @@ export async function login(username: string, password: string): Promise<LoginRe
     });
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Login failed');
+        throw new Error(await readApiErrorMessage(response, 'Login failed'));
     }
 
     const data: LoginResponse = await response.json();
@@ -90,7 +90,6 @@ export async function setInitialPassword(options: {
     });
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Initial setup failed');
+        throw new Error(await readApiErrorMessage(response, 'Initial setup failed'));
     }
 }

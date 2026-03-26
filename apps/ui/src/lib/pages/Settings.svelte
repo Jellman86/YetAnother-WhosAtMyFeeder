@@ -63,6 +63,7 @@
     import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { validateAuthPasswordPolicy } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
@@ -2805,8 +2806,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 saving = false;
                 return;
             }
-            if (authPassword.length < 8) {
-                message = { type: 'error', text: 'Password must be at least 8 characters' };
+            const passwordPolicyError = validateAuthPasswordPolicy(authPassword);
+            if (passwordPolicyError) {
+                message = { type: 'error', text: passwordPolicyError };
                 saving = false;
                 return;
             }
@@ -2973,7 +2975,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = { type: 'success', text: $_('notifications.settings_saved') };
             await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
         } catch (e) {
-            message = { type: 'error', text: 'Failed to save settings' };
+            message = {
+                type: 'error',
+                text: e instanceof Error && e.message ? e.message : $_('settings.common.save_error')
+            };
         } finally {
             saving = false;
         }
