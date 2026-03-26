@@ -180,6 +180,22 @@ class FrigateSettings(BaseModel):
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
     clips_enabled: bool = Field(default=True, description="Enable fetching of video clips from Frigate")
+    recording_clip_enabled: bool = Field(
+        default=False,
+        description="Enable full-visit recording clips from Frigate continuous recordings",
+    )
+    recording_clip_before_seconds: int = Field(
+        default=30,
+        ge=0,
+        le=3600,
+        description="Seconds of recording to include before the detection timestamp",
+    )
+    recording_clip_after_seconds: int = Field(
+        default=90,
+        ge=0,
+        le=3600,
+        description="Seconds of recording to include after the detection timestamp",
+    )
     mqtt_server: str = "mqtt"
     mqtt_port: int = 1883
     mqtt_auth: bool = False

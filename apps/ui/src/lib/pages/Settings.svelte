@@ -36,6 +36,7 @@
         testBirdNET,
         testMQTTPublish,
         testNotification,
+        fetchRecordingClipCapability,
         fetchVersion,
         initiateGmailOAuth,
         initiateOutlookOAuth,
@@ -54,7 +55,8 @@
         type TaxonomySyncStatus,
         type VersionInfo,
         type AnalysisStatus,
-        type AudioSourceOption
+        type AudioSourceOption,
+        type RecordingClipCapability
     } from '../api';
     import type { BlockedSpeciesEntry } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
@@ -119,6 +121,11 @@
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
     let clipsEnabled = $state(true);
+    let recordingClipEnabled = $state(false);
+    let recordingClipBeforeSeconds = $state(30);
+    let recordingClipAfterSeconds = $state(90);
+    let recordingClipCapability = $state<RecordingClipCapability | null>(null);
+    let recordingClipCapabilityLoading = $state(false);
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
     let trustFrigateSublabel = $state(true);
@@ -1628,6 +1635,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
+            { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
+            { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
+            { key: 'recordingClipAfterSeconds', val: recordingClipAfterSeconds, store: s.recording_clip_after_seconds ?? 90 },
             { key: 'threshold', val: threshold, store: s.classification_threshold },
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
@@ -2441,6 +2451,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
+    async function loadRecordingClipCapability() {
+        recordingClipCapabilityLoading = true;
+        try {
+            recordingClipCapability = await fetchRecordingClipCapability();
+        } catch (e) {
+            console.error('Failed to load recording clip capability', e);
+            recordingClipCapability = null;
+        } finally {
+            recordingClipCapabilityLoading = false;
+        }
+    }
+
     async function loadSettings(silent = false) {
         if (!silent) loading = true;
         if (!silent) message = null;
@@ -2479,6 +2501,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
             clipsEnabled = settings.clips_enabled ?? true;
+            recordingClipEnabled = settings.recording_clip_enabled ?? false;
+            recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
+            recordingClipAfterSeconds = settings.recording_clip_after_seconds ?? 90;
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
@@ -2745,6 +2770,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (settings.appearance_font_theme) {
                 themeStore.setFontTheme(settings.appearance_font_theme as any);
             }
+            await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
             message = { type: 'error', text: $_('notifications.settings_load_failed') };
@@ -2799,6 +2825,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 clips_enabled: clipsEnabled,
+                recording_clip_enabled: recordingClipEnabled,
+                recording_clip_before_seconds: recordingClipBeforeSeconds,
+                recording_clip_after_seconds: recordingClipAfterSeconds,
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
                 trust_frigate_sublabel: trustFrigateSublabel,
@@ -3169,8 +3198,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPasswordSaved
                     bind:selectedCameras
                     bind:clipsEnabled
+                    bind:recordingClipEnabled
+                    bind:recordingClipBeforeSeconds
+                    bind:recordingClipAfterSeconds
                     bind:telemetryEnabled
                     {availableCameras}
+                    {recordingClipCapability}
+                    {recordingClipCapabilityLoading}
                     {camerasLoading}
                     {testing}
                     {telemetryInstallationId}

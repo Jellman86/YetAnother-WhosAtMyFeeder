@@ -22,6 +22,15 @@ export interface FrigateTestResult {
     version: string;
 }
 
+export interface RecordingClipCapability {
+    supported: boolean;
+    reason: string | null;
+    recordings_enabled: boolean;
+    retention_days: number | null;
+    eligible_cameras: string[];
+    ineligible_cameras: Record<string, string>;
+}
+
 export async function fetchVersion(): Promise<VersionInfo> {
     try {
         const response = await apiFetch(`${API_BASE}/version`);
@@ -55,4 +64,9 @@ export async function testFrigateConnection(): Promise<FrigateTestResult> {
 export async function fetchFrigateConfig(): Promise<any> {
     const response = await apiFetch(`${API_BASE}/frigate/config`);
     return handleResponse<any>(response);
+}
+
+export async function fetchRecordingClipCapability(): Promise<RecordingClipCapability> {
+    const response = await apiFetch(`${API_BASE}/frigate/recording-clip-capability`);
+    return handleResponse<RecordingClipCapability>(response);
 }

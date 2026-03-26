@@ -84,3 +84,20 @@ async def test_replace_snapshot_uses_unique_temp_file_per_write(tmp_path, monkey
     assert created_tmp_names
     assert created_tmp_names[0] != f"{event_id}.jpg.tmp"
     assert created_tmp_names[0].endswith(".tmp")
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_recording"
+
+    clip_path = await service.cache_clip(event_id, b"a" * 600)
+    recording_path = await service.cache_recording_clip(event_id, b"b" * 700)
+
+    assert clip_path is not None
+    assert recording_path is not None
+    assert clip_path.name == f"{event_id}.mp4"
+    assert recording_path.name == f"{event_id}_recording.mp4"
+    assert clip_path != recording_path
+    assert service.get_clip_path(event_id) == clip_path
+    assert service.get_recording_clip_path(event_id) == recording_path

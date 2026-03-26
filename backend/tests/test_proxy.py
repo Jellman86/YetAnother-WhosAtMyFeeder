@@ -170,6 +170,160 @@ async def test_proxy_clip_404_from_frigate(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_proxy_recording_clip_enabled(client: httpx.AsyncClient, mock_frigate_response):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = False
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_frigate_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/recording-clip.mp4")
+            assert response.status_code == 200
+            assert response.headers.get("content-type") == "video/mp4"
+            assert response.headers.get("accept-ranges") == "bytes"
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = False
+
+    mock_response = MagicMock()
+    mock_response.status_code = 400
+    mock_response.json = MagicMock(return_value={"message": "No recordings found for the specified time range"})
+    mock_response.text = '{"message":"No recordings found for the specified time range"}'
+    mock_response.aclose = AsyncMock()
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/recording-clip.mp4")
+            assert response.status_code == 404
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_proxy_recording_clip_allows_valid_share_token_without_auth(client: httpx.AsyncClient, mock_frigate_response):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    original_cache = settings.media_cache.enabled
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = False
+    settings.auth.enabled = True
+    settings.public_access.enabled = False
+
+    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share, \
+         patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_share.return_value = {
+            "frigate_event": "test_event_id",
+            "watermark_label": "Shared",
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+        }
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_frigate_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/recording-clip.mp4?share=valid_share_token_123456")
+            assert response.status_code == 200
+            assert response.headers.get("content-type") == "video/mp4"
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+            settings.media_cache.enabled = original_cache
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "video/mp4"}
+    mock_response.aclose = AsyncMock()
+
+    mock_client = MagicMock()
+    mock_client.build_request = MagicMock(return_value=object())
+    mock_client.send = AsyncMock(return_value=mock_response)
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        try:
+            response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
+            assert response.status_code == 200
+            mock_client.send.assert_awaited_once()
+            _args, kwargs = mock_client.send.await_args
+            assert kwargs["stream"] is True
+            mock_response.aclose.assert_awaited_once()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
     """VTT endpoint should return WebVTT with sprite cue URLs."""
     original_setting = settings.frigate.clips_enabled
@@ -406,6 +560,90 @@ async def test_proxy_clip_thumbnails_vtt_preserves_share_query(client: httpx.Asy
 
 
 @pytest.mark.asyncio
+async def test_recording_clip_capability_reports_supported_config(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    original_cameras = list(settings.frigate.camera)
+
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera = ["front_feeder"]
+
+    frigate_config = {
+        "record": {
+            "enabled": True,
+            "retain": {
+                "days": 7,
+            },
+        },
+        "cameras": {
+            "front_feeder": {
+                "record": {
+                    "enabled": True,
+                }
+            }
+        },
+    }
+
+    with patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_config = AsyncMock(return_value=frigate_config)
+
+        try:
+            response = await client.get("/api/frigate/recording-clip-capability")
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["supported"] is True
+            assert body["recordings_enabled"] is True
+            assert body["retention_days"] == 7
+            assert body["eligible_cameras"] == ["front_feeder"]
+            assert body["reason"] is None
+        finally:
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+            settings.frigate.camera = original_cameras
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_capability_reports_unsupported_config(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    original_cameras = list(settings.frigate.camera)
+
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera = ["front_feeder"]
+
+    frigate_config = {
+        "record": {
+            "enabled": False,
+        },
+        "cameras": {
+            "front_feeder": {
+                "record": {
+                    "enabled": False,
+                }
+            }
+        },
+    }
+
+    with patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_config = AsyncMock(return_value=frigate_config)
+
+        try:
+            response = await client.get("/api/frigate/recording-clip-capability")
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["supported"] is False
+            assert body["recordings_enabled"] is False
+            assert body["eligible_cameras"] == []
+            assert body["reason"] == "recordings_disabled"
+        finally:
+            settings.auth.enabled = original_auth
+            settings.public_access.enabled = original_public
+            settings.frigate.camera = original_cameras
+
+
+@pytest.mark.asyncio
 async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
     """Create endpoint should return link_id alongside share token metadata."""
     with patch("app.routers.proxy.frigate_client") as mock_frigate,          patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
@@ -426,6 +664,31 @@ async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
         assert body["link_id"] == 42
         assert body["event_id"] == "test_event_id"
         assert body["token"] == "share_token_abcdefghijklmnopqrstuvwxyz"
+
+
+@pytest.mark.asyncio
+async def test_video_share_create_allows_recording_variant_without_event_clip(client: httpx.AsyncClient):
+    with patch("app.routers.proxy.frigate_client") as mock_frigate, \
+         patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create, \
+         patch("app.routers.proxy._recording_clip_exists_for_share", new_callable=AsyncMock) as mock_recording_exists:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": False})
+        mock_recording_exists.return_value = True
+        mock_create.return_value = (43, "share_token_recording_variant", datetime.utcnow() + timedelta(hours=1))
+
+        response = await client.post(
+            "/api/video-share",
+            json={
+                "event_id": "test_event_id",
+                "expires_in_minutes": 60,
+                "watermark_label": "Tester",
+                "clip_variant": "recording",
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["link_id"] == 43
+        assert "clip=recording" in body["share_url"]
 
 
 @pytest.mark.asyncio

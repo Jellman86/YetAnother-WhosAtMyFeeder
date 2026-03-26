@@ -31,6 +31,7 @@ from app.config_models import (
     normalize_crop_source_override,
 )
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
+from app.utils.frigate_recording import get_camera_retention_days
 
 from fastapi import BackgroundTasks
 
@@ -272,6 +273,9 @@ class SettingsUpdate(BaseModel):
     audio_buffer_hours: int = Field(24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
     audio_correlation_window_seconds: int = Field(300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
+    recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
+    recording_clip_before_seconds: int = Field(30, ge=0, le=3600, description="Seconds before detection for full-visit clip")
+    recording_clip_after_seconds: int = Field(90, ge=0, le=3600, description="Seconds after detection for full-visit clip")
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
@@ -575,6 +579,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
         "clips_enabled": settings.frigate.clips_enabled,
+        "recording_clip_enabled": settings.frigate.recording_clip_enabled,
+        "recording_clip_before_seconds": settings.frigate.recording_clip_before_seconds,
+        "recording_clip_after_seconds": settings.frigate.recording_clip_after_seconds,
         "classification_threshold": settings.classification.threshold,
         "classification_min_confidence": settings.classification.min_confidence,
         "cameras": settings.frigate.camera,
@@ -790,6 +797,12 @@ async def update_settings(
 
     if "clips_enabled" in fields_set:
         settings.frigate.clips_enabled = update.clips_enabled
+    if "recording_clip_enabled" in fields_set:
+        settings.frigate.recording_clip_enabled = update.recording_clip_enabled
+    if "recording_clip_before_seconds" in fields_set:
+        settings.frigate.recording_clip_before_seconds = update.recording_clip_before_seconds
+    if "recording_clip_after_seconds" in fields_set:
+        settings.frigate.recording_clip_after_seconds = update.recording_clip_after_seconds
     if "cameras" in fields_set:
         settings.frigate.camera = update.cameras
     if "classification_threshold" in fields_set:
@@ -1299,84 +1312,8 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         "missing": len(missing_ids)
     }
 
-
-def _parse_positive_days(value: object) -> float | None:
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return None
-    return parsed if parsed > 0 else None
-
-
-def _collect_retain_days(node: object) -> list[float]:
-    """Collect positive day values from retain-like Frigate config blocks."""
-    if not isinstance(node, dict):
-        return []
-    values: list[float] = []
-
-    for key in ("days", "default"):
-        parsed = _parse_positive_days(node.get(key))
-        if parsed is not None:
-            values.append(parsed)
-
-    # Handle object-level retention maps, e.g. retain.objects.bird: 7
-    objects_cfg = node.get("objects")
-    if isinstance(objects_cfg, dict):
-        for obj_val in objects_cfg.values():
-            parsed = _parse_positive_days(obj_val)
-            if parsed is not None:
-                values.append(parsed)
-
-    return values
-
-
-def _extract_record_retention_days(record_cfg: object) -> float | None:
-    """Best-effort extraction of recording/event retention days from Frigate config."""
-    if not isinstance(record_cfg, dict):
-        return None
-
-    candidates: list[float] = []
-    direct_days = _parse_positive_days(record_cfg.get("days"))
-    if direct_days is not None:
-        candidates.append(direct_days)
-
-    candidates.extend(_collect_retain_days(record_cfg.get("retain")))
-
-    # Frigate commonly stores clip retention under detections/alerts blocks.
-    for key in ("detections", "alerts", "events"):
-        section = record_cfg.get(key)
-        if isinstance(section, dict):
-            section_days = _parse_positive_days(section.get("days"))
-            if section_days is not None:
-                candidates.append(section_days)
-            candidates.extend(_collect_retain_days(section.get("retain")))
-
-    # Some configs expose export retention as well.
-    export_cfg = record_cfg.get("export")
-    if isinstance(export_cfg, dict):
-        candidates.extend(_collect_retain_days(export_cfg.get("retain")))
-
-    return max(candidates) if candidates else None
-
-
 def _get_camera_retention_days(frigate_config: object, camera_name: str) -> float | None:
-    if not isinstance(frigate_config, dict):
-        return None
-
-    candidates: list[float] = []
-    global_record = _extract_record_retention_days(frigate_config.get("record"))
-    if global_record is not None:
-        candidates.append(global_record)
-
-    cameras = frigate_config.get("cameras")
-    if isinstance(cameras, dict):
-        camera_cfg = cameras.get(camera_name)
-        if isinstance(camera_cfg, dict):
-            camera_record = _extract_record_retention_days(camera_cfg.get("record"))
-            if camera_record is not None:
-                candidates.append(camera_record)
-
-    return max(candidates) if candidates else None
+    return get_camera_retention_days(frigate_config, camera_name)
 
 
 @router.post("/maintenance/purge-missing-clips")

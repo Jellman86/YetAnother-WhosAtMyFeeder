@@ -123,6 +123,20 @@ class MediaCacheService:
 
         return path
 
+    def _recording_clip_path(self, event_id: str) -> Path:
+        """Get the path for a cached recording clip variant."""
+        safe_id = self._sanitize_event_id(event_id)
+        path = CLIPS_DIR / f"{safe_id}_recording.mp4"
+
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(CLIPS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid recording clip path for event: {event_id}")
+
+        return path
+
     def _preview_sprite_path(self, event_id: str) -> Path:
         """Get the path for a cached preview sprite image."""
         safe_id = self._sanitize_event_id(event_id)
@@ -330,6 +344,75 @@ class MediaCacheService:
                 pass
             return None
 
+    async def cache_recording_clip(self, event_id: str, clip_bytes: bytes) -> Optional[Path]:
+        """Cache a full-visit recording clip."""
+        if not self._available:
+            log.warning("Media cache unavailable; skipping recording clip cache write", error=self._init_error)
+            return None
+        if len(clip_bytes) < _MIN_VALID_CLIP_BYTES:
+            log.warning(
+                "Refusing to cache stub recording clip (Frigate recordings not retained)",
+                event_id=event_id,
+                size=len(clip_bytes),
+                min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+            )
+            return None
+        try:
+            path = self._recording_clip_path(event_id)
+            async with aiofiles.open(path, "wb") as f:
+                await f.write(clip_bytes)
+            log.debug("Cached recording clip", event_id=event_id, size=len(clip_bytes))
+            return path
+        except Exception as e:
+            log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
+            try:
+                path = self._recording_clip_path(event_id)
+                if path.exists():
+                    path.unlink()
+            except Exception:
+                pass
+            return None
+
+    async def cache_recording_clip_streaming(self, event_id: str, chunks) -> Optional[Path]:
+        """Cache a recording clip from a stream of chunks."""
+        if not self._available:
+            log.warning("Media cache unavailable; skipping recording clip cache write", error=self._init_error)
+            return None
+        try:
+            path = self._recording_clip_path(event_id)
+            total_size = 0
+            async with aiofiles.open(path, "wb") as f:
+                async for chunk in chunks:
+                    if chunk:
+                        await f.write(chunk)
+                        total_size += len(chunk)
+
+            if total_size < _MIN_VALID_CLIP_BYTES:
+                log.warning(
+                    "Downloaded recording clip is too small to be valid",
+                    event_id=event_id,
+                    size=total_size,
+                    min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+                )
+                try:
+                    if path.exists():
+                        path.unlink()
+                except Exception:
+                    pass
+                return None
+
+            log.debug("Cached recording clip (streaming)", event_id=event_id, size=total_size)
+            return path
+        except Exception as e:
+            log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
+            try:
+                path = self._recording_clip_path(event_id)
+                if path.exists():
+                    path.unlink()
+            except Exception:
+                pass
+            return None
+
     def get_clip_path(self, event_id: str) -> Optional[Path]:
         """Get path to a cached clip if it exists and has content.
 
@@ -361,6 +444,26 @@ class MediaCacheService:
                     pass
         return None
 
+    def get_recording_clip_path(self, event_id: str) -> Optional[Path]:
+        """Get path to a cached recording clip if it exists and has content."""
+        path = self._recording_clip_path(event_id)
+        if path.exists():
+            size = path.stat().st_size
+            if size >= _MIN_VALID_CLIP_BYTES:
+                os.utime(path, None)
+                return path
+            try:
+                path.unlink()
+                log.warning(
+                    "Removed invalid cached recording clip (stub or empty)",
+                    event_id=event_id,
+                    size=size,
+                    min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+                )
+            except Exception:
+                pass
+        return None
+
     def has_clip(self, event_id: str) -> bool:
         """Check if a clip is cached and has valid content (not a stub)."""
         try:
@@ -368,6 +471,14 @@ class MediaCacheService:
             return path.exists() and path.stat().st_size >= _MIN_VALID_CLIP_BYTES
         except ValueError:
             # Invalid event_id
+            return False
+
+    def has_recording_clip(self, event_id: str) -> bool:
+        """Check if a recording clip is cached and has valid content."""
+        try:
+            path = self._recording_clip_path(event_id)
+            return path.exists() and path.stat().st_size >= _MIN_VALID_CLIP_BYTES
+        except ValueError:
             return False
 
     async def cache_preview_assets(self, event_id: str, sprite_bytes: bytes, manifest_json: str) -> bool:
@@ -444,6 +555,10 @@ class MediaCacheService:
             clip_path = self._clip_path(event_id)
             if await aiofiles.os.path.exists(clip_path):
                 await aiofiles.os.remove(clip_path)
+
+            recording_clip_path = self._recording_clip_path(event_id)
+            if await aiofiles.os.path.exists(recording_clip_path):
+                await aiofiles.os.remove(recording_clip_path)
 
             preview_sprite_path = self._preview_sprite_path(event_id)
             if await aiofiles.os.path.exists(preview_sprite_path):

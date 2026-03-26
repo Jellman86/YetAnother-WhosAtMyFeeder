@@ -112,6 +112,13 @@ While Frigate's detection model often runs at a low resolution (e.g., 320x320), 
 ### 🎥 Record Mode (Frigate 0.17+)
 YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least a few days so the system can go back and re-analyze any event. Use `mode: all` under `alerts.retain` and `detections.retain` to ensure all recording segments overlapping bird events are kept.
 
+The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time instead of Frigate's shorter event clip. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when the saved Frigate config indicates that continuous recordings and retention are available for at least one selected camera.
+
+Important behavior:
+- It does **not** replace the normal event clip. The default player mode stays `Event clip`, and `Full visit` only appears as a second selectable variant when the longer recording window is actually available for that event.
+- The requested recording window is configurable in YA-WAMF with sane defaults of `30` seconds before the detection and `90` seconds after it, for a default target window of about `120` seconds total.
+- The actual returned clip can still be shorter if Frigate has no retained recordings for part of that time range.
+
 ### ⏱️ “My clips are too short” / “My events are missing”
 This is usually expected for birds. Much like the British summer, bird visits tend to be over before you've had time to put the kettle on.
 

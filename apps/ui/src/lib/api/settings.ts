@@ -19,6 +19,9 @@ export interface Settings {
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
     clips_enabled: boolean;
+    recording_clip_enabled: boolean;
+    recording_clip_before_seconds: number;
+    recording_clip_after_seconds: number;
     classification_threshold: number;
     classification_min_confidence: number;
     cameras: string[];

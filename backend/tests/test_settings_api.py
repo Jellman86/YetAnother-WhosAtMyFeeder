@@ -265,6 +265,49 @@ async def test_settings_roundtrip_blocked_species(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_recording_clip_fields(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "recording_clip_enabled" in before_payload
+    assert "recording_clip_before_seconds" in before_payload
+    assert "recording_clip_after_seconds" in before_payload
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "recording_clip_enabled": True,
+        "recording_clip_before_seconds": 45,
+        "recording_clip_after_seconds": 150,
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["recording_clip_enabled"] is True
+    assert after_payload["recording_clip_before_seconds"] == 45
+    assert after_payload["recording_clip_after_seconds"] == 150
+
+    restore_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "recording_clip_enabled": before_payload["recording_clip_enabled"],
+        "recording_clip_before_seconds": before_payload["recording_clip_before_seconds"],
+        "recording_clip_after_seconds": before_payload["recording_clip_after_seconds"],
+    }
+    restore_resp = await client.post("/api/settings", json=restore_payload)
+    assert restore_resp.status_code == 200, restore_resp.text
+
+
+@pytest.mark.asyncio
 async def test_settings_update_persists_classification_delay_and_env_precedence(
     client: httpx.AsyncClient, monkeypatch
 ):

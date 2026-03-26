@@ -89,12 +89,14 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/clip.mp4`
+- `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/thumbnail.jpg`
 - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
 - `GET /api/frigate/camera/{camera}/latest.jpg`
 - `GET /api/frigate/test`
 - `GET /api/frigate/config`
+- `GET /api/frigate/recording-clip-capability`
 - `POST /api/video-share`
 - `GET /api/video-share/{event_id}`
 - `GET /api/video-share/{event_id}/links`

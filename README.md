@@ -263,6 +263,8 @@ See [Model Accuracy & Benchmarks](docs/features/model-accuracy.md) for full inst
 **Q: Why are my clips very short?**
 This is expected behaviour for birds. If a bird is only at the feeder for 2 seconds, the Frigate event is 2 seconds. Configure `record.alerts.pre_capture` and `record.detections.pre_capture` in your Frigate config to add context around each detection (e.g., `pre_capture: 5, post_capture: 25`). See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
 
+YA-WAMF also supports an optional `Full visit` clip variant for longer playback from Frigate recordings. When enabled in **Settings → Connection → Frigate**, it requests a configurable camera-level window around the detection timestamp instead of replacing the normal event clip. The default window is `30` seconds before plus `90` seconds after the detection.
+
 **Q: How do I update YA-WAMF?**
 Run `docker compose pull && docker compose up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
 

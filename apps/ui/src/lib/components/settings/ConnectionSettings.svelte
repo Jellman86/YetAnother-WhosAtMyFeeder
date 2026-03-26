@@ -2,6 +2,7 @@
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
+    import type { RecordingClipCapability } from '../../api/system';
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
@@ -16,9 +17,14 @@
         mqttPassword = $bindable(''),
         mqttPasswordSaved = $bindable(false),
         clipsEnabled = $bindable(true),
+        recordingClipEnabled = $bindable(false),
+        recordingClipBeforeSeconds = $bindable(30),
+        recordingClipAfterSeconds = $bindable(90),
         selectedCameras = $bindable<string[]>([]),
         telemetryEnabled = $bindable(false),
         availableCameras = $bindable<string[]>([]),
+        recordingClipCapability = null,
+        recordingClipCapabilityLoading = false,
         camerasLoading,
         testing,
         testingBirdNET = $bindable(false),
@@ -38,9 +44,14 @@
         mqttPassword: string;
         mqttPasswordSaved: boolean;
         clipsEnabled: boolean;
+        recordingClipEnabled: boolean;
+        recordingClipBeforeSeconds: number;
+        recordingClipAfterSeconds: number;
         selectedCameras: string[];
         telemetryEnabled: boolean;
         availableCameras: string[];
+        recordingClipCapability: RecordingClipCapability | null;
+        recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
         testing: boolean;
         testingBirdNET: boolean;
@@ -60,6 +71,34 @@
     let previewError = $state<string | null>(null);
     let previewBlobUrl = $state<string | null>(null);
     let previewTimer: ReturnType<typeof setInterval> | null = null;
+
+    function getRecordingCapabilityReason(reason: string | null | undefined): string {
+        switch (reason) {
+            case 'config_unavailable':
+                return $_('settings.frigate.full_visit_reason_config_unavailable', { default: 'Frigate config could not be read.' });
+            case 'no_matching_cameras':
+                return $_('settings.frigate.full_visit_reason_no_matching_cameras', { default: 'No selected cameras match the current Frigate config.' });
+            case 'recordings_disabled':
+                return $_('settings.frigate.full_visit_reason_recordings_disabled', { default: 'Continuous recordings are not enabled for the selected cameras.' });
+            case 'retention_unknown':
+                return $_('settings.frigate.full_visit_reason_retention_unknown', { default: 'Recording retention could not be determined.' });
+            default:
+                return $_('settings.frigate.full_visit_reason_unknown', { default: 'Capability could not be confirmed.' });
+        }
+    }
+
+    let canToggleRecordingClips = $derived(
+        recordingClipEnabled || (clipsEnabled && !!recordingClipCapability?.supported)
+    );
+
+    function toggleRecordingClips(): void {
+        if (recordingClipEnabled) {
+            recordingClipEnabled = false;
+            return;
+        }
+        if (!clipsEnabled || !recordingClipCapability?.supported) return;
+        recordingClipEnabled = !recordingClipEnabled;
+    }
 
     function getFrigateBase() {
         return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
@@ -296,6 +335,123 @@
                     <span class="sr-only">{$_('settings.frigate.fetch_clips')}</span>
                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {clipsEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
                 </button>
+            </div>
+
+            <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 space-y-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="space-y-1" id="recording-clips-label">
+                        <span class="block text-sm font-bold text-slate-900 dark:text-white">
+                            {$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
+                        </span>
+                        <span class="block text-[10px] text-slate-500 font-medium">
+                            {$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip window from Frigate recordings around each detection.' })}
+                        </span>
+                    </div>
+                    <button
+                        role="switch"
+                        aria-checked={recordingClipEnabled}
+                        aria-labelledby="recording-clips-label"
+                        disabled={!canToggleRecordingClips}
+                        onclick={toggleRecordingClips}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleRecordingClips();
+                            }
+                        }}
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {recordingClipEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    >
+                        <span class="sr-only">{$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}</span>
+                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {recordingClipEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    </button>
+                </div>
+
+                <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-100 dark:text-amber-200'}">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="font-black uppercase tracking-widest text-[10px]">
+                            {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
+                        </span>
+                        {#if recordingClipCapabilityLoading}
+                            <span class="text-[10px] font-semibold uppercase tracking-widest">
+                                {$_('common.loading', { default: 'Loading' })}
+                            </span>
+                        {:else if recordingClipCapability?.supported}
+                            <span class="text-[10px] font-semibold uppercase tracking-widest">
+                                {$_('common.enabled', { default: 'Enabled' })}
+                            </span>
+                        {:else}
+                            <span class="text-[10px] font-semibold uppercase tracking-widest">
+                                {$_('common.disabled', { default: 'Disabled' })}
+                            </span>
+                        {/if}
+                    </div>
+
+                    {#if recordingClipCapabilityLoading}
+                        <p>{$_('settings.frigate.full_visit_loading', { default: 'Checking saved Frigate recording support...' })}</p>
+                    {:else if recordingClipCapability}
+                        {#if recordingClipCapability.supported}
+                            <p>
+                                {$_('settings.frigate.full_visit_supported', {
+                                    default: 'Continuous recordings are available for {count} selected camera(s).',
+                                    values: { count: recordingClipCapability.eligible_cameras.length }
+                                })}
+                            </p>
+                        {:else}
+                            <p>{getRecordingCapabilityReason(recordingClipCapability.reason)}</p>
+                        {/if}
+
+                        {#if recordingClipCapability.eligible_cameras.length > 0}
+                            <p class="text-[11px] opacity-90">
+                                {$_('settings.frigate.full_visit_cameras', {
+                                    default: 'Eligible cameras: {cameras}',
+                                    values: { cameras: recordingClipCapability.eligible_cameras.join(', ') }
+                                })}
+                            </p>
+                        {/if}
+
+                        {#if recordingClipCapability.retention_days !== null}
+                            <p class="text-[11px] opacity-90">
+                                {$_('settings.frigate.full_visit_retention', {
+                                    default: 'Detected recording retention: {days} day(s)',
+                                    values: { days: recordingClipCapability.retention_days }
+                                })}
+                            </p>
+                        {/if}
+                    {:else}
+                        <p>{$_('settings.frigate.full_visit_unavailable', { default: 'Capability information is unavailable right now.' })}</p>
+                    {/if}
+                </div>
+
+                {#if recordingClipEnabled}
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="recording-clip-before" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                {$_('settings.frigate.full_visit_before', { default: 'Seconds before' })}
+                            </label>
+                            <input
+                                id="recording-clip-before"
+                                type="number"
+                                min="0"
+                                max="3600"
+                                bind:value={recordingClipBeforeSeconds}
+                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label for="recording-clip-after" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                {$_('settings.frigate.full_visit_after', { default: 'Seconds after' })}
+                            </label>
+                            <input
+                                id="recording-clip-after"
+                                type="number"
+                                min="0"
+                                max="3600"
+                                bind:value={recordingClipAfterSeconds}
+                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            />
+                        </div>
+                    </div>
+                {/if}
             </div>
         </div>
     </section>

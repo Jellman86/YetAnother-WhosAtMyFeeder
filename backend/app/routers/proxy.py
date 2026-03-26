@@ -17,10 +17,12 @@ import httpx
 import sqlite3
 import structlog
 from prometheus_client import Counter, Histogram
+from typing import Literal
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.frigate_recording import evaluate_recording_clip_capability
 from app.auth import (
     AuthContext,
     AuthLevel,
@@ -134,6 +136,7 @@ class VideoShareCreateRequest(BaseModel):
     event_id: str = Field(..., min_length=1, max_length=64)
     expires_in_minutes: int = Field(default=24 * 60, ge=5, le=7 * 24 * 60)
     watermark_label: str | None = Field(default=None, max_length=64)
+    clip_variant: Literal["event", "recording"] = Field(default="event")
 
 
 class VideoShareCreateResponse(BaseModel):
@@ -483,6 +486,85 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> N
                 )
 
 
+def _normalize_detection_timestamp(value: datetime | None) -> int | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return int(value.timestamp())
+
+
+async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, int, int]:
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event(event_id)
+
+    if not detection or not detection.detection_time or not detection.camera_name:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    detected_at = _normalize_detection_timestamp(detection.detection_time)
+    if detected_at is None:
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.event_not_found", lang)
+        )
+
+    start_ts = max(0, detected_at - settings.frigate.recording_clip_before_seconds)
+    end_ts = detected_at + settings.frigate.recording_clip_after_seconds
+    if end_ts <= start_ts:
+        end_ts = start_ts + 1
+
+    return detection.camera_name, start_ts, end_ts
+
+
+def _is_no_recordings_response(response: httpx.Response) -> bool:
+    if response.status_code not in {400, 404}:
+        return False
+    try:
+        payload = response.json()
+    except Exception:
+        payload = None
+    message = str((payload or {}).get("message") or response.text or "")
+    return "No recordings found for the specified time range" in message
+
+
+async def _probe_recording_clip_response(
+    clip_url: str,
+    headers: dict[str, str],
+    *,
+    timeout: float,
+) -> tuple[httpx.AsyncClient, httpx.Response]:
+    client = get_http_client()
+    req = client.build_request("GET", clip_url, headers=headers, timeout=timeout)
+    response = await client.send(req, stream=True)
+    return client, response
+
+
+async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
+    if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
+    headers = frigate_client._get_headers()
+    _client, response = await _probe_recording_clip_response(clip_url, headers, timeout=10.0)
+    try:
+        if _is_no_recordings_response(response) or response.status_code == 404:
+            return False
+        response.raise_for_status()
+        return True
+    finally:
+        await response.aclose()
+
+
 async def _ensure_preview_assets(event_id: str, lang: str) -> str:
     """Ensure preview sprite + manifest exist in media cache."""
     from app.services.media_cache import media_cache
@@ -615,16 +697,25 @@ async def create_video_share_link(
             detail=i18n_service.translate("errors.clip_disabled", lang)
         )
 
-    try:
-        event_data = await frigate_client.get_event(event_id)
-    except Exception:
-        event_data = None
+    clip_variant = payload.clip_variant or "event"
+    if clip_variant == "event":
+        try:
+            event_data = await frigate_client.get_event(event_id)
+        except Exception:
+            event_data = None
 
-    if not event_data or not event_data.get("has_clip", False):
-        raise HTTPException(
-            status_code=404,
-            detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
-        )
+        if not event_data or not event_data.get("has_clip", False):
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_available", lang)
+            )
+    else:
+        recording_exists = await _recording_clip_exists_for_share(event_id, lang)
+        if not recording_exists:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+            )
 
     watermark = payload.watermark_label.strip() if payload.watermark_label else None
     if watermark == "":
@@ -641,9 +732,9 @@ async def create_video_share_link(
     )
 
     base = _share_base_url(request)
-    share_url = (
-        f"{base}/events?event={quote_plus(event_id)}&video=1&share={quote_plus(token)}"
-    )
+    share_url = f"{base}/events?event={quote_plus(event_id)}&video=1&share={quote_plus(token)}"
+    if clip_variant == "recording":
+        share_url = f"{share_url}&clip=recording"
 
     structlog.get_logger().info(
         "VIDEO_SHARE_AUDIT: Share link created",
@@ -890,6 +981,21 @@ async def proxy_config(
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
         )
 
+
+@router.get("/frigate/recording-clip-capability")
+async def get_recording_clip_capability(
+    auth: AuthContext = Depends(require_owner)
+):
+    try:
+        frigate_config = await frigate_client.get_config()
+    except Exception:
+        frigate_config = None
+
+    return evaluate_recording_clip_capability(
+        frigate_config=frigate_config,
+        selected_cameras=settings.frigate.camera,
+    )
+
 @router.get("/frigate/{event_id}/snapshot.jpg")
 @guest_rate_limit()
 async def proxy_snapshot(
@@ -1069,6 +1175,70 @@ async def check_clip_exists(
             status_code=502,
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
         )
+
+
+@router.head("/frigate/{event_id}/recording-clip.mp4")
+@guest_rate_limit()
+async def check_recording_clip_exists(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+
+    if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
+
+    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
+    headers = frigate_client._get_headers()
+
+    try:
+        _client, resp = await _probe_recording_clip_response(clip_url, headers, timeout=10.0)
+        if _is_no_recordings_response(resp):
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+            )
+        if resp.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+            )
+        resp.raise_for_status()
+        return Response(status_code=200)
+    except HTTPException:
+        raise
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+        )
+    finally:
+        if 'resp' in locals():
+            await resp.aclose()
 
 
 @router.get("/frigate/{event_id}/clip.mp4")
@@ -1251,6 +1421,170 @@ async def proxy_clip(
     log.info(
         "proxy_clip_streaming_from_frigate",
         event_id=event_id,
+        download=download_requested,
+        status_code=r.status_code,
+        has_range=bool(range_header),
+        content_length=r.headers.get("content-length"),
+        duration_ms=round((perf_counter() - request_started) * 1000, 2),
+    )
+
+    async def cleanup():
+        await r.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        r.aiter_bytes(),
+        status_code=r.status_code,
+        headers=response_headers,
+        background=BackgroundTask(cleanup)
+    )
+
+
+@router.get("/frigate/{event_id}/recording-clip.mp4")
+@guest_rate_limit()
+async def proxy_recording_clip(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    """Proxy a full-visit clip from Frigate camera recordings."""
+    from app.services.media_cache import media_cache
+
+    lang = get_user_language(request)
+    download_requested = request.query_params.get("download") == "1"
+    request_started = perf_counter()
+    log = structlog.get_logger()
+
+    if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
+
+    if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.proxy.download_forbidden", lang)
+        )
+
+    if settings.media_cache.enabled and settings.media_cache.cache_clips:
+        cached_path = media_cache.get_recording_clip_path(event_id)
+        if cached_path:
+            log.info(
+                "proxy_recording_clip_cache_hit",
+                event_id=event_id,
+                download=download_requested,
+                duration_ms=round((perf_counter() - request_started) * 1000, 2),
+            )
+            return FileResponse(
+                path=cached_path,
+                media_type="video/mp4",
+                filename=f"{event_id}_recording.mp4",
+                headers={
+                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+                }
+            )
+
+    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
+    headers = frigate_client._get_headers()
+
+    range_header = request.headers.get("range")
+    should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    log.debug(
+        "proxy_recording_clip_start",
+        event_id=event_id,
+        camera_name=camera_name,
+        download=download_requested,
+        has_range=bool(range_header),
+        should_cache=should_cache,
+    )
+
+    if range_header and not should_cache:
+        headers["Range"] = range_header
+
+    client = httpx.AsyncClient(timeout=120.0)
+    req = client.build_request("GET", clip_url, headers=headers)
+    r = await client.send(req, stream=True)
+
+    if _is_no_recordings_response(r) or r.status_code == 404:
+        await r.aclose()
+        await client.aclose()
+        raise HTTPException(
+            status_code=404,
+            detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+        )
+
+    if should_cache:
+        try:
+            cached_path = await media_cache.cache_recording_clip_streaming(event_id, r.aiter_bytes())
+            await r.aclose()
+            await client.aclose()
+
+            if cached_path:
+                log.info(
+                    "proxy_recording_clip_cached_from_frigate",
+                    event_id=event_id,
+                    camera_name=camera_name,
+                    download=download_requested,
+                    duration_ms=round((perf_counter() - request_started) * 1000, 2),
+                )
+                return FileResponse(
+                    path=cached_path,
+                    media_type="video/mp4",
+                    filename=f"{event_id}_recording.mp4",
+                    headers={
+                        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+                    }
+                )
+
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            await r.aclose()
+            await client.aclose()
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang)
+            )
+
+    response_headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4",
+    }
+
+    content_len = r.headers.get("content-length")
+    if content_len and int(content_len) == 0:
+        await r.aclose()
+        await client.aclose()
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.empty_clip", lang)
+        )
+
+    if "content-length" in r.headers:
+        response_headers["Content-Length"] = r.headers["content-length"]
+    if "content-range" in r.headers:
+        response_headers["Content-Range"] = r.headers["content-range"]
+    response_headers["Content-Type"] = r.headers.get("content-type", "video/mp4")
+
+    log.info(
+        "proxy_recording_clip_streaming_from_frigate",
+        event_id=event_id,
+        camera_name=camera_name,
         download=download_requested,
         status_code=r.status_code,
         has_range=bool(range_header),

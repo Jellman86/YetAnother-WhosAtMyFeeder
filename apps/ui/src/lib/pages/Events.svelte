@@ -75,6 +75,7 @@
     let bulkTagPendingId = $state<string | null>(null);
     let bulkSearchTimeout: ReturnType<typeof setTimeout> | null = null;
     let bulkSearching = $state(false);
+    let videoClipVariant = $state<'event' | 'recording'>('event');
 
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
@@ -277,11 +278,13 @@
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
+        const deepLinkedClipVariant = params.get('clip') === 'recording' ? 'recording' : 'event';
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
         if (deepLinkedEvent && deepLinkWantsVideo) {
             videoEventId = deepLinkedEvent;
             videoShareToken = deepLinkedShare;
             videoPlayIntent = 'auto';
+            videoClipVariant = deepLinkedClipVariant;
             showVideo = true;
             if (!deepLinkedShare) {
                 clearEventVideoDeepLinkParams();
@@ -681,6 +684,10 @@
             url.searchParams.delete('video');
             changed = true;
         }
+        if (url.searchParams.has('clip')) {
+            url.searchParams.delete('clip');
+            changed = true;
+        }
         if (changed) {
             window.history.replaceState(null, '', `${url.pathname}${url.search}`);
         }
@@ -1004,6 +1011,7 @@
                         videoEventId = event.frigate_event;
                         videoShareToken = null;
                         videoPlayIntent = 'user';
+                        videoClipVariant = 'event';
                         showVideo = true;
                         selectedEvent = null;
                     }}
@@ -1038,6 +1046,7 @@
             videoEventId = frigateEvent;
             videoShareToken = null;
             videoPlayIntent = playIntent;
+            videoClipVariant = 'event';
             showVideo = true;
             selectedEvent = null;
         }}
@@ -1128,10 +1137,12 @@
         frigateEvent={videoEventId}
         shareToken={videoShareToken}
         playIntent={videoPlayIntent}
+        initialClipVariant={videoClipVariant}
         onClose={() => {
             showVideo = false;
             videoEventId = null;
             videoShareToken = null;
+            videoClipVariant = 'event';
         }}
     />
 {/if}
