@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-26
+
 - **Added:** YA-WAMF can now serve a first-class `Full visit` clip variant from Frigate continuous recordings. Owners can enable it in Settings → Connection → Frigate, choose how many seconds before/after the detection to include, and switch between the original event clip and the longer recording window in the VideoPlayer without leaving the modal.
 - **Added:** The Frigate settings panel now includes a recording-clip capability check that inspects the saved Frigate config, reports whether continuous recordings appear usable for the selected cameras, and shows the detected retention window before allowing the feature to be turned on.
 - **Added:** Full-visit clips now work through the same access paths as normal event clips, including share links and public-access playback, using the new `/api/frigate/{event_id}/recording-clip.mp4` proxy route and a distinct media-cache key of `{event_id}_recording.mp4`.
@@ -19,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Fixed:** Detection source badges and confidence panels now reflect the current visible classification source instead of blindly mirroring the historical `manual_tagged` feedback flag. Manual tags that were later superseded by a completed video result no longer leave stale `Manual` pills behind on cards, the hero, or the details modal.
 - **Fixed:** Full-visit availability probes now handle streamed Frigate `404` responses safely and use the current camera-recording route shape that Frigate actually exposes. This prevents the fetch button from being hidden behind a probe-side `500` and restores full-visit availability detection for live installs using Frigate's `/api/{camera}/start/{start_ts}/end/{end_ts}/clip.mp4` endpoint.
 - **Fixed:** Authentication setup and settings now enforce the same password policy client-side as the backend and surface readable validation failures instead of `[object Object]` or a generic `Failed to save settings` banner. FastAPI/Pydantic validation payloads are normalized into user-facing messages, so username/password setup errors now explain the real problem.
+- **Changed:** Locale coverage has been expanded again across the highest-traffic owner flows. Full-visit video controls, detection AI conversation copy, Frigate connection state, shared error-boundary text, and the entire `Settings → Data` section now have localized strings in all supported UI languages instead of falling back to English.
 - **Changed:** `ROADMAP.md` and `ISSUES.md` were refreshed to match the current GitHub tracker state: issue `#16` and issue `#21` are closed, the issue-first section no longer points at stale open work, and roadmap item 7 is marked complete on `dev`.
 - **Changed:** Roadmap item 1, `Blocked Species — Species Picker + Reliable Matching`, is now completed on `dev`.
 - **Changed:** Roadmap item 0, `Full-Visit Recording Clip ("Bird Lifecycle View")`, is now completed on `dev`.

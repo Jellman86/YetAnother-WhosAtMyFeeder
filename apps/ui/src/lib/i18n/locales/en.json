@@ -120,7 +120,8 @@
     "unit_mm": "mm",
     "unit_in": "in",
     "unknown_location": "Unknown location",
-    "unknown_species": "Unknown species"
+    "unknown_species": "Unknown species",
+    "play": "Play"
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -1591,6 +1592,12 @@
     "share_manage_save": "Save",
     "share_manage_revoke": "Revoke",
     "share_manage_load_failed": "Could not load active share links",
-    "shared_watermark": "Shared clip"
+    "shared_watermark": "Shared clip",
+    "full_visit_badge": "Full visit",
+    "fetch_full_visit": "Fetch full clip",
+    "fetching_full_visit": "Fetching...",
+    "fetch_full_visit_retry": "Retry full clip",
+    "full_visit_ready": "Full visit clip ready",
+    "full_visit_failed": "Could not fetch full visit clip"
   }
 }
