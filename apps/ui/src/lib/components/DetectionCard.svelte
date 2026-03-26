@@ -391,26 +391,6 @@
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-            {#if canPlayVideo}
-                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                    <button
-                        onclick={handlePlayClick}
-                        onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handlePlayClick(e as any);
-                            }
-                        }}
-                        aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="relative z-20 w-14 h-14 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-2xl text-teal-600 dark:text-teal-400 hover:scale-110 active:scale-90 transition-transform"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </button>
-                </div>
-            {/if}
         {:else}
             <div class="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
                 <svg class="w-12 h-12 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -449,8 +429,10 @@
                 {#if fullVisitFetched}
                     <div class="inline-flex items-center gap-1.5 rounded-full bg-teal-500/95 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-lg shadow-teal-900/30">
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <path d="M5 5h7a3 3 0 013 3v7"></path>
-                            <path d="M7 15h8V7"></path>
+                            <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
                         </svg>
                         <span>{$_('video_player.full_visit_badge', { default: 'Full visit' })}</span>
                     </div>
@@ -502,6 +484,25 @@
                 </svg>
                 {formatTime(detection.detection_time)}
             </div>
+            {#if canPlayVideo}
+                <button
+                    onclick={handlePlayClick}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handlePlayClick(e as any);
+                        }
+                    }}
+                    aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
+                    class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55 px-3 text-[11px] font-black uppercase tracking-wide text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <span>{$_('common.play', { default: 'Play' })}</span>
+                </button>
+            {/if}
             {#if showFetchFullVisitAction}
                 <button
                     onclick={handleFetchFullVisitClick}
