@@ -3,7 +3,8 @@ import eventsSource from './Events.svelte?raw';
 
 describe('Explorer page layout', () => {
     it('uses a compact desktop grid for the primary filters', () => {
-        expect(eventsSource).toContain('card-base rounded-2xl p-4 grid gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto]');
+        expect(eventsSource).toContain('card-base rounded-2xl p-4 space-y-3');
+        expect(eventsSource).toContain('class="grid gap-3 lg:grid-cols-3"');
         expect(eventsSource).toContain('class="select-base min-w-0 w-full"');
     });
 

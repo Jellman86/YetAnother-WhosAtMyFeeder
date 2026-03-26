@@ -15,6 +15,7 @@ Run:
 
 from __future__ import annotations
 
+import gc
 import json
 import os
 from pathlib import Path
@@ -89,27 +90,91 @@ def _model_dir(model_id: str) -> Path:
     return dict(_INSTALLED)[model_id]
 
 
+class _LazySessionCache:
+    """Load at most one ORT session at a time to avoid pinning every model in memory."""
+
+    def __init__(self, model_dirs: dict[str, Path], *, session_factory):
+        self._model_dirs = model_dirs
+        self._session_factory = session_factory
+        self._active_model_id: str | None = None
+        self._active_session = None
+
+    def __getitem__(self, model_id: str):
+        return self.get(model_id)
+
+    def get(self, model_id: str):
+        if self._active_model_id == model_id and self._active_session is not None:
+            return self._active_session
+
+        self.close()
+        model_dir = self._model_dirs[model_id]
+        self._active_session = self._session_factory(model_dir / "model.onnx")
+        self._active_model_id = model_id
+        return self._active_session
+
+    def close(self) -> None:
+        self._active_session = None
+        self._active_model_id = None
+        gc.collect()
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
-def ort_session_cache() -> dict[str, ort.InferenceSession]:
-    """Load each model once per test module run."""
-    sessions: dict[str, ort.InferenceSession] = {}
-    for model_id, model_dir in _INSTALLED:
+def ort_session_cache() -> _LazySessionCache:
+    """Load ORT sessions lazily so the smoke suite does not pin all models in RAM."""
+    model_dirs = dict(_INSTALLED)
+
+    def _build_session(model_path: Path) -> ort.InferenceSession:
         so = ort.SessionOptions()
         so.intra_op_num_threads = 2
         so.inter_op_num_threads = 1
         so.log_severity_level = 3  # suppress verbose ORT logs
-        try:
-            sessions[model_id] = ort.InferenceSession(
-                str(model_dir / "model.onnx"), so,
-                providers=["CPUExecutionProvider"]
-            )
-        except Exception as e:
-            pytest.fail(f"Failed to load {model_id}: {e}")
-    return sessions
+        return ort.InferenceSession(
+            str(model_path), so,
+            providers=["CPUExecutionProvider"]
+        )
+
+    cache = _LazySessionCache(model_dirs, session_factory=_build_session)
+    try:
+        yield cache
+    finally:
+        cache.close()
+
+
+def test_session_cache_loads_models_on_demand(tmp_path: Path) -> None:
+    model_dirs: dict[str, Path] = {}
+    for model_id in ("alpha", "beta"):
+        model_dir = tmp_path / model_id
+        model_dir.mkdir()
+        (model_dir / "model.onnx").write_bytes(b"onnx")
+        model_dirs[model_id] = model_dir
+
+    created: list[Path] = []
+
+    class FakeSession:
+        def __init__(self, model_path: Path):
+            self.model_path = model_path
+
+    def _factory(model_path: Path) -> FakeSession:
+        created.append(model_path)
+        return FakeSession(model_path)
+
+    cache = _LazySessionCache(model_dirs, session_factory=_factory)
+
+    alpha_first = cache["alpha"]
+    alpha_second = cache["alpha"]
+    beta_first = cache["beta"]
+    beta_second = cache["beta"]
+
+    assert alpha_first is alpha_second
+    assert beta_first is beta_second
+    assert created == [
+        model_dirs["alpha"] / "model.onnx",
+        model_dirs["beta"] / "model.onnx",
+    ]
 
 
 # ---------------------------------------------------------------------------

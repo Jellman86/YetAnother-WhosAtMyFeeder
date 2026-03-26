@@ -328,6 +328,11 @@ jobs:
           cd apps/ui
           npm run check
 
+      - name: Frontend unit tests
+        run: |
+          cd apps/ui
+          npm test
+
       - name: Build frontend
         run: |
           cd apps/ui
