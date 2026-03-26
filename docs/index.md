@@ -14,7 +14,7 @@ Everything you need to get the containers running and configured correctly.
 - **[📷 Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
-- **[⚡ GPU Acceleration Setup & Diagnostics](troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino)** - CUDA/OpenVINO requirements, provider badges, and troubleshooting.
+- **[⚡ GPU Acceleration Setup & Diagnostics](troubleshooting/diagnostics.md)** - CUDA/OpenVINO requirements, provider badges, and troubleshooting.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
@@ -35,6 +35,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - **[📹 Frigate NVR](integrations/frigate.md)** - Connecting to your camera system.
 - **[🎵 BirdNET-Go](integrations/birdnet-go.md)** - Multi-sensor audio correlation.
 - **[🌦️ BirdWeather](integrations/birdweather.md)** - Uploading to community science stations.
+- **[🦉 eBird](integrations/ebird.md)** - Nearby sightings, notable reports, and CSV export.
 - **[🌿 iNaturalist](integrations/inaturalist.md)** - Owner-reviewed submissions to iNaturalist.
 - **[🏠 Home Assistant](integrations/home-assistant.md)** - Sensors, cards, and automations.
 
@@ -44,6 +45,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
+- [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics

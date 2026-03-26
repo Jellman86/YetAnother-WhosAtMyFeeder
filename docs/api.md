@@ -75,9 +75,13 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/events/count`
 - `GET /api/events/filters`
 - `GET /api/events/hidden-count` (owner)
+- `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
+- `PATCH /api/events/bulk/manual-tag` (owner)
 - `DELETE /api/events/{event_id}` (owner)
 - `POST /api/events/{event_id}/hide` (owner)
+- `POST /api/events/{event_id}/favorite` (owner)
+- `DELETE /api/events/{event_id}/favorite` (owner)
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
@@ -122,11 +126,15 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/classifier/wildlife/labels`
 - `GET /api/classifier/debug` (owner)
 - `POST /api/classifier/test` (owner)
+- `POST /api/classifier/classify` (owner)
+- `POST /api/classifier/probe` (owner)
 - `GET /api/classifier/wildlife/debug` (owner)
 - `POST /api/classifier/wildlife/test` (owner)
 - `POST /api/classifier/wildlife/download` (owner)
+- `POST /api/classifier/download` (owner)
 - `GET /api/models/available` (owner)
 - `GET /api/models/installed` (owner)
+- `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
 - `POST /api/models/{model_id}/activate` (owner)
@@ -152,10 +160,12 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)
 - `POST /api/maintenance/cleanup` (owner)
+- `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
+- `DELETE /api/maintenance/feedback/clear` (owner)
 - `GET /api/cache/stats` (owner)
 - `POST /api/cache/cleanup` (owner)
 
@@ -174,6 +184,7 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - Audio:
   - `GET /api/audio/recent`
   - `GET /api/audio/context`
+  - `GET /api/audio/sources`
 - eBird:
   - `GET /api/ebird/export`
   - `GET /api/ebird/nearby`
@@ -201,6 +212,14 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/debug/connectivity`
 - `GET /api/debug/fs/models`
 - `GET /api/debug/system`
+- `GET /api/errors`
+- `GET /api/workspace`
+- `POST /api/clear`
+
+### AI Usage Stats (owner)
+
+- `GET /api/stats/ai/usage`
+- `DELETE /api/stats/ai/usage`
 
 ## Rate Limiting
 

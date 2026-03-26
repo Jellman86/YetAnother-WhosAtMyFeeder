@@ -91,6 +91,12 @@
     } from '../settings/bird-model-region-override';
     import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
     import { buildCropOverrideSettings, resolveCropOverridesFromSettings } from '../settings/crop-overrides';
+    import {
+        coerceLlmModelForProvider,
+        getLlmModelOptions,
+        getRecommendedLlmModel,
+        resolveStoredLlmModel
+    } from '../settings/llm-models';
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -172,7 +178,8 @@
     let llmProvider = $state('gemini');
     let llmApiKey = $state('');
     let llmApiKeySaved = $state(false);
-    let llmModel = $state('gemini-2.5-flash');
+    let llmModel = $state(getRecommendedLlmModel('gemini'));
+    let previousLlmProvider = $state('gemini');
     let llmAnalysisPromptTemplate = $state('');
     let llmConversationPromptTemplate = $state('');
     let llmChartPromptTemplate = $state('');
@@ -1108,37 +1115,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         applyPromptTemplates('classic');
     };
 
-    // Available models per provider (Updated February 2026, see provider docs)
-    const modelsByProvider = {
-        gemini: [
-            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
-        ],
-        openai: [
-            { value: 'gpt-5-mini', label: 'GPT-5 mini' },
-            { value: 'gpt-5.2', label: 'GPT-5.2' },
-            { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' }
-        ],
-        claude: [
-            { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-            { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-            { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' }
-        ]
-    };
+    let availableModels = $derived(getLlmModelOptions(llmProvider));
 
-    // Get models for current provider
-    let availableModels = $derived(modelsByProvider[llmProvider as keyof typeof modelsByProvider] || []);
-
-    // Update model to first available when provider changes
+    // Keep the current model when loading saved settings, but coerce to a valid
+    // preset when the user explicitly switches providers in the UI.
     $effect(() => {
-        const models = modelsByProvider[llmProvider as keyof typeof modelsByProvider];
-        if (models && models.length > 0) {
-            // Check if current model is valid for new provider
-            const isValidModel = models.some(m => m.value === llmModel);
-            if (!isValidModel) {
-                llmModel = models[0].value;
-            }
+        if (llmProvider !== previousLlmProvider) {
+            llmModel = coerceLlmModelForProvider(llmProvider, llmModel);
+            previousLlmProvider = llmProvider;
         }
     });
 
@@ -1698,7 +1682,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: normalizeSecret(s.llm_api_key) },
-            { key: 'llmModel', val: llmModel, store: s.llm_model ?? 'gemini-2.5-flash' },
+            { key: 'llmModel', val: llmModel, store: resolveStoredLlmModel(s.llm_provider ?? 'gemini', s.llm_model) },
             { key: 'llmAnalysisPromptTemplate', val: llmAnalysisPromptTemplate, store: s.llm_analysis_prompt_template || '' },
             { key: 'llmConversationPromptTemplate', val: llmConversationPromptTemplate, store: s.llm_conversation_prompt_template || '' },
             { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
@@ -2583,6 +2567,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
+            previousLlmProvider = llmProvider;
             if (settings.llm_api_key === '***REDACTED***') {
                 llmApiKeySaved = true;
                 llmApiKey = '';
@@ -2590,7 +2575,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 llmApiKeySaved = false;
                 llmApiKey = settings.llm_api_key ?? '';
             }
-            llmModel = settings.llm_model ?? 'gemini-2.5-flash';
+            llmModel = resolveStoredLlmModel(llmProvider, settings.llm_model ?? getRecommendedLlmModel(llmProvider));
             llmAnalysisPromptTemplate = settings.llm_analysis_prompt_template ?? '';
             llmConversationPromptTemplate = settings.llm_conversation_prompt_template ?? '';
             llmChartPromptTemplate = settings.llm_chart_prompt_template ?? '';

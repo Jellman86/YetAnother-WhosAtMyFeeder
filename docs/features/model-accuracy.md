@@ -10,7 +10,7 @@ Results are measured against 60 labeled bird images drawn from iNaturalist (15 s
 
 Each run tests two preprocessing modes — **raw** (image sent as-is) and **letterbox** (padded to a square with gray borders) — to identify whether padding helps or hurts each model.
 
-> **Note on scope mismatch:** Birds-only regional models (Small Birds, Medium Birds, EU FocalNet, FlexiViT) are trained on European species. When tested against our fixture set which includes many North American species (Northern Cardinal, Blue Jay, American Robin, etc.), their scores reflect correct handling of out-of-scope input — not a real-world performance failure on their intended region.
+> **Note on scope mismatch:** The birds-only models are not directly comparable to the wildlife-wide models on this mixed fixture set. `Small Birds` and `Medium Birds` resolve to regional variants, the published benchmark rows here use the EU variants, `EU FocalNet-B` is European-only, and `FlexiViT Global` covers a smaller 550-species global bird label space. Lower scores here often reflect out-of-scope input in the fixture set, not a real-world failure on their intended deployment.
 
 ### Accuracy Table (22 March 2026)
 
@@ -26,7 +26,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector** | dependency | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 
-> **EU/regional model note:** Medium Birds, Small Birds, EU FocalNet, and FlexiViT are designed for European or global species lists. The test fixture is approximately 60% North American species, so their apparent low accuracy is expected. On an EU-only fixture their real accuracy would be substantially higher.
+> **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
 > **Intel GPU support:** EU FocalNet-B, Small Birds EU, and Medium Birds EU are validated on Intel integrated GPU. All other ONNX models run on Intel CPU (OpenVINO). See the Intel GPU Support table below.
 
@@ -177,7 +177,7 @@ These tests skip automatically if no Intel GPU is detected.
 
 #### Running inside Docker (required for GPU access)
 
-The GPU is only accessible inside the running backend container. Run the tests there:
+In this environment the Intel GPU is only accessible inside the running backend container, not from the host shell. Run the tests there:
 
 ```bash
 docker exec yawamf-backend python -m pytest tests/test_model_openvino_gpu.py -v
@@ -209,7 +209,7 @@ Results from OV 2025.4.1 on an Intel integrated GPU are documented in the Intel 
 
 ### NVIDIA GPU diagnostic probes
 
-Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests every installed model through ONNX Runtime's `CUDAExecutionProvider` and `TensorrtExecutionProvider`.  These tests **never fail** — they only print a results table.  The data helps determine whether models that are broken on Intel iGPU work correctly on NVIDIA hardware.
+Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests every installed model through ONNX Runtime's `CUDAExecutionProvider` and `TensorrtExecutionProvider`. These probes are best-effort only: they print a results table and are expected to skip cleanly on hosts without an exposed NVIDIA device.
 
 #### Prerequisites
 

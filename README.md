@@ -240,7 +240,7 @@ For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troublesh
 ## Frequently Asked Questions
 
 **Q: What model should I use?**
-For most users, **ConvNeXt Large** (the default) is the best balance of accuracy and speed on standard CPU. If you have GPU acceleration available and need maximum accuracy on rare or difficult species, try **EVA-02 Large**. For constrained hardware, **MobileNet V2** (legacy) is the fastest option. See [AI Models & Performance](docs/features/ai-models.md) for a full comparison.
+For most users, **RoPE ViT-B14** (the default) is the best balance of accuracy and speed for wildlife-wide classification. If you prefer a larger alternative on standard CPU, try **ConvNeXt Large**. If you have GPU acceleration available and need maximum accuracy on rare or difficult species, try **EVA-02 Large**. For constrained hardware, **MobileNet V2** (legacy) is the fastest option. See [AI Models & Performance](docs/features/ai-models.md) for a full comparison.
 
 **Q: My birds are classified as "Unknown Bird" — how do I fix this?**
 Lower the `Min Confidence Floor` (e.g., from 0.4 to 0.2), or lower the `Confidence Threshold` (e.g., from 0.7 to 0.5). Note that wildlife-wide models (ConvNeXt, EVA-02) naturally produce lower per-class scores than birds-only models due to competing against ~8,500 non-bird classes — the recommended threshold shown in the Model Manager card already accounts for this. Enabling Deep Video Analysis also helps for difficult identifications.
@@ -280,7 +280,7 @@ All settings are managed through the web UI under **Settings**. Configuration is
 | **Min Confidence Floor** | Reject detections below this score | `0.4` |
 | **Trust Frigate Sublabels** | Use Frigate's labels instead of local AI | `Enabled` |
 | **Auto Video Analysis** | Analyze full video clips for accuracy | `Disabled` |
-| **AI Model** | MobileNet (Fast), ConvNeXt (High), EVA-02 (Elite) | `RoPE ViT-B14` |
+| **AI Model** | RoPE ViT-B14 (default), ConvNeXt, EVA-02, and birds-only model options in Model Manager | `RoPE ViT-B14` |
 | **BirdWeather Token** | Upload detections to BirdWeather | _(none)_ |
 | **BirdNET-Go Topic** | MQTT topic for audio detections | `birdnet/text` |
 

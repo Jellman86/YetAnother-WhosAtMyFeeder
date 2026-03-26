@@ -639,7 +639,7 @@ Added `llm_*` and `telemetry_*` fields to configuration.
 | `LLM__ENABLED` | `false` | Enable AI behavioral analysis |
 | `LLM__PROVIDER` | `gemini` | `gemini` or `openai` |
 | `LLM__API_KEY` | (none) | API Key for AI Naturalist |
-| `LLM__MODEL` | `gemini-2.0-flash-exp` | AI model name |
+| `LLM__MODEL` | `gemini-2.5-flash` | AI model name |
 | `YA_WAMF_API_KEY` | (none) | Secure the API/UI with a password |
 | `TELEMETRY__ENABLED` | `false` | Enable anonymous usage stats |
 | `TELEMETRY__URL` | `.../heartbeat` | Telemetry destination URL |

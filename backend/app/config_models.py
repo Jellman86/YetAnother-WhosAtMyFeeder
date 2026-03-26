@@ -427,11 +427,15 @@ class EnrichmentSettings(BaseModel):
     rarity_source: str = Field(default="disabled", description="Provider for rarity indicators")
     links_sources: list[str] = Field(default=["wikipedia", "inaturalist"], description="Providers for external links")
 
+
+DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+
+
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
     provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
-    model: str = Field(default="gemini-3-flash-preview", description="Model name to use")
+    model: str = Field(default=DEFAULT_LLM_MODEL, description="Model name to use")
     analysis_prompt_template: str = Field(default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis")
     conversation_prompt_template: str = Field(default=DEFAULT_AI_CONVERSATION_PROMPT, description="Prompt template for follow-up conversation")
     chart_prompt_template: str = Field(default=DEFAULT_AI_CHART_PROMPT, description="Prompt template for chart analysis")

@@ -47,7 +47,7 @@ async def test_analyze_gemini_success(ai_service):
         mock_settings.llm.enabled = True
         mock_settings.llm.api_key = "test_key"
         mock_settings.llm.provider = "gemini"
-        mock_settings.llm.model = "gemini-3-flash-preview"
+        mock_settings.llm.model = "gemini-2.5-flash"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -86,7 +86,7 @@ async def test_analyze_gemini_empty_response(ai_service):
         mock_settings.llm.enabled = True
         mock_settings.llm.api_key = "test_key"
         mock_settings.llm.provider = "gemini"
-        mock_settings.llm.model = "gemini-3-flash-preview"
+        mock_settings.llm.model = "gemini-2.5-flash"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -117,7 +117,7 @@ async def test_analyze_gemini_api_error(ai_service):
         mock_settings.llm.enabled = True
         mock_settings.llm.api_key = "test_key"
         mock_settings.llm.provider = "gemini"
-        mock_settings.llm.model = "gemini-3-flash-preview"
+        mock_settings.llm.model = "gemini-2.5-flash"
 
         with patch('httpx.AsyncClient') as mock_client:
             mock_instance = MagicMock()
@@ -254,7 +254,7 @@ async def test_image_encoding(ai_service):
         mock_settings.llm.enabled = True
         mock_settings.llm.api_key = "test_key"
         mock_settings.llm.provider = "gemini"
-        mock_settings.llm.model = "gemini-3-flash-preview"
+        mock_settings.llm.model = "gemini-2.5-flash"
 
         mock_response = MagicMock()
         mock_response.status_code = 200

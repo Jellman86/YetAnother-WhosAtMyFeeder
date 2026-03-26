@@ -1,15 +1,20 @@
 # AI Models & Performance
 
-YA-WAMF supports multiple AI models, allowing you to balance speed, memory usage, and identification accuracy.
+YA-WAMF supports multiple classifier models, allowing you to balance speed, memory usage, taxonomy scope, and identification accuracy.
 
 ## The Model Market
-You can manage models directly from the **Settings > Detection** page. The system supports two runtimes: **TensorFlow Lite** (Fast) and **ONNX** (High Accuracy).
+You can manage models directly from the **Settings > Detection > Model Manager** page. The current lineup includes:
+
+- Wildlife-wide ONNX models for broad species coverage
+- Birds-only regional and global models for cleaner feeder-focused confidence
+- A legacy TFLite fallback for very constrained CPU-only systems
+- A separately managed bird-crop detector dependency used by crop-enabled models
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
-For ONNX models (ConvNeXt / EVA-02), YA-WAMF supports a provider selector in **Settings > Detection**:
+For ONNX models, YA-WAMF supports a provider selector in **Settings > Detection**:
 
 - `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
 - `CPU`: ONNX Runtime CPU execution.
@@ -50,7 +55,7 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **Format:** ONNX, 375MB
 - **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
 - **Speed:** ~474ms on Intel CPU
-- **Best for:** General-purpose wildlife identification — best balance of accuracy and speed.
+- **Best for:** General-purpose wildlife identification. This is the configured default model for new installs.
 
 #### Large: ConvNeXt Large
 - **Format:** ONNX, 760MB
@@ -65,20 +70,25 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **Memory:** Requires ~3GB RAM
 - **Best for:** Highest available accuracy — worth the extra cost for rare or difficult species.
 
-#### Small: HieraDeT / FlexiViT
-- Compact models for lower-memory systems or quick checks.
-- HieraDeT DINOv2: 70% top-1, 159MB
-- HieraDeT ViT Small: 62% top-1, 167MB
+#### Birds-Only Families: Small Birds / Medium Birds
+- Region-aware family entries that resolve to EU or North America candidate assets based on your configured location.
+- Designed for feeder-first setups where a smaller regional label space gives cleaner confidence scores than wildlife-wide models.
+- `Small Birds` targets lower RAM and faster inference.
+- `Medium Birds` trades more RAM for stronger regional accuracy.
 
-#### Regional Birds-Only (Small/Medium)
-- Dedicated EU or NA models with higher confidence scores within their region.
-- Smaller label space (707 species) — use when you want cleaner confidence scores for feeder birds.
+#### Advanced Birds-Only Options
+- **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU, and Intel GPU support.
+- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU and Intel CPU validation.
 
-#### Legacy TFLite (MobileNet V2 / EfficientNet Lite4)
+#### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
 - **Accuracy:** ~67% top-1, ~73% top-5 (965 species)
 - **Speed:** ~13ms
 - Hidden by default in the UI. Use only for very constrained hardware.
+
+#### Bird Crop Detector
+- Separate downloadable dependency managed in the same Model Manager.
+- Required for crop-enabled classifier models that use the shared bird-localization stage.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.
@@ -95,7 +105,7 @@ If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI c
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".
 
 - **Default Provider:** Google Gemini
-- **Default Model:** `gemini-2.0-flash-exp` (High speed, multimodal)
-- **Alternative:** OpenAI `gpt-4o`
+- **Settings UI recommendation:** `gemini-2.5-flash`
+- **Other current presets in the UI:** OpenAI `gpt-5.4` and Claude `claude-sonnet-4-6`
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.

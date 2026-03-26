@@ -4,13 +4,14 @@
     import SecretSavedBadge from './SecretSavedBadge.svelte';
     import { fetchAiUsage, clearAiUsage, type AIUsageResponse } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
+    import { getRecommendedLlmModel } from '../../settings/llm-models';
 
     let {
         llmEnabled = $bindable(false),
         llmProvider = $bindable('gemini'),
         llmApiKey = $bindable(''),
         llmApiKeySaved = $bindable(false),
-        llmModel = $bindable('gemini-2.5-flash'),
+        llmModel = $bindable(getRecommendedLlmModel('gemini')),
         llmAnalysisPromptTemplate = $bindable(''),
         llmConversationPromptTemplate = $bindable(''),
         llmChartPromptTemplate = $bindable(''),
@@ -261,7 +262,7 @@
                         {/each}
                     </select>
                     <p class="mt-2 text-[9px] text-slate-400 font-bold italic">
-                        {$_('settings.llm.recommended_model', { values: { model: llmProvider === 'gemini' ? 'gemini-2.5-flash' : llmProvider === 'openai' ? 'gpt-5.2' : 'claude-sonnet-4-5' }, default: `Recommended: ${llmProvider === 'gemini' ? 'gemini-2.5-flash' : llmProvider === 'openai' ? 'gpt-5.2' : 'claude-sonnet-4-5'}` })}
+                        {$_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(llmProvider)}` })}
                     </p>
                 </div>
 

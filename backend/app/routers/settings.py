@@ -22,7 +22,12 @@ from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
 from app.services.ai_service import AIService
 from app.services.bird_model_region_resolver import normalize_bird_model_region
-from app.config_models import normalize_crop_override_map, normalize_crop_model_override, normalize_crop_source_override
+from app.config_models import (
+    DEFAULT_LLM_MODEL,
+    normalize_crop_override_map,
+    normalize_crop_model_override,
+    normalize_crop_source_override,
+)
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 
 from fastapi import BackgroundTasks
@@ -353,7 +358,7 @@ class SettingsUpdate(BaseModel):
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
     llm_api_key: Optional[str] = Field(None, description="API key")
-    llm_model: Optional[str] = Field("gemini-2.0-flash-exp", description="AI model")
+    llm_model: Optional[str] = Field(DEFAULT_LLM_MODEL, description="AI model")
     llm_analysis_prompt_template: Optional[str] = Field(None, description="Prompt template for detection analysis")
     llm_conversation_prompt_template: Optional[str] = Field(None, description="Prompt template for follow-up conversation")
     llm_chart_prompt_template: Optional[str] = Field(None, description="Prompt template for chart analysis")

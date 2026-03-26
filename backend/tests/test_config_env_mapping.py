@@ -7,6 +7,17 @@ from app.config import Settings
 from app.config_loader import CLASSIFICATION_ENV_OVERRIDES
 
 
+def test_llm_model_default_matches_current_ui_default(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("LLM__MODEL", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.llm.model == "gemini-2.5-flash"
+
+
 def test_classification_timeout_seconds_env_override(monkeypatch):
     monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS", "777")
 

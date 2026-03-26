@@ -91,7 +91,7 @@ docker compose up -d
 
 ### 3.1 (Optional) Enable GPU acceleration for ONNX models
 
-If you want ConvNeXt/EVA-02 acceleration:
+If you want ONNX model acceleration (`RoPE ViT-B14`, `ConvNeXt`, `EVA-02`, and the ONNX birds-only models):
 
 - **Intel iGPU (OpenVINO):**
   - Mount `/dev/dri` into `yawamf-backend`

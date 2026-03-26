@@ -124,7 +124,7 @@ Ensure your host machine has enough space.
 
 ### 4. Optional GPU Acceleration (YA-WAMF ONNX models)
 
-YA-WAMF can accelerate **ConvNeXt / EVA-02** ONNX models with:
+YA-WAMF can accelerate its ONNX classifier models with:
 
 - **NVIDIA CUDA** (ONNX Runtime CUDA)
 - **Intel OpenVINO** (Intel GPU or CPU)
@@ -150,11 +150,12 @@ Model choice still strongly affects RAM/CPU requirements:
 
 | Model Tier | CPU | RAM (Recommended) |
 |------------|-----|-------------------|
-| **Fast (MobileNet)** | Low | 512MB (baseline, may be higher in real deployments) |
-| **High (ConvNeXt)** | Medium | 2GB |
+| **Fast (MobileNet V2 legacy)** | Low | 512MB (baseline, may be higher in real deployments) |
+| **Balanced (RoPE ViT-B14 / birds-only small)** | Medium | 1-2GB |
+| **High (ConvNeXt / birds-only medium)** | Medium | 2GB+ |
 | **Elite (EVA-02)** | High | 4GB+ |
 
-> 💡 **Pro Tip:** For low-power or ARM devices (including trial Pi deployments), start with **MobileNet V2** and only enable heavier features after stability checks.
+> 💡 **Pro Tip:** For low-power or ARM devices (including trial Pi deployments), start with **MobileNet V2** or one of the smaller birds-only models, and only enable heavier wildlife-wide models after stability checks.
 
 ## 🔄 Updating YA-WAMF
 

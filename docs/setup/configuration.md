@@ -56,7 +56,7 @@ Configure third-party services.
 - **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs. Multiple source names per camera are supported (comma-separated).
 - **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
 - **iNaturalist:** Owner-reviewed submissions via OAuth. Requires App Owner approval (currently untested).
-- **AI Insights:** Connect Google Gemini (default: `gemini-2.0-flash`), OpenAI, or Claude to get behavioral analysis of your visitors.
+- **AI Insights:** Connect Google Gemini, OpenAI, or Claude to get behavioral analysis of your visitors. The Settings UI surfaces current recommended models per provider.
 - **Location:** Set your latitude/longitude for weather enrichment. Also configure **Weather Units** (`Metric`, `Imperial`, or `British` for °C + mph + mm) and optional `state`/`country` values for eBird export.
 - **eBird Export:** Download detections as a standard eBird CSV record file from **Settings > Data**. Supports full export or a filtered date range. `Unknown Bird` entries are excluded. Requires English species names in the taxonomy cache.
 
