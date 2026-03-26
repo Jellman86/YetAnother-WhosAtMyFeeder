@@ -45,6 +45,7 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
     existing = MagicMock(spec=Detection)
     existing.score = 0.5
     existing.display_name = "Old Name"
+    existing.category_name = "Old Name"
     existing.detection_time = datetime.now()
     existing.camera_name = "cam1"
     existing.is_hidden = False
@@ -78,6 +79,7 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     existing = MagicMock(spec=Detection)
     existing.score = 0.5
     existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
     existing.detection_time = datetime.now()
     existing.camera_name = "cam1"
     existing.is_hidden = False
