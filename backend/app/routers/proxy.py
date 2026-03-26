@@ -43,6 +43,7 @@ router = APIRouter()
 # Shared HTTP client for better connection pooling
 _http_client: httpx.AsyncClient | None = None
 _preview_locks: dict[str, asyncio.Lock] = {}
+_recording_clip_fetch_locks: dict[str, asyncio.Lock] = {}
 
 VIDEO_PREVIEW_REQUESTS = Counter(
     "video_preview_requests_total",
@@ -87,6 +88,14 @@ def _preview_lock(event_id: str) -> asyncio.Lock:
     if lock is None:
         lock = asyncio.Lock()
         _preview_locks[event_id] = lock
+    return lock
+
+
+def _recording_clip_fetch_lock(event_id: str) -> asyncio.Lock:
+    lock = _recording_clip_fetch_locks.get(event_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _recording_clip_fetch_locks[event_id] = lock
     return lock
 
 
@@ -180,6 +189,13 @@ class VideoShareRevokeResponse(BaseModel):
     status: str
     event_id: str
     link_id: int
+
+
+class RecordingClipFetchResponse(BaseModel):
+    event_id: str
+    status: Literal["ready"]
+    clip_variant: Literal["recording"] = "recording"
+    cached: bool
 
 
 def _iso_or_now(value: datetime | None) -> str:
@@ -563,6 +579,76 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
         return True
     finally:
         await response.aclose()
+
+
+async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
+    from app.services.media_cache import media_cache, _MIN_VALID_CLIP_BYTES
+
+    cached_path = media_cache.get_recording_clip_path(event_id)
+    if cached_path:
+        return True
+
+    lock = _recording_clip_fetch_lock(event_id)
+    async with lock:
+        cached_path = media_cache.get_recording_clip_path(event_id)
+        if cached_path:
+            return True
+
+        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+        clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
+        headers = frigate_client._get_headers()
+
+        client = httpx.AsyncClient(timeout=120.0)
+        req = client.build_request("GET", clip_url, headers=headers)
+        response = await client.send(req, stream=True)
+        try:
+            if _is_no_recordings_response(response) or response.status_code == 404:
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                )
+            response.raise_for_status()
+
+            should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+            if should_cache:
+                cached = await media_cache.cache_recording_clip_streaming(event_id, response.aiter_bytes())
+                if not cached:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                    )
+                return True
+
+            total_size = 0
+            async for chunk in response.aiter_bytes():
+                if chunk:
+                    total_size += len(chunk)
+            if total_size < _MIN_VALID_CLIP_BYTES:
+                raise HTTPException(
+                    status_code=404,
+                    detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                )
+            return True
+        except HTTPException:
+            raise
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=504,
+                detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+            )
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code)
+            )
+        except httpx.RequestError:
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url)
+            )
+        finally:
+            await response.aclose()
+            await client.aclose()
 
 
 async def _ensure_preview_assets(event_id: str, lang: str) -> str:
@@ -1239,6 +1325,39 @@ async def check_recording_clip_exists(
     finally:
         if 'resp' in locals():
             await resp.aclose()
+
+
+@router.post("/frigate/{event_id}/recording-clip/fetch", response_model=RecordingClipFetchResponse)
+@guest_rate_limit()
+async def fetch_recording_clip(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    lang = get_user_language(request)
+
+    if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n_service.translate("errors.clip_disabled", lang)
+        )
+
+    if not validate_event_id(event_id):
+        raise HTTPException(
+            status_code=400,
+            detail=i18n_service.translate("errors.proxy.invalid_event_id", lang)
+        )
+
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang)
+
+    ready = await _fetch_recording_clip_ready(event_id, lang)
+    return RecordingClipFetchResponse(
+        event_id=event_id,
+        status="ready",
+        clip_variant="recording",
+        cached=bool(ready and settings.media_cache.enabled and settings.media_cache.cache_clips),
+    )
 
 
 @router.get("/frigate/{event_id}/clip.mp4")

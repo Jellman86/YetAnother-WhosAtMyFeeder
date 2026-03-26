@@ -21,6 +21,7 @@
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { _ } from 'svelte-i18n';
@@ -76,6 +77,13 @@
     let bulkSearchTimeout: ReturnType<typeof setTimeout> | null = null;
     let bulkSearching = $state(false);
     let videoClipVariant = $state<'event' | 'recording'>('event');
+    let fullVisitAvailability = $derived(fullVisitStore.availability);
+    let fullVisitFetchState = $derived(fullVisitStore.fetchState);
+    let preferredClipVariantByEvent = $derived(fullVisitStore.preferredClipVariantByEvent);
+    let recordingClipFetchEnabled = $derived(
+        (settingsStore.settings?.recording_clip_enabled ?? false) &&
+        (settingsStore.settings?.clips_enabled ?? false)
+    );
 
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
@@ -639,6 +647,13 @@
     });
 
     $effect(() => {
+        if (!recordingClipFetchEnabled) return;
+        for (const event of visibleEvents) {
+            void fullVisitStore.ensureAvailability(event.frigate_event);
+        }
+    });
+
+    $effect(() => {
         if (selectedTimelineBucket === 'all') return;
         if (!timelineBuckets.some((bucket) => bucket.key === selectedTimelineBucket)) {
             selectedTimelineBucket = 'all';
@@ -730,6 +745,16 @@
             return;
         }
         selectedEvent = event;
+    }
+
+    async function handleFetchFullVisit(event: Detection) {
+        try {
+            await fullVisitStore.fetchFullVisit(event.frigate_event);
+            toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+        } catch (e) {
+            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
+            toastStore.error(message);
+        }
     }
 
     async function applyBulkManualTag(selection: SearchResult) {
@@ -1011,10 +1036,14 @@
                         videoEventId = event.frigate_event;
                         videoShareToken = null;
                         videoPlayIntent = 'user';
-                        videoClipVariant = 'event';
+                        videoClipVariant = preferredClipVariantByEvent[event.frigate_event] ?? 'event';
                         showVideo = true;
                         selectedEvent = null;
                     }}
+                    onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
+                    fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
+                    fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
+                    fullVisitFetchState={fullVisitFetchState[event.frigate_event] ?? 'idle'}
                     hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                     selectionMode={selectionMode}
                     selected={selectedEventIds.includes(event.frigate_event)}
@@ -1046,7 +1075,7 @@
             videoEventId = frigateEvent;
             videoShareToken = null;
             videoPlayIntent = playIntent;
-            videoClipVariant = 'event';
+            videoClipVariant = preferredClipVariantByEvent[frigateEvent] ?? 'event';
             showVideo = true;
             selectedEvent = null;
         }}

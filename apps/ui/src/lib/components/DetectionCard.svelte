@@ -25,13 +25,31 @@
         onReclassify?: (detection: Detection) => void;
         onRetag?: (detection: Detection) => void;
         onPlay?: (detection: Detection) => void;
+        onFetchFullVisit?: (detection: Detection) => void;
         hideProgress?: boolean;
         index?: number;
         selectionMode?: boolean;
         selected?: boolean;
+        fullVisitAvailable?: boolean;
+        fullVisitFetched?: boolean;
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
     }
 
-    let { detection, onclick, onReclassify, onRetag, onPlay, hideProgress = false, index = 0, selectionMode = false, selected = false }: Props = $props();
+    let {
+        detection,
+        onclick,
+        onReclassify,
+        onRetag,
+        onPlay,
+        onFetchFullVisit,
+        hideProgress = false,
+        index = 0,
+        selectionMode = false,
+        selected = false,
+        fullVisitAvailable = false,
+        fullVisitFetched = false,
+        fullVisitFetchState = 'idle'
+    }: Props = $props();
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -141,6 +159,11 @@
         onPlay?.(detection);
     }
 
+    function handleFetchFullVisitClick(event: MouseEvent) {
+        event.stopPropagation();
+        onFetchFullVisit?.(detection);
+    }
+
     // Lazy load with intersection observer
     $effect(() => {
         if (!cardElement) return;
@@ -234,6 +257,17 @@
         )
     );
     const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+    const canPlayVideo = $derived(!!onPlay && (detection.has_clip || fullVisitFetched));
+    const showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched);
+    const fullVisitFetchLabel = $derived.by(() => {
+        if (fullVisitFetchState === 'fetching') {
+            return $_('video_player.fetching_full_visit', { default: 'Fetching...' });
+        }
+        if (fullVisitFetchState === 'failed') {
+            return $_('video_player.fetch_full_visit_retry', { default: 'Retry full clip' });
+        }
+        return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });
+    });
 
     function rainColor(total: number) {
         if (total >= 5) return 'text-blue-600';
@@ -355,7 +389,7 @@
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-            {#if detection.has_clip && onPlay}
+            {#if canPlayVideo}
                 <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
                     <button
                         onclick={handlePlayClick}
@@ -410,6 +444,15 @@
                         {processedUnknownStatus.label}
                     </div>
                 {/if}
+                {#if fullVisitFetched}
+                    <div class="inline-flex items-center gap-1.5 rounded-full bg-teal-500/95 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-lg shadow-teal-900/30">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M5 5h7a3 3 0 013 3v7"></path>
+                            <path d="M7 15h8V7"></path>
+                        </svg>
+                        <span>{$_('video_player.full_visit_badge', { default: 'Full visit' })}</span>
+                    </div>
+                {/if}
                 {#if hasFrigateIssueBadge}
                     <div
                         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-900/30"
@@ -458,8 +501,34 @@
                 {formatTime(detection.detection_time)}
             </div>
         </div>
-        {#if onReclassify || onRetag}
+        {#if onReclassify || onRetag || showFetchFullVisitAction}
             <div class="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                {#if showFetchFullVisitAction}
+                    <button
+                        onclick={handleFetchFullVisitClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleFetchFullVisitClick(e as any);
+                            }
+                        }}
+                        disabled={fullVisitFetchState === 'fetching'}
+                        aria-label={fullVisitFetchLabel}
+                        class="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200/50 bg-white px-3 text-[11px] font-black uppercase tracking-wide text-slate-700 shadow-2xl transition-all duration-200 hover:bg-teal-500 hover:text-white disabled:cursor-wait disabled:opacity-70 dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-100"
+                    >
+                        {#if fullVisitFetchState === 'fetching'}
+                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                        {:else}
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M10 3v8"></path>
+                                <path d="M7 8l3 3 3-3"></path>
+                                <path d="M4 14h12"></path>
+                            </svg>
+                        {/if}
+                        <span>{fullVisitFetchLabel}</span>
+                    </button>
+                {/if}
                 {#if onReclassify}
                     <button
                         onclick={handleReclassifyClick}

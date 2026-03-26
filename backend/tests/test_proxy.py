@@ -324,6 +324,94 @@ async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.As
 
 
 @pytest.mark.asyncio
+async def test_recording_clip_fetch_warms_cache_when_available(client: httpx.AsyncClient, mock_frigate_response):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate, \
+         patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
+         patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+        mock_cache.return_value = Path("/config/media_cache/clips/test_event_id_recording.mp4")
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_frigate_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.post("/api/frigate/test_event_id/recording-clip/fetch")
+            assert response.status_code == 200
+            assert response.json()["status"] == "ready"
+            assert response.json()["clip_variant"] == "recording"
+            assert response.json()["cached"] is True
+            mock_cache.assert_awaited_once()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.frigate.recording_clip_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    mock_response = MagicMock()
+    mock_response.status_code = 400
+    mock_response.json = MagicMock(return_value={"message": "No recordings found for the specified time range"})
+    mock_response.text = '{"message":"No recordings found for the specified time range"}'
+    mock_response.aclose = AsyncMock()
+
+    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
+         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate, \
+         patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
+         patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
+        mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
+        mock_frigate.get_camera_recording_clip_url = MagicMock(
+            return_value="http://frigate/api/front_feeder/clip.mp4?after=1700000000&before=1700000120"
+        )
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        mock_client = MagicMock()
+        mock_client.build_request = MagicMock()
+        mock_client.send = AsyncMock(return_value=mock_response)
+        mock_client.aclose = AsyncMock()
+        MockClient.return_value = mock_client
+
+        try:
+            response = await client.post("/api/frigate/test_event_id/recording-clip/fetch")
+            assert response.status_code == 404
+            mock_cache.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.frigate.recording_clip_enabled = original_recording
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
     """VTT endpoint should return WebVTT with sprite cue URLs."""
     original_setting = settings.frigate.clips_enabled

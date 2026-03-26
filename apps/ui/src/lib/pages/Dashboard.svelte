@@ -16,6 +16,7 @@
     import type { Detection, DailySummary, SpeciesInfo } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -59,6 +60,14 @@
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
+    let videoClipVariant = $state<'event' | 'recording'>('event');
+    let fullVisitAvailability = $derived(fullVisitStore.availability);
+    let fullVisitFetchState = $derived(fullVisitStore.fetchState);
+    let preferredClipVariantByEvent = $derived(fullVisitStore.preferredClipVariantByEvent);
+    let recordingClipFetchEnabled = $derived(
+        (settingsStore.settings?.recording_clip_enabled ?? false) &&
+        (settingsStore.settings?.clips_enabled ?? false)
+    );
 
     // Manual Tag state
     let classifierLabels = $state<string[]>([]);
@@ -74,6 +83,7 @@
 
     // Derive the hero detection (latest one)
     let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
+    let visibleFeedDetections = $derived(detectionsStore.detections.slice(1, 10));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -90,6 +100,13 @@
 
     let modalPrimaryName = $derived(modalNaming.primary);
     let modalSubName = $derived(modalNaming.secondary);
+
+    $effect(() => {
+        if (!recordingClipFetchEnabled) return;
+        for (const detection of visibleFeedDetections) {
+            void fullVisitStore.ensureAvailability(detection.frigate_event);
+        }
+    });
 
     function detectionSyncSignature(d: Detection): string {
         const asText = (value: unknown) => {
@@ -216,6 +233,16 @@
             const message = getErrorMessage(error);
             console.error('Failed to start reclassification', message, error);
             toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
+        }
+    }
+
+    async function handleFetchFullVisit(detection: Detection) {
+        try {
+            await fullVisitStore.fetchFullVisit(detection.frigate_event);
+            toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+        } catch (e) {
+            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
+            toastStore.error(message);
         }
     }
 
@@ -367,7 +394,7 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {#if detectionsStore.detections.length > 0}
-                {#each detectionsStore.detections.slice(1, 10) as detection, index (detection.frigate_event || detection.id)}
+                {#each visibleFeedDetections as detection, index (detection.frigate_event || detection.id)}
                     <div in:fly={{ y: 20, duration: 400 }}>
                         <DetectionCard 
                             {detection} 
@@ -376,9 +403,14 @@
                             onPlay={() => {
                                 videoEventId = detection.frigate_event;
                                 videoPlayIntent = 'user';
+                                videoClipVariant = preferredClipVariantByEvent[detection.frigate_event] ?? 'event';
                                 showVideo = true;
                                 selectedEvent = null;
                             }}
+                            onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(detection) : undefined}
+                            fullVisitAvailable={fullVisitAvailability[detection.frigate_event] === 'available'}
+                            fullVisitFetched={fullVisitFetchState[detection.frigate_event] === 'ready'}
+                            fullVisitFetchState={fullVisitFetchState[detection.frigate_event] ?? 'idle'}
                             hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
                         />
                     </div>
@@ -413,6 +445,7 @@
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
             videoPlayIntent = playIntent;
+            videoClipVariant = preferredClipVariantByEvent[frigateEvent] ?? 'event';
             showVideo = true;
             selectedEvent = null;
         }}
@@ -426,9 +459,11 @@
     <VideoPlayer
         frigateEvent={videoEventId}
         playIntent={videoPlayIntent}
+        initialClipVariant={videoClipVariant}
         onClose={() => {
             showVideo = false;
             videoEventId = null;
+            videoClipVariant = 'event';
         }}
     />
 {/if}

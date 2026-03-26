@@ -16,6 +16,13 @@ export function getRecordingClipUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`);
 }
 
+export interface RecordingClipFetchResponse {
+    event_id: string;
+    status: 'ready';
+    clip_variant: 'recording';
+    cached: boolean;
+}
+
 export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
@@ -118,4 +125,22 @@ export async function checkClipAvailable(frigateEvent: string): Promise<boolean>
     } catch {
         return false;
     }
+}
+
+export async function checkRecordingClipAvailable(frigateEvent: string): Promise<boolean> {
+    try {
+        const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`, {
+            method: 'HEAD'
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function fetchRecordingClip(frigateEvent: string): Promise<RecordingClipFetchResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/recording-clip/fetch`, {
+        method: 'POST',
+    });
+    return handleResponse<RecordingClipFetchResponse>(response);
 }

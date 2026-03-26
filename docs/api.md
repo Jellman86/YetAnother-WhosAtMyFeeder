@@ -90,6 +90,7 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
+- `POST /api/frigate/{event_id}/recording-clip/fetch`
 - `GET /api/frigate/{event_id}/thumbnail.jpg`
 - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
