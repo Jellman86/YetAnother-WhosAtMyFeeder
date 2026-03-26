@@ -90,7 +90,7 @@
       "acceptable_labels": ["Blue Tit", "Cyanistes caeruleus", "Parus caeruleus"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "notes": "Small blue/yellow tit, iconic EU feeder bird"
+      "notes": "Small blue/yellow tit, iconic EU feeder bird. blue_tit_04 removed: bird upside-down on ball feeder, shot through glass at distance — cross-model failure (top prediction Mallard 0.047), removed from fixture set."
     },
     {
       "id": "chaffinch",
@@ -100,8 +100,7 @@
       "acceptable_labels": ["Chaffinch", "Fringilla coelebs", "common chaffinch"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [352779229],
-      "notes": "Very common EU garden finch. Photo 352779229 (chaffinch_01) is a known poor-quality image — cross-model failure, excluded."
+      "notes": "Very common EU garden finch. chaffinch_01 removed from fixture set — cross-model failure (Indian silverbill/warbler predictions, no chaffinch in top-5)."
     },
     {
       "id": "eurasian_blackbird",
@@ -111,8 +110,7 @@
       "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [299609865, 299611076, 299939604],
-      "notes": "All-black thrush, very common EU garden bird. Photos 299609865/_02/_03 (obs/172578277) are very dark/underexposed — excluded as known cross-model failures."
+      "notes": "All-black thrush, very common EU garden bird. eurasian_blackbird_01/_02/_03 removed from fixture set — all cross-model failures (top predictions owls/Unknown at low confidence, no blackbird in top-5)."
     },
     {
       "id": "house_sparrow",
@@ -132,8 +130,7 @@
       "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [13758585, 575999585],
-      "notes": "Cosmopolitan swallow, present in all regional model scopes. Photo 13758585 (obs/10006129) has a white egret dominating the frame; 575999585 shows no recognisable swallow features (cross-model failure) — both excluded."
+      "notes": "Cosmopolitan swallow, present in all regional model scopes. barn_swallow_02/_03 removed from fixture set — cross-model failures (egret-dominated frame; no swallow features recognised by any tested model)."
     },
     {
       "id": "mallard",
@@ -143,8 +140,7 @@
       "acceptable_labels": ["Mallard", "Anas platyrhynchos"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
-      "exclude_photo_ids": [10826269],
-      "notes": "Very common duck, should be easy for any model. Photo 10826269 produces seabird predictions (eider/booby) at high confidence — likely mislabelled or wrong frame, excluded."
+      "notes": "Very common duck, should be easy for any model. mallard_02 removed from fixture set — seabird predictions (Common eider 0.323, Masked booby 0.225) at high confidence, likely mislabelled iNat photo."
     },
     {
       "id": "rock_pigeon",
