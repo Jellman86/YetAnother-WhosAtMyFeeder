@@ -6,6 +6,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
+    import { getDetectionClassificationSource } from '../detection-classification-source';
 
     import { getBirdNames } from '../naming';
     import { formatTime } from '../utils/datetime';
@@ -37,6 +38,7 @@
 
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
+    let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
     let hasAudioSignal = $derived(
         detection.audio_confirmed
             || !!detection.audio_species
@@ -190,7 +192,7 @@
         </div>
 
         <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">
-            {#if !detection.manual_tagged}
+            {#if currentClassificationSource !== 'manual'}
                 <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
                     <span class="text-lg font-black">{((detection.score || 0) * 100).toFixed(0)}</span>
                     <span class="text-[8px] font-bold uppercase opacity-60">{$_('dashboard.hero.conf')}</span>

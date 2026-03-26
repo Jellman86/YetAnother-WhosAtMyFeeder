@@ -165,6 +165,9 @@ async def test_manual_update_writes_classification_feedback_row(client: httpx.As
         mock_get_names.assert_awaited()
         mock_audio.assert_awaited()
         mock_broadcast.assert_awaited()
+        broadcast_payload = mock_broadcast.await_args.args[0]
+        assert broadcast_payload["type"] == "detection_updated"
+        assert broadcast_payload["data"]["category_name"] == "Parus major"
 
         async with get_db() as db:
             async with db.execute(

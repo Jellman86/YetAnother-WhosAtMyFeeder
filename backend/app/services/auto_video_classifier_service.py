@@ -915,6 +915,7 @@ class AutoVideoClassifierService:
                         "data": {
                             "frigate_event": frigate_event,
                             "display_name": det.display_name,
+                            "category_name": det.category_name,
                             "score": det.score,
                             "timestamp": det.detection_time.isoformat(),
                             "camera": det.camera_name,

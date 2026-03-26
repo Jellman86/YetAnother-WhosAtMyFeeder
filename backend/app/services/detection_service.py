@@ -275,6 +275,7 @@ class DetectionService:
                     "data": {
                         "frigate_event": frigate_event,
                         "display_name": display_name,
+                        "category_name": category_name,
                         "scientific_name": scientific_name,
                         "common_name": common_name,
                         "taxa_id": taxa_id,
@@ -504,6 +505,7 @@ class DetectionService:
                         "data": {
                             "frigate_event": frigate_event,
                             "display_name": updated.display_name,
+                            "category_name": updated.category_name,
                             "score": updated.score,
                             "timestamp": updated.detection_time.isoformat(),
                             "camera": updated.camera_name,

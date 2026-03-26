@@ -84,6 +84,11 @@
         (settingsStore.settings?.recording_clip_enabled ?? false) &&
         (settingsStore.settings?.clips_enabled ?? false)
     );
+    let selectedEventFullVisitHandler = $derived.by(() => {
+        const current = selectedEvent;
+        if (!current || !recordingClipFetchEnabled) return undefined;
+        return () => handleFetchFullVisit(current);
+    });
 
     let analyzingAI = $state(false);
     let aiAnalysis = $state<string | null>(null);
@@ -573,10 +578,11 @@
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
             selectedEvent.display_name = newSpecies;
+            selectedEvent.category_name = newSpecies;
             selectedEvent.manual_tagged = true;
             // Update local list
-            events = events.map(e => e.frigate_event === selectedEvent?.frigate_event ? { ...e, display_name: newSpecies } : e);
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, manual_tagged: true });
+            events = events.map(e => e.frigate_event === selectedEvent?.frigate_event ? { ...e, display_name: newSpecies, category_name: newSpecies, manual_tagged: true } : e);
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
             showTagDropdown = false;
         } catch (e) {
             console.error('Failed to update species', e);
@@ -651,6 +657,11 @@
         for (const event of visibleEvents) {
             void fullVisitStore.ensureAvailability(event.frigate_event);
         }
+    });
+
+    $effect(() => {
+        if (!recordingClipFetchEnabled || !selectedEvent) return;
+        void fullVisitStore.ensureAvailability(selectedEvent.frigate_event);
     });
 
     $effect(() => {
@@ -770,7 +781,12 @@
 
             events = events.map((event) => (
                 updatedSet.has(event.frigate_event)
-                    ? { ...event, display_name: appliedSpecies, manual_tagged: true }
+                    ? {
+                        ...event,
+                        display_name: appliedSpecies,
+                        category_name: selection.scientific_name ?? selection.display_name ?? selection.id,
+                        manual_tagged: true
+                    }
                     : event
             ));
 
@@ -780,6 +796,7 @@
                     detectionsStore.updateDetection({
                         ...existing,
                         display_name: appliedSpecies,
+                        category_name: selection.scientific_name ?? selection.display_name ?? selection.id,
                         manual_tagged: true
                     });
                 }
@@ -1069,8 +1086,12 @@
         {classifierLabels}
         llmReady={llmReady}
         showVideoButton={true}
+        fullVisitAvailable={selectedEvent ? fullVisitAvailability[selectedEvent.frigate_event] === 'available' : false}
+        fullVisitFetched={selectedEvent ? fullVisitFetchState[selectedEvent.frigate_event] === 'ready' : false}
+        fullVisitFetchState={selectedEvent ? (fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle') : 'idle'}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
+        onFetchFullVisit={selectedEventFullVisitHandler}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
             videoShareToken = null;

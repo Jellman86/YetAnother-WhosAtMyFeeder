@@ -68,6 +68,11 @@
         (settingsStore.settings?.recording_clip_enabled ?? false) &&
         (settingsStore.settings?.clips_enabled ?? false)
     );
+    let selectedEventFullVisitHandler = $derived.by(() => {
+        const current = selectedEvent;
+        if (!current || !recordingClipFetchEnabled) return undefined;
+        return () => handleFetchFullVisit(current);
+    });
 
     // Manual Tag state
     let classifierLabels = $state<string[]>([]);
@@ -106,6 +111,11 @@
         for (const detection of visibleFeedDetections) {
             void fullVisitStore.ensureAvailability(detection.frigate_event);
         }
+    });
+
+    $effect(() => {
+        if (!recordingClipFetchEnabled || !selectedEvent) return;
+        void fullVisitStore.ensureAvailability(selectedEvent.frigate_event);
     });
 
     function detectionSyncSignature(d: Detection): string {
@@ -252,9 +262,10 @@
         try {
             await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
             selectedEvent.display_name = newSpecies;
+            selectedEvent.category_name = newSpecies;
             selectedEvent.manual_tagged = true;
             // Optimistically update store
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, manual_tagged: true });
+            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
             showTagDropdown = false;
             await loadSummary(true);
         } catch (e) {
@@ -440,8 +451,12 @@
         {classifierLabels}
         llmReady={llmReady}
         showVideoButton={true}
+        fullVisitAvailable={selectedEvent ? fullVisitAvailability[selectedEvent.frigate_event] === 'available' : false}
+        fullVisitFetched={selectedEvent ? fullVisitFetchState[selectedEvent.frigate_event] === 'ready' : false}
+        fullVisitFetchState={selectedEvent ? (fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle') : 'idle'}
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
+        onFetchFullVisit={selectedEventFullVisitHandler}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
             videoPlayIntent = playIntent;

@@ -223,6 +223,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
     payload = {
         "frigate_event": detection.frigate_event,
         "display_name": detection.display_name,
+        "category_name": detection.category_name,
         "score": detection.score,
         "timestamp": detection.detection_time.isoformat(),
         "camera": detection.camera_name,

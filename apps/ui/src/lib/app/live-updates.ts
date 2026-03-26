@@ -130,6 +130,7 @@ function toDetection(data: any): Detection {
     return {
         frigate_event: data.frigate_event,
         display_name: data.display_name,
+        category_name: data.category_name,
         score: data.score,
         detection_time: data.timestamp,
         camera_name: data.camera,

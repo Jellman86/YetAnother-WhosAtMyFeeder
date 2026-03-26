@@ -170,6 +170,62 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.upsertRunning.length).toBe(1);
     });
 
+    it('preserves category_name from detection_updated payloads', () => {
+        const updates: any[] = [];
+        const coordinator = new LiveUpdateCoordinator({
+            t: (key: string) => key,
+            shouldNotify: () => false,
+            hasOwnerAccess: () => true,
+            applyNotificationPolicy: () => true,
+            notificationCenter: { items: [], add: () => undefined, upsert: () => undefined, remove: () => undefined },
+            jobProgress: { activeJobs: [], upsertRunning: () => undefined, markCompleted: () => undefined, markFailed: () => undefined, markStale: () => undefined, remove: () => undefined },
+            detectionsStore: {
+                setConnected: () => undefined,
+                addDetection: () => undefined,
+                updateDetection: (detection: any) => updates.push(detection),
+                removeDetection: () => undefined,
+                startReclassification: () => undefined,
+                updateReclassificationProgress: () => undefined,
+                completeReclassification: () => undefined
+            },
+            settingsStore: { liveAnnouncements: false },
+            announcer: { announce: () => undefined },
+            logger: { warn: () => undefined, error: () => undefined, sseEvent: () => undefined },
+            checkHealth: async () => ({}),
+            fetchCacheStats: async () => ({}),
+            fetchAnalysisStatus: async () => ({
+                pending: 0,
+                active: 0,
+                circuit_open: false,
+                open_until: null,
+                failure_count: 0,
+                pending_capacity: 1000,
+                pending_available: 1000
+            }),
+            diagnostics: { ingestHealth: () => undefined, recordError: () => undefined }
+        });
+
+        coordinator.handlePayload({
+            type: 'detection_updated',
+            data: {
+                frigate_event: 'evt-category',
+                display_name: 'Blue Jay',
+                category_name: 'blue jay',
+                score: 0.9,
+                timestamp: '2026-03-26T12:00:00Z',
+                camera: 'BirdCam',
+                is_hidden: false,
+                is_favorite: false,
+                manual_tagged: true,
+                video_classification_status: 'completed',
+                video_classification_label: 'blue jay'
+            }
+        });
+
+        expect(updates).toHaveLength(1);
+        expect(updates[0].category_name).toBe('blue jay');
+    });
+
     it('forwards health payloads to diagnostics ingest', async () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();

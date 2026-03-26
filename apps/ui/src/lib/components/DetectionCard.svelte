@@ -8,6 +8,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import { hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { FRIGATE_LOGO_URL } from '../assets';
+    import { getDetectionClassificationSource } from '../detection-classification-source';
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -86,11 +87,12 @@
     });
     let hasAudioSignal = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
     let audioNearbySummary = $derived(audioContextSpecies.join(', '));
+    let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
     let classificationSource = $derived.by(() => {
-        if (detection.manual_tagged) {
+        if (currentClassificationSource === 'manual') {
             return { key: 'manual', label: $_('detection.tag_manual') };
         }
-        if (detection.video_classification_status === 'completed') {
+        if (currentClassificationSource === 'video') {
             return { key: 'video', label: $_('detection.tag_video') };
         }
         return { key: 'snapshot', label: $_('detection.tag_snapshot') };
@@ -102,7 +104,7 @@
     let processedUnknownStatus = $derived.by(() => {
         if (!isUnknownSpecies) return null;
         const videoStatus = detection.video_classification_status;
-        if (detection.manual_tagged) {
+        if (currentClassificationSource === 'manual') {
             return {
                 label: $_('detection.tag_manual'),
                 classes: 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
@@ -480,7 +482,7 @@
                     {/if}
                     <span>{classificationSource.label}</span>
                 </div>
-                {#if !detection.manual_tagged}
+                {#if currentClassificationSource !== 'manual'}
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur-md border {getConfidenceBg(detection.score)}">
                         <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
                         <span class="text-xs font-black {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
