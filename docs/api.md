@@ -212,9 +212,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/debug/connectivity`
 - `GET /api/debug/fs/models`
 - `GET /api/debug/system`
-- `GET /api/errors`
-- `GET /api/workspace`
-- `POST /api/clear`
+- `GET /api/diagnostics/errors`
+- `GET /api/diagnostics/workspace`
+- `POST /api/diagnostics/clear`
 
 ### AI Usage Stats (owner)
 

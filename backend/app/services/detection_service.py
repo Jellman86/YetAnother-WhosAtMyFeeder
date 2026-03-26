@@ -10,6 +10,7 @@ from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label, collapse_classifier_label
+from app.utils.blocked_species import is_blocked_species
 from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
 from app.database import get_db
@@ -67,11 +68,12 @@ class DetectionService:
         # the plumage/age variant the model outputs.  Also check the Frigate sub_label, which
         # is always the plain common name and may differ from the (possibly parenthetical-laden)
         # local-model label.
-        _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
-        _collapsed_label = collapse_classifier_label(label, strategy="strip_trailing_parenthetical")
-        if (label.casefold() in _blocked_lower
-                or _collapsed_label.casefold() in _blocked_lower
-                or (normalized_frigate_sub_label and normalized_frigate_sub_label in _blocked_lower)):
+        if is_blocked_species(
+            blocked_labels=settings.classification.blocked_labels,
+            blocked_species=getattr(settings.classification, "blocked_species", []),
+            label=label,
+            extra_labels=[frigate_sub_label],
+        ):
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None, "blocked_label"
 
@@ -197,9 +199,14 @@ class DetectionService:
 
         # Re-check blocked list against taxonomy-resolved canonical names so that
         # blocking by scientific name catches models that output common names and vice versa.
-        _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
-        if (scientific_name and scientific_name.casefold() in _blocked_lower) or \
-                (common_name and common_name.casefold() in _blocked_lower):
+        if is_blocked_species(
+            blocked_labels=settings.classification.blocked_labels,
+            blocked_species=getattr(settings.classification, "blocked_species", []),
+            label=label,
+            scientific_name=scientific_name,
+            common_name=common_name,
+            taxa_id=taxa_id,
+        ):
             log.debug("Filtered blocked species via taxonomy", label=label,
                       scientific_name=scientific_name, event_id=frigate_event)
             return False, False
@@ -342,10 +349,11 @@ class DetectionService:
             # Check whether the video result is a blocked species.  Check both the
             # raw label and the parenthetical-stripped form so that labels like
             # "Cassin's Finch (Adult Male)" are caught when "Cassin's Finch" is blocked.
-            _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
-            _collapsed_video_label = collapse_classifier_label(video_label, strategy="strip_trailing_parenthetical")
-            is_blocked = (video_label.casefold() in _blocked_lower
-                          or _collapsed_video_label.casefold() in _blocked_lower)
+            is_blocked = is_blocked_species(
+                blocked_labels=settings.classification.blocked_labels,
+                blocked_species=getattr(settings.classification, "blocked_species", []),
+                label=video_label,
+            )
 
             normalized_video_label = normalize_classifier_label(video_label)
 

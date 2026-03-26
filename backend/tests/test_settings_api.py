@@ -218,6 +218,53 @@ async def test_settings_roundtrip_crop_overrides(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_blocked_species(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "blocked_species" in before_payload
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "blocked_species": [
+            {
+                "scientific_name": "Columba livia",
+                "common_name": "Rock Pigeon",
+                "taxa_id": 3017,
+            }
+        ],
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["blocked_species"] == [
+        {
+            "scientific_name": "Columba livia",
+            "common_name": "Rock Pigeon",
+            "taxa_id": 3017,
+        }
+    ]
+
+    restore_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "blocked_species": before_payload["blocked_species"],
+    }
+    restore_resp = await client.post("/api/settings", json=restore_payload)
+    assert restore_resp.status_code == 200, restore_resp.text
+
+
+@pytest.mark.asyncio
 async def test_settings_update_persists_classification_delay_and_env_precedence(
     client: httpx.AsyncClient, monkeypatch
 ):

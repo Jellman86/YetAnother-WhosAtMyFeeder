@@ -30,6 +30,7 @@
         analyzeUnknowns,
         fetchAnalysisStatus,
         fetchAudioSources,
+        searchSpecies,
         testBirdWeather,
         testLlm,
         testBirdNET,
@@ -55,6 +56,7 @@
         type AnalysisStatus,
         type AudioSourceOption
     } from '../api';
+    import type { BlockedSpeciesEntry } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -91,6 +93,10 @@
     } from '../settings/bird-model-region-override';
     import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
     import { buildCropOverrideSettings, resolveCropOverridesFromSettings } from '../settings/crop-overrides';
+    import {
+        mergeBlockedSpeciesEntries,
+        migrateLegacyBlockedLabels,
+    } from '../settings/blocked-species';
     import {
         coerceLlmModelForProvider,
         getLlmModelOptions,
@@ -139,7 +145,9 @@
     let autoPurgeMissingSnapshots = $state(false);
     let autoAnalyzeUnknowns = $state(false);
     let blockedLabels = $state<string[]>([]);
-    let newBlockedLabel = $state('');
+    let blockedSpecies = $state<BlockedSpeciesEntry[]>([]);
+    let blockedLabelsBaseline = $state<string[]>([]);
+    let blockedSpeciesBaseline = $state<BlockedSpeciesEntry[]>([]);
 
     // Taxonomy Sync State
     let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
@@ -1650,7 +1658,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoPurgeMissingClips', val: autoPurgeMissingClips, store: s.auto_purge_missing_clips ?? false },
             { key: 'autoPurgeMissingSnapshots', val: autoPurgeMissingSnapshots, store: s.auto_purge_missing_snapshots ?? false },
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
-            { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(s.blocked_labels || []) },
+            { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(blockedLabelsBaseline) },
+            { key: 'blockedSpecies', val: JSON.stringify(blockedSpecies), store: JSON.stringify(blockedSpeciesBaseline) },
             { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled ?? true },
             { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
             { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
@@ -2498,7 +2507,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             autoPurgeMissingClips = settings.auto_purge_missing_clips ?? false;
             autoPurgeMissingSnapshots = settings.auto_purge_missing_snapshots ?? false;
             autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
-            blockedLabels = settings.blocked_labels || [];
+            const migratedBlockedLabels = await migrateLegacyBlockedLabels(
+                settings.blocked_labels || [],
+                (query) => searchSpecies(query, 50, true)
+            );
+            blockedLabels = migratedBlockedLabels.legacyBlockedLabels;
+            blockedSpecies = mergeBlockedSpeciesEntries([
+                ...((settings.blocked_species || []) as BlockedSpeciesEntry[]),
+                ...migratedBlockedLabels.blockedSpecies,
+            ]);
+            blockedLabelsBaseline = [...blockedLabels];
+            blockedSpeciesBaseline = [...blockedSpecies];
             // Media cache settings
             cacheEnabled = settings.media_cache_enabled ?? true;
             cacheSnapshots = settings.media_cache_snapshots ?? true;
@@ -2803,6 +2822,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
                 auto_analyze_unknowns: autoAnalyzeUnknowns,
                 blocked_labels: blockedLabels,
+                blocked_species: blockedSpecies,
                 media_cache_enabled: cacheEnabled,
                 media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
@@ -3036,18 +3056,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         localStorage.setItem('preferred-language', lang);
     }
 
-    function addBlockedLabel() {
-        const label = newBlockedLabel.trim();
-        if (label && !blockedLabels.includes(label)) {
-            blockedLabels = [...blockedLabels, label];
-            newBlockedLabel = '';
-        }
-    }
-
-    function removeBlockedLabel(label: string) {
-        blockedLabels = blockedLabels.filter(l => l !== label);
-    }
-
     async function handleTestNotification(platform: string) {
         testingNotification[platform] = true;
         message = null;
@@ -3196,12 +3204,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:inferenceProvider
                     {classifierStatus}
                     bind:blockedLabels
-                    bind:newBlockedLabel
+                    bind:blockedSpecies
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
-                    {addBlockedLabel}
-                    {removeBlockedLabel}
                 />
             {/if}
 

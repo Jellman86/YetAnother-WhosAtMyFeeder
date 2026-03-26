@@ -1,10 +1,18 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
-    import type { ClassifierStatus } from '../../api';
+    import { searchSpecies, type ClassifierStatus, type SearchResult } from '../../api';
+    import type { BlockedSpeciesEntry } from '../../api/settings';
+    import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
     import type { CropModelOverride, CropSourceOverride } from '../../settings/crop-overrides';
+    import {
+        buildBlockedSpeciesEntry,
+        formatBlockedSpeciesLabel,
+        mergeBlockedSpeciesEntries
+    } from '../../settings/blocked-species';
     const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
     // Props
@@ -29,9 +37,7 @@
         videoCircuitUntil = null,
         videoCircuitFailures = 0,
         blockedLabels = $bindable<string[]>([]),
-        newBlockedLabel = $bindable(''),
-        addBlockedLabel,
-        removeBlockedLabel
+        blockedSpecies = $bindable<BlockedSpeciesEntry[]>([])
     }: {
         threshold: number;
         minConfidence: number;
@@ -53,9 +59,7 @@
         videoCircuitUntil: string | null;
         videoCircuitFailures: number;
         blockedLabels: string[];
-        newBlockedLabel: string;
-        addBlockedLabel: () => void;
-        removeBlockedLabel: (label: string) => void;
+        blockedSpecies: BlockedSpeciesEntry[];
     } = $props();
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
@@ -66,6 +70,120 @@
     const recommendedFallbackProvider = $derived(
         (classifierStatus?.cuda_available ?? false) ? 'NVIDIA CUDA' : 'CPU'
     );
+
+    let blockedSpeciesSearchQuery = $state('');
+    let blockedSpeciesSearchResults = $state<SearchResult[]>([]);
+    let blockedSpeciesSearching = $state(false);
+    let blockedSpeciesSearchError = $state<string | null>(null);
+    let blockedSpeciesSearchTimeout: any;
+
+    $effect(() => {
+        const query = blockedSpeciesSearchQuery.trim();
+        clearTimeout(blockedSpeciesSearchTimeout);
+
+        if (!query) {
+            blockedSpeciesSearchResults = [];
+            blockedSpeciesSearchError = null;
+            blockedSpeciesSearching = false;
+            return;
+        }
+
+        blockedSpeciesSearchTimeout = setTimeout(async () => {
+            blockedSpeciesSearching = true;
+            blockedSpeciesSearchError = null;
+            try {
+                const searchOptions = getManualTagSearchOptions(query);
+                blockedSpeciesSearchResults = await searchSpecies(
+                    query,
+                    searchOptions.limit,
+                    searchOptions.hydrateMissing
+                );
+            } catch (error) {
+                console.error('Blocked species search failed', error);
+                blockedSpeciesSearchResults = [];
+                blockedSpeciesSearchError = $_('common.error');
+            } finally {
+                blockedSpeciesSearching = false;
+            }
+        }, 300);
+    });
+
+    onDestroy(() => {
+        if (blockedSpeciesSearchTimeout) {
+            clearTimeout(blockedSpeciesSearchTimeout);
+            blockedSpeciesSearchTimeout = null;
+        }
+    });
+
+    function normalizeEntryText(value: string | null | undefined): string | null {
+        const text = String(value || '').trim();
+        return text || null;
+    }
+
+    function blockedSpeciesKey(entry: BlockedSpeciesEntry): string | null {
+        if (entry.taxa_id != null) {
+            return `taxa:${entry.taxa_id}`;
+        }
+
+        const scientific = normalizeEntryText(entry.scientific_name);
+        if (scientific) {
+            return `scientific:${scientific.toLocaleLowerCase()}`;
+        }
+
+        const common = normalizeEntryText(entry.common_name);
+        if (common) {
+            return `common:${common.toLocaleLowerCase()}`;
+        }
+
+        return null;
+    }
+
+    function sameBlockedSpeciesEntry(a: BlockedSpeciesEntry, b: BlockedSpeciesEntry): boolean {
+        const keyA = blockedSpeciesKey(a);
+        const keyB = blockedSpeciesKey(b);
+        return Boolean(keyA && keyB && keyA === keyB);
+    }
+
+    function getResultNames(result: SearchResult) {
+        const common = result.common_name?.trim() || null;
+        const scientific = result.scientific_name?.trim() || null;
+        const fallback = result.display_name || result.id;
+
+        if (common && scientific && common !== scientific) {
+            return { primary: common, secondary: scientific };
+        }
+
+        return { primary: common || scientific || fallback, secondary: null };
+    }
+
+    function isSearchResultAlreadyBlocked(result: SearchResult): boolean {
+        const entry = buildBlockedSpeciesEntry(result);
+        if (!entry) {
+            return false;
+        }
+        return blockedSpecies.some((existingEntry) => sameBlockedSpeciesEntry(existingEntry, entry));
+    }
+
+    function addBlockedSpecies(result: SearchResult) {
+        const entry = buildBlockedSpeciesEntry(result);
+        if (!entry) {
+            return;
+        }
+        blockedSpecies = mergeBlockedSpeciesEntries([...blockedSpecies, entry]);
+        blockedSpeciesSearchQuery = '';
+        blockedSpeciesSearchResults = [];
+        blockedSpeciesSearchError = null;
+    }
+
+    function removeBlockedSpecies(entryToRemove: BlockedSpeciesEntry) {
+        blockedSpecies = blockedSpecies.filter(
+            (entry) => !sameBlockedSpeciesEntry(entry, entryToRemove)
+        );
+    }
+
+    function removeLegacyBlockedLabel(labelToRemove: string) {
+        blockedLabels = blockedLabels.filter((label) => label !== labelToRemove);
+    }
 </script>
 
 <div class="space-y-6">
@@ -518,45 +636,116 @@
         </section>
     </div>
 
-    <!-- Blocked Labels -->
+    <!-- Blocked Species -->
     <section class="card-base rounded-3xl p-8">
         <div class="flex items-center justify-between mb-6">
             <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('settings.detection.blocked_labels')}</h4>
             <span class="px-2 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-black rounded uppercase">{$_('settings.detection.ignored_by_discovery')}</span>
         </div>
 
-        <div class="flex gap-2 mb-6">
+        <p class="mb-4 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+            {$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
+        </p>
+
+        <div class="mb-4">
             <input
-                bind:value={newBlockedLabel}
-                onkeydown={(e) => e.key === 'Enter' && addBlockedLabel()}
-                placeholder={$_('settings.detection.blocked_labels_placeholder')}
+                bind:value={blockedSpeciesSearchQuery}
+                placeholder={$_('settings.detection.blocked_species_placeholder', { default: 'Search species to block' })}
                 aria-label={$_('settings.detection.blocked_labels')}
                 class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
             />
-            <button
-                onclick={addBlockedLabel}
-                disabled={!newBlockedLabel.trim()}
-                aria-label="{$_('common.add')} {$_('settings.detection.blocked_labels')}"
-                class="px-6 py-3 bg-slate-900 dark:bg-slate-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all disabled:opacity-50"
-            >
-                {$_('common.add')}
-            </button>
         </div>
 
-        <div class="flex flex-wrap gap-2">
-            {#each blockedLabels as label}
-                <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {label}
-                    <button
-                        onclick={() => removeBlockedLabel(label)}
-                        aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
-                        class="text-slate-400 hover:text-red-500 transition-colors"
-                    >
-                        ✕
-                    </button>
-                </span>
-            {/each}
-            {#if blockedLabels.length === 0}<p class="text-xs font-bold text-slate-400 italic">{$_('settings.detection.no_blocked_labels')}</p>{/if}
-        </div>
+        {#if blockedSpeciesSearchQuery.trim()}
+            <div class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
+                <div class="max-h-64 overflow-y-auto p-1">
+                    {#each blockedSpeciesSearchResults as result}
+                        {@const names = getResultNames(result)}
+                        {@const alreadyBlocked = isSearchResultAlreadyBlocked(result)}
+                        <button
+                            type="button"
+                            onclick={() => addBlockedSpecies(result)}
+                            disabled={alreadyBlocked}
+                            class="w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-all hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                        >
+                            <span class="block">
+                                {names.primary}
+                                {#if alreadyBlocked}
+                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-red-500">
+                                        {$_('common.added', { default: 'Added' })}
+                                    </span>
+                                {/if}
+                            </span>
+                            {#if names.secondary}
+                                <span class="block text-[11px] italic text-slate-400 dark:text-slate-500">{names.secondary}</span>
+                            {/if}
+                        </button>
+                    {/each}
+
+                    {#if blockedSpeciesSearchError}
+                        <p class="px-4 py-4 text-sm font-medium text-red-500">{blockedSpeciesSearchError}</p>
+                    {:else if blockedSpeciesSearchResults.length === 0}
+                        <p class="px-4 py-4 text-sm italic text-slate-400">
+                            {blockedSpeciesSearching
+                                ? $_('common.loading')
+                                : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
+                        </p>
+                    {/if}
+                </div>
+            </div>
+        {/if}
+
+        {#if blockedSpecies.length > 0}
+            <div class="mb-5">
+                <p class="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    {$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    {#each blockedSpecies as entry}
+                        <span class="group flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+                            {formatBlockedSpeciesLabel(entry)}
+                            <button
+                                onclick={() => removeBlockedSpecies(entry)}
+                                aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
+                                class="text-red-400 transition-colors hover:text-red-600 dark:hover:text-red-100"
+                            >
+                                ✕
+                            </button>
+                        </span>
+                    {/each}
+                </div>
+            </div>
+        {/if}
+
+        {#if blockedLabels.length > 0}
+            <div>
+                <p class="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    {$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    {#each blockedLabels as label}
+                        <span class="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {label}
+                            <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300">
+                                {$_('common.legacy', { default: 'Legacy' })}
+                            </span>
+                            <button
+                                onclick={() => removeLegacyBlockedLabel(label)}
+                                aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
+                                class="text-slate-400 transition-colors hover:text-red-500"
+                            >
+                                ✕
+                            </button>
+                        </span>
+                    {/each}
+                </div>
+            </div>
+        {/if}
+
+        {#if blockedSpecies.length === 0 && blockedLabels.length === 0}
+            <p class="text-xs font-bold italic text-slate-400">
+                {$_('settings.detection.no_blocked_labels')}
+            </p>
+        {/if}
     </section>
 </div>

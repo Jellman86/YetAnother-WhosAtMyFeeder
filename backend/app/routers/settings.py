@@ -23,7 +23,9 @@ from app.services.media_cache import media_cache
 from app.services.ai_service import AIService
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
+    BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
+    normalize_blocked_species_entries,
     normalize_crop_override_map,
     normalize_crop_model_override,
     normalize_crop_source_override,
@@ -279,6 +281,7 @@ class SettingsUpdate(BaseModel):
     auto_purge_missing_snapshots: bool = Field(False, description="Purge detections without snapshots during scheduled cleanup")
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
+    blocked_species: List[BlockedSpeciesEntry] = Field(default_factory=list, description="Structured blocked species entries")
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     write_frigate_sublabel: bool = Field(True, description="Write YA-WAMF labels back to Frigate sublabels")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
@@ -581,6 +584,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
         "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
         "blocked_labels": settings.classification.blocked_labels,
+        "blocked_species": settings.classification.blocked_species,
         "trust_frigate_sublabel": settings.classification.trust_frigate_sublabel,
         "write_frigate_sublabel": settings.classification.write_frigate_sublabel,
         "display_common_names": settings.classification.display_common_names,
@@ -804,6 +808,8 @@ async def update_settings(
         settings.maintenance.auto_analyze_unknowns = update.auto_analyze_unknowns
     if "blocked_labels" in fields_set:
         settings.classification.blocked_labels = update.blocked_labels
+    if "blocked_species" in fields_set:
+        settings.classification.blocked_species = normalize_blocked_species_entries(update.blocked_species)
     if "trust_frigate_sublabel" in fields_set:
         settings.classification.trust_frigate_sublabel = update.trust_frigate_sublabel
     if "write_frigate_sublabel" in fields_set:

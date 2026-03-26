@@ -32,10 +32,12 @@ def reset_auth_config():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
     original_blocked_labels = list(settings.classification.blocked_labels)
+    original_blocked_species = list(getattr(settings.classification, "blocked_species", []))
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
     settings.classification.blocked_labels = original_blocked_labels
+    settings.classification.blocked_species = original_blocked_species
 
 
 async def _seed_detection_and_taxonomy(event_id: str, taxa_id: int) -> None:
@@ -279,6 +281,50 @@ async def test_manual_update_rejects_parenthetical_variant_of_blocked_species(cl
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Cassin's Finch (Adult Male)"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 422, response.text
+        assert response.json()["detail"] == "This species is on your blocked labels list. Remove it from the blocklist first."
+        mock_audio.assert_not_awaited()
+        mock_broadcast.assert_not_awaited()
+    finally:
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_manual_update_rejects_structured_blocked_species(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.blocked_species = [
+        {
+            "scientific_name": "Haemorhous cassinii",
+            "common_name": "Cassin's Finch",
+            "taxa_id": 4567,
+        }
+    ]
+
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 940000 + int(uuid.uuid4().hex[:4], 16)
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+    try:
+        with patch(
+            "app.routers.events.DetectionRepository.resolve_species_aliases",
+            new=AsyncMock(return_value={}),
+        ), patch(
+            "app.routers.events.taxonomy_service.get_names",
+            new=AsyncMock(return_value={"scientific_name": "Haemorhous cassinii", "common_name": "Cassin's Finch", "taxa_id": 4567}),
+        ), patch(
+            "app.routers.events.audio_service.correlate_species",
+            new=AsyncMock(return_value=(False, None, None)),
+        ) as mock_audio, patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ) as mock_broadcast:
+            response = await client.patch(
+                f"/api/events/{event_id}",
+                json={"display_name": "Cassin's Finch"},
                 headers={"Accept-Language": "en"},
             )
 

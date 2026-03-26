@@ -57,3 +57,26 @@ def test_filter_and_label_keeps_disagreeing_sublabel_when_score_clears_guard():
         assert reason == "threshold_passed_with_sublabel_disagreement_guard"
     finally:
         _restore_classification_settings(saved)
+
+
+def test_filter_and_label_rejects_structured_blocked_species_by_common_name():
+    service = DetectionService(MagicMock())
+    saved = _with_classification_settings(
+        blocked_labels=[],
+        blocked_species=[
+            {
+                "scientific_name": "Haemorhous cassinii",
+                "common_name": "Cassin's Finch",
+                "taxa_id": 4567,
+            }
+        ],
+    )
+    try:
+        result, reason = service.filter_and_label(
+            classification={"label": "Cassin's Finch (Adult Male)", "score": 0.92, "index": 7},
+            frigate_event="evt-blocked-structured",
+        )
+        assert result is None
+        assert reason == "blocked_label"
+    finally:
+        _restore_classification_settings(saved)

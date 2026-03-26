@@ -6,10 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Detection Settings now uses a species-search picker for blocked species. New selections are stored as structured `blocked_species` entries with taxonomy identifiers, while unresolved legacy `blocked_labels` continue to render as removable `Legacy` chips for backward compatibility.
 - **Added:** A small manual-tag search policy helper now centralizes when the picker should request taxonomy hydration for typed queries, making the modal behavior explicit and regression-testable.
+- **Fixed:** The blocklist now matches against both legacy raw labels and structured blocked-species entries across live detection filtering, post-taxonomy save paths, auto video classification writes, and manual reclassification. Blocking a species via the picker now reliably catches common-name, scientific-name, and `taxa_id` matches instead of depending on a fragile exact raw-label string.
 - **Fixed:** The manual tag / reclassify picker now hydrates missing taxonomy data for meaningful typed searches instead of only during the initial empty-query load. Species that have never previously been detected can now show a clean common-name primary label and scientific-name subtitle while searching.
 - **Fixed:** Species search hydration now strips trailing classifier parentheticals before taxonomy lookup, so labels like `"Cassin's Finch (Adult Male)"` resolve through `"Cassin's Finch"` instead of failing iNaturalist/common-name hydration.
 - **Changed:** `ROADMAP.md` and `ISSUES.md` were refreshed to match the current GitHub tracker state: issue `#16` and issue `#21` are closed, the issue-first section no longer points at stale open work, and roadmap item 7 is marked complete on `dev`.
+- **Changed:** Roadmap item 1, `Blocked Species — Species Picker + Reliable Matching`, is now completed on `dev`.
 
 ## [2.8.7] - 2026-03-26
 

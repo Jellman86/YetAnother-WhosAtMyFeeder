@@ -202,6 +202,10 @@ class ClassificationSettings(BaseModel):
         default=[],
         description="Labels to filter out completely (won't be saved)"
     )
+    blocked_species: list["BlockedSpeciesEntry"] = Field(
+        default_factory=list,
+        description="Structured blocked species entries keyed by taxonomy identity",
+    )
     unknown_bird_labels: list[str] = Field(
         default=["background", "Background"],
         description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
@@ -426,6 +430,52 @@ class EnrichmentSettings(BaseModel):
     seasonality_source: str = Field(default="disabled", description="Provider for seasonality")
     rarity_source: str = Field(default="disabled", description="Provider for rarity indicators")
     links_sources: list[str] = Field(default=["wikipedia", "inaturalist"], description="Providers for external links")
+
+
+class BlockedSpeciesEntry(BaseModel):
+    scientific_name: Optional[str] = Field(default=None, description="Canonical scientific name")
+    common_name: Optional[str] = Field(default=None, description="Common name used for display")
+    taxa_id: Optional[int] = Field(default=None, description="Canonical taxonomy id")
+
+    @field_validator("scientific_name", "common_name", mode="before")
+    @classmethod
+    def _normalize_name(cls, value: Any) -> Optional[str]:
+        text = str(value or "").strip()
+        return text or None
+
+    @field_validator("taxa_id", mode="before")
+    @classmethod
+    def _normalize_taxa_id(cls, value: Any) -> Optional[int]:
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @model_validator(mode="after")
+    def _require_identity(self) -> "BlockedSpeciesEntry":
+        if self.taxa_id is None and not self.scientific_name and not self.common_name:
+            raise ValueError("blocked species entry requires at least one identity field")
+        return self
+
+
+def normalize_blocked_species_entries(raw_value: Any) -> list["BlockedSpeciesEntry"]:
+    if not isinstance(raw_value, list):
+        return []
+
+    normalized: list[BlockedSpeciesEntry] = []
+    for raw_entry in raw_value:
+        try:
+            entry = (
+                raw_entry
+                if isinstance(raw_entry, BlockedSpeciesEntry)
+                else BlockedSpeciesEntry.model_validate(raw_entry)
+            )
+        except Exception:
+            continue
+        normalized.append(entry)
+    return normalized
 
 
 DEFAULT_LLM_MODEL = "gemini-2.5-flash"

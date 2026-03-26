@@ -22,6 +22,7 @@ from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.classifier_labels import collapse_classifier_label
+from app.utils.blocked_species import is_blocked_species
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -951,21 +952,14 @@ async def _apply_manual_tag_update(
             t_id = canonical_cache_names["taxa_id"]
 
     # Guard: prevent tagging a detection as a species on the blocked list
-    _blocked_lower = {b.casefold() for b in settings.classification.blocked_labels}
-
-    def _manual_tag_candidates(name: str | None) -> list[str]:
-        if not name:
-            return []
-        collapsed = collapse_classifier_label(name, strategy="strip_trailing_parenthetical")
-        if collapsed != name:
-            return [name, collapsed]
-        return [name]
-
-    blocked_candidates: list[str] = []
-    for candidate in (new_species, sci_name, com_name):
-        blocked_candidates.extend(_manual_tag_candidates(candidate))
-
-    if any(candidate.casefold() in _blocked_lower for candidate in blocked_candidates):
+    if is_blocked_species(
+        blocked_labels=settings.classification.blocked_labels,
+        blocked_species=getattr(settings.classification, "blocked_species", []),
+        label=new_species,
+        scientific_name=sci_name,
+        common_name=com_name,
+        taxa_id=t_id,
+    ):
         raise HTTPException(
             status_code=422,
             detail="This species is on your blocked labels list. Remove it from the blocklist first."

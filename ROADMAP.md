@@ -63,7 +63,7 @@ Cache recording clips under the key `{event_id}_recording.mp4` (separate from `{
 ---
 
 ### 1. Blocked Species — Species Picker + Reliable Matching 🚫
-**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Planned
+**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Completed on `dev` (2026-03-26)
 
 The current blocked labels feature is broken in practice. It stores raw strings typed by the user and does a single exact string match against the normalized classifier output label. Because different models produce different label formats (common name, scientific name, or hybrids), and because the check is case-sensitive, user-entered values rarely match — particularly when the user types a common name and the model outputs a scientific name or vice versa. A second bug means that manual reclassification can assign a species that is already on the blocked list.
 

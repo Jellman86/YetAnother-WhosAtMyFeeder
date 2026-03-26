@@ -2,6 +2,12 @@ import { API_BASE, apiFetch, handleResponse } from './core';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
 
+export interface BlockedSpeciesEntry {
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
+}
+
 export interface Settings {
     frigate_url: string;
     mqtt_server: string;
@@ -21,6 +27,7 @@ export interface Settings {
     auto_purge_missing_snapshots: boolean;
     auto_analyze_unknowns: boolean;
     blocked_labels: string[];
+    blocked_species: BlockedSpeciesEntry[];
     trust_frigate_sublabel: boolean;
     write_frigate_sublabel: boolean;
     display_common_names: boolean;
