@@ -114,6 +114,27 @@ async def test_species_search_hydration_failure_is_non_fatal(client: httpx.Async
 
 
 @pytest.mark.asyncio
+async def test_species_search_hydration_strips_parenthetical_classifier_suffix(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    label = "Cassin's Finch (Adult Male)"
+
+    with patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])), patch(
+        "app.routers.species.taxonomy_service.get_names",
+        new=AsyncMock(return_value={"scientific_name": "Haemorhous cassinii", "common_name": "Cassin's Finch", "taxa_id": 4567}),
+    ) as mock_get_names:
+        response = await client.get("/api/species/search?q=&limit=20&hydrate_missing=true")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["id"] == label
+    assert payload[0]["scientific_name"] == "Haemorhous cassinii"
+    assert payload[0]["common_name"] == "Cassin's Finch"
+    mock_get_names.assert_awaited_once_with("Cassin's Finch")
+
+
+@pytest.mark.asyncio
 async def test_species_search_deduplicates_classifier_alias_labels_to_one_canonical_species(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

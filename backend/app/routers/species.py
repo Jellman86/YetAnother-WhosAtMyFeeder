@@ -16,6 +16,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
+from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
@@ -282,10 +283,11 @@ async def _hydrate_species_search_results(
         label = str(item.get("id") or item.get("display_name") or "").strip()
         if not label:
             return
+        lookup_label = collapse_classifier_label(label, strategy="strip_trailing_parenthetical")
         async with semaphore:
             try:
                 taxonomy = await asyncio.wait_for(
-                    taxonomy_service.get_names(label),
+                    taxonomy_service.get_names(lookup_label),
                     timeout=SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT,
                 )
             except Exception as exc:

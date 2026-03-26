@@ -42,6 +42,7 @@
     import { FRIGATE_LOGO_URL } from '../assets';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
         formatPrecipitation,
         formatWindSpeed,
@@ -725,7 +726,8 @@
             isSearching = true;
             try {
                 // Use backend search for rich taxonomy results
-                searchResults = await searchSpecies(query);
+                const searchOptions = getManualTagSearchOptions(query);
+                searchResults = await searchSpecies(query, searchOptions.limit, searchOptions.hydrateMissing);
             } catch (e) {
                 console.error("Search failed", e);
                 // Fallback to local filtering

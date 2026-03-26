@@ -223,7 +223,7 @@ Add an Explorer filter toggle to show only detections with direct BirdNET audio 
 ---
 
 ### 7. Manual Tag Picker — Common Name Resolution 🏷️
-**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** Planned
+**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** ✅ Completed (vNext on `dev`)
 
 When using the manual tag / reclassify picker, results frequently show only a scientific name or a raw parenthetical label (e.g. `"Cassin's Finch (Adult Male)"`) with no clean common-name subtitle. This is caused by three interacting gaps in the search-to-display pipeline.
 
@@ -235,20 +235,10 @@ When using the manual tag / reclassify picker, results frequently show only a sc
 
 3. **Hydration passes the parenthetical label to iNaturalist.** Even when hydration does run (empty query, first 20 results), `_hydrate_one` sends `"Cassin's Finch (Adult Male)"` verbatim to `taxonomy_service.get_names()`. iNaturalist does not recognise the parenthetical form so the lookup silently fails and no common name is stored.
 
-**Backend fix — `backend/app/routers/species.py`**
+**Shipped fix**
 
-In `_hydrate_one` (~line 282), strip the trailing parenthetical from the label before calling `taxonomy_service.get_names()`, so the lookup uses `"Cassin's Finch"` rather than `"Cassin's Finch (Adult Male)"`. Apply the result to the original item as usual. Import `collapse_classifier_label` (already used elsewhere) — one-line call.
-
-**Frontend fix — `apps/ui/src/lib/components/DetectionModal.svelte`**
-
-At line 728, pass `hydrate_missing=true` for typed queries (or at least for queries longer than 2 characters). The backend already caps hydration at 30 items with a concurrency semaphore of 6, so the cost is bounded. This ensures uncached species get a live lookup while the user is searching.
-
-```javascript
-// Before
-searchResults = await searchSpecies(query);
-// After
-searchResults = await searchSpecies(query, 50, query.length > 2);
-```
+- `backend/app/routers/species.py` now strips trailing parentheticals before taxonomy hydration lookups, so labels like `"Cassin's Finch (Adult Male)"` resolve through the canonical `"Cassin's Finch"` lookup path.
+- `apps/ui/src/lib/components/DetectionModal.svelte` now enables `hydrate_missing=true` for meaningful typed manual-tag queries, so uncached species get live taxonomy hydration while the user searches.
 
 **Acceptance Criteria:**
 - Typing a species name in the manual tag picker shows the clean common name as primary and scientific name as italic subtitle, even for species never previously detected.
@@ -401,13 +391,13 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **March 3, 2026**: prioritize open GitHub issues before new feature work (`#16`, `#21`).
+- Snapshot as of **March 26, 2026**: no open GitHub issues currently block new feature work.
 - ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
 - ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
-- 🔄 `#16` BirdNET-Go mapping improvements (source-name / `nm` mapping) are in `dev`; reporter sees audio figures again and is validating long-running stability.
-- 🔄 `#21` OpenVINO ConvNeXt load failure has `dev` remediation (patched model + safe re-download flow + clearer capability diagnostics) and is awaiting reporter retest.
-- 🔄 Latest detection-pipeline hardening (snapshot disagreement guard + optional Frigate sublabel write-back + legacy EVA default remap) is in `dev` and awaiting field validation against misclassification-heavy feeds.
+- ✅ `#16` BirdNET-Go mapping improvements were validated and the issue is now closed.
+- ✅ `#21` OpenVINO ConvNeXt load failure remediation landed and the issue is now closed.
+- 🔄 Latest detection-pipeline hardening (snapshot disagreement guard + optional Frigate sublabel write-back + legacy EVA default remap) remains a candidate for broader field validation, but it is no longer tracked by an open GitHub issue.
 - 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios and GPU/provider fallback paths.
 
 ---

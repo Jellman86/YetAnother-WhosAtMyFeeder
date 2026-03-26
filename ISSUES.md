@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **February 27, 2026**.
+Last reviewed against the GitHub issue tracker on **March 26, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,31 +12,12 @@ Last reviewed against the GitHub issue tracker on **February 27, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-### GitHub Issue #21: OpenVINO load fails for ConvNeXt
-- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/21`
-- Status (as of February 27, 2026): Open, remediation shipped on `dev`, awaiting reporter retest with model re-download.
-- Implemented fixes on `dev`:
-  - `4cbd61f` (`patch_convnext_openvino_model.py` utility for unsupported ONNX sequence ops)
-  - `e2eaeea` (safe model re-download with in-UI progress and staged replace/rollback)
-  - `08eb353`, `4f44b15` (host-verified dynamic capability pills and duplicate-label cleanup)
-- Current understanding:
-  - The prior ConvNeXt model artifact could fail OpenVINO compile (`SequenceEmpty`/`SequenceInsert`/`ConcatFromSequence`) on affected runtimes.
-  - `dev` now provides a patched model path plus guided re-download flow to replace stale local artifacts safely.
-  - The issue remains open until reporter confirms successful OpenVINO activation after re-download.
-
-### GitHub Issue #16: No audio detection mapped
-- Issue: `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/16`
-- Status (as of February 26, 2026): Open, behavior improved on `dev` and awaiting longer-running user confirmation.
-- Current understanding:
-  - Initial multilingual/common-name correlation fixes improved audio correlation behavior.
-  - BirdNET-Go source ID drift (`src`) after restart caused mappings to break over time.
-  - `dev` now uses BirdNET source name (`nm`) mapping and exposes recent BirdNET source names in Settings to make mapping easier.
-- Reporter feedback so far:
-  - Dashboard audio figures are now appearing.
-  - Reporter still needs to confirm the count continues increasing reliably after restart/runtime.
+- None currently tracked. There are no open GitHub issues at the time of this review.
 
 ## Recently Closed (Context)
 
+- **#21** OpenVINO load fails for ConvNeXt - closed after the patched artifact / redownload remediation path shipped.
+- **#16** No audio detection mapped - closed after BirdNET source-name mapping and correlation fixes landed.
 - **#19** Incorrect filter application / stale Explorer state - follow-up fixes merged and issue closed on **February 27, 2026**.
 - **#20** Weather conditions panel text alignment - reporter confirmed fix; closed on **February 26, 2026**.
 - **#17** Batch reclassify issue - remaining symptom moved to `#19`; closed on **February 26, 2026**.

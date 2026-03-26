@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** A small manual-tag search policy helper now centralizes when the picker should request taxonomy hydration for typed queries, making the modal behavior explicit and regression-testable.
+- **Fixed:** The manual tag / reclassify picker now hydrates missing taxonomy data for meaningful typed searches instead of only during the initial empty-query load. Species that have never previously been detected can now show a clean common-name primary label and scientific-name subtitle while searching.
+- **Fixed:** Species search hydration now strips trailing classifier parentheticals before taxonomy lookup, so labels like `"Cassin's Finch (Adult Male)"` resolve through `"Cassin's Finch"` instead of failing iNaturalist/common-name hydration.
+- **Changed:** `ROADMAP.md` and `ISSUES.md` were refreshed to match the current GitHub tracker state: issue `#16` and issue `#21` are closed, the issue-first section no longer points at stale open work, and roadmap item 7 is marked complete on `dev`.
+
 ## [2.8.7] - 2026-03-26
 
 - **Fixed:** Blocked labels did not suppress detections where the model outputs a parenthetical plumage or age suffix — for example, `medium_birds` produces `"Cassin's Finch (Adult Male)"` and `"Cassin's Finch (Female/immature)"`, neither of which matched a blocklist entry of `"Cassin's Finch"`. The blocked-label check in the real-time detection pipeline, the post-taxonomy enrichment check, and the manual-tag guard now all strip trailing parentheticals before comparing against the blocklist. The auto video classifier path, which previously had no blocked-label check at all, now also applies the same logic — and always writes the video classification result to the database before returning so that the stale-video watchdog cannot cause an infinite re-queue loop for blocked species (Issue #31).
