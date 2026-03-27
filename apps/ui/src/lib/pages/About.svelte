@@ -60,6 +60,11 @@
             descriptionKey: 'about.feature_list.video_analysis.desc'
         },
         {
+            icon: '🎞️',
+            titleKey: 'about.feature_list.full_visit_clip.title',
+            descriptionKey: 'about.feature_list.full_visit_clip.desc'
+        },
+        {
             icon: '🔔',
             titleKey: 'about.feature_list.notifications.title',
             descriptionKey: 'about.feature_list.notifications.desc'

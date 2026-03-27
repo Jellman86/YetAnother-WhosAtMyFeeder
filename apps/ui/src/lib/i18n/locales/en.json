@@ -1260,6 +1260,10 @@
         "title": "Auto Video Analysis",
         "desc": "Automatically scan 15+ frames from video clips for higher accuracy using temporal ensemble logic"
       },
+      "full_visit_clip": {
+        "title": "Full-Visit Clips",
+        "desc": "Generate a longer clip from Frigate recordings so a full feeder visit can be viewed after the detection finishes"
+      },
       "notifications": {
         "title": "Rich Notifications",
         "desc": "Discord, Telegram, and Pushover support with customizable filters and species-specific alerts"

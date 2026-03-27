@@ -6,9 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-03-27
+
 - **Added:** When recording clips and the media cache are enabled, YA-WAMF now auto-generates a persisted full-visit clip for eligible completed detections after the Frigate `end` event instead of requiring manual fetch for each event.
-- **Changed:** YA-WAMF's canonical `/api/frigate/{event_id}/clip.mp4` route now prefers the persisted `{event_id}_recording.mp4` full-visit file when one exists, so the longer clip transparently replaces the short Frigate event clip inside YA-WAMF without modifying Frigate itself.
 - **Added:** A bounded background reconciler now revisits recent detections that are old enough to have a complete full-visit window and backfills any missing persisted full-visit clips when the original MQTT `end` event was missed or recordings were briefly unavailable.
+- **Changed:** YA-WAMF's canonical `/api/frigate/{event_id}/clip.mp4` route now prefers the persisted `{event_id}_recording.mp4` full-visit file when one exists, so the longer clip transparently replaces the short Frigate event clip inside YA-WAMF without modifying Frigate itself.
+- **Changed:** The full-visit ready indicator now uses a compact icon-only treatment beside the play button with hover text, and the video player collapses the old short-vs-full toggle once the persisted full-visit clip has replaced the canonical event clip.
+- **Changed:** Locale coverage has been expanded again across active settings and jobs surfaces, and a new locale audit test now guards against untranslated English carryover in the highest-traffic non-English UI paths.
 
 ## [2.9.0] - 2026-03-26
 
