@@ -251,6 +251,38 @@ class DetectionRepository:
                 return _row_to_detection(row)
             return None
 
+    async def get_recent_full_visit_candidates(
+        self,
+        *,
+        detected_before: datetime,
+        detected_after: datetime,
+        limit: int = 100,
+    ) -> list[Detection]:
+        async with self.db.execute(
+            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
+                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
+                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
+                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
+                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
+                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+               FROM detections d
+               LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               WHERE d.frigate_event IS NOT NULL
+                 AND d.frigate_event != ''
+                 AND d.camera_name IS NOT NULL
+                 AND d.camera_name != ''
+                 AND d.detection_time <= ?
+                 AND d.detection_time >= ?
+               ORDER BY d.detection_time DESC
+               LIMIT ?""",
+            (detected_before, detected_after, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [_row_to_detection(row) for row in rows]
+
     async def update_video_classification(
         self,
         frigate_event: str,

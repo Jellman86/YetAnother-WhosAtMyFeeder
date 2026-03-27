@@ -112,10 +112,11 @@ While Frigate's detection model often runs at a low resolution (e.g., 320x320), 
 ### 🎥 Record Mode (Frigate 0.17+)
 YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least a few days so the system can go back and re-analyze any event. Use `mode: all` under `alerts.retain` and `detections.retain` to ensure all recording segments overlapping bird events are kept.
 
-The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time instead of Frigate's shorter event clip. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when the saved Frigate config indicates that continuous recordings and retention are available for at least one selected camera.
+The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when the saved Frigate config indicates that continuous recordings and retention are available for at least one selected camera.
 
 Important behavior:
-- It does **not** replace the normal event clip. The default player mode stays `Event clip`, and `Full visit` only appears as a second selectable variant when the longer recording window is actually available for that event.
+- When recording clips and the YA-WAMF media cache are enabled, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events and persists it to the filesystem cache.
+- Once that persisted full-visit file exists, YA-WAMF's normal clip route (`/api/frigate/{event_id}/clip.mp4`) prefers it automatically, so the longer clip replaces the short Frigate event clip inside YA-WAMF without altering Frigate's own stored media.
 - The requested recording window is configurable in YA-WAMF with sane defaults of `30` seconds before the detection and `90` seconds after it, for a default target window of about `120` seconds total.
 - The actual returned clip can still be shorter if Frigate has no retained recordings for part of that time range.
 

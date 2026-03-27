@@ -478,6 +478,152 @@ async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: ht
 
 
 @pytest.mark.asyncio
+async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
+        tmp.write(b"0" * 1024)
+        recording_path = Path(tmp.name)
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.services.media_cache.media_cache.get_clip_path", return_value=None) as mock_clip_path, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4")
+            assert response.status_code == 200
+            assert response.headers.get("content-type") == "video/mp4"
+            mock_clip_path.assert_not_called()
+            mock_frigate.get_event.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+            recording_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_missing(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(b"1" * 1024)
+        clip_path = Path(tmp.name)
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
+         patch("app.services.media_cache.media_cache.get_clip_path", return_value=clip_path) as mock_clip_path, \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4")
+            assert response.status_code == 200
+            assert response.headers.get("content-type") == "video/mp4"
+            mock_clip_path.assert_called_once_with("test_event_id")
+            mock_frigate.get_event.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+            clip_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_clip_caching_disabled(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = False
+
+    with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
+        tmp.write(b"0" * 1024)
+        recording_path = Path(tmp.name)
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/clip.mp4")
+            assert response.status_code == 200
+            mock_frigate.get_event.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+            recording_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exists(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = True
+
+    with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
+        tmp.write(b"2" * 1024)
+        recording_path = Path(tmp.name)
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+
+        try:
+            response = await client.head("/api/frigate/test_event_id/clip.mp4")
+            assert response.status_code == 200
+            mock_frigate.get_event.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+            recording_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exists_even_if_regular_clip_caching_disabled(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_clips = settings.media_cache.cache_clips
+    settings.frigate.clips_enabled = True
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_clips = False
+
+    with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
+        tmp.write(b"2" * 1024)
+        recording_path = Path(tmp.name)
+
+    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
+
+        try:
+            response = await client.head("/api/frigate/test_event_id/clip.mp4")
+            assert response.status_code == 200
+            mock_frigate.get_event.assert_not_awaited()
+        finally:
+            settings.frigate.clips_enabled = original_clips
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_clips = original_cache_clips
+            recording_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
     """VTT endpoint should return WebVTT with sprite cue URLs."""
     original_setting = settings.frigate.clips_enabled

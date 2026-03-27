@@ -60,6 +60,7 @@
     let playbackState = $state<PlaybackState>('idle');
     let selectedClipVariant = $state<ClipVariant>('event');
     let recordingClipAvailable = $state(false);
+    let recordingClipFetched = $state(false);
 
     function appendQueryParam(url: string, key: string, value: string): string {
         const separator = url.includes('?') ? '&' : '?';
@@ -80,8 +81,9 @@
     let canShareClip = $derived(!authStore.isGuest);
     let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
+    let effectiveClipVariant = $derived(recordingClipFetched ? 'recording' : selectedClipVariant);
     let clipVariantLabel = $derived(
-        selectedClipVariant === 'recording'
+        effectiveClipVariant === 'recording'
             ? $_('video_player.full_visit_badge', { default: 'Full visit' })
             : $_('video_player.clip_badge', { default: 'Clip' })
     );
@@ -214,7 +216,7 @@
         const url = new URL('/events', window.location.origin);
         url.searchParams.set('event', frigateEvent);
         url.searchParams.set('video', '1');
-        if (selectedClipVariant === 'recording') {
+        if (effectiveClipVariant === 'recording') {
             url.searchParams.set('clip', 'recording');
         }
         if (shareToken) {
@@ -231,7 +233,7 @@
         const payload = await createVideoShareLink(frigateEvent, {
             expiresInMinutes: 24 * 60,
             watermarkLabel,
-            clipVariant: selectedClipVariant,
+            clipVariant: effectiveClipVariant,
         });
         shareExpiresAt = payload.expires_at;
         shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
@@ -318,7 +320,7 @@
             const payload = await createVideoShareLink(frigateEvent, {
                 expiresInMinutes: managerExpiresMinutes,
                 watermarkLabel,
-                clipVariant: selectedClipVariant,
+                clipVariant: effectiveClipVariant,
             });
             shareExpiresAt = payload.expires_at;
             shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
@@ -667,8 +669,34 @@
     }
 
     async function probeRecordingClipAvailability(): Promise<void> {
-        const status = await probeUrl(recordingClipUrlBase, clipHeadCache);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+        let status: number | null = null;
+        let fetched = false;
+
+        try {
+            let response = await fetch(recordingClipUrlBase, { method: 'HEAD', signal: controller.signal });
+            if (response.status === 405 || response.status === 501) {
+                response = await fetch(recordingClipUrlBase, { method: 'GET', signal: controller.signal });
+            }
+            status = response.status;
+            fetched = response.headers.get('X-YAWAMF-Recording-Clip-Ready') === 'cached';
+        } catch (error) {
+            logger.warn('video_player_recording_probe_failed', {
+                frigateEvent,
+                url: sanitizedUrl(recordingClipUrlBase),
+                error
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
+
         recordingClipAvailable = !!status && status >= 200 && status < 300;
+        recordingClipFetched = recordingClipAvailable && fetched;
+        if (recordingClipFetched) {
+            selectedClipVariant = 'recording';
+            return;
+        }
         if (!recordingClipAvailable && selectedClipVariant === 'recording') {
             selectedClipVariant = 'event';
         }
@@ -752,7 +780,7 @@
 
             player.source = {
                 type: 'video',
-                title: selectedClipVariant === 'recording'
+                title: effectiveClipVariant === 'recording'
                     ? $_('video_player.full_visit_title', { default: 'Full visit clip' })
                     : $_('video_player.detection_clip_title', { default: 'Detection clip' }),
                 sources: [{ src: clipUrl, type: 'video/mp4' }]
@@ -1112,7 +1140,7 @@
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>
                 <div class="order-1 flex items-center justify-end gap-2 sm:order-2 sm:ml-auto">
-                    {#if recordingClipAvailable}
+                    {#if !recordingClipFetched && recordingClipAvailable}
                         <div class="inline-flex items-center rounded-xl border border-slate-700/70 bg-slate-800/80 p-1">
                             <button
                                 type="button"

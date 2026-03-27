@@ -123,7 +123,7 @@ def test_parse_event_skips_update_events():
     assert event is None
 
 
-def test_parse_event_skips_end_events():
+def test_parse_event_accepts_end_events():
     processor = EventProcessor(MagicMock())
     event = processor._parse_and_validate_event({
         "type": "end",
@@ -134,7 +134,8 @@ def test_parse_event_skips_end_events():
             "start_time": 1700000000,
         },
     })
-    assert event is None
+    assert event is not None
+    assert event.type == "end"
 
 
 def test_parse_event_accepts_false_positive_updates():
@@ -175,11 +176,82 @@ async def test_process_mqtt_message_skips_end_event_classification():
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img")
     )
+    processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
 
     end_payload = b'{"type":"end","after":{"id":"evt-end-skip-1","label":"bird","camera":"cam1","start_time":1700000000}}'
-    await processor.process_mqtt_message(end_payload)
+    with patch("app.services.event_processor.settings.frigate.clips_enabled", True, create=True), \
+         patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True), \
+         patch("app.services.event_processor.settings.media_cache.enabled", True, create=True), \
+         patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True):
+        await processor.process_mqtt_message(end_payload)
 
     processor._classify_snapshot.assert_not_called()
+    processor._trigger_auto_full_visit_generation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_events():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img")
+    )
+    processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
+        return_value={"audio_match": None, "weather_data": {}}
+    )
+    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
+        "label": "Cardinal",
+        "score": 0.9,
+        "index": 1,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+    })
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
+        return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
+    )
+
+    new_payload = b'{"type":"new","after":{"id":"evt-new-no-full-visit","label":"bird","camera":"cam1","start_time":1700000000}}'
+    await processor.process_mqtt_message(new_payload)
+
+    processor._trigger_auto_full_visit_generation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_end_event_skips_auto_full_visit_when_recording_clips_disabled():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img")
+    )
+    processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+
+    end_payload = b'{"type":"end","after":{"id":"evt-end-disabled","label":"bird","camera":"cam1","start_time":1700000000}}'
+    with patch("app.services.event_processor.settings.frigate.recording_clip_enabled", False, create=True):
+        await processor.process_mqtt_message(end_payload)
+
+    processor._classify_snapshot.assert_not_called()
+    processor._trigger_auto_full_visit_generation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_trigger_auto_full_visit_generation_schedules_background_service():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-end-background",
+        camera="cam1",
+    )
+
+    with patch("app.services.event_processor.full_visit_clip_service") as mock_service:
+        mock_service.trigger_background = MagicMock(return_value=object())
+        await processor._trigger_auto_full_visit_generation(event)
+
+    mock_service.trigger_background.assert_called_once_with(
+        "evt-end-background",
+        "cam1",
+        source="mqtt_end",
+        lang="en",
+    )
 
 
 @pytest.mark.asyncio

@@ -427,14 +427,17 @@
                     </div>
                 {/if}
                 {#if fullVisitFetched}
-                    <div class="inline-flex items-center gap-1.5 rounded-full bg-teal-500/95 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-lg shadow-teal-900/30">
+                    <div
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-lg shadow-teal-900/30 ring-1 ring-teal-300/35"
+                        title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                        aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                    >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
                             <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
                             <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
                             <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
                         </svg>
-                        <span>{$_('video_player.full_visit_badge', { default: 'Full visit' })}</span>
                     </div>
                 {/if}
                 {#if hasFrigateIssueBadge}

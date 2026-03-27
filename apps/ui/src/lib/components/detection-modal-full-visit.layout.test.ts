@@ -11,6 +11,9 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitFetchState');
         expect(detectionModalSource).toContain('Fetch full clip');
         expect(detectionModalSource).toContain('Full visit');
+        expect(detectionModalSource).toContain("title={$_('video_player.full_visit_ready'");
+        expect(detectionModalSource).toContain('inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95');
+        expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55');

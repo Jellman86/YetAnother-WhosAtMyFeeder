@@ -23,6 +23,7 @@ from app.services.notification_orchestrator import NotificationOrchestrator
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.full_visit_clip_service import full_visit_clip_service
 from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -393,6 +394,19 @@ class EventProcessor:
             self._record_drop(event.frigate_event, "false_positive_tombstone_active")
             return
 
+        event_type = (event.type or "new").lower()
+        if event_type == "end":
+            if self._auto_full_visit_enabled():
+                await self._trigger_auto_full_visit_generation(event)
+            duration_ms = (time.monotonic() - started) * 1000.0
+            self._record_completed(event.frigate_event, duration_ms)
+            self._record_recent_outcome(
+                event.frigate_event,
+                "end_event_handled",
+                auto_full_visit_enabled=self._auto_full_visit_enabled(),
+            )
+            return
+
         if self._is_stale_live_event(event):
             age_seconds = round(self._live_event_age_seconds(event), 1)
             log.info(
@@ -592,9 +606,10 @@ class EventProcessor:
         if event.label != 'bird':
             return None
 
-        # Ignore routine update/end chatter; keep first actionable event only.
+        # Ignore routine updates; keep `new` for the main ingest flow and
+        # allow `end` for automatic full-visit generation.
         # False positives can arrive on updates, so always allow cleanup path.
-        if not event.is_false_positive and event_type != "new":
+        if not event.is_false_positive and event_type not in {"new", "end"}:
             return None
 
         if not event.frigate_event or event.frigate_event == "unknown":
@@ -616,6 +631,13 @@ class EventProcessor:
 
     def _live_event_key(self, event: EventData) -> str:
         return f"{event.camera}:{event.frigate_event}"
+
+    def _auto_full_visit_enabled(self) -> bool:
+        return bool(
+            settings.frigate.clips_enabled
+            and settings.frigate.recording_clip_enabled
+            and settings.media_cache.enabled
+        )
 
     def _live_event_age_seconds(self, event: EventData) -> float:
         if event.received_at_ts <= 0:
@@ -640,6 +662,19 @@ class EventProcessor:
         if not getattr(settings.classification, "live_event_coalescing_enabled", True):
             return
         self._active_live_event_keys.discard(self._live_event_key(event))
+
+    async def _trigger_auto_full_visit_generation(self, event: EventData) -> None:
+        """Schedule automatic full-visit generation for a completed event.
+
+        This is a narrow hook so end-of-event behavior can evolve without
+        tangling with the main `new`-event ingest pipeline.
+        """
+        full_visit_clip_service.trigger_background(
+            event.frigate_event,
+            event.camera,
+            source="mqtt_end",
+            lang="en",
+        )
 
     async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes]]]:
         """Classify snapshot or use Frigate sublabel if trusted.

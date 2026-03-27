@@ -571,11 +571,16 @@ async def _probe_recording_clip_response(
 
 
 async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
+    from app.services.media_cache import media_cache
+
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(
             status_code=403,
             detail=i18n_service.translate("errors.clip_disabled", lang)
         )
+
+    if settings.media_cache.enabled and media_cache.get_recording_clip_path(event_id):
+        return True
 
     camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
@@ -618,7 +623,7 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
                 )
             response.raise_for_status()
 
-            should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+            should_cache = settings.media_cache.enabled
             if should_cache:
                 cached = await media_cache.cache_recording_clip_streaming(event_id, response.aiter_bytes())
                 if not cached:
@@ -1218,6 +1223,7 @@ async def check_clip_exists(
 ):
     """Check if a clip exists for an event by checking the event details."""
     lang = get_user_language(request)
+    from app.services.media_cache import media_cache
 
     if not settings.frigate.clips_enabled:
         raise HTTPException(
@@ -1233,6 +1239,12 @@ async def check_clip_exists(
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    if settings.media_cache.enabled:
+        if media_cache.get_recording_clip_path(event_id):
+            return Response(status_code=200)
+        if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
+            return Response(status_code=200)
 
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
@@ -1297,7 +1309,7 @@ async def check_recording_clip_exists(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
-    if settings.media_cache.enabled and settings.media_cache.cache_clips:
+    if settings.media_cache.enabled:
         cached_path = media_cache.get_recording_clip_path(event_id)
         if cached_path:
             return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
@@ -1371,7 +1383,7 @@ async def fetch_recording_clip(
         event_id=event_id,
         status="ready",
         clip_variant="recording",
-        cached=bool(ready and settings.media_cache.enabled and settings.media_cache.cache_clips),
+        cached=bool(ready and settings.media_cache.enabled),
     )
 
 
@@ -1412,24 +1424,41 @@ async def proxy_clip(
         )
 
     # Check cache first
-    if settings.media_cache.enabled and settings.media_cache.cache_clips:
-        cached_path = media_cache.get_clip_path(event_id)
-        if cached_path:
+    if settings.media_cache.enabled:
+        recording_cached_path = media_cache.get_recording_clip_path(event_id)
+        if recording_cached_path:
             log.info(
-                "proxy_clip_cache_hit",
+                "proxy_clip_recording_cache_hit",
                 event_id=event_id,
                 download=download_requested,
                 duration_ms=round((perf_counter() - request_started) * 1000, 2),
             )
-            # Serve from cache - FileResponse handles Range requests automatically
             return FileResponse(
-                path=cached_path,
+                path=recording_cached_path,
                 media_type="video/mp4",
                 filename=f"{event_id}.mp4",
                 headers={
                     "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
                 }
             )
+        if settings.media_cache.cache_clips:
+            cached_path = media_cache.get_clip_path(event_id)
+            if cached_path:
+                log.info(
+                    "proxy_clip_cache_hit",
+                    event_id=event_id,
+                    download=download_requested,
+                    duration_ms=round((perf_counter() - request_started) * 1000, 2),
+                )
+                # Serve from cache - FileResponse handles Range requests automatically
+                return FileResponse(
+                    path=cached_path,
+                    media_type="video/mp4",
+                    filename=f"{event_id}.mp4",
+                    headers={
+                        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+                    }
+                )
 
     # Verify clip exists in Frigate before attempting download
     try:
@@ -1610,7 +1639,7 @@ async def proxy_recording_clip(
             detail=i18n_service.translate("errors.proxy.download_forbidden", lang)
         )
 
-    if settings.media_cache.enabled and settings.media_cache.cache_clips:
+    if settings.media_cache.enabled:
         cached_path = media_cache.get_recording_clip_path(event_id)
         if cached_path:
             log.info(
@@ -1633,7 +1662,7 @@ async def proxy_recording_clip(
     headers = frigate_client._get_headers()
 
     range_header = request.headers.get("range")
-    should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    should_cache = settings.media_cache.enabled
     log.debug(
         "proxy_recording_clip_start",
         event_id=event_id,

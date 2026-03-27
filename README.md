@@ -263,7 +263,7 @@ See [Model Accuracy & Benchmarks](docs/features/model-accuracy.md) for full inst
 **Q: Why are my clips very short?**
 This is expected behaviour for birds. If a bird is only at the feeder for 2 seconds, the Frigate event is 2 seconds. Configure `record.alerts.pre_capture` and `record.detections.pre_capture` in your Frigate config to add context around each detection (e.g., `pre_capture: 5, post_capture: 25`). See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
 
-YA-WAMF also supports an optional `Full visit` clip variant for longer playback from Frigate recordings. When enabled in **Settings → Connection → Frigate**, it requests a configurable camera-level window around the detection timestamp instead of replacing the normal event clip. The default window is `30` seconds before plus `90` seconds after the detection.
+YA-WAMF also supports optional `Full visit` clips for longer playback from Frigate recordings. When enabled in **Settings → Connection → Frigate**, YA-WAMF requests a configurable camera-level window around the detection timestamp, persists that full-visit file locally, and automatically prefers it on the normal clip route once it has been generated. The default window is `30` seconds before plus `90` seconds after the detection.
 
 **Q: How do I update YA-WAMF?**
 Run `docker compose pull && docker compose up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
@@ -312,7 +312,7 @@ For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
 YA-WAMF includes a robust video proxy that streams clips directly from Frigate. This supports:
 - **Instant Playback:** Starts playing immediately without waiting for the whole file.
 - **Seeking:** You can jump to any part of the video (scrubbing) thanks to HTTP Range support.
-- **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This prevents the backend from fetching heavy video files.
+- **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This stops YA-WAMF from caching the short Frigate event clips, but automatic full-visit persistence still applies when **Full-visit clips** and the media cache are enabled.
 
 ## Home Assistant Integration
 

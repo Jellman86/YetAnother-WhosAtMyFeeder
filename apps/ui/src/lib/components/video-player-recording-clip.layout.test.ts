@@ -10,7 +10,9 @@ describe('video player recording clip variant wiring', () => {
         expect(videoPlayerSource).toContain("type ClipVariant = 'event' | 'recording'");
         expect(videoPlayerSource).toContain('selectedClipVariant');
         expect(videoPlayerSource).toContain('recordingClipAvailable');
+        expect(videoPlayerSource).toContain('recordingClipFetched');
         expect(videoPlayerSource).toContain('getRecordingClipUrl');
         expect(videoPlayerSource).toContain("selectedClipVariant === 'recording'");
+        expect(videoPlayerSource).toContain('!recordingClipFetched && recordingClipAvailable');
     });
 });

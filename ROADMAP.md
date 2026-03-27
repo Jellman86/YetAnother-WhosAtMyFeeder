@@ -11,6 +11,8 @@ These are the top maintenance-mode improvements to prioritize before broader fea
 ### 0. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
 **Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Completed on `dev` (2026-03-26)
 
+Follow-up shipped on `dev` (2026-03-27): YA-WAMF now auto-generates persisted full-visit clips for eligible completed detections and makes the canonical `/clip.mp4` route prefer that persisted full-visit file once ready.
+
 Frigate's event clips are bounded by its object tracker start/stop. For a feeder camera the bird's full visit is often much longer — the tracker fires briefly when the bird enters, drops when it moves or is occluded, and the clip closes after `post_capture`. The resulting clip can miss the arrival, the full feeding session, or the departure entirely.
 
 **Solution:**

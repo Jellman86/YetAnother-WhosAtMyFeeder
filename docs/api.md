@@ -104,6 +104,11 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
 
+Notes:
+- `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
+- `GET /api/frigate/{event_id}/recording-clip.mp4` remains available as an explicit full-visit route and uses the same persisted `{event_id}_recording.mp4` cache file when ready.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint, but with recording clips and the media cache enabled YA-WAMF also generates full-visit clips automatically for eligible completed detections.
+
 ### Species and Leaderboard
 
 - `GET /api/species`

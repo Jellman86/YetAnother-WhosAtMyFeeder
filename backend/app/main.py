@@ -29,6 +29,7 @@ from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier, shutdown_classifier
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
+from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
@@ -357,6 +358,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
+        await _run_lifecycle_phase(app, "full_visit_clip_start", full_visit_clip_service.start, fatal=False)
         await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
         log.info(
             "Background cleanup scheduler started",
@@ -378,6 +380,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
+        await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
