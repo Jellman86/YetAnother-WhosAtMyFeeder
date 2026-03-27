@@ -426,20 +426,6 @@
                         {processedUnknownStatus.label}
                     </div>
                 {/if}
-                {#if fullVisitFetched}
-                    <div
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-lg shadow-teal-900/30 ring-1 ring-teal-300/35"
-                        title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                        aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                    >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                        </svg>
-                    </div>
-                {/if}
                 {#if hasFrigateIssueBadge}
                     <div
                         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-900/30"
@@ -488,23 +474,39 @@
                 {formatTime(detection.detection_time)}
             </div>
             {#if canPlayVideo}
-                <button
-                    onclick={handlePlayClick}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handlePlayClick(e as any);
-                        }
-                    }}
-                    aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                    class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55 px-3 text-[11px] font-black uppercase tracking-wide text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <span>{$_('common.play', { default: 'Play' })}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    {#if fullVisitFetched}
+                        <div
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-lg shadow-teal-900/30 ring-1 ring-teal-300/35"
+                            title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                            aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                        >
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </div>
+                    {/if}
+                    <button
+                        onclick={handlePlayClick}
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handlePlayClick(e as any);
+                            }
+                        }}
+                        aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
+                        class="inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55 px-3 text-[11px] font-black uppercase tracking-wide text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <span>{$_('common.play', { default: 'Play' })}</span>
+                    </button>
+                </div>
             {/if}
             {#if showFetchFullVisitAction}
                 <button

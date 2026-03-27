@@ -20,6 +20,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/95');
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionCardSource).toContain('absolute bottom-3 left-3 z-20 flex flex-col items-start gap-2');
+        expect(detectionCardSource).toContain('{#if canPlayVideo}\n                <div class="flex items-center gap-2">');
         expect(detectionCardSource).toContain('inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55');
         expect(detectionCardSource).not.toContain('absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100');
         expect(detectionCardSource).toContain('M7 3H5a2 2 0 00-2 2v2');

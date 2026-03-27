@@ -1598,29 +1598,45 @@
                         </p>
                         <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
                         {#if canPlayVideo}
-                            <button
-                                type="button"
-                                onclick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onPlayVideo?.(detection.frigate_event, 'user');
-                                }}
-                                onpointerdown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                ontouchstart={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
-                                <span>{$_('common.play', { default: 'Play' })}</span>
-                            </button>
+                            <div class="flex items-center gap-2">
+                                {#if fullVisitFetched}
+                                    <div
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
+                                        title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                                        aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                                    >
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                            <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </div>
+                                {/if}
+                                <button
+                                    type="button"
+                                    onclick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onPlayVideo?.(detection.frigate_event, 'user');
+                                    }}
+                                    onpointerdown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}
+                                    ontouchstart={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}
+                                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
+                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                    <span>{$_('common.play', { default: 'Play' })}</span>
+                                </button>
+                            </div>
                         {/if}
                         {#if showFetchFullVisitAction}
                             <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
@@ -1654,21 +1670,6 @@
                         {/if}
                         </div>
                     </div>
-
-                    {#if fullVisitFetched}
-                        <div
-                            class="absolute top-4 right-14 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
-                            title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                            aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                        >
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                        </div>
-                    {/if}
                     {/if}
 
                     {#if frigateIssueBadgeVisible}
