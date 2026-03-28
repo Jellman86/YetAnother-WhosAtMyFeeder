@@ -20,13 +20,13 @@ The target is not “a different app server shape.” The target is “the same 
 
 Today YA-WAMF ships:
 
-- a backend image defined by [backend/Dockerfile](/config/workspace/YA-WAMF/.worktrees/monolithic-container/backend/Dockerfile)
-- a frontend image defined by [apps/ui/Dockerfile](/config/workspace/YA-WAMF/.worktrees/monolithic-container/apps/ui/Dockerfile)
-- nginx proxy rules in [apps/ui/nginx.conf](/config/workspace/YA-WAMF/.worktrees/monolithic-container/apps/ui/nginx.conf)
+- a backend image defined by [backend/Dockerfile](/config/workspace/YA-WAMF/backend/Dockerfile)
+- a frontend image defined by [apps/ui/Dockerfile](/config/workspace/YA-WAMF/apps/ui/Dockerfile)
+- nginx proxy rules in [apps/ui/nginx.conf](/config/workspace/YA-WAMF/apps/ui/nginx.conf)
 - compose files with separate `yawamf-backend` and `yawamf-frontend` services in:
-  - [docker-compose.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docker-compose.yml)
-  - [docker-compose.prod.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docker-compose.prod.yml)
-  - [docker-compose.dev.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docker-compose.dev.yml)
+  - [docker-compose.yml](/config/workspace/YA-WAMF/docker-compose.yml)
+  - [docker-compose.prod.yml](/config/workspace/YA-WAMF/docker-compose.prod.yml)
+  - [docker-compose.dev.yml](/config/workspace/YA-WAMF/docker-compose.dev.yml)
 
 This creates unnecessary user complexity:
 
@@ -180,7 +180,7 @@ If direct backend access is still useful for advanced operators, it can exist on
 
 ## CI And Image Publishing
 
-The GitHub Actions pipeline in [.github/workflows/build-and-push.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/.github/workflows/build-and-push.yml) should add a separate published monolithic runtime artifact.
+The GitHub Actions pipeline in [.github/workflows/build-and-push.yml](/config/workspace/YA-WAMF/.github/workflows/build-and-push.yml) should add a separate published monolithic runtime artifact.
 
 Target outcome for phase one:
 
@@ -294,12 +294,12 @@ Mitigation:
 
 This migration touches a lot of docs:
 
-- [README.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/README.md)
-- [docs/setup/getting-started.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docs/setup/getting-started.md)
-- [docs/setup/docker-stack.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docs/setup/docker-stack.md)
-- [docs/setup/reverse-proxy.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docs/setup/reverse-proxy.md)
-- [docs/features/authentication.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docs/features/authentication.md)
-- [docs/api.md](/config/workspace/YA-WAMF/.worktrees/monolithic-container/docs/api.md)
+- [README.md](/config/workspace/YA-WAMF/README.md)
+- [docs/setup/getting-started.md](/config/workspace/YA-WAMF/docs/setup/getting-started.md)
+- [docs/setup/docker-stack.md](/config/workspace/YA-WAMF/docs/setup/docker-stack.md)
+- [docs/setup/reverse-proxy.md](/config/workspace/YA-WAMF/docs/setup/reverse-proxy.md)
+- [docs/features/authentication.md](/config/workspace/YA-WAMF/docs/features/authentication.md)
+- [docs/api.md](/config/workspace/YA-WAMF/docs/api.md)
 
 Mitigation:
 
