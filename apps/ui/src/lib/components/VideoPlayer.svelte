@@ -26,6 +26,7 @@
         playIntent?: 'auto' | 'user';
         shareToken?: string | null;
         initialClipVariant?: ClipVariant;
+        initialRecordingClipFetched?: boolean;
     }
 
     type ProbeCache = {
@@ -41,7 +42,14 @@
     const clipHeadCache = new Map<string, ProbeCache>();
     const previewHeadCache = new Map<string, ProbeCache>();
 
-    let { frigateEvent, onClose, playIntent = 'auto', shareToken = null, initialClipVariant = 'event' }: Props = $props();
+    let {
+        frigateEvent,
+        onClose,
+        playIntent = 'auto',
+        shareToken = null,
+        initialClipVariant = 'event',
+        initialRecordingClipFetched = false
+    }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
     let modalElement = $state<HTMLDivElement | null>(null);
@@ -68,7 +76,7 @@
     }
 
     let clipUrlBase = $derived.by(() => {
-        const base = selectedClipVariant === 'recording' ? getRecordingClipUrl(frigateEvent) : getClipUrl(frigateEvent);
+        const base = selectedClipVariant === 'recording' && !recordingClipFetched ? getRecordingClipUrl(frigateEvent) : getClipUrl(frigateEvent);
         return shareToken ? appendQueryParam(base, 'share', shareToken) : base;
     });
     let recordingClipUrlBase = $derived.by(() => {
@@ -930,6 +938,8 @@
     onMount(() => {
         mounted = true;
         selectedClipVariant = initialClipVariant;
+        recordingClipAvailable = initialRecordingClipFetched;
+        recordingClipFetched = initialRecordingClipFetched;
         lockDocumentScroll();
         logger.info('video_player_modal_open', { frigateEvent });
         if (shareToken) {
@@ -1139,7 +1149,7 @@
                     </span>
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>
-                <div class="order-1 flex items-center justify-end gap-2 sm:order-2 sm:ml-auto">
+                <div class="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:ml-auto">
                     {#if !recordingClipFetched && recordingClipAvailable}
                         <div class="inline-flex items-center rounded-xl border border-slate-700/70 bg-slate-800/80 p-1">
                             <button

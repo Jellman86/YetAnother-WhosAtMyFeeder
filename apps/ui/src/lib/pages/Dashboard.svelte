@@ -479,6 +479,7 @@
         frigateEvent={videoEventId}
         playIntent={videoPlayIntent}
         initialClipVariant={videoClipVariant}
+        initialRecordingClipFetched={fullVisitFetchState[videoEventId] === 'ready'}
         onClose={() => {
             showVideo = false;
             videoEventId = null;

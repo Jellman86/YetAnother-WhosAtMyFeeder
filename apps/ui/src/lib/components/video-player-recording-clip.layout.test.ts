@@ -11,8 +11,15 @@ describe('video player recording clip variant wiring', () => {
         expect(videoPlayerSource).toContain('selectedClipVariant');
         expect(videoPlayerSource).toContain('recordingClipAvailable');
         expect(videoPlayerSource).toContain('recordingClipFetched');
+        expect(videoPlayerSource).toContain('initialRecordingClipFetched');
         expect(videoPlayerSource).toContain('getRecordingClipUrl');
-        expect(videoPlayerSource).toContain("selectedClipVariant === 'recording'");
+        expect(videoPlayerSource).toContain("selectedClipVariant === 'recording' && !recordingClipFetched");
         expect(videoPlayerSource).toContain('!recordingClipFetched && recordingClipAvailable');
+    });
+
+    it('keeps persisted full visits on the canonical clip route and lets the mobile action row wrap', () => {
+        expect(videoPlayerSource).toContain("selectedClipVariant === 'recording' && !recordingClipFetched ? getRecordingClipUrl(frigateEvent) : getClipUrl(frigateEvent)");
+        expect(videoPlayerSource).toContain('recordingClipFetched = initialRecordingClipFetched');
+        expect(videoPlayerSource).toContain('flex-wrap items-center justify-end gap-2');
     });
 });

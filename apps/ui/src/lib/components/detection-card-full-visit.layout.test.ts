@@ -29,10 +29,12 @@ describe('detection card full-visit fetch wiring', () => {
         expect(eventsPageSource).toContain('fullVisitFetchState');
         expect(eventsPageSource).toContain('preferredClipVariantByEvent');
         expect(eventsPageSource).toContain('onFetchFullVisit');
+        expect(eventsPageSource).toContain('initialRecordingClipFetched={fullVisitFetchState[videoEventId] === \'ready\'}');
 
         expect(dashboardPageSource).toContain('fullVisitAvailability');
         expect(dashboardPageSource).toContain('fullVisitFetchState');
         expect(dashboardPageSource).toContain('preferredClipVariantByEvent');
         expect(dashboardPageSource).toContain('onFetchFullVisit');
+        expect(dashboardPageSource).toContain('initialRecordingClipFetched={fullVisitFetchState[videoEventId] === \'ready\'}');
     });
 });
