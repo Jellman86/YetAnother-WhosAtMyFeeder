@@ -114,7 +114,9 @@ In `DetectionSettings.svelte`, replace the free-text add-label input with the sa
 ---
 
 ### 2. Labeled Feeder Model Evaluation Harness 📊
-**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Planned
+**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Partially shipped on `dev` (as of 2026-03-28)
+
+Current state on `dev`: YA-WAMF already includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` with threshold sweeps, JSON/CSV output, and labelled-directory/CUB-200 support. The remaining work is the feeder-specific harness described below: manifest-driven labeled feeder inputs, temporary per-run crop/source override isolation, and richer crop/source diagnostics through the real classifier stack.
 
 Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
 
@@ -131,7 +133,9 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 - Results are good enough to decide default crop behavior per model based on evidence.
 
 ### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
-**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Planned
+**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `dev` (2026-03-28)
+
+Shipped on `dev`: canonical identity is now enforced end to end. Detection writes persist canonical taxonomy fields together, repository filters and rollups use canonical identity instead of raw display-name equality, `species_daily_rollup` stores canonical identity metadata directly, and the existing maintenance taxonomy-repair action now runs an explicit historical canonical-repair pass that backfills missing taxonomy and rebuilds rollups afterward.
 
 Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
 
@@ -191,7 +195,9 @@ Add a first-class way to pin standout detections so users can build a curated se
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
 ### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
-**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Planned
+**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Partially shipped on `dev` (as of 2026-03-28)
+
+Current state on `dev`: some extraction has already happened. The settings area now has a shared `components/settings` surface plus helper modules under `apps/ui/src/lib/settings` for focused concerns such as location dirty-state, blocked-species handling, crop overrides, and LLM model helpers. The remaining work is the larger architectural cleanup: pull more of the save/dirty/secret/feedback logic out of `Settings.svelte`, standardize the helper patterns, and shrink the page-level orchestration surface.
 
 Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
 
@@ -206,7 +212,9 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
 ### 6. Explorer Filter: Show Audio Matches Only 🎧
-**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Planned
+**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `dev` (2026-03-28)
+
+Shipped on `dev`: the Explorer now supports `audio_confirmed_only` in `/events` and `/events/count`, the API client threads the filter through request params, and the Explorer UI exposes an `Audio Matches` toggle with URL/state integration.
 
 Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
 

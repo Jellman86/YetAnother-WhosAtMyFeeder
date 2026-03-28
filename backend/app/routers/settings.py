@@ -12,7 +12,7 @@ from app.auth import require_owner, AuthContext, hash_password
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
-from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import telemetry_service
 from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
@@ -43,7 +43,7 @@ BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
-    return taxonomy_service.get_sync_status()
+    return canonical_identity_repair_service.get_status()
 
 @router.post("/maintenance/taxonomy/sync")
 async def start_taxonomy_sync(
@@ -51,11 +51,11 @@ async def start_taxonomy_sync(
     auth: AuthContext = Depends(require_owner)
 ):
     """Start the background process to normalize all detection names. Owner only."""
-    status = taxonomy_service.get_sync_status()
+    status = canonical_identity_repair_service.get_status()
     if status["is_running"]:
         return {"status": "already_running"}
 
-    background_tasks.add_task(taxonomy_service.run_background_sync)
+    background_tasks.add_task(canonical_identity_repair_service.run)
     return {"status": "started"}
 
 @router.post("/settings/birdnet/test")

@@ -85,3 +85,23 @@ def test_detections_schema_includes_video_classification_model_id(tmp_path):
         assert "video_classification_model_id" in col_names
     finally:
         conn.close()
+
+
+def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_path):
+    db_path = tmp_path / "schema_species_rollup.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(species_daily_rollup);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert "canonical_key" in col_names
+        assert "scientific_name" in col_names
+        assert "common_name" in col_names
+        assert "taxa_id" in col_names
+
+        indexes = conn.execute("PRAGMA index_list(species_daily_rollup);").fetchall()
+        index_names = {row[1] for row in indexes}
+        assert "idx_species_rollup_canonical" in index_names
+    finally:
+        conn.close()

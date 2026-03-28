@@ -224,7 +224,11 @@ species_daily_rollup = Table(
     "species_daily_rollup",
     metadata,
     Column("rollup_date", Date, nullable=False),
+    Column("canonical_key", String, nullable=False),
     Column("display_name", String, nullable=False),
+    Column("scientific_name", String),
+    Column("common_name", String),
+    Column("taxa_id", Integer),
     Column("detection_count", Integer, nullable=False),
     Column("camera_count", Integer, nullable=False),
     Column("avg_confidence", Float),
@@ -232,10 +236,11 @@ species_daily_rollup = Table(
     Column("min_confidence", Float),
     Column("first_seen", TIMESTAMP),
     Column("last_seen", TIMESTAMP),
-    PrimaryKeyConstraint("rollup_date", "display_name", name="pk_species_daily_rollup"),
+    PrimaryKeyConstraint("rollup_date", "canonical_key", name="pk_species_daily_rollup"),
 )
 
 Index("idx_species_rollup_date", species_daily_rollup.c.rollup_date)
+Index("idx_species_rollup_canonical", species_daily_rollup.c.canonical_key)
 Index("idx_species_rollup_display", species_daily_rollup.c.display_name)
 
 

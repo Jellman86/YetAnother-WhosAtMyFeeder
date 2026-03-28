@@ -273,6 +273,127 @@ async def test_taxonomy_lookup_and_alias_resolution_support_localized_common_nam
 
 
 @pytest.mark.asyncio
+async def test_taxonomy_lookup_resolves_localized_common_name_without_language_hint():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.execute(
+            "INSERT INTO taxonomy_translations (taxa_id, language_code, common_name) VALUES (?, ?, ?)",
+            (1234, "es", "Herrerillo comun"),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        taxonomy = await repo.get_taxonomy_names("Herrerillo com\u00fan")
+
+        assert taxonomy["taxa_id"] == 1234
+        assert taxonomy["scientific_name"] == "Cyanistes caeruleus"
+
+
+@pytest.mark.asyncio
+async def test_get_all_and_count_filter_by_canonical_species_identity():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.92,
+            display_name="Blue Tit",
+            category_name="Bird",
+            frigate_event="evt_filter_common",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.95,
+            display_name="Cyanistes caeruleus",
+            category_name="Bird",
+            frigate_event="evt_filter_sci",
+            camera_name="cam_2",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+
+        filtered = await repo.get_all(species="Blue Tit")
+        count = await repo.get_count(species="Blue Tit")
+
+        assert len(filtered) == 2
+        assert count == 2
+
+
+@pytest.mark.asyncio
+async def test_rollup_metrics_collapse_common_and_scientific_aliases():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.execute("""
+            CREATE TABLE species_daily_rollup (
+                rollup_date DATE NOT NULL,
+                display_name TEXT NOT NULL,
+                detection_count INTEGER NOT NULL,
+                camera_count INTEGER NOT NULL,
+                avg_confidence FLOAT,
+                max_confidence FLOAT,
+                min_confidence FLOAT,
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP,
+                PRIMARY KEY (rollup_date, display_name)
+            )
+        """)
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.91,
+            display_name="Blue Tit",
+            category_name="Bird",
+            frigate_event="evt_rollup_common",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.94,
+            display_name="Cyanistes caeruleus",
+            category_name="Bird",
+            frigate_event="evt_rollup_sci",
+            camera_name="cam_2",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+
+        await repo.ensure_recent_rollups(30)
+        metrics = await repo.get_rollup_metrics()
+
+        assert list(metrics.keys()) == ["Blue Tit"]
+        assert metrics["Blue Tit"]["count_7d"] >= 2
+
+
+@pytest.mark.asyncio
 async def test_unified_species_window_metrics_combines_alias_variants():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

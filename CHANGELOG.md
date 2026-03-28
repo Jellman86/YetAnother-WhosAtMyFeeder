@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Added:** Canonical species identity normalization is now completed end to end. YA-WAMF now treats species identity as `taxa_id` first, then `scientific_name`, instead of relying on raw `display_name` equality for key repository filters and historical rollups.
+- **Added:** The maintenance taxonomy-repair action now runs an explicit canonical-identity repair flow that backfills missing taxonomy on historical detections and rebuilds species rollups afterward, so repaired rows immediately collapse into the correct canonical species stats.
+- **Changed:** `species_daily_rollup` now stores canonical identity fields (`canonical_key`, `scientific_name`, `common_name`, `taxa_id`) and is rebuilt on canonical keys instead of display name alone, which prevents common/scientific alias variants from splitting leaderboard windows and recent metrics.
+- **Fixed:** Canonical taxonomy lookups can now resolve localized common names even when no language hint is available, which hardens maintenance repair and other backend-only reconciliation paths against historical localized labels.
 - **Changed:** Manual video reclassification now prefers the persisted full-visit recording clip when one is already cached for the same Frigate event, instead of falling back to the shorter event clip or re-downloading unnecessary media.
 - **Changed:** Video frame sampling is now clip-aware. Normal Frigate event clips bias their sampled frames toward the center while still covering the edges, and persisted full-visit clips use a broader whole-visit sampling pattern with lighter center emphasis.
 - **Fixed:** The video player now treats already-persisted full-visit clips as the canonical `/clip.mp4` path instead of trying to reload them through the separate recording route, which fixes stale short-clip labeling and the stuck `Loading...` state when toggling to `Full visit` for previously fetched events. The mobile video-action row now wraps cleanly instead of overflowing its buttons.

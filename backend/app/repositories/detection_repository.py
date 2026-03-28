@@ -210,6 +210,87 @@ class DetectionRepository:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
 
+    @staticmethod
+    def _canonical_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
+        return (
+            f"COALESCE(CAST(COALESCE({detection_alias}.taxa_id, {taxonomy_alias}.taxa_id) AS TEXT), "
+            f"LOWER(COALESCE({detection_alias}.scientific_name, {taxonomy_alias}.scientific_name)), "
+            f"LOWER({detection_alias}.display_name))"
+        )
+
+    @staticmethod
+    def _taxonomy_join_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
+        return (
+            f"LEFT JOIN taxonomy_cache {taxonomy_alias} "
+            f"ON ("
+            f"({detection_alias}.scientific_name IS NOT NULL AND LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.scientific_name)) "
+            f"OR ({detection_alias}.scientific_name IS NULL AND ("
+            f"LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.display_name) "
+            f"OR LOWER({taxonomy_alias}.common_name) = LOWER({detection_alias}.display_name)"
+            f")))"
+        )
+
+    async def _build_canonical_species_condition(
+        self,
+        *,
+        detection_alias: str,
+        species_name: str,
+        has_taxonomy_cache: bool,
+    ) -> tuple[str, list]:
+        alias_info = await self.resolve_species_aliases(species_name)
+        clauses: list[str] = []
+        params: list = []
+
+        taxa_id = alias_info.get("taxa_id")
+        if taxa_id is not None:
+            if has_taxonomy_cache:
+                clauses.append(f"COALESCE({detection_alias}.taxa_id, tc_filter.taxa_id) = ?")
+            else:
+                clauses.append(f"{detection_alias}.taxa_id = ?")
+            params.append(taxa_id)
+
+        scientific_name = alias_info.get("scientific_name")
+        if scientific_name:
+            if has_taxonomy_cache:
+                clauses.append(f"LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) = LOWER(?)")
+            else:
+                clauses.append(f"LOWER({detection_alias}.scientific_name) = LOWER(?)")
+            params.append(scientific_name)
+
+        match_names = [str(name).strip() for name in (alias_info.get("match_names") or []) if str(name).strip()]
+        lowered_names = []
+        seen_names: set[str] = set()
+        for name in match_names:
+            lowered = name.lower()
+            if lowered in seen_names:
+                continue
+            seen_names.add(lowered)
+            lowered_names.append(lowered)
+
+        if lowered_names:
+            placeholders = ",".join(["?"] * len(lowered_names))
+            if has_taxonomy_cache:
+                clauses.append(
+                    f"(LOWER({detection_alias}.display_name) IN ({placeholders}) "
+                    f"OR LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) IN ({placeholders}) "
+                    f"OR LOWER(COALESCE({detection_alias}.common_name, tc_filter.common_name)) IN ({placeholders}))"
+                )
+            else:
+                clauses.append(
+                    f"(LOWER({detection_alias}.display_name) IN ({placeholders}) "
+                    f"OR LOWER({detection_alias}.scientific_name) IN ({placeholders}) "
+                    f"OR LOWER({detection_alias}.common_name) IN ({placeholders}))"
+                )
+            params.extend(lowered_names)
+            params.extend(lowered_names)
+            params.extend(lowered_names)
+
+        if not clauses:
+            clauses.append(f"LOWER({detection_alias}.display_name) = LOWER(?)")
+            params.append(species_name)
+
+        return "(" + " OR ".join(clauses) + ")", params
+
     async def _last_statement_changes(self) -> int:
         """Return rows changed by the most recent write statement on this connection."""
         cursor = await self.db.execute("SELECT changes()")
@@ -229,6 +310,13 @@ class DetectionRepository:
         exists = row is not None
         self._table_exists_cache[table_name] = exists
         return exists
+
+    async def _table_columns(self, table_name: str) -> set[str]:
+        if not await self._table_exists(table_name):
+            return set()
+        async with self.db.execute(f"PRAGMA table_info({table_name})") as cursor:
+            rows = await cursor.fetchall()
+        return {row[1] for row in rows if row and len(row) > 1}
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
@@ -754,6 +842,7 @@ class DetectionRepository:
         favorite_only: bool = False,
         audio_confirmed_only: bool = False
     ) -> list[Detection]:
+        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         query = """
             SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
                    d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
@@ -767,6 +856,13 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
+        if has_taxonomy_cache:
+            query += """
+            LEFT JOIN taxonomy_cache tc_filter
+                ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
+                    OR (d.scientific_name IS NULL AND (LOWER(tc_filter.scientific_name) = LOWER(d.display_name)
+                        OR LOWER(tc_filter.common_name) = LOWER(d.display_name))))
+            """
         params: list = []
         conditions = []
 
@@ -781,14 +877,32 @@ class DetectionRepository:
             conditions.append("d.detection_time <= ?")
             params.append(end_date.isoformat(sep=' '))
         if species:
-            conditions.append("d.display_name = ?")
-            params.append(species)
+            species_condition, species_params = await self._build_canonical_species_condition(
+                detection_alias="d",
+                species_name=species,
+                has_taxonomy_cache=has_taxonomy_cache,
+            )
+            conditions.append(species_condition)
+            params.extend(species_params)
         if species_any:
-            placeholders = ",".join(["?"] * len(species_any))
-            conditions.append(f"d.display_name IN ({placeholders})")
-            params.extend(species_any)
+            any_clauses: list[str] = []
+            any_params: list = []
+            for species_name in species_any:
+                clause, clause_params = await self._build_canonical_species_condition(
+                    detection_alias="d",
+                    species_name=species_name,
+                    has_taxonomy_cache=has_taxonomy_cache,
+                )
+                any_clauses.append(clause)
+                any_params.extend(clause_params)
+            if any_clauses:
+                conditions.append("(" + " OR ".join(any_clauses) + ")")
+                params.extend(any_params)
         if taxa_id is not None:
-            conditions.append("d.taxa_id = ?")
+            if has_taxonomy_cache:
+                conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
+            else:
+                conditions.append("d.taxa_id = ?")
             params.append(taxa_id)
         if camera:
             conditions.append("d.camera_name = ?")
@@ -830,11 +944,19 @@ class DetectionRepository:
         audio_confirmed_only: bool = False,
     ) -> int:
         """Get total count of detections, optionally filtered."""
+        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         query = """
             SELECT COUNT(*)
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
+        if has_taxonomy_cache:
+            query += """
+            LEFT JOIN taxonomy_cache tc_filter
+                ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
+                    OR (d.scientific_name IS NULL AND (LOWER(tc_filter.scientific_name) = LOWER(d.display_name)
+                        OR LOWER(tc_filter.common_name) = LOWER(d.display_name))))
+            """
         params: list = []
         conditions = []
 
@@ -849,14 +971,32 @@ class DetectionRepository:
             conditions.append("d.detection_time <= ?")
             params.append(end_date.isoformat(sep=' '))
         if species:
-            conditions.append("d.display_name = ?")
-            params.append(species)
+            species_condition, species_params = await self._build_canonical_species_condition(
+                detection_alias="d",
+                species_name=species,
+                has_taxonomy_cache=has_taxonomy_cache,
+            )
+            conditions.append(species_condition)
+            params.extend(species_params)
         if species_any:
-            placeholders = ",".join(["?"] * len(species_any))
-            conditions.append(f"d.display_name IN ({placeholders})")
-            params.extend(species_any)
+            any_clauses: list[str] = []
+            any_params: list = []
+            for species_name in species_any:
+                clause, clause_params = await self._build_canonical_species_condition(
+                    detection_alias="d",
+                    species_name=species_name,
+                    has_taxonomy_cache=has_taxonomy_cache,
+                )
+                any_clauses.append(clause)
+                any_params.extend(clause_params)
+            if any_clauses:
+                conditions.append("(" + " OR ".join(any_clauses) + ")")
+                params.extend(any_params)
         if taxa_id is not None:
-            conditions.append("d.taxa_id = ?")
+            if has_taxonomy_cache:
+                conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
+            else:
+                conditions.append("d.taxa_id = ?")
             params.append(taxa_id)
         if camera:
             conditions.append("d.camera_name = ?")
@@ -1037,6 +1177,24 @@ class DetectionRepository:
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?""",
                 (language,)
+            ) as cursor:
+                rows = await cursor.fetchall()
+            for row in rows:
+                if _normalize_species_lookup_name(row[3]) == normalized_lookup:
+                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    return result
+
+        # Language-agnostic localized fallback for repair/maintenance paths that
+        # do not know the source language of the stored display name.
+        if (
+            result["taxa_id"] is None
+            and normalized_lookup
+            and await self._table_exists("taxonomy_translations")
+        ):
+            async with self.db.execute(
+                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                   FROM taxonomy_translations tt
+                   JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id"""
             ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
@@ -1847,75 +2005,202 @@ class DetectionRepository:
         """Rebuild rollups between start_date and end_date (inclusive)."""
         start_dt = datetime.combine(start_date, datetime.min.time())
         end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
-        query = """
-            SELECT 
-                date(detection_time) as rollup_date,
-                display_name,
-                COUNT(*) as detection_count,
-                COUNT(DISTINCT camera_name) as camera_count,
-                AVG(score) as avg_confidence,
-                MAX(score) as max_confidence,
-                MIN(score) as min_confidence,
-                MIN(detection_time) as first_seen,
-                MAX(detection_time) as last_seen
-            FROM detections
-            WHERE detection_time >= ? AND detection_time < ?
-              AND (is_hidden = 0 OR is_hidden IS NULL)
-            GROUP BY rollup_date, display_name
-        """
+        rollup_columns = await self._table_columns("species_daily_rollup")
+        rollup_has_canonical_columns = "canonical_key" in rollup_columns
+        if await self._table_exists("taxonomy_cache"):
+            query = """
+                WITH enriched AS (
+                    SELECT
+                        date(d.detection_time) as rollup_date,
+                        d.display_name,
+                        COALESCE(d.scientific_name, tc.scientific_name) as scientific_name,
+                        COALESCE(d.common_name, tc.common_name) as common_name,
+                        COALESCE(d.taxa_id, tc.taxa_id) as taxa_id,
+                        d.camera_name,
+                        d.score,
+                        d.detection_time,
+                        {canonical_key} as canonical_key
+                    FROM detections d
+                    {taxonomy_join}
+                    WHERE d.detection_time >= ? AND d.detection_time < ?
+                      AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                )
+                SELECT
+                    rollup_date,
+                    canonical_key,
+                    COALESCE(
+                        MAX(CASE
+                            WHEN common_name IS NOT NULL AND LOWER(display_name) = LOWER(common_name) THEN display_name
+                            END),
+                        MAX(common_name),
+                        MIN(display_name)
+                    ) as display_name,
+                    MAX(scientific_name) as scientific_name,
+                    MAX(common_name) as common_name,
+                    MAX(taxa_id) as taxa_id,
+                    COUNT(*) as detection_count,
+                    COUNT(DISTINCT camera_name) as camera_count,
+                    AVG(score) as avg_confidence,
+                    MAX(score) as max_confidence,
+                    MIN(score) as min_confidence,
+                    MIN(detection_time) as first_seen,
+                    MAX(detection_time) as last_seen
+                FROM enriched
+                GROUP BY rollup_date, canonical_key
+            """.format(
+                canonical_key=self._canonical_key_sql(detection_alias="d", taxonomy_alias="tc"),
+                taxonomy_join=self._taxonomy_join_sql(detection_alias="d", taxonomy_alias="tc"),
+            )
+        else:
+            query = """
+                WITH enriched AS (
+                    SELECT
+                        date(detection_time) as rollup_date,
+                        display_name,
+                        scientific_name,
+                        common_name,
+                        taxa_id,
+                        camera_name,
+                        score,
+                        detection_time,
+                        COALESCE(CAST(taxa_id AS TEXT), LOWER(scientific_name), LOWER(display_name)) as canonical_key
+                    FROM detections
+                    WHERE detection_time >= ? AND detection_time < ?
+                      AND (is_hidden = 0 OR is_hidden IS NULL)
+                )
+                SELECT
+                    rollup_date,
+                    canonical_key,
+                    COALESCE(
+                        MAX(CASE
+                            WHEN common_name IS NOT NULL AND LOWER(display_name) = LOWER(common_name) THEN display_name
+                            END),
+                        MAX(common_name),
+                        MIN(display_name)
+                    ) as display_name,
+                    MAX(scientific_name) as scientific_name,
+                    MAX(common_name) as common_name,
+                    MAX(taxa_id) as taxa_id,
+                    COUNT(*) as detection_count,
+                    COUNT(DISTINCT camera_name) as camera_count,
+                    AVG(score) as avg_confidence,
+                    MAX(score) as max_confidence,
+                    MIN(score) as min_confidence,
+                    MIN(detection_time) as first_seen,
+                    MAX(detection_time) as last_seen
+                FROM enriched
+                GROUP BY rollup_date, canonical_key
+            """
         async with self.db.execute(query, (start_dt, end_dt)) as cursor:
             rows = await cursor.fetchall()
         if not rows:
             return
-        await self.db.executemany(
-            """INSERT INTO species_daily_rollup
-                   (rollup_date, display_name, detection_count, camera_count,
-                    avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(rollup_date, display_name) DO UPDATE SET
-                    detection_count=excluded.detection_count,
-                    camera_count=excluded.camera_count,
-                    avg_confidence=excluded.avg_confidence,
-                    max_confidence=excluded.max_confidence,
-                    min_confidence=excluded.min_confidence,
-                    first_seen=excluded.first_seen,
-                    last_seen=excluded.last_seen
-            """,
-            rows
-        )
+        if rollup_has_canonical_columns:
+            await self.db.executemany(
+                """INSERT INTO species_daily_rollup
+                       (rollup_date, canonical_key, display_name, scientific_name, common_name, taxa_id,
+                        detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(rollup_date, canonical_key) DO UPDATE SET
+                        display_name=excluded.display_name,
+                        scientific_name=excluded.scientific_name,
+                        common_name=excluded.common_name,
+                        taxa_id=excluded.taxa_id,
+                        detection_count=excluded.detection_count,
+                        camera_count=excluded.camera_count,
+                        avg_confidence=excluded.avg_confidence,
+                        max_confidence=excluded.max_confidence,
+                        min_confidence=excluded.min_confidence,
+                        first_seen=excluded.first_seen,
+                        last_seen=excluded.last_seen
+                """,
+                rows
+            )
+        else:
+            legacy_rows = [
+                (row[0], row[2], row[6], row[7], row[8], row[9], row[10], row[11], row[12])
+                for row in rows
+            ]
+            await self.db.executemany(
+                """INSERT INTO species_daily_rollup
+                       (rollup_date, display_name, detection_count, camera_count,
+                        avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(rollup_date, display_name) DO UPDATE SET
+                        detection_count=excluded.detection_count,
+                        camera_count=excluded.camera_count,
+                        avg_confidence=excluded.avg_confidence,
+                        max_confidence=excluded.max_confidence,
+                        min_confidence=excluded.min_confidence,
+                        first_seen=excluded.first_seen,
+                        last_seen=excluded.last_seen
+                """,
+                legacy_rows
+            )
         await self.db.commit()
 
     async def get_rollup_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
         """Aggregate rollup metrics for leaderboard windows."""
-        query = """
-            SELECT 
+        window = f"-{lookback_days} day"
+        rollup_columns = await self._table_columns("species_daily_rollup")
+        if "canonical_key" in rollup_columns:
+            query = """
+                SELECT
+                    canonical_key,
+                    COALESCE(MAX(common_name), MIN(display_name)) as display_name,
+                    SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
+                    SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
+                    SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
+                    SUM(CASE WHEN rollup_date >= date('now','-14 day')
+                              AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
+                    SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
+                    SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
+                    MAX(last_seen) as last_seen_recent
+                FROM species_daily_rollup
+                WHERE rollup_date >= date('now', ?)
+                GROUP BY canonical_key
+            """
+        else:
+            query = """
+            SELECT
                 display_name,
                 SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
                 SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
                 SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
-                SUM(CASE WHEN rollup_date >= date('now','-14 day') 
+                SUM(CASE WHEN rollup_date >= date('now','-14 day')
                           AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
-                SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
-                SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
-                MAX(last_seen) as last_seen_recent
-            FROM species_daily_rollup
-            WHERE rollup_date >= date('now', ?)
-            GROUP BY display_name
-        """
-        window = f"-{lookback_days} day"
+                    SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
+                    SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
+                    MAX(last_seen) as last_seen_recent
+                FROM species_daily_rollup
+                WHERE rollup_date >= date('now', ?)
+                GROUP BY display_name
+            """
         async with self.db.execute(query, (window,)) as cursor:
             rows = await cursor.fetchall()
         metrics: dict[str, dict] = {}
-        for row in rows:
-            metrics[row[0]] = {
-                "count_1d": row[1] or 0,
-                "count_7d": row[2] or 0,
-                "count_30d": row[3] or 0,
-                "count_prev_7d": row[4] or 0,
-                "days_seen_14d": row[5] or 0,
-                "days_seen_30d": row[6] or 0,
-                "last_seen_recent": _parse_datetime(row[7]) if row[7] else None
-            }
+        if "canonical_key" in rollup_columns:
+            for row in rows:
+                metrics[row[1]] = {
+                    "count_1d": row[2] or 0,
+                    "count_7d": row[3] or 0,
+                    "count_30d": row[4] or 0,
+                    "count_prev_7d": row[5] or 0,
+                    "days_seen_14d": row[6] or 0,
+                    "days_seen_30d": row[7] or 0,
+                    "last_seen_recent": _parse_datetime(row[8]) if row[8] else None
+                }
+        else:
+            for row in rows:
+                metrics[row[0]] = {
+                    "count_1d": row[1] or 0,
+                    "count_7d": row[2] or 0,
+                    "count_30d": row[3] or 0,
+                    "count_prev_7d": row[4] or 0,
+                    "days_seen_14d": row[5] or 0,
+                    "days_seen_30d": row[6] or 0,
+                    "last_seen_recent": _parse_datetime(row[7]) if row[7] else None
+                }
         return metrics
 
     async def get_total_daily_counts(self, days: int = 30) -> list[dict]:
