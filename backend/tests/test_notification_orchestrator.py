@@ -24,19 +24,21 @@ def test_effective_video_wait_timeout_uses_pipeline_budget(monkeypatch):
     monkeypatch.setattr(settings.classification, "video_classification_delay", 120)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 3)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 15)
+    monkeypatch.setattr(settings.classification, "video_classification_timeout_seconds", 180)
 
-    assert orchestrator._effective_video_wait_timeout() == 240
+    assert orchestrator._effective_video_wait_timeout() == 420
 
 
 def test_effective_video_wait_timeout_respects_larger_manual_override(monkeypatch):
     orchestrator = NotificationOrchestrator()
 
-    monkeypatch.setattr(settings.notifications, "video_fallback_timeout", 300)
+    monkeypatch.setattr(settings.notifications, "video_fallback_timeout", 500)
     monkeypatch.setattr(settings.classification, "video_classification_delay", 120)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 3)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 15)
+    monkeypatch.setattr(settings.classification, "video_classification_timeout_seconds", 180)
 
-    assert orchestrator._effective_video_wait_timeout() == 300
+    assert orchestrator._effective_video_wait_timeout() == 500
 
 
 @pytest.mark.asyncio
@@ -65,6 +67,7 @@ async def test_notify_after_video_uses_completed_video_result(monkeypatch):
     monkeypatch.setattr(settings.classification, "video_classification_delay", 120)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 3)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 15)
+    monkeypatch.setattr(settings.classification, "video_classification_timeout_seconds", 180)
 
     with patch(
         "app.services.notification_orchestrator.video_classification_waiter.wait_for_final_status",
@@ -72,7 +75,7 @@ async def test_notify_after_video_uses_completed_video_result(monkeypatch):
     ) as wait_for:
         await orchestrator._notify_after_video(event, classification, False, None)
 
-    wait_for.assert_awaited_once_with(event.frigate_event, timeout=240)
+    wait_for.assert_awaited_once_with(event.frigate_event, timeout=420)
     orchestrator._send_notification.assert_awaited_once()
     kwargs = orchestrator._send_notification.call_args.kwargs
     assert kwargs["label"] == "Blue Jay"
@@ -106,6 +109,7 @@ async def test_notify_after_video_skips_unconfirmed_snapshot_and_failed_video(mo
     monkeypatch.setattr(settings.classification, "video_classification_delay", 120)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 3)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 15)
+    monkeypatch.setattr(settings.classification, "video_classification_timeout_seconds", 180)
 
     with patch(
         "app.services.notification_orchestrator.video_classification_waiter.wait_for_final_status",

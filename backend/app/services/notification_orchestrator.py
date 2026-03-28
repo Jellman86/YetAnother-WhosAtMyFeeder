@@ -24,8 +24,9 @@ class NotificationOrchestrator:
         delay = max(0, int(settings.classification.video_classification_delay or 0))
         max_retries = max(0, int(settings.classification.video_classification_max_retries or 0))
         retry_interval = max(0, int(settings.classification.video_classification_retry_interval or 0))
+        runtime_timeout = max(0, int(settings.classification.video_classification_timeout_seconds or 0))
         clip_retry_budget = sum(retry_interval * (2 ** attempt) for attempt in range(max_retries))
-        derived_minimum = delay + clip_retry_budget + self._VIDEO_WAIT_BUFFER_SECONDS
+        derived_minimum = delay + clip_retry_budget + runtime_timeout + self._VIDEO_WAIT_BUFFER_SECONDS
         manual_timeout = max(0, int(settings.notifications.video_fallback_timeout or 0))
         return max(manual_timeout, derived_minimum)
 
