@@ -1,0 +1,12 @@
+.git
+.github
+.worktrees
+node_modules
+apps/ui/node_modules
+backend/venv
+tests/__pycache__
+backend/tests/__pycache__
+apps/ui/.svelte-kit
+apps/ui/dist
+docs
+dashboard-preview.png
