@@ -17,6 +17,18 @@ log = structlog.get_logger()
 class NotificationOrchestrator:
     """Handle notification decisioning and dispatch for detections."""
 
+    _VIDEO_WAIT_BUFFER_SECONDS = 15
+
+    def _effective_video_wait_timeout(self) -> int:
+        """Return the minimum sensible wait for delayed video notifications."""
+        delay = max(0, int(settings.classification.video_classification_delay or 0))
+        max_retries = max(0, int(settings.classification.video_classification_max_retries or 0))
+        retry_interval = max(0, int(settings.classification.video_classification_retry_interval or 0))
+        clip_retry_budget = sum(retry_interval * (2 ** attempt) for attempt in range(max_retries))
+        derived_minimum = delay + clip_retry_budget + self._VIDEO_WAIT_BUFFER_SECONDS
+        manual_timeout = max(0, int(settings.notifications.video_fallback_timeout or 0))
+        return max(manual_timeout, derived_minimum)
+
     def _should_notify(
         self,
         event_type: str,
@@ -118,7 +130,7 @@ class NotificationOrchestrator:
         audio_confirmed: bool,
         audio_species: Optional[str]
     ):
-        timeout = settings.notifications.video_fallback_timeout
+        timeout = self._effective_video_wait_timeout()
         snapshot_confirmed = (
             classification['score'] >= settings.classification.threshold
             or classification['audio_confirmed']

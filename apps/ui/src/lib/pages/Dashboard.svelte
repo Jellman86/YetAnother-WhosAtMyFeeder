@@ -260,12 +260,16 @@
         if (!selectedEvent) return;
         updatingTag = true;
         try {
-            await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
+            const eventId = selectedEvent.frigate_event;
+            await updateDetectionSpecies(eventId, newSpecies);
             selectedEvent.display_name = newSpecies;
             selectedEvent.category_name = newSpecies;
             selectedEvent.manual_tagged = true;
             // Optimistically update store
             detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
+            if (recordingClipFetchEnabled) {
+                await fullVisitStore.ensureAvailability(eventId, { refresh: true });
+            }
             showTagDropdown = false;
             await loadSummary(true);
         } catch (e) {

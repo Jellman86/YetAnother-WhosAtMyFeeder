@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Delayed notifications now derive their effective video wait from the actual video-classification pipeline timing, including the clip polling backoff budget, so `delay_until_video` cannot silently time out before video analysis has a real chance to complete. The existing notification timeout now acts only as a larger manual override instead of a smaller cutoff.
+- **Fixed:** Manual tag updates now preserve full-visit readiness for the same Frigate event. When a persisted full-visit clip already exists, renaming a detection refreshes that event-based clip state instead of re-offering a redundant `Fetch full clip` action.
+
 ## [2.9.1] - 2026-03-27
 
 - **Added:** When recording clips and the media cache are enabled, YA-WAMF now auto-generates a persisted full-visit clip for eligible completed detections after the Frigate `end` event instead of requiring manual fetch for each event.

@@ -128,10 +128,13 @@ export class FullVisitStore {
         return this.preferredClipVariantByEvent[eventId] ?? 'event';
     }
 
-    async ensureAvailability(eventId: string): Promise<boolean> {
+    async ensureAvailability(eventId: string, options: { refresh?: boolean } = {}): Promise<boolean> {
+        const refresh = options.refresh === true;
         const current = this.getAvailability(eventId);
-        if (current === 'available') return true;
-        if (current === 'unavailable') return false;
+        if (!refresh) {
+            if (current === 'available') return true;
+            if (current === 'unavailable') return false;
+        }
 
         const inFlight = this.probePromises.get(eventId);
         if (inFlight) return inFlight;

@@ -64,4 +64,30 @@ describe('FullVisitStore', () => {
         expect(secondStore.isFetched('evt-2')).toBe(true);
         expect(secondStore.getPreferredClipVariant('evt-2')).toBe('recording');
     });
+
+    it('refreshes a stale event probe and promotes the same event to fetched when a persisted full visit later appears', async () => {
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable)
+            .mockResolvedValueOnce({
+                available: true,
+                fetched: false
+            })
+            .mockResolvedValueOnce({
+                available: true,
+                fetched: true
+            });
+
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore(createStorage());
+
+        await store.ensureAvailability('evt-3');
+        expect(store.isAvailable('evt-3')).toBe(true);
+        expect(store.isFetched('evt-3')).toBe(false);
+
+        await store.ensureAvailability('evt-3', { refresh: true });
+
+        expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(2);
+        expect(store.isFetched('evt-3')).toBe(true);
+        expect(store.getPreferredClipVariant('evt-3')).toBe('recording');
+    });
 });

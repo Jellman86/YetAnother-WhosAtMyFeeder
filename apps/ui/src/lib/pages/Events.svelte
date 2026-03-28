@@ -576,13 +576,17 @@
         if (!selectedEvent) return;
         updatingTag = true;
         try {
-            await updateDetectionSpecies(selectedEvent.frigate_event, newSpecies);
+            const eventId = selectedEvent.frigate_event;
+            await updateDetectionSpecies(eventId, newSpecies);
             selectedEvent.display_name = newSpecies;
             selectedEvent.category_name = newSpecies;
             selectedEvent.manual_tagged = true;
             // Update local list
-            events = events.map(e => e.frigate_event === selectedEvent?.frigate_event ? { ...e, display_name: newSpecies, category_name: newSpecies, manual_tagged: true } : e);
+            events = events.map(e => e.frigate_event === eventId ? { ...e, display_name: newSpecies, category_name: newSpecies, manual_tagged: true } : e);
             detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
+            if (recordingClipFetchEnabled) {
+                await fullVisitStore.ensureAvailability(eventId, { refresh: true });
+            }
             showTagDropdown = false;
         } catch (e) {
             console.error('Failed to update species', e);
@@ -800,6 +804,12 @@
                         manual_tagged: true
                     });
                 }
+            }
+
+            if (recordingClipFetchEnabled) {
+                await Promise.all(result.updated_event_ids.map((eventId) => (
+                    fullVisitStore.ensureAvailability(eventId, { refresh: true })
+                )));
             }
 
             showBulkTagModal = false;
