@@ -142,10 +142,12 @@ For the full event lifecycle and architecture details, see the documentation lin
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.monolith.yml
 curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
 cp .env.example .env
 ```
+
+> This quick start assumes the monolithic canary image line. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available, but it now follows the legacy two-container layout.
 
 **2. Configure your environment:**
 
@@ -181,7 +183,7 @@ docker network ls
 
 **Intel iGPU (OpenVINO) note (optional):**
 
-- Add `/dev/dri:/dev/dri` to the backend service
+- Add `/dev/dri:/dev/dri` to the `yawamf` service
 - Add `group_add` entries matching your host's `/dev/dri` numeric group IDs (`ls -ln /dev/dri`)
 - YA-WAMF Settings -> Detection now shows OpenVINO diagnostics if the GPU plugin cannot initialize (for example missing OpenCL runtime in older images or container permission issues)
 
@@ -195,12 +197,12 @@ echo "PGID=$PGID" >> .env
 mkdir -p config data/models
 sudo chown -R "$PUID:$PGID" config data
 sudo chmod -R u+rwX,g+rwX config data
-docker compose up -d
+docker compose -f docker-compose.monolith.yml up -d
 ```
 
 If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
 
-> If you deploy via Portainer: create a Stack from `docker-compose.yml` and use "Pull and redeploy" for updates (after changing image tags or pulling the latest `:latest`/`:dev`).
+> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates (after changing image tags or pulling the latest `:latest`/`:dev`).
 
 **5. Access the dashboard:**
 
@@ -219,8 +221,8 @@ Guest mode is read-only and rate-limited. Guests can view detections and any exi
 Check logs to confirm everything is working:
 
 ```bash
-docker compose ps                    # Check container status
-docker compose logs yawamf-backend -f  # Follow backend logs
+docker compose -f docker-compose.monolith.yml ps
+docker compose -f docker-compose.monolith.yml logs yawamf -f
 
 # You should see:
 # MQTT config: auth=True port=1883 server=mosquitto
@@ -232,7 +234,7 @@ docker compose logs yawamf-backend -f  # Follow backend logs
 | Issue | Solution |
 |-------|----------|
 | **MQTT connection failed** | Verify `DOCKER_NETWORK` matches Frigate's network<br>Check MQTT hostname and credentials |
-| **Frontend not loading** | Run `docker compose ps` to check health<br>View logs: `docker compose logs yawamf-frontend` |
+| **Frontend not loading** | Run `docker compose -f docker-compose.monolith.yml ps` to check health<br>View logs: `docker compose -f docker-compose.monolith.yml logs yawamf` |
 | **No detections** | Confirm Frigate is detecting birds<br>Check backend logs for events<br>Verify model was downloaded in Settings |
 
 For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troubleshooting/diagnostics.md).

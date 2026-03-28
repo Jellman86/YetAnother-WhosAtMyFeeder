@@ -2,6 +2,15 @@
 
 When running Yet Another WhosAtMyFeeder (YA-WAMF) behind a reverse proxy, specific configurations are required to ensure the **Live Status** (Server-Sent Events) and **Video Playback** features work correctly without disconnection or buffering issues.
 
+## Deployment Modes
+
+YA-WAMF currently supports two proxy layouts:
+
+- `yawamf-monalithic:8080` for the monolithic canary container
+- `yawamf-frontend:80` plus `yawamf-backend:8000` for the legacy split deployment
+
+Use the monolithic examples below if you are running the new canary image. Only use the split upstreams if you intentionally still run the old two-container stack.
+
 ## Core Requirements
 
 1.  **Support for Server-Sent Events (SSE):** Buffering must be disabled, and timeouts must be increased.
@@ -16,7 +25,7 @@ If you are using Cloudflare Tunnel (cloudflared), use these settings to prevent 
 
 ### Public Hostname Settings
 
-*   **Service:** `http://yawamf-frontend:80` (or your internal IP/Hostname)
+*   **Service:** `http://yawamf-monalithic:8080` (or your internal IP/Hostname)
 *   **HTTP Host Header:** `your-public-domain.com` (e.g., `yetanotherwhosatmyfeeder.pownet.uk`)
     *   *Critical:* Must match your public domain exactly. Do not duplicate it.
 
@@ -45,13 +54,12 @@ In Nginx Proxy Manager, standard UI settings are not enough for SSE. You must us
 *   **HSTS:** Enabled
 
 ### Advanced Tab (Custom Configuration)
-Paste this entire block into the "Custom Nginx Configuration" box. This handles SSE, Video Clips, and correct Header forwarding while using a resolver to prevent stale DNS cache issues.
+Paste this entire block into the "Custom Nginx Configuration" box for the **monolithic** deployment. This handles SSE, video clips, and correct header forwarding while using a resolver to prevent stale DNS cache issues.
 
 ```nginx
 # Docker DNS Resolver (Required for dynamic container resolution)
 resolver 127.0.0.11 valid=30s;
-set $backend_upstream yawamf-backend;
-set $frontend_upstream yawamf-frontend;
+set $app_upstream yawamf-monalithic;
 
 # Global Timeout Increase
 proxy_read_timeout 86400s;
@@ -59,7 +67,7 @@ proxy_send_timeout 86400s;
 
 # 1. Server-Sent Events (SSE) - Live Status Stream
 location /api/sse {
-    proxy_pass http://$backend_upstream:8000;
+    proxy_pass http://$app_upstream:8080;
 
     # Connection Settings
     proxy_http_version 1.1;
@@ -84,7 +92,7 @@ location /api/sse {
 
 # 2. Video Clips (Optimized for large files)
 location ~ ^/api/frigate/.+/clip\.mp4$ {
-    proxy_pass http://$backend_upstream:8000;
+    proxy_pass http://$app_upstream:8080;
 
     # Enable Buffering for Performance
     proxy_buffering on;
@@ -106,8 +114,7 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
 
 # 3. Root / Main App
 location /api/ {
-    # Route all API traffic directly to the backend to preserve HTTPS detection
-    proxy_pass http://$backend_upstream:8000;
+    proxy_pass http://$app_upstream:8080;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -117,7 +124,7 @@ location /api/ {
 
 # 4. Root / Main App
 location / {
-    proxy_pass http://$frontend_upstream:80;
+    proxy_pass http://$app_upstream:8080;
     
     # Ensure backend sees "https" even if proxy terminates SSL
     proxy_set_header Host $host;
@@ -131,6 +138,11 @@ location / {
     proxy_http_version 1.1;
 }
 ```
+
+If you are still on the legacy split deployment, keep the old two-upstream pattern:
+
+- `/` -> `yawamf-frontend:80`
+- `/api/*` -> `yawamf-backend:8000`
 
 ---
 
@@ -146,7 +158,7 @@ server {
     # ... SSL settings ...
 
     location /api/sse {
-        proxy_pass http://yawamf-backend:8000;
+        proxy_pass http://yawamf-monalithic:8080;
         
         # SSE Required Settings
         proxy_http_version 1.1;
@@ -164,13 +176,13 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://yawamf-backend:8000;
+        proxy_pass http://yawamf-monalithic:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {
-        proxy_pass http://yawamf-frontend:80;
+        proxy_pass http://yawamf-monalithic:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
@@ -185,19 +197,19 @@ Caddy handles SSE automatically in most cases, but ensuring `flush_interval` is 
 
 ```caddyfile
 your-domain.com {
-    reverse_proxy /api/sse yawamf-backend:8000 {
+    reverse_proxy /api/sse yawamf-monalithic:8080 {
         # Flush immediately for SSE
         flush_interval -1
         header_up Host {host}
         header_up X-Forwarded-Proto {scheme}
     }
 
-    reverse_proxy /api/* yawamf-backend:8000 {
+    reverse_proxy /api/* yawamf-monalithic:8080 {
         header_up Host {host}
         header_up X-Forwarded-Proto {scheme}
     }
 
-    reverse_proxy /* yawamf-frontend:80 {
+    reverse_proxy /* yawamf-monalithic:8080 {
         header_up Host {host}
         header_up X-Forwarded-Proto {scheme}
     }

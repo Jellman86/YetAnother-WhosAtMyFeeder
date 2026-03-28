@@ -1,5 +1,32 @@
 # Full Docker Stack Example
 
+This page still shows the **legacy split deployment** for reference. If you are validating the monolithic canary image, use [`docker-compose.monolith.yml`](../../docker-compose.monolith.yml) instead and point your reverse proxy at `yawamf-monalithic:8080`.
+
+## Monolithic Canary Quick Example
+
+```yaml
+services:
+  yawamf:
+    image: ghcr.io/jellman86/yawamf-monalithic:dev
+    container_name: yawamf-monalithic
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    networks:
+      - bird_network
+    volumes:
+      - ./config:/config
+      - ./data:/data
+    ports:
+      - "9852:8080"
+    environment:
+      - TZ=Europe/London
+      - FRIGATE__FRIGATE_URL=http://frigate:5000
+      - FRIGATE__MQTT_SERVER=mosquitto
+      - FRIGATE__MQTT_PORT=1883
+```
+
+## Legacy Split Example
+
 This is a complete, "batteries-included" Docker Compose example. It includes everything you need to run a professional-grade bird identification station.
 
 ## Example `docker-compose.yml`
