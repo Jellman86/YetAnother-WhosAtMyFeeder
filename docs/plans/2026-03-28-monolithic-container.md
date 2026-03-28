@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace YA-WAMF’s split `yawamf-backend` + `yawamf-frontend` deployment with one published `yawamf` application container that runs internal `nginx + uvicorn`, while preserving `/config`, `/data`, reverse-proxy behavior, GPU/device support, and upgrade/rollback safety.
+**Goal:** Replace YA-WAMF’s split `yawamf-backend` + `yawamf-frontend` deployment with one published monolithic application container that runs internal `nginx + uvicorn`, while preserving `/config`, `/data`, reverse-proxy behavior, GPU/device support, and upgrade/rollback safety, without disturbing the current split-image `main` and `dev` lines during the first rollout.
 
-**Architecture:** Build a new top-level multi-stage Docker image that compiles the Svelte UI, installs backend runtime dependencies, and launches `uvicorn` behind internal `nginx` using `tini` plus a small entrypoint/healthcheck layer. Then convert compose, CI publishing, and deployment docs to the one-service model, keeping rollback safe until the split images are explicitly deprecated.
+**Architecture:** Build a new top-level multi-stage Docker image that compiles the Svelte UI, installs backend runtime dependencies, and launches `uvicorn` behind internal `nginx` using `tini` plus a small entrypoint/healthcheck layer. Publish that image first as `ghcr.io/jellman86/yawamf-monalithic:*`, then convert canary compose, CI publishing, and migration docs to the one-service model, keeping rollback safe until any future promotion away from split images is explicit.
 
 **Tech Stack:** Docker multi-stage builds, nginx, FastAPI/uvicorn, shell entrypoint scripts, Docker Compose, GitHub Actions, existing YA-WAMF docs/tests.
 
@@ -25,7 +25,7 @@ Create `tests/e2e/monolith_smoke.sh`:
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_TAG="yawamf-monolith:test"
+IMAGE_TAG="yawamf-monalithic:test"
 CID="yawamf-monolith-smoke"
 TMP_DIR="$(mktemp -d)"
 trap 'docker rm -f "$CID" >/dev/null 2>&1 || true; rm -rf "$TMP_DIR"' EXIT
@@ -244,7 +244,7 @@ Convert each compose file to:
 ```yaml
 services:
   yawamf:
-    image: ghcr.io/jellman86/wamf:latest   # use :dev in docker-compose.dev.yml
+    image: ghcr.io/jellman86/yawamf-monalithic:latest   # use :dev in docker-compose.dev.yml
     container_name: yawamf
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -309,14 +309,14 @@ git commit -m "refactor(compose): collapse app to one service"
 
 ---
 
-### Task 4: Switch CI publishing to one canonical image
+### Task 4: Switch CI publishing to the separate monolithic canary image
 
 **Files:**
 - Modify: `.github/workflows/build-and-push.yml`
 
 **Step 1: Collapse change detection and image outputs**
 
-Remove the backend/frontend publish split and replace it with one monolith output, for example:
+Add one monolith output without disturbing the existing split-image outputs, for example:
 
 ```yaml
 outputs:
@@ -328,16 +328,16 @@ run: |
 
 **Step 2: Build and publish one runtime image**
 
-Replace the separate `wamf-backend` / `wamf-frontend` build-push jobs with one build using the repo-root `Dockerfile`, tagging:
+Add one build-push path using the repo-root `Dockerfile`, tagging:
 
 ```text
-ghcr.io/${OWNER_LC}/wamf:${IMAGE_TAG}
-ghcr.io/${OWNER_LC}/wamf:${GITHUB_SHA}
-ghcr.io/${OWNER_LC}/wamf:latest   # main/tags path
-ghcr.io/${OWNER_LC}/wamf:dev      # dev path
+ghcr.io/${OWNER_LC}/yawamf-monalithic:${IMAGE_TAG}
+ghcr.io/${OWNER_LC}/yawamf-monalithic:${GITHUB_SHA}
+ghcr.io/${OWNER_LC}/yawamf-monalithic:latest   # main/tags path if you choose to build it there
+ghcr.io/${OWNER_LC}/yawamf-monalithic:dev      # dev/branch canary path
 ```
 
-Use the same branch/tag semantics that the current workflow already applies.
+Use the same branch/tag semantics that the current workflow already applies for this separate canary image line.
 
 **Step 3: Add a CI monolith smoke step**
 
@@ -350,14 +350,14 @@ bash tests/e2e/monolith_compose_config.sh
 
 If CI runner limitations require adapting published ports or temp directories, change the scripts once, not the workflow repeatedly.
 
-**Step 4: Remove split-image publish references**
+**Step 4: Keep split-image publish references intact for now**
 
-Delete or retire steps that publish:
+Do not disturb the current split image lines during the first rollout:
 
 - `ghcr.io/.../wamf-backend:*`
 - `ghcr.io/.../wamf-frontend:*`
 
-If you want a temporary compatibility window, add a clearly-commented short-lived transition section and put a removal TODO in the same commit.
+If you later promote the monolith, that is the moment to deprecate them.
 
 **Step 5: Commit**
 
@@ -388,7 +388,7 @@ Update all install/upgrade examples to use:
 - one service
 - one app upstream
 
-Examples that currently refer to `yawamf-backend` and `yawamf-frontend` must be rewritten to `yawamf`.
+The canary docs and examples should refer to a single `yawamf` service using the `yawamf-monalithic` image. Existing production docs for split-image users should remain valid until promotion is intentional.
 
 **Step 2: Update reverse-proxy docs**
 
@@ -423,7 +423,7 @@ Expand `MIGRATION.md` with a dedicated section for this release:
 ## Upgrading to vX.Y.Z (Monolithic Container)
 
 1. Replace your compose file with the new one-service version.
-2. Pull `ghcr.io/jellman86/wamf:<tag>`.
+2. Pull `ghcr.io/jellman86/yawamf-monalithic:<tag>`.
 3. Recreate the stack.
 4. Keep the same `config/` and `data/` mounts.
 

@@ -10,6 +10,8 @@
 
 Move YA-WAMF from the current two-container deployment model (`yawamf-backend` + `yawamf-frontend`) to one published application container that runs both the UI and API internally, while preserving current behavior, persistent storage, reverse-proxy compatibility, and GPU/device support.
 
+The first rollout must not disturb the existing `main` and `dev` deployment lines. The monolithic build should therefore publish under a separate image name: `ghcr.io/jellman86/yawamf-monalithic`.
+
 The target is not “a different app server shape.” The target is “the same YA-WAMF behavior, packaged as one application service.”
 
 ---
@@ -139,6 +141,12 @@ All compose files should converge on one service:
 
 - `yawamf`
 
+During the canary phase, that service should use the separate monolithic image:
+
+- `ghcr.io/jellman86/yawamf-monalithic:<tag>`
+
+This keeps the deployment shape simple without risking existing split-image users.
+
 The service keeps the current persistent mounts:
 
 - `./config:/config`
@@ -172,22 +180,30 @@ If direct backend access is still useful for advanced operators, it can exist on
 
 ## CI And Image Publishing
 
-The GitHub Actions pipeline in [.github/workflows/build-and-push.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/.github/workflows/build-and-push.yml) should move to one published runtime artifact.
+The GitHub Actions pipeline in [.github/workflows/build-and-push.yml](/config/workspace/YA-WAMF/.worktrees/monolithic-container/.github/workflows/build-and-push.yml) should add a separate published monolithic runtime artifact.
 
-Target outcome:
+Target outcome for phase one:
 
-- one canonical image published for `main`, `dev`, SHA, and release tags
-- split frontend/backend images deprecated and then removed
+- one separate monolithic canary image published for `main`, `dev`, SHA, and release tags:
+  - `ghcr.io/jellman86/yawamf-monalithic:<tag>`
+- current split images remain untouched:
+  - `ghcr.io/jellman86/wamf-backend:*`
+  - `ghcr.io/jellman86/wamf-frontend:*`
+
+Target outcome for a later promotion phase:
+
+- decide whether `yawamf-monalithic` becomes the canonical app image
+- only then deprecate and remove the split frontend/backend image lines
 
 Recommended rollout:
 
 1. add monolith build path first
-2. prove it in CI and local compose
-3. switch compose/docs to the monolith
-4. deprecate split images
-5. remove split publishing only after migration confidence is high
+2. publish only `yawamf-monalithic:*`
+3. prove it in CI and local compose
+4. switch canary docs and test stacks to `yawamf-monalithic`
+5. only after confidence, decide whether to promote and deprecate split images
 
-This keeps rollback easy while avoiding a long-term three-image maintenance burden.
+This keeps rollback easy while avoiding accidental disruption of current users.
 
 ---
 
@@ -311,4 +327,4 @@ The migration is only complete when all of the following are verified:
 
 ## Recommendation
 
-Proceed with a staged migration to a single published `yawamf` image using internal `nginx + uvicorn`, delivered on a fresh branch/worktree and rolled out first in CI/compose/docs, then to users, with rollback preserved throughout.
+Proceed with a staged migration to a single published monolithic image using internal `nginx + uvicorn`, but ship it first as a separate canary line, `ghcr.io/jellman86/yawamf-monalithic`, delivered on a fresh branch/worktree and rolled out first in CI/compose/docs, then to users, with rollback preserved throughout.
