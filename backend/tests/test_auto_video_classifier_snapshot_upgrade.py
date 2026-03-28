@@ -180,6 +180,7 @@ async def test_process_event_passes_event_id_into_video_classification_context()
     assert service._classifier.classify_video_async.await_args.kwargs["input_context"] == {
         "is_cropped": False,
         "event_id": "evt-batch-video-context",
+        "clip_variant": "event",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
     }

@@ -478,10 +478,12 @@ class AutoVideoClassifierService:
         event_id: str,
         event_data: dict | None,
         is_cropped: bool,
+        clip_variant: Literal["event", "recording"] = "event",
     ) -> dict[str, object]:
         context: dict[str, object] = {
             "is_cropped": bool(is_cropped),
             "event_id": str(event_id),
+            "clip_variant": str(clip_variant or "event"),
         }
         payload = dict((event_data or {}).get("data") or {})
         frigate_box = payload.get("box")
@@ -640,6 +642,7 @@ class AutoVideoClassifierService:
                         event_id=frigate_event,
                         event_data=event_data,
                         is_cropped=False,
+                        clip_variant="event",
                     )
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(

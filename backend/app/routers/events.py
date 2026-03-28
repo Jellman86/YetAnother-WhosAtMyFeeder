@@ -37,10 +37,12 @@ def _build_event_classification_input_context(
     event_id: str,
     event_data: dict | None,
     is_cropped: bool,
+    clip_variant: Literal["event", "recording"] = "event",
 ) -> dict[str, object]:
     context: dict[str, object] = {
         "is_cropped": bool(is_cropped),
         "event_id": str(event_id),
+        "clip_variant": str(clip_variant or "event"),
     }
     payload = dict((event_data or {}).get("data") or {})
     frigate_box = payload.get("box")
@@ -1145,18 +1147,39 @@ async def reclassify_event(
                 await broadcast_video_status("processing", None)
                 # Fetch clip - check cache first
                 from app.services.media_cache import media_cache
+                import os
+
+                async def _load_reclassification_clip(
+                    *,
+                    allow_recording_cache: bool,
+                    allow_event_cache: bool,
+                ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
+                    if allow_recording_cache:
+                        recording_cached_path = media_cache.get_recording_clip_path(event_id)
+                        if recording_cached_path:
+                            log.info("Using cached recording clip for reclassification", event_id=event_id)
+                            with open(recording_cached_path, "rb") as handle:
+                                return handle.read(), None, "recording_cache", "recording", str(recording_cached_path)
+
+                    if allow_event_cache:
+                        cached_path = media_cache.get_clip_path(event_id)
+                        if cached_path:
+                            log.info("Using cached clip for reclassification", event_id=event_id)
+                            with open(cached_path, "rb") as handle:
+                                return handle.read(), None, "cache", "event", str(cached_path)
+
+                    clip_bytes, error_code = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+                    return clip_bytes, error_code, "frigate", "event", None
+
                 clip_data = None
                 clip_error = None
                 clip_source = "frigate"
-                cached_path = media_cache.get_clip_path(event_id)
-
-                if cached_path:
-                    log.info("Using cached clip for reclassification", event_id=event_id)
-                    with open(cached_path, 'rb') as f:
-                        clip_data = f.read()
-                    clip_source = "cache"
-                else:
-                    clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+                clip_variant: Literal["event", "recording"] = "event"
+                cached_source_path: str | None = None
+                clip_data, clip_error, clip_source, clip_variant, cached_source_path = await _load_reclassification_clip(
+                    allow_recording_cache=True,
+                    allow_event_cache=True,
+                )
 
                 if not clip_data:
                     log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
@@ -1170,7 +1193,6 @@ async def reclassify_event(
                     else:
                         # Save to temp file for OpenCV
                         import tempfile
-                        import os
                         import cv2
 
                         def _clip_decodes(path: str) -> bool:
@@ -1192,9 +1214,16 @@ async def reclassify_event(
                                 os.remove(tmp_path)
                             log.warning("Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source)
                             await broadcast_video_status("failed", "clip_decode_failed")
-                            if clip_source == "cache":
-                                await media_cache.delete_cached_media(event_id)
-                                clip_data, clip_error = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
+                            if clip_source in {"recording_cache", "cache"}:
+                                if cached_source_path and os.path.exists(cached_source_path):
+                                    try:
+                                        os.remove(cached_source_path)
+                                    except OSError:
+                                        pass
+                                clip_data, clip_error, clip_source, clip_variant, cached_source_path = await _load_reclassification_clip(
+                                    allow_recording_cache=False,
+                                    allow_event_cache=(clip_source == "recording_cache"),
+                                )
                                 if clip_data and (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
                                     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                                         tmp.write(clip_data)
@@ -1248,6 +1277,7 @@ async def reclassify_event(
                                         event_id=event_id,
                                         event_data=event_data,
                                         is_cropped=False,
+                                        clip_variant=clip_variant,
                                     ),
                                 )
 

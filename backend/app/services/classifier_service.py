@@ -229,6 +229,70 @@ def _normalize_classification_input_context(input_context: Any | None) -> Classi
         return ClassificationInputContext()
 
 
+def _select_video_frame_indices(
+    *,
+    total_frames: int,
+    sample_count: int,
+    clip_variant: str = "event",
+) -> np.ndarray:
+    total_frames = max(0, int(total_frames))
+    sample_count = max(0, int(sample_count))
+    if total_frames <= 0 or sample_count <= 0:
+        return np.array([], dtype=int)
+
+    sample_count = min(sample_count, total_frames)
+    if sample_count == 1:
+        return np.array([max(0, (total_frames - 1) // 2)], dtype=int)
+
+    max_index = total_frames - 1
+    normalized_variant = str(clip_variant or "event").strip().lower()
+    if normalized_variant not in {"event", "recording"}:
+        normalized_variant = "event"
+
+    def _linspace_indices(start: int, end: int, count: int) -> list[int]:
+        if count <= 0:
+            return []
+        if count == 1:
+            return [int(round((start + end) / 2))]
+        return [int(round(value)) for value in np.linspace(start, end, count)]
+
+    center_start = int(round(max_index * 0.25))
+    center_end = int(round(max_index * 0.75))
+
+    candidate_indices: list[int] = []
+    if normalized_variant == "recording":
+        uniform_count = max(2, int(math.ceil(sample_count * 0.7)))
+        uniform_count = min(uniform_count, sample_count)
+        center_count = max(0, sample_count - uniform_count)
+        candidate_indices.extend(_linspace_indices(0, max_index, uniform_count))
+        candidate_indices.extend(_linspace_indices(center_start, center_end, center_count))
+    else:
+        edge_count = min(2, sample_count)
+        center_count = max(0, sample_count - edge_count)
+        candidate_indices.extend([0, max_index][:edge_count])
+        candidate_indices.extend(_linspace_indices(center_start, center_end, center_count))
+
+    deduped: list[int] = []
+    seen: set[int] = set()
+    for idx in sorted(max(0, min(max_index, int(value))) for value in candidate_indices):
+        if idx in seen:
+            continue
+        seen.add(idx)
+        deduped.append(idx)
+
+    if len(deduped) < sample_count:
+        for idx in _linspace_indices(0, max_index, total_frames):
+            idx = max(0, min(max_index, int(idx)))
+            if idx in seen:
+                continue
+            seen.add(idx)
+            deduped.append(idx)
+            if len(deduped) >= sample_count:
+                break
+
+    return np.array(sorted(deduped[:sample_count]), dtype=int)
+
+
 def _invoke_model_classify(
     model: Any,
     image: Image.Image,
@@ -3984,17 +4048,24 @@ class ClassifierService:
 
             log.info("Analyzing video", frames=total_frames, fps=fps, max_samples=max_frames)
 
-            # Use deterministic stratified sampling across the full clip so we do not
-            # bias toward the center and miss short bird appearances at the edges.
             sample_count = min(max_frames, total_frames)
-            frame_indices = np.linspace(0, total_frames - 1, sample_count).astype(int)
+            clip_variant = str(self._input_context_extra(normalized_input_context, "clip_variant") or "event")
+            frame_indices = _select_video_frame_indices(
+                total_frames=total_frames,
+                sample_count=sample_count,
+                clip_variant=clip_variant,
+            )
 
             all_scores = []
 
-            from app.services.model_manager import model_manager, REMOTE_REGISTRY
+            active_model_id = None
+            try:
+                from app.services.model_manager import model_manager, REMOTE_REGISTRY
 
-            active_model_id = model_manager.active_model_id
-            model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == active_model_id), None)
+                active_model_id = model_manager.active_model_id
+                model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == active_model_id), None)
+            except Exception:
+                model_meta = None
             model_name = model_meta["name"] if model_meta else None
             if not model_name and hasattr(bird_model, "model_path"):
                 model_name = os.path.basename(bird_model.model_path)

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Manual video reclassification now prefers the persisted full-visit recording clip when one is already cached for the same Frigate event, instead of falling back to the shorter event clip or re-downloading unnecessary media.
+- **Changed:** Video frame sampling is now clip-aware. Normal Frigate event clips bias their sampled frames toward the center while still covering the edges, and persisted full-visit clips use a broader whole-visit sampling pattern with lighter center emphasis.
 - **Changed:** Delayed notifications now derive their effective video wait from the actual video-classification pipeline timing, including the clip polling backoff budget, so `delay_until_video` cannot silently time out before video analysis has a real chance to complete. The existing notification timeout now acts only as a larger manual override instead of a smaller cutoff.
 - **Fixed:** Manual tag updates now preserve full-visit readiness for the same Frigate event. When a persisted full-visit clip already exists, renaming a detection refreshes that event-based clip state instead of re-offering a redundant `Fetch full clip` action.
 

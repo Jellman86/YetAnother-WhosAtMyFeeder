@@ -35,6 +35,7 @@ from app.services.classifier_service import (  # noqa: E402
     _probe_openvino_gpu_plugin_error_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
+    _select_video_frame_indices,
     _summarize_numeric_array,
     _summarize_openvino_load_error,
 )
@@ -2050,6 +2051,34 @@ async def test_classifier_service_accepts_input_context_and_normalizes_is_croppe
         assert bird_model.seen_input_contexts[0].is_cropped is True
         assert bird_model.seen_input_contexts[1].is_cropped is False
         await service.shutdown()
+
+
+def test_video_frame_indices_bias_event_clips_toward_center():
+    event_indices = _select_video_frame_indices(total_frames=120, sample_count=12, clip_variant="event")
+    recording_indices = _select_video_frame_indices(total_frames=120, sample_count=12, clip_variant="recording")
+
+    assert len(event_indices) == 12
+    assert len(recording_indices) == 12
+    assert event_indices[0] == 0
+    assert event_indices[-1] == 119
+    assert recording_indices[0] == 0
+    assert recording_indices[-1] == 119
+
+    event_center = sum(30 <= idx < 90 for idx in event_indices)
+    recording_center = sum(30 <= idx < 90 for idx in recording_indices)
+
+    assert event_center > recording_center
+
+
+def test_video_frame_indices_cover_edges_for_recording_clips():
+    recording_indices = _select_video_frame_indices(total_frames=180, sample_count=15, clip_variant="recording")
+
+    assert len(recording_indices) == 15
+    assert recording_indices[0] == 0
+    assert recording_indices[-1] == 179
+    assert any(idx < 36 for idx in recording_indices)
+    assert any(idx >= 144 for idx in recording_indices)
+    assert any(54 <= idx < 126 for idx in recording_indices)
 
 
 @pytest.mark.asyncio

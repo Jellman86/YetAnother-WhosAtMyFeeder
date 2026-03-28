@@ -85,6 +85,25 @@ class _GoodVideoCapture:
         return None
 
 
+class _ContentAwareVideoCapture:
+    def __init__(self, path, *_args, **_kwargs):
+        self._opened = True
+        self._path = path
+
+    def isOpened(self):
+        return self._opened
+
+    def read(self):
+        with open(self._path, "rb") as handle:
+            payload = handle.read()
+        if b"recording-bad" in payload:
+            return False, None
+        return True, object()
+
+    def release(self):
+        return None
+
+
 @pytest.mark.asyncio
 async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client: httpx.AsyncClient):
     settings.auth.enabled = False
@@ -127,9 +146,91 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
         assert classifier.classify_video_async.await_args.kwargs["input_context"] == {
             "is_cropped": False,
             "event_id": event_id,
+            "clip_variant": "event",
             "frigate_box": [0.2, 0.3, 0.4, 0.5],
             "frigate_region": [0.1, 0.2, 0.8, 0.9],
         }
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_is_corrupt(
+    client: httpx.AsyncClient,
+    tmp_path,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = True
+    event_id = "evt-reclassify-video-corrupt-recording"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    classifier = MagicMock()
+    classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+    recording_path = tmp_path / f"{event_id}_recording.mp4"
+    recording_path.write_bytes(b"\x00\x00\x00\x18ftypisomrecording-bad")
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=str(recording_path)), \
+             patch("app.services.media_cache.media_cache.get_clip_path", return_value=None), \
+             patch("cv2.VideoCapture", _ContentAwareVideoCapture):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
+            mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        mock_frigate.get_clip_with_error.assert_awaited_once()
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, b"\x00\x00\x00\x18ftypisomevent")
+        classifier.classify_video_async.assert_awaited_once()
+        assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
+        assert not recording_path.exists()
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_video_prefers_cached_recording_clip_when_available(client: httpx.AsyncClient, tmp_path):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = True
+    event_id = "evt-reclassify-video-recording"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    classifier = MagicMock()
+    classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+    recording_path = tmp_path / f"{event_id}_recording.mp4"
+    recording_bytes = b"\x00\x00\x00\x18ftypisomrecording"
+    recording_path.write_bytes(recording_bytes)
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=str(recording_path)), \
+             patch("app.services.media_cache.media_cache.get_clip_path", return_value=None), \
+             patch("cv2.VideoCapture", _GoodVideoCapture):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
+            mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, recording_bytes)
+        mock_frigate.get_clip_with_error.assert_not_awaited()
+        classifier.classify_video_async.assert_awaited_once()
+        assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "recording"
     finally:
         await _delete_detection(event_id)
 
