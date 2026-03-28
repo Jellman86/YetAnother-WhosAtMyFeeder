@@ -2,6 +2,8 @@
 
 This guide will walk you through the basic installation of YA-WAMF using Docker Compose.
 
+The recommended canary path now uses one container, `ghcr.io/jellman86/yawamf-monalithic`. The older split deployment still exists, but it is now a legacy path for setup guidance.
+
 ## Prerequisites
 - **Docker & Docker Compose** installed on your host.
 - **Frigate NVR** already running and accessible.
@@ -17,12 +19,11 @@ Create a directory for YA-WAMF and download the latest compose and example envir
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.monolith.yml
 curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
 ```
 
-> Note: If you want to run the bleeding-edge `:dev` images, download `docker-compose.dev.yml` and use:
-> `docker compose -f docker-compose.dev.yml up -d`. For production/stability, prefer `docker-compose.prod.yml` or pin a version tag.
+> Note: This guide assumes `docker-compose.monolith.yml`. If you intentionally want the older split deployment, use `docker-compose.yml`, `docker-compose.dev.yml`, or `docker-compose.prod.yml` instead.
 
 ### 2. Configure Environment
 Copy the example environment file and edit it with your details:
@@ -64,7 +65,7 @@ Compose/Portainer stack values should match:
 
 ```yaml
 services:
-  backend:
+  yawamf:
     user: "${PUID}:${PGID}"
     environment:
       - PUID=${PUID}
@@ -77,7 +78,7 @@ services:
 Quick verify:
 
 ```bash
-docker compose exec yawamf-backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+docker compose -f docker-compose.monolith.yml exec yawamf sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
 ```
 
 If this fails with `Permission denied`, re-run `chown` on the host path that is actually mounted in your stack.
@@ -86,7 +87,7 @@ If this fails with `Permission denied`, re-run `chown` on the host path that is 
 Start the containers in detached mode:
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.monolith.yml up -d
 ```
 
 ### 3.1 (Optional) Enable GPU acceleration for ONNX models
@@ -94,14 +95,14 @@ docker compose up -d
 If you want ONNX model acceleration (`RoPE ViT-B14`, `ConvNeXt`, `EVA-02`, and the ONNX birds-only models):
 
 - **Intel iGPU (OpenVINO):**
-  - Mount `/dev/dri` into `yawamf-backend`
+  - Mount `/dev/dri` into `yawamf`
   - Add `group_add` entries for the host's `/dev/dri` GIDs (check with `ls -ln /dev/dri`)
 - **NVIDIA CUDA:**
   - Install/configure the NVIDIA Container Toolkit on the host
-  - Pass through the NVIDIA GPU to `yawamf-backend` (`gpus: all` in Compose, or your platform's NVIDIA runtime equivalent)
+  - Pass through the NVIDIA GPU to `yawamf` (`gpus: all` in Compose, or your platform's NVIDIA runtime equivalent)
   - Optional quick check after startup:
     ```bash
-    docker compose exec yawamf-backend python -c "import onnxruntime as ort; print(ort.get_available_providers())"
+    docker compose -f docker-compose.monolith.yml exec yawamf python -c "import onnxruntime as ort; print(ort.get_available_providers())"
     ```
     You should see `CUDAExecutionProvider` in the list when the CUDA-capable runtime is available in the container.
 
@@ -114,7 +115,7 @@ After startup, go to **Settings > Detection** and check the provider diagnostics
 See [AI Models & Performance](../features/ai-models.md) for provider behavior and [Diagnostics & Logs](../troubleshooting/diagnostics.md) for troubleshooting steps.
 
 **Portainer Stacks (common deployment):**
-- Create a new Stack from the `docker-compose.yml` (and your `.env`).
+- Create a new Stack from `docker-compose.monolith.yml` (and your `.env`).
 - To update later: use "Pull and redeploy" (or redeploy the stack) after bumping image tags (`:latest`, `:dev`, or a pinned `:vX.Y.Z` tag).
 
 ### 4. Verify

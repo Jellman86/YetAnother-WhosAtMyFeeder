@@ -24,6 +24,7 @@ jobs:
     outputs:
       backend: ${{ steps.compute.outputs.backend }}
       frontend: ${{ steps.compute.outputs.frontend }}
+      monolith: ${{ steps.compute.outputs.monolith }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -39,6 +40,7 @@ jobs:
           # share the same git hash and are safe to deploy as one versioned pair.
           echo "backend=true" >> "$GITHUB_OUTPUT"
           echo "frontend=true" >> "$GITHUB_OUTPUT"
+          echo "monolith=true" >> "$GITHUB_OUTPUT"
 
   test-backend:
     needs: detect-changes
@@ -338,6 +340,24 @@ jobs:
           cd apps/ui
           npm run build
 
+  test-monolith:
+    needs: [detect-changes, test-backend, test-frontend]
+    if: needs.detect-changes.outputs.monolith == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify monolith canary compose config
+        run: |
+          bash tests/e2e/monolith_canary_compose_config.sh
+
+      - name: Build and smoke test monolithic image
+        run: |
+          bash tests/e2e/monolith_smoke.sh
+          bash tests/e2e/monolith_nonroot_smoke.sh
+
   build-backend:
     needs: [detect-changes, test-backend]
     if: needs.detect-changes.outputs.backend == 'true'
@@ -477,3 +497,72 @@ jobs:
           docker buildx imagetools create \
             -t ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:latest \
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
+
+  build-monolith:
+    needs: [detect-changes, test-backend, test-frontend, test-monolith]
+    if: needs.detect-changes.outputs.monolith == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set lowercase owner name
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "APP_VERSION_BASE=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          else
+            echo "APP_VERSION_BASE=$(cat VERSION)" >> $GITHUB_ENV
+          fi
+
+      - name: Get branch and SHA
+        run: |
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "APP_BRANCH=main" >> $GITHUB_ENV
+          else
+            echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+
+      - name: Determine image tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=true" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push monolithic canary image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          build-args: |
+            GIT_HASH=${{ env.SHORT_SHA }}
+            APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
+            APP_BRANCH=${{ env.APP_BRANCH }}
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}
+
+      - name: Tag monolithic canary latest
+        if: env.PUBLISH_LATEST == 'true'
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:latest \
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.IMAGE_TAG }}

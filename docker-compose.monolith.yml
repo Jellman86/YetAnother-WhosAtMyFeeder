@@ -1,0 +1,71 @@
+name: YetAnother-WhosAtMyFeeder-Monolith
+#-----------------------------------------------
+# Yet Another WhosAtMyFeeder - Monolithic Canary
+#
+# This compose file is intentionally separate from the existing split-stack
+# docker-compose*.yml files so main/dev users are not disturbed while the
+# monolithic image line is validated.
+#
+# Usage:
+#   docker compose -f docker-compose.monolith.yml up -d
+#
+# Optional overrides:
+#   YAWAMF_MONALITHIC_TAG  - Image tag for the canary line (default: dev)
+#   APP_BIND_IP            - Host bind IP for the published app port
+#   APP_PORT               - Host app port (default: 9852)
+#   FRIGATE_URL            - URL to your Frigate instance (default: http://frigate:5000)
+#   FRIGATE_AUTH_TOKEN     - Optional Bearer token for Frigate authentication
+#   MQTT_SERVER            - MQTT broker hostname (default: mqtt)
+#   MQTT_PORT              - MQTT broker port (default: 1883)
+#   MQTT_AUTH              - Enable MQTT authentication (default: false)
+#   MQTT_USERNAME          - MQTT username (if auth enabled)
+#   MQTT_PASSWORD          - MQTT password (if auth enabled)
+#   TZ                     - Timezone (default: UTC)
+#   DOCKER_NETWORK         - External Docker network to join (required for MQTT/Frigate connectivity)
+#-----------------------------------------------
+services:
+  yawamf:
+    image: ghcr.io/jellman86/yawamf-monalithic:${YAWAMF_MONALITHIC_TAG:-dev}
+    container_name: yawamf-monalithic
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    networks:
+      - yawamf_network
+    volumes:
+      - ./config:/config
+      - ./data:/data
+    # Intel iGPU (OpenVINO) example:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "44"   # video (example)
+    #   - "107"  # render (example)
+    # NVIDIA CUDA example (Docker Compose v2.20+):
+    # gpus: all
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    ports:
+      - "${APP_BIND_IP:-0.0.0.0}:${APP_PORT:-9852}:8080"
+    environment:
+      - TZ=${TZ:-UTC}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - FRIGATE__FRIGATE_URL=${FRIGATE_URL:-http://frigate:5000}
+      - FRIGATE__FRIGATE_AUTH_TOKEN=${FRIGATE_AUTH_TOKEN:-}
+      - FRIGATE__MQTT_SERVER=${MQTT_SERVER:-mqtt}
+      - FRIGATE__MQTT_PORT=${MQTT_PORT:-1883}
+      - FRIGATE__MQTT_AUTH=${MQTT_AUTH:-false}
+      - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME:-}
+      - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD:-}
+      - SYSTEM__DEBUG_UI_ENABLED=${DEBUG_UI_ENABLED:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  yawamf_network:
+    name: ${DOCKER_NETWORK:-yawamf_default}
+    external: true
