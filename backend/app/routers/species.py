@@ -1158,7 +1158,9 @@ async def get_species_stats(
             query_labels = list(unknown_labels)
         else:
             alias_info = await repo.resolve_species_aliases(species_name, language=lang)
-            query_labels = list(alias_info.get("display_labels") or [species_name])
+            # Repository species-detail helpers now normalize aliases canonically,
+            # so non-unknown species should be queried once to avoid double counting.
+            query_labels = [species_name]
 
         # Get all stats - aggregate if multiple labels
         total_stats = {"total": 0, "first_seen": None, "last_seen": None,

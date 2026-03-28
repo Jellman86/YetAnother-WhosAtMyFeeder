@@ -291,6 +291,28 @@ class DetectionRepository:
 
         return "(" + " OR ".join(clauses) + ")", params
 
+    async def _canonical_species_query_parts(
+        self,
+        *,
+        detection_alias: str,
+        species_name: str,
+    ) -> tuple[str, str, list]:
+        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+        join_sql = ""
+        if has_taxonomy_cache:
+            join_sql = (
+                " LEFT JOIN taxonomy_cache tc_filter"
+                f" ON (({detection_alias}.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER({detection_alias}.scientific_name))"
+                f" OR ({detection_alias}.scientific_name IS NULL AND (LOWER(tc_filter.scientific_name) = LOWER({detection_alias}.display_name)"
+                f" OR LOWER(tc_filter.common_name) = LOWER({detection_alias}.display_name))))"
+            )
+        condition, params = await self._build_canonical_species_condition(
+            detection_alias=detection_alias,
+            species_name=species_name,
+            has_taxonomy_cache=has_taxonomy_cache,
+        )
+        return join_sql, condition, params
+
     async def _last_statement_changes(self) -> int:
         """Return rows changed by the most recent write statement on this connection."""
         cursor = await self.db.execute("SELECT changes()")
@@ -2003,6 +2025,22 @@ class DetectionRepository:
 
     async def upsert_daily_rollups(self, start_date: date, end_date: date) -> None:
         """Rebuild rollups between start_date and end_date (inclusive)."""
+        rows, rollup_has_canonical_columns = await self._build_daily_rollup_rows(start_date, end_date)
+        if not rows:
+            return
+        await self._insert_daily_rollup_rows(
+            "species_daily_rollup",
+            rows,
+            canonical=rollup_has_canonical_columns,
+            upsert=True,
+        )
+        await self.db.commit()
+
+    async def _build_daily_rollup_rows(
+        self,
+        start_date: date,
+        end_date: date,
+    ) -> tuple[list[tuple], bool]:
         start_dt = datetime.combine(start_date, datetime.min.time())
         end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
         rollup_columns = await self._table_columns("species_daily_rollup")
@@ -2093,15 +2131,23 @@ class DetectionRepository:
             """
         async with self.db.execute(query, (start_dt, end_dt)) as cursor:
             rows = await cursor.fetchall()
+        return rows, rollup_has_canonical_columns
+
+    async def _insert_daily_rollup_rows(
+        self,
+        table_name: str,
+        rows: list[tuple],
+        *,
+        canonical: bool,
+        upsert: bool = False,
+    ) -> None:
         if not rows:
             return
-        if rollup_has_canonical_columns:
-            await self.db.executemany(
-                """INSERT INTO species_daily_rollup
-                       (rollup_date, canonical_key, display_name, scientific_name, common_name, taxa_id,
-                        detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(rollup_date, canonical_key) DO UPDATE SET
+        if canonical:
+            conflict_sql = ""
+            if upsert:
+                conflict_sql = """
+                    ON CONFLICT(rollup_date, canonical_key) DO UPDATE SET
                         display_name=excluded.display_name,
                         scientific_name=excluded.scientific_name,
                         common_name=excluded.common_name,
@@ -2113,20 +2159,24 @@ class DetectionRepository:
                         min_confidence=excluded.min_confidence,
                         first_seen=excluded.first_seen,
                         last_seen=excluded.last_seen
-                """,
-                rows
+                """
+            await self.db.executemany(
+                f"""INSERT INTO {table_name}
+                        (rollup_date, canonical_key, display_name, scientific_name, common_name, taxa_id,
+                         detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    {conflict_sql}""",
+                rows,
             )
         else:
             legacy_rows = [
                 (row[0], row[2], row[6], row[7], row[8], row[9], row[10], row[11], row[12])
                 for row in rows
             ]
-            await self.db.executemany(
-                """INSERT INTO species_daily_rollup
-                       (rollup_date, display_name, detection_count, camera_count,
-                        avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(rollup_date, display_name) DO UPDATE SET
+            conflict_sql = ""
+            if upsert:
+                conflict_sql = """
+                    ON CONFLICT(rollup_date, display_name) DO UPDATE SET
                         detection_count=excluded.detection_count,
                         camera_count=excluded.camera_count,
                         avg_confidence=excluded.avg_confidence,
@@ -2134,10 +2184,78 @@ class DetectionRepository:
                         min_confidence=excluded.min_confidence,
                         first_seen=excluded.first_seen,
                         last_seen=excluded.last_seen
-                """,
-                legacy_rows
+                """
+            await self.db.executemany(
+                f"""INSERT INTO {table_name}
+                       (rollup_date, display_name, detection_count, camera_count,
+                        avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    {conflict_sql}""",
+                legacy_rows,
             )
-        await self.db.commit()
+
+    async def _clone_table_sql(self, source_table: str, target_table: str) -> str:
+        async with self.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1",
+            (source_table,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row or not row[0]:
+            raise RuntimeError(f"missing table schema for {source_table}")
+
+        cloned_sql = re.sub(
+            rf"^(\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)([`\"]?){re.escape(source_table)}\2",
+            rf"\1{target_table}",
+            row[0],
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        if cloned_sql == row[0]:
+            raise RuntimeError(f"unable to clone schema for {source_table}")
+        return cloned_sql
+
+    async def _table_index_sql(self, table_name: str) -> list[str]:
+        async with self.db.execute(
+            """
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'index'
+              AND tbl_name = ?
+              AND sql IS NOT NULL
+            ORDER BY name
+            """,
+            (table_name,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [str(row[0]) for row in rows if row and row[0]]
+
+    async def rebuild_all_rollups(self, start_date: date, end_date: date) -> int:
+        rows, rollup_has_canonical_columns = await self._build_daily_rollup_rows(start_date, end_date)
+        rebuild_table = "species_daily_rollup_rebuild"
+        rebuild_sql = await self._clone_table_sql("species_daily_rollup", rebuild_table)
+        index_sql = await self._table_index_sql("species_daily_rollup")
+        await self.db.execute("BEGIN")
+        try:
+            await self.db.execute(f"DROP TABLE IF EXISTS {rebuild_table}")
+            await self.db.execute(rebuild_sql)
+
+            await self._insert_daily_rollup_rows(
+                rebuild_table,
+                rows,
+                canonical=rollup_has_canonical_columns,
+            )
+
+            await self.db.execute("ALTER TABLE species_daily_rollup RENAME TO species_daily_rollup_backup")
+            await self.db.execute(f"ALTER TABLE {rebuild_table} RENAME TO species_daily_rollup")
+            await self.db.execute("DROP TABLE species_daily_rollup_backup")
+            for statement in index_sql:
+                await self.db.execute(statement)
+
+            await self.db.commit()
+            return len(rows)
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def get_rollup_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
         """Aggregate rollup metrics for leaderboard windows."""
@@ -2336,11 +2454,17 @@ class DetectionRepository:
 
     async def get_species_basic_stats(self, species_name: str) -> dict:
         """Get basic stats for a species: count, min/max dates, confidence stats."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         async with self.db.execute(
-            """SELECT COUNT(*), MIN(detection_time), MAX(detection_time),
-                      AVG(score), MAX(score), MIN(score)
-               FROM detections WHERE display_name = ?""",
-            (species_name,)
+            f"""SELECT COUNT(*), MIN(d.detection_time), MAX(d.detection_time),
+                       AVG(d.score), MAX(d.score), MIN(d.score)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}""",
+            params,
         ) as cursor:
             row = await cursor.fetchone()
             if row and row[0] > 0:
@@ -2363,11 +2487,17 @@ class DetectionRepository:
 
     async def get_camera_breakdown(self, species_name: str) -> list[dict]:
         """Get detection counts grouped by camera."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         async with self.db.execute(
-            """SELECT camera_name, COUNT(*) as count
-               FROM detections WHERE display_name = ?
-               GROUP BY camera_name ORDER BY count DESC""",
-            (species_name,)
+            f"""SELECT d.camera_name, COUNT(*) as count
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                GROUP BY d.camera_name ORDER BY count DESC""",
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             total = sum(row[1] for row in rows)
@@ -2382,11 +2512,17 @@ class DetectionRepository:
 
     async def get_hourly_distribution(self, species_name: str) -> list[int]:
         """Get 24-element list of detection counts per hour."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         async with self.db.execute(
-            """SELECT strftime('%H', detection_time) as hour, COUNT(*)
-               FROM detections WHERE display_name = ?
-               GROUP BY hour""",
-            (species_name,)
+            f"""SELECT strftime('%H', d.detection_time) as hour, COUNT(*)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                GROUP BY hour""",
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             distribution = [0] * 24
@@ -2397,11 +2533,17 @@ class DetectionRepository:
 
     async def get_daily_distribution(self, species_name: str) -> list[int]:
         """Get 7-element list of detection counts per day of week (0=Sunday)."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         async with self.db.execute(
-            """SELECT strftime('%w', detection_time) as dow, COUNT(*)
-               FROM detections WHERE display_name = ?
-               GROUP BY dow""",
-            (species_name,)
+            f"""SELECT strftime('%w', d.detection_time) as dow, COUNT(*)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                GROUP BY dow""",
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             distribution = [0] * 7
@@ -2412,11 +2554,17 @@ class DetectionRepository:
 
     async def get_monthly_distribution(self, species_name: str) -> list[int]:
         """Get 12-element list of detection counts per month (1-12)."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         async with self.db.execute(
-            """SELECT strftime('%m', detection_time) as month, COUNT(*)
-               FROM detections WHERE display_name = ?
-               GROUP BY month""",
-            (species_name,)
+            f"""SELECT strftime('%m', d.detection_time) as month, COUNT(*)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                GROUP BY month""",
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             distribution = [0] * 12
@@ -2569,8 +2717,12 @@ class DetectionRepository:
 
     async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
         """Get most recent detections for a species."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
         if include_hidden:
-            query = """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
+            query = f"""SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
                           d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
                           d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
                           d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
@@ -2582,11 +2734,12 @@ class DetectionRepository:
                           d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
-                   WHERE d.display_name = ?
+                   {join_sql}
+                   WHERE {species_condition}
                    ORDER BY d.detection_time DESC LIMIT ?"""
-            params = (species_name, limit)
+            params = [*params, limit]
         else:
-            query = """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
+            query = f"""SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
                           d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
                           d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
                           d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
@@ -2598,9 +2751,10 @@ class DetectionRepository:
                           d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
-                   WHERE d.display_name = ? AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                   {join_sql}
+                   WHERE {species_condition} AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                    ORDER BY d.detection_time DESC LIMIT ?"""
-            params = (species_name, limit)
+            params = [*params, limit]
 
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()

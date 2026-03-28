@@ -162,6 +162,48 @@ async def test_species_rollup_metrics():
 
 
 @pytest.mark.asyncio
+async def test_upsert_daily_rollups_is_idempotent_for_existing_dates():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.execute("""
+            CREATE TABLE species_daily_rollup (
+                rollup_date DATE NOT NULL,
+                display_name TEXT NOT NULL,
+                detection_count INTEGER NOT NULL,
+                camera_count INTEGER NOT NULL,
+                avg_confidence FLOAT,
+                max_confidence FLOAT,
+                min_confidence FLOAT,
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP,
+                PRIMARY KEY (rollup_date, display_name)
+            )
+        """)
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.9,
+            display_name="Robin",
+            category_name="Bird",
+            frigate_event="evt_rollup_repeat",
+            camera_name="cam_1"
+        ))
+
+        rollup_date = now.date()
+        await repo.upsert_daily_rollups(rollup_date, rollup_date)
+        await repo.upsert_daily_rollups(rollup_date, rollup_date)
+
+        async with db.execute("SELECT COUNT(*) FROM species_daily_rollup") as cursor:
+            row = await cursor.fetchone()
+
+        assert row[0] == 1
+
+
+@pytest.mark.asyncio
 async def test_timebucket_metrics_unifies_common_and_scientific_variants():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)
@@ -391,6 +433,59 @@ async def test_rollup_metrics_collapse_common_and_scientific_aliases():
 
         assert list(metrics.keys()) == ["Blue Tit"]
         assert metrics["Blue Tit"]["count_7d"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_species_detail_helpers_use_canonical_identity():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        now = datetime.utcnow()
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=1,
+            score=0.91,
+            display_name="Blue Tit",
+            category_name="Bird",
+            frigate_event="evt_detail_common",
+            camera_name="cam_1",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+        await repo.create(Detection(
+            detection_time=now,
+            detection_index=2,
+            score=0.94,
+            display_name="Cyanistes caeruleus",
+            category_name="Bird",
+            frigate_event="evt_detail_sci",
+            camera_name="cam_2",
+            scientific_name="Cyanistes caeruleus",
+            common_name="Blue Tit",
+            taxa_id=1234,
+        ))
+
+        basic_stats = await repo.get_species_basic_stats("Blue Tit")
+        camera_breakdown = await repo.get_camera_breakdown("Blue Tit")
+        hourly = await repo.get_hourly_distribution("Blue Tit")
+        daily = await repo.get_daily_distribution("Blue Tit")
+        monthly = await repo.get_monthly_distribution("Blue Tit")
+        recent = await repo.get_recent_by_species("Blue Tit", limit=5)
+
+        assert basic_stats["total"] == 2
+        assert {row["camera_name"] for row in camera_breakdown} == {"cam_1", "cam_2"}
+        assert sum(hourly) == 2
+        assert sum(daily) == 2
+        assert sum(monthly) == 2
+        assert len(recent) == 2
 
 
 @pytest.mark.asyncio

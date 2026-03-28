@@ -137,3 +137,118 @@ async def test_canonical_identity_repair_service_repairs_missing_taxonomy_and_re
         metrics = await repo.get_rollup_metrics()
         assert list(metrics.keys()) == ["Blue Tit"]
         assert metrics["Blue Tit"]["count_7d"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_canonical_identity_repair_service_refreshes_non_english_common_names():
+    from app.services.canonical_identity_repair_service import CanonicalIdentityRepairService
+
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await _create_rollup_table(db)
+        await db.execute(
+            "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.utcnow(),
+                1,
+                0.91,
+                "Herrerillo común",
+                "Cyanistes caeruleus",
+                "evt_refresh_non_english",
+                "cam_1",
+                "Cyanistes caeruleus",
+                "Herrerillo común",
+                1234,
+            ),
+        )
+        await db.commit()
+
+        service = CanonicalIdentityRepairService()
+        with patch(
+            "app.services.canonical_identity_repair_service.taxonomy_service.get_names",
+            new=AsyncMock(return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}),
+        ):
+            result = await service.run(db=db, batch_size=100)
+
+        async with db.execute(
+            "SELECT scientific_name, common_name, taxa_id FROM detections WHERE frigate_event = ?",
+            ("evt_refresh_non_english",),
+        ) as cursor:
+            refreshed_row = await cursor.fetchone()
+
+        assert refreshed_row == ("Cyanistes caeruleus", "Blue Tit", 1234)
+        assert result["updated"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_canonical_identity_repair_service_preserves_rollups_when_rebuild_fails():
+    from app.services.canonical_identity_repair_service import CanonicalIdentityRepairService
+
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await _create_taxonomy_tables(db)
+        await _create_rollup_table(db)
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.utcnow(),
+                1,
+                0.9,
+                "Blue Tit",
+                "Cyanistes caeruleus",
+                "evt_rollup_source",
+                "cam_1",
+                "Cyanistes caeruleus",
+                "Blue Tit",
+                1234,
+            ),
+        )
+        await db.execute(
+            """
+            INSERT INTO species_daily_rollup (
+                rollup_date, canonical_key, display_name, scientific_name, common_name, taxa_id,
+                detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen, last_seen
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "2026-03-28",
+                "1234",
+                "Blue Tit",
+                "Cyanistes caeruleus",
+                "Blue Tit",
+                1234,
+                2,
+                1,
+                0.9,
+                0.9,
+                0.9,
+                "2026-03-28 10:00:00",
+                "2026-03-28 10:00:00",
+            ),
+        )
+        await db.commit()
+
+        service = CanonicalIdentityRepairService()
+        with patch.object(DetectionRepository, "rebuild_all_rollups", new=AsyncMock(side_effect=RuntimeError("boom"))):
+            with pytest.raises(RuntimeError, match="boom"):
+                await service.run(db=db, batch_size=100)
+
+        async with db.execute("SELECT COUNT(*) FROM species_daily_rollup") as cursor:
+            row = await cursor.fetchone()
+
+        assert row[0] == 1

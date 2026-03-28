@@ -15,6 +15,18 @@ log = structlog.get_logger()
 
 
 class CanonicalIdentityRepairService:
+    _REPAIR_CANDIDATE_WHERE = """
+        (
+            scientific_name IS NULL
+            OR common_name IS NULL
+            OR taxa_id IS NULL
+            OR (
+                common_name IS NOT NULL
+                AND LENGTH(common_name) != LENGTH(CAST(common_name AS BLOB))
+            )
+        )
+    """
+
     def __init__(self) -> None:
         self._unknown_labels = {
             "unknown bird",
@@ -35,6 +47,16 @@ class CanonicalIdentityRepairService:
     def get_status(self) -> dict:
         return dict(self._status)
 
+    @staticmethod
+    def _is_english_safe(value: object) -> bool:
+        candidate = str(value or "").strip()
+        return bool(candidate) and candidate.isascii()
+
+    @classmethod
+    def _needs_common_name_refresh(cls, row: dict) -> bool:
+        common_name = row.get("common_name")
+        return isinstance(common_name, str) and bool(common_name.strip()) and not cls._is_english_safe(common_name)
+
     def _lookup_candidates(self, row: dict) -> list[str]:
         candidates: list[str] = []
         for raw in (row.get("scientific_name"), row.get("category_name"), row.get("display_name")):
@@ -52,8 +74,8 @@ class CanonicalIdentityRepairService:
                         candidates.append(group)
         return candidates
 
-    @staticmethod
-    def _candidate_improves(row: dict, taxonomy: dict) -> bool:
+    @classmethod
+    def _candidate_improves(cls, row: dict, taxonomy: dict) -> bool:
         if not taxonomy:
             return False
 
@@ -66,6 +88,9 @@ class CanonicalIdentityRepairService:
             return False
         if current_sci and candidate_sci and current_sci.lower() != candidate_sci.lower():
             return False
+
+        if cls._needs_common_name_refresh(row) and cls._is_english_safe(taxonomy.get("common_name")):
+            return True
 
         return (
             (not current_sci and bool(candidate_sci))
@@ -81,12 +106,10 @@ class CanonicalIdentityRepairService:
         skipped_ids: set[int],
     ) -> list[dict]:
         params: list = []
-        query = """
+        query = f"""
             SELECT id, display_name, category_name, scientific_name, common_name, taxa_id
             FROM detections
-            WHERE (scientific_name IS NULL
-               OR common_name IS NULL
-               OR taxa_id IS NULL)
+            WHERE {self._REPAIR_CANDIDATE_WHERE}
         """
         if skipped_ids:
             placeholders = ",".join(["?"] * len(skipped_ids))
@@ -113,52 +136,66 @@ class CanonicalIdentityRepairService:
 
     async def _count_candidates(self, db: aiosqlite.Connection) -> int:
         async with db.execute(
-            """
+            f"""
             SELECT COUNT(*)
             FROM detections
-            WHERE scientific_name IS NULL
-               OR common_name IS NULL
-               OR taxa_id IS NULL
+            WHERE {self._REPAIR_CANDIDATE_WHERE}
             """
         ) as cursor:
             row = await cursor.fetchone()
         return int(row[0] or 0) if row else 0
 
     async def _resolve_taxonomy(self, repo: DetectionRepository, db: aiosqlite.Connection, row: dict) -> dict:
+        force_refresh = self._needs_common_name_refresh(row)
         for candidate in self._lookup_candidates(row):
             cached = await repo.get_taxonomy_names(candidate)
             if self._candidate_improves(row, cached):
                 return cached
-            fetched = await taxonomy_service.get_names(candidate, db=db)
+            fetched = await taxonomy_service.get_names(candidate, db=db, force_refresh=force_refresh)
             if self._candidate_improves(row, fetched):
                 return fetched
         return {}
 
-    async def _update_row(self, db: aiosqlite.Connection, row_id: int, taxonomy: dict) -> None:
+    async def _update_row(self, db: aiosqlite.Connection, row: dict, taxonomy: dict) -> bool:
+        assignments: list[str] = []
+        params: list[object] = []
+
+        candidate_sci = str(taxonomy.get("scientific_name") or "").strip()
+        if not row.get("scientific_name") and candidate_sci:
+            assignments.append("scientific_name = ?")
+            params.append(candidate_sci)
+
+        candidate_common = str(taxonomy.get("common_name") or "").strip()
+        if candidate_common and (
+            not row.get("common_name")
+            or (self._needs_common_name_refresh(row) and self._is_english_safe(candidate_common))
+        ):
+            assignments.append("common_name = ?")
+            params.append(candidate_common)
+
+        candidate_taxa = taxonomy.get("taxa_id")
+        if row.get("taxa_id") is None and candidate_taxa is not None:
+            assignments.append("taxa_id = ?")
+            params.append(candidate_taxa)
+
+        if not assignments:
+            return False
+
         await db.execute(
-            """
+            f"""
             UPDATE detections
-            SET scientific_name = COALESCE(scientific_name, ?),
-                common_name = COALESCE(common_name, ?),
-                taxa_id = COALESCE(taxa_id, ?)
+            SET {", ".join(assignments)}
             WHERE id = ?
             """,
-            (
-                taxonomy.get("scientific_name"),
-                taxonomy.get("common_name"),
-                taxonomy.get("taxa_id"),
-                row_id,
-            ),
+            [*params, int(row["id"])],
         )
+        return True
 
     async def _rebuild_rollups(self, repo: DetectionRepository, db: aiosqlite.Connection) -> int:
         oldest = await repo.get_oldest_detection_date()
         if oldest is None:
             return 0
-        await db.execute("DELETE FROM species_daily_rollup")
-        await db.commit()
-        await repo.upsert_daily_rollups(oldest.date(), datetime.utcnow().date())
-        return 1
+        return await repo.rebuild_all_rollups(oldest.date(), datetime.utcnow().date())
 
     async def run(
         self,
@@ -205,9 +242,10 @@ class CanonicalIdentityRepairService:
 
                     taxonomy = await self._resolve_taxonomy(repo, db, row)
                     if self._candidate_improves(row, taxonomy):
-                        await self._update_row(db, int(row["id"]), taxonomy)
-                        batch_updated += 1
-                        updated += 1
+                        row_updated = await self._update_row(db, row, taxonomy)
+                        if row_updated:
+                            batch_updated += 1
+                            updated += 1
                     else:
                         skipped_ids.add(int(row["id"]))
                     processed += 1
