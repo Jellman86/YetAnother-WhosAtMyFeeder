@@ -356,6 +356,7 @@ jobs:
       - name: Build and smoke test monolithic image
         run: |
           bash tests/e2e/monolith_smoke.sh
+          bash tests/e2e/monolith_nonroot_smoke.sh
 
   build-backend:
     needs: [detect-changes, test-backend]

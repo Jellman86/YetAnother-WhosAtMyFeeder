@@ -17,6 +17,13 @@ shutdown() {
 
 trap shutdown TERM INT
 
+mkdir -p \
+    /tmp/nginx/client_temp \
+    /tmp/nginx/proxy_temp \
+    /tmp/nginx/fastcgi_temp \
+    /tmp/nginx/uwsgi_temp \
+    /tmp/nginx/scgi_temp
+
 uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 backend_pid=$!
 

@@ -72,13 +72,12 @@ COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir /wheels/*
 
 RUN useradd -m -u 1000 appuser && \
-    mkdir -p /config /data /app/data/models /var/cache/nginx /var/log/nginx /var/lib/nginx /run/nginx && \
-    chown -R appuser:appuser /app /config /data /usr/share/nginx/html /var/cache/nginx /var/log/nginx /var/lib/nginx /run/nginx && \
-    touch /run/nginx.pid && \
-    chown appuser:appuser /run/nginx.pid
+    mkdir -p /config /data /app/data/models && \
+    chown -R appuser:appuser /app /config /data /usr/share/nginx/html
 
 COPY --from=ui-builder /ui/dist /usr/share/nginx/html
 COPY backend/ /app/
+COPY docker/monolith/nginx-main.conf /etc/nginx/nginx.conf
 COPY docker/monolith/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh
 COPY docker/monolith/healthcheck.sh /usr/local/bin/yawamf-healthcheck.sh
@@ -93,6 +92,7 @@ ENV NGINX_PORT=8080
 
 RUN chown -R appuser:appuser /app /usr/share/nginx/html && \
     chmod -R go+rX /app /usr/share/nginx/html && \
+    chmod 0644 /etc/nginx/nginx.conf && \
     chmod 0644 /etc/nginx/conf.d/default.conf && \
     chmod 0755 /usr/local/bin/yawamf-entrypoint.sh /usr/local/bin/yawamf-healthcheck.sh
 
