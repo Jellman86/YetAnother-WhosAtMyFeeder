@@ -255,6 +255,25 @@ When using the manual tag / reclassify picker, results frequently show only a sc
 - Parenthetical model labels (`"Cassin's Finch (Adult Male)"`) resolve to `"Cassin's Finch"` in the picker.
 - No regressions to picker performance — debounce and semaphore keep iNaturalist requests bounded.
 
+### 8. Version 3.0 Release Line: Monolith-Only Deployment + Full UI Refresh 🚀
+**Priority:** P0 | **Effort:** L | **Status:** Planned for `v3.0`
+
+Version `3.0` should be the release where YA-WAMF stops treating the split frontend/backend container model as a first-class deployment target. The monolithic container becomes the only supported runtime shape, and the legacy split deployment is formally deprecated and removed from the default setup path.
+
+The same release should also deliver a full UI refresh so the major-version jump reflects both infrastructure simplification and a cleaner, more cohesive product surface.
+
+**Scope:**
+- Promote the monolithic `nginx + backend` image to the canonical deployment artifact.
+- Deprecate the legacy split `wamf-frontend` / `wamf-backend` deployment path in docs, CI, and release guidance.
+- Ship a migration guide so existing two-container installs can move to the monolith without data/config loss.
+- Deliver a full UI refresh across the main owner and guest surfaces, not just isolated component polish.
+
+**Acceptance Criteria:**
+- `v3.0` docs, compose examples, and reverse-proxy guidance assume the monolithic container by default.
+- The split deployment is clearly marked deprecated before release and removed from the primary recommended path at `v3.0`.
+- Existing users can migrate from split to monolith with unchanged `/config` and `/data` volumes.
+- The refreshed UI is applied consistently across dashboard, explorer, video/detection views, settings, and public/guest surfaces.
+
 ---
 
 ## Raspberry Pi Compatibility (Best-Effort Plan)

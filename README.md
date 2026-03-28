@@ -26,6 +26,12 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
   <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
 </p>
 
+> [!WARNING]
+> **Deployment Transition Notice**
+> YA-WAMF is moving toward a **single-container deployment**.
+> Existing split `frontend + backend` installs continue to work during the `v2.x` transition window, but **v3.0 is planned to require a compose update** to the monolithic container.
+> If you already run YA-WAMF, do not redeploy blindly. Read the migration guidance in [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md) before changing your stack.
+
 ## Features at a Glance
 
 - **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to ~75% top-1 / 88% top-5 across 10,000 species)
@@ -77,6 +83,7 @@ Use the full docs hub for setup, integrations, and troubleshooting:
 - [📚 Full Documentation Suite](docs/index.md)
 - [🚀 Getting Started](docs/setup/getting-started.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
+- [🔄 Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
 - [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md)
 - [🔌 API Reference](docs/api.md)

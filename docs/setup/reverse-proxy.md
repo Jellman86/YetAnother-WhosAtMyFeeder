@@ -2,6 +2,10 @@
 
 When running Yet Another WhosAtMyFeeder (YA-WAMF) behind a reverse proxy, specific configurations are required to ensure the **Live Status** (Server-Sent Events) and **Video Playback** features work correctly without disconnection or buffering issues.
 
+> [!WARNING]
+> YA-WAMF is transitioning toward a single-container deployment for `v3.0`.
+> The split `yawamf-frontend` + `yawamf-backend` examples below remain valid during the `v2.x` transition window, but new installs and migrations should plan for a single upstream such as `yawamf-monalithic:8080`.
+
 ## Core Requirements
 
 1.  **Support for Server-Sent Events (SSE):** Buffering must be disabled, and timeouts must be increased.

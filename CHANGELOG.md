@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** YA-WAMF now documents the coming deployment transition more explicitly. `v2.x` continues to support the legacy split frontend/backend stack, but `v3.0` is now planned around a monolithic single-container deployment with a dedicated split-to-monolith migration path in the docs.
+
 - **Added:** Canonical species identity normalization is now completed end to end. YA-WAMF now treats species identity as `taxa_id` first, then `scientific_name`, instead of relying on raw `display_name` equality for key repository filters and historical rollups.
 - **Added:** The maintenance taxonomy-repair action now runs an explicit canonical-identity repair flow that backfills missing taxonomy on historical detections and rebuilds species rollups afterward, so repaired rows immediately collapse into the correct canonical species stats.
 - **Changed:** `species_daily_rollup` now stores canonical identity fields (`canonical_key`, `scientific_name`, `common_name`, `taxa_id`) and is rebuilt on canonical keys instead of display name alone, which prevents common/scientific alias variants from splitting leaderboard windows and recent metrics.
