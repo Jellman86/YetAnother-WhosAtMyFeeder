@@ -8,5 +8,11 @@ tests/__pycache__
 backend/tests/__pycache__
 apps/ui/.svelte-kit
 apps/ui/dist
+config
+data
+tmp
+.pytest_cache
+.ruff_cache
+.mypy_cache
 docs
 dashboard-preview.png
