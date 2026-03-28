@@ -140,7 +140,7 @@ async def test_canonical_identity_repair_service_repairs_missing_taxonomy_and_re
 
 
 @pytest.mark.asyncio
-async def test_canonical_identity_repair_service_refreshes_non_english_common_names():
+async def test_canonical_identity_repair_service_preserves_localized_common_names():
     from app.services.canonical_identity_repair_service import CanonicalIdentityRepairService
 
     async with aiosqlite.connect(":memory:") as db:
@@ -150,6 +150,13 @@ async def test_canonical_identity_repair_service_refreshes_non_english_common_na
         await db.execute(
             "INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
             ("Cyanistes caeruleus", "Blue Tit", 1234),
+        )
+        await db.execute(
+            "CREATE TABLE taxonomy_translations (taxa_id INTEGER NOT NULL, language_code TEXT NOT NULL, common_name TEXT NOT NULL)"
+        )
+        await db.execute(
+            "INSERT INTO taxonomy_translations (taxa_id, language_code, common_name) VALUES (?, ?, ?)",
+            (1234, "ru", "Лазоревка"),
         )
         await db.execute(
             """
@@ -162,12 +169,12 @@ async def test_canonical_identity_repair_service_refreshes_non_english_common_na
                 datetime.utcnow(),
                 1,
                 0.91,
-                "Herrerillo común",
+                "Лазоревка",
                 "Cyanistes caeruleus",
-                "evt_refresh_non_english",
+                "evt_preserve_localized",
                 "cam_1",
                 "Cyanistes caeruleus",
-                "Herrerillo común",
+                "Лазоревка",
                 1234,
             ),
         )
@@ -177,17 +184,18 @@ async def test_canonical_identity_repair_service_refreshes_non_english_common_na
         with patch(
             "app.services.canonical_identity_repair_service.taxonomy_service.get_names",
             new=AsyncMock(return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}),
-        ):
+        ) as mock_get_names:
             result = await service.run(db=db, batch_size=100)
 
         async with db.execute(
             "SELECT scientific_name, common_name, taxa_id FROM detections WHERE frigate_event = ?",
-            ("evt_refresh_non_english",),
+            ("evt_preserve_localized",),
         ) as cursor:
-            refreshed_row = await cursor.fetchone()
+            preserved_row = await cursor.fetchone()
 
-        assert refreshed_row == ("Cyanistes caeruleus", "Blue Tit", 1234)
-        assert result["updated"] >= 1
+        assert preserved_row == ("Cyanistes caeruleus", "Лазоревка", 1234)
+        assert result["updated"] == 0
+        mock_get_names.assert_not_awaited()
 
 
 @pytest.mark.asyncio

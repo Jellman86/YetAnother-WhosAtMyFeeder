@@ -20,10 +20,6 @@ class CanonicalIdentityRepairService:
             scientific_name IS NULL
             OR common_name IS NULL
             OR taxa_id IS NULL
-            OR (
-                common_name IS NOT NULL
-                AND LENGTH(common_name) != LENGTH(CAST(common_name AS BLOB))
-            )
         )
     """
 
@@ -47,16 +43,6 @@ class CanonicalIdentityRepairService:
     def get_status(self) -> dict:
         return dict(self._status)
 
-    @staticmethod
-    def _is_english_safe(value: object) -> bool:
-        candidate = str(value or "").strip()
-        return bool(candidate) and candidate.isascii()
-
-    @classmethod
-    def _needs_common_name_refresh(cls, row: dict) -> bool:
-        common_name = row.get("common_name")
-        return isinstance(common_name, str) and bool(common_name.strip()) and not cls._is_english_safe(common_name)
-
     def _lookup_candidates(self, row: dict) -> list[str]:
         candidates: list[str] = []
         for raw in (row.get("scientific_name"), row.get("category_name"), row.get("display_name")):
@@ -74,8 +60,8 @@ class CanonicalIdentityRepairService:
                         candidates.append(group)
         return candidates
 
-    @classmethod
-    def _candidate_improves(cls, row: dict, taxonomy: dict) -> bool:
+    @staticmethod
+    def _candidate_improves(row: dict, taxonomy: dict) -> bool:
         if not taxonomy:
             return False
 
@@ -88,9 +74,6 @@ class CanonicalIdentityRepairService:
             return False
         if current_sci and candidate_sci and current_sci.lower() != candidate_sci.lower():
             return False
-
-        if cls._needs_common_name_refresh(row) and cls._is_english_safe(taxonomy.get("common_name")):
-            return True
 
         return (
             (not current_sci and bool(candidate_sci))
@@ -146,12 +129,11 @@ class CanonicalIdentityRepairService:
         return int(row[0] or 0) if row else 0
 
     async def _resolve_taxonomy(self, repo: DetectionRepository, db: aiosqlite.Connection, row: dict) -> dict:
-        force_refresh = self._needs_common_name_refresh(row)
         for candidate in self._lookup_candidates(row):
             cached = await repo.get_taxonomy_names(candidate)
             if self._candidate_improves(row, cached):
                 return cached
-            fetched = await taxonomy_service.get_names(candidate, db=db, force_refresh=force_refresh)
+            fetched = await taxonomy_service.get_names(candidate, db=db)
             if self._candidate_improves(row, fetched):
                 return fetched
         return {}
@@ -166,10 +148,7 @@ class CanonicalIdentityRepairService:
             params.append(candidate_sci)
 
         candidate_common = str(taxonomy.get("common_name") or "").strip()
-        if candidate_common and (
-            not row.get("common_name")
-            or (self._needs_common_name_refresh(row) and self._is_english_safe(candidate_common))
-        ):
+        if candidate_common and not row.get("common_name"):
             assignments.append("common_name = ?")
             params.append(candidate_common)
 

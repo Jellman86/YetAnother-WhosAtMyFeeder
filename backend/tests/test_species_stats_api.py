@@ -212,3 +212,71 @@ async def test_species_stats_handles_mixed_naive_and_aware_detection_times(clien
         assert len(data["recent_sightings"]) == 2
     finally:
         await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
+
+
+@pytest.mark.asyncio
+async def test_species_stats_accepts_cyrillic_common_name_and_aggregates_aliases(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    suffix = uuid.uuid4().hex[:8]
+    taxa_id = 900000 + int(suffix[:4], 16)
+    event_prefix = f"speciesstats-ru-{suffix}"
+    scientific_name = f"Aves{suffix} cyrillica"
+    common_name = f"Test Bird {suffix}"
+    localized_common_name = f"Лазоревка {suffix}"
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_translations (taxa_id, language_code, common_name)
+            VALUES (?, ?, ?)
+            """,
+            (taxa_id, "ru", localized_common_name),
+        )
+        now = datetime.now(timezone.utc).isoformat(sep=" ")
+        for idx, display_name in enumerate([localized_common_name, scientific_name], start=1):
+            await db.execute(
+                """
+                INSERT INTO detections (
+                    detection_time, detection_index, score, display_name, category_name,
+                    frigate_event, camera_name, is_hidden, manual_tagged,
+                    scientific_name, common_name, taxa_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+                """,
+                (
+                    now,
+                    idx,
+                    0.9,
+                    display_name,
+                    display_name,
+                    f"{event_prefix}_{idx}",
+                    "test-camera",
+                    scientific_name,
+                    localized_common_name,
+                    taxa_id,
+                ),
+            )
+        await db.commit()
+
+    try:
+        response = await client.get(
+            f"/api/species/{quote(localized_common_name, safe='')}/stats",
+            headers={"Accept-Language": "ru"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["species_name"] == localized_common_name
+        assert data["taxa_id"] == taxa_id
+        assert data["scientific_name"] == scientific_name
+        assert data["common_name"] == localized_common_name
+        assert data["total_sightings"] == 2
+        assert len(data["recent_sightings"]) == 2
+    finally:
+        await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
