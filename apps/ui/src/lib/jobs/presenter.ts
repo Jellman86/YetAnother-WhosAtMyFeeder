@@ -173,7 +173,7 @@ export function presentActiveJob(
     nowTs: number,
     t: JobsTranslateFn
 ): PresentedActiveJob {
-    const determinate = job.total > 0;
+    const determinate = job.total > 0 && job.current > 0;
     const percent = determinate ? Math.min(100, Math.max(0, Math.round((job.current / job.total) * 100))) : null;
     const progressLabel = determinate
         ? formatProgress(job.current, job.total, resolveProgressUnit(job), t)
