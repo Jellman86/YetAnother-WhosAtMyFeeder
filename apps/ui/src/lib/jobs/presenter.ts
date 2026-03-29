@@ -254,7 +254,7 @@ export function buildGlobalProgressSummary(
     const dominantJob = activeJobs.find((job) => job.kind === dominantKind) ?? activeJobs[0];
     const dominantRow = rowsByKind.get(dominantKind) ?? null;
     const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
-    const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0);
+    const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0 && job.current > 0);
     let progressLabel = t('jobs.progress_working', undefined, 'Working...');
     let percent: number | null = null;
 
@@ -264,7 +264,7 @@ export function buildGlobalProgressSummary(
         const unit = resolveProgressUnit(activeJobs[0]);
         progressLabel = formatProgress(current, total, unit, t);
         percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
-    } else {
+    } else if (units.size > 1) {
         progressLabel = t(
             'jobs.global_summary_mixed_units',
             undefined,

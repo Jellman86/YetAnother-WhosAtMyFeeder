@@ -259,6 +259,36 @@ describe('jobs presenter', () => {
         expect(summary.percent).toBe(42);
     });
 
+    it('treats a job with known total but zero current as indeterminate', () => {
+        // Backfill: Frigate has returned 200 events but none have been processed yet.
+        const presented = presentActiveJob(
+            makeJob({ kind: 'backfill', current: 0, total: 200 }),
+            makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null }),
+            null,
+            125_000,
+            t
+        );
+
+        expect(presented.determinate).toBe(false);
+        expect(presented.percent).toBeNull();
+        expect(presented.progressLabel).toBe('Working...');
+    });
+
+    it('treats a not-yet-started job as indeterminate in the global banner', () => {
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ kind: 'backfill', current: 0, total: 200, title: 'Backfill' })],
+            new Map([['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null })]]),
+            null,
+            125_000,
+            t,
+            () => 'Backfill'
+        );
+
+        expect(summary.determinate).toBe(false);
+        expect(summary.percent).toBeNull();
+        expect(summary.progressLabel).toBe('Working...');
+    });
+
     it('builds a determinate banner summary when active jobs share a unit', () => {
         const summary = buildGlobalProgressSummary(
             [
