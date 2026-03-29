@@ -1441,6 +1441,8 @@
     "freshness_updated": "Updated {age} ago",
     "global_summary_with_queue": "{kind} using {capacity}, {queued} queued",
     "global_summary_circuit_open": "{kind} paused by circuit breaker",
+    "circuit_reset_button": "Reset Circuit",
+    "circuit_reset_confirm": "This will reopen the video classification queue immediately. Queued jobs will retry.",
     "global_summary_basic": "{kind} {activity}",
     "global_summary_mixed_units": "Multiple jobs in progress",
     "kind_reclassify": "Reclassification",

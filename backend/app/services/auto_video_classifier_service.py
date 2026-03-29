@@ -5,7 +5,7 @@ import tempfile
 import structlog
 import time
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional, Dict, Literal
 
@@ -26,6 +26,45 @@ from app.utils.system_stats import get_ram_usage_string
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
+
+# ---------------------------------------------------------------------------
+# Circuit-breaker failure classification
+# ---------------------------------------------------------------------------
+# The circuit breaker exists to protect against a broken ML *inference*
+# pipeline (timed-out workers, crashed workers, zero-result runs).  It must
+# NOT open because Frigate was temporarily unreachable or because a task was
+# cancelled during a normal service reset / shutdown.
+#
+# Errors that originate on the Frigate side (connectivity, HTTP errors,
+# timing races) or from task lifecycle events are excluded from the failure
+# counter.  Only genuine ML inference failures count toward the threshold.
+
+# Fixed error codes that must never increment the circuit-breaker counter.
+_FRIGATE_CONNECTIVITY_ERRORS: frozenset[str] = frozenset({
+    # --- Event precheck errors (frigate_client.get_event_with_error) ---
+    "event_not_found",      # Frigate 404 race: MQTT end fired before the event was committed to DB
+    "event_timeout",        # Frigate API request timed out
+    "event_request_error",  # Network error reaching Frigate
+    "event_unknown_error",  # Unexpected error during event fetch
+    # --- Clip fetch errors (frigate_client.get_clip_with_error) ---
+    "clip_not_retained",    # Continuous recordings disabled or retention window expired (expected)
+    "clip_not_found",       # Frigate 404 for clip (transient or expected)
+    "clip_timeout",         # Clip fetch timed out
+    "clip_request_error",   # Network error reaching Frigate
+    "clip_unknown_error",   # Unexpected error during clip fetch
+    "clip_invalid",         # Frigate returned a stub or non-MP4 body
+    "clip_decode_failed",   # Frigate returned bytes that could not be decoded as video
+    # --- Task lifecycle (not an inference failure) ---
+    "video_cancelled",      # Task was cancelled during reset_state() or service shutdown
+})
+
+# Dynamic error-code prefixes also excluded from the circuit-breaker counter.
+# These cover the pattern "event_http_<status>" and "clip_http_<status>"
+# produced when Frigate returns an unexpected HTTP status code.
+_FRIGATE_CONNECTIVITY_ERROR_PREFIXES: tuple[str, ...] = (
+    "event_http_",  # e.g. event_http_500, event_http_503
+    "clip_http_",   # e.g. clip_http_400, clip_http_502
+)
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
 BackgroundImageClassificationUnavailableError = getattr(
     classifier_service_module,
@@ -294,8 +333,13 @@ class AutoVideoClassifierService:
             self._failure_event_ids.discard(event_id)
 
     def _record_failure(self, event_id: str, error: Optional[str] = None):
-        if error == "clip_not_retained":
-            return
+        # Frigate-connectivity and task-lifecycle errors do not count toward the
+        # circuit-breaker threshold.  Only genuine ML inference failures do.
+        if error is not None:
+            if error in _FRIGATE_CONNECTIVITY_ERRORS:
+                return
+            if any(error.startswith(pfx) for pfx in _FRIGATE_CONNECTIVITY_ERROR_PREFIXES):
+                return
         self._prune_failures()
         if event_id in self._failure_event_ids:
             return
@@ -347,12 +391,29 @@ class AutoVideoClassifierService:
         open_status = self._is_circuit_open()
         until = None
         if open_status and self._circuit_open_until:
-            until = datetime.fromtimestamp(self._circuit_open_until).isoformat()
+            # Always emit UTC so diagnostics tools and the frontend display a
+            # consistent timezone regardless of where the container is running.
+            until = datetime.fromtimestamp(
+                self._circuit_open_until, tz=timezone.utc
+            ).isoformat()
         return {
             "open": open_status,
             "open_until": until,
             "failure_count": len(self._failure_events)
         }
+
+    def reset_circuit(self) -> None:
+        """Reset only the circuit breaker state.
+
+        Unlike ``reset_state()``, this does not drain the pending queue or
+        cancel active tasks.  It is the right tool for manually recovering
+        from a false-positive open circuit (e.g. one caused by a transient
+        Frigate outage) without discarding queued work.
+        """
+        self._failure_events.clear()
+        self._failure_event_ids.clear()
+        self._circuit_open_until = None
+        log.info("Video classification circuit breaker reset manually")
 
     def get_status(self) -> dict:
         """Get current queue status."""

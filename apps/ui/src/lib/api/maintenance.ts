@@ -139,6 +139,11 @@ export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
     return handleResponse<AnalysisStatus>(response);
 }
 
+export async function resetVideoCircuit(): Promise<{ status: string; message: string }> {
+    const response = await apiFetch(`${API_BASE}/maintenance/video-classification/reset-circuit`, { method: 'POST' });
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
 export async function resetDatabase(): Promise<ResetDatabaseResult> {
     const response = await apiFetch(`${API_BASE}/backfill/reset`, { method: 'DELETE' });
     return handleResponse<ResetDatabaseResult>(response);

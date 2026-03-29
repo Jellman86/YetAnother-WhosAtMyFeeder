@@ -122,3 +122,193 @@ async def test_terminal_missing_clip_does_not_open_circuit():
     status = service.get_status()
     assert status["failure_count"] == 0
     assert status["circuit_open"] is False
+
+
+# ---------------------------------------------------------------------------
+# Circuit-breaker: Frigate-connectivity errors must not count toward threshold
+# ---------------------------------------------------------------------------
+
+FRIGATE_SIDE_ERROR_CODES = [
+    # Precheck / event lookup
+    "event_not_found",
+    "event_timeout",
+    "event_request_error",
+    "event_unknown_error",
+    "event_http_404",
+    "event_http_500",
+    "event_http_503",
+    # Clip fetch
+    "clip_not_retained",
+    "clip_not_found",
+    "clip_timeout",
+    "clip_request_error",
+    "clip_unknown_error",
+    "clip_http_400",
+    "clip_http_502",
+    "clip_invalid",
+    "clip_decode_failed",
+    # Task lifecycle
+    "video_cancelled",
+]
+
+ML_INFERENCE_ERROR_CODES = [
+    "video_timeout",
+    "video_no_results",
+    "video_exception",
+]
+
+
+@pytest.mark.asyncio
+async def test_frigate_connectivity_errors_do_not_increment_failure_count():
+    """Every Frigate-side error code must be silently ignored by the circuit breaker."""
+    service = AutoVideoClassifierService()
+    for i, code in enumerate(FRIGATE_SIDE_ERROR_CODES):
+        service._record_failure(f"evt-frigate-{i}", code)
+
+    status = service.get_status()
+    assert status["failure_count"] == 0, (
+        f"Expected 0 failures after Frigate-side errors, got {status['failure_count']}"
+    )
+    assert status["circuit_open"] is False
+
+
+@pytest.mark.asyncio
+async def test_frigate_connectivity_errors_do_not_open_circuit_at_threshold(monkeypatch):
+    """Accumulating Frigate errors past the configured threshold must not open the circuit."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        3,
+    )
+    service = AutoVideoClassifierService()
+
+    # Drive 5 Frigate-side failures — more than the threshold of 3.
+    for i in range(5):
+        service._record_failure(f"evt-fc-{i}", "event_not_found")
+
+    status = service.get_status()
+    assert status["circuit_open"] is False
+
+
+@pytest.mark.asyncio
+async def test_ml_inference_errors_do_increment_failure_count():
+    """ML inference failure codes must count toward the circuit-breaker threshold."""
+    service = AutoVideoClassifierService()
+    for i, code in enumerate(ML_INFERENCE_ERROR_CODES):
+        service._record_failure(f"evt-ml-{i}", code)
+
+    status = service.get_status()
+    assert status["failure_count"] == len(ML_INFERENCE_ERROR_CODES)
+
+
+@pytest.mark.asyncio
+async def test_ml_inference_errors_open_circuit_at_threshold(monkeypatch):
+    """Enough ML inference failures must open the circuit breaker."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        3,
+    )
+    service = AutoVideoClassifierService()
+
+    for i in range(3):
+        service._record_failure(f"evt-ml-open-{i}", "video_timeout")
+
+    status = service.get_status()
+    assert status["circuit_open"] is True
+
+
+@pytest.mark.asyncio
+async def test_mixed_errors_only_ml_failures_count_toward_circuit(monkeypatch):
+    """Interleaved Frigate and ML errors: only ML errors push the counter forward."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        3,
+    )
+    service = AutoVideoClassifierService()
+
+    # Two ML failures and many Frigate failures — circuit must stay closed.
+    service._record_failure("evt-m1", "video_timeout")
+    service._record_failure("evt-f1", "event_not_found")
+    service._record_failure("evt-f2", "clip_timeout")
+    service._record_failure("evt-f3", "event_http_503")
+    service._record_failure("evt-m2", "video_exception")
+
+    status = service.get_status()
+    assert status["failure_count"] == 2
+    assert status["circuit_open"] is False
+
+
+# ---------------------------------------------------------------------------
+# reset_circuit: lightweight circuit reset without queue drain
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reset_circuit_clears_circuit_state(monkeypatch):
+    """reset_circuit() must clear failure state and reclose the circuit."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    service = AutoVideoClassifierService()
+
+    service._record_failure("evt-rc-1", "video_timeout")
+    service._record_failure("evt-rc-2", "video_exception")
+    assert service.get_status()["circuit_open"] is True
+
+    service.reset_circuit()
+
+    status = service.get_status()
+    assert status["circuit_open"] is False
+    assert status["failure_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_reset_circuit_preserves_pending_queue(monkeypatch):
+    """reset_circuit() must leave pending queue entries intact."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    service = AutoVideoClassifierService()
+
+    await service.queue_classification("evt-q1", "cam1")
+    await service.queue_classification("evt-q2", "cam1")
+
+    service._record_failure("evt-rc-1", "video_timeout")
+    service._record_failure("evt-rc-2", "video_timeout")
+    assert service.get_status()["circuit_open"] is True
+
+    service.reset_circuit()
+
+    # Queue must still have both items.
+    assert service.get_status()["pending"] == 2
+    assert service.get_status()["circuit_open"] is False
+
+
+# ---------------------------------------------------------------------------
+# get_circuit_status: open_until must be UTC
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_circuit_status_open_until_is_utc(monkeypatch):
+    """open_until in get_circuit_status() must carry a UTC offset."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        1,
+    )
+    service = AutoVideoClassifierService()
+    service._record_failure("evt-utc-1", "video_timeout")
+
+    status = service.get_circuit_status()
+    assert status["open"] is True
+    open_until = status["open_until"]
+    assert open_until is not None
+    # A UTC-aware isoformat string ends with "+00:00".
+    assert open_until.endswith("+00:00"), (
+        f"Expected UTC offset in open_until, got: {open_until!r}"
+    )

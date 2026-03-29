@@ -6,6 +6,7 @@
     import { presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
+    import { resetVideoCircuit } from '../api/maintenance';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
@@ -37,6 +38,20 @@
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
     let queuedReclassifyJobs = $derived(Math.max(0, Math.floor(Number(analysisStatus?.pending ?? queueByKind.reclassify?.queued ?? 0))));
+    let resettingCircuit = $state(false);
+
+    async function handleResetCircuit() {
+        if (resettingCircuit) return;
+        resettingCircuit = true;
+        try {
+            await resetVideoCircuit();
+            await analysisQueueStatusStore.refresh();
+        } catch {
+            // Swallow — the circuit status will update on the next poll regardless.
+        } finally {
+            resettingCircuit = false;
+        }
+    }
 
     function openRoute(item: JobProgressItem) {
         if (typeof item.route === 'string' && item.route.length > 0) {
@@ -105,6 +120,26 @@
                         · {$_('jobs.circuit_open_until', { default: 'Until' })}: {formatDateTime(circuitOpenUntil)}
                     {/if}
                 </p>
+                <div class="mt-3">
+                    <button
+                        type="button"
+                        onclick={handleResetCircuit}
+                        disabled={resettingCircuit}
+                        aria-label={$_('jobs.circuit_reset_button', { default: 'Reset Circuit' })}
+                        class="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                        {#if resettingCircuit}
+                            <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {/if}
+                        {$_('jobs.circuit_reset_button', { default: 'Reset Circuit' })}
+                    </button>
+                    <p class="mt-1 text-[10px] text-amber-600/80 dark:text-amber-300/70">
+                        {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
+                    </p>
+                </div>
             </div>
         {/if}
     </section>

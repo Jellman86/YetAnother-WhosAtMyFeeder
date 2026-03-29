@@ -1539,6 +1539,22 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     }
 
 
+@router.post("/maintenance/video-classification/reset-circuit")
+async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
+    """Reset the video classification circuit breaker without discarding queued jobs. Owner only.
+
+    Use this to manually recover from a false-positive open circuit caused by
+    a transient Frigate outage.  Queued and active jobs are preserved.
+    """
+    auto_video_classifier.reset_circuit()
+    status = auto_video_classifier.get_circuit_status()
+    return {
+        "status": "ok",
+        "message": "Video classification circuit breaker reset.",
+        "circuit": status,
+    }
+
+
 @router.delete("/maintenance/feedback/clear")
 async def clear_classification_feedback(
     background_tasks: BackgroundTasks,
