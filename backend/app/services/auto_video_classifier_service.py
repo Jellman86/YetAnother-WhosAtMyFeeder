@@ -615,7 +615,7 @@ class AutoVideoClassifierService:
                     context={"error": event_error, "attempts": _precheck_attempts},
                 )
                 await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
-                self._record_failure(frigate_event)
+                self._record_failure(frigate_event, event_error)
                 await self._auto_delete_if_missing(frigate_event, event_error)
                 await broadcaster.broadcast({
                     "type": "reclassification_completed",

@@ -191,6 +191,28 @@ async def test_frigate_connectivity_errors_do_not_open_circuit_at_threshold(monk
 
 
 @pytest.mark.asyncio
+async def test_process_event_precheck_failures_do_not_increment_circuit_count(monkeypatch):
+    """Frigate precheck failures must pass their error code through to _record_failure()."""
+    service = AutoVideoClassifierService()
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_http_503")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+
+    await service._process_event("evt-precheck-1", "cam1", skip_delay=True)
+
+    status = service.get_status()
+    assert status["failure_count"] == 0
+    assert status["circuit_open"] is False
+
+
+@pytest.mark.asyncio
 async def test_ml_inference_errors_do_increment_failure_count():
     """ML inference failure codes must count toward the circuit-breaker threshold."""
     service = AutoVideoClassifierService()
