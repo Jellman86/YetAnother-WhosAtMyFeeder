@@ -63,7 +63,7 @@
     import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
-    import { validateAuthPasswordPolicy } from '../auth-password-policy';
+    import { validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
@@ -2800,18 +2800,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function saveSettings() {
         saving = true;
         message = null;
-        if (authPassword || authPasswordConfirm) {
-            if (authPassword !== authPasswordConfirm) {
-                message = { type: 'error', text: 'Passwords do not match' };
-                saving = false;
-                return;
-            }
-            const passwordPolicyError = validateAuthPasswordPolicy(authPassword);
-            if (passwordPolicyError) {
-                message = { type: 'error', text: passwordPolicyError };
-                saving = false;
-                return;
-            }
+        const authSettingsError = validateAuthSettingsSave({
+            authEnabled,
+            authHasPassword,
+            authPassword,
+            authPasswordConfirm
+        });
+        if (authSettingsError) {
+            message = { type: 'error', text: authSettingsError };
+            saving = false;
+            return;
         }
         try {
             await updateSettings({

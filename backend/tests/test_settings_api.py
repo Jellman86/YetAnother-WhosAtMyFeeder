@@ -52,6 +52,53 @@ async def test_settings_roundtrip_personalized_rerank_enabled(client: httpx.Asyn
 
 
 @pytest.mark.asyncio
+async def test_settings_rejects_enabling_auth_without_password(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.auth.password_hash = None
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "auth_enabled": True,
+        "auth_username": "root",
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 422, post_resp.text
+    assert "Password is required when enabling authentication" in post_resp.text
+
+
+@pytest.mark.asyncio
+async def test_settings_allows_enabling_auth_with_password(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.auth.password_hash = None
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "auth_enabled": True,
+        "auth_username": "root",
+        "auth_password": "root1234",
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+    assert settings.auth.enabled is True
+    assert settings.auth.username == "root"
+    assert settings.auth.password_hash is not None
+
+
+@pytest.mark.asyncio
 async def test_settings_roundtrip_strict_non_finite_output(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

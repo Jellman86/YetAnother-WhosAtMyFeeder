@@ -3,7 +3,7 @@ import re
 import asyncio
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
@@ -39,6 +39,7 @@ router = APIRouter()
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
+AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
@@ -757,6 +758,11 @@ async def update_settings(
         return value not in (None, "", "***REDACTED***")
 
     fields_set = update.model_fields_set
+    auth_enabled_after_update = update.auth_enabled if "auth_enabled" in fields_set and update.auth_enabled is not None else settings.auth.enabled
+    auth_password_will_exist = settings.auth.password_hash is not None or ("auth_password" in fields_set and bool(update.auth_password))
+
+    if auth_enabled_after_update and not auth_password_will_exist:
+        raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
 
     if "frigate_url" in fields_set:
         settings.frigate.frigate_url = update.frigate_url
