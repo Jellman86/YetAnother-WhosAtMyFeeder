@@ -1,7 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from datetime import datetime
+from app.utils.api_datetime import serialize_api_datetime
 
-class Detection(BaseModel):
+
+class APIModel(BaseModel):
+    @field_serializer(
+        "detection_time",
+        "video_classification_timestamp",
+        "ai_analysis_timestamp",
+        "first_seen",
+        "last_seen",
+        "cached_at",
+        check_fields=False,
+        when_used="json",
+    )
+    def _serialize_datetime_fields(self, value: datetime | None) -> str | None:
+        return serialize_api_datetime(value)
+
+
+class Detection(APIModel):
     id: int | None = None
     detection_time: datetime
     detection_index: int
@@ -52,7 +69,7 @@ class DetectionResponse(Detection):
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
 
-class FrigateEvent(BaseModel):
+class FrigateEvent(APIModel):
     id: str
     camera: str
     label: str
@@ -61,12 +78,12 @@ class FrigateEvent(BaseModel):
     false_positive: bool | None = None
 
 # Species detail models
-class CameraStats(BaseModel):
+class CameraStats(APIModel):
     camera_name: str
     count: int
     percentage: float
 
-class SpeciesStats(BaseModel):
+class SpeciesStats(APIModel):
     species_name: str
     scientific_name: str | None = None
     common_name: str | None = None
@@ -83,7 +100,7 @@ class SpeciesStats(BaseModel):
     min_confidence: float
     recent_sightings: list[Detection]
 
-class SpeciesInfo(BaseModel):
+class SpeciesInfo(APIModel):
     title: str
     description: str | None = None
     extract: str | None = None
@@ -98,7 +115,7 @@ class SpeciesInfo(BaseModel):
     taxa_id: int | None = None
     cached_at: datetime | None = None
 
-class SpeciesRangeMap(BaseModel):
+class SpeciesRangeMap(APIModel):
     status: str
     taxon_key: int | None = None
     map_tile_url: str | None = None

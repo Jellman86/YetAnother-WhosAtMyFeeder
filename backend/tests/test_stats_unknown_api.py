@@ -67,6 +67,32 @@ async def _delete_detection(event_id: str) -> None:
         await db.commit()
 
 
+async def _insert_detection_at_timestamp(event_id: str, detection_time: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                detection_time,
+                1,
+                0.93,
+                "Common Wood-Pigeon",
+                "Columba palumbus",
+                event_id,
+                "test-camera",
+                "Columba palumbus",
+                "Common Wood-Pigeon",
+                3048,
+            ),
+        )
+        await db.commit()
+
+
 @pytest.mark.asyncio
 async def test_daily_summary_aggregates_hidden_noncanonical_labels_as_unknown_bird(client: httpx.AsyncClient):
     settings.auth.enabled = False
@@ -82,6 +108,7 @@ async def test_daily_summary_aggregates_hidden_noncanonical_labels_as_unknown_bi
 
         latest = payload["latest_detection"]
         assert latest["frigate_event"] == event_id
+        assert latest["detection_time"].endswith("Z")
         assert latest["display_name"] == "Unknown Bird"
         assert latest["category_name"] == "Unknown Bird"
         assert latest["scientific_name"] is None
@@ -94,6 +121,26 @@ async def test_daily_summary_aggregates_hidden_noncanonical_labels_as_unknown_bi
         assert unknown_rows[0]["count"] == 1
         assert unknown_rows[0]["latest_event"] == event_id
         assert not any(row["species"] == "Great tit and allies" for row in species)
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"stats-time-{uuid.uuid4().hex[:8]}"
+    await _insert_detection_at_timestamp(event_id, "2026-03-31 10:23:25.446665")
+
+    try:
+        response = await client.get("/api/stats/daily-summary")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        latest = payload["latest_detection"]
+        assert latest["frigate_event"] == event_id
+        assert latest["detection_time"] == "2026-03-31T10:23:25.446665Z"
     finally:
         await _delete_detection(event_id)
 

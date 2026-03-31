@@ -28,6 +28,7 @@ from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
 from app.utils.system_stats import get_ram_usage_string
+from app.utils.api_datetime import serialize_api_datetime
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
@@ -240,7 +241,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "display_name": public_species["display_name"],
         "category_name": public_species["category_name"],
         "score": detection.score,
-        "timestamp": detection.detection_time.isoformat(),
+        "timestamp": serialize_api_datetime(detection.detection_time),
         "camera": detection.camera_name,
         "is_hidden": detection.is_hidden,
         "is_favorite": detection.is_favorite,
@@ -269,7 +270,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_backend": detection.video_classification_backend,
         "video_classification_model_id": detection.video_classification_model_id,
         "video_classification_model_name": _video_classification_model_name(detection.video_classification_model_id),
-        "video_classification_timestamp": detection.video_classification_timestamp.isoformat() if detection.video_classification_timestamp else None,
+        "video_classification_timestamp": serialize_api_datetime(detection.video_classification_timestamp),
     }
     if overrides:
         payload.update(overrides)
@@ -704,7 +705,7 @@ async def delete_event(
                 "type": "detection_deleted",
                 "data": {
                     "frigate_event": event_id,
-                    "timestamp": detection.detection_time.isoformat()
+                    "timestamp": serialize_api_datetime(detection.detection_time)
                 }
             })
             return {"status": "deleted", "event_id": event_id}

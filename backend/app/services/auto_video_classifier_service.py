@@ -24,6 +24,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import user_facing_species_fields
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
@@ -953,7 +954,7 @@ class AutoVideoClassifierService:
                     "type": "detection_deleted",
                     "data": {
                         "frigate_event": frigate_event,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": serialize_api_datetime(utc_naive_now())
                     }
                 })
                 log.info("Auto-deleted detection due to missing clip/event",
@@ -989,7 +990,7 @@ class AutoVideoClassifierService:
                             "display_name": public_species["display_name"],
                             "category_name": public_species["category_name"],
                             "score": det.score,
-                            "timestamp": det.detection_time.isoformat(),
+                            "timestamp": serialize_api_datetime(det.detection_time),
                             "camera": det.camera_name,
                             "is_hidden": det.is_hidden,
                             "is_favorite": det.is_favorite,
@@ -1016,7 +1017,7 @@ class AutoVideoClassifierService:
                             "video_classification_error": det.video_classification_error,
                             "video_classification_provider": det.video_classification_provider,
                             "video_classification_backend": det.video_classification_backend,
-                            "video_classification_timestamp": det.video_classification_timestamp.isoformat() if det.video_classification_timestamp else None
+                            "video_classification_timestamp": serialize_api_datetime(det.video_classification_timestamp)
                         }
                     })
 

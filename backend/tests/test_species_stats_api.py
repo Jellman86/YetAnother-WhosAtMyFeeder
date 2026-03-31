@@ -92,6 +92,38 @@ async def _cleanup_taxon_and_detections(taxa_id: int, event_prefix: str) -> None
         await db.commit()
 
 
+async def _insert_hidden_unknown_detection(event_id: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                datetime.now(timezone.utc).isoformat(sep=" "),
+                1,
+                0.81,
+                "Great tit and allies",
+                "Great tit and allies",
+                event_id,
+                "test-camera",
+                "Great tit and allies",
+                "Great tit and allies",
+                None,
+            ),
+        )
+        await db.commit()
+
+
+async def _delete_detection(event_id: str) -> None:
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.commit()
+
+
 @pytest.mark.asyncio
 async def test_species_stats_accepts_localized_common_name_and_aggregates_aliases(client: httpx.AsyncClient):
     settings.auth.enabled = False
@@ -123,7 +155,10 @@ async def test_species_stats_accepts_localized_common_name_and_aggregates_aliase
         assert data["scientific_name"] == scientific_name
         assert data["common_name"] == localized_common_name
         assert data["total_sightings"] == 2
+        assert data["first_seen"].endswith("Z")
+        assert data["last_seen"].endswith("Z")
         assert len(data["recent_sightings"]) == 2
+        assert all(item["detection_time"].endswith("Z") for item in data["recent_sightings"])
     finally:
         await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
 
@@ -209,9 +244,31 @@ async def test_species_stats_handles_mixed_naive_and_aware_detection_times(clien
         assert response.status_code == 200, response.text
         data = response.json()
         assert data["total_sightings"] == 2
+        assert data["first_seen"].endswith("Z")
+        assert data["last_seen"].endswith("Z")
         assert len(data["recent_sightings"]) == 2
+        assert all(item["detection_time"].endswith("Z") for item in data["recent_sightings"])
     finally:
         await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_species_includes_unknown_bird_without_sql_binding_error(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"leaderboard-unknown-{uuid.uuid4().hex[:8]}"
+    await _insert_hidden_unknown_detection(event_id)
+
+    try:
+        response = await client.get("/api/leaderboard/species?span=month")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        unknown_rows = [row for row in payload["species"] if row["species"] == "Unknown Bird"]
+        assert len(unknown_rows) == 1
+        assert unknown_rows[0]["window_count"] >= 1
+    finally:
+        await _delete_detection(event_id)
 
 
 @pytest.mark.asyncio

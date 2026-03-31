@@ -236,6 +236,7 @@ async def test_unknown_bird_filter_matches_hidden_noncanonical_labels_and_masks_
         rows = events_resp.json()
         assert len(rows) == 1
         assert rows[0]["frigate_event"] == event_id
+        assert rows[0]["detection_time"].endswith("Z")
         assert rows[0]["display_name"] == "Unknown Bird"
         assert rows[0]["category_name"] == "Unknown Bird"
         assert rows[0]["scientific_name"] is None

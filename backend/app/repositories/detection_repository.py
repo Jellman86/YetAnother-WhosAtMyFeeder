@@ -13,6 +13,7 @@ from app.utils.canonical_species import (
     hidden_species_substrings,
     should_hide_species_label,
 )
+from app.utils.api_datetime import utc_naive_now
 
 log = structlog.get_logger()
 
@@ -78,7 +79,7 @@ def _parse_datetime(value) -> datetime:
             except ValueError:
                 continue
     # Return current time as fallback (shouldn't happen with valid data)
-    return datetime.now()
+    return utc_naive_now()
 
 
 def _normalize_species_lookup_name(value: str | None) -> str:
@@ -446,7 +447,7 @@ class DetectionRepository:
         model_id: Optional[str] = None,
     ):
         """Update video classification results for an event."""
-        now = datetime.now()
+        now = utc_naive_now()
         await self.db.execute("""
             UPDATE detections
             SET video_classification_label = ?,
@@ -464,7 +465,7 @@ class DetectionRepository:
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
         """Update just the video classification status."""
-        now = datetime.now()
+        now = utc_naive_now()
         await self.db.execute("""
             UPDATE detections
             SET video_classification_status = ?,
@@ -476,7 +477,7 @@ class DetectionRepository:
 
     async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
         """Mark pending/processing video classifications as failed if they are too old."""
-        now = datetime.now()
+        now = utc_naive_now()
         await self.db.execute("""
             UPDATE detections
             SET video_classification_status = 'failed',
@@ -493,7 +494,7 @@ class DetectionRepository:
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
         """Mark a detection as notified."""
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = utc_naive_now()
         await self.db.execute(
             "UPDATE detections SET notified_at = ? WHERE frigate_event = ?",
             (timestamp, frigate_event)
@@ -558,7 +559,7 @@ class DetectionRepository:
 
     async def update_ai_analysis(self, frigate_event: str, analysis: str):
         """Update AI naturalist analysis for an event."""
-        now = datetime.now()
+        now = utc_naive_now()
         await self.db.execute("""
             UPDATE detections
             SET ai_analysis = ?,
@@ -2753,7 +2754,8 @@ class DetectionRepository:
                 window_start, window_end,
                 window_start, window_end,
                 window_start, window_end,
-                prev_start, window_end,
+                window_start, window_end,
+                window_start, window_end,
                 *params,
             ],
         ) as cursor:

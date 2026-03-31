@@ -18,6 +18,7 @@ from app.utils.canonical_species import (
 )
 from app.utils.blocked_species import is_blocked_species
 from app.utils.frigate import normalize_sub_label
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_from_timestamp
 from app.utils.tasks import create_background_task
 from app.database import get_db
 
@@ -245,7 +246,7 @@ class DetectionService:
                 log.warning("Refusing to save detection with non-finite score", event_id=frigate_event, score=score)
                 return False, False
             category_name = classification['label']
-            timestamp = datetime.fromtimestamp(start_time)
+            timestamp = utc_naive_from_timestamp(start_time)
 
             detection = Detection(
                 detection_time=timestamp,
@@ -306,7 +307,7 @@ class DetectionService:
                         "common_name": public_species["common_name"],
                         "taxa_id": public_species["taxa_id"],
                         "score": score,
-                        "timestamp": timestamp.isoformat(),
+                        "timestamp": serialize_api_datetime(timestamp),
                         "camera": camera,
                         "is_favorite": persisted.is_favorite if persisted else detection.is_favorite,
                         "frigate_score": frigate_score,
@@ -563,7 +564,7 @@ class DetectionService:
                             "display_name": public_species["display_name"],
                             "category_name": public_species["category_name"],
                             "score": updated.score,
-                            "timestamp": updated.detection_time.isoformat(),
+                            "timestamp": serialize_api_datetime(updated.detection_time),
                             "camera": updated.camera_name,
                             "is_hidden": updated.is_hidden,
                             "is_favorite": updated.is_favorite,
@@ -580,7 +581,7 @@ class DetectionService:
                             "video_classification_provider": updated.video_classification_provider,
                             "video_classification_backend": updated.video_classification_backend,
                             "video_classification_model_id": updated.video_classification_model_id,
-                            "video_classification_timestamp": updated.video_classification_timestamp.isoformat() if updated.video_classification_timestamp else None
+                            "video_classification_timestamp": serialize_api_datetime(updated.video_classification_timestamp)
                         }
                     })
             else:

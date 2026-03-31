@@ -360,7 +360,35 @@ async def test_save_detection_treats_noncanonical_model_labels_as_unknown_bird(m
     assert broadcast_payload["data"]["scientific_name"] is None
     assert broadcast_payload["data"]["common_name"] is None
     assert broadcast_payload["data"]["taxa_id"] is None
+    assert broadcast_payload["data"]["timestamp"].endswith("Z")
     mock_deps["birdweather"].report_detection.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_detection_broadcasts_explicit_utc_timestamp(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Columba palumbus", "common_name": "Common Wood-Pigeon", "taxa_id": 3048}
+    )
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, True))
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+
+    with patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+        changed, inserted = await service.save_detection(
+            frigate_event="evt-timestamp-z",
+            camera="cam1",
+            start_time=1774952605.446665,
+            classification={"label": "Columba palumbus", "score": 0.93, "index": 1},
+            frigate_score=0.88,
+            sub_label=None,
+        )
+
+    assert changed is True
+    assert inserted is True
+    broadcast_payload = mock_deps["broadcaster"].broadcast.await_args.args[0]
+    assert broadcast_payload["data"]["timestamp"] == "2026-03-31T10:23:25.446665Z"
 
 
 @pytest.mark.asyncio

@@ -2,11 +2,9 @@ from fastapi import APIRouter, Request, Depends, Query
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
-from pydantic import BaseModel
-
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
-from app.models import DetectionResponse
+from app.models import APIModel, DetectionResponse
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
@@ -18,7 +16,7 @@ from app.utils.canonical_species import should_hide_species_label, user_facing_s
 
 router = APIRouter()
 
-class DailySpeciesSummary(BaseModel):
+class DailySpeciesSummary(APIModel):
     species: str
     count: int
     latest_event: str # Used for thumbnail
@@ -26,18 +24,18 @@ class DailySpeciesSummary(BaseModel):
     common_name: str | None = None
     taxa_id: int | None = None
 
-class DailySummaryResponse(BaseModel):
+class DailySummaryResponse(APIModel):
     hourly_distribution: List[int]
     top_species: List[DailySpeciesSummary]
     latest_detection: Optional[DetectionResponse]
     total_count: int
     audio_confirmations: int
 
-class DailyCount(BaseModel):
+class DailyCount(APIModel):
     date: str
     count: int
 
-class DailyWeatherSummary(BaseModel):
+class DailyWeatherSummary(APIModel):
     date: str
     condition: Optional[str] = None
     precip_total: Optional[float] = None
@@ -62,14 +60,14 @@ class DailyWeatherSummary(BaseModel):
     pm_cloud: Optional[float] = None
     pm_temp: Optional[float] = None
 
-class DetectionsTimelineResponse(BaseModel):
+class DetectionsTimelineResponse(APIModel):
     days: int
     total_count: int
     daily: List[DailyCount]
     weather: Optional[List[DailyWeatherSummary]] = None
 
 
-class DetectionsTimelinePoint(BaseModel):
+class DetectionsTimelinePoint(APIModel):
     bucket_start: str
     label: str
     count: int
@@ -77,7 +75,7 @@ class DetectionsTimelinePoint(BaseModel):
     avg_confidence: Optional[float] = None
 
 
-class DetectionsTimelineWeatherPoint(BaseModel):
+class DetectionsTimelineWeatherPoint(APIModel):
     bucket_start: str
     temp_avg: Optional[float] = None
     wind_avg: Optional[float] = None
@@ -87,17 +85,17 @@ class DetectionsTimelineWeatherPoint(BaseModel):
     condition_text: Optional[str] = None
 
 
-class DetectionsTimelineComparePoint(BaseModel):
+class DetectionsTimelineComparePoint(APIModel):
     bucket_start: str
     count: int
 
 
-class DetectionsTimelineCompareSeries(BaseModel):
+class DetectionsTimelineCompareSeries(APIModel):
     species: str
     points: List[DetectionsTimelineComparePoint]
 
 
-class DetectionsTimelineSpanResponse(BaseModel):
+class DetectionsTimelineSpanResponse(APIModel):
     span: str
     bucket: str
     window_start: str
@@ -110,13 +108,13 @@ class DetectionsTimelineSpanResponse(BaseModel):
     sunset_range: Optional[str] = None
 
 
-class DetectionsActivityHeatmapCell(BaseModel):
+class DetectionsActivityHeatmapCell(APIModel):
     day_of_week: int  # 0=Sunday..6=Saturday
     hour: int  # 0..23
     count: int
 
 
-class DetectionsActivityHeatmapResponse(BaseModel):
+class DetectionsActivityHeatmapResponse(APIModel):
     span: str
     window_start: str
     window_end: str
