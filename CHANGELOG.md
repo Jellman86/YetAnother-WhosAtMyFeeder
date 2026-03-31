@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** The leaderboard page now opens the `Detections over time` chart in raw histogram mode by default, with smoothing disabled until the user opts in through the existing chart controls.
 - **Fixed:** Detection and stats timestamps now follow an explicit UTC API contract instead of leaking naive server-local datetimes. New detections, notification/update timestamps, SSE payloads, daily summary latest-detection cards, leaderboard species `first_seen` / `last_seen`, species stats, and related nested detection responses now serialize datetimes with an explicit `Z` suffix so browsers render the correct local wall time instead of treating UTC values as already-local timestamps.
 - **Added:** Regression coverage now asserts explicit UTC serialization on live detection broadcasts, `/api/events` rows, `/api/stats/daily-summary` latest detections, and species stats `first_seen` / `last_seen` / `recent_sightings` payloads, including legacy naive timestamps already stored in SQLite.
 - **Fixed:** The species leaderboard no longer throws `500 Internal Server Error` when `Unknown Bird` rows are present. The canonical unknown-species leaderboard window query now binds the correct rolling-window parameters for the aggregate camera-count and outer `WHERE` clauses, fixing the live SQL binding error on `/api/leaderboard/species`.

@@ -16,6 +16,7 @@
     } from '../api';
     import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { themeStore } from '../stores/theme.svelte';
@@ -68,8 +69,8 @@
     let showTemperature = $state(false);
     let showWind = $state(false);
     let showPrecip = $state(false);
-    let chartViewMode = $state<'auto' | 'line' | 'bar'>('auto');
-    let trendMode = $state<TrendMode>('smooth');
+    let chartViewMode = $state<'auto' | 'line' | 'bar'>(defaultLeaderboardChartPreferences.chartViewMode);
+    let trendMode = $state<TrendMode>(defaultLeaderboardChartPreferences.trendMode);
     const speciesInfoLocale = $derived((($locale || 'en') as string).split(/[-_]/)[0].toLowerCase());
 
     function getSpeciesInfoCacheKey(speciesName: string, language: string): string {
