@@ -5,12 +5,14 @@ Detailed test to diagnose why the save button isn't appearing
 from playwright.sync_api import sync_playwright
 import time
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 def run():
     console_logs = []
     errors = []
 
     with sync_playwright() as p:
-        browser = p.chromium.connect("ws://playwright-service:3000/")
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
 
@@ -23,7 +25,7 @@ def run():
         print("=" * 80)
 
         print("\n[1] Navigating to Settings...")
-        page.goto("http://yawamf-frontend/settings", wait_until="domcontentloaded", timeout=30000)
+        page.goto(f"{BASE_URL}/settings", wait_until="domcontentloaded", timeout=30000)
         time.sleep(3)  # Give console logs time to appear
 
         print("\n[2] Console logs on page load:")

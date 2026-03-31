@@ -2,13 +2,15 @@ import pytest
 import re
 from playwright.sync_api import sync_playwright, expect
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 @pytest.fixture(scope="module")
 def browser():
     print("\nConnecting to Playwright service...")
     with sync_playwright() as p:
         try:
             # Connect to the remote browser in the Playwright container
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(PLAYWRIGHT_WS)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
@@ -35,7 +37,7 @@ def page(browser):
     context.close()
 
 def test_ui_comprehensive(page):
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     
     print(f"\n[1] Navigating to Dashboard: {base_url}")
     page.goto(base_url, timeout=30000)
@@ -171,7 +173,7 @@ def test_ui_comprehensive(page):
 
 if __name__ == "__main__":
     with sync_playwright() as p:
-        browser = p.chromium.connect("ws://playwright-service:3000/")
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(viewport={"width": 1280, "height": 720})
         page = context.new_page()
         page.on("console", lambda msg: print(f"BROWSER_CONSOLE: {msg.type}: {msg.text}"))

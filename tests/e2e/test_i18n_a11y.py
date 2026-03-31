@@ -1,13 +1,15 @@
 import pytest
 from playwright.sync_api import sync_playwright, expect
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 @pytest.fixture(scope="module")
 def browser():
     print("\nConnecting to Playwright service...")
     with sync_playwright() as p:
         try:
             # Connect to the remote browser in the Playwright container
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(PLAYWRIGHT_WS)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
@@ -35,7 +37,7 @@ def page(browser):
 
 def test_i18n_and_accessibility(page):
     # Use container name as hostname since they are on the same network
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     
     print(f"\n[1] Navigating to Dashboard: {base_url}")
     try:

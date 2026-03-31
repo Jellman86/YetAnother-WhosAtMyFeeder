@@ -1,19 +1,19 @@
 from playwright.sync_api import sync_playwright
-import os
 import pytest
+
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
 
 
 def test_leaderboard_inspect():
     with sync_playwright() as p:
-        ws_endpoint = os.getenv("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
-        browser = p.chromium.connect(ws_endpoint)
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
             ignore_https_errors=True,
             locale="en-US",
         )
         page = context.new_page()
-        page.goto("http://yawamf-frontend/species", timeout=30000)
+        page.goto(f"{BASE_URL}/species", timeout=30000)
         page.wait_for_load_state("domcontentloaded")
 
         if page.get_by_text("No species detected yet").is_visible():
@@ -32,16 +32,23 @@ def test_leaderboard_inspect():
         canvas = graph_card.locator(".apexcharts-canvas").first
         canvas.wait_for(state="visible", timeout=15000)
 
-        # Default tab should still render a continuous detections trend path.
-        line_path = graph_card.locator(".apexcharts-area-series path").first.get_attribute("d")
-        assert line_path
+        # Default view is the raw histogram with smoothing disabled.
+        raw_button = graph_card.get_by_role("button", name="Raw").first
+        histogram_button = graph_card.get_by_role("button", name="Histogram").first
+        assert raw_button.get_attribute("aria-pressed") == "true"
+        assert histogram_button.get_attribute("aria-pressed") == "true"
+        bar_count = graph_card.locator(".apexcharts-bar-series path").count()
+        area_count = graph_card.locator(".apexcharts-area-series path").count()
+        assert bar_count > 0
+        assert area_count == 0
 
-        # Summary stats under the chart
-        summary_block = graph_card.locator("div.text-slate-500").last
-        summary_text = summary_block.inner_text()
-        print(f"Summary text: {summary_text}")
-        assert "Peak " in summary_text
-        assert "Avg/" in summary_text
+        # Summary stats under the chart should still be present even when
+        # sunrise/sunset footer chips are also rendered later in the card.
+        card_text = graph_card.inner_text().upper()
+        print(f"Graph card text: {card_text[:400]}")
+        assert "TOTAL:" in card_text
+        assert "PEAK:" in card_text
+        assert "AVG:" in card_text
 
         # Sort buttons and top rows snapshot
         def top_rows_snapshot():
@@ -64,9 +71,9 @@ def test_leaderboard_inspect():
                 print(f"Bar count after {label}: {bar_count}")
                 assert bar_count > 0
             else:
-                path = graph_card.locator(".apexcharts-area-series path").first.get_attribute("d")
-                print(f"Line path after {label}: {path[:80] if path else 'None'}...")
-                assert path
+                raw_bar_count = graph_card.locator(".apexcharts-bar-series path").count()
+                print(f"Bar count after {label}: {raw_bar_count}")
+                assert raw_bar_count > 0
 
         # Screenshot for manual review
         page.screenshot(path="/config/workspace/YA-WAMF/tests/e2e/screenshots/leaderboard-inspect.png", full_page=True)

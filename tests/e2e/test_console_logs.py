@@ -5,9 +5,11 @@ Test specifically to capture console logs and check if isDirty is running
 from playwright.sync_api import sync_playwright
 import time
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 def run():
     with sync_playwright() as p:
-        browser = p.chromium.connect("ws://playwright-service:3000/")
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
 
@@ -27,7 +29,7 @@ def run():
         print("=" * 80)
 
         print("\n[1] Navigating to settings...")
-        page.goto("http://yawamf-frontend/settings")
+        page.goto(f"{BASE_URL}/settings")
         page.wait_for_load_state("domcontentloaded")
 
         print("\n[2] Waiting for page to fully load...")

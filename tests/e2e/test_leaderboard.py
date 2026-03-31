@@ -1,16 +1,18 @@
 from playwright.sync_api import sync_playwright
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 
 def test_leaderboard_layout():
     with sync_playwright() as p:
-        browser = p.chromium.connect("ws://playwright-service:3000/")
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(
             viewport={"width": 360, "height": 800},
             ignore_https_errors=True,
             locale="en-US",
         )
         page = context.new_page()
-        page.goto("http://yawamf-frontend/species", timeout=30000)
+        page.goto(f"{BASE_URL}/species", timeout=30000)
         page.wait_for_load_state("domcontentloaded")
 
         if page.get_by_text("No species detected yet").is_visible():

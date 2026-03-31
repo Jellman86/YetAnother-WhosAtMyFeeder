@@ -5,12 +5,13 @@ from urllib.parse import quote
 import pytest
 from playwright.sync_api import Page, sync_playwright
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 
 @pytest.fixture(scope="module")
 def browser():
-    ws_url = os.environ.get("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
     with sync_playwright() as p:
-        browser = p.chromium.connect(ws_url)
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         yield browser
         browser.close()
 
@@ -100,7 +101,7 @@ def _playback_status_chip(page: Page):
 
 
 def test_video_player_ui_and_console_health(page: Page, console_capture):
-    page.goto("http://yawamf-frontend/events", timeout=30000)
+    page.goto(f"{BASE_URL}/events", timeout=30000)
     page.wait_for_load_state("domcontentloaded")
 
     # Auth-protected mode: skip when login gate is active.
@@ -195,7 +196,7 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
 
 
 def test_video_deep_link_opens_player_modal(page: Page):
-    page.goto("http://yawamf-frontend/events", timeout=30000)
+    page.goto(f"{BASE_URL}/events", timeout=30000)
     page.wait_for_load_state("domcontentloaded")
 
     if page.locator("input#username").count() > 0:
@@ -205,7 +206,7 @@ def test_video_deep_link_opens_player_modal(page: Page):
     if not event_id:
         pytest.skip("No event with clip available to validate video deep link")
 
-    page.goto(f"http://yawamf-frontend/events?event={quote(event_id)}&video=1", timeout=30000)
+    page.goto(f"{BASE_URL}/events?event={quote(event_id)}&video=1", timeout=30000)
     page.wait_for_load_state("domcontentloaded")
     page.get_by_label("Video player").wait_for(state="visible", timeout=8000)
     page.get_by_label("Close video").wait_for(state="visible", timeout=4000)

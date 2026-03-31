@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Browser E2E smoke tests now accept `YAWAMF_BASE_URL` for monolith runs instead of assuming the legacy split-stack `yawamf-frontend` hostname, and the leaderboard inspection smoke test now expects the raw histogram default instead of the old area-chart default.
 - **Changed:** The leaderboard page now opens the `Detections over time` chart in raw histogram mode by default, with smoothing disabled until the user opts in through the existing chart controls.
 - **Fixed:** Detection and stats timestamps now follow an explicit UTC API contract instead of leaking naive server-local datetimes. New detections, notification/update timestamps, SSE payloads, daily summary latest-detection cards, leaderboard species `first_seen` / `last_seen`, species stats, and related nested detection responses now serialize datetimes with an explicit `Z` suffix so browsers render the correct local wall time instead of treating UTC values as already-local timestamps.
 - **Added:** Regression coverage now asserts explicit UTC serialization on live detection broadcasts, `/api/events` rows, `/api/stats/daily-summary` latest detections, and species stats `first_seen` / `last_seen` / `recent_sightings` payloads, including legacy naive timestamps already stored in SQLite.

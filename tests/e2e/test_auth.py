@@ -1,12 +1,14 @@
 import pytest
 from playwright.sync_api import sync_playwright, expect
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 @pytest.fixture(scope="module")
 def browser():
     print("\nConnecting to Playwright service...")
     with sync_playwright() as p:
         try:
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(PLAYWRIGHT_WS)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
@@ -30,7 +32,7 @@ def test_auth_disabled_flow(page):
     Test that when Auth is disabled (default), the user has full access (Owner role).
     This verifies the fix where 'authRequired: false' implies 'canModify: true'.
     """
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     
     print(f"\n[1] Navigating to Dashboard: {base_url}")
     page.goto(base_url)
@@ -81,7 +83,7 @@ def test_auth_disabled_flow(page):
 
 if __name__ == "__main__":
     with sync_playwright() as p:
-        browser = p.chromium.connect("ws://playwright-service:3000/")
+        browser = p.chromium.connect(PLAYWRIGHT_WS)
         context = browser.new_context(viewport={"width": 1280, "height": 720})
         page = context.new_page()
         try:

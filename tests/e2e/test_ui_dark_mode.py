@@ -2,9 +2,11 @@ import os
 import pytest
 from playwright.sync_api import sync_playwright
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 @pytest.fixture(scope="module")
 def browser():
-    ws_url = os.environ.get("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
+    ws_url = PLAYWRIGHT_WS
     print(f"\nConnecting to Playwright service at {ws_url}...")
     with sync_playwright() as p:
         try:
@@ -27,7 +29,7 @@ def page(browser):
     context.close()
 
 def test_dark_mode_ui(page):
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     
     print(f"\n[1] Navigating to Dashboard: {base_url}")
     page.goto(base_url, timeout=30000)

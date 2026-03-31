@@ -2,12 +2,12 @@ import pytest
 import os
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "http://yawamf-frontend"
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
 
 
 @pytest.fixture(scope="module")
 def browser():
-    ws_url = os.environ.get("PLAYWRIGHT_WS", "ws://playwright-service:3000/")
+    ws_url = PLAYWRIGHT_WS
     print(f"\nConnecting to Playwright service at {ws_url}...")
     with sync_playwright() as p:
         try:

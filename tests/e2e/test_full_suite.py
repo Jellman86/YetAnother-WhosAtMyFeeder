@@ -2,6 +2,8 @@ import pytest
 import re
 from playwright.sync_api import sync_playwright, expect
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 # --- Fixtures ---
 
 @pytest.fixture(scope="module")
@@ -10,7 +12,7 @@ def browser():
     with sync_playwright() as p:
         try:
             # Connect to the remote browser in the Playwright container
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(PLAYWRIGHT_WS)
             print("[Fixture] Connected to Playwright service.")
             yield browser
             browser.close()
@@ -51,7 +53,7 @@ def test_01_desktop_navigation_and_theme(desktop_page):
     """
     Verifies basic desktop navigation and dark mode toggle.
     """
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     print(f"\n[Test 01] Navigating to {base_url}...")
     
     desktop_page.goto(base_url, timeout=30000)
@@ -98,7 +100,7 @@ def test_02_i18n_and_accessibility(desktop_page):
     print("\n[Test 02] i18n and Accessibility...")
     
     # Navigate to Dashboard
-    desktop_page.goto("http://yawamf-frontend")
+    desktop_page.goto(BASE_URL)
     desktop_page.wait_for_load_state("domcontentloaded")
 
     # 1. Switch to Spanish
@@ -178,7 +180,7 @@ def test_03_mobile_view(mobile_page):
     """
     Verifies Mobile Layout and Sidebar behavior.
     """
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     print(f"\n[Test 03] Mobile View: {base_url}")
     
     mobile_page.goto(base_url, timeout=30000)

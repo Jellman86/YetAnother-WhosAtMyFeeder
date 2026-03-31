@@ -2,13 +2,15 @@ import pytest
 from playwright.sync_api import sync_playwright
 import time
 
+from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 @pytest.fixture(scope="module")
 def browser():
-    print("\nConnecting to Playwright service at ws://playwright-service:3000/...")
+    print(f"\nConnecting to Playwright service at {PLAYWRIGHT_WS}...")
     with sync_playwright() as p:
         try:
             # Connect using the internal Docker network hostname
-            browser = p.chromium.connect("ws://playwright-service:3000/")
+            browser = p.chromium.connect(PLAYWRIGHT_WS)
             print("Connected to Playwright service.")
             yield browser
             browser.close()
@@ -27,7 +29,7 @@ def page(browser):
     context.close()
 
 def test_sidebar_collapse_layout(page):
-    base_url = "http://yawamf-frontend"
+    base_url = BASE_URL
     
     print(f"\n[1] Navigating to Settings: {base_url}/settings")
     page.goto(f"{base_url}/settings", timeout=30000)
