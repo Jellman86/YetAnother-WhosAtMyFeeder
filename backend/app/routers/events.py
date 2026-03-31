@@ -28,6 +28,12 @@ from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
 from app.utils.system_stats import get_ram_usage_string
+from app.utils.canonical_species import (
+    UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
+    should_hide_species_label,
+    unknown_species_labels,
+    user_facing_species_label,
+)
 
 router = APIRouter()
 
@@ -59,7 +65,7 @@ CLIP_CHECK_CONCURRENCY = 10
 LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
 UNKNOWN_BIRD_FILTER_ALIAS = "alias:unknown_bird"
-UNKNOWN_BIRD_DISPLAY_LABEL = "Unknown Bird"
+UNKNOWN_BIRD_DISPLAY_LABEL = CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -90,7 +96,7 @@ def resolve_species_display_filter_aliases(
 
     aliases: list[str] = []
     seen: set[str] = set()
-    for candidate in [UNKNOWN_BIRD_DISPLAY_LABEL, *(settings.classification.unknown_bird_labels or [])]:
+    for candidate in unknown_species_labels():
         value = str(candidate or "").strip()
         if not value:
             continue
@@ -222,10 +228,22 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
 
 def _detection_updated_payload(detection, overrides: dict | None = None) -> dict:
+    display_name = user_facing_species_label(
+        detection.display_name,
+        raw_label=getattr(detection, "category_name", None),
+    )
+    category_name = (
+        UNKNOWN_BIRD_DISPLAY_LABEL
+        if display_name == UNKNOWN_BIRD_DISPLAY_LABEL
+        else detection.category_name
+    )
+    scientific_name = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.scientific_name
+    common_name = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.common_name
+    taxa_id = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.taxa_id
     payload = {
         "frigate_event": detection.frigate_event,
-        "display_name": detection.display_name,
-        "category_name": detection.category_name,
+        "display_name": display_name,
+        "category_name": category_name,
         "score": detection.score,
         "timestamp": detection.detection_time.isoformat(),
         "camera": detection.camera_name,
@@ -245,9 +263,9 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "weather_precipitation": detection.weather_precipitation,
         "weather_rain": detection.weather_rain,
         "weather_snowfall": detection.weather_snowfall,
-        "scientific_name": detection.scientific_name,
-        "common_name": detection.common_name,
-        "taxa_id": detection.taxa_id,
+        "scientific_name": scientific_name,
+        "common_name": common_name,
+        "taxa_id": taxa_id,
         "video_classification_score": detection.video_classification_score,
         "video_classification_label": detection.video_classification_label,
         "video_classification_status": detection.video_classification_status,
@@ -330,7 +348,12 @@ async def get_event_filters(
 
         async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
             display_name, scientific_name, common_name, taxa_id = row
-            if _normalize_species_name(display_name) in unknown_label_keys:
+            if (
+                _normalize_species_name(display_name) in unknown_label_keys
+                or should_hide_species_label(display_name)
+                or should_hide_species_label(scientific_name)
+                or should_hide_species_label(common_name)
+            ):
                 return EventFilterSpecies(
                     value=UNKNOWN_BIRD_FILTER_ALIAS,
                     display_name=UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -523,14 +546,27 @@ async def get_events(
         response_events = []
         for event in events:
             # Transform unknown bird labels for display
-            display_name = event.display_name
-            if display_name in unknown_labels:
-                display_name = UNKNOWN_BIRD_DISPLAY_LABEL
+            display_name = user_facing_species_label(
+                event.display_name,
+                raw_label=event.category_name,
+                extra_unknown_labels=unknown_labels,
+            )
+            category_name = (
+                UNKNOWN_BIRD_DISPLAY_LABEL
+                if display_name == UNKNOWN_BIRD_DISPLAY_LABEL
+                else event.category_name
+            )
 
             common_name = event.common_name
+            scientific_name = event.scientific_name
+            taxa_id = event.taxa_id
+            if display_name == UNKNOWN_BIRD_DISPLAY_LABEL:
+                common_name = None
+                scientific_name = None
+                taxa_id = None
             # Fetch localized common name if not in English and we have a taxa_id
-            if lang != 'en' and event.taxa_id:
-                localized_name = localized_names.get(event.taxa_id)
+            if lang != 'en' and taxa_id:
+                localized_name = localized_names.get(taxa_id)
                 if localized_name:
                     common_name = localized_name
 
@@ -540,7 +576,7 @@ async def get_events(
                 detection_index=event.detection_index,
                 score=event.score,
                 display_name=display_name,
-                category_name=event.category_name,
+                category_name=category_name,
                 frigate_event=event.frigate_event,
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
@@ -563,9 +599,9 @@ async def get_events(
                 weather_precipitation=event.weather_precipitation,
                 weather_rain=event.weather_rain,
                 weather_snowfall=event.weather_snowfall,
-                scientific_name=event.scientific_name,
+                scientific_name=scientific_name,
                 common_name=common_name,
-                taxa_id=event.taxa_id,
+                taxa_id=taxa_id,
                 video_classification_score=event.video_classification_score,
                 video_classification_label=event.video_classification_label,
                 video_classification_timestamp=event.video_classification_timestamp,
@@ -896,6 +932,17 @@ async def _apply_manual_tag_update(
             "new_species": old_species or new_species,
         }
 
+    unknown_labels = {
+        *(label.lower() for label in settings.classification.unknown_bird_labels),
+        "unknown bird",
+    }
+    normalized_label = "Unknown Bird" if new_species.lower() in unknown_labels else new_species
+    if normalized_label != "Unknown Bird" and should_hide_species_label(normalized_label):
+        raise HTTPException(
+            status_code=400,
+            detail="Manual tags must target a specific species name",
+        )
+
     resolved_aliases = await repo.resolve_species_aliases(new_species, language=lang)
     if _manual_update_is_alias_noop(detection, new_species, resolved_aliases):
         log.info(
@@ -912,12 +959,6 @@ async def _apply_manual_tag_update(
             "species": old_species or new_species,
             "new_species": old_species or new_species,
         }
-
-    unknown_labels = {
-        *(label.lower() for label in settings.classification.unknown_bird_labels),
-        "unknown bird",
-    }
-    normalized_label = "Unknown Bird" if new_species.lower() in unknown_labels else new_species
 
     taxonomy_lookup_name = (
         resolved_aliases.get("scientific_name")

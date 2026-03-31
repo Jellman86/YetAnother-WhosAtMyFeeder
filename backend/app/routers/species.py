@@ -17,6 +17,7 @@ from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
 from app.utils.classifier_labels import collapse_classifier_label
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
@@ -519,7 +520,11 @@ async def search_species(
 
     q_lower = q.lower() if q else ""
     classifier = get_classifier()
-    labels = classifier.labels
+    labels = [
+        label
+        for label in classifier.labels
+        if not should_hide_species_label(label)
+    ]
     lang = get_user_language(request)
 
     async with get_db() as db:
@@ -949,7 +954,7 @@ async def get_species_list(request: Request):
         filtered_stats = []
 
         for s in stats:
-            if s["species"] in unknown_labels:
+            if s["species"] in unknown_labels or should_hide_species_label(s["species"]):
                 continue
             metrics_key = _species_unified_metrics_key(s)
             metrics = unified_metrics.get(metrics_key or "", {})
@@ -1062,7 +1067,7 @@ async def get_leaderboard_species(
         # Filter to species present in the selected window only.
         filtered = []
         for r in rows:
-            if r["species"] in unknown_labels:
+            if r["species"] in unknown_labels or should_hide_species_label(r["species"]):
                 continue
             if r["window_count"] <= 0:
                 continue

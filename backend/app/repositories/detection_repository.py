@@ -8,6 +8,11 @@ import re
 import unicodedata
 import structlog
 from app.utils.frigate import normalize_sub_label
+from app.utils.canonical_species import (
+    hidden_species_exact_labels,
+    hidden_species_substrings,
+    should_hide_species_label,
+)
 
 log = structlog.get_logger()
 
@@ -237,6 +242,42 @@ class DetectionRepository:
         species_name: str,
         has_taxonomy_cache: bool,
     ) -> tuple[str, list]:
+        if should_hide_species_label(species_name):
+            exact_labels = [
+                str(label).strip().lower()
+                for label in hidden_species_exact_labels()
+                if str(label).strip()
+            ]
+            exact_labels = list(dict.fromkeys(exact_labels))
+            fragments = [
+                str(fragment).strip().lower()
+                for fragment in hidden_species_substrings()
+                if str(fragment).strip()
+            ]
+            columns = (
+                f"LOWER({detection_alias}.display_name)",
+                f"LOWER({detection_alias}.category_name)",
+                f"LOWER(COALESCE({detection_alias}.scientific_name, ''))",
+                f"LOWER(COALESCE({detection_alias}.common_name, ''))",
+            )
+            clauses: list[str] = []
+            params: list = []
+
+            if exact_labels:
+                placeholders = ",".join(["?"] * len(exact_labels))
+                for column in columns:
+                    clauses.append(f"{column} IN ({placeholders})")
+                    params.extend(exact_labels)
+
+            for fragment in fragments:
+                pattern = f"%{fragment}%"
+                for column in columns:
+                    clauses.append(f"{column} LIKE ?")
+                    params.append(pattern)
+
+            if clauses:
+                return "(" + " OR ".join(clauses) + ")", params
+
         alias_info = await self.resolve_species_aliases(species_name)
         clauses: list[str] = []
         params: list = []

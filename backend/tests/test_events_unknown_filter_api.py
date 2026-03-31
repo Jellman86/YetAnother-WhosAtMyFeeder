@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -8,7 +9,7 @@ import pytest_asyncio
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
-from app.routers.events import _event_filters_cache
+from app.routers.events import _detection_updated_payload, _event_filters_cache
 
 
 @pytest_asyncio.fixture
@@ -40,23 +41,36 @@ def reset_auth_and_unknown_labels():
     _event_filters_cache.clear()
 
 
-async def _insert_detection(event_id: str, species_name: str, camera_name: str) -> None:
+async def _insert_detection(
+    event_id: str,
+    species_name: str,
+    camera_name: str,
+    *,
+    category_name: str | None = None,
+    scientific_name: str | None = None,
+    common_name: str | None = None,
+    taxa_id: int | None = None,
+) -> None:
     async with get_db() as db:
         await db.execute(
             """
             INSERT INTO detections (
                 detection_time, detection_index, score, display_name, category_name,
-                frigate_event, camera_name, is_hidden, manual_tagged
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
             """,
             (
                 datetime.now(timezone.utc).isoformat(sep=" "),
                 1,
                 0.77,
                 species_name,
-                species_name,
+                category_name or species_name,
                 event_id,
                 camera_name,
+                scientific_name,
+                common_name,
+                taxa_id,
             ),
         )
         await db.commit()
@@ -195,3 +209,96 @@ async def test_events_filters_force_refresh_bypasses_cache(client: httpx.AsyncCl
     finally:
         await _delete_detection(event_a)
         await _delete_detection(event_b)
+
+
+@pytest.mark.asyncio
+async def test_unknown_bird_filter_matches_hidden_noncanonical_labels_and_masks_payload(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    camera_name = f"cam-{uuid.uuid4().hex[:6]}"
+    event_id = f"evt-{uuid.uuid4().hex[:10]}"
+    await _insert_detection(
+        event_id,
+        "Great tit and allies",
+        camera_name,
+        category_name="Great tit and allies",
+        scientific_name="Great tit and allies",
+        common_name="Great tit and allies",
+    )
+
+    try:
+        events_resp = await client.get(
+            "/api/events",
+            params={"species": "Unknown Bird", "camera": camera_name, "limit": 20},
+        )
+        assert events_resp.status_code == 200, events_resp.text
+        rows = events_resp.json()
+        assert len(rows) == 1
+        assert rows[0]["frigate_event"] == event_id
+        assert rows[0]["display_name"] == "Unknown Bird"
+        assert rows[0]["category_name"] == "Unknown Bird"
+        assert rows[0]["scientific_name"] is None
+        assert rows[0]["common_name"] is None
+        assert rows[0]["taxa_id"] is None
+
+        count_resp = await client.get(
+            "/api/events/count",
+            params={"species": "Unknown Bird", "camera": camera_name},
+        )
+        assert count_resp.status_code == 200
+        assert count_resp.json()["count"] == 1
+
+        filters_resp = await client.get("/api/events/filters", params={"force_refresh": "true"})
+        assert filters_resp.status_code == 200, filters_resp.text
+        species_values = {item["value"] for item in filters_resp.json()["species"]}
+        assert "alias:unknown_bird" in species_values
+        assert "Great tit and allies" not in species_values
+    finally:
+        await _delete_detection(event_id)
+
+
+def test_detection_updated_payload_masks_hidden_noncanonical_labels():
+    detection = SimpleNamespace(
+        frigate_event="evt-1",
+        display_name="Life (life)",
+        category_name="Life (life)",
+        score=0.77,
+        detection_time=datetime.now(timezone.utc),
+        camera_name="cam-1",
+        is_hidden=False,
+        is_favorite=False,
+        frigate_score=0.88,
+        sub_label=None,
+        manual_tagged=False,
+        audio_confirmed=False,
+        audio_species=None,
+        audio_score=None,
+        temperature=None,
+        weather_condition=None,
+        weather_cloud_cover=None,
+        weather_wind_speed=None,
+        weather_wind_direction=None,
+        weather_precipitation=None,
+        weather_rain=None,
+        weather_snowfall=None,
+        scientific_name="Life",
+        common_name="Life",
+        taxa_id=123,
+        video_classification_score=None,
+        video_classification_label=None,
+        video_classification_status=None,
+        video_classification_error=None,
+        video_classification_provider=None,
+        video_classification_backend=None,
+        video_classification_model_id=None,
+        video_classification_timestamp=None,
+    )
+
+    payload = _detection_updated_payload(detection)
+
+    assert payload["display_name"] == "Unknown Bird"
+    assert payload["category_name"] == "Unknown Bird"
+    assert payload["scientific_name"] is None
+    assert payload["common_name"] is None
+    assert payload["taxa_id"] is None

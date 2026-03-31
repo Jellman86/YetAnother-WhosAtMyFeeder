@@ -169,3 +169,24 @@ async def test_species_search_deduplicates_classifier_alias_labels_to_one_canoni
         async with get_db() as db:
             await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_species_search_hides_noncanonical_model_labels(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    labels = [
+        "Great tit and allies",
+        "Life (life)",
+        "Great Tit",
+    ]
+
+    with patch("app.routers.species.get_classifier", return_value=_MockClassifier(labels)):
+        response = await client.get("/api/species/search?q=great&limit=20")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["id"] == "Great Tit"
+    assert payload[0]["display_name"] == "Great Tit"

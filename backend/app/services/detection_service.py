@@ -10,6 +10,7 @@ from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label, collapse_classifier_label
+from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, should_hide_species_label
 from app.utils.blocked_species import is_blocked_species
 from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
@@ -193,9 +194,18 @@ class DetectionService:
         if not isinstance(taxonomy, dict):
             taxonomy = {}
         
-        scientific_name = taxonomy.get("scientific_name") or label
+        scientific_name = taxonomy.get("scientific_name")
         common_name = taxonomy.get("common_name")
         taxa_id = taxonomy.get("taxa_id")
+
+        # Preserve raw broad/non-species classifier labels in category_name for
+        # diagnostics, but surface them to the rest of the app as Unknown Bird.
+        if should_hide_species_label(label):
+            scientific_name = None
+            common_name = None
+            taxa_id = None
+        else:
+            scientific_name = scientific_name or label
 
         # Re-check blocked list against taxonomy-resolved canonical names so that
         # blocking by scientific name catches models that output common names and vice versa.
@@ -213,7 +223,9 @@ class DetectionService:
 
         # 2. Determine display name based on user preference
         display_name = label
-        if settings.classification.display_common_names and common_name:
+        if should_hide_species_label(label):
+            display_name = UNKNOWN_BIRD_DISPLAY_LABEL
+        elif settings.classification.display_common_names and common_name:
             display_name = common_name
         elif not settings.classification.display_common_names and scientific_name:
             display_name = scientific_name

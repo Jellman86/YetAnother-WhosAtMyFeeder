@@ -450,3 +450,34 @@ async def test_bulk_manual_update_reports_partial_failures_without_aborting_batc
     finally:
         for index, event_id in enumerate(event_ids):
             await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+
+@pytest.mark.asyncio
+async def test_manual_update_rejects_noncanonical_model_group_labels(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 960000 + int(uuid.uuid4().hex[:4], 16)
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+    try:
+        with patch(
+            "app.routers.events.audio_service.correlate_species",
+            new=AsyncMock(return_value=(False, None, None)),
+        ) as mock_audio, patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ) as mock_broadcast:
+            response = await client.patch(
+                f"/api/events/{event_id}",
+                json={"display_name": "Great tit and allies"},
+                headers={"Accept-Language": "en"},
+            )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["detail"] == "Manual tags must target a specific species name"
+        mock_audio.assert_not_awaited()
+        mock_broadcast.assert_not_awaited()
+    finally:
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)

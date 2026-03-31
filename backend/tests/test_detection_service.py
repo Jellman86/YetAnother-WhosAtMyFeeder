@@ -323,3 +323,35 @@ async def test_save_detection_skips_structured_blocked_species_by_taxa_id(mock_d
     assert changed is False
     assert inserted is False
     mock_deps["repo"].upsert_if_higher_score.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_detection_treats_noncanonical_model_labels_as_unknown_bird(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Life", "common_name": "Life", "taxa_id": 1}
+    )
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, True))
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+
+    with patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+        changed, inserted = await service.save_detection(
+            frigate_event="evt-life-label",
+            camera="cam1",
+            start_time=1700000000,
+            classification={"label": "Life (life)", "score": 0.93, "index": 1},
+            frigate_score=0.88,
+            sub_label=None,
+        )
+
+    assert changed is True
+    assert inserted is True
+    detection = mock_deps["repo"].upsert_if_higher_score.await_args.args[0]
+    assert detection.display_name == "Unknown Bird"
+    assert detection.category_name == "Life (life)"
+    assert detection.scientific_name is None
+    assert detection.common_name is None
+    assert detection.taxa_id is None
+    mock_deps["birdweather"].report_detection.assert_not_called()
