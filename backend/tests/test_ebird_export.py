@@ -429,9 +429,12 @@ async def test_ebird_export_uses_daily_duration_window_per_date(client: httpx.As
 
     assert response.status_code == 200, response.text
     rows = _read_csv_rows(response.text)
-    assert len(rows) == 2
-    assert rows[0][14] == "42"
-    assert rows[1][14] == "42"
+    # Two Great Tit detections on the same date/camera aggregate into one checklist row.
+    assert len(rows) == 1
+    assert rows[0][0] == "Great Tit"
+    assert rows[0][3] == "1"           # conservative checklist export count
+    assert rows[0][9] == "07:05"       # checklist start = earliest detection
+    assert rows[0][14] == "42"         # duration = span from 07:05 to 07:47
 
 
 @pytest.mark.asyncio
@@ -476,12 +479,19 @@ async def test_ebird_export_computes_duration_per_exported_date_bucket(client: h
 
     assert response.status_code == 200, response.text
     rows = _read_csv_rows(response.text)
-    assert len(rows) == 4
-    durations_by_timestamp = {(row[8], row[9]): row[14] for row in rows}
-    assert durations_by_timestamp[("03/12/2026", "07:45")] == "45"
-    assert durations_by_timestamp[("03/12/2026", "07:00")] == "45"
-    assert durations_by_timestamp[("03/11/2026", "06:10")] == "10"
-    assert durations_by_timestamp[("03/11/2026", "06:00")] == "10"
+    # 2 Great Tit on 03/11 + 2 Common Blackbird on 03/12 → 2 aggregated rows
+    assert len(rows) == 2
+    by_date = {row[8]: row for row in rows}
+    # 03/11: Great Tit checklist starts 06:00, duration = 10 min (06:00→06:10)
+    assert by_date["03/11/2026"][0] == "Great Tit"
+    assert by_date["03/11/2026"][3] == "1"
+    assert by_date["03/11/2026"][9] == "06:00"
+    assert by_date["03/11/2026"][14] == "10"
+    # 03/12: Common Blackbird checklist starts 07:00, duration = 45 min (07:00→07:45)
+    assert by_date["03/12/2026"][0] == "Common Blackbird"
+    assert by_date["03/12/2026"][3] == "1"
+    assert by_date["03/12/2026"][9] == "07:00"
+    assert by_date["03/12/2026"][14] == "45"
 
 
 @pytest.mark.asyncio
@@ -672,6 +682,84 @@ async def test_ebird_export_uses_taxonomy_translations_english_when_cache_is_loc
     assert len(rows) == 1
     # Must resolve to the English translation, not "Parus major"
     assert rows[0][0] == "Great Tit"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_aggregates_species_within_checklist(client: httpx.AsyncClient):
+    """Multiple species on the same date/camera produce one row each; same species aggregates."""
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    # 3 Great Tit + 1 Blackbird on same date/camera
+    for i in range(3):
+        await _insert_detection(
+            frigate_event=f"evt-gt-{uuid.uuid4().hex[:8]}",
+            detection_time=datetime(2026, 3, 15, 8, 0 + i * 10, 0),
+            score=0.70 + i * 0.05,
+            display_name="Great Tit",
+            scientific_name="Parus major",
+            common_name="Great Tit",
+        )
+    await _insert_detection(
+        frigate_event=f"evt-bb-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 15, 8, 15, 0),
+        score=0.92,
+        display_name="Common Blackbird",
+        scientific_name="Turdus merula",
+        common_name="Common Blackbird",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 2
+    by_species = {row[0]: row for row in rows}
+    # Great Tit: aggregated row keeps the best score but conservative count=1
+    assert by_species["Great Tit"][3] == "1"
+    assert by_species["Great Tit"][9] == "08:00"
+    assert by_species["Great Tit"][4] == "AI confidence 0.80"
+    # Common Blackbird: count=1, start=08:00 (checklist start is earliest across all species)
+    assert by_species["Common Blackbird"][3] == "1"
+    # Both share the same checklist duration (span of all detections: 08:00→08:20 = 20 min)
+    assert by_species["Great Tit"][14] == "20"
+    assert by_species["Common Blackbird"][14] == "20"
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_separates_checklists_by_camera(client: httpx.AsyncClient):
+    """Same species on the same date but different cameras produce separate checklist rows."""
+    settings.ebird.enabled = False
+    settings.ebird.api_key = None
+
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 16, 9, 0, 0),
+        score=0.88,
+        display_name="Great Tit",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+        camera_name="feeder_front",
+    )
+    await _insert_detection(
+        frigate_event=f"evt-{uuid.uuid4().hex[:8]}",
+        detection_time=datetime(2026, 3, 16, 9, 5, 0),
+        score=0.91,
+        display_name="Great Tit",
+        scientific_name="Parus major",
+        common_name="Great Tit",
+        camera_name="feeder_back",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    rows = _read_csv_rows(response.text)
+    assert len(rows) == 2
+    locations = {row[5] for row in rows}
+    assert locations == {"Home (feeder_front)", "Home (feeder_back)"}
+    # Each is count=1 since they're separate checklists
+    assert all(row[3] == "1" for row in rows)
 
 
 @pytest.mark.asyncio

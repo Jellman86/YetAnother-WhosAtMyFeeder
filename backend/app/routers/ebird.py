@@ -25,19 +25,18 @@ def _require_ebird_api():
 
 def _format_ebird_row(
     *,
-    display_name: str,
+    export_common_name: str,
     scientific_name: str | None,
-    detection_time: datetime,
-    score: float,
+    checklist_start: datetime,
+    count: int,
+    best_score: float,
     camera_name: str | None,
-    common_name: str | None,
-    english_common_name: str | None,
     duration_minutes: int,
     video_classification_provider: str | None,
     video_classification_backend: str | None,
 ) -> list[str]:
-    date_str = detection_time.strftime("%m/%d/%Y")
-    time_str = detection_time.strftime("%H:%M")
+    date_str = checklist_start.strftime("%m/%d/%Y")
+    time_str = checklist_start.strftime("%H:%M")
 
     genus = ""
     species = ""
@@ -48,12 +47,6 @@ def _format_ebird_row(
         if len(parts) > 1:
             species = parts[1]
 
-    export_common_name = _resolve_export_common_name(
-        display_name=display_name,
-        common_name=common_name,
-        english_common_name=english_common_name,
-        scientific_name=scientific_name,
-    )
     location_name = f"Home ({camera_name})" if camera_name else "Home"
     lat = settings.location.latitude
     lon = settings.location.longitude
@@ -69,7 +62,7 @@ def _format_ebird_row(
         submission_parts.append(f"backend {backend}")
 
     try:
-        confidence = float(score)
+        confidence = float(best_score)
     except (TypeError, ValueError):
         confidence = None
     if confidence is not None and math.isfinite(confidence):
@@ -78,6 +71,9 @@ def _format_ebird_row(
     submission_comment = "; ".join(submission_parts)
     species_comment = f"AI confidence {confidence:.2f}" if confidence is not None and math.isfinite(confidence) else ""
 
+    # Feeder cameras can fire many detections for the same visiting bird, so a
+    # checklist row should stay conservative instead of turning trigger count
+    # into claimed individual abundance for eBird import.
     return [
         export_common_name,
         genus,
@@ -332,27 +328,6 @@ async def export_ebird_csv(
                         )
                     )
 
-            durations_by_date: dict[date, int] = {}
-            for row in parsed_rows:
-                bucket = row[9]
-                existing = durations_by_date.get(bucket)
-                if existing is None:
-                    durations_by_date[bucket] = 0
-
-            min_max_by_date: dict[date, tuple[datetime, datetime]] = {}
-            for row in parsed_rows:
-                bucket = row[9]
-                dt = row[2]
-                current = min_max_by_date.get(bucket)
-                if current is None:
-                    min_max_by_date[bucket] = (dt, dt)
-                else:
-                    min_dt, max_dt = current
-                    min_max_by_date[bucket] = (min(min_dt, dt), max(max_dt, dt))
-
-            for bucket, (min_dt, max_dt) in min_max_by_date.items():
-                durations_by_date[bucket] = max(0, int((max_dt - min_dt).total_seconds() // 60))
-
             # Pre-enrichment pass: for rows where no local source provides a
             # usable English common name (e.g. taxonomy_cache only has a
             # localised name like "Большая синица" and taxonomy_translations has
@@ -401,6 +376,29 @@ async def export_ebird_csv(
                 pairs = await asyncio.gather(*(_enrich_english(sci) for sci in sci_to_enrich))
                 enrichment_map = {sci: name for sci, name in pairs if name}
 
+            # ------------------------------------------------------------------
+            # Aggregate into eBird checklists.
+            #
+            # eBird Record Format groups observations by date + location into a
+            # single "checklist".  Each species appears once per checklist with:
+            #   - count  = number of individuals observed
+            #   - date / start time = the earliest detection in the checklist
+            #   - duration = span from first to last detection (minutes)
+            # ------------------------------------------------------------------
+            # checklist key = (date, camera_name)
+            ChecklistKey = tuple[date, str | None]
+            checklist_start: dict[ChecklistKey, datetime] = {}
+            checklist_end: dict[ChecklistKey, datetime] = {}
+
+            # species key within a checklist = resolved export common name
+            # value = (count, best_score, scientific_name, provider, backend)
+            species_agg: dict[
+                tuple[ChecklistKey, str],
+                tuple[int, float, str | None, str | None, str | None],
+            ] = {}
+            # Preserve insertion order for deterministic output
+            checklist_species_order: list[tuple[ChecklistKey, str]] = []
+
             for (
                 display_name,
                 scientific_name,
@@ -414,18 +412,79 @@ async def export_ebird_csv(
                 bucket,
             ) in parsed_rows:
                 effective_english = english_common_name or enrichment_map.get(scientific_name or "")
+                export_name = _resolve_export_common_name(
+                    display_name=display_name,
+                    common_name=common_name,
+                    english_common_name=effective_english,
+                    scientific_name=scientific_name,
+                )
+                ck: ChecklistKey = (bucket, camera_name)
+
+                # Update checklist time span
+                prev_start = checklist_start.get(ck)
+                if prev_start is None or dt < prev_start:
+                    checklist_start[ck] = dt
+                prev_end = checklist_end.get(ck)
+                if prev_end is None or dt > prev_end:
+                    checklist_end[ck] = dt
+
+                # Aggregate species within checklist
+                species_key = (ck, export_name)
+                existing = species_agg.get(species_key)
+                try:
+                    score_f = float(score)
+                    if not math.isfinite(score_f):
+                        score_f = float("nan")
+                except (TypeError, ValueError):
+                    score_f = float("nan")
+                if existing is None:
+                    species_agg[species_key] = (
+                        1,
+                        score_f,
+                        scientific_name,
+                        video_classification_provider,
+                        video_classification_backend,
+                    )
+                    checklist_species_order.append(species_key)
+                else:
+                    prev_count, prev_best, prev_sci, prev_prov, prev_back = existing
+                    # Keep metadata from the highest-scoring detection
+                    if score_f > prev_best:
+                        species_agg[species_key] = (
+                            prev_count + 1,
+                            score_f,
+                            scientific_name,
+                            video_classification_provider,
+                            video_classification_backend,
+                        )
+                    else:
+                        species_agg[species_key] = (
+                            prev_count + 1,
+                            prev_best,
+                            prev_sci,
+                            prev_prov,
+                            prev_back,
+                        )
+
+            # Emit one row per species per checklist
+            for species_key in checklist_species_order:
+                ck, export_name = species_key
+                count, best_score, scientific_name, provider, backend = species_agg[species_key]
+                start_dt = checklist_start[ck]
+                end_dt = checklist_end[ck]
+                duration = max(0, int((end_dt - start_dt).total_seconds() // 60))
+
                 writer.writerow(
                     _format_ebird_row(
-                        display_name=display_name,
+                        export_common_name=export_name,
                         scientific_name=scientific_name,
-                        detection_time=dt,
-                        score=score,
-                        camera_name=camera_name,
-                        common_name=common_name,
-                        english_common_name=effective_english,
-                        duration_minutes=durations_by_date.get(bucket, 0),
-                        video_classification_provider=video_classification_provider,
-                        video_classification_backend=video_classification_backend,
+                        checklist_start=start_dt,
+                        count=count,
+                        best_score=best_score,
+                        camera_name=ck[1],
+                        duration_minutes=duration,
+                        video_classification_provider=provider,
+                        video_classification_backend=backend,
                     )
                 )
 
