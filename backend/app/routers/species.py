@@ -17,7 +17,7 @@ from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
 from app.utils.classifier_labels import collapse_classifier_label
-from app.utils.canonical_species import should_hide_species_label
+from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
@@ -993,9 +993,9 @@ async def get_species_list(request: Request):
             })
 
         # Add aggregated "Unknown Bird" entry if any were found
-        unknown_stats = await repo.get_species_aggregate_for_labels(unknown_labels)
+        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird")
         if unknown_stats:
-            unknown_rollup = await repo.get_rollup_metrics_for_species(unknown_labels)
+            unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird")
             trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
             trend_pct = 0.0
             prev = unknown_rollup.get("count_prev_7d", 0)
@@ -1099,8 +1099,8 @@ async def get_leaderboard_species(
                 "window_camera_count": r.get("window_camera_count", 0),
             })
 
-        unknown = await repo.get_species_leaderboard_window_for_labels(
-            labels=list(unknown_labels),
+        unknown = await repo.get_species_leaderboard_window_for_name(
+            species_name="Unknown Bird",
             window_start=window_start,
             window_end=window_end,
             prev_start=prev_start,
@@ -1159,8 +1159,7 @@ async def get_species_stats(
         alias_info = None
 
         if is_unknown_query:
-            # Aggregate stats for all unknown bird labels
-            query_labels = list(unknown_labels)
+            query_labels = ["Unknown Bird"]
         else:
             alias_info = await repo.resolve_species_aliases(species_name, language=lang)
             # Repository species-detail helpers now normalize aliases canonically,
@@ -1262,13 +1261,22 @@ async def get_species_stats(
                 if localized:
                     common_name = localized
 
+            public_species = user_facing_species_fields(
+                display_name=d.display_name,
+                category_name=d.category_name,
+                scientific_name=d.scientific_name,
+                common_name=common_name,
+                taxa_id=d.taxa_id,
+                extra_unknown_labels=unknown_labels,
+            )
+
             recent_detections.append(Detection(
                 id=d.id,
                 detection_time=d.detection_time,
                 detection_index=d.detection_index,
                 score=d.score,
-                display_name="Unknown Bird" if d.display_name in unknown_labels else d.display_name,
-                category_name=d.category_name,
+                display_name=str(public_species["display_name"]),
+                category_name=public_species["category_name"],
                 frigate_event=d.frigate_event,
                 camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
@@ -1286,9 +1294,9 @@ async def get_species_stats(
                 weather_precipitation=d.weather_precipitation,
                 weather_rain=d.weather_rain,
                 weather_snowfall=d.weather_snowfall,
-                scientific_name=d.scientific_name,
-                common_name=common_name,
-                taxa_id=d.taxa_id
+                scientific_name=public_species["scientific_name"],
+                common_name=public_species["common_name"],
+                taxa_id=public_species["taxa_id"]
             ))
 
         # Get taxonomy names for the main species

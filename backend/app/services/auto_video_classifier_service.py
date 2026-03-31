@@ -23,6 +23,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
+from app.utils.canonical_species import user_facing_species_fields
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
@@ -974,12 +975,19 @@ class AutoVideoClassifierService:
             if broadcast:
                 det = await repo.get_by_frigate_event(frigate_event)
                 if det:
+                    public_species = user_facing_species_fields(
+                        display_name=det.display_name,
+                        category_name=det.category_name,
+                        scientific_name=det.scientific_name,
+                        common_name=det.common_name,
+                        taxa_id=det.taxa_id,
+                    )
                     await broadcaster.broadcast({
                         "type": "detection_updated",
                         "data": {
                             "frigate_event": frigate_event,
-                            "display_name": det.display_name,
-                            "category_name": det.category_name,
+                            "display_name": public_species["display_name"],
+                            "category_name": public_species["category_name"],
                             "score": det.score,
                             "timestamp": det.detection_time.isoformat(),
                             "camera": det.camera_name,
@@ -999,9 +1007,9 @@ class AutoVideoClassifierService:
                             "weather_precipitation": det.weather_precipitation,
                             "weather_rain": det.weather_rain,
                             "weather_snowfall": det.weather_snowfall,
-                            "scientific_name": det.scientific_name,
-                            "common_name": det.common_name,
-                            "taxa_id": det.taxa_id,
+                            "scientific_name": public_species["scientific_name"],
+                            "common_name": public_species["common_name"],
+                            "taxa_id": public_species["taxa_id"],
                             "video_classification_score": det.video_classification_score,
                             "video_classification_label": det.video_classification_label,
                             "video_classification_status": det.video_classification_status,

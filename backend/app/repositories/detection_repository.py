@@ -1418,7 +1418,11 @@ class DetectionRepository:
 
     async def get_unknown_detections(self) -> list[Detection]:
         """Get unresolved detections labeled as 'Unknown Bird'."""
-        query = """
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name="Unknown Bird",
+        )
+        query = f"""
             SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name,
                    d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
                    d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
@@ -1433,11 +1437,12 @@ class DetectionRepository:
                    d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
-            WHERE d.display_name = 'Unknown Bird'
+            {join_sql}
+            WHERE {species_condition}
               AND COALESCE(d.video_classification_status, '') NOT IN ('pending', 'processing')
               AND COALESCE(d.video_classification_error, '') NOT IN ('clip_not_retained', 'frigate_retention_expired')
         """
-        async with self.db.execute(query) as cursor:
+        async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [_row_to_detection(row) for row in rows]
 
@@ -1826,6 +1831,123 @@ class DetectionRepository:
             for output_species in target_species_set:
                 out.setdefault(bucket_key, {})
                 out[bucket_key][output_species] = out[bucket_key].get(output_species, 0) + count
+        return out
+
+    async def get_timebucket_species_counts_for_names(
+        self,
+        start: datetime,
+        end: datetime,
+        bucket: str,
+        species_names: list[str],
+        *,
+        language: str | None = None,
+    ) -> dict[str, dict[str, int]]:
+        """Counts by timeline bucket for canonical species selections.
+
+        Uses the same canonical/unknown matching rules as the main species queries,
+        so selections like "Unknown Bird" also include hidden noncanonical labels.
+        """
+        if not species_names:
+            return {}
+
+        out: dict[str, dict[str, int]] = {}
+        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+
+        for species_name in species_names:
+            name = str(species_name or "").strip()
+            if not name:
+                continue
+
+            species_condition, species_params = await self._build_canonical_species_condition(
+                detection_alias="d",
+                species_name=name,
+                has_taxonomy_cache=has_taxonomy_cache,
+            )
+
+            if bucket == "hour":
+                query = f"""
+                    SELECT
+                        strftime('%Y-%m-%dT%H:00:00Z', d.detection_time) as bucket_key,
+                        COUNT(*) as c
+                    FROM detections d
+                    WHERE d.detection_time >= ? AND d.detection_time < ?
+                      AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                      AND {species_condition}
+                    GROUP BY bucket_key
+                    ORDER BY bucket_key ASC
+                """
+            elif bucket == "halfday":
+                query = f"""
+                    SELECT
+                        date(d.detection_time) as d,
+                        CASE WHEN CAST(strftime('%H', d.detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
+                        COUNT(*) as c
+                    FROM detections d
+                    WHERE d.detection_time >= ? AND d.detection_time < ?
+                      AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                      AND {species_condition}
+                    GROUP BY d, hour_start
+                    ORDER BY d ASC, hour_start ASC
+                """
+            elif bucket == "day":
+                query = f"""
+                    SELECT
+                        date(d.detection_time) as d,
+                        COUNT(*) as c
+                    FROM detections d
+                    WHERE d.detection_time >= ? AND d.detection_time < ?
+                      AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                      AND {species_condition}
+                    GROUP BY d
+                    ORDER BY d ASC
+                """
+            else:
+                query = f"""
+                    SELECT
+                        strftime('%Y-%m-01', d.detection_time) as m,
+                        COUNT(*) as c
+                    FROM detections d
+                    WHERE d.detection_time >= ? AND d.detection_time < ?
+                      AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                      AND {species_condition}
+                    GROUP BY m
+                    ORDER BY m ASC
+                """
+
+            params = [start, end, *species_params]
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+
+            for row in rows:
+                if bucket == "halfday":
+                    d = row[0]
+                    hour_start = int(row[1] or 0)
+                    count = int(row[2] or 0)
+                    if not d:
+                        continue
+                    hh = "00" if hour_start == 0 else "12"
+                    bucket_key = f"{d}T{hh}:00:00Z"
+                elif bucket == "day":
+                    d = row[0]
+                    count = int(row[1] or 0)
+                    if not d:
+                        continue
+                    bucket_key = f"{d}T00:00:00Z"
+                elif bucket == "month":
+                    m = row[0]
+                    count = int(row[1] or 0)
+                    if not m:
+                        continue
+                    bucket_key = f"{m}T00:00:00Z"
+                else:
+                    bucket_key = row[0]
+                    count = int(row[1] or 0)
+                    if not bucket_key:
+                        continue
+
+                out.setdefault(bucket_key, {})
+                out[bucket_key][name] = out[bucket_key].get(name, 0) + count
+
         return out
 
     async def get_activity_heatmap_counts(
@@ -2466,6 +2588,45 @@ class DetectionRepository:
             "last_seen_recent": _parse_datetime(row[6]) if row[6] else None,
         }
 
+    async def get_window_metrics_for_species_name(self, species_name: str, lookback_days: int = 30) -> dict:
+        """Aggregate recent per-species metrics directly from detections."""
+        window = f"-{lookback_days} day"
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
+        async with self.db.execute(
+            f"""
+                SELECT
+                    SUM(CASE WHEN d.detection_time >= datetime('now','-1 day') THEN 1 ELSE 0 END) as count_1d,
+                    SUM(CASE WHEN d.detection_time >= datetime('now','-7 day') THEN 1 ELSE 0 END) as count_7d,
+                    SUM(CASE WHEN d.detection_time >= datetime('now','-30 day') THEN 1 ELSE 0 END) as count_30d,
+                    SUM(CASE WHEN d.detection_time >= datetime('now','-14 day')
+                              AND d.detection_time < datetime('now','-7 day') THEN 1 ELSE 0 END) as count_prev_7d,
+                    COUNT(DISTINCT CASE WHEN d.detection_time >= datetime('now','-14 day') THEN date(d.detection_time) END) as days_seen_14d,
+                    COUNT(DISTINCT CASE WHEN d.detection_time >= datetime('now','-30 day') THEN date(d.detection_time) END) as days_seen_30d,
+                    MAX(d.detection_time) as last_seen_recent
+                FROM detections d
+                {join_sql}
+                WHERE d.detection_time >= datetime('now', ?)
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND {species_condition}
+            """,
+            [window, *params],
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return {}
+        return {
+            "count_1d": row[0] or 0,
+            "count_7d": row[1] or 0,
+            "count_30d": row[2] or 0,
+            "count_prev_7d": row[3] or 0,
+            "days_seen_14d": row[4] or 0,
+            "days_seen_30d": row[5] or 0,
+            "last_seen_recent": _parse_datetime(row[6]) if row[6] else None,
+        }
+
     async def get_species_aggregate_for_labels(self, labels: list[str]) -> dict | None:
         """Aggregate stats across multiple display_name labels."""
         if not labels:
@@ -2480,6 +2641,37 @@ class DetectionRepository:
               AND (is_hidden = 0 OR is_hidden IS NULL)
         """
         async with self.db.execute(query, labels) as cursor:
+            row = await cursor.fetchone()
+        if not row or row[0] == 0:
+            return None
+        return {
+            "count": row[0],
+            "first_seen": _parse_datetime(row[1]) if row[1] else None,
+            "last_seen": _parse_datetime(row[2]) if row[2] else None,
+            "avg_confidence": row[3] or 0.0,
+            "max_confidence": row[4] or 0.0,
+            "min_confidence": row[5] or 0.0,
+            "camera_count": row[6] or 0,
+        }
+
+    async def get_species_aggregate_for_name(self, species_name: str) -> dict | None:
+        """Aggregate stats for a canonical species selection."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
+        async with self.db.execute(
+            f"""
+                SELECT COUNT(*), MIN(d.detection_time), MAX(d.detection_time),
+                       AVG(d.score), MAX(d.score), MIN(d.score),
+                       COUNT(DISTINCT d.camera_name)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            """,
+            params,
+        ) as cursor:
             row = await cursor.fetchone()
         if not row or row[0] == 0:
             return None
@@ -2525,6 +2717,61 @@ class DetectionRepository:
                 "max_confidence": 0.0,
                 "min_confidence": 0.0,
             }
+
+    async def get_species_leaderboard_window_for_name(
+        self,
+        species_name: str,
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> dict | None:
+        """Aggregate leaderboard window stats for a canonical species selection."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
+        async with self.db.execute(
+            f"""
+                SELECT
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
+                    MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
+                    MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
+                    AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
+                    COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+                FROM detections d
+                {join_sql}
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND d.detection_time >= ?
+                  AND d.detection_time < ?
+                  AND {species_condition}
+            """,
+            [
+                window_start, window_end,
+                prev_start, prev_end,
+                window_start, window_end,
+                window_start, window_end,
+                window_start, window_end,
+                prev_start, window_end,
+                *params,
+            ],
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        window_count = int(row[0] or 0)
+        prev_count = int(row[1] or 0)
+        if window_count == 0 and prev_count == 0:
+            return None
+        return {
+            "window_count": window_count,
+            "prev_count": prev_count,
+            "window_first_seen": _parse_datetime(row[2]) if row[2] else None,
+            "window_last_seen": _parse_datetime(row[3]) if row[3] else None,
+            "window_avg_confidence": float(row[4] or 0.0),
+            "window_camera_count": int(row[5] or 0),
+        }
 
     async def get_camera_breakdown(self, species_name: str) -> list[dict]:
         """Get detection counts grouped by camera."""

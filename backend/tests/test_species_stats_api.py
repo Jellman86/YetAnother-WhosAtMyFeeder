@@ -280,3 +280,54 @@ async def test_species_stats_accepts_cyrillic_common_name_and_aggregates_aliases
         assert len(data["recent_sightings"]) == 2
     finally:
         await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
+
+
+@pytest.mark.asyncio
+async def test_species_stats_unknown_bird_includes_hidden_noncanonical_labels(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"speciesstats-unknown-{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat(sep=" ")
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                now,
+                1,
+                0.74,
+                "Great tit and allies",
+                "Great tit and allies",
+                event_id,
+                "test-camera",
+                "Great tit and allies",
+                "Great tit and allies",
+                None,
+            ),
+        )
+        await db.commit()
+
+    try:
+        response = await client.get("/api/species/Unknown%20Bird/stats")
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["species_name"] == "Unknown Bird"
+        assert data["total_sightings"] == 1
+        assert len(data["recent_sightings"]) == 1
+        sighting = data["recent_sightings"][0]
+        assert sighting["frigate_event"] == event_id
+        assert sighting["display_name"] == "Unknown Bird"
+        assert sighting["category_name"] == "Unknown Bird"
+        assert sighting["scientific_name"] is None
+        assert sighting["common_name"] is None
+        assert sighting["taxa_id"] is None
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+            await db.commit()

@@ -10,7 +10,12 @@ from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label, collapse_classifier_label
-from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, should_hide_species_label
+from app.utils.canonical_species import (
+    UNKNOWN_BIRD_DISPLAY_LABEL,
+    should_hide_species_label,
+    unknown_species_labels,
+    user_facing_species_fields,
+)
 from app.utils.blocked_species import is_blocked_species
 from app.utils.frigate import normalize_sub_label
 from app.utils.tasks import create_background_task
@@ -209,6 +214,7 @@ class DetectionService:
 
         # Re-check blocked list against taxonomy-resolved canonical names so that
         # blocking by scientific name catches models that output common names and vice versa.
+        extra_block_labels = [UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(label) else []
         if is_blocked_species(
             blocked_labels=settings.classification.blocked_labels,
             blocked_species=getattr(settings.classification, "blocked_species", []),
@@ -216,6 +222,7 @@ class DetectionService:
             scientific_name=scientific_name,
             common_name=common_name,
             taxa_id=taxa_id,
+            extra_labels=extra_block_labels,
         ):
             log.debug("Filtered blocked species via taxonomy", label=label,
                       scientific_name=scientific_name, event_id=frigate_event)
@@ -281,16 +288,23 @@ class DetectionService:
                          audio_confirmed=audio_confirmed,
                          weather=weather_condition)
 
+                public_species = user_facing_species_fields(
+                    display_name=display_name,
+                    category_name=category_name,
+                    scientific_name=scientific_name,
+                    common_name=common_name,
+                    taxa_id=taxa_id,
+                )
                 # Broadcast event only when actually saved/updated
                 await self.broadcaster.broadcast({
                     "type": "detection",
                     "data": {
                         "frigate_event": frigate_event,
-                        "display_name": display_name,
-                        "category_name": category_name,
-                        "scientific_name": scientific_name,
-                        "common_name": common_name,
-                        "taxa_id": taxa_id,
+                        "display_name": public_species["display_name"],
+                        "category_name": public_species["category_name"],
+                        "scientific_name": public_species["scientific_name"],
+                        "common_name": public_species["common_name"],
+                        "taxa_id": public_species["taxa_id"],
                         "score": score,
                         "timestamp": timestamp.isoformat(),
                         "camera": camera,
@@ -366,6 +380,7 @@ class DetectionService:
                 blocked_labels=settings.classification.blocked_labels,
                 blocked_species=getattr(settings.classification, "blocked_species", []),
                 label=video_label,
+                extra_labels=[UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(video_label) else [],
             )
 
             normalized_video_label = normalize_classifier_label(video_label)
@@ -391,15 +406,15 @@ class DetectionService:
 
             # 2. Only promote video results when they are trustworthy enough, but
             # always allow explicit/manual reclassifications and unknown-bird upgrades.
-            unknown_labels = {
-                *(label.lower() for label in settings.classification.unknown_bird_labels),
-                "unknown bird",
-            }
-            existing_labels = {
-                str(getattr(existing, "display_name", "") or "").lower(),
-                str(getattr(existing, "category_name", "") or "").lower(),
-            }
-            existing_is_unknown = any(label in unknown_labels for label in existing_labels if label)
+            existing_is_unknown = any(
+                should_hide_species_label(candidate, extra_unknown_labels=unknown_species_labels())
+                for candidate in (
+                    getattr(existing, "display_name", None),
+                    getattr(existing, "category_name", None),
+                    getattr(existing, "scientific_name", None),
+                    getattr(existing, "common_name", None),
+                )
+            )
             current_score = float(existing.score or 0.0)
             threshold = float(settings.classification.threshold or 0.0)
             base_required_score = max(current_score, threshold)
@@ -445,9 +460,19 @@ class DetectionService:
 
             if should_override:
                 new_species = normalize_classifier_label(video_label)
+                hidden_video_label = should_hide_species_label(new_species)
                 # Relabel unknown birds consistently
-                if new_species in settings.classification.unknown_bird_labels:
+                if hidden_video_label or new_species in settings.classification.unknown_bird_labels:
                     new_species = "Unknown Bird"
+
+                if hidden_video_label and not existing_is_unknown:
+                    log.debug(
+                        "Video analysis produced noncanonical label; refusing to downgrade known species",
+                        event_id=frigate_event,
+                        old_species=existing.display_name,
+                        video_label=video_label,
+                    )
+                    return
 
                 log.info("Video analysis overriding primary identification", 
                          event_id=frigate_event, 
@@ -460,23 +485,35 @@ class DetectionService:
 
                 # Get taxonomy for new label
                 taxonomy = await taxonomy_service.get_names(new_species)
-                scientific_name = taxonomy.get("scientific_name") or new_species
+                scientific_name = taxonomy.get("scientific_name")
                 common_name = taxonomy.get("common_name")
                 taxa_id = taxonomy.get("taxa_id")
 
+                if new_species == UNKNOWN_BIRD_DISPLAY_LABEL:
+                    scientific_name = None
+                    common_name = None
+                    taxa_id = None
+                else:
+                    scientific_name = scientific_name or new_species
+
                 display_name = new_species
-                if settings.classification.display_common_names and common_name:
+                if new_species == UNKNOWN_BIRD_DISPLAY_LABEL:
+                    display_name = UNKNOWN_BIRD_DISPLAY_LABEL
+                elif settings.classification.display_common_names and common_name:
                     display_name = common_name
                 elif not settings.classification.display_common_names and scientific_name:
                     display_name = scientific_name
 
                 # Re-evaluate audio confirmation against new species (robustly)
                 from app.services.audio.audio_service import audio_service
-                audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-                    target_time=existing.detection_time,
-                    species_name=scientific_name,
-                    camera_name=existing.camera_name
-                )
+                if scientific_name:
+                    audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
+                        target_time=existing.detection_time,
+                        species_name=scientific_name,
+                        camera_name=existing.camera_name
+                    )
+                else:
+                    audio_confirmed, audio_species, audio_score = False, None, None
 
                 # Update primary fields
                 await db.execute("""
@@ -512,12 +549,19 @@ class DetectionService:
                 # Broadcast the update
                 updated = await repo.get_by_frigate_event(frigate_event)
                 if updated:
+                    public_species = user_facing_species_fields(
+                        display_name=updated.display_name,
+                        category_name=updated.category_name,
+                        scientific_name=updated.scientific_name,
+                        common_name=updated.common_name,
+                        taxa_id=updated.taxa_id,
+                    )
                     await self.broadcaster.broadcast({
                         "type": "detection_updated",
                         "data": {
                             "frigate_event": frigate_event,
-                            "display_name": updated.display_name,
-                            "category_name": updated.category_name,
+                            "display_name": public_species["display_name"],
+                            "category_name": public_species["category_name"],
                             "score": updated.score,
                             "timestamp": updated.detection_time.isoformat(),
                             "camera": updated.camera_name,
@@ -527,9 +571,9 @@ class DetectionService:
                             "audio_confirmed": updated.audio_confirmed,
                             "audio_species": updated.audio_species,
                             "audio_score": updated.audio_score,
-                            "scientific_name": updated.scientific_name,
-                            "common_name": updated.common_name,
-                            "taxa_id": updated.taxa_id,
+                            "scientific_name": public_species["scientific_name"],
+                            "common_name": public_species["common_name"],
+                            "taxa_id": public_species["taxa_id"],
                             "video_classification_label": updated.video_classification_label,
                             "video_classification_score": updated.video_classification_score,
                             "video_classification_status": updated.video_classification_status,

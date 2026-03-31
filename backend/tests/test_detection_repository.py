@@ -586,26 +586,39 @@ async def test_get_unknown_detections_includes_completed_unknowns_for_manual_bat
         now = datetime.utcnow()
         rows_to_insert = [
             ("evt_unknown_completed", 1, 0.51, "completed", None),
+            ("evt_unknown_group_label", 4, 0.54, "completed", None),
             ("evt_unknown_pending", 2, 0.52, "pending", None),
             ("evt_unknown_retention_expired", 3, 0.53, "failed", "frigate_retention_expired"),
         ]
         for event_id, idx, score, status, error in rows_to_insert:
+            display_name = "Unknown Bird"
+            category_name = "Bird"
+            scientific_name = None
+            common_name = None
+            if event_id == "evt_unknown_group_label":
+                display_name = "Great tit and allies"
+                category_name = "Great tit and allies"
+                scientific_name = "Great tit and allies"
+                common_name = "Great tit and allies"
             await db.execute(
                 """
                 INSERT INTO detections (
                     detection_time, detection_index, score, display_name, category_name,
                     frigate_event, camera_name, is_hidden, manual_tagged,
+                    scientific_name, common_name,
                     video_classification_status, video_classification_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
                 """,
                 (
                     now,
                     idx,
                     score,
-                    "Unknown Bird",
-                    "Bird",
+                    display_name,
+                    category_name,
                     event_id,
                     "cam_1",
+                    scientific_name,
+                    common_name,
                     status,
                     error,
                 ),
@@ -616,6 +629,7 @@ async def test_get_unknown_detections_includes_completed_unknowns_for_manual_bat
         ids = {row.frigate_event for row in rows}
 
         assert "evt_unknown_completed" in ids
+        assert "evt_unknown_group_label" in ids
         assert "evt_unknown_pending" not in ids
         assert "evt_unknown_retention_expired" not in ids
 

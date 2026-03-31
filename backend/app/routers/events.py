@@ -32,7 +32,7 @@ from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
     unknown_species_labels,
-    user_facing_species_label,
+    user_facing_species_fields,
 )
 
 router = APIRouter()
@@ -228,22 +228,17 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
 
 def _detection_updated_payload(detection, overrides: dict | None = None) -> dict:
-    display_name = user_facing_species_label(
-        detection.display_name,
-        raw_label=getattr(detection, "category_name", None),
+    public_species = user_facing_species_fields(
+        display_name=detection.display_name,
+        category_name=getattr(detection, "category_name", None),
+        scientific_name=getattr(detection, "scientific_name", None),
+        common_name=getattr(detection, "common_name", None),
+        taxa_id=getattr(detection, "taxa_id", None),
     )
-    category_name = (
-        UNKNOWN_BIRD_DISPLAY_LABEL
-        if display_name == UNKNOWN_BIRD_DISPLAY_LABEL
-        else detection.category_name
-    )
-    scientific_name = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.scientific_name
-    common_name = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.common_name
-    taxa_id = None if display_name == UNKNOWN_BIRD_DISPLAY_LABEL else detection.taxa_id
     payload = {
         "frigate_event": detection.frigate_event,
-        "display_name": display_name,
-        "category_name": category_name,
+        "display_name": public_species["display_name"],
+        "category_name": public_species["category_name"],
         "score": detection.score,
         "timestamp": detection.detection_time.isoformat(),
         "camera": detection.camera_name,
@@ -263,9 +258,9 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "weather_precipitation": detection.weather_precipitation,
         "weather_rain": detection.weather_rain,
         "weather_snowfall": detection.weather_snowfall,
-        "scientific_name": scientific_name,
-        "common_name": common_name,
-        "taxa_id": taxa_id,
+        "scientific_name": public_species["scientific_name"],
+        "common_name": public_species["common_name"],
+        "taxa_id": public_species["taxa_id"],
         "video_classification_score": detection.video_classification_score,
         "video_classification_label": detection.video_classification_label,
         "video_classification_status": detection.video_classification_status,
@@ -546,24 +541,19 @@ async def get_events(
         response_events = []
         for event in events:
             # Transform unknown bird labels for display
-            display_name = user_facing_species_label(
-                event.display_name,
-                raw_label=event.category_name,
+            public_species = user_facing_species_fields(
+                display_name=event.display_name,
+                category_name=event.category_name,
+                scientific_name=event.scientific_name,
+                common_name=event.common_name,
+                taxa_id=event.taxa_id,
                 extra_unknown_labels=unknown_labels,
             )
-            category_name = (
-                UNKNOWN_BIRD_DISPLAY_LABEL
-                if display_name == UNKNOWN_BIRD_DISPLAY_LABEL
-                else event.category_name
-            )
-
-            common_name = event.common_name
-            scientific_name = event.scientific_name
-            taxa_id = event.taxa_id
-            if display_name == UNKNOWN_BIRD_DISPLAY_LABEL:
-                common_name = None
-                scientific_name = None
-                taxa_id = None
+            display_name = str(public_species["display_name"])
+            category_name = public_species["category_name"]
+            common_name = public_species["common_name"]
+            scientific_name = public_species["scientific_name"]
+            taxa_id = public_species["taxa_id"]
             # Fetch localized common name if not in English and we have a taxa_id
             if lang != 'en' and taxa_id:
                 localized_name = localized_names.get(taxa_id)

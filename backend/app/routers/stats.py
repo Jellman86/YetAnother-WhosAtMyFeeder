@@ -14,6 +14,7 @@ from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
+from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 
 router = APIRouter()
 
@@ -176,7 +177,7 @@ async def get_daily_summary(
         
         summary_species = []
         for s in species_raw:
-            if s["species"] in unknown_labels:
+            if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
                 unknown_count += s["count"]
                 # Keep the absolute latest event ID among unknowns
                 if not latest_unknown_event or s["latest_event"] > latest_unknown_event:
@@ -212,23 +213,28 @@ async def get_daily_summary(
         latest_detection = None
         if latest_raw:
             d = latest_raw[0]
-            display_name = d.display_name
-            if display_name in unknown_labels:
-                display_name = "Unknown Bird"
-            
             common_name = d.common_name
             if lang != 'en' and d.taxa_id:
                 localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
                 if localized:
                     common_name = localized
+
+            public_species = user_facing_species_fields(
+                display_name=d.display_name,
+                category_name=d.category_name,
+                scientific_name=d.scientific_name,
+                common_name=common_name,
+                taxa_id=d.taxa_id,
+                extra_unknown_labels=unknown_labels,
+            )
                 
             latest_detection = DetectionResponse(
                 id=d.id,
                 detection_time=d.detection_time,
                 detection_index=d.detection_index,
                 score=d.score,
-                display_name=display_name,
-                category_name=d.category_name,
+                display_name=str(public_species["display_name"]),
+                category_name=public_species["category_name"],
                 frigate_event=d.frigate_event,
                 camera_name="Hidden" if hide_camera_names else d.camera_name,
                 is_hidden=d.is_hidden,
@@ -247,9 +253,9 @@ async def get_daily_summary(
                 weather_precipitation=d.weather_precipitation,
                 weather_rain=d.weather_rain,
                 weather_snowfall=d.weather_snowfall,
-                scientific_name=d.scientific_name,
-                common_name=common_name,
-                taxa_id=d.taxa_id
+                scientific_name=public_species["scientific_name"],
+                common_name=public_species["common_name"],
+                taxa_id=public_species["taxa_id"]
             )
             
         total_today = sum(hourly)
@@ -532,27 +538,12 @@ async def get_detection_timeline_span(
                     break
 
             if sanitized_compare:
-                unknown_labels = list(settings.classification.unknown_bird_labels)
-                species_map: dict[str, list[str]] = {}
-                for selected in sanitized_compare:
-                    if selected == "Unknown Bird":
-                        species_map[selected] = unknown_labels
-                    else:
-                        alias_info = await repo.resolve_species_aliases(selected, language=lang)
-                        labels: list[str] = []
-                        for candidate in (alias_info.get("display_labels") or []):
-                            if candidate and candidate not in labels:
-                                labels.append(candidate)
-                        for candidate in (alias_info.get("match_names") or []):
-                            if candidate and candidate not in labels:
-                                labels.append(candidate)
-                        species_map[selected] = labels or [selected]
-
-                compare_counts = await repo.get_timebucket_species_counts(
+                compare_counts = await repo.get_timebucket_species_counts_for_names(
                     start=window_start,
                     end=window_end,
                     bucket=bucket,
-                    species_map=species_map,
+                    species_names=sanitized_compare,
+                    language=lang,
                 )
                 compare_series = []
                 for selected in sanitized_compare:

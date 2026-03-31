@@ -99,5 +99,36 @@ def user_facing_species_label(
     return str(display_name or "").strip() or UNKNOWN_BIRD_DISPLAY_LABEL
 
 
+def user_facing_species_fields(
+    *,
+    display_name: str | None,
+    category_name: str | None,
+    scientific_name: str | None = None,
+    common_name: str | None = None,
+    taxa_id: int | None = None,
+    extra_unknown_labels: Iterable[str] | None = None,
+) -> dict[str, str | int | None]:
+    public_display_name = user_facing_species_label(
+        display_name,
+        raw_label=category_name,
+        extra_unknown_labels=extra_unknown_labels,
+    )
+    if public_display_name == UNKNOWN_BIRD_DISPLAY_LABEL:
+        return {
+            "display_name": UNKNOWN_BIRD_DISPLAY_LABEL,
+            "category_name": UNKNOWN_BIRD_DISPLAY_LABEL,
+            "scientific_name": None,
+            "common_name": None,
+            "taxa_id": None,
+        }
+    return {
+        "display_name": str(display_name or "").strip() or public_display_name,
+        "category_name": str(category_name or "").strip() or public_display_name,
+        "scientific_name": scientific_name,
+        "common_name": common_name,
+        "taxa_id": taxa_id,
+    }
+
+
 def looks_like_specific_scientific_name(value: str | None) -> bool:
     return bool(value and _SPECIFIC_SCIENTIFIC_NAME_RE.match(str(value).strip()))

@@ -354,4 +354,69 @@ async def test_save_detection_treats_noncanonical_model_labels_as_unknown_bird(m
     assert detection.scientific_name is None
     assert detection.common_name is None
     assert detection.taxa_id is None
+    broadcast_payload = mock_deps["broadcaster"].broadcast.await_args.args[0]
+    assert broadcast_payload["data"]["display_name"] == "Unknown Bird"
+    assert broadcast_payload["data"]["category_name"] == "Unknown Bird"
+    assert broadcast_payload["data"]["scientific_name"] is None
+    assert broadcast_payload["data"]["common_name"] is None
+    assert broadcast_payload["data"]["taxa_id"] is None
     mock_deps["birdweather"].report_detection.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_detection_blocks_hidden_noncanonical_label_when_unknown_bird_is_blocked(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Life", "common_name": "Life", "taxa_id": 1}
+    )
+
+    with patch("app.services.detection_service.settings.classification.blocked_labels", ["Unknown Bird"]):
+        changed, inserted = await service.save_detection(
+            frigate_event="evt-life-blocked",
+            camera="cam1",
+            start_time=1700000000,
+            classification={"label": "Life (life)", "score": 0.93, "index": 1},
+            frigate_score=0.88,
+            sub_label=None,
+        )
+
+    assert changed is False
+    assert inserted is False
+    mock_deps["repo"].upsert_if_higher_score.assert_not_called()
+    mock_deps["broadcaster"].broadcast.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_does_not_override_known_species_with_hidden_noncanonical_label(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.2
+    existing.display_name = "Great Tit"
+    existing.category_name = "Parus major"
+    existing.scientific_name = "Parus major"
+    existing.common_name = "Great Tit"
+    existing.sub_label = None
+    existing.frigate_score = 0.0
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+    mock_deps["taxonomy"].get_names = AsyncMock(return_value={"scientific_name": "Life", "common_name": "Life", "taxa_id": 1})
+
+    await service.apply_video_result("event1", "Life (life)", 0.95, 2)
+
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+    mock_deps["audio"].correlate_species.assert_not_called()
