@@ -29,6 +29,7 @@
   import { jobProgressStore } from './lib/stores/job_progress.svelte';
   import { jobDiagnosticsStore } from './lib/stores/job_diagnostics.svelte';
   import { incidentWorkspaceStore } from './lib/stores/incident_workspace.svelte';
+  import { toastStore } from './lib/stores/toast.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import Announcer from './lib/components/Announcer.svelte';
@@ -36,6 +37,7 @@
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { createDeployRecovery } from './lib/app/deploy-recovery';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -167,6 +169,19 @@
       return notificationPolicy.shouldEmit(id, signature, throttleMs);
   }
 
+  const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
+  const deployRecovery = createDeployRecovery({
+      appVersion,
+      storage: typeof window !== 'undefined' ? window.sessionStorage : null,
+      reload: () => window.location.reload(),
+      warn: (message: string) => {
+          toastStore.warning(message, 10_000);
+      },
+      warningMessage: t('error.deploy_refresh_required', {
+          default: 'The app was updated while this tab was open. Refresh the page to load the latest build.'
+      })
+  });
+
   const liveUpdates = new LiveUpdateCoordinator({
       t,
       shouldNotify,
@@ -178,7 +193,11 @@
       settingsStore,
       announcer,
       logger,
-      checkHealth,
+      checkHealth: async () => {
+          const health = await checkHealth();
+          deployRecovery.observeHealth(health);
+          return health;
+      },
       fetchCacheStats,
       fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
@@ -238,6 +257,9 @@
                   severity: 'error',
                   context: payload
               });
+              if (deployRecovery.handleRuntimeFailure(payload) !== 'ignore') {
+                  event.preventDefault();
+              }
               console.error('window_runtime_error', payload);
           };
           const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -254,6 +276,9 @@
                   severity: 'error',
                   context: payload
               });
+              if (deployRecovery.handleRuntimeFailure(payload) !== 'ignore') {
+                  event.preventDefault();
+              }
               console.error('window_unhandled_rejection', payload);
           };
           window.addEventListener('error', handleWindowError);
