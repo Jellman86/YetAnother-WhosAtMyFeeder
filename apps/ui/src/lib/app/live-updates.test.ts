@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LiveUpdateCoordinator } from './live-updates';
 
-function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean; fetchAnalysisStatus?: () => Promise<any> }) {
+function buildCoordinator(options?: {
+    activeJobs?: any[];
+    shouldNotify?: boolean;
+    fetchAnalysisStatus?: () => Promise<any>;
+    checkHealth?: () => Promise<any>;
+}) {
     const calls = {
         upsertRunning: [] as any[],
         markCompleted: [] as any[],
@@ -9,6 +14,7 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
         markStale: [] as any[],
         remove: [] as any[],
         notificationUpserts: [] as any[],
+        notificationRemoves: [] as any[],
         ingestHealth: [] as any[],
         recordError: [] as any[],
         startReclassification: [] as any[],
@@ -45,7 +51,13 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
                 }
                 notificationItems.unshift(item);
             },
-            remove: () => undefined
+            remove: (id: string) => {
+                calls.notificationRemoves.push(id);
+                const idx = notificationItems.findIndex((existing) => existing.id === id);
+                if (idx >= 0) {
+                    notificationItems.splice(idx, 1);
+                }
+            }
         },
         jobProgress,
         detectionsStore: {
@@ -68,7 +80,7 @@ function buildCoordinator(options?: { activeJobs?: any[]; shouldNotify?: boolean
             error: () => undefined,
             sseEvent: () => undefined
         },
-        checkHealth: async () => ({}),
+        checkHealth: options?.checkHealth ?? (async () => ({})),
         fetchCacheStats: async () => ({}),
         fetchAnalysisStatus: options?.fetchAnalysisStatus ?? (async () => ({
             pending: 0,
@@ -236,6 +248,99 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
+    });
+
+    it('clears synthetic batch analysis state when the backend instance changes', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 8,
+            active: 1,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 991
+        }));
+        const checkHealth = vi
+            .fn()
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
+        const { coordinator, calls, notificationItems } = buildCoordinator({ fetchAnalysisStatus, checkHealth });
+
+        await coordinator.syncAnalysisQueueStatus();
+        expect(notificationItems.some((item) => item.id === 'reclassify:progress')).toBe(true);
+
+        await coordinator.runOwnerSystemChecks();
+        expect(calls.remove).toEqual([]);
+        expect(calls.notificationRemoves).toEqual([]);
+
+        await coordinator.runOwnerSystemChecks();
+
+        expect(calls.remove).toContain('reclassify:progress');
+        expect(calls.notificationRemoves).toContain('reclassify:progress');
+        expect(notificationItems.some((item) => item.id === 'reclassify:progress')).toBe(false);
+    });
+
+    it('does not remove per-event reclassify jobs when clearing synthetic batch state after restart', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 3,
+            active: 1,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 996
+        }));
+        const checkHealth = vi
+            .fn()
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
+        const { coordinator, calls } = buildCoordinator({
+            fetchAnalysisStatus,
+            checkHealth,
+            activeJobs: [{ id: 'reclassify:evt-1', kind: 'reclassify', status: 'running' }]
+        });
+
+        await coordinator.syncAnalysisQueueStatus();
+        await coordinator.runOwnerSystemChecks();
+        await coordinator.runOwnerSystemChecks();
+
+        expect(calls.remove).toContain('reclassify:progress');
+        expect(calls.remove).not.toContain('reclassify:evt-1');
+    });
+
+    it('preserves per-event reclassify progress notifications when clearing synthetic batch state after restart', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 2,
+            active: 1,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 997
+        }));
+        const checkHealth = vi
+            .fn()
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
+        const { coordinator, calls, notificationItems } = buildCoordinator({ fetchAnalysisStatus, checkHealth });
+
+        notificationItems.push({
+            id: 'reclassify:progress:evt-1',
+            type: 'process',
+            title: 'Event reclassify',
+            message: '1 / 3',
+            timestamp: Date.now(),
+            read: false,
+            meta: { source: 'sse', event_id: 'evt-1' }
+        });
+
+        await coordinator.syncAnalysisQueueStatus();
+        await coordinator.runOwnerSystemChecks();
+        await coordinator.runOwnerSystemChecks();
+
+        expect(calls.notificationRemoves).toContain('reclassify:progress');
+        expect(calls.notificationRemoves).not.toContain('reclassify:progress:evt-1');
+        expect(notificationItems.some((item) => item.id === 'reclassify:progress:evt-1')).toBe(true);
     });
 
     it('creates a synthetic batch analysis job when queue status shows work but no event jobs are active', async () => {

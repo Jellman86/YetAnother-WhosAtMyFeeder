@@ -173,6 +173,7 @@ export class LiveUpdateCoordinator {
     private reclassifyStartedCount = 0;
     private reclassifyCompletedCount = 0;
     private analysisQueueBaselineTotal = 0;
+    private lastStartupInstanceId: string | null = null;
 
     constructor(deps: LiveUpdateDeps) {
         this.deps = deps;
@@ -197,6 +198,7 @@ export class LiveUpdateCoordinator {
             const health: any = await this.deps.checkHealth();
             this.deps.diagnostics?.ingestHealth(health);
             startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
+            this.reconcileBackendInstance(startupInstanceId);
             const status = String(health?.status ?? '').trim().toLowerCase();
             if (status && !this.isSystemHealthyStatus(status)) {
                 const id = `system:health:${startupInstanceId}`;
@@ -773,6 +775,21 @@ export class LiveUpdateCoordinator {
         }
 
         this.analysisQueueBaselineTotal = 0;
+    }
+
+    private reconcileBackendInstance(startupInstanceId: string) {
+        const normalized = typeof startupInstanceId === 'string' ? startupInstanceId.trim() : '';
+        if (!normalized) return;
+        const prior = this.lastStartupInstanceId;
+        this.lastStartupInstanceId = normalized;
+        if (!prior || prior === normalized) return;
+        this.clearSyntheticBatchAnalysisState();
+    }
+
+    private clearSyntheticBatchAnalysisState() {
+        this.analysisQueueBaselineTotal = 0;
+        this.deps.jobProgress.remove?.(RECLASSIFY_PROGRESS_ID);
+        this.deps.notificationCenter.remove(RECLASSIFY_PROGRESS_ID);
     }
 
     private reconcileReclassifyFromDetectionUpdate(data: any) {
