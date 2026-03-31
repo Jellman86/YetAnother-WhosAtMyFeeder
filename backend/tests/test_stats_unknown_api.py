@@ -93,6 +93,51 @@ async def _insert_detection_at_timestamp(event_id: str, detection_time: str) -> 
         await db.commit()
 
 
+async def _insert_canonical_detection_with_taxonomy(
+    event_id: str,
+    *,
+    taxa_id: int,
+    scientific_name: str,
+    common_name: str,
+) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                datetime.now(timezone.utc).isoformat(sep=" "),
+                1,
+                0.91,
+                common_name,
+                common_name,
+                event_id,
+                "test-camera",
+                scientific_name,
+                common_name,
+                taxa_id,
+            ),
+        )
+        await db.commit()
+
+
+async def _delete_taxonomy_cache_entry(taxa_id: int) -> None:
+    async with get_db() as db:
+        await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
+        await db.commit()
+
+
 @pytest.mark.asyncio
 async def test_daily_summary_aggregates_hidden_noncanonical_labels_as_unknown_bird(client: httpx.AsyncClient):
     settings.auth.enabled = False
@@ -167,3 +212,36 @@ async def test_timeline_compare_unknown_bird_includes_hidden_noncanonical_labels
         assert sum(point["count"] for point in series["points"]) == 1
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_timeline_compare_canonical_species_with_taxonomy_cache_joins_cleanly(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"stats-compare-canonical-{uuid.uuid4().hex[:8]}"
+    taxa_id = 880000 + int(uuid.uuid4().hex[:4], 16)
+    scientific_name = f"Testus canonicalis {uuid.uuid4().hex[:4]}"
+    common_name = f"Canonical Bird {uuid.uuid4().hex[:4]}"
+    await _insert_canonical_detection_with_taxonomy(
+        event_id,
+        taxa_id=taxa_id,
+        scientific_name=scientific_name,
+        common_name=common_name,
+    )
+
+    try:
+        response = await client.get(
+            "/api/stats/detections/timeline",
+            params={"span": "month", "compare_species": [scientific_name]},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["compare_series"] is not None
+        assert len(payload["compare_series"]) == 1
+        series = payload["compare_series"][0]
+        assert series["species"] == scientific_name
+        assert sum(point["count"] for point in series["points"]) >= 1
+    finally:
+        await _delete_detection(event_id)
+        await _delete_taxonomy_cache_entry(taxa_id)

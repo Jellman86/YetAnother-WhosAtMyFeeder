@@ -1859,10 +1859,9 @@ class DetectionRepository:
             if not name:
                 continue
 
-            species_condition, species_params = await self._build_canonical_species_condition(
+            join_sql, species_condition, species_params = await self._canonical_species_query_parts(
                 detection_alias="d",
                 species_name=name,
-                has_taxonomy_cache=has_taxonomy_cache,
             )
 
             if bucket == "hour":
@@ -1871,6 +1870,7 @@ class DetectionRepository:
                         strftime('%Y-%m-%dT%H:00:00Z', d.detection_time) as bucket_key,
                         COUNT(*) as c
                     FROM detections d
+                    {join_sql}
                     WHERE d.detection_time >= ? AND d.detection_time < ?
                       AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                       AND {species_condition}
@@ -1884,6 +1884,7 @@ class DetectionRepository:
                         CASE WHEN CAST(strftime('%H', d.detection_time) AS integer) < 12 THEN 0 ELSE 12 END as hour_start,
                         COUNT(*) as c
                     FROM detections d
+                    {join_sql}
                     WHERE d.detection_time >= ? AND d.detection_time < ?
                       AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                       AND {species_condition}
@@ -1896,6 +1897,7 @@ class DetectionRepository:
                         date(d.detection_time) as d,
                         COUNT(*) as c
                     FROM detections d
+                    {join_sql}
                     WHERE d.detection_time >= ? AND d.detection_time < ?
                       AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                       AND {species_condition}
@@ -1908,6 +1910,7 @@ class DetectionRepository:
                         strftime('%Y-%m-01', d.detection_time) as m,
                         COUNT(*) as c
                     FROM detections d
+                    {join_sql}
                     WHERE d.detection_time >= ? AND d.detection_time < ?
                       AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                       AND {species_condition}
