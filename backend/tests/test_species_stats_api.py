@@ -267,6 +267,8 @@ async def test_leaderboard_species_includes_unknown_bird_without_sql_binding_err
         unknown_rows = [row for row in payload["species"] if row["species"] == "Unknown Bird"]
         assert len(unknown_rows) == 1
         assert unknown_rows[0]["window_count"] >= 1
+        assert unknown_rows[0]["window_first_seen"].endswith("Z")
+        assert unknown_rows[0]["window_last_seen"].endswith("Z")
     finally:
         await _delete_detection(event_id)
 

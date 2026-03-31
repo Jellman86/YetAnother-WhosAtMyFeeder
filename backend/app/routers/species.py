@@ -18,6 +18,7 @@ from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
 from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
+from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.auth import require_owner, AuthContext
@@ -1093,8 +1094,8 @@ async def get_leaderboard_species(
                 "window_prev_count": r["prev_count"],
                 "window_delta": delta,
                 "window_percent": pct,
-                "window_first_seen": r["window_first_seen"].isoformat() if r.get("window_first_seen") else None,
-                "window_last_seen": r["window_last_seen"].isoformat() if r.get("window_last_seen") else None,
+                "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
+                "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
                 "window_avg_confidence": r.get("window_avg_confidence", 0.0),
                 "window_camera_count": r.get("window_camera_count", 0),
             })
@@ -1120,8 +1121,8 @@ async def get_leaderboard_species(
                 "window_prev_count": unknown["prev_count"],
                 "window_delta": delta,
                 "window_percent": pct,
-                "window_first_seen": unknown["window_first_seen"].isoformat() if unknown.get("window_first_seen") else None,
-                "window_last_seen": unknown["window_last_seen"].isoformat() if unknown.get("window_last_seen") else None,
+                "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
+                "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
                 "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
                 "window_camera_count": unknown.get("window_camera_count", 0),
             })
