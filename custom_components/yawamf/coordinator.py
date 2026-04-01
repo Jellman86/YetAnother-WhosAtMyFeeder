@@ -121,11 +121,18 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 resp.raise_for_status()
                 summary_data = await resp.json()
 
+            if not isinstance(summary_data, dict):
+                raise UpdateFailed("YA-WAMF daily summary returned an invalid payload")
+
+            latest_detection = summary_data.get("latest_detection")
+            top_species = summary_data.get("top_species")
+            total_today = summary_data.get("total_count", 0)
+
             return {
                 "summary": summary_data,
-                "latest": summary_data.get("latest_detection"),
-                "total_today": summary_data.get("total_count", 0),
-                "top_species": summary_data.get("top_species", []),
+                "latest": latest_detection if isinstance(latest_detection, dict) else None,
+                "total_today": total_today if isinstance(total_today, int) else 0,
+                "top_species": top_species if isinstance(top_species, list) else [],
             }
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err

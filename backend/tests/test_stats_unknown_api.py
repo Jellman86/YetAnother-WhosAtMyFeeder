@@ -8,6 +8,7 @@ import pytest_asyncio
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
+from app.routers import stats as stats_router
 
 
 @pytest_asyncio.fixture
@@ -190,6 +191,52 @@ async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(cli
         assert latest["detection_time"] == f"{today.isoformat()}T10:23:25.446665Z"
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_uses_utc_naive_window_for_latest_detection(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 1, 20, 0, 0)
+    local_window_end = datetime(2026, 4, 1, 15, 0, 0)
+
+    class _FakeLocalDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return local_window_end.replace(tzinfo=tz)
+            return cls(
+                local_window_end.year,
+                local_window_end.month,
+                local_window_end.day,
+                local_window_end.hour,
+                local_window_end.minute,
+                local_window_end.second,
+            )
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeLocalDateTime)
+    monkeypatch.setattr(stats_router, "utc_naive_now", lambda: utc_window_end, raising=False)
+
+    early_event_id = f"stats-window-early-{uuid.uuid4().hex[:8]}"
+    late_event_id = f"stats-window-late-{uuid.uuid4().hex[:8]}"
+    await _insert_detection_at_timestamp(early_event_id, "2026-04-01 14:30:00")
+    await _insert_detection_at_timestamp(late_event_id, "2026-04-01 19:30:00")
+
+    try:
+        response = await client.get("/api/stats/daily-summary")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        latest = payload["latest_detection"]
+        assert latest["frigate_event"] == late_event_id
+        assert payload["total_count"] >= 2
+    finally:
+        await _delete_detection(early_event_id)
+        await _delete_detection(late_event_id)
 
 
 @pytest.mark.asyncio

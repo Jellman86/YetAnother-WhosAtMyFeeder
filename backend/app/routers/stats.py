@@ -13,6 +13,7 @@ from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
+from app.utils.api_datetime import utc_naive_now
 
 router = APIRouter()
 
@@ -156,7 +157,7 @@ async def get_daily_summary(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
-    end_dt = datetime.now()
+    end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
     
     async with get_db() as db:

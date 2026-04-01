@@ -97,7 +97,7 @@ class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Senso
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
-        latest = self.coordinator.data.get("latest")
+        latest = _latest_detection(self.coordinator)
         if not latest:
             return {}
 
