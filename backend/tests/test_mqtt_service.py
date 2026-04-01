@@ -192,7 +192,7 @@ async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
 
 
 @pytest.mark.asyncio
-async def test_parse_frigate_payload_meta_skips_end_events():
+async def test_parse_frigate_payload_meta_processes_end_events():
     service = MQTTService("test+abc123")
 
     payload = _frigate_payload("evt-end", "end", false_positive=False)
@@ -200,7 +200,7 @@ async def test_parse_frigate_payload_meta_skips_end_events():
 
     assert meta is not None
     assert meta["event_id"] == "evt-end"
-    assert meta["should_process"] is False
+    assert meta["should_process"] is True
 
 
 def test_get_status_reports_pressure_level_and_thresholds(monkeypatch):
@@ -394,7 +394,7 @@ async def test_start_clears_intentional_reconnect_after_clean_reconnect_cycle(mo
             nonlocal connect_count
             connect_count += 1
             if connect_count == 1:
-                self.messages = _FakeMessages([_DummyMessage("birdnet", b'{\"species\":\"Robin\",\"confidence\":0.8}')])
+                self.messages = _FakeMessages([_DummyMessage("birdnet", b'{"species":"Robin","confidence":0.8}')])
             else:
                 service.running = False
                 self.messages = _FakeMessages([])
