@@ -506,10 +506,67 @@ def _normalize_detection_timestamp(value: datetime | None) -> int | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        # Detection rows have historically been stored as naive local wall time.
+        # Treat naive values as local time here so full-visit clip windows line up
+        # with the detection shown in Explorer instead of being shifted as UTC.
+        value = value.astimezone()
     else:
         value = value.astimezone(timezone.utc)
     return int(value.timestamp())
+
+
+def _timestamp_from_event_id(event_id: str) -> int | None:
+    raw = (event_id or "").strip()
+    if not raw:
+        return None
+
+    prefix = raw.split("-", 1)[0]
+    try:
+        parsed = float(prefix)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return int(parsed)
+
+
+async def _resolve_recording_clip_detection_timestamp(
+    event_id: str,
+    detection_time: datetime | None,
+) -> int | None:
+    # Frigate's timestamp-prefixed event ids are the cheapest reliable source.
+    # Prefer them so clip probes do not trigger an extra Frigate API lookup.
+    event_id_timestamp = _timestamp_from_event_id(event_id)
+    if event_id_timestamp is not None:
+        return event_id_timestamp
+
+    # Explicit timezone data is already unambiguous, so prefer it before
+    # incurring a Frigate API lookup. The network fallback is mainly for
+    # legacy naive rows or nonstandard event ids.
+    if detection_time is not None and detection_time.tzinfo is not None:
+        return _normalize_detection_timestamp(detection_time)
+
+    try:
+        event_data = await frigate_client.get_event(event_id)
+    except Exception as exc:
+        structlog.get_logger().warning(
+            "Failed to fetch Frigate event while resolving recording clip timestamp",
+            event_id=event_id,
+            error=str(exc),
+        )
+        event_data = None
+
+    if isinstance(event_data, dict):
+        start_time = event_data.get("start_time")
+        try:
+            if start_time is not None:
+                parsed = float(start_time)
+                if parsed > 0:
+                    return int(parsed)
+        except (TypeError, ValueError):
+            pass
+
+    return _normalize_detection_timestamp(detection_time)
 
 
 async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, int, int]:
@@ -523,7 +580,10 @@ async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, in
             detail=i18n_service.translate("errors.proxy.event_not_found", lang)
         )
 
-    detected_at = _normalize_detection_timestamp(detection.detection_time)
+    detected_at = await _resolve_recording_clip_detection_timestamp(
+        event_id,
+        detection.detection_time,
+    )
     if detected_at is None:
         raise HTTPException(
             status_code=404,

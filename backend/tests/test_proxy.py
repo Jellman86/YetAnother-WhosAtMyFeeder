@@ -1,12 +1,15 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, AsyncMock
+import app.routers.proxy as proxy_module
 from app.main import app
 from app.config import settings
 import pytest
 import pytest_asyncio
 import httpx
+import time
 
 @pytest_asyncio.fixture
 async def client():
@@ -387,6 +390,126 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
             settings.frigate.recording_clip_enabled = original_recording
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
+
+
+@pytest.mark.asyncio
+async def test_get_recording_clip_context_prefers_event_id_timestamp_without_frigate_lookup():
+    detection = SimpleNamespace(
+        detection_time=datetime(2026, 3, 30, 19, 16, 51),
+        camera_name="birdfeeder",
+    )
+
+    mock_db = AsyncMock()
+    mock_repo = MagicMock()
+    mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
+
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
+         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})) as mock_get_event:
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+
+        camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
+            "1774887411.753024-21sw7i",
+            "en",
+        )
+
+    assert camera == "birdfeeder"
+    assert start_ts == 1774887381
+    assert end_ts == 1774887501
+    mock_get_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_recording_clip_context_uses_frigate_event_start_time_for_non_timestamp_ids():
+    detection = SimpleNamespace(
+        detection_time=datetime(2026, 3, 30, 22, 16, 51),
+        camera_name="birdfeeder",
+    )
+
+    mock_db = AsyncMock()
+    mock_repo = MagicMock()
+    mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
+
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
+         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})) as mock_get_event:
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+
+        camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
+            "uuid-style-event-id",
+            "en",
+        )
+
+    assert camera == "birdfeeder"
+    assert start_ts == 1774887381
+    assert end_ts == 1774887501
+    mock_get_event.assert_awaited_once_with("uuid-style-event-id")
+
+
+@pytest.mark.asyncio
+async def test_get_recording_clip_context_prefers_aware_detection_time_without_frigate_lookup():
+    detection = SimpleNamespace(
+        detection_time=datetime(2026, 3, 30, 19, 16, 51, tzinfo=timezone.utc),
+        camera_name="birdfeeder",
+    )
+
+    mock_db = AsyncMock()
+    mock_repo = MagicMock()
+    mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
+
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
+         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 123})) as mock_get_event:
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+
+        camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
+            "uuid-style-event-id",
+            "en",
+        )
+
+    assert camera == "birdfeeder"
+    assert start_ts == 1774898181
+    assert end_ts == 1774898301
+    mock_get_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_recording_clip_context_falls_back_to_local_timezone_for_naive_detection(monkeypatch):
+    previous_tz = __import__("os").environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Helsinki")
+    if hasattr(time, "tzset"):
+        time.tzset()
+
+    detection = SimpleNamespace(
+        detection_time=datetime(2026, 3, 30, 19, 16, 51),
+        camera_name="birdfeeder",
+    )
+
+    mock_db = AsyncMock()
+    mock_repo = MagicMock()
+    mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
+
+    try:
+        with patch("app.routers.proxy.get_db") as mock_get_db, \
+             patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
+             patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value=None)):
+            mock_get_db.return_value.__aenter__.return_value = mock_db
+
+            camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
+                "non-timestamp-event",
+                "en",
+            )
+    finally:
+        if previous_tz is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", previous_tz)
+        if hasattr(time, "tzset"):
+            time.tzset()
+
+    assert camera == "birdfeeder"
+    assert start_ts == 1774887381
+    assert end_ts == 1774887501
 
 
 @pytest.mark.asyncio
