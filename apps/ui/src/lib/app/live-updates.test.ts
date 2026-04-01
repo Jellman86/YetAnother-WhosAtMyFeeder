@@ -412,6 +412,35 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(terminalNotification.read).toBe(true);
     });
 
+    it('settles synthetic batch UI when health reports an idle queue', async () => {
+        const fetchAnalysisStatus = vi.fn(async () => ({
+            pending: 21,
+            active: 0,
+            circuit_open: false,
+            open_until: null,
+            failure_count: 0,
+            pending_capacity: 1000,
+            pending_available: 979
+        }));
+        const checkHealth = vi.fn(async () => ({
+            startup_instance_id: 'instance-a',
+            status: 'ok',
+            video_classifier: {
+                pending: 0,
+                active: 0,
+                circuit_open: false
+            }
+        }));
+        const { coordinator, calls } = buildCoordinator({ checkHealth, fetchAnalysisStatus });
+
+        await coordinator.syncAnalysisQueueStatus();
+        calls.upsertRunning.length = 0;
+
+        await coordinator.runOwnerSystemChecks();
+
+        expect(calls.markCompleted.some((input) => input.id === 'reclassify:progress')).toBe(true);
+    });
+
     it('does not add a synthetic batch job when per-event reclassify jobs are already active', async () => {
         const fetchAnalysisStatus = vi.fn(async () => ({
             pending: 2,

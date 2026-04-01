@@ -199,6 +199,7 @@ export class LiveUpdateCoordinator {
             this.deps.diagnostics?.ingestHealth(health);
             startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
             this.reconcileBackendInstance(startupInstanceId);
+            this.reconcileSyntheticBatchFromHealth(health);
             const status = String(health?.status ?? '').trim().toLowerCase();
             if (status && !this.isSystemHealthyStatus(status)) {
                 const id = `system:health:${startupInstanceId}`;
@@ -721,6 +722,25 @@ export class LiveUpdateCoordinator {
             return;
         }
 
+        this.settleSyntheticBatchAnalysisState();
+    }
+
+    private reconcileSyntheticBatchFromHealth(health: any) {
+        const videoClassifier = health?.video_classifier;
+        if (!videoClassifier || typeof videoClassifier !== 'object') return;
+        const pending = Number.isFinite(Number(videoClassifier.pending)) ? Math.max(0, Math.floor(Number(videoClassifier.pending))) : 0;
+        const active = Number.isFinite(Number(videoClassifier.active)) ? Math.max(0, Math.floor(Number(videoClassifier.active))) : 0;
+        if (pending > 0 || active > 0) return;
+        this.settleSyntheticBatchAnalysisState();
+    }
+
+    private settleSyntheticBatchAnalysisState() {
+        const existingProgressNotification = this.deps.notificationCenter.items.find((item) => item.id === RECLASSIFY_PROGRESS_ID) ?? null;
+        const existingNotificationTotal = Number(existingProgressNotification?.meta?.total ?? 0);
+        const existingNotificationCurrent = Number(existingProgressNotification?.meta?.current ?? 0);
+        const existingBatchJob = this.deps.jobProgress.activeJobs?.find((job) => job.id === RECLASSIFY_PROGRESS_ID) ?? null;
+        const existingJobTotal = Number(existingBatchJob?.total ?? 0);
+        const existingJobCurrent = Number(existingBatchJob?.current ?? 0);
         const completedTotal = Math.max(
             0,
             this.analysisQueueBaselineTotal,
