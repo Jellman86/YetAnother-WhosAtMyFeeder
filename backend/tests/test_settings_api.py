@@ -99,6 +99,17 @@ async def test_settings_allows_enabling_auth_with_password(client: httpx.AsyncCl
 
 
 @pytest.mark.asyncio
+async def test_analysis_status_is_not_cacheable(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    response = await client.get("/api/maintenance/analysis/status")
+    assert response.status_code == 200, response.text
+    assert response.headers.get("Cache-Control") == "no-store, max-age=0"
+    assert response.headers.get("Pragma") == "no-cache"
+
+
+@pytest.mark.asyncio
 async def test_settings_roundtrip_strict_non_finite_output(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

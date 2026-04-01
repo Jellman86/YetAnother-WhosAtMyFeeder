@@ -135,7 +135,7 @@ export async function analyzeUnknowns(): Promise<AnalyzeUnknownsResult> {
 }
 
 export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
-    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`);
+    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`, { cache: 'no-store' });
     return handleResponse<AnalysisStatus>(response);
 }
 

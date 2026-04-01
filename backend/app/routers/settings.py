@@ -3,7 +3,7 @@ import re
 import asyncio
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
@@ -1474,8 +1474,10 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
 
 
 @router.get("/maintenance/analysis/status")
-async def get_analysis_status(auth: AuthContext = Depends(require_owner)):
+async def get_analysis_status(response: Response, auth: AuthContext = Depends(require_owner)):
     """Get status of auto video classification queue. Owner only."""
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
     return auto_video_classifier.get_status()
 
 

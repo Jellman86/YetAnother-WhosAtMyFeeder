@@ -2,6 +2,12 @@ import { fetchAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
 import { authStore } from './auth.svelte';
 import { jobDiagnosticsStore } from './job_diagnostics.svelte';
+import { jobProgressStore } from './job_progress.svelte';
+import { notificationCenter } from './notification_center.svelte';
+
+const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
+const DEFAULT_BATCH_ANALYSIS_TITLE = 'Batch Analysis';
+const DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE = 'Batch analysis complete';
 
 interface AnalysisQueueStatusStoreOptions {
     fetchAnalysisStatus?: () => Promise<AnalysisStatus>;
@@ -28,6 +34,60 @@ function normalizeCount(value: unknown): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
     return Math.max(0, Math.floor(parsed));
+}
+
+function settleSyntheticBatchProgress(status: AnalysisStatus): void {
+    const remaining = normalizeCount(status.pending) + normalizeCount(status.active);
+    if (remaining > 0) return;
+
+    const existingBatchJob = jobProgressStore.activeJobs.find((job) => job.id === RECLASSIFY_PROGRESS_ID) ?? null;
+    const existingProgressNotification = notificationCenter.items.find((item) => item.id === RECLASSIFY_PROGRESS_ID) ?? null;
+    const completedTotal = Math.max(
+        0,
+        normalizeCount(existingBatchJob?.total),
+        normalizeCount(existingBatchJob?.current),
+        normalizeCount(existingProgressNotification?.meta?.total),
+        normalizeCount(existingProgressNotification?.meta?.current)
+    );
+
+    if (existingProgressNotification) {
+        if (completedTotal > 0) {
+            notificationCenter.upsert({
+                ...existingProgressNotification,
+                type: 'update',
+                title: existingProgressNotification.title || existingBatchJob?.title || DEFAULT_BATCH_ANALYSIS_TITLE,
+                message: DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE,
+                timestamp: Date.now(),
+                read: true,
+                meta: {
+                    ...(existingProgressNotification.meta ?? {}),
+                    kind: 'reclassify_batch',
+                    current: completedTotal,
+                    total: completedTotal,
+                    route: '/settings#data',
+                    open_label: existingProgressNotification.meta?.open_label
+                }
+            });
+        } else {
+            notificationCenter.remove(RECLASSIFY_PROGRESS_ID);
+        }
+    }
+
+    if (existingBatchJob || completedTotal > 0) {
+        jobProgressStore.markCompleted({
+            id: RECLASSIFY_PROGRESS_ID,
+            kind: 'reclassify_batch',
+            title: existingBatchJob?.title || existingProgressNotification?.title || DEFAULT_BATCH_ANALYSIS_TITLE,
+            message: DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE,
+            route: existingBatchJob?.route || '/settings#data',
+            current: completedTotal,
+            total: completedTotal,
+            source: 'poll'
+        });
+        return;
+    }
+
+    jobProgressStore.remove(RECLASSIFY_PROGRESS_ID);
 }
 
 export class AnalysisQueueStatusStore {
@@ -70,6 +130,7 @@ export class AnalysisQueueStatusStore {
         if (!this.hasOwnerAccess()) return;
         try {
             const status = await this.fetcher();
+            settleSyntheticBatchProgress(status);
             const signature = [
                 status.pending ?? 0,
                 status.active ?? 0,
