@@ -484,6 +484,10 @@ class MQTTService:
                         watchdog_task.cancel()
                         with contextlib.suppress(asyncio.CancelledError):
                             await watchdog_task
+                    if self._intentional_reconnect:
+                        self._intentional_reconnect = False
+                        log.info("MQTT session ended by stall-recovery watchdog; reconnecting immediately")
+                        continue
                             
             except MqttError as e:
                 self.client = None

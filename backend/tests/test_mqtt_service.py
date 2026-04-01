@@ -68,6 +68,28 @@ class _ExplodingProcessor:
         raise RuntimeError("boom-audio")
 
 
+class _DummyMessage:
+    def __init__(self, topic: str, payload: bytes):
+        self.topic = type("Topic", (), {"value": topic})()
+        self.payload = payload
+
+
+class _FakeMessages:
+    def __init__(self, messages):
+        self._messages = list(messages)
+        self._index = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._index >= len(self._messages):
+            raise StopAsyncIteration
+        value = self._messages[self._index]
+        self._index += 1
+        return value
+
+
 def _frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> bytes:
     return json.dumps(
         {
@@ -358,3 +380,52 @@ async def test_wait_for_handler_slot_breaks_after_max_wait(monkeypatch):
         hanging.cancel()
         with __import__("contextlib").suppress(asyncio.CancelledError):
             await hanging
+
+
+@pytest.mark.asyncio
+async def test_start_clears_intentional_reconnect_after_clean_reconnect_cycle(monkeypatch):
+    service = MQTTService("test+abc123")
+    processor = _RecordingProcessor()
+    connect_count = 0
+
+    class _FakeClient:
+        def __init__(self, **kwargs):
+            del kwargs
+            nonlocal connect_count
+            connect_count += 1
+            if connect_count == 1:
+                self.messages = _FakeMessages([_DummyMessage("birdnet", b'{\"species\":\"Robin\",\"confidence\":0.8}')])
+            else:
+                service.running = False
+                self.messages = _FakeMessages([])
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            del exc_type, exc, tb
+            return False
+
+        async def subscribe(self, topic):
+            del topic
+
+        async def disconnect(self):
+            return None
+
+    async def _idle_watchdog(client, frigate_topic):
+        del client, frigate_topic
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_server", "mosquitto", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_port", 1883, raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_auth", False, raising=False)
+    monkeypatch.setattr(mqtt_module, "Client", _FakeClient)
+    monkeypatch.setattr(service, "_connection_watchdog", _idle_watchdog)
+
+    service._intentional_reconnect = True
+    await asyncio.wait_for(service.start(processor), timeout=1.0)
+
+    assert connect_count >= 2
+    assert service._intentional_reconnect is False
