@@ -116,7 +116,7 @@
     function captureBundle() {
         const label = captureLabel.trim();
         const notes = reportNotes.trim();
-        const bundle = jobDiagnosticsStore.captureBundle(label || undefined, notes || undefined);
+        const bundle = jobDiagnosticsStore.captureBundle(label || undefined, notes || undefined, workspacePayload ?? undefined);
         if (bundle) {
             captureLabel = '';
         }
@@ -163,7 +163,11 @@
                 </p>
             </div>
             <div class="flex items-center gap-2">
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.downloadJson()}>
+                <button
+                    type="button"
+                    class="btn btn-secondary px-3 py-2 text-xs"
+                    onclick={() => jobDiagnosticsStore.downloadJson(undefined, workspacePayload ?? undefined)}
+                >
                     {$_('jobs.errors_export', { default: 'Export Current JSON' })}
                 </button>
                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={clearWorkspace} disabled={clearing || refreshing}>

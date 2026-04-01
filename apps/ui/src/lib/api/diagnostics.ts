@@ -18,6 +18,18 @@ export interface BackendDiagnosticEvent {
     snapshot_ref?: string | null;
 }
 
+export interface VideoClassifierFocusedDiagnostics {
+    circuit_open: boolean;
+    open_until?: string | null;
+    failure_count: number;
+    pending: number;
+    active: number;
+    latest_circuit_opened?: BackendDiagnosticEvent | null;
+    likely_last_error?: string | null;
+    candidate_failure_events?: BackendDiagnosticEvent[];
+    recent_events?: BackendDiagnosticEvent[];
+}
+
 export interface DiagnosticsWorkspacePayload {
     workspace_schema_version: string;
     backend_diagnostics: {
@@ -29,6 +41,9 @@ export interface DiagnosticsWorkspacePayload {
         severity_counts: Record<string, number>;
         component_counts: Record<string, number>;
         events: BackendDiagnosticEvent[];
+    };
+    focused_diagnostics?: {
+        video_classifier?: VideoClassifierFocusedDiagnostics;
     };
     health: Record<string, unknown>;
     startup_warnings: Array<Record<string, unknown>>;

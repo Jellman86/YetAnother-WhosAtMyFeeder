@@ -1,3 +1,5 @@
+import type { DiagnosticsWorkspacePayload } from '../api/diagnostics';
+
 export type JobDiagnosticSeverity = 'warning' | 'error' | 'critical';
 export type JobDiagnosticSource = 'health' | 'sse' | 'runtime' | 'job' | 'system';
 
@@ -665,18 +667,23 @@ class JobDiagnosticsStore {
         this.persist();
     }
 
-    exportJson(): Record<string, unknown> {
-        return this.buildExportPayload(this.groups, this.healthSnapshots);
+    exportJson(workspacePayload?: DiagnosticsWorkspacePayload | null): Record<string, unknown> {
+        return this.buildExportPayload(this.groups, this.healthSnapshots, workspacePayload);
     }
 
-    captureBundle(label?: string, notes?: string): JobDiagnosticBundle | null {
+    captureBundle(
+        label?: string,
+        notes?: string,
+        workspacePayload?: DiagnosticsWorkspacePayload | null
+    ): JobDiagnosticBundle | null {
         if (this.groups.length <= 0 && this.healthSnapshots.length <= 0) return null;
         const id = `bundle:${Date.now()}:${this.bundleCounter++}`;
         const fallbackLabel = `Bundle ${this.bundles.length + 1}`;
         const resolvedLabel = normalizeString(label, fallbackLabel);
         const payload = this.buildExportPayload(
             this.groups,
-            this.healthSnapshots.slice(0, MAX_BUNDLE_HEALTH_SNAPSHOTS)
+            this.healthSnapshots.slice(0, MAX_BUNDLE_HEALTH_SNAPSHOTS),
+            workspacePayload
         );
         payload.report = {
             label: resolvedLabel,
@@ -717,7 +724,8 @@ class JobDiagnosticsStore {
 
     private buildExportPayload(
         groups: JobDiagnosticGroup[],
-        healthSnapshots: JobDiagnosticHealthSnapshot[]
+        healthSnapshots: JobDiagnosticHealthSnapshot[],
+        workspacePayload?: DiagnosticsWorkspacePayload | null
     ): Record<string, unknown> {
         const totalEvents = groups.reduce((sum, group) => sum + group.count, 0);
         const firstSeen = groups.reduce((min, group) => Math.min(min, group.firstSeen), Number.POSITIVE_INFINITY);
@@ -731,9 +739,21 @@ class JobDiagnosticsStore {
             ...snapshot,
             timestampISO: new Date(snapshot.timestamp).toISOString()
         }));
+        const normalizedBackendDiagnostics = workspacePayload?.backend_diagnostics
+            ? {
+                ...workspacePayload.backend_diagnostics,
+                events: Array.isArray(workspacePayload.backend_diagnostics.events)
+                    ? workspacePayload.backend_diagnostics.events.map((event) => ({ ...event }))
+                    : []
+            }
+            : undefined;
+        const focusedDiagnostics = workspacePayload?.focused_diagnostics
+            ? JSON.parse(JSON.stringify(workspacePayload.focused_diagnostics))
+            : undefined;
         return {
             schema_version: 2,
             generated_at: new Date().toISOString(),
+            workspace_schema_version: workspacePayload?.workspace_schema_version ?? null,
             environment: {
                 app_version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown',
                 git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
@@ -752,19 +772,25 @@ class JobDiagnosticsStore {
                 last_seen: lastSeen > 0 ? new Date(lastSeen).toISOString() : null
             },
             health: normalizedHealthSnapshots[0] ?? null,
+            backend_diagnostics: normalizedBackendDiagnostics ?? null,
+            focused_diagnostics: focusedDiagnostics ?? null,
             incidents: [],
             timeline: [],
             raw_evidence: {
                 error_groups: normalizedGroups,
-                health_snapshots: normalizedHealthSnapshots
+                health_snapshots: normalizedHealthSnapshots,
+                backend_diagnostics: normalizedBackendDiagnostics
             },
             error_groups: normalizedGroups,
             health_snapshots: normalizedHealthSnapshots
         };
     }
 
-    downloadJson(filename = `yawamf-job-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`): void {
-        const payload = this.exportJson();
+    downloadJson(
+        filename = `yawamf-job-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`,
+        workspacePayload?: DiagnosticsWorkspacePayload | null
+    ): void {
+        const payload = this.exportJson(workspacePayload);
         this.downloadPayload(payload, filename);
     }
 

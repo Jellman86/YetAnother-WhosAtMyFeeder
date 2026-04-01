@@ -150,6 +150,82 @@ async def test_owner_can_fetch_workspace_diagnostics_payload(client: httpx.Async
 
 
 @pytest.mark.asyncio
+async def test_workspace_payload_includes_focused_video_classifier_diagnostics(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    error_diagnostics_history.record(
+        source="video_classifier",
+        component="auto_video_classifier",
+        reason_code="video_timeout",
+        message="Video classification exceeded the configured timeout",
+        severity="error",
+        event_id="evt-video-1",
+        correlation_key="video:evt-video-1",
+        worker_pool="video",
+        context={"timeout_seconds": 30},
+        timestamp="2026-04-01T20:27:00Z",
+    )
+    error_diagnostics_history.record(
+        source="video_classifier",
+        component="auto_video_classifier",
+        reason_code="video_circuit_opened",
+        message="Video classification circuit opened after repeated failures",
+        severity="error",
+        event_id="evt-video-1",
+        correlation_key="video:circuit_open",
+        worker_pool="video",
+        context={"failure_count": 5, "cooldown_minutes": 15, "last_error": "video_timeout"},
+        timestamp="2026-04-01T20:28:00Z",
+    )
+
+    import app.main as main_module
+
+    original_health_check = main_module.health_check
+    original_get_status = classifier_router.classifier_service.get_status
+    try:
+        async def fake_health_check():
+            return {
+                "status": "degraded",
+                "service": "ya-wamf-backend",
+                "version": "2.9.1-dev",
+                "startup_warnings": [],
+                "video_classifier": {
+                    "status": "unknown",
+                    "pending": 69,
+                    "active": 1,
+                    "completed": 0,
+                    "failed": 0,
+                    "circuit_open": True,
+                    "open_until": "2026-04-01T20:42:13.797562+00:00",
+                    "failure_count": 5,
+                },
+            }
+
+        main_module.health_check = fake_health_check
+        classifier_router.classifier_service.get_status = lambda: {"active_provider": "intel_gpu"}
+
+        response = await client.get("/api/diagnostics/workspace")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        focus = payload["focused_diagnostics"]["video_classifier"]
+        assert focus["circuit_open"] is True
+        assert focus["failure_count"] == 5
+        assert focus["pending"] == 69
+        assert focus["latest_circuit_opened"]["reason_code"] == "video_circuit_opened"
+        assert focus["latest_circuit_opened"]["context"]["last_error"] == "video_timeout"
+        assert [event["reason_code"] for event in focus["recent_events"]] == [
+            "video_circuit_opened",
+            "video_timeout",
+        ]
+        assert payload["backend_diagnostics"]["events"][0]["reason_code"] == "video_circuit_opened"
+    finally:
+        main_module.health_check = original_health_check
+        classifier_router.classifier_service.get_status = original_get_status
+
+
+@pytest.mark.asyncio
 async def test_owner_can_clear_diagnostics_history(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

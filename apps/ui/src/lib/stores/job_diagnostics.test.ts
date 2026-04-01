@@ -375,6 +375,94 @@ describe('jobDiagnosticsStore', () => {
         expect((payload.raw_evidence as { error_groups: unknown[] }).error_groups).toHaveLength(2);
     });
 
+    it('exports focused backend diagnostics when workspace payload is provided', () => {
+        const payload = jobDiagnosticsStore.exportJson({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
+            backend_diagnostics: {
+                captured_at: '2026-04-01T20:29:40Z',
+                capacity: 500,
+                total_events: 2,
+                filtered_events: 2,
+                returned_events: 2,
+                severity_counts: { error: 2 },
+                component_counts: { auto_video_classifier: 2 },
+                events: [
+                    {
+                        id: 'diag-video-open',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_circuit_opened',
+                        severity: 'error',
+                        message: 'Video classification circuit opened after repeated failures',
+                        timestamp: '2026-04-01T20:28:00Z',
+                        event_id: 'evt-video-1',
+                        correlation_key: 'video:circuit_open',
+                        worker_pool: 'video',
+                        context: { last_error: 'video_timeout', failure_count: 5 }
+                    },
+                    {
+                        id: 'diag-video-timeout',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_timeout',
+                        severity: 'error',
+                        message: 'Video classification exceeded the configured timeout',
+                        timestamp: '2026-04-01T20:27:00Z',
+                        event_id: 'evt-video-1',
+                        correlation_key: 'video:evt-video-1',
+                        worker_pool: 'video',
+                        context: { timeout_seconds: 30 }
+                    }
+                ]
+            },
+            focused_diagnostics: {
+                video_classifier: {
+                    circuit_open: true,
+                    open_until: '2026-04-01T20:42:13.797562+00:00',
+                    failure_count: 5,
+                    pending: 69,
+                    active: 1,
+                    latest_circuit_opened: {
+                        id: 'diag-video-open',
+                        component: 'auto_video_classifier',
+                        reason_code: 'video_circuit_opened',
+                        severity: 'error',
+                        message: 'Video classification circuit opened after repeated failures',
+                        timestamp: '2026-04-01T20:28:00Z',
+                        context: { last_error: 'video_timeout', failure_count: 5 }
+                    },
+                    recent_events: [
+                        {
+                            id: 'diag-video-open',
+                            component: 'auto_video_classifier',
+                            reason_code: 'video_circuit_opened',
+                            severity: 'error',
+                            message: 'Video classification circuit opened after repeated failures',
+                            timestamp: '2026-04-01T20:28:00Z',
+                            context: { last_error: 'video_timeout', failure_count: 5 }
+                        }
+                    ]
+                }
+            },
+            health: {
+                status: 'degraded'
+            },
+            startup_warnings: []
+        } as any);
+
+        expect(payload.backend_diagnostics).toMatchObject({
+            returned_events: 2,
+            events: expect.any(Array)
+        });
+        expect(payload.focused_diagnostics).toMatchObject({
+            video_classifier: {
+                circuit_open: true,
+                failure_count: 5,
+                latest_circuit_opened: {
+                    context: { last_error: 'video_timeout' }
+                }
+            }
+        });
+    });
+
     it('captures bundle report notes without clearing live diagnostics', () => {
         jobDiagnosticsStore.recordError({
             source: 'runtime',
