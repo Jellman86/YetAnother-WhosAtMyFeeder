@@ -42,6 +42,7 @@
             0
         )
     );
+    let latestBundle = $derived(bundles[0] ?? null);
 
     $effect(() => {
         if (!selectedIncidentId && allIncidents[0]) {
@@ -124,6 +125,33 @@
 
     function downloadBundle(bundle: JobDiagnosticBundle) {
         jobDiagnosticsStore.downloadBundle(bundle.id);
+    }
+
+    function bundleReport(bundle: JobDiagnosticBundle): { notes: string | null; generatedAt: string | null } {
+        const report = bundle.payload && typeof bundle.payload === 'object'
+            ? (bundle.payload as Record<string, unknown>).report
+            : null;
+        const reportObject = report && typeof report === 'object' ? report as Record<string, unknown> : null;
+        const notes = reportObject && typeof reportObject.notes === 'string'
+            ? reportObject.notes.trim()
+            : '';
+        const generatedAt = reportObject && typeof reportObject.generated_at === 'string'
+            ? reportObject.generated_at.trim()
+            : '';
+        return {
+            notes: notes.length > 0 ? notes : null,
+            generatedAt: generatedAt.length > 0 ? generatedAt : null
+        };
+    }
+
+    function bundleSummaryText(bundle: JobDiagnosticBundle): string {
+        return `${bundle.summary.error_groups.toLocaleString()} groups • ${bundle.summary.total_events.toLocaleString()} events • ${bundle.summary.health_snapshots.toLocaleString()} snapshots`;
+    }
+
+    function bundleNotesPreview(bundle: JobDiagnosticBundle): string | null {
+        const notes = bundleReport(bundle).notes;
+        if (!notes) return null;
+        return notes.length > 140 ? `${notes.slice(0, 137)}...` : notes;
     }
 
     async function copyIssueSummary() {
@@ -380,39 +408,92 @@
             </div>
         </div>
 
-        {#if bundles.length === 0}
-            <p class="text-xs text-slate-500">{$_('jobs.error_bundles_empty', { default: 'No saved bundles yet.' })}</p>
+        {#if latestBundle}
+            <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                                Saved locally
+                            </span>
+                            <span class="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                Latest Bundle Ready
+                            </span>
+                        </div>
+                        <h4 class="mt-3 truncate text-lg font-semibold text-slate-900 dark:text-white">{latestBundle.label}</h4>
+                        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            Captured {formatDateTime(latestBundle.createdAt)}
+                        </p>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{bundleSummaryText(latestBundle)}</p>
+                        {#if bundleNotesPreview(latestBundle)}
+                            <p class="mt-3 rounded-2xl bg-white/75 px-3 py-2 text-xs text-slate-600 dark:bg-slate-950/40 dark:text-slate-200">
+                                <span class="font-black uppercase tracking-wider text-slate-400">Notes</span>
+                                <span class="ml-2">{bundleNotesPreview(latestBundle)}</span>
+                            </p>
+                        {/if}
+                    </div>
+                    <div class="flex flex-col gap-2 sm:items-end">
+                        <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={() => downloadBundle(latestBundle)}>
+                            Download Latest
+                        </button>
+                        <button type="button" class="btn btn-secondary px-4 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(latestBundle.id)}>
+                            Delete Latest
+                        </button>
+                    </div>
+                </div>
+            </div>
         {:else}
-            <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {#each bundles as bundle (bundle.id)}
-                    <div class="py-3 px-2">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
+                No captured bundles available yet.
+            </div>
+        {/if}
+
+        <div class="mt-5 flex items-center justify-between gap-3">
+            <div>
+                <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">Saved Bundles</h4>
+                <p class="text-xs text-slate-500">Distinct snapshots stay local until you download or delete them.</p>
+            </div>
+            <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
+                {bundles.length.toLocaleString()} saved
+            </span>
+        </div>
+
+        {#if bundles.length === 0}
+            <p class="mt-3 text-xs text-slate-500">No captured bundles available yet.</p>
+        {:else}
+            <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {#each bundles as bundle, index (bundle.id)}
+                    <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
+                        <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{bundle.label}</p>
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    {#if index === 0}
+                                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                            Newest
+                                        </span>
+                                    {/if}
+                                    <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
+                                </div>
+                                <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                     {formatDateTime(bundle.createdAt)}
                                 </p>
-                                <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">
-                                    {$_('jobs.error_bundles_stats', {
-                                        values: {
-                                            groups: bundle.summary.error_groups.toLocaleString(),
-                                            events: bundle.summary.total_events.toLocaleString(),
-                                            snapshots: bundle.summary.health_snapshots.toLocaleString()
-                                        },
-                                        default: '{groups} groups • {events} events • {snapshots} snapshots'
-                                    })}
-                                </p>
+                                <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>
+                                {#if bundleNotesPreview(bundle)}
+                                    <p class="mt-3 line-clamp-3 text-xs text-slate-600 dark:text-slate-200">
+                                        {bundleNotesPreview(bundle)}
+                                    </p>
+                                {/if}
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
                                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => downloadBundle(bundle)}>
-                                    {$_('jobs.error_bundles_download', { default: 'Download' })}
+                                    Download
                                 </button>
                                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                    {$_('jobs.error_bundles_delete', { default: 'Delete' })}
+                                    Delete
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </article>
                 {/each}
             </div>
         {/if}

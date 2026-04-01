@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { jobDiagnosticsStore } from './job_diagnostics.svelte';
+import errorsPageSource from '../pages/Errors.svelte?raw';
 
 describe('jobDiagnosticsStore', () => {
     beforeEach(() => {
@@ -641,5 +642,13 @@ describe('jobDiagnosticsStore', () => {
 
         jobDiagnosticsStore.clearBundles();
         expect(jobDiagnosticsStore.bundles.length).toBe(0);
+    });
+
+    it('renders a prominent latest-bundle card and clear saved-bundle library copy', () => {
+        expect(errorsPageSource).toContain('Latest Bundle Ready');
+        expect(errorsPageSource).toContain('Download Latest');
+        expect(errorsPageSource).toContain('Newest');
+        expect(errorsPageSource).toContain('No captured bundles available yet.');
+        expect(errorsPageSource).toContain('Saved locally');
     });
 });
