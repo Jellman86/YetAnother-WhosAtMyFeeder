@@ -141,3 +141,10 @@ When reporting results, include:
 1. Command used (redact tokens/secrets).
 2. `summary.json` status + failure reasons (if any).
 3. Relevant `samples.ndjson` window around any reported stall incident.
+
+If natural feeder traffic is quiet, prefer replay mode against a reachable Frigate API:
+
+1. Pass `--frigate-api-url <base_url>`.
+2. Pass an owner JWT with `--auth-token <token>`.
+3. Use `--replay-unsaved-frigate-limit 1` to replay a real unsaved Frigate bird event with snapshot.
+4. Disable continuous synthetic publishers with `--disable-frigate-publisher --disable-birdnet-publisher` when you want a clean persistence-only proof.

@@ -136,3 +136,66 @@ def test_build_mosquitto_pub_command_includes_auth_and_payload():
         '-t', 'frigate/events',
         '-m', '{"ok":true}',
     ]
+
+
+def test_build_frigate_replay_payload_uses_real_event_fields_and_defaults():
+    payload = json.loads(
+        soak._build_frigate_replay_payload(
+            {
+                'id': 'evt-123',
+                'camera': 'BirdCam',
+                'label': 'bird',
+                'start_time': 123.4,
+                'end_time': 125.6,
+                'sub_label': None,
+                'top_score': None,
+                'score': None,
+                'false_positive': None,
+            }
+        )
+    )
+
+    assert payload == {
+        'type': 'new',
+        'after': {
+            'id': 'evt-123',
+            'camera': 'BirdCam',
+            'label': 'bird',
+            'start_time': 123.4,
+            'end_time': 125.6,
+            'false_positive': False,
+            'top_score': 0.99,
+        },
+    }
+
+
+def test_select_unsaved_replay_ids_filters_to_bird_snapshot_events_not_already_saved():
+    selected = soak._select_unsaved_replay_ids(
+        [
+            {'id': 'saved-bird', 'label': 'bird', 'has_snapshot': True},
+            {'id': 'missing-snapshot', 'label': 'bird', 'has_snapshot': False},
+            {'id': 'cat-event', 'label': 'cat', 'has_snapshot': True},
+            {'id': 'bird-1', 'label': 'bird', 'has_snapshot': True},
+            {'id': 'bird-2', 'label': 'bird', 'has_snapshot': True},
+        ],
+        existing_event_ids={'saved-bird'},
+        limit=2,
+    )
+
+    assert selected == ['bird-1', 'bird-2']
+
+
+def test_evaluate_replay_event_results_only_requires_new_targets():
+    result = soak._evaluate_replay_event_results(
+        requested_event_ids=['already-saved', 'new-a', 'new-b'],
+        existing_before={'already-saved'},
+        existing_after={'already-saved', 'new-a'},
+    )
+
+    assert result == {
+        'requested_event_ids': ['already-saved', 'new-a', 'new-b'],
+        'target_event_ids': ['new-a', 'new-b'],
+        'saved_event_ids': ['new-a'],
+        'missing_event_ids': ['new-b'],
+        'passed': False,
+    }
