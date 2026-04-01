@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** The Home Assistant integration no longer treats `Last Bird Detected` as a plain species-name-only state for repeated detections. The sensor now only emits when a new detection event arrives, so repeat visits from the same species do not get silently swallowed by unchanged coordinator polls.
+- **Added:** Home Assistant now exposes `Last Detection Event` and `Last Detection Time` sensors. These provide stable automation triggers for every new detection and a proper timestamp entity instead of relying on raw string attributes.
+
 - **Changed:** Browser E2E smoke tests now accept `YAWAMF_BASE_URL` for monolith runs instead of assuming the legacy split-stack `yawamf-frontend` hostname, and the leaderboard inspection smoke test now expects the raw histogram default instead of the old area-chart default.
 - **Fixed:** MQTT stall-recovery reconnects no longer get stuck in a clean reconnect loop. When the watchdog intentionally disconnects a stalled MQTT session, the client now clears its pending reconnect flag on the normal post-loop path as well as the `MqttError` path, preventing the monolith from reconnecting endlessly without ever consuming new Frigate or BirdNET messages. This restores recent-audio freshness and normal MQTT topic counters after a stall-recovery event.
 - **Changed:** The leaderboard page now opens the `Detections over time` chart in raw histogram mode by default, with smoothing disabled until the user opts in through the existing chart controls.

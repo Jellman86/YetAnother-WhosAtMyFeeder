@@ -39,19 +39,39 @@ If you change your server address (for example, moving from direct IP to a rever
 
 | Sensor | Description |
 |--------|-------------|
-| **Last Bird Detected** | The name of the most recent visitor. Attributes include camera, confidence, temperature, and weather. |
+| **Last Bird Detected** | The name of the most recent visitor. This sensor now only emits a Home Assistant state update when a new detection event arrives, so repeated visits from the same species can still drive automations reliably. Attributes include camera, confidence, temperature, and weather. |
+| **Last Detection Event** | The raw YA-WAMF/Frigate event ID for the most recent detection. Use this as the safest trigger when you want an automation to fire for every new detection, regardless of species. |
+| **Last Detection Time** | A proper Home Assistant timestamp entity for the most recent detection time. |
 | **Daily Count** | A counter for how many birds have visited since midnight. |
 | **Latest Snapshot** | (Optional) A camera entity showing the last detected bird. |
 
 ## Automation Example
-You can use the sensors to trigger automations, like flashing a light when a Cardinal arrives:
+For automations that should fire on every new detection, prefer the event sensor:
+
+```yaml
+alias: "Notify on Every New Bird Detection"
+trigger:
+  - platform: state
+    entity_id: sensor.yawamf_last_detection_event
+action:
+  - service: notify.mobile_app
+    data:
+      message: >
+        New bird detected:
+        {{ state_attr('sensor.yawamf_last_detection_event', 'species') }}
+```
+
+If you only care about a specific species, you can still filter on the species name:
 
 ```yaml
 alias: "Notify on Cardinal"
 trigger:
   - platform: state
-    entity_id: sensor.yawamf_last_bird
-    to: "Northern Cardinal"
+    entity_id: sensor.yawamf_last_detection_event
+condition:
+  - condition: template
+    value_template: >
+      {{ state_attr('sensor.yawamf_last_detection_event', 'species') == 'Northern Cardinal' }}
 action:
   - service: notify.mobile_app
     data:
