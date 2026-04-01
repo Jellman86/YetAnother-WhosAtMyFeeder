@@ -176,7 +176,9 @@ async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(cli
     settings.public_access.enabled = False
 
     event_id = f"stats-time-{uuid.uuid4().hex[:8]}"
-    await _insert_detection_at_timestamp(event_id, "2026-03-31 10:23:25.446665")
+    today = datetime.now(timezone.utc).date()
+    naive_today_timestamp = f"{today.isoformat()} 10:23:25.446665"
+    await _insert_detection_at_timestamp(event_id, naive_today_timestamp)
 
     try:
         response = await client.get("/api/stats/daily-summary")
@@ -185,7 +187,7 @@ async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(cli
 
         latest = payload["latest_detection"]
         assert latest["frigate_event"] == event_id
-        assert latest["detection_time"] == "2026-03-31T10:23:25.446665Z"
+        assert latest["detection_time"] == f"{today.isoformat()}T10:23:25.446665Z"
     finally:
         await _delete_detection(event_id)
 
