@@ -687,6 +687,7 @@ async def health_check():
         )
         or startup_warnings
         or mqtt_health.get("pressure_level") in {"high", "critical"}
+        or bool(mqtt_health.get("stall_recovery_warning_active"))
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
         or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0

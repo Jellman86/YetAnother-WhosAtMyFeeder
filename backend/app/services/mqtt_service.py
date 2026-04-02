@@ -8,6 +8,7 @@ import random
 import time
 from aiomqtt import Client, MqttError
 from app.config import settings
+from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -43,6 +44,7 @@ class MQTTService:
         self._topic_message_counts_lifetime: dict[str, int] = {}
         self._connection_started_monotonic: float | None = None
         self._topic_liveness_reconnects = 0
+        self._stall_recovery_consecutive_no_frigate_reconnects = 0
         self._last_reconnect_reason: str | None = None
         self._intentional_reconnect: bool = False
         # Simplified Client ID: yawamf-{git_hash}
@@ -103,6 +105,8 @@ class MQTTService:
             "frigate_topic_stale_seconds": MQTT_FRIGATE_TOPIC_STALE_SECONDS,
             "topic_liveness_reconnects": self._topic_liveness_reconnects,
             "last_reconnect_reason": self._last_reconnect_reason,
+            "stall_recovery_consecutive_no_frigate_reconnects": self._stall_recovery_consecutive_no_frigate_reconnects,
+            "stall_recovery_warning_active": self._stall_recovery_consecutive_no_frigate_reconnects > 0,
             "intentional_reconnect_pending": self._intentional_reconnect,
         }
 
@@ -139,12 +143,57 @@ class MQTTService:
 
     def _record_topic_message(self, topic: str, now: float | None = None) -> None:
         ts = now if now is not None else self._now_monotonic()
+        frigate_topic = f"{settings.frigate.main_topic}/events"
+        if (
+            topic == frigate_topic
+            and self._topic_message_counts.get(topic, 0) <= 0
+            and self._stall_recovery_consecutive_no_frigate_reconnects > 0
+        ):
+            log.info(
+                "Frigate traffic resumed after stalled MQTT recovery",
+                consecutive_reconnects_without_frigate=self._stall_recovery_consecutive_no_frigate_reconnects,
+            )
+            self._stall_recovery_consecutive_no_frigate_reconnects = 0
         self._topic_last_message_monotonic[topic] = ts
         self._topic_message_counts[topic] = self._topic_message_counts.get(topic, 0) + 1
         self._topic_message_counts_lifetime[topic] = self._topic_message_counts_lifetime.get(topic, 0) + 1
 
     def _topic_count_lifetime(self, topic: str) -> int:
         return int(self._topic_message_counts_lifetime.get(topic, 0) or 0)
+
+    def _note_stall_reconnect(
+        self,
+        *,
+        reason: str,
+        now: float,
+        frigate_topic: str,
+        birdnet_topic: str,
+        no_frigate_after_previous_reconnect: bool,
+    ) -> None:
+        self._topic_liveness_reconnects += 1
+        self._last_reconnect_reason = reason
+        if not no_frigate_after_previous_reconnect:
+            return
+
+        self._stall_recovery_consecutive_no_frigate_reconnects += 1
+        error_diagnostics_history.record(
+            source="mqtt",
+            component="mqtt_service",
+            reason_code="frigate_recovery_no_frigate_resume",
+            message="Frigate topic still absent after a stall-recovery reconnect; reconnecting again while BirdNET remains active.",
+            severity="error" if self._stall_recovery_consecutive_no_frigate_reconnects >= 2 else "warning",
+            context={
+                "consecutive_reconnects_without_frigate": self._stall_recovery_consecutive_no_frigate_reconnects,
+                "connection_uptime_seconds": round(
+                    max(0.0, now - self._connection_started_monotonic),
+                    1,
+                ) if self._connection_started_monotonic is not None else None,
+                "birdnet_messages_seen": self._topic_message_counts.get(birdnet_topic, 0),
+                "frigate_messages_seen": self._topic_message_counts.get(frigate_topic, 0),
+                "last_reconnect_reason": reason,
+            },
+            correlation_key="mqtt:frigate_recovery_no_resume",
+        )
 
     def _topic_age_seconds(self, topic: str, now: float | None = None) -> float | None:
         last = self._topic_last_message_monotonic.get(topic)
@@ -374,8 +423,13 @@ class MQTTService:
             await asyncio.sleep(MQTT_WATCHDOG_INTERVAL_SECONDS)
             now = self._now_monotonic()
             if self._should_reconnect_independent(frigate_topic, now):
-                self._topic_liveness_reconnects += 1
-                self._last_reconnect_reason = "frigate_topic_stalled_watchdog"
+                self._note_stall_reconnect(
+                    reason="frigate_topic_stalled_watchdog",
+                    now=now,
+                    frigate_topic=frigate_topic,
+                    birdnet_topic=settings.frigate.audio_topic,
+                    no_frigate_after_previous_reconnect=False,
+                )
                 log.warning(
                     "Watchdog: Frigate topic stalled; forcing MQTT reconnection",
                     frigate_silence_seconds=round(
@@ -476,25 +530,49 @@ class MQTTService:
                                 await self._wait_for_handler_slot()
                                 self._schedule_audio_message(event_processor, message.payload)
                                 now = self._now_monotonic()
+                                no_frigate_after_previous_reconnect = bool(
+                                    self._topic_message_counts.get(frigate_topic, 0) <= 0
+                                    and self._topic_count_lifetime(frigate_topic) > 0
+                                    and self._last_reconnect_reason in {"frigate_topic_stalled", "frigate_topic_stalled_watchdog"}
+                                    and self._connection_started_monotonic is not None
+                                    and now - self._connection_started_monotonic >= MQTT_FRIGATE_TOPIC_STALE_SECONDS
+                                )
                                 if self._should_reconnect_for_stalled_frigate_topic(
                                     frigate_topic=frigate_topic,
                                     birdnet_topic=birdnet_topic,
                                     now=now,
                                 ):
-                                    self._topic_liveness_reconnects += 1
-                                    self._last_reconnect_reason = "frigate_topic_stalled"
-                                    log.warning(
-                                        "Frigate topic appears stalled while BirdNET remains active; reconnecting MQTT session",
-                                        frigate_silence_seconds=round(
-                                            self._topic_age_seconds(frigate_topic, now) or 0.0, 1
-                                        ),
-                                        birdnet_last_message_seconds_ago=round(
-                                            self._topic_age_seconds(birdnet_topic, now) or 0.0, 1
-                                        ),
-                                        birdnet_messages_seen=self._topic_message_counts.get(birdnet_topic, 0),
-                                        frigate_messages_seen=self._topic_message_counts.get(frigate_topic, 0),
-                                        stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
+                                    self._note_stall_reconnect(
+                                        reason="frigate_topic_stalled",
+                                        now=now,
+                                        frigate_topic=frigate_topic,
+                                        birdnet_topic=birdnet_topic,
+                                        no_frigate_after_previous_reconnect=no_frigate_after_previous_reconnect,
                                     )
+                                    if no_frigate_after_previous_reconnect:
+                                        log.warning(
+                                            "Frigate topic still absent after prior stall recovery; reconnecting MQTT session again",
+                                            frigate_silence_seconds=round(MQTT_FRIGATE_TOPIC_STALE_SECONDS, 1),
+                                            birdnet_last_message_seconds_ago=round(
+                                                self._topic_age_seconds(birdnet_topic, now) or 0.0, 1
+                                            ),
+                                            birdnet_messages_seen=self._topic_message_counts.get(birdnet_topic, 0),
+                                            consecutive_reconnects_without_frigate=self._stall_recovery_consecutive_no_frigate_reconnects,
+                                            stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
+                                        )
+                                    else:
+                                        log.warning(
+                                            "Frigate topic appears stalled while BirdNET remains active; reconnecting MQTT session",
+                                            frigate_silence_seconds=round(
+                                                self._topic_age_seconds(frigate_topic, now) or 0.0, 1
+                                            ),
+                                            birdnet_last_message_seconds_ago=round(
+                                                self._topic_age_seconds(birdnet_topic, now) or 0.0, 1
+                                            ),
+                                            birdnet_messages_seen=self._topic_message_counts.get(birdnet_topic, 0),
+                                            frigate_messages_seen=self._topic_message_counts.get(frigate_topic, 0),
+                                            stale_threshold_seconds=MQTT_FRIGATE_TOPIC_STALE_SECONDS,
+                                        )
                                     break
                         self.client = None
                     finally:
@@ -556,6 +634,7 @@ class MQTTService:
         self._topic_last_message_monotonic = {}
         self._topic_message_counts = {}
         self._topic_message_counts_lifetime = {}
+        self._stall_recovery_consecutive_no_frigate_reconnects = 0
 
     def pause(self):
         self.paused = True

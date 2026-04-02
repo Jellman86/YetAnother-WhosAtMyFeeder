@@ -1,6 +1,7 @@
 import importlib.util
 import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 
 SCRIPT_PATH = Path("/config/workspace/YA-WAMF/scripts/run_issue33_harness.py")
@@ -39,6 +40,111 @@ def test_build_thresholds_defaults_to_zero_frigate_growth_requirement():
     thresholds = issue33._build_thresholds(args)
 
     assert thresholds.min_frigate_messages_delta == 0
+
+
+def test_resolve_auth_token_prefers_explicit_token():
+    args = issue33._build_arg_parser().parse_args(["--auth-token", "abc123"])
+
+    token = issue33._resolve_auth_token(args)
+
+    assert token == "abc123"
+
+
+def test_resolve_auth_token_logs_in_with_username_and_password(monkeypatch):
+    args = issue33._build_arg_parser().parse_args(
+        [
+            "--backend-url",
+            "http://example",
+            "--username",
+            "owner",
+            "--password",
+            "secret123",
+        ]
+    )
+
+    monkeypatch.setattr(issue33, "_login_for_owner_token", lambda **kwargs: "jwt-token")
+
+    token = issue33._resolve_auth_token(args)
+
+    assert token == "jwt-token"
+
+
+def test_login_for_owner_token_uses_api_login_endpoint(monkeypatch):
+    captured: dict = {}
+
+    class _FakeResponse:
+        def read(self):
+            return b'{"access_token":"jwt"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def _fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["method"] = request.get_method()
+        captured["body"] = request.data.decode("utf-8")
+        captured["timeout"] = timeout
+        return _FakeResponse()
+
+    monkeypatch.setattr(issue33, "urlopen", _fake_urlopen)
+
+    token = issue33._login_for_owner_token(
+        backend_url="http://example",
+        username="owner",
+        password="secret123",
+        timeout_seconds=7.5,
+    )
+
+    assert token == "jwt"
+    assert captured["url"] == "http://example/api/auth/login"
+    assert captured["method"] == "POST"
+    assert '"username": "owner"' in captured["body"]
+    assert captured["timeout"] == 7.5
+
+
+def test_login_for_owner_token_raises_readable_error_on_http_failure(monkeypatch):
+    def _fake_urlopen(_request, timeout=None):
+        raise HTTPError(
+            url="http://example/api/auth/login",
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(issue33, "urlopen", _fake_urlopen)
+
+    try:
+        issue33._login_for_owner_token(
+            backend_url="http://example",
+            username="owner",
+            password="wrong",
+            timeout_seconds=7.5,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "HTTP 401" in str(exc)
+
+
+def test_login_for_owner_token_raises_readable_error_on_transport_failure(monkeypatch):
+    def _fake_urlopen(_request, timeout=None):
+        raise URLError("connection refused")
+
+    monkeypatch.setattr(issue33, "urlopen", _fake_urlopen)
+
+    try:
+        issue33._login_for_owner_token(
+            backend_url="http://example",
+            username="owner",
+            password="secret123",
+            timeout_seconds=7.5,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "connection refused" in str(exc)
 
 
 def test_should_stop_frigate_publisher_after_configured_delay():

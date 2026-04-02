@@ -12,6 +12,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -37,6 +39,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--health-path", default="/health")
     parser.add_argument("--analysis-path", default="/api/maintenance/analyze-unknowns")
     parser.add_argument("--auth-token", default=os.getenv("SOAK_AUTH_TOKEN"))
+    parser.add_argument("--username", default=os.getenv("SOAK_USERNAME"))
+    parser.add_argument("--password", default=os.getenv("SOAK_PASSWORD"))
+    parser.add_argument("--login-path", default="/api/auth/login")
     parser.add_argument("--duration-seconds", type=int, default=900)
     parser.add_argument("--poll-interval-seconds", type=float, default=5.0)
     parser.add_argument("--http-timeout-seconds", type=float, default=5.0)
@@ -120,10 +125,89 @@ def _normalize_issue33_evaluation(
     return normalized
 
 
+def _request_json_with_body(
+    method: str,
+    url: str,
+    timeout_seconds: float,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    body = json.dumps(payload).encode("utf-8")
+    request = Request(
+        url=url,
+        method=method.upper(),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        data=body,
+    )
+    with urlopen(request, timeout=timeout_seconds) as response:
+        response_payload = response.read()
+    return json.loads(response_payload.decode("utf-8"))
+
+
+def _login_for_owner_token(
+    *,
+    backend_url: str,
+    username: str,
+    password: str,
+    timeout_seconds: float,
+    login_path: str = "/api/auth/login",
+) -> str:
+    url = urljoin(f"{backend_url.rstrip('/')}/", login_path.lstrip("/"))
+    try:
+        payload = _request_json_with_body(
+            "POST",
+            url,
+            timeout_seconds,
+            {
+                "username": username,
+                "password": password,
+            },
+        )
+    except HTTPError as exc:
+        raise ValueError(
+            f"Owner login failed with HTTP {exc.code} at {url}"
+        ) from exc
+    except URLError as exc:
+        raise ValueError(f"Owner login request failed for {url}: {exc.reason}") from exc
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Owner login returned an invalid JSON response from {url}") from exc
+    token = str(payload.get("access_token") or "").strip()
+    if not token:
+        raise ValueError("Login response did not include access_token")
+    return token
+
+
+def _resolve_auth_token(args: argparse.Namespace) -> str | None:
+    explicit_token = str(args.auth_token or "").strip()
+    if explicit_token:
+        return explicit_token
+
+    username = str(args.username or "").strip()
+    password = str(args.password or "")
+    if not username and not password:
+        return None
+    if not username or not password:
+        raise ValueError("Both --username and --password are required when using credential-based login")
+
+    return _login_for_owner_token(
+        backend_url=args.backend_url,
+        username=username,
+        password=password,
+        timeout_seconds=args.http_timeout_seconds,
+        login_path=args.login_path,
+    )
+
+
 def main() -> int:
     parser = _build_arg_parser()
     args = parser.parse_args()
     thresholds = _build_thresholds(args)
+    try:
+        auth_token = _resolve_auth_token(args)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     run_started_at = base_soak._now_utc()
     run_label = run_started_at.strftime("%Y%m%d-%H%M%S")
@@ -230,7 +314,7 @@ def main() -> int:
             payload = base_soak._fetch_health(
                 backend_url=args.backend_url,
                 health_path=args.health_path,
-                token=args.auth_token,
+                token=auth_token,
                 timeout_seconds=args.http_timeout_seconds,
             )
             sample = sample_from_health_payload(payload, observed_at=observed_at)
@@ -253,7 +337,7 @@ def main() -> int:
                 response = base_soak._trigger_unknown_analysis(
                     backend_url=args.backend_url,
                     analysis_path=args.analysis_path,
-                    token=args.auth_token,
+                    token=auth_token,
                     timeout_seconds=args.http_timeout_seconds,
                 )
                 trigger_result = {
@@ -300,6 +384,7 @@ def main() -> int:
             "backend_url": args.backend_url,
             "health_path": args.health_path,
             "analysis_path": args.analysis_path,
+            "login_path": args.login_path,
             "duration_seconds": args.duration_seconds,
             "poll_interval_seconds": args.poll_interval_seconds,
             "trigger_analysis_interval_seconds": args.trigger_analysis_interval_seconds,
@@ -315,6 +400,8 @@ def main() -> int:
             "frigate_false_positive": args.frigate_false_positive,
             "frigate_publish_interval_seconds": args.frigate_publish_interval_seconds,
             "birdnet_publish_interval_seconds": args.birdnet_publish_interval_seconds,
+            "username": args.username,
+            "used_auth_token": bool(auth_token),
             "thresholds": asdict(thresholds),
         },
         "publishers": {

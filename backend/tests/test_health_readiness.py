@@ -87,6 +87,31 @@ async def test_health_degraded_when_notification_dispatcher_has_drops(
 
 
 @pytest.mark.asyncio
+async def test_health_degraded_when_mqtt_stall_recovery_warning_active(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(
+            get_status=lambda: {
+                "pressure_level": "normal",
+                "stall_recovery_warning_active": True,
+                "stall_recovery_consecutive_no_frigate_reconnects": 2,
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["mqtt"]["stall_recovery_warning_active"] is True
+
+
+@pytest.mark.asyncio
 async def test_health_includes_event_pipeline_status(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

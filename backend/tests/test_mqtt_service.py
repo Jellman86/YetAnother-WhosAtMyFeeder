@@ -304,6 +304,49 @@ def test_should_reconnect_when_birdnet_stays_active_after_stall_reconnect(monkey
     assert should_reconnect is True
 
 
+def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._topic_liveness_reconnects = 1
+    service._last_reconnect_reason = "frigate_topic_stalled"
+    service._topic_message_counts = {
+        "frigate/events": 0,
+        "birdnet/detections": 24,
+    }
+
+    recorded: list[dict] = []
+
+    def _record(**kwargs):
+        recorded.append(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", _record)
+
+    service._note_stall_reconnect(
+        reason="frigate_topic_stalled",
+        now=410.0,
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        no_frigate_after_previous_reconnect=True,
+    )
+
+    status = service.get_status()
+    assert service._topic_liveness_reconnects == 2
+    assert status["stall_recovery_consecutive_no_frigate_reconnects"] == 1
+    assert status["stall_recovery_warning_active"] is True
+    assert recorded[0]["reason_code"] == "frigate_recovery_no_frigate_resume"
+
+
+def test_first_frigate_message_after_reconnect_warning_resets_counter(monkeypatch):
+    service = MQTTService("test+abc123")
+    service._stall_recovery_consecutive_no_frigate_reconnects = 2
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+
+    service._record_topic_message("frigate/events", now=123.0)
+
+    assert service._stall_recovery_consecutive_no_frigate_reconnects == 0
+
+
 # --- _should_reconnect_independent tests ---
 
 
