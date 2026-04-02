@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Strengthen the Events explorer multi-select state by replacing the weak corner-led selection treatment with a full selected-card cyan overlay and a more visible frame.
+**Goal:** Strengthen the Events explorer multi-select state by replacing the weak corner-led selection treatment with a full selected-card cyan-blue veil, a centered checkmark, and a clearly visible outer frame.
 
-**Architecture:** Keep selection behavior unchanged in `Events.svelte`. Refine only the card rendering in `DetectionCard.svelte` and the related source-level UI tests so the selected state is communicated primarily by the card surface and border, with the icon acting as confirmation.
+**Architecture:** Keep selection behavior unchanged in `Events.svelte`. Refine only the card rendering in `DetectionCard.svelte` and the related source-level UI tests so the selected state is communicated by an outer wrapper frame plus a full-card obscuring overlay above existing card content.
 
 **Tech Stack:** Svelte 5, TypeScript, Tailwind utilities, Vitest, svelte-check.
 
@@ -19,9 +19,10 @@
 
 Add assertions that selected cards now include:
 
-- a stronger cyan frame/ring
-- a selected-only overlay element over the image area
-- no regression back to the old text-based selector
+- a stronger outer cyan frame/ring
+- a selected-only overlay element above the card content
+- a centered checkmark
+- no regression back to the old corner selector or text-based selector
 
 **Step 2: Run test to verify it fails**
 
@@ -31,7 +32,7 @@ Run:
 npm --prefix /config/workspace/YA-WAMF/apps/ui test -- src/lib/components/detection-card-full-visit.layout.test.ts
 ```
 
-Expected: FAIL because the current card only has the weaker edge selector and light frame.
+Expected: FAIL because the current card still uses the weaker edge-led treatment.
 
 **Step 3: Write minimal implementation**
 
@@ -72,10 +73,10 @@ Expected: FAIL before the card markup is updated.
 
 In `DetectionCard.svelte`:
 
-- strengthen the selected cyan border/ring
-- add a selected-only cyan/blur overlay in the image area
-- keep the selector icon, but style it as a supporting selected-state confirmation
-- ensure the overlay sits below existing badges and action controls
+- move the strong selected ring/frame to the outer wrapper
+- remove the corner selector entirely
+- add a selected-only cyan/blur overlay above the card content
+- add a large centered checkmark above the overlay
 
 **Step 4: Run test to verify it passes**
 
@@ -110,15 +111,16 @@ Expected: PASS
 
 **Step 2: Update changelog**
 
-Adjust the existing Events multi-select note so it describes the stronger cyan frame and selected-card overlay, not just the edge selector.
+Adjust the existing Events multi-select note so it describes the outer frame, centered checkmark, and full-card selected veil, not the previous corner treatment.
 
 **Step 3: Manual review checklist**
 
 Verify that:
 
 - selected cards pop clearly from a grid scan
-- badges and media actions still sit above the overlay cleanly
-- the card does not look disabled or washed out
+- the outer frame is visibly outside the card surface
+- the selected overlay clearly obscures card content
+- the centered checkmark remains readable and balanced
 
 **Step 4: Commit**
 

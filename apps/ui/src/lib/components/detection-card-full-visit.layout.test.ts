@@ -41,11 +41,14 @@ describe('detection card full-visit fetch wiring', () => {
     });
 
     it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
-        expect(detectionCardSource).toContain("border-cyan-300 dark:border-cyan-300/90 ring-4 ring-cyan-400/35");
-        expect(detectionCardSource).toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
-        expect(detectionCardSource).toContain('h-8 w-8 rounded-full border-2');
-        expect(detectionCardSource).toContain("border-cyan-300 bg-cyan-500 text-white shadow-cyan-500/40");
-        expect(detectionCardSource).toContain("{#if selected}\n                <div class=\"absolute inset-0 z-0 bg-cyan-500/14 backdrop-blur-[2px]\"></div>");
+        expect(detectionCardSource).toContain("relative rounded-[2rem] transition-all duration-300 ease-out");
+        expect(detectionCardSource).toContain("? 'ring-4 ring-cyan-500/80 ring-offset-2");
+        expect(detectionCardSource).toContain("{#if selectionMode && selected}");
+        expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none");
+        expect(detectionCardSource).toContain("bg-cyan-500/34 backdrop-blur-md");
+        expect(detectionCardSource).toContain("absolute inset-0 z-50 flex items-center justify-center");
+        expect(detectionCardSource).toContain("class=\"h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]\"");
+        expect(detectionCardSource).not.toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
         expect(detectionCardSource).not.toContain("$_('common.selected', { default: 'Selected' })");
         expect(detectionCardSource).not.toContain("$_('common.select', { default: 'Select' })");
     });

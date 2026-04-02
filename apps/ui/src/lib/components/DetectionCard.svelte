@@ -332,7 +332,12 @@
     }
 </script>
 
-<div class="relative pt-2 pl-2">
+<div
+    class="relative rounded-[2rem] transition-all duration-300 ease-out
+        {selectionMode && selected
+            ? 'ring-4 ring-cyan-500/80 ring-offset-2 ring-offset-cyan-100/80 dark:ring-offset-slate-950/70 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]'
+            : ''}"
+>
     <div
         bind:this={cardElement}
         class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
@@ -344,8 +349,7 @@
                hover:-translate-y-1.5 flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
-               {selected ? 'border-cyan-300 dark:border-cyan-300/90 ring-4 ring-cyan-400/35 dark:ring-cyan-300/25 bg-cyan-50/60 dark:bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.18)] shadow-card-hover dark:shadow-card-dark-hover' : ''}"
+               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <button
@@ -358,25 +362,6 @@
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
         <ReclassificationOverlay progress={reclassifyProgress} small={true} />
-    {/if}
-
-    {#if selectionMode}
-        <div class="absolute -left-1.5 -top-1.5 z-30 pointer-events-none">
-            <div
-                class="inline-flex h-8 w-8 rounded-full border-2 items-center justify-center shadow-lg backdrop-blur-sm
-                    {selected
-                        ? 'border-cyan-300 bg-cyan-500 text-white shadow-cyan-500/40'
-                        : 'border-slate-300/90 dark:border-slate-500/80 bg-white/95 dark:bg-slate-900/95 text-slate-400 dark:text-slate-500 shadow-slate-900/10'}"
-            >
-                {#if selected}
-                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-                        <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
-                    </svg>
-                {:else}
-                    <span class="inline-block h-2.5 w-2.5 rounded-full border-2 border-current"></span>
-                {/if}
-            </div>
-        </div>
     {/if}
 
     <!-- Image Section -->
@@ -397,10 +382,6 @@
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            {#if selected}
-                <div class="absolute inset-0 z-0 bg-cyan-500/14 backdrop-blur-[2px]"></div>
-                <div class="absolute inset-0 z-0 bg-gradient-to-br from-cyan-300/18 via-transparent to-cyan-500/14"></div>
-            {/if}
 
         {:else}
             <div class="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
@@ -741,5 +722,17 @@
             </div>
         </div>
     </div>
+    {#if selectionMode && selected}
+        <div class="absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none">
+            <div class="absolute inset-0 bg-cyan-500/34 backdrop-blur-md"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-cyan-300/30 via-sky-400/18 to-blue-500/30"></div>
+            <div class="absolute inset-0 bg-slate-950/12 dark:bg-slate-950/26"></div>
+            <div class="absolute inset-0 z-50 flex items-center justify-center">
+                <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                    <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </div>
+        </div>
+    {/if}
     </div>
 </div>

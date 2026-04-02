@@ -4,46 +4,50 @@
 
 **Problem**
 
-The first pass at the Events multi-select redesign removed the text pill, but the remaining corner-only selector still feels too weak. From a grid view, selection does not read strongly enough, and the card frame still does too little of the work.
+The current selected state is still too weak. The corner-led selector is not carrying enough visual weight, the selected frame still competes with inner card layers, and the selected state does not clearly obscure the normal card content the way a proper multi-select state should.
 
 **Goals**
 
 - Make selected cards immediately obvious at a glance.
-- Keep snapshot content readable while giving selected cards a clear visual state.
-- Avoid relying on `Select` / `Selected` words inside each card.
-- Use the card surface itself as the main signal, with the selector icon as confirmation.
+- Move the selection frame outside the card surface so it is never visually buried under internal content.
+- Obscure normal card content on selected cards with a strong frosted cyan-blue veil.
+- Use a single centered checkmark as the selected symbol.
+- Avoid relying on `Select` / `Selected` words or corner controls inside each card.
 
 **Recommended Approach**
 
-Use a full selected-card treatment rather than a corner-only one:
+Use a full-card selected veil:
 
-1. Keep a selector icon, but demote it to a supporting role.
-2. Add a subtle cyan-tinted blurred overlay across the image area for selected cards.
-3. Strengthen the selected border/ring noticeably so it reads from a distance.
-4. Keep unselected cards unchanged during selection mode.
+1. Remove the top-left selector entirely.
+2. Put the strong selected frame on an outer wrapper around the card.
+3. Add a heavier cyan-blue frosted overlay above the card content, not below it.
+4. Place a large centered checkmark above that veil as the only in-card selection symbol.
+5. Keep unselected cards unchanged during selection mode.
 
 **Interaction Model**
 
-- Only selected cards get the cyan veil and stronger frame.
-- Unselected cards remain neutral, so the selected subset is visually prominent without dimming the entire grid.
-- The selector stays icon-only and anchored near the top edge, but the overlay becomes the primary state cue.
+- Only selected cards get the cyan veil and stronger outer frame.
+- The overlay sits above existing badges, labels, and actions so selected cards look intentionally masked.
+- The centered checkmark confirms the selected state without adding any text or extra control chrome.
+- Unselected cards remain neutral, so the chosen subset pops by contrast.
 
 **Visual Direction**
 
-- Use a frosted cyan veil over the media area, not an opaque block.
-- Add a stronger cyan outer ring and border than the current implementation.
-- Keep the overlay below the existing badges and controls so favorite/full-visit/media status remain readable.
-- Use a cleaner selected icon disc that feels integrated with the overlay instead of floating weakly at the corner.
+- Use a frosted cyan-blue veil across the whole card, not just the image area.
+- Match the tint to the existing multi-select cyan/blue used in the explorer toolbar.
+- Put a strong outer ring/frame on the wrapper outside the clipped card body.
+- Use a large standalone checkmark in the center, not a small chip or circle.
 
 **Risks**
 
-- Too much tint can reduce snapshot readability.
-- Too much blur or too strong a ring can make selected cards feel disabled instead of active.
-- If the overlay sits above badges or action controls, it will reintroduce the same visual collisions we just removed.
+- Too much tint or blur can make selected cards feel disabled instead of intentionally selected.
+- An outer frame that is too thin will still disappear visually in the grid.
+- The centered checkmark needs enough contrast to read through the stronger veil.
 
 **Acceptance Criteria**
 
 - Selected cards are clearly identifiable in a dense grid from a quick scan.
-- The selected border/ring is materially stronger than the unselected state.
-- The selected treatment looks intentional and cohesive rather than like a small badge added on top.
-- The selector no longer feels like the only signal carrying the state.
+- The outer blue frame is visibly outside the card surface, not hidden by inner layers.
+- The selected veil sits above all normal card content and intentionally obscures it.
+- The top-left corner selector is gone.
+- A large centered checkmark is the only in-card selected symbol.
