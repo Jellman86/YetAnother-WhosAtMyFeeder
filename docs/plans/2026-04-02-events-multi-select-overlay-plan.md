@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Strengthen the Events explorer multi-select state by replacing the weak corner-led selection treatment with a full selected-card cyan-blue veil, a centered checkmark, and a clearly visible outer frame.
+**Goal:** Strengthen the Events explorer multi-select state by replacing the weak corner-led selection treatment with a full selected-card cyan-blue veil, a centered checkmark, and a clearly visible selected card border.
 
-**Architecture:** Keep selection behavior unchanged in `Events.svelte`. Refine only the card rendering in `DetectionCard.svelte` and the related source-level UI tests so the selected state is communicated by an outer wrapper frame plus a full-card obscuring overlay above existing card content.
+**Architecture:** Keep selection behavior unchanged in `Events.svelte`. Refine only the card rendering in `DetectionCard.svelte` and the related source-level UI tests so the selected state is communicated by the card border itself plus a full-card obscuring overlay above existing card content.
 
 **Tech Stack:** Svelte 5, TypeScript, Tailwind utilities, Vitest, svelte-check.
 
@@ -19,7 +19,7 @@
 
 Add assertions that selected cards now include:
 
-- a stronger outer cyan frame/ring
+- a stronger cyan selected border/ring on the card itself
 - a selected-only overlay element above the card content
 - a centered checkmark
 - no regression back to the old corner selector or text-based selector
@@ -73,7 +73,7 @@ Expected: FAIL before the card markup is updated.
 
 In `DetectionCard.svelte`:
 
-- move the strong selected ring/frame to the outer wrapper
+- move the strong selected state onto the actual card border
 - remove the corner selector entirely
 - add a selected-only cyan/blur overlay above the card content
 - add a large centered checkmark above the overlay
@@ -111,14 +111,14 @@ Expected: PASS
 
 **Step 2: Update changelog**
 
-Adjust the existing Events multi-select note so it describes the outer frame, centered checkmark, and full-card selected veil, not the previous corner treatment.
+Adjust the existing Events multi-select note so it describes the card border, centered checkmark, and full-card selected veil, not the previous corner treatment.
 
 **Step 3: Manual review checklist**
 
 Verify that:
 
 - selected cards pop clearly from a grid scan
-- the outer frame is visibly outside the card surface
+- the selected card border is clearly visible and aligned to the card shape
 - the selected overlay clearly obscures card content
 - the centered checkmark remains readable and balanced
 

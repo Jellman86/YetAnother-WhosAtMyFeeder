@@ -332,12 +332,7 @@
     }
 </script>
 
-<div
-    class="relative rounded-[2rem] transition-all duration-300 ease-out
-        {selectionMode && selected
-            ? 'ring-4 ring-cyan-500/80 ring-offset-2 ring-offset-cyan-100/80 dark:ring-offset-slate-950/70 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]'
-            : ''}"
->
+<div class="relative rounded-[2rem] transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
         class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
@@ -349,7 +344,8 @@
                hover:-translate-y-1.5 flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}"
+               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
+               {selectionMode && selected ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <button
@@ -724,9 +720,9 @@
     </div>
     {#if selectionMode && selected}
         <div class="absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none">
-            <div class="absolute inset-0 bg-cyan-500/34 backdrop-blur-md"></div>
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-300/30 via-sky-400/18 to-blue-500/30"></div>
-            <div class="absolute inset-0 bg-slate-950/12 dark:bg-slate-950/26"></div>
+            <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-cyan-300/22 via-sky-400/14 to-blue-500/22"></div>
+            <div class="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/22"></div>
             <div class="absolute inset-0 z-50 flex items-center justify-center">
                 <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
                     <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>

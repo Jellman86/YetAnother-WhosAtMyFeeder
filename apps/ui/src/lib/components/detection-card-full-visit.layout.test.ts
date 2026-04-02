@@ -42,10 +42,10 @@ describe('detection card full-visit fetch wiring', () => {
 
     it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
         expect(detectionCardSource).toContain("relative rounded-[2rem] transition-all duration-300 ease-out");
-        expect(detectionCardSource).toContain("? 'ring-4 ring-cyan-500/80 ring-offset-2");
+        expect(detectionCardSource).toContain("{selectionMode && selected ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35");
         expect(detectionCardSource).toContain("{#if selectionMode && selected}");
         expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none");
-        expect(detectionCardSource).toContain("bg-cyan-500/34 backdrop-blur-md");
+        expect(detectionCardSource).toContain("bg-cyan-500/24 backdrop-blur-sm");
         expect(detectionCardSource).toContain("absolute inset-0 z-50 flex items-center justify-center");
         expect(detectionCardSource).toContain("class=\"h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]\"");
         expect(detectionCardSource).not.toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
