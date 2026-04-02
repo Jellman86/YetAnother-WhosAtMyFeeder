@@ -281,9 +281,14 @@ async def test_daily_summary_uses_utc_naive_window_for_latest_detection(
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_uses_latest_detection_time_for_species_latest_event(client: httpx.AsyncClient):
+async def test_daily_summary_uses_latest_detection_time_for_species_latest_event(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
     settings.auth.enabled = False
     settings.public_access.enabled = False
+    utc_window_end = datetime(2026, 4, 2, 10, 0, 0)
+    monkeypatch.setattr(stats_router, "utc_naive_now", lambda: utc_window_end, raising=False)
 
     older_event_id = "evt-zulu-older"
     newer_event_id = "evt-alpha-newer"
@@ -291,7 +296,7 @@ async def test_daily_summary_uses_latest_detection_time_for_species_latest_event
 
     await _insert_species_bucket_detection(
         older_event_id,
-        detection_time="2026-04-01 08:00:00",
+        detection_time="2026-04-02 08:00:00",
         taxa_id=taxa_id,
         scientific_name="Cardinalis cardinalis",
         common_name="Northern Cardinal",
@@ -299,7 +304,7 @@ async def test_daily_summary_uses_latest_detection_time_for_species_latest_event
     )
     await _insert_species_bucket_detection(
         newer_event_id,
-        detection_time="2026-04-01 09:00:00",
+        detection_time="2026-04-02 09:00:00",
         taxa_id=taxa_id,
         scientific_name="Cardinalis cardinalis",
         common_name="Northern Cardinal",
@@ -321,14 +326,19 @@ async def test_daily_summary_uses_latest_detection_time_for_species_latest_event
 
 
 @pytest.mark.asyncio
-async def test_daily_summary_unknown_rollup_uses_latest_detection_time_for_latest_event(client: httpx.AsyncClient):
+async def test_daily_summary_unknown_rollup_uses_latest_detection_time_for_latest_event(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
     settings.auth.enabled = False
     settings.public_access.enabled = False
+    utc_window_end = datetime(2026, 4, 2, 10, 0, 0)
+    monkeypatch.setattr(stats_router, "utc_naive_now", lambda: utc_window_end, raising=False)
 
     older_event_id = "evt-zulu-hidden"
     newer_event_id = "evt-alpha-hidden"
 
-    await _insert_detection_at_timestamp(older_event_id, "2026-04-01 08:00:00")
+    await _insert_detection_at_timestamp(older_event_id, "2026-04-02 08:00:00")
     async with get_db() as db:
         await db.execute(
             "UPDATE detections SET display_name = ?, category_name = ?, scientific_name = ?, common_name = ?, taxa_id = NULL WHERE frigate_event = ?",
@@ -343,7 +353,7 @@ async def test_daily_summary_unknown_rollup_uses_latest_detection_time_for_lates
             ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
             """,
             (
-                "2026-04-01 09:00:00",
+                "2026-04-02 09:00:00",
                 1,
                 0.75,
                 "Background",
