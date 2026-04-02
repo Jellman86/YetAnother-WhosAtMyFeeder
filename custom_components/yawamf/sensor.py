@@ -6,7 +6,6 @@ from typing import Any
 
 from homeassistant.components.sensor import (
     SensorEntity,
-    SensorStateClass,
     SensorDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -204,12 +203,11 @@ class YAWAMFLastDetectionTimestampSensor(CoordinatorEntity[YAWAMFDataUpdateCoord
         )
 
 class YAWAMFDailyCountSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], SensorEntity):
-    """Sensor showing total detections today."""
+    """Sensor showing total detections in the rolling 24-hour summary window."""
 
-    _attr_name = "Daily Bird Count"
+    _attr_name = "Bird Count (24h)"
     _attr_unique_id = "daily_bird_count"
     _attr_icon = "mdi:counter"
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = "birds"
     _attr_has_entity_name = True
 
@@ -221,7 +219,14 @@ class YAWAMFDailyCountSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Sen
     @property
     def native_value(self) -> int:
         """Return the state of the sensor."""
-        return self.coordinator.data.get("total_today", 0)
+        value = self.coordinator.data.get("count_24h", 0)
+        return value if isinstance(value, int) else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "window": "rolling_24h",
+        }
 
     @property
     def device_info(self) -> DeviceInfo:

@@ -173,13 +173,18 @@ async def get_daily_summary(
         unknown_labels = settings.classification.unknown_bird_labels
         unknown_count = 0
         latest_unknown_event = None
+        latest_unknown_time = None
         
         summary_species = []
         for s in species_raw:
             if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
                 unknown_count += s["count"]
                 # Keep the absolute latest event ID among unknowns
-                if not latest_unknown_event or s["latest_event"] > latest_unknown_event:
+                candidate_time = s.get("latest_detection_time")
+                if latest_unknown_time is None or (
+                    candidate_time is not None and candidate_time > latest_unknown_time
+                ):
+                    latest_unknown_time = candidate_time
                     latest_unknown_event = s["latest_event"]
             else:
                 common_name = s.get("common_name")

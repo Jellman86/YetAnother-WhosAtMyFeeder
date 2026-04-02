@@ -361,6 +361,26 @@ def test_event_and_timestamp_sensors_expose_latest_detection_state():
     assert timestamp_sensor.native_value == datetime(2026, 4, 1, 11, 22, 33, tzinfo=timezone.utc)
 
 
+def test_daily_count_sensor_models_rolling_24h_measurement_not_monotonic_total():
+    sensor_module = _load_sensor_module()
+    coordinator = _Coordinator(
+        {
+            "display_name": "Blue Jay",
+            "frigate_event": "evt-55",
+            "detection_time": "2026-04-01T11:22:33Z",
+            "camera_name": "deck",
+        }
+    )
+    coordinator.data["count_24h"] = 7
+    coordinator.data.pop("total_today", None)
+
+    sensor = sensor_module.YAWAMFDailyCountSensor(coordinator)
+
+    assert getattr(sensor, "_attr_state_class", None) is None
+    assert "24h" in sensor._attr_name
+    assert sensor.native_value == 7
+
+
 @pytest.mark.asyncio
 async def test_component_polling_populates_sensor_state_from_daily_summary():
     coordinator_module, sensor_module = _load_coordinator_and_sensor_modules()
@@ -397,7 +417,7 @@ async def test_component_polling_populates_sensor_state_from_daily_summary():
     timestamp_sensor = sensor_module.YAWAMFLastDetectionTimestampSensor(coordinator)
 
     assert coordinator.data["latest"]["frigate_event"] == "evt-123"
-    assert coordinator.data["total_today"] == 7
+    assert coordinator.data["count_24h"] == 7
     assert bird_sensor.native_value == "American Goldfinch"
     assert event_sensor.native_value == "evt-123"
     assert timestamp_sensor.native_value == datetime(2026, 4, 1, 19, 31, 45, tzinfo=timezone.utc)

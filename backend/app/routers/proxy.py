@@ -36,6 +36,7 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
 
 router = APIRouter()
@@ -199,14 +200,24 @@ class RecordingClipFetchResponse(BaseModel):
 
 
 def _iso_or_now(value: datetime | None) -> str:
-    return (value or datetime.utcnow()).isoformat()
+    normalized = _normalize_utc_naive(value) or datetime.now(timezone.utc).replace(tzinfo=None)
+    serialized = serialize_api_datetime(normalized)
+    return serialized or ""
+
+
+def _normalize_utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 
 def _build_video_share_link_item(row: tuple[object, ...], now: datetime | None = None) -> VideoShareLinkItemResponse:
-    current = now or datetime.utcnow()
+    current = _normalize_utc_naive(now) or datetime.now(timezone.utc).replace(tzinfo=None)
     link_id, event_id, created_by, watermark_label, created_raw, expires_raw, revoked = row
-    created_at = _parse_db_timestamp(created_raw)
-    expires_at = _parse_db_timestamp(expires_raw)
+    created_at = _normalize_utc_naive(_parse_db_timestamp(created_raw))
+    expires_at = _normalize_utc_naive(_parse_db_timestamp(expires_raw))
 
     if not expires_at:
         expires_at = current
@@ -278,7 +289,7 @@ async def _resolve_video_share_token(share_token: str, event_id: str | None = No
         return None
     if bool(revoked):
         return None
-    if expires_at <= datetime.utcnow():
+    if expires_at <= datetime.now(timezone.utc).replace(tzinfo=None):
         return None
     if event_id and frigate_event != event_id:
         return None

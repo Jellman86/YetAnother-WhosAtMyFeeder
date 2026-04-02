@@ -13,6 +13,7 @@ from app.repositories.ai_conversation_repository import AIConversationRepository
 from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.api_datetime import serialize_api_datetime
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.config import settings
@@ -42,6 +43,12 @@ class ConversationTurnResponse(BaseModel):
 
 class ConversationRequest(BaseModel):
     message: str
+
+
+def _serialize_timestamp(value: datetime | None) -> str:
+    serialized = serialize_api_datetime(value)
+    return serialized or ""
+
 
 def _compute_config_key(config: dict) -> str:
     payload = json.dumps(config, sort_keys=True).encode("utf-8")
@@ -152,7 +159,7 @@ async def get_leaderboard_analysis(
             return Response(status_code=204)
         return LeaderboardAnalysisResponse(
             analysis=entry.analysis,
-            analysis_timestamp=entry.analysis_timestamp.isoformat()
+            analysis_timestamp=_serialize_timestamp(entry.analysis_timestamp)
         )
 
 @router.post("/leaderboard/analyze", response_model=LeaderboardAnalysisResponse)
@@ -173,7 +180,7 @@ async def analyze_leaderboard(
         if existing and not body.force:
             return LeaderboardAnalysisResponse(
                 analysis=existing.analysis,
-                analysis_timestamp=existing.analysis_timestamp.isoformat()
+                analysis_timestamp=_serialize_timestamp(existing.analysis_timestamp)
             )
 
         try:
@@ -197,7 +204,7 @@ async def analyze_leaderboard(
 
         return LeaderboardAnalysisResponse(
             analysis=analysis,
-            analysis_timestamp=now.isoformat()
+            analysis_timestamp=_serialize_timestamp(now)
         )
 
 
@@ -220,7 +227,7 @@ async def get_event_conversation(
         ConversationTurnResponse(
             role=turn.role,
             content=turn.content,
-            created_at=turn.created_at.isoformat()
+            created_at=_serialize_timestamp(turn.created_at)
         )
         for turn in turns
     ]
@@ -267,7 +274,7 @@ async def post_event_conversation(
             ConversationTurnResponse(
                 role=turn.role,
                 content=turn.content,
-                created_at=turn.created_at.isoformat()
+                created_at=_serialize_timestamp(turn.created_at)
             )
             for turn in turns
         ]

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import uuid
 
 import httpx
@@ -94,6 +94,47 @@ async def _insert_detection_at_timestamp(event_id: str, detection_time: str) -> 
         await db.commit()
 
 
+async def _insert_species_bucket_detection(
+    event_id: str,
+    *,
+    detection_time: str,
+    taxa_id: int,
+    scientific_name: str,
+    common_name: str,
+    display_name: str,
+) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                detection_time,
+                1,
+                0.88,
+                display_name,
+                display_name,
+                event_id,
+                "test-camera",
+                scientific_name,
+                common_name,
+                taxa_id,
+            ),
+        )
+        await db.commit()
+
+
 async def _insert_canonical_detection_with_taxonomy(
     event_id: str,
     *,
@@ -177,8 +218,8 @@ async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(cli
     settings.public_access.enabled = False
 
     event_id = f"stats-time-{uuid.uuid4().hex[:8]}"
-    today = datetime.now(timezone.utc).date()
-    naive_today_timestamp = f"{today.isoformat()} 10:23:25.446665"
+    sample_dt = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=446665)
+    naive_today_timestamp = sample_dt.strftime("%Y-%m-%d %H:%M:%S.%f")
     await _insert_detection_at_timestamp(event_id, naive_today_timestamp)
 
     try:
@@ -188,7 +229,7 @@ async def test_daily_summary_serializes_naive_detection_time_as_explicit_utc(cli
 
         latest = payload["latest_detection"]
         assert latest["frigate_event"] == event_id
-        assert latest["detection_time"] == f"{today.isoformat()}T10:23:25.446665Z"
+        assert latest["detection_time"] == sample_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     finally:
         await _delete_detection(event_id)
 
@@ -237,6 +278,96 @@ async def test_daily_summary_uses_utc_naive_window_for_latest_detection(
     finally:
         await _delete_detection(early_event_id)
         await _delete_detection(late_event_id)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_uses_latest_detection_time_for_species_latest_event(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    older_event_id = "evt-zulu-older"
+    newer_event_id = "evt-alpha-newer"
+    taxa_id = 8123
+
+    await _insert_species_bucket_detection(
+        older_event_id,
+        detection_time="2026-04-01 08:00:00",
+        taxa_id=taxa_id,
+        scientific_name="Cardinalis cardinalis",
+        common_name="Northern Cardinal",
+        display_name="Northern Cardinal",
+    )
+    await _insert_species_bucket_detection(
+        newer_event_id,
+        detection_time="2026-04-01 09:00:00",
+        taxa_id=taxa_id,
+        scientific_name="Cardinalis cardinalis",
+        common_name="Northern Cardinal",
+        display_name="Red Cardinal",
+    )
+
+    try:
+        response = await client.get("/api/stats/daily-summary")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        cardinal_rows = [row for row in payload["top_species"] if row["taxa_id"] == taxa_id]
+        assert len(cardinal_rows) == 1
+        assert cardinal_rows[0]["latest_event"] == newer_event_id
+    finally:
+        await _delete_detection(older_event_id)
+        await _delete_detection(newer_event_id)
+        await _delete_taxonomy_cache_entry(taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_unknown_rollup_uses_latest_detection_time_for_latest_event(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    older_event_id = "evt-zulu-hidden"
+    newer_event_id = "evt-alpha-hidden"
+
+    await _insert_detection_at_timestamp(older_event_id, "2026-04-01 08:00:00")
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE detections SET display_name = ?, category_name = ?, scientific_name = ?, common_name = ?, taxa_id = NULL WHERE frigate_event = ?",
+            ("Great tit and allies", "Great tit and allies", "Great tit and allies", "Great tit and allies", older_event_id),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                "2026-04-01 09:00:00",
+                1,
+                0.75,
+                "Background",
+                "Background",
+                newer_event_id,
+                "test-camera",
+                "Background",
+                "Background",
+                None,
+            ),
+        )
+        await db.commit()
+
+    try:
+        response = await client.get("/api/stats/daily-summary")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        unknown_rows = [row for row in payload["top_species"] if row["species"] == "Unknown Bird"]
+        assert len(unknown_rows) == 1
+        assert unknown_rows[0]["latest_event"] == newer_event_id
+    finally:
+        await _delete_detection(older_event_id)
+        await _delete_detection(newer_event_id)
 
 
 @pytest.mark.asyncio

@@ -126,12 +126,12 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             latest_detection = summary_data.get("latest_detection")
             top_species = summary_data.get("top_species")
-            total_today = summary_data.get("total_count", 0)
+            count_24h = summary_data.get("total_count", 0)
 
             return {
                 "summary": summary_data,
                 "latest": latest_detection if isinstance(latest_detection, dict) else None,
-                "total_today": total_today if isinstance(total_today, int) else 0,
+                "count_24h": count_24h if isinstance(count_24h, int) else 0,
                 "top_species": top_species if isinstance(top_species, list) else [],
             }
         except Exception as err:

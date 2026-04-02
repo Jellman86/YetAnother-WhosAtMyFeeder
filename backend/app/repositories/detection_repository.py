@@ -2886,30 +2886,68 @@ class DetectionRepository:
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
         """Get detection counts per species for a specific time range."""
         query = """
-            SELECT 
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
-                COUNT(*) as count, 
-                MAX(d.frigate_event) as latest_event,
-                MAX(d.scientific_name) as scientific_name, 
-                MAX(d.common_name) as common_name,
-                MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id
-            FROM detections d
-            WHERE d.detection_time >= ? AND d.detection_time <= ?
-            AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            GROUP BY unified_id
-            ORDER BY count DESC
+            WITH filtered AS (
+                SELECT
+                    d.id,
+                    d.detection_time,
+                    d.frigate_event,
+                    d.scientific_name,
+                    d.common_name,
+                    d.display_name,
+                    d.taxa_id,
+                    COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) AS unified_id
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time <= ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            ),
+            ranked AS (
+                SELECT
+                    unified_id,
+                    frigate_event,
+                    scientific_name,
+                    common_name,
+                    display_name,
+                    taxa_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY unified_id
+                        ORDER BY detection_time DESC, id DESC, frigate_event DESC
+                    ) AS row_num
+                FROM filtered
+            ),
+            counts AS (
+                SELECT unified_id, COUNT(*) AS count
+                FROM filtered
+                GROUP BY unified_id
+            )
+            SELECT
+                counts.unified_id,
+                counts.count,
+                ranked.frigate_event AS latest_event,
+                filtered_latest.detection_time AS latest_detection_time,
+                ranked.scientific_name,
+                ranked.common_name,
+                ranked.display_name,
+                ranked.taxa_id
+            FROM counts
+            JOIN ranked
+              ON ranked.unified_id = counts.unified_id
+             AND ranked.row_num = 1
+            JOIN filtered AS filtered_latest
+              ON filtered_latest.unified_id = ranked.unified_id
+             AND filtered_latest.frigate_event = ranked.frigate_event
+            ORDER BY counts.count DESC
         """
         async with self.db.execute(query, (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
-                    "species": row[5], 
+                    "species": row[6], 
                     "count": row[1],
                     "latest_event": row[2],
-                    "scientific_name": row[3],
-                    "common_name": row[4],
-                    "taxa_id": row[6]
+                    "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
+                    "scientific_name": row[4],
+                    "common_name": row[5],
+                    "taxa_id": row[7]
                 }
                 for row in rows
             ]
