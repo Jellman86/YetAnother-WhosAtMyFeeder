@@ -332,21 +332,22 @@
     }
 </script>
 
-<div
-    bind:this={cardElement}
-    class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
-           shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
-           border border-slate-200/80 dark:border-slate-700/60
-           ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset
-           hover:border-teal-500/30 dark:hover:border-teal-500/20
-           overflow-hidden transition-all duration-500 ease-out
-           hover:-translate-y-1.5 flex flex-col h-full
-           text-left w-full animate-entrance
-           {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-           {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
-           {selected ? 'ring-2 ring-cyan-500/60 border-cyan-400/70 dark:border-cyan-400/60 shadow-card-hover dark:shadow-card-dark-hover' : ''}"
-    style="animation-delay: {index * 40}ms"
->
+<div class="relative pt-2 pl-2">
+    <div
+        bind:this={cardElement}
+        class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
+               shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+               border border-slate-200/80 dark:border-slate-700/60
+               ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset
+               hover:border-teal-500/30 dark:hover:border-teal-500/20
+               overflow-hidden transition-all duration-500 ease-out
+               hover:-translate-y-1.5 flex flex-col h-full
+               text-left w-full animate-entrance
+               {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
+               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
+               {selected ? 'border-cyan-300/90 dark:border-cyan-400/70 ring-2 ring-cyan-400/45 bg-cyan-50/30 dark:bg-cyan-500/5 shadow-card-hover dark:shadow-card-dark-hover' : ''}"
+        style="animation-delay: {index * 40}ms"
+    >
     <button
         type="button"
         aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
@@ -360,14 +361,20 @@
     {/if}
 
     {#if selectionMode}
-        <div class="absolute left-3 top-3 z-30 pointer-events-none">
-            <div class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm
-                {selected
-                    ? 'bg-cyan-500 text-white border-cyan-300'
-                    : 'bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-200 border-slate-300/80 dark:border-slate-600/70'}"
+        <div class="absolute -left-1.5 -top-1.5 z-30 pointer-events-none">
+            <div
+                class="inline-flex h-8 w-8 rounded-full border-2 items-center justify-center shadow-lg backdrop-blur-sm
+                    {selected
+                        ? 'border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/30'
+                        : 'border-slate-300/90 dark:border-slate-500/80 bg-white/95 dark:bg-slate-900/95 text-slate-400 dark:text-slate-500 shadow-slate-900/10'}"
             >
-                <span class="inline-block h-2.5 w-2.5 rounded-full {selected ? 'bg-white' : 'bg-slate-300 dark:bg-slate-500'}"></span>
-                <span>{selected ? $_('common.selected', { default: 'Selected' }) : $_('common.select', { default: 'Select' })}</span>
+                {#if selected}
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                        <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                {:else}
+                    <span class="inline-block h-2.5 w-2.5 rounded-full border-2 border-current"></span>
+                {/if}
             </div>
         </div>
     {/if}
@@ -729,5 +736,6 @@
                 {/if}
             </div>
         </div>
+    </div>
     </div>
 </div>

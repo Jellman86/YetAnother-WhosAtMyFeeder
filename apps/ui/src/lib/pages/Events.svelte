@@ -76,10 +76,8 @@
     let bulkTagPendingId = $state<string | null>(null);
     let bulkSearchTimeout: ReturnType<typeof setTimeout> | null = null;
     let bulkSearching = $state(false);
-    let videoClipVariant = $state<'event' | 'recording'>('event');
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
-    let preferredClipVariantByEvent = $derived(fullVisitStore.preferredClipVariantByEvent);
     let recordingClipFetchEnabled = $derived(
         (settingsStore.settings?.recording_clip_enabled ?? false) &&
         (settingsStore.settings?.clips_enabled ?? false)
@@ -291,13 +289,11 @@
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
-        const deepLinkedClipVariant = params.get('clip') === 'recording' ? 'recording' : 'event';
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
         if (deepLinkedEvent && deepLinkWantsVideo) {
             videoEventId = deepLinkedEvent;
             videoShareToken = deepLinkedShare;
             videoPlayIntent = 'auto';
-            videoClipVariant = deepLinkedClipVariant;
             showVideo = true;
             if (!deepLinkedShare) {
                 clearEventVideoDeepLinkParams();
@@ -1063,7 +1059,6 @@
                         videoEventId = event.frigate_event;
                         videoShareToken = null;
                         videoPlayIntent = 'user';
-                        videoClipVariant = preferredClipVariantByEvent[event.frigate_event] ?? 'event';
                         showVideo = true;
                         selectedEvent = null;
                     }}
@@ -1106,7 +1101,6 @@
             videoEventId = frigateEvent;
             videoShareToken = null;
             videoPlayIntent = playIntent;
-            videoClipVariant = preferredClipVariantByEvent[frigateEvent] ?? 'event';
             showVideo = true;
             selectedEvent = null;
         }}
@@ -1197,13 +1191,11 @@
         frigateEvent={videoEventId}
         shareToken={videoShareToken}
         playIntent={videoPlayIntent}
-        initialClipVariant={videoClipVariant}
-        initialRecordingClipFetched={fullVisitFetchState[videoEventId] === 'ready'}
+        initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
         onClose={() => {
             showVideo = false;
             videoEventId = null;
             videoShareToken = null;
-            videoClipVariant = 'event';
         }}
     />
 {/if}

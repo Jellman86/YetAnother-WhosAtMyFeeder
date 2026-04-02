@@ -18,15 +18,12 @@
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
 
-    type ClipVariant = 'event' | 'recording';
-
     interface Props {
         frigateEvent: string;
         onClose: () => void;
         playIntent?: 'auto' | 'user';
         shareToken?: string | null;
-        initialClipVariant?: ClipVariant;
-        initialRecordingClipFetched?: boolean;
+        initialFullVisitPromoted?: boolean;
     }
 
     type ProbeCache = {
@@ -47,8 +44,7 @@
         onClose,
         playIntent = 'auto',
         shareToken = null,
-        initialClipVariant = 'event',
-        initialRecordingClipFetched = false
+        initialFullVisitPromoted = false
     }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
@@ -66,9 +62,7 @@
     let deferredPreviewToken = $state(0);
     let previewState = $state<PreviewState>('checking');
     let playbackState = $state<PlaybackState>('idle');
-    let selectedClipVariant = $state<ClipVariant>('event');
-    let recordingClipAvailable = $state(false);
-    let recordingClipFetched = $state(false);
+    let fullVisitPromoted = $state(false);
 
     function appendQueryParam(url: string, key: string, value: string): string {
         const separator = url.includes('?') ? '&' : '?';
@@ -76,7 +70,7 @@
     }
 
     let clipUrlBase = $derived.by(() => {
-        const base = selectedClipVariant === 'recording' && !recordingClipFetched ? getRecordingClipUrl(frigateEvent) : getClipUrl(frigateEvent);
+        const base = getClipUrl(frigateEvent);
         return shareToken ? appendQueryParam(base, 'share', shareToken) : base;
     });
     let recordingClipUrlBase = $derived.by(() => {
@@ -89,9 +83,8 @@
     let canShareClip = $derived(!authStore.isGuest);
     let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
-    let effectiveClipVariant = $derived(recordingClipFetched ? 'recording' : selectedClipVariant);
     let clipVariantLabel = $derived(
-        effectiveClipVariant === 'recording'
+        fullVisitPromoted
             ? $_('video_player.full_visit_badge', { default: 'Full visit' })
             : $_('video_player.clip_badge', { default: 'Clip' })
     );
@@ -224,9 +217,6 @@
         const url = new URL('/events', window.location.origin);
         url.searchParams.set('event', frigateEvent);
         url.searchParams.set('video', '1');
-        if (effectiveClipVariant === 'recording') {
-            url.searchParams.set('clip', 'recording');
-        }
         if (shareToken) {
             url.searchParams.set('share', shareToken);
         }
@@ -241,7 +231,6 @@
         const payload = await createVideoShareLink(frigateEvent, {
             expiresInMinutes: 24 * 60,
             watermarkLabel,
-            clipVariant: effectiveClipVariant,
         });
         shareExpiresAt = payload.expires_at;
         shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
@@ -328,7 +317,6 @@
             const payload = await createVideoShareLink(frigateEvent, {
                 expiresInMinutes: managerExpiresMinutes,
                 watermarkLabel,
-                clipVariant: effectiveClipVariant,
             });
             shareExpiresAt = payload.expires_at;
             shareWatermarkLabel = payload.watermark_label ?? watermarkLabel;
@@ -636,7 +624,7 @@
     }
 
     async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
-        if (selectedClipVariant === 'recording') {
+        if (fullVisitPromoted) {
             thumbnailTrackUrl = null;
             previewState = 'unavailable';
             return null;
@@ -662,21 +650,7 @@
         return null;
     }
 
-    function setClipVariant(nextVariant: ClipVariant): void {
-        if (nextVariant === selectedClipVariant) return;
-        if (nextVariant === 'recording' && !recordingClipAvailable) return;
-        selectedClipVariant = nextVariant;
-        retryCount = 0;
-        videoError = false;
-        videoForbidden = false;
-        initializing = true;
-        deferredPreviewSrc = null;
-        deferredPreviewToken = 0;
-        thumbnailTrackUrl = null;
-        previewState = nextVariant === 'recording' ? 'unavailable' : 'checking';
-    }
-
-    async function probeRecordingClipAvailability(): Promise<void> {
+    async function probeFullVisitPromotion(): Promise<void> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
         let status: number | null = null;
@@ -699,14 +673,9 @@
             clearTimeout(timeoutId);
         }
 
-        recordingClipAvailable = !!status && status >= 200 && status < 300;
-        recordingClipFetched = recordingClipAvailable && fetched;
-        if (recordingClipFetched) {
-            selectedClipVariant = 'recording';
-            return;
-        }
-        if (!recordingClipAvailable && selectedClipVariant === 'recording') {
-            selectedClipVariant = 'event';
+        const nextPromoted = !!status && status >= 200 && status < 300 && fetched;
+        if (nextPromoted !== fullVisitPromoted) {
+            fullVisitPromoted = nextPromoted;
         }
     }
 
@@ -788,7 +757,7 @@
 
             player.source = {
                 type: 'video',
-                title: effectiveClipVariant === 'recording'
+                title: fullVisitPromoted
                     ? $_('video_player.full_visit_title', { default: 'Full visit clip' })
                     : $_('video_player.detection_clip_title', { default: 'Detection clip' }),
                 sources: [{ src: clipUrl, type: 'video/mp4' }]
@@ -880,7 +849,7 @@
             frigateEvent,
             token,
             retryCount,
-            clipVariant: selectedClipVariant,
+            clipKind: fullVisitPromoted ? 'full_visit' : 'event_clip',
             clipUrl: sanitizedUrl(clipUrl)
         });
 
@@ -891,7 +860,7 @@
         logger.info('video_player_clip_probe', {
             frigateEvent,
             token,
-            clipVariant: selectedClipVariant,
+            clipKind: fullVisitPromoted ? 'full_visit' : 'event_clip',
             clipStatus
         });
         if (clipStatus === 403) {
@@ -937,9 +906,7 @@
 
     onMount(() => {
         mounted = true;
-        selectedClipVariant = initialClipVariant;
-        recordingClipAvailable = initialRecordingClipFetched;
-        recordingClipFetched = initialRecordingClipFetched;
+        fullVisitPromoted = initialFullVisitPromoted;
         lockDocumentScroll();
         logger.info('video_player_modal_open', { frigateEvent });
         if (shareToken) {
@@ -978,7 +945,7 @@
             logger.debug('video_player_waiting_for_video_element', { frigateEvent });
             return;
         }
-        const configureKey = `${frigateEvent}|${clipUrl}`;
+        const configureKey = `${frigateEvent}|${clipUrl}|${fullVisitPromoted ? 'full' : 'clip'}`;
         if (configureKey === lastConfiguredKey) return;
         lastConfiguredKey = configureKey;
         void configurePlayer();
@@ -986,7 +953,15 @@
 
     $effect(() => {
         if (!mounted) return;
-        void probeRecordingClipAvailability();
+        void probeFullVisitPromotion();
+    });
+
+    $effect(() => {
+        if (!mounted || !fullVisitPromoted) return;
+        thumbnailTrackUrl = null;
+        deferredPreviewSrc = null;
+        deferredPreviewToken = 0;
+        previewState = 'unavailable';
     });
 
     onDestroy(() => {
@@ -1150,24 +1125,6 @@
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>
                 <div class="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:ml-auto">
-                    {#if !recordingClipFetched && recordingClipAvailable}
-                        <div class="inline-flex items-center rounded-xl border border-slate-700/70 bg-slate-800/80 p-1">
-                            <button
-                                type="button"
-                                onclick={() => setClipVariant('event')}
-                                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors {selectedClipVariant === 'event' ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10'}"
-                            >
-                                {$_('video_player.event_clip_toggle', { default: 'Event clip' })}
-                            </button>
-                            <button
-                                type="button"
-                                onclick={() => setClipVariant('recording')}
-                                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors {selectedClipVariant === 'recording' ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10'}"
-                            >
-                                {$_('video_player.full_visit_toggle', { default: 'Full visit' })}
-                            </button>
-                        </div>
-                    {/if}
                     <span
                         class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border bg-slate-800/80 px-3 text-slate-100
                             {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')

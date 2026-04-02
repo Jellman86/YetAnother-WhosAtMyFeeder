@@ -6,24 +6,6 @@ vi.mock('../api', () => ({
 }));
 
 describe('FullVisitStore', () => {
-    const createStorage = () => {
-        const values = new Map<string, string>();
-        return {
-            getItem(key: string) {
-                return values.has(key) ? values.get(key)! : null;
-            },
-            setItem(key: string, value: string) {
-                values.set(key, value);
-            },
-            removeItem(key: string) {
-                values.delete(key);
-            },
-            clear() {
-                values.clear();
-            }
-        };
-    };
-
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
@@ -37,16 +19,15 @@ describe('FullVisitStore', () => {
         });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
-        const store = new FullVisitStore(createStorage());
+        const store = new FullVisitStore();
 
         await store.ensureAvailability('evt-1');
 
         expect(store.isAvailable('evt-1')).toBe(true);
         expect(store.isFetched('evt-1')).toBe(true);
-        expect(store.getPreferredClipVariant('evt-1')).toBe('recording');
     });
 
-    it('restores fetched full-visit preference from local storage on a new store instance', async () => {
+    it('does not restore promoted full-visit state from local storage without a fresh probe', async () => {
         const api = await import('../api');
         vi.mocked(api.fetchRecordingClip).mockResolvedValue({
             event_id: 'evt-2',
@@ -56,13 +37,12 @@ describe('FullVisitStore', () => {
         });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
-        const storage = createStorage();
-        const firstStore = new FullVisitStore(storage);
+        const firstStore = new FullVisitStore();
         await firstStore.fetchFullVisit('evt-2');
 
-        const secondStore = new FullVisitStore(storage);
-        expect(secondStore.isFetched('evt-2')).toBe(true);
-        expect(secondStore.getPreferredClipVariant('evt-2')).toBe('recording');
+        const secondStore = new FullVisitStore();
+        expect(secondStore.isFetched('evt-2')).toBe(false);
+        expect(secondStore.getAvailability('evt-2')).toBe('unknown');
     });
 
     it('refreshes a stale event probe and promotes the same event to fetched when a persisted full visit later appears', async () => {
@@ -78,7 +58,7 @@ describe('FullVisitStore', () => {
             });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
-        const store = new FullVisitStore(createStorage());
+        const store = new FullVisitStore();
 
         await store.ensureAvailability('evt-3');
         expect(store.isAvailable('evt-3')).toBe(true);
@@ -88,6 +68,5 @@ describe('FullVisitStore', () => {
 
         expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(2);
         expect(store.isFetched('evt-3')).toBe(true);
-        expect(store.getPreferredClipVariant('evt-3')).toBe('recording');
     });
 });

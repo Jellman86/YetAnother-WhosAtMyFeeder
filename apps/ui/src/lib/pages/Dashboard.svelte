@@ -60,10 +60,8 @@
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
-    let videoClipVariant = $state<'event' | 'recording'>('event');
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
-    let preferredClipVariantByEvent = $derived(fullVisitStore.preferredClipVariantByEvent);
     let recordingClipFetchEnabled = $derived(
         (settingsStore.settings?.recording_clip_enabled ?? false) &&
         (settingsStore.settings?.clips_enabled ?? false)
@@ -418,7 +416,6 @@
                             onPlay={() => {
                                 videoEventId = detection.frigate_event;
                                 videoPlayIntent = 'user';
-                                videoClipVariant = preferredClipVariantByEvent[detection.frigate_event] ?? 'event';
                                 showVideo = true;
                                 selectedEvent = null;
                             }}
@@ -464,7 +461,6 @@
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
             videoPlayIntent = playIntent;
-            videoClipVariant = preferredClipVariantByEvent[frigateEvent] ?? 'event';
             showVideo = true;
             selectedEvent = null;
         }}
@@ -478,12 +474,10 @@
     <VideoPlayer
         frigateEvent={videoEventId}
         playIntent={videoPlayIntent}
-        initialClipVariant={videoClipVariant}
-        initialRecordingClipFetched={fullVisitFetchState[videoEventId] === 'ready'}
+        initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
         onClose={() => {
             showVideo = false;
             videoEventId = null;
-            videoClipVariant = 'event';
         }}
     />
 {/if}

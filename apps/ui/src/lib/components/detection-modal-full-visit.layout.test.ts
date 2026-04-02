@@ -23,9 +23,13 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(eventsPageSource).toContain('selectedEventFullVisitHandler');
         expect(eventsPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
+        expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
 
         expect(dashboardPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(dashboardPageSource).toContain('selectedEventFullVisitHandler');
         expect(dashboardPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
+        expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
     });
 });

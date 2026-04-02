@@ -68,7 +68,7 @@ export interface VideoShareLinkListResponse {
 
 export async function createVideoShareLink(
     eventId: string,
-    options: { expiresInMinutes?: number; watermarkLabel?: string | null; clipVariant?: 'event' | 'recording' } = {}
+    options: { expiresInMinutes?: number; watermarkLabel?: string | null } = {}
 ): Promise<VideoShareCreateResponse> {
     const response = await apiFetch(`${API_BASE}/video-share`, {
         method: 'POST',
@@ -77,7 +77,6 @@ export async function createVideoShareLink(
             event_id: eventId,
             expires_in_minutes: options.expiresInMinutes ?? 24 * 60,
             watermark_label: options.watermarkLabel ?? null,
-            clip_variant: options.clipVariant ?? 'event',
         }),
     });
     return handleResponse<VideoShareCreateResponse>(response);

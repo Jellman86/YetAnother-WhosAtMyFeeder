@@ -27,14 +27,25 @@ describe('detection card full-visit fetch wiring', () => {
 
         expect(eventsPageSource).toContain('fullVisitAvailability');
         expect(eventsPageSource).toContain('fullVisitFetchState');
-        expect(eventsPageSource).toContain('preferredClipVariantByEvent');
         expect(eventsPageSource).toContain('onFetchFullVisit');
-        expect(eventsPageSource).toContain('initialRecordingClipFetched={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
+        expect(eventsPageSource).not.toContain('initialClipVariant={videoClipVariant}');
 
         expect(dashboardPageSource).toContain('fullVisitAvailability');
         expect(dashboardPageSource).toContain('fullVisitFetchState');
-        expect(dashboardPageSource).toContain('preferredClipVariantByEvent');
         expect(dashboardPageSource).toContain('onFetchFullVisit');
-        expect(dashboardPageSource).toContain('initialRecordingClipFetched={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
+        expect(dashboardPageSource).not.toContain('initialClipVariant={videoClipVariant}');
+    });
+
+    it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
+        expect(detectionCardSource).toContain("border-cyan-300/90 dark:border-cyan-400/70 ring-2 ring-cyan-400/45");
+        expect(detectionCardSource).toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
+        expect(detectionCardSource).toContain('h-8 w-8 rounded-full border-2');
+        expect(detectionCardSource).toContain("border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/30");
+        expect(detectionCardSource).not.toContain("$_('common.selected', { default: 'Selected' })");
+        expect(detectionCardSource).not.toContain("$_('common.select', { default: 'Select' })");
     });
 });
