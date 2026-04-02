@@ -611,9 +611,8 @@ async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, in
 
 def _minimum_acceptable_recording_clip_duration_seconds(start_ts: int, end_ts: int) -> float:
     expected = max(1.0, float(end_ts - start_ts))
-    if expected <= 6.0:
-        return max(1.0, expected * 0.5)
-    return max(1.0, min(expected - 2.0, expected * 0.6))
+    tolerance = max(expected - 2.0, expected * 0.9)
+    return max(1.0, min(expected, tolerance))
 
 
 async def _get_valid_cached_recording_clip_path(event_id: str, lang: str):

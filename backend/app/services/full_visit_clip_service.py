@@ -66,9 +66,8 @@ class FullVisitClipService:
     @staticmethod
     def _minimum_acceptable_duration_seconds(expected_duration_seconds: float) -> float:
         expected = max(1.0, float(expected_duration_seconds))
-        if expected <= 6.0:
-            return max(1.0, expected * 0.5)
-        return max(1.0, min(expected - 2.0, expected * 0.6))
+        tolerance = max(expected - 2.0, expected * 0.9)
+        return max(1.0, min(expected, tolerance))
 
     async def _wait_until_recording_window_complete(self, event_id: str, lang: str) -> float:
         _camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)

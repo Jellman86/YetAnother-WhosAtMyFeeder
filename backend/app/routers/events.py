@@ -29,6 +29,7 @@ from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.api_datetime import serialize_api_datetime
+from app.routers.proxy import _get_valid_cached_recording_clip_path
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
@@ -1187,7 +1188,10 @@ async def reclassify_event(
                     allow_event_cache: bool,
                 ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
                     if allow_recording_cache:
-                        recording_cached_path = media_cache.get_recording_clip_path(event_id)
+                        recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+                            event_id,
+                            lang,
+                        )
                         if recording_cached_path:
                             log.info("Using cached recording clip for reclassification", event_id=event_id)
                             with open(recording_cached_path, "rb") as handle:

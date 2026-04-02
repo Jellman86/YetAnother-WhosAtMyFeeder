@@ -157,6 +157,14 @@ async def test_trigger_for_event_waits_until_recording_window_is_complete_before
     mock_fetch.assert_awaited_once()
 
 
+def test_minimum_acceptable_duration_requires_near_full_window():
+    service = FullVisitClipService()
+
+    assert service._minimum_acceptable_duration_seconds(30.0) == 28.0
+    assert service._minimum_acceptable_duration_seconds(10.0) == 9.0
+    assert service._minimum_acceptable_duration_seconds(3.0) == 2.7
+
+
 @pytest.mark.asyncio
 async def test_trigger_for_event_throttles_repeat_failures_until_cooldown_expires():
     service = FullVisitClipService()
