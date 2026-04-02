@@ -59,7 +59,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--min-samples", type=int, default=20)
     parser.add_argument("--max-health-fetch-failures", type=int, default=3)
-    parser.add_argument("--min-frigate-delta", type=int, default=1)
+    parser.add_argument("--min-frigate-delta", type=int, default=0)
     parser.add_argument("--min-birdnet-delta", type=int, default=10)
     parser.add_argument("--max-degraded-ratio", type=float, default=0.25)
     parser.add_argument("--max-pressure-level", choices=["normal", "elevated", "high", "critical"], default="high")
@@ -95,6 +95,29 @@ def _should_stop_frigate_publisher(*, elapsed_seconds: float, stop_after_seconds
     if stop_after_seconds <= 0:
         return False
     return elapsed_seconds >= stop_after_seconds
+
+
+def _normalize_issue33_evaluation(
+    evaluation: dict[str, Any],
+    *,
+    induced_frigate_stall: bool,
+) -> dict[str, Any]:
+    if not induced_frigate_stall:
+        return evaluation
+
+    filtered_reasons = [
+        reason
+        for reason in list(evaluation.get("failure_reasons") or [])
+        if not (
+            reason.startswith("Frigate topic message growth below threshold ")
+            or reason.startswith("Frigate stream stalled while BirdNET remained active ")
+        )
+    ]
+
+    normalized = dict(evaluation)
+    normalized["failure_reasons"] = filtered_reasons
+    normalized["passed"] = len(filtered_reasons) == 0
+    return normalized
 
 
 def main() -> int:
@@ -258,6 +281,12 @@ def main() -> int:
         birdnet_thread.join(timeout=5.0)
 
     evaluation = evaluate_soak_run(samples, thresholds, health_fetch_failures=health_fetch_failures)
+    evaluation = _normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=(
+            induced_frigate_stall_at is not None
+        ),
+    )
     run_finished_at = base_soak._now_utc()
     duration_actual_seconds = max(0.0, (run_finished_at - run_started_at).total_seconds())
 

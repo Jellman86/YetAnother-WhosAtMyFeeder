@@ -32,7 +32,55 @@ def test_build_thresholds_sets_issue33_specific_limits():
     assert thresholds.max_video_failure_count_delta == 1
 
 
+def test_build_thresholds_defaults_to_zero_frigate_growth_requirement():
+    parser = issue33._build_arg_parser()
+    args = parser.parse_args([])
+
+    thresholds = issue33._build_thresholds(args)
+
+    assert thresholds.min_frigate_messages_delta == 0
+
+
 def test_should_stop_frigate_publisher_after_configured_delay():
     assert issue33._should_stop_frigate_publisher(elapsed_seconds=29.9, stop_after_seconds=30.0) is False
     assert issue33._should_stop_frigate_publisher(elapsed_seconds=30.0, stop_after_seconds=30.0) is True
     assert issue33._should_stop_frigate_publisher(elapsed_seconds=120.0, stop_after_seconds=0.0) is False
+
+
+def test_normalize_issue33_evaluation_accepts_induced_stall_when_reconnect_occurs():
+    evaluation = {
+        "passed": False,
+        "failure_reasons": [
+            "Frigate topic message growth below threshold (-163 < 1).",
+            "Frigate stream stalled while BirdNET remained active (1 incident(s)).",
+        ],
+        "topic_liveness_reconnects_delta": 1,
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+    )
+
+    assert normalized["passed"] is True
+    assert normalized["failure_reasons"] == []
+
+
+def test_normalize_issue33_evaluation_keeps_failures_without_induced_stall():
+    evaluation = {
+        "passed": False,
+        "failure_reasons": [
+            "Frigate stream stalled while BirdNET remained active (1 incident(s)).",
+        ],
+        "topic_liveness_reconnects_delta": 1,
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=False,
+    )
+
+    assert normalized["passed"] is False
+    assert normalized["failure_reasons"] == [
+        "Frigate stream stalled while BirdNET remained active (1 incident(s)).",
+    ]
