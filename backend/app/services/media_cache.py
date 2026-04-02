@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import time
 import uuid
 import aiofiles
 import aiofiles.os
@@ -204,6 +205,15 @@ class MediaCacheService:
         )
         return duration
 
+    def _touch_access_time(self, path: Path, *, stat_result: os.stat_result | None = None) -> None:
+        if stat_result is None:
+            stat_result = path.stat()
+        now_ns = time.time_ns()
+        os.utime(
+            path,
+            ns=(now_ns, int(stat_result.st_mtime_ns)),
+        )
+
     async def _write_bytes_atomic(self, path: Path, data: bytes) -> Path:
         """Write bytes to a temp file in the same directory, then atomically replace."""
         tmp_path = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
@@ -271,7 +281,7 @@ class MediaCacheService:
                 async with aiofiles.open(path, 'rb') as f:
                     data = await f.read()
                 # Update access time for LRU-like behavior
-                os.utime(path, None)
+                self._touch_access_time(path)
                 return data
             return None
         except Exception as e:
@@ -284,7 +294,7 @@ class MediaCacheService:
             path = self._snapshot_path(event_id)
             if path.exists():
                 data = path.read_bytes()
-                os.utime(path, None)
+                self._touch_access_time(path)
                 return data
             return None
         except Exception as e:
@@ -472,10 +482,11 @@ class MediaCacheService:
         """
         path = self._clip_path(event_id)
         if path.exists():
-            size = path.stat().st_size
+            stat_result = path.stat()
+            size = stat_result.st_size
             if size >= _MIN_VALID_CLIP_BYTES:
                 # Update access time for LRU-like behaviour
-                os.utime(path, None)
+                self._touch_access_time(path, stat_result=stat_result)
                 return path
             else:
                 # Remove stub / empty files so they are refetched rather than
@@ -528,7 +539,7 @@ class MediaCacheService:
                         )
                         self._invalidate_recording_clip_duration_cache(path)
                         return None
-                os.utime(path, None)
+                self._touch_access_time(path, stat_result=stat_result)
                 return path
             try:
                 path.unlink()
@@ -594,7 +605,7 @@ class MediaCacheService:
             if await aiofiles.os.path.exists(path):
                 async with aiofiles.open(path, "r", encoding="utf-8") as f:
                     data = await f.read()
-                os.utime(path, None)
+                self._touch_access_time(path)
                 return data
             return None
         except Exception as e:
@@ -606,7 +617,7 @@ class MediaCacheService:
         try:
             path = self._preview_sprite_path(event_id)
             if path.exists() and path.stat().st_size > 0:
-                os.utime(path, None)
+                self._touch_access_time(path)
                 return path
             if path.exists() and path.stat().st_size == 0:
                 try:
