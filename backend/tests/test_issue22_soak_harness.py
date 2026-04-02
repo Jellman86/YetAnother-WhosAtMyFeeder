@@ -13,17 +13,23 @@ def _sample(
     birdnet_age: float | None,
     pressure: str = "normal",
     reconnects: int = 0,
+    reconnect_reason: str | None = None,
     event_started: int | None = None,
     event_completed: int | None = None,
     event_dropped: int | None = None,
     event_critical_failures: int | None = 0,
     live_image_admission_timeouts: int | None = 0,
+    video_pending: int | None = 0,
+    video_active: int | None = 0,
+    video_failure_count: int | None = 0,
+    video_circuit_open: bool | None = False,
 ) -> SoakSample:
     return SoakSample(
         observed_at=at,
         health_status=status,
         mqtt_pressure_level=pressure,
         mqtt_topic_liveness_reconnects=reconnects,
+        mqtt_last_reconnect_reason=reconnect_reason,
         mqtt_frigate_count=frigate_count,
         mqtt_birdnet_count=birdnet_count,
         mqtt_frigate_age_seconds=frigate_age,
@@ -33,6 +39,10 @@ def _sample(
         event_dropped_count=event_dropped if event_dropped is not None else 0,
         event_critical_failures=event_critical_failures,
         live_image_admission_timeouts=live_image_admission_timeouts,
+        video_pending_count=video_pending,
+        video_active_count=video_active,
+        video_failure_count=video_failure_count,
+        video_circuit_open=video_circuit_open,
     )
 
 
@@ -187,3 +197,58 @@ def test_evaluate_soak_run_fails_when_live_admission_timeouts_increase():
     assert result["passed"] is False
     assert result["live_image_admission_timeouts_delta"] == 5
     assert any("live image admission timeouts increased" in reason.lower() for reason in result["failure_reasons"])
+
+
+def test_evaluate_soak_run_fails_when_expected_stall_reconnect_does_not_happen():
+    start = datetime(2026, 3, 5, 12, 0, tzinfo=timezone.utc)
+    samples = [
+        _sample(start + timedelta(seconds=0), frigate_count=10, birdnet_count=30, frigate_age=1.0, birdnet_age=1.0, reconnects=0),
+        _sample(start + timedelta(seconds=10), frigate_count=10, birdnet_count=31, frigate_age=70.0, birdnet_age=1.0, reconnects=0),
+        _sample(start + timedelta(seconds=20), frigate_count=10, birdnet_count=32, frigate_age=80.0, birdnet_age=1.0, reconnects=0),
+    ]
+    thresholds = SoakThresholds(
+        min_samples=3,
+        min_frigate_messages_delta=0,
+        min_birdnet_messages_delta=2,
+        max_degraded_ratio=1.0,
+        max_pressure_level="critical",
+        frigate_stall_age_seconds=60.0,
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=10.0,
+        min_topic_liveness_reconnects_delta=1,
+    )
+
+    result = evaluate_soak_run(samples, thresholds)
+
+    assert result["passed"] is False
+    assert result["topic_liveness_reconnects_delta"] == 0
+    assert any("reconnect" in reason.lower() for reason in result["failure_reasons"])
+
+
+def test_evaluate_soak_run_fails_when_video_circuit_opens():
+    start = datetime(2026, 3, 5, 12, 30, tzinfo=timezone.utc)
+    samples = [
+        _sample(start + timedelta(seconds=0), frigate_count=20, birdnet_count=40, frigate_age=1.0, birdnet_age=1.0, video_pending=4, video_failure_count=0, video_circuit_open=False),
+        _sample(start + timedelta(seconds=10), frigate_count=21, birdnet_count=41, frigate_age=1.0, birdnet_age=1.0, video_pending=18, video_failure_count=2, video_circuit_open=True),
+        _sample(start + timedelta(seconds=20), frigate_count=22, birdnet_count=42, frigate_age=1.0, birdnet_age=1.0, video_pending=12, video_failure_count=3, video_circuit_open=False),
+    ]
+    thresholds = SoakThresholds(
+        min_samples=3,
+        min_frigate_messages_delta=2,
+        min_birdnet_messages_delta=2,
+        max_degraded_ratio=1.0,
+        max_pressure_level="critical",
+        frigate_stall_age_seconds=60.0,
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=20.0,
+        allow_video_circuit_open=False,
+        max_video_pending=10,
+        max_video_failure_count_delta=0,
+    )
+
+    result = evaluate_soak_run(samples, thresholds)
+
+    assert result["passed"] is False
+    assert result["video_circuit_open_observed"] is True
+    assert result["video_failure_count_delta"] == 3
+    assert any("video" in reason.lower() for reason in result["failure_reasons"])

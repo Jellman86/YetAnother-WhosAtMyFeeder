@@ -19,6 +19,7 @@ class SoakSample:
     health_status: str
     mqtt_pressure_level: str
     mqtt_topic_liveness_reconnects: int
+    mqtt_last_reconnect_reason: str | None
     mqtt_frigate_count: int | None
     mqtt_birdnet_count: int | None
     mqtt_frigate_age_seconds: float | None
@@ -28,6 +29,10 @@ class SoakSample:
     event_dropped_count: int | None
     event_critical_failures: int | None
     live_image_admission_timeouts: int | None
+    video_pending_count: int | None
+    video_active_count: int | None
+    video_failure_count: int | None
+    video_circuit_open: bool | None
 
     def to_json(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -46,6 +51,10 @@ class SoakThresholds:
     max_birdnet_active_age_seconds: float
     min_stall_duration_seconds: float
     max_health_fetch_failures: int = 0
+    min_topic_liveness_reconnects_delta: int | None = None
+    max_video_pending: int | None = None
+    allow_video_circuit_open: bool = True
+    max_video_failure_count_delta: int | None = None
 
 
 def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | None = None) -> SoakSample:
@@ -56,6 +65,8 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     ml = ml if isinstance(ml, dict) else {}
     live_image = ml.get("live_image")
     live_image = live_image if isinstance(live_image, dict) else {}
+    video_classifier = payload.get("video_classifier") if isinstance(payload, dict) else {}
+    video_classifier = video_classifier if isinstance(video_classifier, dict) else {}
     topic_counts = mqtt.get("topic_message_counts")
     topic_counts = topic_counts if isinstance(topic_counts, dict) else {}
     topic_ages = mqtt.get("topic_last_message_age_seconds")
@@ -68,6 +79,7 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         health_status=str(payload.get("status", "unknown")),
         mqtt_pressure_level=str(mqtt.get("pressure_level", "unknown")).lower(),
         mqtt_topic_liveness_reconnects=_safe_int(mqtt.get("topic_liveness_reconnects")),
+        mqtt_last_reconnect_reason=_safe_str_or_none(mqtt.get("last_reconnect_reason")),
         mqtt_frigate_count=_safe_int_or_none(topic_counts.get("frigate")),
         mqtt_birdnet_count=_safe_int_or_none(topic_counts.get("birdnet")),
         mqtt_frigate_age_seconds=_safe_float_or_none(topic_ages.get("frigate")),
@@ -77,6 +89,10 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         event_dropped_count=_safe_int_or_none(event_pipeline.get("dropped_events")),
         event_critical_failures=_safe_int_or_none(event_pipeline.get("critical_failures")),
         live_image_admission_timeouts=_safe_int_or_none(live_image.get("admission_timeouts")),
+        video_pending_count=_safe_int_or_none(video_classifier.get("pending")),
+        video_active_count=_safe_int_or_none(video_classifier.get("active")),
+        video_failure_count=_safe_int_or_none(video_classifier.get("failure_count")),
+        video_circuit_open=_safe_bool_or_none(video_classifier.get("circuit_open")),
     )
 
 
@@ -98,6 +114,10 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
     event_dropped_delta = _count_delta(samples, lambda sample: sample.event_dropped_count)
     event_critical_failures_delta = _count_delta(samples, lambda sample: sample.event_critical_failures)
     live_image_admission_timeouts_delta = _count_delta(samples, lambda sample: sample.live_image_admission_timeouts)
+    video_failure_count_delta = _count_delta(samples, lambda sample: sample.video_failure_count)
+    video_pending_values = [sample.video_pending_count for sample in samples if sample.video_pending_count is not None]
+    max_video_pending_seen = max(video_pending_values) if video_pending_values else None
+    video_circuit_open_observed = any(sample.video_circuit_open is True for sample in samples)
 
     if len(samples) < thresholds.min_samples:
         reasons.append(
@@ -143,6 +163,15 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
             f"Frigate stream stalled while BirdNET remained active ({len(incidents)} incident(s))."
         )
 
+    if thresholds.min_topic_liveness_reconnects_delta is not None:
+        if reconnect_delta is None:
+            reasons.append("Unable to compute MQTT topic-liveness reconnect delta from health payload.")
+        elif reconnect_delta < thresholds.min_topic_liveness_reconnects_delta:
+            reasons.append(
+                "MQTT topic-liveness reconnect growth below threshold "
+                f"({reconnect_delta} < {thresholds.min_topic_liveness_reconnects_delta})."
+            )
+
     if (
         event_started_delta is not None
         and event_completed_delta is not None
@@ -165,6 +194,27 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
             f"(+{live_image_admission_timeouts_delta})."
         )
 
+    if not thresholds.allow_video_circuit_open and video_circuit_open_observed:
+        reasons.append("Video classification circuit opened during soak run.")
+
+    if thresholds.max_video_pending is not None:
+        if max_video_pending_seen is None:
+            reasons.append("Unable to compute video-classifier pending depth from health payload.")
+        elif max_video_pending_seen > thresholds.max_video_pending:
+            reasons.append(
+                "Video-classifier pending depth exceeded threshold "
+                f"({max_video_pending_seen} > {thresholds.max_video_pending})."
+            )
+
+    if thresholds.max_video_failure_count_delta is not None:
+        if video_failure_count_delta is None:
+            reasons.append("Unable to compute video-classifier failure-count delta from health payload.")
+        elif video_failure_count_delta > thresholds.max_video_failure_count_delta:
+            reasons.append(
+                "Video-classifier failure count increased beyond threshold "
+                f"(+{video_failure_count_delta} > {thresholds.max_video_failure_count_delta})."
+            )
+
     return {
         "passed": len(reasons) == 0,
         "failure_reasons": reasons,
@@ -181,6 +231,9 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         "event_dropped_delta": event_dropped_delta,
         "event_critical_failures_delta": event_critical_failures_delta,
         "live_image_admission_timeouts_delta": live_image_admission_timeouts_delta,
+        "video_failure_count_delta": video_failure_count_delta,
+        "max_video_pending_seen": max_video_pending_seen,
+        "video_circuit_open_observed": video_circuit_open_observed,
         "stall_incidents": incidents,
     }
 
@@ -293,3 +346,26 @@ def _safe_float_or_none(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _safe_bool_or_none(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+    return None
+
+
+def _safe_str_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** MQTT stall recovery now stays armed across reconnect boundaries for the `#33` live-ingest failure mode. If a Frigate-topic stall triggers a reconnect and BirdNET remains active in the next MQTT session, YA-WAMF can now detect that Frigate still never resumed and force another recovery reconnect instead of going blind because the new session had zero Frigate messages.
+- **Added:** A dedicated `scripts/run_issue33_harness.py` soak harness now exercises the live-ingest and batch-video symptoms seen in issue `#33`. It can stop synthetic Frigate traffic while BirdNET keeps flowing, optionally add unknown-analysis pressure, and fails on missing MQTT recovery reconnects, video-circuit openings, or excessive video-queue backlog.
 - **Fixed:** The Home Assistant integration no longer treats `Last Bird Detected` as a plain species-name-only state for repeated detections. The sensor now only emits when a new detection event arrives, so repeat visits from the same species do not get silently swallowed by unchanged coordinator polls.
 - **Added:** Home Assistant now exposes `Last Detection Event` and `Last Detection Time` sensors. These provide stable automation triggers for every new detection and a proper timestamp entity instead of relying on raw string attributes.
 - **Fixed:** `/api/stats/daily-summary` now computes its 24-hour window using the same naive-UTC basis as persisted detections. This prevents Home Assistant and other clients from lagging behind recent detections when the host local timezone is offset from UTC.

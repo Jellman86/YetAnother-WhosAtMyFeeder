@@ -40,6 +40,7 @@ class MQTTService:
         self._event_task_tails: dict[str, asyncio.Task] = {}
         self._topic_last_message_monotonic: dict[str, float] = {}
         self._topic_message_counts: dict[str, int] = {}
+        self._topic_message_counts_lifetime: dict[str, int] = {}
         self._connection_started_monotonic: float | None = None
         self._topic_liveness_reconnects = 0
         self._last_reconnect_reason: str | None = None
@@ -140,6 +141,10 @@ class MQTTService:
         ts = now if now is not None else self._now_monotonic()
         self._topic_last_message_monotonic[topic] = ts
         self._topic_message_counts[topic] = self._topic_message_counts.get(topic, 0) + 1
+        self._topic_message_counts_lifetime[topic] = self._topic_message_counts_lifetime.get(topic, 0) + 1
+
+    def _topic_count_lifetime(self, topic: str) -> int:
+        return int(self._topic_message_counts_lifetime.get(topic, 0) or 0)
 
     def _topic_age_seconds(self, topic: str, now: float | None = None) -> float | None:
         last = self._topic_last_message_monotonic.get(topic)
@@ -201,6 +206,18 @@ class MQTTService:
             return False
         if self._topic_message_counts.get(birdnet_topic, 0) < MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES:
             return False
+
+        # After a stall-triggered reconnect, the next MQTT session can come up
+        # without any Frigate traffic at all. If BirdNET remains healthy and we
+        # know Frigate traffic has existed earlier in this process, keep the
+        # assisted recovery path armed across the reconnect boundary.
+        if (
+            self._topic_message_counts.get(frigate_topic, 0) <= 0
+            and self._topic_count_lifetime(frigate_topic) > 0
+            and self._last_reconnect_reason in {"frigate_topic_stalled", "frigate_topic_stalled_watchdog"}
+            and ts - self._connection_started_monotonic >= MQTT_FRIGATE_TOPIC_STALE_SECONDS
+        ):
+            return True
 
         return self._should_reconnect_independent(frigate_topic, ts)
 
@@ -538,6 +555,7 @@ class MQTTService:
         self._connection_started_monotonic = None
         self._topic_last_message_monotonic = {}
         self._topic_message_counts = {}
+        self._topic_message_counts_lifetime = {}
 
     def pause(self):
         self.paused = True
