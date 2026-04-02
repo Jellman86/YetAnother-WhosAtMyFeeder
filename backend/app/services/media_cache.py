@@ -26,6 +26,25 @@ PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 _MIN_VALID_CLIP_BYTES = 512
 
 
+def _clip_duration_seconds(path: Path) -> Optional[float]:
+    """Return clip duration in seconds when it can be measured cheaply."""
+    try:
+        import cv2  # Lazy import; only needed for recording-clip validation.
+
+        cap = cv2.VideoCapture(str(path))
+        try:
+            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+            frames = float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0)
+        finally:
+            cap.release()
+
+        if fps <= 0.0 or frames <= 0.0:
+            return None
+        return frames / fps
+    except Exception:
+        return None
+
+
 class MediaCacheService:
     """Manages local caching of snapshots and clips from Frigate.
 
@@ -444,12 +463,37 @@ class MediaCacheService:
                     pass
         return None
 
-    def get_recording_clip_path(self, event_id: str) -> Optional[Path]:
+    def get_recording_clip_path(
+        self,
+        event_id: str,
+        *,
+        min_duration_seconds: float | None = None,
+    ) -> Optional[Path]:
         """Get path to a cached recording clip if it exists and has content."""
         path = self._recording_clip_path(event_id)
         if path.exists():
             size = path.stat().st_size
             if size >= _MIN_VALID_CLIP_BYTES:
+                if min_duration_seconds is not None and min_duration_seconds > 0:
+                    actual_duration = _clip_duration_seconds(path)
+                    if actual_duration is not None and actual_duration < float(min_duration_seconds):
+                        try:
+                            path.unlink()
+                        except Exception:
+                            pass
+                        try:
+                            self._preview_sprite_path(event_id).unlink(missing_ok=True)
+                            self._preview_manifest_path(event_id).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        log.warning(
+                            "Removed truncated cached recording clip",
+                            event_id=event_id,
+                            actual_duration_seconds=round(actual_duration, 2),
+                            min_duration_seconds=round(float(min_duration_seconds), 2),
+                            size=size,
+                        )
+                        return None
                 os.utime(path, None)
                 return path
             try:

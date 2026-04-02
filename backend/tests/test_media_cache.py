@@ -101,3 +101,24 @@ async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, 
     assert clip_path != recording_path
     assert service.get_clip_path(event_id) == clip_path
     assert service.get_recording_clip_path(event_id) == recording_path
+
+
+def test_get_recording_clip_path_rejects_truncated_cached_recording_and_preview_assets(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_short_recording"
+
+    recording_path = service._recording_clip_path(event_id)
+    preview_sprite_path = service._preview_sprite_path(event_id)
+    preview_manifest_path = service._preview_manifest_path(event_id)
+    recording_path.write_bytes(b"x" * 2048)
+    preview_sprite_path.write_bytes(b"sprite")
+    preview_manifest_path.write_text('{"duration":6.0}')
+
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: 6.0)
+
+    resolved = service.get_recording_clip_path(event_id, min_duration_seconds=18.0)
+
+    assert resolved is None
+    assert not recording_path.exists()
+    assert not preview_sprite_path.exists()
+    assert not preview_manifest_path.exists()

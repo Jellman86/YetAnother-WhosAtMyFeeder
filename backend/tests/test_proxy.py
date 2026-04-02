@@ -379,12 +379,11 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
     settings.media_cache.cache_clips = True
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=Path("/tmp/test_recording.mp4")), \
-         patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context:
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))) as mock_context:
         try:
             response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
             assert response.status_code == 200
             assert response.headers["x-yawamf-recording-clip-ready"] == "cached"
-            mock_context.assert_not_called()
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
@@ -614,6 +613,7 @@ async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: 
         recording_path = Path(tmp.name)
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
          patch("app.services.media_cache.media_cache.get_clip_path", return_value=None) as mock_clip_path, \
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
@@ -676,6 +676,7 @@ async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_cli
         recording_path = Path(tmp.name)
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
@@ -704,6 +705,7 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
         recording_path = Path(tmp.name)
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
@@ -732,6 +734,7 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
         recording_path = Path(tmp.name)
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
          patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 

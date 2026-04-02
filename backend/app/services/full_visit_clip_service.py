@@ -18,6 +18,7 @@ log = structlog.get_logger()
 
 FULL_VISIT_FETCH_RETRY_ATTEMPTS = 2
 FULL_VISIT_FETCH_RETRY_DELAY_SECONDS = 2.0
+FULL_VISIT_FETCH_READY_GRACE_SECONDS = 2.0
 FULL_VISIT_RECONCILE_INTERVAL_SECONDS = 300.0
 FULL_VISIT_RECONCILE_LOOKBACK_HOURS = 24
 FULL_VISIT_RECONCILE_LIMIT = 100
@@ -61,6 +62,20 @@ class FullVisitClipService:
 
     def _mark_fetch_success(self, event_id: str) -> None:
         self._failure_retry_after.pop(event_id, None)
+
+    @staticmethod
+    def _minimum_acceptable_duration_seconds(expected_duration_seconds: float) -> float:
+        expected = max(1.0, float(expected_duration_seconds))
+        if expected <= 6.0:
+            return max(1.0, expected * 0.5)
+        return max(1.0, min(expected - 2.0, expected * 0.6))
+
+    async def _wait_until_recording_window_complete(self, event_id: str, lang: str) -> float:
+        _camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+        remaining_seconds = float(end_ts) - time.time()
+        if remaining_seconds > 0:
+            await asyncio.sleep(remaining_seconds + FULL_VISIT_FETCH_READY_GRACE_SECONDS)
+        return self._minimum_acceptable_duration_seconds(float(end_ts - start_ts))
 
     def trigger_background(
         self,
@@ -107,10 +122,6 @@ class FullVisitClipService:
         if not self._auto_generation_enabled():
             return False
 
-        if media_cache.get_recording_clip_path(event_id):
-            self._mark_fetch_success(event_id)
-            return True
-
         if self._in_failure_cooldown(event_id):
             log.debug(
                 "Automatic full-visit fetch suppressed by cooldown",
@@ -122,7 +133,12 @@ class FullVisitClipService:
 
         lock = self._lock_for_event(event_id)
         async with lock:
-            if media_cache.get_recording_clip_path(event_id):
+            min_duration_seconds = await self._wait_until_recording_window_complete(event_id, lang)
+
+            if media_cache.get_recording_clip_path(
+                event_id,
+                min_duration_seconds=min_duration_seconds,
+            ):
                 self._mark_fetch_success(event_id)
                 return True
 
@@ -176,8 +192,20 @@ class FullVisitClipService:
             )
 
         generated = 0
+        min_duration_seconds = self._minimum_acceptable_duration_seconds(
+            float(
+                max(
+                    1,
+                    int(settings.frigate.recording_clip_before_seconds)
+                    + int(settings.frigate.recording_clip_after_seconds),
+                )
+            )
+        )
         for detection in candidates:
-            if media_cache.get_recording_clip_path(detection.frigate_event):
+            if media_cache.get_recording_clip_path(
+                detection.frigate_event,
+                min_duration_seconds=min_duration_seconds,
+            ):
                 continue
             ready = await self.trigger_for_event(
                 detection.frigate_event,

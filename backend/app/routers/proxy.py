@@ -609,6 +609,35 @@ async def _get_recording_clip_context(event_id: str, lang: str) -> tuple[str, in
     return detection.camera_name, start_ts, end_ts
 
 
+def _minimum_acceptable_recording_clip_duration_seconds(start_ts: int, end_ts: int) -> float:
+    expected = max(1.0, float(end_ts - start_ts))
+    if expected <= 6.0:
+        return max(1.0, expected * 0.5)
+    return max(1.0, min(expected - 2.0, expected * 0.6))
+
+
+async def _get_valid_cached_recording_clip_path(event_id: str, lang: str):
+    from app.services.media_cache import media_cache
+
+    raw_cached_path = None
+    if settings.media_cache.enabled:
+        raw_cached_path = media_cache.get_recording_clip_path(event_id)
+    if not raw_cached_path:
+        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+        return None, camera_name, start_ts, end_ts
+
+    try:
+        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    except HTTPException:
+        return raw_cached_path, None, None, None
+
+    cached_path = media_cache.get_recording_clip_path(
+        event_id,
+        min_duration_seconds=_minimum_acceptable_recording_clip_duration_seconds(start_ts, end_ts),
+    )
+    return cached_path, camera_name, start_ts, end_ts
+
+
 async def _is_no_recordings_response(response: httpx.Response) -> bool:
     if response.status_code not in {400, 404}:
         return False
@@ -650,10 +679,10 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
             detail=i18n_service.translate("errors.clip_disabled", lang)
         )
 
-    if settings.media_cache.enabled and media_cache.get_recording_clip_path(event_id):
+    cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
+    if cached_path:
         return True
 
-    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
     _client, response = await _probe_recording_clip_response(clip_url, headers, timeout=10.0)
@@ -669,17 +698,19 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
 async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
     from app.services.media_cache import media_cache, _MIN_VALID_CLIP_BYTES
 
-    cached_path = media_cache.get_recording_clip_path(event_id)
+    cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
     if cached_path:
         return True
 
     lock = _recording_clip_fetch_lock(event_id)
     async with lock:
-        cached_path = media_cache.get_recording_clip_path(event_id)
+        cached_path = media_cache.get_recording_clip_path(
+            event_id,
+            min_duration_seconds=_minimum_acceptable_recording_clip_duration_seconds(start_ts, end_ts),
+        )
         if cached_path:
             return True
 
-        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
         clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
         headers = frigate_client._get_headers()
 
@@ -1312,7 +1343,14 @@ async def check_clip_exists(
         await require_event_access(event_id, auth, lang)
 
     if settings.media_cache.enabled:
-        if media_cache.get_recording_clip_path(event_id):
+        recording_cached_path = media_cache.get_recording_clip_path(event_id)
+        if recording_cached_path:
+            try:
+                _validated_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
+                recording_cached_path = _validated_path
+            except HTTPException:
+                pass
+        if recording_cached_path:
             return Response(status_code=200)
         if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
             return Response(status_code=200)
@@ -1381,11 +1419,11 @@ async def check_recording_clip_exists(
         await require_event_access(event_id, auth, lang)
 
     if settings.media_cache.enabled:
-        cached_path = media_cache.get_recording_clip_path(event_id)
+        cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
         if cached_path:
             return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
-
-    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    else:
+        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
 
@@ -1497,6 +1535,12 @@ async def proxy_clip(
     # Check cache first
     if settings.media_cache.enabled:
         recording_cached_path = media_cache.get_recording_clip_path(event_id)
+        if recording_cached_path:
+            try:
+                _validated_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
+                recording_cached_path = _validated_path
+            except HTTPException:
+                pass
         if recording_cached_path:
             log.info(
                 "proxy_clip_recording_cache_hit",
@@ -1711,7 +1755,7 @@ async def proxy_recording_clip(
         )
 
     if settings.media_cache.enabled:
-        cached_path = media_cache.get_recording_clip_path(event_id)
+        cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
         if cached_path:
             log.info(
                 "proxy_recording_clip_cache_hit",
@@ -1728,7 +1772,8 @@ async def proxy_recording_clip(
                 }
             )
 
-    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    else:
+        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
 

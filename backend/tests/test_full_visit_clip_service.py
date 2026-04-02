@@ -31,6 +31,7 @@ async def test_trigger_for_event_noops_when_recording_clip_already_cached():
          patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True), \
+         patch("app.services.full_visit_clip_service._get_recording_clip_context", new=AsyncMock(return_value=("cam1", 100, 130))), \
          patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=Path("/tmp/existing_recording.mp4")), \
          patch.object(service, "_fetch_once", new=AsyncMock(return_value=True)) as mock_fetch:
         ready = await service.trigger_for_event("evt-cached", "cam1")
@@ -125,6 +126,7 @@ async def test_trigger_for_event_retries_temporary_unavailability():
          patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True), \
+         patch("app.services.full_visit_clip_service._get_recording_clip_context", new=AsyncMock(return_value=("cam1", 100, 130))), \
          patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=None), \
          patch.object(service, "_fetch_once", new=AsyncMock(side_effect=[False, True])) as mock_fetch, \
          patch("app.services.full_visit_clip_service.asyncio.sleep", new=AsyncMock()) as mock_sleep:
@@ -136,6 +138,26 @@ async def test_trigger_for_event_retries_temporary_unavailability():
 
 
 @pytest.mark.asyncio
+async def test_trigger_for_event_waits_until_recording_window_is_complete_before_fetch():
+    service = FullVisitClipService()
+
+    with patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True), \
+         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True), \
+         patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True), \
+         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True), \
+         patch("app.services.full_visit_clip_service._get_recording_clip_context", new=AsyncMock(return_value=("cam1", 100, 130))), \
+         patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=None), \
+         patch("app.services.full_visit_clip_service.time.time", return_value=120.0), \
+         patch("app.services.full_visit_clip_service.asyncio.sleep", new=AsyncMock()) as mock_sleep, \
+         patch.object(service, "_fetch_once", new=AsyncMock(return_value=True)) as mock_fetch:
+        ready = await service.trigger_for_event("evt-window", "cam1")
+
+    assert ready is True
+    mock_sleep.assert_any_await(12.0)
+    mock_fetch.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_trigger_for_event_throttles_repeat_failures_until_cooldown_expires():
     service = FullVisitClipService()
 
@@ -143,6 +165,7 @@ async def test_trigger_for_event_throttles_repeat_failures_until_cooldown_expire
          patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True), \
+         patch("app.services.full_visit_clip_service._get_recording_clip_context", new=AsyncMock(return_value=("cam1", 100, 130))), \
          patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=None), \
          patch.object(service, "_fetch_once", new=AsyncMock(return_value=False)) as mock_fetch, \
          patch("app.services.full_visit_clip_service.time.time", side_effect=[100.0, 100.0, 100.0, 101.0, 101.0, 4000.0, 4000.0]), \
@@ -160,7 +183,7 @@ async def test_trigger_for_event_uses_single_flight_lock_per_event():
     service = FullVisitClipService()
     state = {"ready": False}
 
-    def get_recording_clip_path(_event_id: str):
+    def get_recording_clip_path(_event_id: str, min_duration_seconds: float | None = None):
         return Path("/tmp/evt-lock_recording.mp4") if state["ready"] else None
 
     async def fetch_once(_event_id: str, _lang: str) -> bool:
@@ -172,6 +195,7 @@ async def test_trigger_for_event_uses_single_flight_lock_per_event():
          patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True), \
          patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True), \
+         patch("app.services.full_visit_clip_service._get_recording_clip_context", new=AsyncMock(return_value=("cam1", 100, 130))), \
          patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", side_effect=get_recording_clip_path), \
          patch.object(service, "_fetch_once", new=AsyncMock(side_effect=fetch_once)) as mock_fetch:
         results = await asyncio.gather(
