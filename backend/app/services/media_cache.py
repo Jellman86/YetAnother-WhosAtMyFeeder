@@ -55,6 +55,7 @@ class MediaCacheService:
     def __init__(self):
         self._available = True
         self._init_error: Optional[str] = None
+        self._recording_clip_duration_cache: dict[str, tuple[int, int, Optional[float]]] = {}
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -179,6 +180,29 @@ class MediaCacheService:
         except (ValueError, OSError):
             raise ValueError(f"Invalid preview manifest path for event: {event_id}")
         return path
+
+    def _invalidate_recording_clip_duration_cache(self, path: Path) -> None:
+        self._recording_clip_duration_cache.pop(str(path), None)
+
+    def _get_cached_recording_clip_duration_seconds(
+        self,
+        path: Path,
+        *,
+        stat_result: os.stat_result,
+    ) -> Optional[float]:
+        cache_key = str(path)
+        cache_signature = (int(stat_result.st_size), int(stat_result.st_mtime_ns))
+        cached = self._recording_clip_duration_cache.get(cache_key)
+        if cached is not None and cached[:2] == cache_signature:
+            return cached[2]
+
+        duration = _clip_duration_seconds(path)
+        self._recording_clip_duration_cache[cache_key] = (
+            cache_signature[0],
+            cache_signature[1],
+            duration,
+        )
+        return duration
 
     async def _write_bytes_atomic(self, path: Path, data: bytes) -> Path:
         """Write bytes to a temp file in the same directory, then atomically replace."""
@@ -380,6 +404,7 @@ class MediaCacheService:
             path = self._recording_clip_path(event_id)
             async with aiofiles.open(path, "wb") as f:
                 await f.write(clip_bytes)
+            self._invalidate_recording_clip_duration_cache(path)
             log.debug("Cached recording clip", event_id=event_id, size=len(clip_bytes))
             return path
         except Exception as e:
@@ -388,6 +413,7 @@ class MediaCacheService:
                 path = self._recording_clip_path(event_id)
                 if path.exists():
                     path.unlink()
+                self._invalidate_recording_clip_duration_cache(path)
             except Exception:
                 pass
             return None
@@ -416,10 +442,12 @@ class MediaCacheService:
                 try:
                     if path.exists():
                         path.unlink()
+                    self._invalidate_recording_clip_duration_cache(path)
                 except Exception:
                     pass
                 return None
 
+            self._invalidate_recording_clip_duration_cache(path)
             log.debug("Cached recording clip (streaming)", event_id=event_id, size=total_size)
             return path
         except Exception as e:
@@ -428,6 +456,7 @@ class MediaCacheService:
                 path = self._recording_clip_path(event_id)
                 if path.exists():
                     path.unlink()
+                self._invalidate_recording_clip_duration_cache(path)
             except Exception:
                 pass
             return None
@@ -472,10 +501,14 @@ class MediaCacheService:
         """Get path to a cached recording clip if it exists and has content."""
         path = self._recording_clip_path(event_id)
         if path.exists():
-            size = path.stat().st_size
+            stat_result = path.stat()
+            size = stat_result.st_size
             if size >= _MIN_VALID_CLIP_BYTES:
                 if min_duration_seconds is not None and min_duration_seconds > 0:
-                    actual_duration = _clip_duration_seconds(path)
+                    actual_duration = self._get_cached_recording_clip_duration_seconds(
+                        path,
+                        stat_result=stat_result,
+                    )
                     if actual_duration is not None and actual_duration < float(min_duration_seconds):
                         try:
                             path.unlink()
@@ -493,11 +526,13 @@ class MediaCacheService:
                             min_duration_seconds=round(float(min_duration_seconds), 2),
                             size=size,
                         )
+                        self._invalidate_recording_clip_duration_cache(path)
                         return None
                 os.utime(path, None)
                 return path
             try:
                 path.unlink()
+                self._invalidate_recording_clip_duration_cache(path)
                 log.warning(
                     "Removed invalid cached recording clip (stub or empty)",
                     event_id=event_id,
@@ -603,6 +638,7 @@ class MediaCacheService:
             recording_clip_path = self._recording_clip_path(event_id)
             if await aiofiles.os.path.exists(recording_clip_path):
                 await aiofiles.os.remove(recording_clip_path)
+                self._invalidate_recording_clip_duration_cache(recording_clip_path)
 
             preview_sprite_path = self._preview_sprite_path(event_id)
             if await aiofiles.os.path.exists(preview_sprite_path):

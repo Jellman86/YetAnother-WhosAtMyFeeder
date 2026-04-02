@@ -122,3 +122,50 @@ def test_get_recording_clip_path_rejects_truncated_cached_recording_and_preview_
     assert not recording_path.exists()
     assert not preview_sprite_path.exists()
     assert not preview_manifest_path.exists()
+
+
+def test_get_recording_clip_path_reuses_cached_duration_for_unchanged_file(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_duration_cache"
+
+    recording_path = service._recording_clip_path(event_id)
+    recording_path.write_bytes(b"x" * 4096)
+
+    calls = {"count": 0}
+
+    def fake_duration(_path):
+        calls["count"] += 1
+        return 28.0
+
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", fake_duration)
+
+    resolved_first = service.get_recording_clip_path(event_id, min_duration_seconds=27.0)
+    resolved_second = service.get_recording_clip_path(event_id, min_duration_seconds=27.0)
+
+    assert resolved_first == recording_path
+    assert resolved_second == recording_path
+    assert calls["count"] == 1
+
+
+def test_get_recording_clip_path_invalidates_cached_duration_when_file_changes(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_duration_cache_invalidate"
+
+    recording_path = service._recording_clip_path(event_id)
+    recording_path.write_bytes(b"x" * 4096)
+
+    calls = {"count": 0}
+
+    def fake_duration(_path):
+        calls["count"] += 1
+        return 28.0
+
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", fake_duration)
+
+    resolved_first = service.get_recording_clip_path(event_id, min_duration_seconds=27.0)
+    recording_path.write_bytes(b"y" * 8192)
+    resolved_second = service.get_recording_clip_path(event_id, min_duration_seconds=27.0)
+
+    assert resolved_first == recording_path
+    assert resolved_second == recording_path
+    assert calls["count"] == 2
