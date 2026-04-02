@@ -32,4 +32,12 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
         expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
     });
+
+    it('gates owner-only detection actions behind explicit owner access', () => {
+        expect(detectionModalSource).toContain('const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);');
+        expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions}');
+        expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions && showTagDropdown}');
+        expect(detectionModalSource).toContain('if (!authStore.hasOwnerAccess) return;');
+        expect(detectionModalSource).not.toContain('{#if authStore.canModify}\n                <div class="flex gap-2">');
+    });
 });

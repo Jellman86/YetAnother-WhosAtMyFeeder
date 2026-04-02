@@ -43,11 +43,12 @@ class AuthStore {
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
 
-    // Derived permission states
-    canModify = $derived(this.isAuthenticated || !this.authRequired);
-    isGuest = $derived(this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
-    showSettings = $derived(this.isAuthenticated || !this.authRequired);
-    canViewAiConversation = $derived(this.canModify || (this.isGuest && this.publicAccessShowAiConversation));
+    // Owner-only UI must stay locked until auth status has loaded.
+    hasOwnerAccess = $derived(this.statusLoaded && (this.isAuthenticated || !this.authRequired));
+    canModify = $derived(this.hasOwnerAccess);
+    isGuest = $derived(this.statusLoaded && this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
+    showSettings = $derived(this.hasOwnerAccess);
+    canViewAiConversation = $derived(this.hasOwnerAccess || (this.isGuest && this.publicAccessShowAiConversation));
 
     constructor() {
         // Status is loaded via loadStatus()

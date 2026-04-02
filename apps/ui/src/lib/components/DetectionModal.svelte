@@ -457,6 +457,7 @@
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
+    const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
@@ -860,6 +861,7 @@
     }
 
     async function handleManualTag(selection: SearchResult) {
+        if (!authStore.hasOwnerAccess) return;
         if (readOnly) return;
         if (!detection) return;
         if (updatingTag) return;
@@ -901,6 +903,7 @@
     }
 
     async function handleHide() {
+        if (!authStore.hasOwnerAccess) return;
         if (readOnly) return;
         if (!detection) return;
         try {
@@ -915,6 +918,7 @@
     }
 
     async function handleDelete() {
+        if (!authStore.hasOwnerAccess) return;
         if (readOnly) return;
         if (!detection) return;
         if (!confirm($_('actions.confirm_delete', { values: { species: detection.display_name } }))) return;
@@ -958,6 +962,7 @@
     }
 
     function handleReclassifyClick() {
+        if (!authStore.hasOwnerAccess) return;
         if (readOnly || !onReclassify) return;
         awaitingReclassifyOverlay = true;
         onReclassify(detection);
@@ -2490,7 +2495,7 @@
             {/if}
 
             <!-- Actions -->
-            {#if authStore.canModify}
+            {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
                     <button
                         onclick={handleReclassifyClick}
@@ -2512,8 +2517,8 @@
             {/if}
 
 	            <!-- Bottom Actions -->
-	            <div class="flex gap-2 pt-2">
-	                {#if authStore.canModify}
+            <div class="flex gap-2 pt-2">
+	                {#if hasOwnerDetectionActions}
 	                    <button
 	                        onclick={handleDelete}
 	                        class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 transition-colors"
@@ -2543,7 +2548,7 @@
             </div>
         </div>
 
-        {#if showTagDropdown}
+        {#if hasOwnerDetectionActions && showTagDropdown}
             <div
                 class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overscroll-contain touch-none"
                 onclick={(e) => {

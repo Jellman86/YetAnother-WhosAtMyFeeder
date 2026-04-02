@@ -671,6 +671,13 @@
         }
     });
 
+    $effect(() => {
+        if (authStore.hasOwnerAccess) return;
+        if (selectionMode) selectionMode = false;
+        if (showBulkTagModal) showBulkTagModal = false;
+        if (selectedEventIds.length) selectedEventIds = [];
+    });
+
     function moveTimelineSelection(direction: 1 | -1): void {
         const keys = ['all', ...timelineBuckets.map((bucket) => bucket.key)];
         const current = Math.max(0, keys.indexOf(selectedTimelineBucket));
@@ -737,12 +744,14 @@
     }
 
     function toggleSelectionMode() {
+        if (!authStore.hasOwnerAccess) return;
         selectionMode = !selectionMode;
         selectedEventIds = [];
         showBulkTagModal = false;
     }
 
     function toggleEventSelection(eventId: string) {
+        if (!authStore.hasOwnerAccess) return;
         if (selectedEventIds.includes(eventId)) {
             selectedEventIds = selectedEventIds.filter((id) => id !== eventId);
         } else {
@@ -769,6 +778,7 @@
     }
 
     async function applyBulkManualTag(selection: SearchResult) {
+        if (!authStore.hasOwnerAccess) return;
         const eventIds = [...selectedEventIds];
         if (!eventIds.length || bulkTagging) return;
 
@@ -844,20 +854,22 @@
         </div>
         <div class="flex items-center gap-3">
             <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
-            <button
-                type="button"
-                class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors
-                    {selectionMode
-                        ? 'bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-100 dark:border-cyan-400/60'
-                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-                onclick={toggleSelectionMode}
-            >
-                <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
-            </button>
+            {#if authStore.hasOwnerAccess}
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors
+                        {selectionMode
+                            ? 'bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-100 dark:border-cyan-400/60'
+                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+                    onclick={toggleSelectionMode}
+                >
+                    <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
+                </button>
+            {/if}
         </div>
     </div>
 
-    {#if selectionMode}
+    {#if authStore.hasOwnerAccess && selectionMode}
         <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-200/80 dark:border-cyan-500/30 bg-cyan-50/70 dark:bg-cyan-500/10">
             <div>
                 <p class="text-sm font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-100">
@@ -1108,7 +1120,7 @@
     />
 {/if}
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
-{#if showBulkTagModal}
+{#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
         onclick={(e) => {

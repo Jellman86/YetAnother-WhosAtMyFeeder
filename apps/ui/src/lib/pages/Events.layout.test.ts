@@ -9,11 +9,14 @@ describe('Explorer page layout', () => {
     });
 
     it('labels the page-level selection toggle as Multi Select', () => {
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess}');
         expect(eventsSource).toContain("$_('common.multi_select', { default: 'Multi Select' })");
         expect(eventsSource).not.toContain("selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })");
     });
 
     it('keeps selection wording in the bulk toolbar instead of inside each card', () => {
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && selectionMode}');
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && showBulkTagModal}');
         expect(eventsSource).toContain("selectedEventIds.length");
         expect(eventsSource).toContain("$_('common.selected', { default: 'selected' })");
         expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to tag together.'");

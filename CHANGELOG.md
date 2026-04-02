@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Manual tagging in the Events explorer is now consistently owner-only. The UI no longer exposes multi-select tagging or modal retag/reclassify/delete controls until auth status has loaded and owner access is confirmed, which closes the public/guest leak caused by optimistic pre-auth frontend state.
 - **Changed:** The Events explorer multi-select cards now use a full selected-card veil instead of the old in-image `Select` / `Selected` pill or a weak corner selector. Selected cards now get a bolder cyan card border, a frosted cyan-blue overlay above the card content, and a centered checkmark so bulk selection reads clearly from the grid while intentionally masking the underlying card details.
 - **Changed:** Full-visit playback now uses a single canonical clip contract in the UI. The player always opens `/api/frigate/{event_id}/clip.mp4`, promoted full visits replace the canonical clip automatically for both authenticated and guest/public viewers, and the old event-vs-full toggle has been removed in favor of a passive full-visit indicator.
 - **Fixed:** MQTT stall recovery now stays armed across reconnect boundaries for the `#33` live-ingest failure mode. If a Frigate-topic stall triggers a reconnect and BirdNET remains active in the next MQTT session, YA-WAMF can now detect that Frigate still never resumed and force another recovery reconnect instead of going blind because the new session had zero Frigate messages.
