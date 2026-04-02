@@ -41,10 +41,11 @@ describe('detection card full-visit fetch wiring', () => {
     });
 
     it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
-        expect(detectionCardSource).toContain("border-cyan-300/90 dark:border-cyan-400/70 ring-2 ring-cyan-400/45");
+        expect(detectionCardSource).toContain("border-cyan-300 dark:border-cyan-300/90 ring-4 ring-cyan-400/35");
         expect(detectionCardSource).toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
         expect(detectionCardSource).toContain('h-8 w-8 rounded-full border-2');
-        expect(detectionCardSource).toContain("border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/30");
+        expect(detectionCardSource).toContain("border-cyan-300 bg-cyan-500 text-white shadow-cyan-500/40");
+        expect(detectionCardSource).toContain("{#if selected}\n                <div class=\"absolute inset-0 z-0 bg-cyan-500/14 backdrop-blur-[2px]\"></div>");
         expect(detectionCardSource).not.toContain("$_('common.selected', { default: 'Selected' })");
         expect(detectionCardSource).not.toContain("$_('common.select', { default: 'Select' })");
     });

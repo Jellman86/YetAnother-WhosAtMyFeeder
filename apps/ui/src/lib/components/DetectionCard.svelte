@@ -345,7 +345,7 @@
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
-               {selected ? 'border-cyan-300/90 dark:border-cyan-400/70 ring-2 ring-cyan-400/45 bg-cyan-50/30 dark:bg-cyan-500/5 shadow-card-hover dark:shadow-card-dark-hover' : ''}"
+               {selected ? 'border-cyan-300 dark:border-cyan-300/90 ring-4 ring-cyan-400/35 dark:ring-cyan-300/25 bg-cyan-50/60 dark:bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.18)] shadow-card-hover dark:shadow-card-dark-hover' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <button
@@ -365,7 +365,7 @@
             <div
                 class="inline-flex h-8 w-8 rounded-full border-2 items-center justify-center shadow-lg backdrop-blur-sm
                     {selected
-                        ? 'border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/30'
+                        ? 'border-cyan-300 bg-cyan-500 text-white shadow-cyan-500/40'
                         : 'border-slate-300/90 dark:border-slate-500/80 bg-white/95 dark:bg-slate-900/95 text-slate-400 dark:text-slate-500 shadow-slate-900/10'}"
             >
                 {#if selected}
@@ -397,6 +397,10 @@
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            {#if selected}
+                <div class="absolute inset-0 z-0 bg-cyan-500/14 backdrop-blur-[2px]"></div>
+                <div class="absolute inset-0 z-0 bg-gradient-to-br from-cyan-300/18 via-transparent to-cyan-500/14"></div>
+            {/if}
 
         {:else}
             <div class="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
