@@ -12,8 +12,6 @@
     import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import {
-        formatPrecipitation,
-        formatWindSpeed,
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
@@ -44,22 +42,12 @@
             || !!detection.audio_species
             || (detection.audio_context_species?.length ?? 0) > 0
     );
-    let hasWeather = $derived(
-        detection.temperature !== undefined && detection.temperature !== null ||
-        !!detection.weather_condition ||
-        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
-        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
-        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
-        detection.weather_rain !== undefined && detection.weather_rain !== null ||
-        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
-    );
-    let weatherUnitSystem = $derived(
+    let temperatureUnit = $derived(getTemperatureUnitForSystem(
         resolveWeatherUnitSystem(
             settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
             settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
         )
-    );
-    let temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+    ));
 
     function getRelativeTime(dateString: string, t: any): string {
         try {
@@ -85,12 +73,6 @@
         }
     }
 
-    function formatPrecip(value?: number | null): string {
-        return formatPrecipitation(value, weatherUnitSystem, {
-            metric: $_('common.unit_mm', { default: 'mm' }),
-            imperial: $_('common.unit_in', { default: 'in' })
-        });
-    }
 </script>
 
 <div 
@@ -148,47 +130,25 @@
                     {formatTime(detection.detection_time)}
                 </span>
                 <span class="flex items-center gap-1.5">
-                    📷 {detection.camera_name}
+                    <svg class="w-3.5 h-3.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    {detection.camera_name}
                 </span>
-                {#if detection.temperature !== undefined && detection.temperature !== null}
+                {#if detection.weather_condition}
                     <span class="flex items-center gap-1.5">
-                        🌡️ {formatTemperature(detection.temperature, temperatureUnit)}
+                        <svg class="w-3.5 h-3.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
+                        </svg>
+                        {detection.weather_condition}
+                    </span>
+                {/if}
+                {#if detection.temperature !== undefined && detection.temperature !== null}
+                    <span class="font-bold text-white/90">
+                        {formatTemperature(detection.temperature, temperatureUnit)}
                     </span>
                 {/if}
             </div>
-
-            {#if hasWeather}
-                <div class="flex flex-wrap items-center gap-2 mt-3">
-                    {#if detection.weather_condition}
-                        <span class="px-2 py-0.5 bg-slate-800/70 text-white/80 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {detection.weather_condition}
-                        </span>
-                    {/if}
-                    {#if (detection.weather_rain ?? 0) > 0 || (detection.weather_precipitation ?? 0) > 0}
-                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {formatPrecip((detection.weather_rain ?? 0) + (detection.weather_precipitation ?? 0))}
-                        </span>
-                    {/if}
-                    {#if (detection.weather_snowfall ?? 0) > 0}
-                        <span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {formatPrecip(detection.weather_snowfall)}
-                        </span>
-                    {/if}
-                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
-                        <span class="px-2 py-0.5 bg-slate-700/60 text-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {Math.round(detection.weather_cloud_cover)}% {$_('detection.weather_cloud')}
-                        </span>
-                    {/if}
-                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-200 text-[10px] font-bold uppercase tracking-widest rounded-md">
-                            {formatWindSpeed(detection.weather_wind_speed, weatherUnitSystem, {
-                                metric: $_('common.unit_kmh', { default: 'km/h' }),
-                                imperial: $_('common.unit_mph', { default: 'mph' })
-                            })} {$_('detection.weather_wind')}
-                        </span>
-                    {/if}
-                </div>
-            {/if}
         </div>
 
         <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">
