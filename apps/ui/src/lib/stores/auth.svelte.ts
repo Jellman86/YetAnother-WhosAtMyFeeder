@@ -21,6 +21,7 @@ class AuthStore {
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
     statusLoaded = $state(false);
+    statusHealthy = $state(false);
     token = $state(getAuthToken());
     httpsWarning = $state(false);
     forceLogin = $state(false);
@@ -43,10 +44,10 @@ class AuthStore {
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
 
-    // Owner-only UI must stay locked until auth status has loaded.
-    hasOwnerAccess = $derived(this.statusLoaded && (this.isAuthenticated || !this.authRequired));
+    // Owner-only UI must stay locked until auth status has loaded successfully.
+    hasOwnerAccess = $derived(this.statusLoaded && this.statusHealthy && (this.isAuthenticated || !this.authRequired));
     canModify = $derived(this.hasOwnerAccess);
-    isGuest = $derived(this.statusLoaded && this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
+    isGuest = $derived(this.statusLoaded && this.statusHealthy && this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
     showSettings = $derived(this.hasOwnerAccess);
     canViewAiConversation = $derived(this.hasOwnerAccess || (this.isGuest && this.publicAccessShowAiConversation));
 
@@ -94,8 +95,17 @@ class AuthStore {
             );
             this.locationTemperatureUnit = getTemperatureUnitForSystem(this.locationWeatherUnitSystem);
             this.dateFormat = status.date_format ?? "locale";
+            this.statusHealthy = true;
         } catch (err) {
             console.error('Failed to load auth status', err);
+            // Fail closed on auth-status errors so owner-only UI never leaks.
+            this.authRequired = true;
+            this.publicAccessEnabled = false;
+            this.publicAccessShowAiConversation = false;
+            this.publicAccessAllowClipDownloads = false;
+            this.isAuthenticated = false;
+            this.username = null;
+            this.statusHealthy = false;
         } finally {
             this.token = getAuthToken();
             this.statusLoaded = true;

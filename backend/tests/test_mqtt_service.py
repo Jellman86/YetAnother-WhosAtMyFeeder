@@ -322,7 +322,7 @@ def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(
 
     monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", _record)
 
-    service._note_stall_reconnect(
+    should_reconnect = service._note_stall_reconnect(
         reason="frigate_topic_stalled",
         now=410.0,
         frigate_topic="frigate/events",
@@ -331,6 +331,7 @@ def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(
     )
 
     status = service.get_status()
+    assert should_reconnect is True
     assert service._topic_liveness_reconnects == 2
     assert status["stall_recovery_consecutive_no_frigate_reconnects"] == 1
     assert status["stall_recovery_warning_active"] is True
@@ -561,7 +562,7 @@ def test_note_stall_reconnect_records_abandoned_diagnostic_at_cap(monkeypatch):
     recorded: list[dict] = []
     monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
 
-    service._note_stall_reconnect(
+    should_reconnect = service._note_stall_reconnect(
         reason="frigate_topic_stalled",
         now=410.0,
         frigate_topic="frigate/events",
@@ -569,6 +570,7 @@ def test_note_stall_reconnect_records_abandoned_diagnostic_at_cap(monkeypatch):
         no_frigate_after_previous_reconnect=True,
     )
 
+    assert should_reconnect is False
     assert service._stall_recovery_consecutive_no_frigate_reconnects == 2
     assert recorded[-1]["reason_code"] == "frigate_recovery_abandoned"
     assert recorded[-1]["context"]["recovery_abandoned"] is True

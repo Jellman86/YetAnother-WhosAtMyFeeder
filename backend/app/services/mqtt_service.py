@@ -170,11 +170,11 @@ class MQTTService:
         frigate_topic: str,
         birdnet_topic: str,
         no_frigate_after_previous_reconnect: bool,
-    ) -> None:
+    ) -> bool:
         self._topic_liveness_reconnects += 1
         self._last_reconnect_reason = reason
         if not no_frigate_after_previous_reconnect:
-            return
+            return True
 
         self._stall_recovery_consecutive_no_frigate_reconnects += 1
 
@@ -216,6 +216,8 @@ class MQTTService:
                 consecutive_reconnects_without_frigate=self._stall_recovery_consecutive_no_frigate_reconnects,
                 max_allowed=MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS,
             )
+            return False
+        return True
 
     def _topic_age_seconds(self, topic: str, now: float | None = None) -> float | None:
         last = self._topic_last_message_monotonic.get(topic)
@@ -569,13 +571,20 @@ class MQTTService:
                                     birdnet_topic=birdnet_topic,
                                     now=now,
                                 ):
-                                    self._note_stall_reconnect(
+                                    should_reconnect = self._note_stall_reconnect(
                                         reason="frigate_topic_stalled",
                                         now=now,
                                         frigate_topic=frigate_topic,
                                         birdnet_topic=birdnet_topic,
                                         no_frigate_after_previous_reconnect=no_frigate_after_previous_reconnect,
                                     )
+                                    if not should_reconnect:
+                                        log.warning(
+                                            "Frigate topic recovery reached the configured reconnect cap; remaining connected without further forced reconnects",
+                                            consecutive_reconnects_without_frigate=self._stall_recovery_consecutive_no_frigate_reconnects,
+                                            max_consecutive_reconnects=MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS,
+                                        )
+                                        continue
                                     if no_frigate_after_previous_reconnect:
                                         log.warning(
                                             "Frigate topic still absent after prior stall recovery; reconnecting MQTT session again",
