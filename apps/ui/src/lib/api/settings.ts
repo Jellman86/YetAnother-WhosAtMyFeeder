@@ -151,6 +151,7 @@ export interface Settings {
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
     appearance_font_theme?: string;
+    appearance_color_theme?: string;
     auth_enabled: boolean;
     auth_username: string;
     auth_has_password: boolean;

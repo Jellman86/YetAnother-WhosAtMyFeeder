@@ -169,11 +169,15 @@ class HighQualitySnapshotService:
 
     async def stop(self) -> None:
         """Cancel and clear all active tasks for tests or shutdown."""
+        current_loop = asyncio.get_running_loop()
         tasks = list(self._worker_tasks)
         for task in tasks:
             task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        # Only await tasks that belong to the current event loop; tasks from a
+        # previous (now-closed) loop cannot be gathered and are simply discarded.
+        same_loop_tasks = [t for t in tasks if not t.done() and t.get_loop() is current_loop]
+        if same_loop_tasks:
+            await asyncio.gather(*same_loop_tasks, return_exceptions=True)
         self._worker_tasks.clear()
         self._active_ids.clear()
         self._queued_ids.clear()
