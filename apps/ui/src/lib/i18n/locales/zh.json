@@ -43,7 +43,14 @@
     "font_lang_clean": "优先拉丁字母；非拉丁文字使用系统字体回退。",
     "font_lang_studio": "优先拉丁字母；非拉丁文字使用系统字体回退。",
     "font_lang_classic": "优先拉丁字母；非拉丁文字使用系统字体回退。",
-    "font_lang_compact": "优先拉丁字母；非拉丁文字使用系统字体回退。"
+    "font_lang_compact": "优先拉丁字母；非拉丁文字使用系统字体回退。",
+    "color_title": "强调色",
+    "color_desc": "更改整个界面的强调色调色板。",
+    "color_default": "青色",
+    "color_default_desc": "默认青色与翠绿色强调",
+    "color_bluetit": "蓝冠山雀",
+    "color_bluetit_desc": "钴蓝与金黄，灵感来自应用图标",
+    "color_selected": "已选择"
   },
   "dashboard": {
     "title": "仪表盘",

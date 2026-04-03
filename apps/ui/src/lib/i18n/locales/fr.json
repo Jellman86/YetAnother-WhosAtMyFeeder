@@ -43,7 +43,14 @@
     "font_lang_clean": "Priorité au latin ; les autres écritures utilisent la police système.",
     "font_lang_studio": "Priorité au latin ; les autres écritures utilisent la police système.",
     "font_lang_classic": "Priorité au latin ; les autres écritures utilisent la police système.",
-    "font_lang_compact": "Priorité au latin ; les autres écritures utilisent la police système."
+    "font_lang_compact": "Priorité au latin ; les autres écritures utilisent la police système.",
+    "color_title": "Accent de Couleur",
+    "color_desc": "Modifie la palette d'accent dans toute l'interface.",
+    "color_default": "Sarcelle",
+    "color_default_desc": "Accents sarcelle et émeraude par défaut",
+    "color_bluetit": "Mésange bleue",
+    "color_bluetit_desc": "Bleu cobalt et jaune doré, inspiré de l'icône de l'application",
+    "color_selected": "Actif"
   },
   "dashboard": {
     "title": "Tableau de bord",

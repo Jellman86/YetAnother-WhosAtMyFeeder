@@ -43,7 +43,14 @@
     "font_lang_clean": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
     "font_lang_studio": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
     "font_lang_classic": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
-    "font_lang_compact": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。"
+    "font_lang_compact": "ラテン文字優先。非ラテン文字はシステムフォントにフォールバック。",
+    "color_title": "カラーアクセント",
+    "color_desc": "UI全体のアクセントカラーパレットを変更します。",
+    "color_default": "ティール",
+    "color_default_desc": "デフォルトのティール＆エメラルドアクセント",
+    "color_bluetit": "アオガラ",
+    "color_bluetit_desc": "コバルトブルーとゴールデンイエロー、アプリアイコンからインスピレーション",
+    "color_selected": "選択中"
   },
   "dashboard": {
     "title": "ダッシュボード",

@@ -278,6 +278,67 @@ html[data-theme='dark'] {
   }
 }
 
+/* ── Blue Tit Color Theme ── */
+/* Remaps teal/emerald accents to cobalt blue & golden yellow */
+
+.theme-bluetit .card-interactive:hover {
+  @apply border-blue-500/40 dark:border-blue-500/40 ring-blue-400/30 dark:ring-blue-500/30;
+  box-shadow: 0 8px 25px -5px rgba(37, 99, 235, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.theme-bluetit .stat-number {
+  @apply bg-gradient-to-r from-blue-600 to-amber-500 dark:from-blue-400 dark:to-amber-400;
+}
+
+.theme-bluetit .gradient-line {
+  @apply bg-gradient-to-r from-blue-500 via-amber-500 to-blue-500;
+}
+
+.theme-bluetit .tab-button-active {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+.theme-bluetit .btn-primary {
+  @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500;
+}
+
+.theme-bluetit .btn-secondary {
+  @apply hover:border-blue-300/60 hover:text-blue-700 dark:hover:text-blue-300;
+}
+
+.theme-bluetit .input-base:focus {
+  @apply ring-blue-400/40 border-blue-400/60;
+}
+
+.theme-bluetit .text-gradient {
+  @apply bg-gradient-to-r from-blue-500 to-amber-400;
+}
+
+.theme-bluetit .focus-ring:focus {
+  @apply ring-blue-500/50;
+}
+
+.theme-bluetit .card-rich:hover {
+  box-shadow: 0 16px 48px -12px rgba(37, 99, 235, 0.15), 0 8px 24px -8px rgba(0, 0, 0, 0.1);
+  @apply border-blue-300/50 dark:border-blue-600/40;
+}
+
+.theme-bluetit .nav-button-active {
+  @apply bg-blue-100/70 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 ring-blue-200/70 dark:ring-blue-700/40;
+}
+
+.theme-bluetit .border-gradient::before {
+  background: linear-gradient(135deg, theme('colors.blue.400/40'), theme('colors.amber.400/40'));
+}
+
+.theme-bluetit .badge-success {
+  @apply bg-amber-100/80 dark:bg-amber-900/30 border-amber-200/70 dark:border-amber-700/40 text-amber-700 dark:text-amber-300;
+}
+
+.theme-bluetit ::selection {
+  @apply bg-blue-500/30;
+}
+
 /* Accessibility Modes */
 
 @font-face {

@@ -43,7 +43,14 @@
     "font_lang_clean": "Priorità al latino; altre scritture usano i font di sistema.",
     "font_lang_studio": "Priorità al latino; altre scritture usano i font di sistema.",
     "font_lang_classic": "Priorità al latino; altre scritture usano i font di sistema.",
-    "font_lang_compact": "Priorità al latino; altre scritture usano i font di sistema."
+    "font_lang_compact": "Priorità al latino; altre scritture usano i font di sistema.",
+    "color_title": "Colore Accento",
+    "color_desc": "Modifica la palette di accento in tutta l'interfaccia.",
+    "color_default": "Verde acqua",
+    "color_default_desc": "Accenti predefiniti in verde acqua ed smeraldo",
+    "color_bluetit": "Cinciarella",
+    "color_bluetit_desc": "Blu cobalto e giallo dorato, ispirato all'icona dell'app",
+    "color_selected": "Attivo"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -43,7 +43,14 @@
     "font_lang_clean": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
     "font_lang_studio": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
     "font_lang_classic": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
-    "font_lang_compact": "Primär Lateinschrift; andere Schriften nutzen System-Fallback."
+    "font_lang_compact": "Primär Lateinschrift; andere Schriften nutzen System-Fallback.",
+    "color_title": "Farbakzent",
+    "color_desc": "Ändert die Akzentpalette in der gesamten Benutzeroberfläche.",
+    "color_default": "Blaugrün",
+    "color_default_desc": "Standard Blaugrün & Smaragd-Akzente",
+    "color_bluetit": "Blaumeise",
+    "color_bluetit_desc": "Kobaltblau & Goldgelb, inspiriert vom App-Symbol",
+    "color_selected": "Aktiv"
   },
   "dashboard": {
     "title": "Dashboard",

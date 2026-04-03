@@ -43,7 +43,14 @@
     "font_lang_clean": "Prioriza o latim; outras escritas usam fontes do sistema.",
     "font_lang_studio": "Prioriza o latim; outras escritas usam fontes do sistema.",
     "font_lang_classic": "Prioriza o latim; outras escritas usam fontes do sistema.",
-    "font_lang_compact": "Prioriza o latim; outras escritas usam fontes do sistema."
+    "font_lang_compact": "Prioriza o latim; outras escritas usam fontes do sistema.",
+    "color_title": "Cor de Destaque",
+    "color_desc": "Altera a paleta de destaque em toda a interface.",
+    "color_default": "Azul-petróleo",
+    "color_default_desc": "Acentos padrão em azul-petróleo e esmeralda",
+    "color_bluetit": "Chapim-azul",
+    "color_bluetit_desc": "Azul cobalto e amarelo dourado, inspirado no ícone da app",
+    "color_selected": "Ativo"
   },
   "dashboard": {
     "title": "Painel",

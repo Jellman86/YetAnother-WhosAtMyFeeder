@@ -1,6 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { Theme, FontTheme } from '../../stores/theme.svelte';
+    import type { Theme, FontTheme, ColorTheme } from '../../stores/theme.svelte';
     import type { Layout } from '../../stores/layout.svelte';
 
     // Props
@@ -14,6 +14,8 @@
         setLanguage,
         currentFontTheme,
         setFontTheme,
+        currentColorTheme,
+        setColorTheme,
         setDateFormat,
         displayCommonNames = $bindable(true),
         scientificNamePrimary = $bindable(false)
@@ -27,6 +29,8 @@
         setLanguage: (lang: string) => void;
         currentFontTheme: FontTheme;
         setFontTheme: (font: FontTheme) => void;
+        currentColorTheme: ColorTheme;
+        setColorTheme: (color: ColorTheme) => void;
         setDateFormat: (format: string) => void;
         displayCommonNames: boolean;
         scientificNamePrimary: boolean;
@@ -212,5 +216,40 @@
             {/each}
         </div>
         <p class="mt-3 text-[10px] font-semibold text-slate-400">{$_('theme.font_apply_hint')}</p>
+    </div>
+
+    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+            </div>
+            <div>
+                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.color_title')}</h4>
+                <p class="text-[10px] font-bold text-slate-500">{$_('theme.color_desc')}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {#each [
+                { value: 'default', label: $_('theme.color_default'), desc: $_('theme.color_default_desc'), gradient: 'from-teal-500 to-emerald-500' },
+                { value: 'bluetit', label: $_('theme.color_bluetit'), desc: $_('theme.color_bluetit_desc'), gradient: 'from-blue-500 to-amber-400' }
+            ] as opt}
+                <button
+                    onclick={() => setColorTheme(opt.value as ColorTheme)}
+                    aria-label={opt.label}
+                    class="flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
+                        {currentColorTheme === opt.value
+                            ? 'border-slate-900 dark:border-white bg-slate-900/5 dark:bg-white/5 shadow-lg'
+                            : 'border-slate-100 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600'}"
+                >
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br {opt.gradient} shrink-0"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{opt.label}</div>
+                        <div class="text-[10px] font-medium mt-1 text-slate-400 truncate">{opt.desc}</div>
+                    </div>
+                    <span class="text-xs font-bold uppercase tracking-widest opacity-50">{currentColorTheme === opt.value ? $_('theme.color_selected') : ''}</span>
+                </button>
+            {/each}
+        </div>
     </div>
 </section>

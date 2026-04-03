@@ -43,7 +43,14 @@
     "font_lang_clean": "Latin-first; non-Latin falls back to system fonts.",
     "font_lang_studio": "Latin-first; non-Latin falls back to system fonts.",
     "font_lang_classic": "Latin-first; non-Latin falls back to system fonts.",
-    "font_lang_compact": "Latin-first; non-Latin falls back to system fonts."
+    "font_lang_compact": "Latin-first; non-Latin falls back to system fonts.",
+    "color_title": "Color Accent",
+    "color_desc": "Change the accent palette across the UI.",
+    "color_default": "Teal",
+    "color_default_desc": "Default teal & emerald accents",
+    "color_bluetit": "Blue Tit",
+    "color_bluetit_desc": "Cobalt blue & golden yellow, inspired by the app icon",
+    "color_selected": "Active"
   },
   "dashboard": {
     "title": "Dashboard",

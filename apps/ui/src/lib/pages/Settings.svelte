@@ -1405,6 +1405,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let currentTheme: Theme = $state('system');
     let currentLayout: Layout = $state('horizontal');
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
+    let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>('default');
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
@@ -1646,6 +1647,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
             { key: 'fontTheme', val: currentFontTheme, store: (s.appearance_font_theme ?? 'classic') as any },
+            { key: 'colorTheme', val: currentColorTheme, store: (s.appearance_color_theme ?? 'default') as any },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
@@ -1900,6 +1902,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
     $effect(() => {
         currentFontTheme = themeStore.fontTheme;
+    });
+    $effect(() => {
+        currentColorTheme = themeStore.colorTheme;
     });
 
     onMount(async () => {
@@ -2771,6 +2776,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (settings.appearance_font_theme) {
                 themeStore.setFontTheme(settings.appearance_font_theme as any);
             }
+            if (settings.appearance_color_theme) {
+                themeStore.setColorTheme(settings.appearance_color_theme as any);
+            }
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
@@ -2964,7 +2972,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 accessibility_zen_mode: zenMode,
 
                 // Appearance
-                appearance_font_theme: currentFontTheme
+                appearance_font_theme: currentFontTheme,
+                appearance_color_theme: currentColorTheme
             });
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
@@ -3077,6 +3086,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     function setFontTheme(font: import('../stores/theme.svelte').FontTheme) {
         themeStore.setFontTheme(font);
+    }
+
+    function setColorTheme(color: import('../stores/theme.svelte').ColorTheme) {
+        themeStore.setColorTheme(color);
     }
 
     function setLayout(l: Layout) {
@@ -3501,6 +3514,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {setTheme}
                     {currentFontTheme}
                     {setFontTheme}
+                    {currentColorTheme}
+                    {setColorTheme}
                     {setLayout}
                     {setLanguage}
                     setDateFormat={(value) => (dateFormat = value)}

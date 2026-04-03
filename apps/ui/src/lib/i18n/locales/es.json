@@ -43,7 +43,14 @@
     "font_lang_clean": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
     "font_lang_studio": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
     "font_lang_classic": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
-    "font_lang_compact": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema."
+    "font_lang_compact": "Prioridad al alfabeto latino; otros idiomas usan fuentes del sistema.",
+    "color_title": "Acento de Color",
+    "color_desc": "Cambia la paleta de acento en toda la interfaz.",
+    "color_default": "Verde azulado",
+    "color_default_desc": "Acentos por defecto en verde azulado y esmeralda",
+    "color_bluetit": "Herrerillo",
+    "color_bluetit_desc": "Azul cobalto y amarillo dorado, inspirado en el icono de la app",
+    "color_selected": "Activo"
   },
   "dashboard": {
     "title": "Tablero",

@@ -1,5 +1,6 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
+export type ColorTheme = 'default' | 'bluetit';
 
 function getIsDark(theme: Theme): boolean {
     if (typeof window === 'undefined') return false;
@@ -23,6 +24,12 @@ function applyTheme(theme: Theme) {
     document.documentElement.classList.toggle('dark', isDark);
 
     // After class changes apply, sync the browser UI color (mobile/PWA).
+    requestAnimationFrame(syncThemeColorMeta);
+}
+
+function applyColorTheme(colorTheme: ColorTheme) {
+    if (typeof document === 'undefined') return;
+    document.documentElement.classList.toggle('theme-bluetit', colorTheme === 'bluetit');
     requestAnimationFrame(syncThemeColorMeta);
 }
 
@@ -55,6 +62,7 @@ function applyFontTheme(fontTheme: FontTheme) {
 class ThemeStore {
     currentTheme = $state<Theme>('system');
     currentFontTheme = $state<FontTheme>('classic');
+    currentColorTheme = $state<ColorTheme>('default');
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {
@@ -68,11 +76,16 @@ class ThemeStore {
             if (storedFont) {
                 this.currentFontTheme = storedFont;
             }
+            const storedColor = localStorage.getItem('color_theme') as ColorTheme | null;
+            if (storedColor) {
+                this.currentColorTheme = storedColor;
+            }
         }
 
         // Apply theme immediately
         applyTheme(this.currentTheme);
         applyFontTheme(this.currentFontTheme);
+        applyColorTheme(this.currentColorTheme);
 
         // Use $effect.root() to create effect context outside components
         $effect.root(() => {
@@ -85,6 +98,10 @@ class ThemeStore {
                 $effect(() => {
                     localStorage.setItem('font_theme', this.currentFontTheme);
                     applyFontTheme(this.currentFontTheme);
+                });
+                $effect(() => {
+                    localStorage.setItem('color_theme', this.currentColorTheme);
+                    applyColorTheme(this.currentColorTheme);
                 });
             }
 
@@ -124,12 +141,20 @@ class ThemeStore {
         return this.currentFontTheme;
     }
 
+    get colorTheme(): ColorTheme {
+        return this.currentColorTheme;
+    }
+
     setTheme(value: Theme) {
         this.currentTheme = value;
     }
 
     setFontTheme(value: FontTheme) {
         this.currentFontTheme = value;
+    }
+
+    setColorTheme(value: ColorTheme) {
+        this.currentColorTheme = value;
     }
 
     toggle() {
@@ -160,6 +185,18 @@ export const theme = {
     cleanup: () => {
         // No-op, cleanup happens automatically via $effect
     }
+};
+
+export const colorTheme = {
+    subscribe: (fn: (value: ColorTheme) => void) => {
+        return $effect.root(() => {
+            $effect(() => {
+                fn(themeStore.colorTheme);
+            });
+            return () => {};
+        });
+    },
+    set: (value: ColorTheme) => themeStore.setColorTheme(value)
 };
 
 export const fontTheme = {
