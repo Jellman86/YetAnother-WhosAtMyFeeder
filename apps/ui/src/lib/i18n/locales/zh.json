@@ -14,7 +14,9 @@
     "toggle_menu": "切换菜单",
     "collapse_sidebar": "收起侧边栏",
     "expand_sidebar": "展开侧边栏",
-    "jobs": "任务"
+    "jobs": "任务",
+    "close_menu": "关闭菜单",
+    "close_language_selector": "关闭语言选择器"
   },
   "theme": {
     "switch_light": "切换到浅色模式",
@@ -81,7 +83,9 @@
       "empty_title": "缓冲区中没有音频检测",
       "empty_subtitle": "缓冲区每5分钟清空",
       "unknown_sensor": "未知传感器"
-    }
+    },
+    "top_visitors_title": "常见访客",
+    "top_visitors_empty": "今天还没有记录到访客。"
   },
   "common": {
     "loading": "加载中...",
@@ -121,7 +125,20 @@
     "unit_in": "in",
     "unknown_location": "未知地点",
     "unknown_species": "未知物种",
-    "play": "播放"
+    "play": "播放",
+    "added": "已添加",
+    "all": "全部",
+    "available": "可用",
+    "clear": "清除",
+    "clearing": "清除中...",
+    "disabled": "已禁用",
+    "enabled": "已启用",
+    "legacy": "旧版",
+    "multi_select": "多选",
+    "not_available": "不可用",
+    "select": "选择",
+    "selected": "已选择",
+    "unavailable": "不可用"
   },
   "settings": {
     "title": "设置",
@@ -177,7 +194,11 @@
       "llm_prompt_conversation": "对话提示",
       "llm_prompt_conversation_hint": "标记: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "图表分析提示",
-      "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "ai_diagnostics": "AI 诊断剪贴板",
+      "ai_diagnostics_desc": "在模态框顶部显示一个复制按钮，可捕获完整的 AI 诊断和提示词。",
+      "strict_non_finite_output": "严格处理非有限输出",
+      "strict_non_finite_output_desc": "启用后，分类器完全由非有限值组成的输出将被拒绝，并触发运行时恢复。仅在受控调试时禁用。"
     },
     "integrations": {
       "birdnet": {
@@ -341,13 +362,36 @@
       "fetch_clips": "获取视频片段",
       "fetch_clips_desc": "使用 Frigate 录像进行重新分类",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "full_visit_after": "后置秒数",
+      "full_visit_before": "前置秒数",
+      "full_visit_cameras": "符合条件的摄像头：{cameras}",
+      "full_visit_capability": "能力",
+      "full_visit_clips": "完整到访剪辑",
+      "full_visit_clips_desc": "从 Frigate 录像中为每次检测提供更长的剪辑窗口。",
+      "full_visit_loading": "正在检查已保存的 Frigate 录像支持情况...",
+      "full_visit_reason_config_unavailable": "无法读取 Frigate 配置。",
+      "full_visit_reason_no_matching_cameras": "所选摄像头与当前的 Frigate 配置不匹配。",
+      "full_visit_reason_recordings_disabled": "所选摄像头未启用连续录像。",
+      "full_visit_reason_retention_unknown": "无法确定录像保留期。",
+      "full_visit_reason_unknown": "无法确认此能力。",
+      "full_visit_retention": "检测到的录像保留期：{days} 天",
+      "full_visit_supported": "{count} 个所选摄像头可用连续录像。",
+      "full_visit_unavailable": "当前无法获取能力信息。"
     },
     "cameras": {
       "title": "活动摄像头",
       "none_found": "未发现摄像头",
       "syncing": "扫描中...",
-      "preview_close": "关闭预览"
+      "preview_close": "关闭预览",
+      "deselect": "取消选择",
+      "preview": "预览",
+      "preview_failed": "预览失败",
+      "preview_label": "{camera} 的摄像头预览",
+      "preview_live": "实时",
+      "preview_loading": "正在加载预览...",
+      "preview_missing_url": "此摄像头没有可用的预览 URL。",
+      "select": "选择"
     },
     "telemetry": {
       "title": "遥测",
@@ -528,7 +572,11 @@
       "reset_desc": "重置数据库将永久删除所有检测并清除媒体缓存。此操作无法撤销。",
       "reset_button": "重置数据库和缓存",
       "resetting": "正在重置...",
-      "confirm": "危险：这将删除所有检测并清除媒体缓存。此操作无法撤销。您确定吗？"
+      "confirm": "危险：这将删除所有检测并清除媒体缓存。此操作无法撤销。您确定吗？",
+      "clear_feedback_button": "清除个性化数据",
+      "clear_feedback_desc": "清除个性化反馈将删除 AI 用于调整置信度分数的所有手动标签修正。这会让分类器恢复到基础精度。",
+      "clear_feedback_hint": "这不会删除检测或媒体。随着你进行新的手动修正，重新排序会重新开始学习。",
+      "clearing_feedback": "清除中..."
     },
     "data": {
       "title": "数据管理",
@@ -619,7 +667,17 @@
       "clear_favorites_confirm": "要删除所有收藏标记吗？此操作无法撤销。",
       "clear_favorites_success": "已删除 {count} 个收藏标记。",
       "clear_favorites_none": "没有可删除的收藏。",
-      "clear_favorites_error": "删除收藏失败"
+      "clear_favorites_error": "删除收藏失败",
+      "backfill_from": "从",
+      "backfill_to": "到",
+      "backfill_validation_future": "不允许未来日期。",
+      "backfill_validation_invalid": "请输入有效的日期范围。",
+      "backfill_validation_order": "开始日期必须早于或等于结束日期。",
+      "backfill_validation_select_both": "请选择开始日期和结束日期。",
+      "batch_analysis_recent_failures": "最近失败",
+      "cache_high_quality_event_snapshots": "HQ 事件快照",
+      "cache_high_quality_event_snapshots_help": "稍后用主码流剪辑中的一帧替换 Frigate 快照。",
+      "batch_analysis_complete": "批量分析已完成"
     },
     "security": {
       "title": "安全",
@@ -782,7 +840,13 @@
       "region_override_desc": "自动使用您配置的国家。手动选择始终优先。",
       "region_override_auto": "自动",
       "region_override_eu": "欧洲",
-      "region_override_na": "北美"
+      "region_override_na": "北美",
+      "blocked_species_legacy": "旧版原始标签",
+      "blocked_species_picker_desc": "搜索一个物种，以便在常用名、学名和分类匹配中可靠地屏蔽它。旧版原始标签会继续生效，直到你将其移除。",
+      "blocked_species_placeholder": "搜索要屏蔽的物种",
+      "blocked_species_structured": "已屏蔽物种",
+      "model_manager_threshold_hint": "此模型的推荐置信度阈值：",
+      "no_blocked_species_results": "未找到匹配的物种。"
     },
     "llm": {
       "title": "AI 洞察",
@@ -851,7 +915,9 @@
     "signin_button": "登录",
     "verifying": "正在登录...",
     "continue_guest": "作为访客继续",
-    "secure_access": "YA-WAMF 安全访问"
+    "secure_access": "YA-WAMF 安全访问",
+    "public_view": "公开视图",
+    "public_viewing_mode": "公开浏览模式"
   },
   "status": {
     "audio_active": "音频分析活跃",
@@ -900,7 +966,8 @@
     "system_cache_disabled_message": "当前设置下，时间线预览和媒体缓存已禁用。",
     "open_action": "打开",
     "global_progress_last": "{age} 前更新",
-    "global_progress_stale": "{count} 个陈旧任务"
+    "global_progress_stale": "{count} 个陈旧任务",
+    "close_toast": "关闭通知"
   },
   "actions": {
     "confirm_delete": "删除此 {species} 检测记录？",
@@ -1031,7 +1098,11 @@
       "frame_grid": "帧网格",
       "frame_progress": "帧 {current}/{total}",
       "model": "模型：{name}",
-      "done": "完成"
+      "done": "完成",
+      "auto_close_in": "将在 {seconds} 秒后自动关闭",
+      "auto_video_source": "自动视频分析",
+      "auto_video_source_hint": "结果已根据剪辑帧进一步优化。",
+      "final_result": "最终结果"
     },
     "ai": {
       "insight": "AI 自然学家见解",
@@ -1048,7 +1119,10 @@
       "assistant": "助手",
       "user": "你",
       "send": "发送",
-      "sending": "发送中…"
+      "sending": "发送中…",
+      "copy_diagnostics_bundle": "复制 AI 诊断包",
+      "regenerate_clears_chat_note": "注意：重新生成会清除此检测的 AI 对话历史。",
+      "regenerate_warning": "重新生成分析（会清除此检测的 AI 对话历史）"
     },
     "tagging": {
       "search_placeholder": "搜索物种...",
@@ -1084,7 +1158,15 @@
     "frigate_media_missing_detail_unknown": "该检测在 Frigate 中没有可用媒体。",
     "audio_possible_nearby": "可能存在附近音频匹配",
     "audio_no_direct_match": "无直接音频确认",
-    "frigate_badge": "Frigate"
+    "frigate_badge": "Frigate",
+    "ebird": {
+      "valid_observation": "有效观测"
+    },
+    "favorite": "收藏",
+    "favorite_add": "加入收藏",
+    "favorite_added": "已加入收藏",
+    "favorite_remove": "取消收藏",
+    "favorite_removed": "已取消收藏"
   },
   "events": {
     "title": "事件",
@@ -1098,7 +1180,9 @@
       "all_cameras": "所有摄像头",
       "audio_confirmed": "音频匹配",
       "audio_confirmed_only": "仅音频确认",
-      "favorites": "收藏夹"
+      "favorites": "收藏夹",
+      "refresh_options": "刷新选项",
+      "refreshing_options": "正在刷新选项..."
     },
     "sort": {
       "newest": "最新",
@@ -1189,7 +1273,22 @@
     "weekday_thu": "周四",
     "weekday_fri": "周五",
     "weekday_sat": "周六",
-    "weekday_sun": "周日"
+    "weekday_sun": "周日",
+    "analytics_section": "分析",
+    "chart_auto": "自动",
+    "chart_bar": "柱状图",
+    "chart_line": "折线图",
+    "full_rankings": "完整排名",
+    "metric_detections": "检测数",
+    "metric_smooth": "平滑趋势",
+    "top_performers": "热门物种",
+    "total": "总计",
+    "trend_both": "两者",
+    "trend_off": "关闭",
+    "trend_smooth": "仅平滑",
+    "weather_overlay_no_data": "此范围内没有天气数据。",
+    "weather_overlay_range_limited": "天气叠加仅适用于日、周或月范围。",
+    "weather_overlays": "天气叠加"
   },
   "about": {
     "title": "关于本项目",
@@ -1308,6 +1407,10 @@
       "ebird_export": {
         "title": "eBird导出",
         "desc": "将检测结果导出为标准eBird记录格式CSV——可直接提交到您的eBird账户"
+      },
+      "full_visit_clip": {
+        "title": "完整到访剪辑",
+        "desc": "根据 Frigate 录像生成更长的剪辑，以便在检测结束后查看完整的喂食器到访过程。"
       }
     },
     "tech": {
@@ -1360,7 +1463,8 @@
     "inat_observations": "iNaturalist 观察记录",
     "time_of_day": "时间段",
     "day_of_week": "星期几",
-    "month": "月份"
+    "month": "月份",
+    "copy_diagnostics_bundle": "复制诊断包"
   },
   "pagination": {
     "navigation": "分页",
@@ -1503,7 +1607,13 @@
     "fetching_full_visit": "获取中…",
     "fetch_full_visit_retry": "重试完整片段",
     "full_visit_ready": "完整到访片段已就绪",
-    "full_visit_failed": "无法获取完整到访片段"
+    "full_visit_failed": "无法获取完整到访片段",
+    "aria_label": "视频播放器",
+    "clip_badge": "剪辑",
+    "close": "关闭视频",
+    "detection_clip_title": "检测剪辑",
+    "full_visit_title": "完整到访剪辑",
+    "no_video_support": "你的浏览器不支持视频播放。"
   },
   "jobs": {
     "title": "任务",
@@ -1600,6 +1710,8 @@
     "model_download_failed": "下载失败",
     "model_download_complete": "下载完成",
     "circuit_reset_button": "重置熔断器",
-    "circuit_reset_confirm": "这将立即重新开放视频分类队列。队列中的任务将重新尝试。"
+    "circuit_reset_confirm": "这将立即重新开放视频分类队列。队列中的任务将重新尝试。",
+    "circuit_open_message": "重新分类队列已被断路器暂停。",
+    "circuit_open_until": "将在以下时间后重试：{time}"
   }
 }

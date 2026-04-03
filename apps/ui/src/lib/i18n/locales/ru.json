@@ -14,7 +14,9 @@
     "toggle_menu": "Переключить меню",
     "collapse_sidebar": "Свернуть панель",
     "expand_sidebar": "Развернуть панель",
-    "jobs": "Задачи"
+    "jobs": "Задачи",
+    "close_menu": "Закрыть меню",
+    "close_language_selector": "Закрыть выбор языка"
   },
   "theme": {
     "switch_light": "Переключить на светлую тему",
@@ -81,7 +83,9 @@
       "empty_title": "Нет аудио-обнаружений в буфере",
       "empty_subtitle": "Буфер очищается каждые 5 мин",
       "unknown_sensor": "Неизвестный датчик"
-    }
+    },
+    "top_visitors_title": "Частые посетители",
+    "top_visitors_empty": "Сегодня посетители ещё не зафиксированы."
   },
   "common": {
     "loading": "Загрузка...",
@@ -121,7 +125,20 @@
     "unit_in": "in",
     "unknown_location": "Неизвестное место",
     "unknown_species": "Неизвестный вид",
-    "play": "Воспроизвести"
+    "play": "Воспроизвести",
+    "added": "Добавлено",
+    "all": "Все",
+    "available": "Доступно",
+    "clear": "Очистить",
+    "clearing": "Очистка...",
+    "disabled": "Отключено",
+    "enabled": "Включено",
+    "legacy": "Legacy",
+    "multi_select": "Множественный выбор",
+    "not_available": "Недоступно",
+    "select": "Выбрать",
+    "selected": "Выбрано",
+    "unavailable": "Недоступно"
   },
   "error": {
     "boundary_title": "Что-то пошло не так",
@@ -185,7 +202,11 @@
       "llm_prompt_conversation": "Промпт беседы",
       "llm_prompt_conversation_hint": "Токены: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Промпт анализа графика",
-      "llm_prompt_chart_hint": "Токены: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "Токены: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "ai_diagnostics": "Буфер диагностики ИИ",
+      "ai_diagnostics_desc": "Показывает вверху модального окна кнопку копирования, которая собирает полную диагностику и промпты ИИ.",
+      "strict_non_finite_output": "Строгая обработка нечисловых выходов",
+      "strict_non_finite_output_desc": "Если включено, полностью нечисловые выходы классификатора отклоняются и запускают восстановление во время выполнения. Отключайте только для контролируемой отладки."
     },
     "integrations": {
       "birdnet": {
@@ -349,13 +370,36 @@
       "fetch_clips": "Получать видеоклипы",
       "fetch_clips_desc": "Использовать записи Frigate для реклассификации",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "full_visit_after": "Секунд после",
+      "full_visit_before": "Секунд до",
+      "full_visit_cameras": "Подходящие камеры: {cameras}",
+      "full_visit_capability": "Возможность",
+      "full_visit_clips": "Клипы полного визита",
+      "full_visit_clips_desc": "Предоставляет более длинное окно клипа из записей Frigate вокруг каждого обнаружения.",
+      "full_visit_loading": "Проверка поддержки сохранённых записей Frigate...",
+      "full_visit_reason_config_unavailable": "Не удалось прочитать конфигурацию Frigate.",
+      "full_visit_reason_no_matching_cameras": "Ни одна из выбранных камер не соответствует текущей конфигурации Frigate.",
+      "full_visit_reason_recordings_disabled": "Непрерывная запись не включена для выбранных камер.",
+      "full_visit_reason_retention_unknown": "Не удалось определить срок хранения записей.",
+      "full_visit_reason_unknown": "Не удалось подтвердить возможность.",
+      "full_visit_retention": "Обнаруженное хранение записей: {days} дн.",
+      "full_visit_supported": "Непрерывные записи доступны для {count} выбранной(ых) камеры(камер).",
+      "full_visit_unavailable": "Информация о возможности сейчас недоступна."
     },
     "cameras": {
       "title": "Активные камеры",
       "none_found": "Камеры не найдены",
       "syncing": "Сканирование...",
-      "preview_close": "Закрыть предпросмотр"
+      "preview_close": "Закрыть предпросмотр",
+      "deselect": "Снять выбор",
+      "preview": "Предпросмотр",
+      "preview_failed": "Не удалось загрузить предпросмотр",
+      "preview_label": "Предпросмотр камеры {camera}",
+      "preview_live": "В эфире",
+      "preview_loading": "Загрузка предпросмотра...",
+      "preview_missing_url": "Для этой камеры нет URL предпросмотра.",
+      "select": "Выбрать"
     },
     "telemetry": {
       "title": "Телеметрия",
@@ -536,7 +580,11 @@
       "reset_desc": "Сброс базы данных безвозвратно удалит ВСЕ обнаружения и очистит кэш медиа. Это действие нельзя отменить.",
       "reset_button": "Сбросить базу данных и кэш",
       "resetting": "Сброс...",
-      "confirm": "ОПАСНО: Это удалит ВСЕ обнаружения и очистит кэш медиа. Это действие нельзя отменить. Вы уверены?"
+      "confirm": "ОПАСНО: Это удалит ВСЕ обнаружения и очистит кэш медиа. Это действие нельзя отменить. Вы уверены?",
+      "clear_feedback_button": "Очистить данные персонализации",
+      "clear_feedback_desc": "Очистка персонализирующей обратной связи удалит все ручные исправления тегов, которые ИИ использует для корректировки уровня уверенности. Это вернёт классификатор к базовой точности.",
+      "clear_feedback_hint": "Это не удаляет обнаружения или медиа. Переупорядочивание снова начнёт обучаться по мере появления новых ручных исправлений.",
+      "clearing_feedback": "Очистка..."
     },
     "data": {
       "title": "Управление данными",
@@ -627,7 +675,17 @@
       "clear_favorites_confirm": "Удалить все отметки избранного? Это действие нельзя отменить.",
       "clear_favorites_success": "Удалено {count} отметок избранного.",
       "clear_favorites_none": "Нет избранного для удаления.",
-      "clear_favorites_error": "Не удалось удалить избранное"
+      "clear_favorites_error": "Не удалось удалить избранное",
+      "backfill_from": "С",
+      "backfill_to": "По",
+      "backfill_validation_future": "Будущие даты не допускаются.",
+      "backfill_validation_invalid": "Введите корректный диапазон дат.",
+      "backfill_validation_order": "Дата начала должна быть раньше или равна дате окончания.",
+      "backfill_validation_select_both": "Выберите и дату начала, и дату окончания.",
+      "batch_analysis_recent_failures": "Недавние ошибки",
+      "cache_high_quality_event_snapshots": "HQ-снимки событий",
+      "cache_high_quality_event_snapshots_help": "Позже заменяет снимки Frigate кадром из клипа основного потока.",
+      "batch_analysis_complete": "Пакетный анализ завершён"
     },
     "security": {
       "title": "Безопасность",
@@ -790,7 +848,13 @@
       "region_override_desc": "Авто использует настроенную страну. Ручной выбор всегда имеет приоритет.",
       "region_override_auto": "Авто",
       "region_override_eu": "Европа",
-      "region_override_na": "Северная Америка"
+      "region_override_na": "Северная Америка",
+      "blocked_species_legacy": "Устаревшие сырые метки",
+      "blocked_species_picker_desc": "Найдите вид, чтобы надёжно заблокировать его по общему названию, научному названию и таксономическим совпадениям. Устаревшие сырые метки продолжают действовать, пока вы их не удалите.",
+      "blocked_species_placeholder": "Найти вид для блокировки",
+      "blocked_species_structured": "Заблокированные виды",
+      "model_manager_threshold_hint": "Рекомендуемый порог уверенности для этой модели:",
+      "no_blocked_species_results": "Подходящих видов не найдено."
     },
     "llm": {
       "title": "ИИ-аналитика",
@@ -859,7 +923,9 @@
     "signin_button": "Войти",
     "verifying": "Вход...",
     "continue_guest": "Продолжить как гость",
-    "secure_access": "YA-WAMF Безопасный доступ"
+    "secure_access": "YA-WAMF Безопасный доступ",
+    "public_view": "Публичный просмотр",
+    "public_viewing_mode": "Режим публичного просмотра"
   },
   "status": {
     "audio_active": "Аудиоанализ активен",
@@ -908,7 +974,8 @@
     "system_cache_disabled_message": "Предпросмотр таймлайна и кэш медиа отключены в текущих настройках.",
     "open_action": "Открыть",
     "global_progress_last": "Обновлено {age} назад",
-    "global_progress_stale": "{count} устаревших"
+    "global_progress_stale": "{count} устаревших",
+    "close_toast": "Закрыть уведомление"
   },
   "actions": {
     "confirm_delete": "Удалить это обнаружение {species}?",
@@ -1039,7 +1106,11 @@
       "frame_grid": "Сетка кадров",
       "frame_progress": "Кадр {current}/{total}",
       "model": "Модель: {name}",
-      "done": "Готово"
+      "done": "Готово",
+      "auto_close_in": "Автоматически закроется через {seconds} с",
+      "auto_video_source": "Автоматический видеоанализ",
+      "auto_video_source_hint": "Результат уточнён по кадрам клипа.",
+      "final_result": "Итоговый результат"
     },
     "ai": {
       "insight": "ИИ Натуралист Инсайт",
@@ -1056,7 +1127,10 @@
       "assistant": "Ассистент",
       "user": "Вы",
       "send": "Отправить",
-      "sending": "Отправка…"
+      "sending": "Отправка…",
+      "copy_diagnostics_bundle": "Скопировать пакет диагностики ИИ",
+      "regenerate_clears_chat_note": "Примечание: повторная генерация очищает историю диалога ИИ для этого обнаружения.",
+      "regenerate_warning": "Перегенерировать анализ (это очистит историю диалога ИИ для этого обнаружения)"
     },
     "tagging": {
       "search_placeholder": "Поиск видов...",
@@ -1092,7 +1166,15 @@
     "frigate_media_missing_detail_unknown": "Медиа для этого обнаружения недоступны в Frigate.",
     "audio_possible_nearby": "Возможное близкое аудиосовпадение",
     "audio_no_direct_match": "Нет прямого аудиоподтверждения",
-    "frigate_badge": "Frigate"
+    "frigate_badge": "Frigate",
+    "ebird": {
+      "valid_observation": "Действительное наблюдение"
+    },
+    "favorite": "Избранное",
+    "favorite_add": "Добавить в избранное",
+    "favorite_added": "Добавлено в избранное",
+    "favorite_remove": "Убрать из избранного",
+    "favorite_removed": "Удалено из избранного"
   },
   "events": {
     "title": "События",
@@ -1106,7 +1188,9 @@
       "all_cameras": "Все камеры",
       "audio_confirmed": "Совпадения аудио",
       "audio_confirmed_only": "Только подтверждённые аудио",
-      "favorites": "Избранное"
+      "favorites": "Избранное",
+      "refresh_options": "Обновить параметры",
+      "refreshing_options": "Обновление параметров..."
     },
     "sort": {
       "newest": "Сначала новые",
@@ -1197,7 +1281,22 @@
     "weekday_thu": "Чт",
     "weekday_fri": "Пт",
     "weekday_sat": "Сб",
-    "weekday_sun": "Вс"
+    "weekday_sun": "Вс",
+    "analytics_section": "Аналитика",
+    "chart_auto": "Авто",
+    "chart_bar": "Столбцы",
+    "chart_line": "Линия",
+    "full_rankings": "Полный рейтинг",
+    "metric_detections": "Обнаружения",
+    "metric_smooth": "Сглаженный тренд",
+    "top_performers": "Лидирующие виды",
+    "total": "Всего",
+    "trend_both": "Оба",
+    "trend_off": "Выкл.",
+    "trend_smooth": "Только сглаженный",
+    "weather_overlay_no_data": "В этом диапазоне нет погодных данных.",
+    "weather_overlay_range_limited": "Погодные наложения доступны только для диапазонов день, неделя или месяц.",
+    "weather_overlays": "Погодные наложения"
   },
   "about": {
     "title": "Об этом проекте",
@@ -1316,6 +1415,10 @@
       "ebird_export": {
         "title": "Экспорт eBird",
         "desc": "Экспортируйте обнаружения в виде CSV в стандартном формате eBird Record — готово для отправки непосредственно на ваш аккаунт eBird"
+      },
+      "full_visit_clip": {
+        "title": "Клипы полного визита",
+        "desc": "Создаёт более длинный клип из записей Frigate, чтобы после завершения обнаружения можно было просмотреть весь визит к кормушке."
       }
     },
     "tech": {
@@ -1368,7 +1471,8 @@
     "inat_observations": "Наблюдения iNaturalist",
     "time_of_day": "Время суток",
     "day_of_week": "День недели",
-    "month": "Месяц"
+    "month": "Месяц",
+    "copy_diagnostics_bundle": "Скопировать пакет диагностики"
   },
   "pagination": {
     "navigation": "Пагинация",
@@ -1503,7 +1607,13 @@
     "fetching_full_visit": "Загрузка…",
     "fetch_full_visit_retry": "Повторить загрузку полного клипа",
     "full_visit_ready": "Клип полного визита готов",
-    "full_visit_failed": "Не удалось загрузить полный клип"
+    "full_visit_failed": "Не удалось загрузить полный клип",
+    "aria_label": "Видеоплеер",
+    "clip_badge": "Клип",
+    "close": "Закрыть видео",
+    "detection_clip_title": "Клип обнаружения",
+    "full_visit_title": "Клип полного визита",
+    "no_video_support": "Ваш браузер не поддерживает воспроизведение видео."
   },
   "jobs": {
     "title": "Задачи",
@@ -1600,6 +1710,8 @@
     "model_download_failed": "Ошибка загрузки",
     "model_download_complete": "Загрузка завершена",
     "circuit_reset_button": "Сбросить цепь",
-    "circuit_reset_confirm": "Очередь классификации видео будет немедленно возобновлена. Задания в очереди будут повторно запущены."
+    "circuit_reset_confirm": "Очередь классификации видео будет немедленно возобновлена. Задания в очереди будут повторно запущены.",
+    "circuit_open_message": "Очередь переклассификации приостановлена автоматическим выключателем.",
+    "circuit_open_until": "Повторная попытка после: {time}"
   }
 }

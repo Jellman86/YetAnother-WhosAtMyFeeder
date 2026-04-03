@@ -14,7 +14,9 @@
     "toggle_menu": "メニューの切り替え",
     "collapse_sidebar": "サイドバーを折りたたむ",
     "expand_sidebar": "サイドバーを展開",
-    "jobs": "ジョブ"
+    "jobs": "ジョブ",
+    "close_menu": "メニューを閉じる",
+    "close_language_selector": "言語セレクターを閉じる"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
@@ -81,7 +83,9 @@
       "empty_title": "バッファ内に音声検出はありません",
       "empty_subtitle": "バッファは5分ごとにクリア",
       "unknown_sensor": "不明なセンサー"
-    }
+    },
+    "top_visitors_title": "よく来る訪問者",
+    "top_visitors_empty": "今日はまだ訪問者が記録されていません。"
   },
   "common": {
     "loading": "読み込み中...",
@@ -121,7 +125,20 @@
     "unit_in": "in",
     "unknown_location": "不明な場所",
     "unknown_species": "不明な種",
-    "play": "再生"
+    "play": "再生",
+    "added": "追加済み",
+    "all": "すべて",
+    "available": "利用可能",
+    "clear": "クリア",
+    "clearing": "クリア中...",
+    "disabled": "無効",
+    "enabled": "有効",
+    "legacy": "レガシー",
+    "multi_select": "複数選択",
+    "not_available": "利用不可",
+    "select": "選択",
+    "selected": "選択済み",
+    "unavailable": "利用不可"
   },
   "settings": {
     "title": "設定",
@@ -177,7 +194,11 @@
       "llm_prompt_conversation": "会話プロンプト",
       "llm_prompt_conversation_hint": "トークン: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "グラフ解析プロンプト",
-      "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "ai_diagnostics": "AI 診断クリップボード",
+      "ai_diagnostics_desc": "モーダル上部に完全な AI 診断とプロンプトをコピーするボタンを表示します。",
+      "strict_non_finite_output": "非有限出力の厳格処理",
+      "strict_non_finite_output_desc": "有効にすると、すべて非有限値の分類器出力は拒否され、ランタイム回復が発生します。制御されたデバッグ以外では無効にしないでください。"
     },
     "integrations": {
       "birdnet": {
@@ -341,13 +362,36 @@
       "fetch_clips": "ビデオクリップを取得",
       "fetch_clips_desc": "再分類にFrigateの録画を使用する",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "full_visit_after": "後の秒数",
+      "full_visit_before": "前の秒数",
+      "full_visit_cameras": "対象カメラ: {cameras}",
+      "full_visit_capability": "対応状況",
+      "full_visit_clips": "フル訪問クリップ",
+      "full_visit_clips_desc": "各検出の前後で、Frigate 録画からより長いクリップ区間を提供します。",
+      "full_visit_loading": "保存済み Frigate 録画の対応状況を確認中...",
+      "full_visit_reason_config_unavailable": "Frigate 設定を読み取れませんでした。",
+      "full_visit_reason_no_matching_cameras": "選択したカメラが現在の Frigate 設定に一致しません。",
+      "full_visit_reason_recordings_disabled": "選択したカメラでは連続録画が有効ではありません。",
+      "full_visit_reason_retention_unknown": "録画保持期間を判定できませんでした。",
+      "full_visit_reason_unknown": "対応状況を確認できませんでした。",
+      "full_visit_retention": "検出された録画保持期間: {days} 日",
+      "full_visit_supported": "選択した {count} 台のカメラで連続録画が利用可能です。",
+      "full_visit_unavailable": "現在、対応情報を利用できません。"
     },
     "cameras": {
       "title": "アクティブなカメラ",
       "none_found": "カメラが見つかりません",
       "syncing": "スキャン中...",
-      "preview_close": "プレビューを閉じる"
+      "preview_close": "プレビューを閉じる",
+      "deselect": "選択解除",
+      "preview": "プレビュー",
+      "preview_failed": "プレビューに失敗しました",
+      "preview_label": "{camera} のカメラプレビュー",
+      "preview_live": "ライブ",
+      "preview_loading": "プレビューを読み込み中...",
+      "preview_missing_url": "このカメラではプレビュー URL を利用できません。",
+      "select": "選択"
     },
     "telemetry": {
       "title": "テレメトリ",
@@ -528,7 +572,11 @@
       "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。",
       "reset_button": "DBとキャッシュをリセット",
       "resetting": "リセット中...",
-      "confirm": "危険：これによりすべての検出が削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。よろしいですか？"
+      "confirm": "危険：これによりすべての検出が削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。よろしいですか？",
+      "clear_feedback_button": "パーソナライズデータを消去",
+      "clear_feedback_desc": "パーソナライズ用フィードバックを消去すると、AI が信頼度スコアの調整に使用している手動タグ修正がすべて削除されます。これにより分類器は初期精度に戻ります。",
+      "clear_feedback_hint": "検出やメディアは削除されません。新しい手動修正を行うと再ランキングは再び学習を始めます。",
+      "clearing_feedback": "消去中..."
     },
     "data": {
       "title": "データ管理",
@@ -619,7 +667,17 @@
       "clear_favorites_confirm": "すべてのお気に入りマーカーを削除しますか？この操作は元に戻せません。",
       "clear_favorites_success": "{count} 件のお気に入りマーカーを削除しました。",
       "clear_favorites_none": "削除するお気に入りはありません。",
-      "clear_favorites_error": "お気に入りの削除に失敗しました"
+      "clear_favorites_error": "お気に入りの削除に失敗しました",
+      "backfill_from": "開始",
+      "backfill_to": "終了",
+      "backfill_validation_future": "未来の日付は指定できません。",
+      "backfill_validation_invalid": "有効な日付範囲を入力してください。",
+      "backfill_validation_order": "開始日は終了日以前である必要があります。",
+      "backfill_validation_select_both": "開始日と終了日の両方を選択してください。",
+      "batch_analysis_recent_failures": "最近の失敗",
+      "cache_high_quality_event_snapshots": "HQ イベントスナップショット",
+      "cache_high_quality_event_snapshots_help": "後で Frigate のスナップショットをメインストリームクリップのフレームに置き換えます。",
+      "batch_analysis_complete": "一括分析が完了しました"
     },
     "security": {
       "title": "セキュリティ",
@@ -782,7 +840,13 @@
       "region_override_desc": "自動では設定された国を使用します。手動選択が常に優先されます。",
       "region_override_auto": "自動",
       "region_override_eu": "ヨーロッパ",
-      "region_override_na": "北米"
+      "region_override_na": "北米",
+      "blocked_species_legacy": "レガシー生ラベル",
+      "blocked_species_picker_desc": "一般名・学名・分類ベースの一致全体で確実にブロックするため、種を検索します。レガシーの生ラベルは削除するまで引き続き適用されます。",
+      "blocked_species_placeholder": "ブロックする種を検索",
+      "blocked_species_structured": "ブロック済みの種",
+      "model_manager_threshold_hint": "このモデルの推奨信頼度しきい値:",
+      "no_blocked_species_results": "一致する種が見つかりません。"
     },
     "llm": {
       "title": "AI インサイト",
@@ -851,7 +915,9 @@
     "signin_button": "ログイン",
     "verifying": "認証中...",
     "continue_guest": "ゲストとして続行",
-    "secure_access": "YA-WAMF 安全なアクセス"
+    "secure_access": "YA-WAMF 安全なアクセス",
+    "public_view": "公開ビュー",
+    "public_viewing_mode": "公開閲覧モード"
   },
   "status": {
     "audio_active": "音声分析中",
@@ -900,7 +966,8 @@
     "system_cache_disabled_message": "現在の設定では、タイムラインプレビューとメディアキャッシュが無効になっています。",
     "open_action": "開く",
     "global_progress_last": "{age}前に更新",
-    "global_progress_stale": "{count}件の停滞"
+    "global_progress_stale": "{count}件の停滞",
+    "close_toast": "通知を閉じる"
   },
   "actions": {
     "confirm_delete": "この {species} の検出を削除しますか？",
@@ -1031,7 +1098,11 @@
       "frame_grid": "フレーム一覧",
       "frame_progress": "フレーム {current}/{total}",
       "model": "モデル: {name}",
-      "done": "完了"
+      "done": "完了",
+      "auto_close_in": "{seconds} 秒後に自動で閉じます",
+      "auto_video_source": "自動動画解析",
+      "auto_video_source_hint": "クリップのフレームから結果を補正しました。",
+      "final_result": "最終結果"
     },
     "ai": {
       "insight": "AI博物学者の洞察",
@@ -1048,7 +1119,10 @@
       "assistant": "アシスタント",
       "user": "あなた",
       "send": "送信",
-      "sending": "送信中…"
+      "sending": "送信中…",
+      "copy_diagnostics_bundle": "AI 診断バンドルをコピー",
+      "regenerate_clears_chat_note": "注: 再生成すると、この検出の AI 会話履歴が消去されます。",
+      "regenerate_warning": "分析を再生成しますか（この検出の AI 会話履歴が消去されます）"
     },
     "tagging": {
       "search_placeholder": "種を検索...",
@@ -1084,7 +1158,15 @@
     "frigate_media_missing_detail_unknown": "この検出のメディアはFrigateで利用できません。",
     "audio_possible_nearby": "近くの音声一致の可能性",
     "audio_no_direct_match": "直接の音声確認なし",
-    "frigate_badge": "Frigate"
+    "frigate_badge": "Frigate",
+    "ebird": {
+      "valid_observation": "有効な観察記録"
+    },
+    "favorite": "お気に入り",
+    "favorite_add": "お気に入りに追加",
+    "favorite_added": "お気に入りに追加しました",
+    "favorite_remove": "お気に入りから削除",
+    "favorite_removed": "お気に入りから削除しました"
   },
   "events": {
     "title": "イベント",
@@ -1098,7 +1180,9 @@
       "all_cameras": "すべてのカメラ",
       "audio_confirmed": "オーディオ一致",
       "audio_confirmed_only": "オーディオ確認済みのみ",
-      "favorites": "お気に入り"
+      "favorites": "お気に入り",
+      "refresh_options": "オプションを更新",
+      "refreshing_options": "オプションを更新中..."
     },
     "sort": {
       "newest": "新しい順",
@@ -1189,7 +1273,22 @@
     "weekday_thu": "木",
     "weekday_fri": "金",
     "weekday_sat": "土",
-    "weekday_sun": "日"
+    "weekday_sun": "日",
+    "analytics_section": "分析",
+    "chart_auto": "自動",
+    "chart_bar": "棒グラフ",
+    "chart_line": "折れ線",
+    "full_rankings": "完全ランキング",
+    "metric_detections": "検出数",
+    "metric_smooth": "平滑化トレンド",
+    "top_performers": "上位の種",
+    "total": "合計",
+    "trend_both": "両方",
+    "trend_off": "オフ",
+    "trend_smooth": "平滑化のみ",
+    "weather_overlay_no_data": "この範囲には天気データがありません。",
+    "weather_overlay_range_limited": "天気オーバーレイは日・週・月の範囲でのみ利用できます。",
+    "weather_overlays": "天気オーバーレイ"
   },
   "about": {
     "title": "このプロジェクトについて",
@@ -1308,6 +1407,10 @@
       "ebird_export": {
         "title": "eBirdエクスポート",
         "desc": "検出データを標準eBirdレコード形式のCSVとしてエクスポート — eBirdアカウントへの直接提出に対応"
+      },
+      "full_visit_clip": {
+        "title": "フル訪問クリップ",
+        "desc": "Frigate の録画からより長いクリップを生成し、検出終了後に餌台への訪問全体を確認できるようにします。"
       }
     },
     "tech": {
@@ -1360,7 +1463,8 @@
     "inat_observations": "iNaturalistの観察",
     "time_of_day": "時間帯",
     "day_of_week": "曜日",
-    "month": "月"
+    "month": "月",
+    "copy_diagnostics_bundle": "診断バンドルをコピー"
   },
   "pagination": {
     "navigation": "ページネーション",
@@ -1503,7 +1607,13 @@
     "fetching_full_visit": "取得中…",
     "fetch_full_visit_retry": "完全なクリップを再取得",
     "full_visit_ready": "フル訪問クリップの準備ができました",
-    "full_visit_failed": "フル訪問クリップを取得できませんでした"
+    "full_visit_failed": "フル訪問クリップを取得できませんでした",
+    "aria_label": "ビデオプレーヤー",
+    "clip_badge": "クリップ",
+    "close": "動画を閉じる",
+    "detection_clip_title": "検出クリップ",
+    "full_visit_title": "フル訪問クリップ",
+    "no_video_support": "お使いのブラウザーは動画再生をサポートしていません。"
   },
   "jobs": {
     "title": "ジョブ",
@@ -1600,6 +1710,8 @@
     "model_download_failed": "ダウンロードに失敗しました",
     "model_download_complete": "ダウンロードが完了しました",
     "circuit_reset_button": "サーキットをリセット",
-    "circuit_reset_confirm": "映像分類キューが即座に再開されます。キュー内のジョブは再試行されます。"
+    "circuit_reset_confirm": "映像分類キューが即座に再開されます。キュー内のジョブは再試行されます。",
+    "circuit_open_message": "サーキットブレーカーにより再分類キューが一時停止しています。",
+    "circuit_open_until": "再試行予定: {time}"
   }
 }

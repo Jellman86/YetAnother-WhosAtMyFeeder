@@ -12,8 +12,10 @@
     "settings": "Einstellungen",
     "about": "Über uns",
     "toggle_menu": "Menü umschalten",
+    "close_menu": "Menü schließen",
     "collapse_sidebar": "Seitenleiste einklappen",
     "expand_sidebar": "Seitenleiste ausklappen",
+    "close_language_selector": "Sprachauswahl schließen",
     "jobs": "Aufträge"
   },
   "theme": {
@@ -81,7 +83,9 @@
       "empty_title": "Keine Audio-Erkennungen im Puffer",
       "empty_subtitle": "Puffer leert sich alle 5 Min.",
       "unknown_sensor": "Unbekannter Sensor"
-    }
+    },
+    "top_visitors_title": "Häufigste Besucher",
+    "top_visitors_empty": "Heute wurden noch keine Besucher erfasst."
   },
   "common": {
     "loading": "Laden...",
@@ -99,7 +103,20 @@
     "test": "Testen",
     "testing": "Testen...",
     "add": "Hinzufügen",
+    "added": "Hinzugefügt",
+    "all": "Alle",
     "apply_settings": "Einstellungen übernehmen",
+    "available": "Verfügbar",
+    "clear": "Leeren",
+    "clearing": "Wird geleert...",
+    "disabled": "Deaktiviert",
+    "enabled": "Aktiviert",
+    "legacy": "Legacy",
+    "multi_select": "Mehrfachauswahl",
+    "not_available": "Nicht verfügbar",
+    "select": "Auswählen",
+    "selected": "Ausgewählt",
+    "unavailable": "Nicht verfügbar",
     "unsaved_changes": "Ungespeicherte Änderungen",
     "today": "Heute",
     "yesterday": "Gestern",
@@ -229,7 +246,17 @@
       "clear_favorites_confirm": "Alle Favoritenmarkierungen entfernen? Dies kann nicht rückgängig gemacht werden.",
       "clear_favorites_success": "{count} Favoritenmarkierungen entfernt.",
       "clear_favorites_none": "Keine Favoriten zum Entfernen.",
-      "clear_favorites_error": "Favoriten konnten nicht entfernt werden"
+      "clear_favorites_error": "Favoriten konnten nicht entfernt werden",
+      "backfill_from": "Von",
+      "backfill_to": "Bis",
+      "backfill_validation_future": "Zukünftige Daten sind nicht erlaubt.",
+      "backfill_validation_invalid": "Geben Sie einen gültigen Datumsbereich ein.",
+      "backfill_validation_order": "Das Startdatum muss vor oder gleich dem Enddatum liegen.",
+      "backfill_validation_select_both": "Wählen Sie sowohl Start- als auch Enddatum.",
+      "batch_analysis_recent_failures": "Jüngste Fehler",
+      "cache_high_quality_event_snapshots": "HQ-Ereignis-Snapshots",
+      "cache_high_quality_event_snapshots_help": "Frigate-Snapshots später durch einen Frame aus dem Hauptstream-Clip ersetzen.",
+      "batch_analysis_complete": "Batch-Analyse abgeschlossen"
     },
     "security": {
       "title": "Sicherheit",
@@ -282,7 +309,11 @@
       "llm_prompt_conversation": "Prompt für Unterhaltung",
       "llm_prompt_conversation_hint": "Platzhalter: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Prompt für Diagrammanalyse",
-      "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "ai_diagnostics": "KI-Diagnose-Zwischenablage",
+      "ai_diagnostics_desc": "Zeigt oben im Modal eine Kopier-Schaltfläche an, die vollständige KI-Diagnosen und Prompts erfasst.",
+      "strict_non_finite_output": "Strenge Behandlung nicht-endlicher Ausgaben",
+      "strict_non_finite_output_desc": "Wenn aktiviert, werden vollständig nicht-endliche Klassifikator-Ausgaben verworfen und lösen eine Laufzeit-Wiederherstellung aus. Nur für kontrolliertes Debugging deaktivieren."
     },
     "integrations": {
       "birdnet": {
@@ -490,13 +521,36 @@
       "fetch_clips": "Videoclips abrufen",
       "fetch_clips_desc": "Frigate-Aufnahmen zur Reklassifizierung verwenden",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "full_visit_after": "Sekunden danach",
+      "full_visit_before": "Sekunden davor",
+      "full_visit_cameras": "Geeignete Kameras: {cameras}",
+      "full_visit_capability": "Fähigkeit",
+      "full_visit_clips": "Vollbesuch-Clips",
+      "full_visit_clips_desc": "Ein längeres Clipfenster aus Frigate-Aufzeichnungen rund um jede Erkennung bereitstellen.",
+      "full_visit_loading": "Prüfe Unterstützung für gespeicherte Frigate-Aufnahmen...",
+      "full_visit_reason_config_unavailable": "Die Frigate-Konfiguration konnte nicht gelesen werden.",
+      "full_visit_reason_no_matching_cameras": "Keine ausgewählten Kameras passen zur aktuellen Frigate-Konfiguration.",
+      "full_visit_reason_recordings_disabled": "Durchgehende Aufzeichnungen sind für die ausgewählten Kameras nicht aktiviert.",
+      "full_visit_reason_retention_unknown": "Die Aufbewahrung der Aufzeichnungen konnte nicht bestimmt werden.",
+      "full_visit_reason_unknown": "Die Fähigkeit konnte nicht bestätigt werden.",
+      "full_visit_retention": "Erkannte Aufbewahrung für Aufzeichnungen: {days} Tag(e)",
+      "full_visit_supported": "Durchgehende Aufzeichnungen sind für {count} ausgewählte Kamera(s) verfügbar.",
+      "full_visit_unavailable": "Fähigkeitsinformationen sind derzeit nicht verfügbar."
     },
     "cameras": {
       "title": "Aktive Kameras",
       "none_found": "Keine Kameras gefunden",
       "syncing": "Scannen...",
-      "preview_close": "Vorschau schließen"
+      "preview_close": "Vorschau schließen",
+      "deselect": "Abwählen",
+      "preview": "Vorschau",
+      "preview_failed": "Vorschau fehlgeschlagen",
+      "preview_label": "Kameravorschau für {camera}",
+      "preview_live": "Live",
+      "preview_loading": "Vorschau wird geladen...",
+      "preview_missing_url": "Für diese Kamera ist keine Vorschau-URL verfügbar.",
+      "select": "Auswählen"
     },
     "telemetry": {
       "title": "Telemetrie",
@@ -677,7 +731,11 @@
       "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden.",
       "reset_button": "Datenbank & Cache zurücksetzen",
       "resetting": "Wird zurückgesetzt...",
-      "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?"
+      "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?",
+      "clear_feedback_button": "Personalisierungsdaten löschen",
+      "clear_feedback_desc": "Das Löschen des Personalisierungs-Feedbacks entfernt alle manuellen Tag-Korrekturen, die die KI zum Anpassen der Konfidenzwerte nutzt. Dadurch wird der Klassifikator auf seine Basisgenauigkeit zurückgesetzt.",
+      "clear_feedback_hint": "Dadurch werden weder Erkennungen noch Medien gelöscht. Das Re-Ranking beginnt erneut zu lernen, sobald Sie neue manuelle Korrekturen vornehmen.",
+      "clearing_feedback": "Wird gelöscht..."
     },
     "detection": {
       "classification_engine": "Klassifizierungs-Engine",
@@ -811,7 +869,13 @@
       "region_override_desc": "Auto verwendet Ihr konfiguriertes Land. Manuelle Überschreibung hat immer Vorrang.",
       "region_override_auto": "Automatisch",
       "region_override_eu": "Europa",
-      "region_override_na": "Nordamerika"
+      "region_override_na": "Nordamerika",
+      "blocked_species_legacy": "Legacy-Rohlabels",
+      "blocked_species_picker_desc": "Suche nach einer Art, um sie zuverlässig über gebräuchliche Namen, wissenschaftliche Namen und taxonomiebewusste Treffer hinweg zu blockieren. Legacy-Rohlabels gelten weiter, bis Sie sie entfernen.",
+      "blocked_species_placeholder": "Zu blockierende Art suchen",
+      "blocked_species_structured": "Blockierte Arten",
+      "model_manager_threshold_hint": "Empfohlener Konfidenzschwellenwert für dieses Modell:",
+      "no_blocked_species_results": "Keine passende Art gefunden."
     },
     "llm": {
       "title": "KI-Einblicke",
@@ -851,7 +915,9 @@
     "signin_button": "Anmelden",
     "verifying": "Anmeldung läuft...",
     "continue_guest": "Als Gast fortfahren",
-    "secure_access": "YA-WAMF Sicherer Zugriff"
+    "secure_access": "YA-WAMF Sicherer Zugriff",
+    "public_view": "Öffentliche Ansicht",
+    "public_viewing_mode": "Öffentlicher Ansichtsmodus"
   },
   "status": {
     "audio_active": "Audio-Analyse aktiv",
@@ -900,7 +966,8 @@
     "system_cache_disabled_message": "Timeline-Vorschauen und Medien-Caching sind in den aktuellen Einstellungen deaktiviert.",
     "open_action": "Öffnen",
     "global_progress_last": "Vor {age} aktualisiert",
-    "global_progress_stale": "{count} veraltet"
+    "global_progress_stale": "{count} veraltet",
+    "close_toast": "Benachrichtigung schließen"
   },
   "actions": {
     "confirm_delete": "Diese {species} Erkennung löschen?",
@@ -1031,7 +1098,11 @@
       "frame_grid": "Bildraster",
       "frame_progress": "Bild {current}/{total}",
       "model": "Modell: {name}",
-      "done": "Fertig"
+      "done": "Fertig",
+      "auto_close_in": "Schließt automatisch in {seconds}s",
+      "auto_video_source": "Automatische Videoanalyse",
+      "auto_video_source_hint": "Ergebnis anhand von Clip-Frames verfeinert.",
+      "final_result": "Endergebnis"
     },
     "ai": {
       "insight": "KI-Naturalist Einblick",
@@ -1048,7 +1119,10 @@
       "assistant": "Assistent",
       "user": "Sie",
       "send": "Senden",
-      "sending": "Wird gesendet…"
+      "sending": "Wird gesendet…",
+      "copy_diagnostics_bundle": "KI-Diagnosepaket kopieren",
+      "regenerate_clears_chat_note": "Hinweis: Das Neugenerieren löscht den KI-Konversationsverlauf für diese Erkennung.",
+      "regenerate_warning": "Analyse neu generieren (löscht den KI-Konversationsverlauf für diese Erkennung)"
     },
     "tagging": {
       "search_placeholder": "Spezies suchen...",
@@ -1084,7 +1158,15 @@
     "frigate_media_missing_detail_unknown": "Medien sind für diese Erkennung in Frigate nicht verfügbar.",
     "audio_possible_nearby": "Mögliche nahe Audio-Übereinstimmung",
     "audio_no_direct_match": "Keine direkte Audio-Bestätigung",
-    "frigate_badge": "Frigate"
+    "frigate_badge": "Frigate",
+    "ebird": {
+      "valid_observation": "Gültige Beobachtung"
+    },
+    "favorite": "Favorit",
+    "favorite_add": "Favorit hinzufügen",
+    "favorite_added": "Zu Favoriten hinzugefügt",
+    "favorite_remove": "Favorit entfernen",
+    "favorite_removed": "Aus Favoriten entfernt"
   },
   "events": {
     "title": "Ereignisse",
@@ -1098,7 +1180,9 @@
       "all_cameras": "Alle Kameras",
       "audio_confirmed": "Audio-Übereinstimmungen",
       "audio_confirmed_only": "Nur Audio-bestätigt",
-      "favorites": "Favoriten"
+      "favorites": "Favoriten",
+      "refresh_options": "Optionen aktualisieren",
+      "refreshing_options": "Optionen werden aktualisiert..."
     },
     "sort": {
       "newest": "Neueste",
@@ -1189,7 +1273,22 @@
     "weekday_thu": "Do",
     "weekday_fri": "Fr",
     "weekday_sat": "Sa",
-    "weekday_sun": "So"
+    "weekday_sun": "So",
+    "analytics_section": "Analysen",
+    "chart_auto": "Auto",
+    "chart_bar": "Balken",
+    "chart_line": "Linie",
+    "full_rankings": "Vollständige Rangliste",
+    "metric_detections": "Erkennungen",
+    "metric_smooth": "Geglätteter Trend",
+    "top_performers": "Top-Performer",
+    "total": "Gesamt",
+    "trend_both": "Beide",
+    "trend_off": "Aus",
+    "trend_smooth": "Geglättet",
+    "weather_overlay_no_data": "In diesem Bereich sind noch keine Wetterdaten vorhanden.",
+    "weather_overlay_range_limited": "Wetter-Overlays sind für Tag-/Woche-/Monat-Bereiche verfügbar.",
+    "weather_overlays": "Wetter-Overlays"
   },
   "about": {
     "title": "Über dieses Projekt",
@@ -1308,6 +1407,10 @@
       "ebird_export": {
         "title": "eBird-Export",
         "desc": "Erkennungen als Standard-eBird-Rekordformat-CSV exportieren — bereit zur direkten Einreichung bei Ihrem eBird-Konto"
+      },
+      "full_visit_clip": {
+        "title": "Vollbesuch-Clips",
+        "desc": "Erstellt einen längeren Clip aus Frigate-Aufzeichnungen, damit ein vollständiger Futterbesuch nach Abschluss der Erkennung angesehen werden kann."
       }
     },
     "tech": {
@@ -1360,7 +1463,8 @@
     "inat_observations": "iNaturalist-Beobachtungen",
     "time_of_day": "Tageszeit",
     "day_of_week": "Wochentag",
-    "month": "Monat"
+    "month": "Monat",
+    "copy_diagnostics_bundle": "Diagnosepaket kopieren"
   },
   "pagination": {
     "navigation": "Paginierung",
@@ -1503,7 +1607,13 @@
     "fetching_full_visit": "Wird geladen…",
     "fetch_full_visit_retry": "Vollständigen Clip erneut laden",
     "full_visit_ready": "Clip des vollständigen Besuchs ist bereit",
-    "full_visit_failed": "Der vollständige Clip konnte nicht geladen werden"
+    "full_visit_failed": "Der vollständige Clip konnte nicht geladen werden",
+    "aria_label": "Videoplayer",
+    "clip_badge": "Clip",
+    "close": "Video schließen",
+    "detection_clip_title": "Erkennungsclip",
+    "full_visit_title": "Vollbesuch-Clip",
+    "no_video_support": "Ihr Browser unterstützt keine Videowiedergabe."
   },
   "jobs": {
     "title": "Aufträge",
@@ -1600,6 +1710,8 @@
     "model_download_failed": "Download fehlgeschlagen",
     "model_download_complete": "Download abgeschlossen",
     "circuit_reset_button": "Schaltkreis zurücksetzen",
-    "circuit_reset_confirm": "Dadurch wird die Videoclassifizierungswarteschlange sofort wieder geöffnet. Wartende Aufträge werden erneut versucht."
+    "circuit_reset_confirm": "Dadurch wird die Videoclassifizierungswarteschlange sofort wieder geöffnet. Wartende Aufträge werden erneut versucht.",
+    "circuit_open_message": "Die Reklassifizierungswarteschlange wurde durch den Schutzschalter pausiert.",
+    "circuit_open_until": "Neuer Versuch nach: {time}"
   }
 }

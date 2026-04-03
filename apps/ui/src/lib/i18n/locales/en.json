@@ -13,8 +13,10 @@
     "settings": "Settings",
     "about": "About",
     "toggle_menu": "Toggle menu",
+    "close_menu": "Close menu",
     "collapse_sidebar": "Collapse sidebar",
-    "expand_sidebar": "Expand sidebar"
+    "expand_sidebar": "Expand sidebar",
+    "close_language_selector": "Close language selector"
   },
   "theme": {
     "switch_light": "Switch to light mode",
@@ -81,7 +83,9 @@
       "empty_title": "No audio detections in buffer",
       "empty_subtitle": "Buffer clears every 5 mins",
       "unknown_sensor": "Unknown Sensor"
-    }
+    },
+    "top_visitors_title": "Top Visitors",
+    "top_visitors_empty": "No visitors recorded yet today."
   },
   "common": {
     "loading": "Loading...",
@@ -99,7 +103,20 @@
     "test": "Test",
     "testing": "Testing...",
     "add": "Add",
+    "added": "Added",
+    "all": "All",
     "apply_settings": "Apply Settings",
+    "available": "Available",
+    "clear": "Clear",
+    "clearing": "Clearing...",
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "legacy": "Legacy",
+    "multi_select": "Multi-select",
+    "not_available": "Not available",
+    "select": "Select",
+    "selected": "Selected",
+    "unavailable": "Unavailable",
     "unsaved_changes": "Unsaved Changes",
     "today": "Today",
     "yesterday": "Yesterday",
@@ -186,6 +203,8 @@
       "backfill_custom": "Custom Range",
       "backfill_start": "Start",
       "backfill_end": "End",
+      "backfill_from": "From",
+      "backfill_to": "To",
       "backfill_total": "Total",
       "backfill_new": "New",
       "backfill_skip": "Skip",
@@ -200,6 +219,10 @@
       },
       "backfill_scanning": "Analyzing Frigate...",
       "backfill_scan_button": "Scan History",
+      "backfill_validation_select_both": "Select both start and end dates.",
+      "backfill_validation_invalid": "Enter a valid date range.",
+      "backfill_validation_future": "Future dates are not allowed.",
+      "backfill_validation_order": "Start date must be before or equal to end date.",
       "weather_backfill_title": "Weather Backfill",
       "weather_backfill_filling": "Filling Weather...",
       "weather_backfill_button": "Fill Weather Fields",
@@ -211,6 +234,7 @@
       "batch_analysis_processing": "Processing...",
       "batch_analysis_pending": "Pending",
       "batch_analysis_active": "Active",
+      "batch_analysis_recent_failures": "Recent failures",
       "batch_analysis_circuit_open": "Circuit Breaker Open (Paused due to failures)",
       "cleanup_success": "Cleanup complete! Deleted {count} old detections.",
       "cleanup_none": "No cleanup needed.",
@@ -218,6 +242,8 @@
       "reset_error": "Database reset failed",
       "cache_cleanup_success": "Cache cleanup complete! Deleted {snapshots} snapshots, {clips} clips ({freed} freed).",
       "cache_cleanup_error": "Cache cleanup failed",
+      "cache_high_quality_event_snapshots": "HQ Event Snapshots",
+      "cache_high_quality_event_snapshots_help": "Replace Frigate snapshots later with a frame from the main-stream clip.",
       "backfill_error": "Backfill failed",
       "weather_backfill_error": "Weather backfill failed",
       "analysis_error": "Analysis failed",
@@ -237,7 +263,8 @@
       "clear_favorites_confirm": "Remove all favorite markers? This cannot be undone.",
       "clear_favorites_success": "Removed {count} favorite markers.",
       "clear_favorites_none": "No favorites to remove.",
-      "clear_favorites_error": "Failed to remove favorites"
+      "clear_favorites_error": "Failed to remove favorites",
+      "batch_analysis_complete": "Batch analysis complete"
     },
     "security": {
       "title": "Security",
@@ -269,6 +296,8 @@
     "debug": {
       "title": "Debug Tools",
       "subtitle": "Extra switches for testing and diagnostics.",
+      "ai_diagnostics": "AI Diagnostics Clipboard",
+      "ai_diagnostics_desc": "Show a top-of-modal copy button that captures full AI diagnostics and prompts.",
       "inat_preview": "iNaturalist preview UI",
       "inat_preview_desc": "Show the submission panel without OAuth (owner-only).",
       "inat_preview_hint": "Tip: open a detection details card to see the iNaturalist panel.",
@@ -290,7 +319,9 @@
       "llm_prompt_conversation": "Conversation Prompt",
       "llm_prompt_conversation_hint": "Tokens: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Chart Analysis Prompt",
-      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "strict_non_finite_output": "Strict non-finite output handling",
+      "strict_non_finite_output_desc": "When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging."
     },
     "ai": {
       "usage_title": "AI Usage Dashboard",
@@ -497,6 +528,21 @@
       "mqtt_pass": "Pass",
       "fetch_clips": "Fetch Video Clips",
       "fetch_clips_desc": "Use Frigate recordings for reclassification",
+      "full_visit_clips": "Full-visit clips",
+      "full_visit_clips_desc": "Serve a longer clip window from Frigate recordings around each detection.",
+      "full_visit_capability": "Capability",
+      "full_visit_loading": "Checking saved Frigate recording support...",
+      "full_visit_supported": "Continuous recordings are available for {count} selected camera(s).",
+      "full_visit_unavailable": "Capability information is unavailable right now.",
+      "full_visit_cameras": "Eligible cameras: {cameras}",
+      "full_visit_retention": "Detected recording retention: {days} day(s)",
+      "full_visit_before": "Seconds before",
+      "full_visit_after": "Seconds after",
+      "full_visit_reason_config_unavailable": "Frigate config could not be read.",
+      "full_visit_reason_no_matching_cameras": "No selected cameras match the current Frigate config.",
+      "full_visit_reason_recordings_disabled": "Continuous recordings are not enabled for the selected cameras.",
+      "full_visit_reason_retention_unknown": "Recording retention could not be determined.",
+      "full_visit_reason_unknown": "Capability could not be confirmed.",
       "url_placeholder": "http://frigate:5000",
       "mqtt_broker_placeholder": "mosquitto"
     },
@@ -504,7 +550,15 @@
       "title": "Active Cameras",
       "none_found": "No Cameras Found",
       "syncing": "Scanning...",
-      "preview_close": "Close preview"
+      "preview_close": "Close preview",
+      "preview": "Preview",
+      "preview_label": "Camera preview for {camera}",
+      "preview_live": "Live",
+      "preview_loading": "Loading preview...",
+      "preview_failed": "Preview failed",
+      "preview_missing_url": "No preview URL available for this camera.",
+      "select": "Select",
+      "deselect": "Deselect"
     },
     "telemetry": {
       "title": "Telemetry",
@@ -685,7 +739,11 @@
       "reset_desc": "Resetting the database will permanently delete ALL detections and clear the media cache. This action cannot be undone.",
       "reset_button": "Reset Database & Cache",
       "resetting": "Resetting...",
-      "confirm": "DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?"
+      "confirm": "DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?",
+      "clear_feedback_button": "Clear Personalization Data",
+      "clear_feedback_desc": "Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.",
+      "clear_feedback_hint": "This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.",
+      "clearing_feedback": "Clearing..."
     },
     "detection": {
       "classification_engine": "Classification Engine",
@@ -722,6 +780,11 @@
       "naming_scientific_sub": "Only show scientific names. Hides common names.",
       "blocked_labels": "Blocked Labels",
       "ignored_by_discovery": "Ignored by Discovery",
+      "blocked_species_picker_desc": "Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.",
+      "blocked_species_placeholder": "Search species to block",
+      "no_blocked_species_results": "No matching species found.",
+      "blocked_species_structured": "Blocked species",
+      "blocked_species_legacy": "Legacy raw labels",
       "no_blocked_labels": "No labels blocked yet.",
       "blocked_labels_placeholder": "e.g. background",
       "blocked_label_remove": "Remove {label} from blocked list",
@@ -781,6 +844,7 @@
       "model_manager_runtime": "Runtime",
       "model_manager_provider_pills": "Inference Provider Pills",
       "model_manager_host_verification": "OpenVINO host verification is shown for the active ONNX model.",
+      "model_manager_threshold_hint": "Recommended confidence threshold for this model:",
       "model_manager_downloading": "Downloading...",
       "model_manager_redownloading": "Re-downloading...",
       "model_manager_currently_active": "Currently Active",
@@ -858,6 +922,8 @@
     "username_placeholder": "admin",
     "signin_button": "Sign In",
     "verifying": "Signing in...",
+    "public_view": "Public view",
+    "public_viewing_mode": "Public viewing mode",
     "continue_guest": "Continue as Guest",
     "secure_access": "YA-WAMF Secure Access"
   },
@@ -879,6 +945,7 @@
     "global_progress_tasks": "{count} background tasks in progress",
     "global_progress_last": "Updated {age} ago",
     "global_progress_stale": "{count} stale",
+    "close_toast": "Close notification",
     "center_history": "Notifications",
     "center_history_empty": "No recent notifications yet.",
     "center_empty": "You're all caught up.",
@@ -941,6 +1008,11 @@
     "weather_snow": "Snow",
     "weather_icy": "Icy",
     "id": "Detection ID",
+    "favorite": "Favorite",
+    "favorite_add": "Add favorite",
+    "favorite_added": "Added to favorites",
+    "favorite_remove": "Remove favorite",
+    "favorite_removed": "Removed from favorites",
     "favorite_label": "Favorite",
     "favorite_label_active": "Favorited",
     "inat": {
@@ -1036,10 +1108,14 @@
     "reclassification": {
       "analysis": "Analysis",
       "ai_analysis": "AI Analysis",
+      "final_result": "Final Result",
       "frame_grid": "Frame Grid",
       "frame_progress": "Frame {current}/{total}",
       "model": "Model: {name}",
-      "done": "Done"
+      "done": "Done",
+      "auto_video_source": "Auto video analysis",
+      "auto_video_source_hint": "Result refined from clip frames.",
+      "auto_close_in": "Auto closes in {seconds}s"
     },
     "ai": {
       "insight": "AI Naturalist Insight",
@@ -1053,6 +1129,9 @@
       "conversation_empty": "No conversation yet. Ask a follow-up question to the AI.",
       "conversation_placeholder": "Ask a follow-up question…",
       "conversation_error": "Conversation failed. Please try again.",
+      "copy_diagnostics_bundle": "Copy AI diagnostics bundle",
+      "regenerate_warning": "Regenerate analysis (clears AI conversation history for this detection)",
+      "regenerate_clears_chat_note": "Note: Regenerating clears the AI conversation history for this detection.",
       "assistant": "Assistant",
       "user": "You",
       "send": "Send",
@@ -1061,6 +1140,9 @@
     "tagging": {
       "search_placeholder": "Search species...",
       "no_results": "No matching species found"
+    },
+    "ebird": {
+      "valid_observation": "Valid Observation"
     },
     "card_label": "{species} detected at {camera}",
     "image_alt": "{species} detected at {camera}",
@@ -1106,7 +1188,9 @@
       "all_cameras": "All Cameras",
       "favorites": "Favorites",
       "audio_confirmed": "Audio Matches",
-      "audio_confirmed_only": "Audio Confirmed Only"
+      "audio_confirmed_only": "Audio Confirmed Only",
+      "refresh_options": "Refresh options",
+      "refreshing_options": "Refreshing options..."
     },
     "sort": {
       "newest": "Newest",
@@ -1129,6 +1213,9 @@
     "sort_by_month": "Month",
     "include_unknown": "Include Unknown Bird",
     "featured": "Featured",
+    "top_performers": "Top performers",
+    "full_rankings": "Full rankings",
+    "analytics_section": "Analytics",
     "view_details": "View details",
     "total_sightings": "Total sightings",
     "last_30_days": "Last 30 days",
@@ -1137,6 +1224,9 @@
     "detections_over_time": "Detections over time",
     "last_seen": "Last seen",
     "trend": "Trend",
+    "trend_off": "Off",
+    "trend_smooth": "Smoothed",
+    "trend_both": "Both",
     "streak_14d": "14-day streak",
     "days": "days",
     "cameras": "Cameras",
@@ -1181,8 +1271,17 @@
     "bucket_halfday": "AM/PM",
     "bucket_day": "Daily",
     "bucket_month": "Monthly",
+    "chart_auto": "Auto",
+    "chart_bar": "Bar",
+    "chart_line": "Line",
+    "metric_detections": "Detections",
+    "metric_smooth": "Smoothed trend",
+    "total": "Total",
     "metric_peak": "Peak",
     "metric_avg": "Avg",
+    "weather_overlays": "Weather overlays",
+    "weather_overlay_no_data": "No weather data in this range yet.",
+    "weather_overlay_range_limited": "Weather overlays available on Day/Week/Month ranges.",
     "load_failed": "Failed to load species data",
     "species_compare_title": "Species Compare",
     "species_compare_subtitle": "Top species over time",
@@ -1365,6 +1464,7 @@
     "range_map": "Range map",
     "range_unavailable": "Range map unavailable.",
     "range_map_hint": "Drag to pan • Scroll to zoom",
+    "copy_diagnostics_bundle": "Copy diagnostics bundle",
     "video_unavailable": "Video clip not available",
     "no_recent_sightings": "No recent sightings.",
     "count_label": "Count",
@@ -1441,6 +1541,8 @@
     "freshness_updated": "Updated {age} ago",
     "global_summary_with_queue": "{kind} using {capacity}, {queued} queued",
     "global_summary_circuit_open": "{kind} paused by circuit breaker",
+    "circuit_open_message": "Reclassification queue paused by circuit breaker.",
+    "circuit_open_until": "Retrying after: {time}",
     "circuit_reset_button": "Reset Circuit",
     "circuit_reset_confirm": "This will reopen the video classification queue immediately. Queued jobs will retry.",
     "global_summary_basic": "{kind} {activity}",
@@ -1548,6 +1650,8 @@
     "update_available": "Update available. Refresh to apply."
   },
   "video_player": {
+    "aria_label": "Video player",
+    "close": "Close video",
     "clip_fetching_disabled": "Clip Fetching Disabled",
     "clip_fetching_disabled_hint": "Enable \"Fetch Video Clips\" in Settings to view this recording.",
     "video_unavailable": "Video Unavailable",
@@ -1599,10 +1703,14 @@
     "share_manage_revoke": "Revoke",
     "share_manage_load_failed": "Could not load active share links",
     "shared_watermark": "Shared clip",
+    "clip_badge": "Clip",
+    "detection_clip_title": "Detection clip",
+    "full_visit_title": "Full visit clip",
     "full_visit_badge": "Full visit",
     "fetch_full_visit": "Fetch full clip",
     "fetching_full_visit": "Fetching...",
     "fetch_full_visit_retry": "Retry full clip",
+    "no_video_support": "Your browser does not support video playback.",
     "full_visit_ready": "Full visit clip ready",
     "full_visit_failed": "Could not fetch full visit clip"
   }

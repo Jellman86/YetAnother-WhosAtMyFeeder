@@ -14,7 +14,9 @@
     "toggle_menu": "Alternar menú",
     "collapse_sidebar": "Contraer barra lateral",
     "expand_sidebar": "Expandir barra lateral",
-    "jobs": "Tareas"
+    "jobs": "Tareas",
+    "close_menu": "Cerrar menú",
+    "close_language_selector": "Cerrar selector de idioma"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",
@@ -81,7 +83,9 @@
       "empty_title": "No hay detecciones de audio en el búfer",
       "empty_subtitle": "El búfer se limpia cada 5 min",
       "unknown_sensor": "Sensor desconocido"
-    }
+    },
+    "top_visitors_title": "Visitantes frecuentes",
+    "top_visitors_empty": "Aún no se han registrado visitantes hoy."
   },
   "common": {
     "loading": "Cargando...",
@@ -121,7 +125,20 @@
     "unit_in": "in",
     "unknown_location": "Ubicación desconocida",
     "unknown_species": "Especie desconocida",
-    "play": "Reproducir"
+    "play": "Reproducir",
+    "added": "Añadido",
+    "all": "Todo",
+    "available": "Disponible",
+    "clear": "Limpiar",
+    "clearing": "Limpiando...",
+    "disabled": "Desactivado",
+    "enabled": "Activado",
+    "legacy": "Legacy",
+    "multi_select": "Selección múltiple",
+    "not_available": "No disponible",
+    "select": "Seleccionar",
+    "selected": "Seleccionado",
+    "unavailable": "No disponible"
   },
   "settings": {
     "title": "Ajustes",
@@ -177,7 +194,11 @@
       "llm_prompt_conversation": "Prompt de conversación",
       "llm_prompt_conversation_hint": "Tokens: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Prompt de análisis de gráficos",
-      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}"
+      "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
+      "ai_diagnostics": "Portapapeles de diagnósticos de IA",
+      "ai_diagnostics_desc": "Muestra en la parte superior del modal un botón para copiar todos los diagnósticos y prompts de IA.",
+      "strict_non_finite_output": "Manejo estricto de salidas no finitas",
+      "strict_non_finite_output_desc": "Cuando está activado, las salidas del clasificador compuestas solo por valores no finitos se rechazan y activan la recuperación en tiempo de ejecución. Desactívalo solo para depuración controlada."
     },
     "integrations": {
       "birdnet": {
@@ -370,13 +391,36 @@
       "fetch_clips": "Obtener Clips de Video",
       "fetch_clips_desc": "Usar grabaciones de Frigate para reclasificación",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "full_visit_after": "Segundos después",
+      "full_visit_before": "Segundos antes",
+      "full_visit_cameras": "Cámaras compatibles: {cameras}",
+      "full_visit_capability": "Capacidad",
+      "full_visit_clips": "Clips de visita completa",
+      "full_visit_clips_desc": "Sirve una ventana de clip más larga desde las grabaciones de Frigate alrededor de cada detección.",
+      "full_visit_loading": "Comprobando compatibilidad con grabaciones guardadas de Frigate...",
+      "full_visit_reason_config_unavailable": "No se pudo leer la configuración de Frigate.",
+      "full_visit_reason_no_matching_cameras": "Ninguna de las cámaras seleccionadas coincide con la configuración actual de Frigate.",
+      "full_visit_reason_recordings_disabled": "Las grabaciones continuas no están habilitadas para las cámaras seleccionadas.",
+      "full_visit_reason_retention_unknown": "No se pudo determinar la retención de grabaciones.",
+      "full_visit_reason_unknown": "No se pudo confirmar la capacidad.",
+      "full_visit_retention": "Retención detectada de grabaciones: {days} día(s)",
+      "full_visit_supported": "Las grabaciones continuas están disponibles para {count} cámara(s) seleccionada(s).",
+      "full_visit_unavailable": "La información de capacidad no está disponible en este momento."
     },
     "cameras": {
       "title": "Cámaras Activas",
       "none_found": "No se encontraron cámaras",
       "syncing": "Escaneando...",
-      "preview_close": "Cerrar vista previa"
+      "preview_close": "Cerrar vista previa",
+      "deselect": "Deseleccionar",
+      "preview": "Vista previa",
+      "preview_failed": "La vista previa falló",
+      "preview_label": "Vista previa de la cámara {camera}",
+      "preview_live": "En directo",
+      "preview_loading": "Cargando vista previa...",
+      "preview_missing_url": "No hay URL de vista previa disponible para esta cámara.",
+      "select": "Seleccionar"
     },
     "telemetry": {
       "title": "Telemetría",
@@ -557,7 +601,11 @@
       "reset_desc": "Restablecer la base de datos eliminará permanentemente TODAS las detecciones y borrará el caché de medios. Esta acción no se puede deshacer.",
       "reset_button": "Restablecer base de datos y caché",
       "resetting": "Restableciendo...",
-      "confirm": "PELIGRO: Esto eliminará TODAS las detecciones y borrará el caché de medios. Esta acción no se puede deshacer. ¿Estás seguro?"
+      "confirm": "PELIGRO: Esto eliminará TODAS las detecciones y borrará el caché de medios. Esta acción no se puede deshacer. ¿Estás seguro?",
+      "clear_feedback_button": "Borrar datos de personalización",
+      "clear_feedback_desc": "Borrar la retroalimentación de personalización eliminará todas las correcciones manuales de etiquetas que la IA usa para ajustar las puntuaciones de confianza. Esto devolverá el clasificador a su precisión base.",
+      "clear_feedback_hint": "Esto no elimina detecciones ni medios. El reordenamiento volverá a aprender a medida que hagas nuevas correcciones manuales.",
+      "clearing_feedback": "Borrando..."
     },
     "data": {
       "title": "Gestión de datos",
@@ -648,7 +696,17 @@
       "clear_favorites_confirm": "¿Eliminar todos los marcadores de favoritos? Esto no se puede deshacer.",
       "clear_favorites_success": "Se eliminaron {count} marcadores de favoritos.",
       "clear_favorites_none": "No hay favoritos para eliminar.",
-      "clear_favorites_error": "No se pudieron eliminar los favoritos"
+      "clear_favorites_error": "No se pudieron eliminar los favoritos",
+      "backfill_from": "Desde",
+      "backfill_to": "Hasta",
+      "backfill_validation_future": "No se permiten fechas futuras.",
+      "backfill_validation_invalid": "Introduce un rango de fechas válido.",
+      "backfill_validation_order": "La fecha de inicio debe ser anterior o igual a la fecha de fin.",
+      "backfill_validation_select_both": "Selecciona tanto la fecha de inicio como la de fin.",
+      "batch_analysis_recent_failures": "Fallos recientes",
+      "cache_high_quality_event_snapshots": "Instantáneas HQ de eventos",
+      "cache_high_quality_event_snapshots_help": "Sustituye más tarde las instantáneas de Frigate por un fotograma del clip del flujo principal.",
+      "batch_analysis_complete": "Análisis por lotes completado"
     },
     "security": {
       "title": "Seguridad",
@@ -811,7 +869,13 @@
       "region_override_desc": "Auto usa tu país configurado. La anulación manual siempre tiene prioridad.",
       "region_override_auto": "Automático",
       "region_override_eu": "Europa",
-      "region_override_na": "Norteamérica"
+      "region_override_na": "Norteamérica",
+      "blocked_species_legacy": "Etiquetas heredadas sin procesar",
+      "blocked_species_picker_desc": "Busca una especie para bloquearla de forma fiable en coincidencias por nombre común, nombre científico y taxonomía. Las etiquetas heredadas sin procesar seguirán aplicándose hasta que las elimines.",
+      "blocked_species_placeholder": "Buscar especie para bloquear",
+      "blocked_species_structured": "Especies bloqueadas",
+      "model_manager_threshold_hint": "Umbral de confianza recomendado para este modelo:",
+      "no_blocked_species_results": "No se encontraron especies coincidentes."
     },
     "llm": {
       "title": "Análisis de IA",
@@ -851,7 +915,9 @@
     "signin_button": "Iniciar Sesión",
     "verifying": "Iniciando sesión...",
     "continue_guest": "Continuar como invitado",
-    "secure_access": "Acceso Seguro YA-WAMF"
+    "secure_access": "Acceso Seguro YA-WAMF",
+    "public_view": "Vista pública",
+    "public_viewing_mode": "Modo de visualización pública"
   },
   "status": {
     "audio_active": "Análisis de audio activo",
@@ -900,7 +966,8 @@
     "system_cache_disabled_message": "Las vistas previas de la línea de tiempo y la caché de medios están desactivadas en la configuración actual.",
     "open_action": "Abrir",
     "global_progress_last": "Actualizado hace {age}",
-    "global_progress_stale": "{count} obsoletas"
+    "global_progress_stale": "{count} obsoletas",
+    "close_toast": "Cerrar notificación"
   },
   "actions": {
     "confirm_delete": "¿Eliminar esta detección de {species}?",
@@ -1031,7 +1098,11 @@
       "frame_grid": "Cuadrícula de fotogramas",
       "frame_progress": "Fotograma {current}/{total}",
       "model": "Modelo: {name}",
-      "done": "Listo"
+      "done": "Listo",
+      "auto_close_in": "Se cierra automáticamente en {seconds}s",
+      "auto_video_source": "Análisis automático de vídeo",
+      "auto_video_source_hint": "Resultado refinado a partir de fotogramas del clip.",
+      "final_result": "Resultado final"
     },
     "ai": {
       "insight": "Perspectiva del Naturalista IA",
@@ -1048,7 +1119,10 @@
       "assistant": "Asistente",
       "user": "Tú",
       "send": "Enviar",
-      "sending": "Enviando…"
+      "sending": "Enviando…",
+      "copy_diagnostics_bundle": "Copiar paquete de diagnósticos de IA",
+      "regenerate_clears_chat_note": "Nota: Regenerar borra el historial de conversación de IA para esta detección.",
+      "regenerate_warning": "Regenerar análisis (borra el historial de conversación de IA de esta detección)"
     },
     "tagging": {
       "search_placeholder": "Buscar especie...",
@@ -1084,7 +1158,15 @@
     "frigate_media_missing_detail_unknown": "El medio no está disponible en Frigate para esta detección.",
     "audio_possible_nearby": "Posible coincidencia de audio cercana",
     "audio_no_direct_match": "Sin confirmación directa por audio",
-    "frigate_badge": "Frigate"
+    "frigate_badge": "Frigate",
+    "ebird": {
+      "valid_observation": "Observación válida"
+    },
+    "favorite": "Favorito",
+    "favorite_add": "Añadir favorito",
+    "favorite_added": "Añadido a favoritos",
+    "favorite_remove": "Quitar favorito",
+    "favorite_removed": "Quitado de favoritos"
   },
   "events": {
     "title": "Eventos",
@@ -1098,7 +1180,9 @@
       "all_cameras": "Todas las cámaras",
       "audio_confirmed": "Coincidencias de audio",
       "audio_confirmed_only": "Solo confirmados por audio",
-      "favorites": "Favoritos"
+      "favorites": "Favoritos",
+      "refresh_options": "Actualizar opciones",
+      "refreshing_options": "Actualizando opciones..."
     },
     "sort": {
       "newest": "Más reciente",
@@ -1189,7 +1273,22 @@
     "weekday_thu": "Jue",
     "weekday_fri": "Vie",
     "weekday_sat": "Sáb",
-    "weekday_sun": "Dom"
+    "weekday_sun": "Dom",
+    "analytics_section": "Analítica",
+    "chart_auto": "Auto",
+    "chart_bar": "Barras",
+    "chart_line": "Línea",
+    "full_rankings": "Clasificación completa",
+    "metric_detections": "Detecciones",
+    "metric_smooth": "Tendencia suavizada",
+    "top_performers": "Mejores especies",
+    "total": "Total",
+    "trend_both": "Ambos",
+    "trend_off": "Desactivado",
+    "trend_smooth": "Solo suavizada",
+    "weather_overlay_no_data": "No hay datos meteorológicos en este rango.",
+    "weather_overlay_range_limited": "Las superposiciones meteorológicas solo están disponibles en rangos de día, semana o mes.",
+    "weather_overlays": "Superposiciones meteorológicas"
   },
   "about": {
     "title": "Sobre este proyecto",
@@ -1308,6 +1407,10 @@
       "ebird_export": {
         "title": "Exportación eBird",
         "desc": "Exporta las detecciones como CSV en formato estándar eBird Record — listo para enviar directamente a tu cuenta de eBird"
+      },
+      "full_visit_clip": {
+        "title": "Clips de visita completa",
+        "desc": "Genera un clip más largo a partir de las grabaciones de Frigate para poder ver la visita completa al comedero después de que termine la detección."
       }
     },
     "tech": {
@@ -1360,7 +1463,8 @@
     "inat_observations": "Observaciones de iNaturalist",
     "time_of_day": "Hora del día",
     "day_of_week": "Día de la semana",
-    "month": "Mes"
+    "month": "Mes",
+    "copy_diagnostics_bundle": "Copiar paquete de diagnósticos"
   },
   "pagination": {
     "navigation": "Paginación",
@@ -1503,7 +1607,13 @@
     "fetching_full_visit": "Obteniendo…",
     "fetch_full_visit_retry": "Reintentar clip completo",
     "full_visit_ready": "Clip de visita completa listo",
-    "full_visit_failed": "No se pudo obtener el clip completo"
+    "full_visit_failed": "No se pudo obtener el clip completo",
+    "aria_label": "Reproductor de vídeo",
+    "clip_badge": "Clip",
+    "close": "Cerrar vídeo",
+    "detection_clip_title": "Clip de detección",
+    "full_visit_title": "Clip de visita completa",
+    "no_video_support": "Tu navegador no admite la reproducción de vídeo."
   },
   "jobs": {
     "title": "Tareas",
@@ -1600,6 +1710,8 @@
     "model_download_failed": "La descarga falló",
     "model_download_complete": "Descarga completada",
     "circuit_reset_button": "Restablecer circuito",
-    "circuit_reset_confirm": "Esto reabrirá la cola de clasificación de vídeo de inmediato. Los trabajos en cola se reintentarán."
+    "circuit_reset_confirm": "Esto reabrirá la cola de clasificación de vídeo de inmediato. Los trabajos en cola se reintentarán.",
+    "circuit_open_message": "La cola de reclasificación está en pausa por el disyuntor.",
+    "circuit_open_until": "Reintentando después de: {time}"
   }
 }
