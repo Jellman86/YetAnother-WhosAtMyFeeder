@@ -418,3 +418,28 @@ def test_extract_snapshot_from_clip_uses_configured_jpeg_quality(monkeypatch):
         )
     finally:
         settings.media_cache.high_quality_event_snapshot_jpeg_quality = original_quality
+
+
+@pytest.mark.asyncio
+async def test_stop_ignores_worker_tasks_from_closed_event_loop(tmp_path, monkeypatch):
+    _make_cache_service(tmp_path, monkeypatch)
+
+    class _ClosedLoopTask:
+        def __init__(self):
+            self._loop = asyncio.new_event_loop()
+            self._loop.close()
+
+        def done(self):
+            return False
+
+        def get_loop(self):
+            return self._loop
+
+        def cancel(self):
+            raise RuntimeError("cancel should not be called for closed-loop task")
+
+    hq_module.high_quality_snapshot_service._worker_tasks = [_ClosedLoopTask()]  # type: ignore[list-item]
+
+    await hq_module.high_quality_snapshot_service.stop()
+
+    assert hq_module.high_quality_snapshot_service.get_status()["workers"] == 0
