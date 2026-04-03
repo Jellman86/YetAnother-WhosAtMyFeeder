@@ -593,6 +593,9 @@ async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missi
     assert len(rows) == 1
     # Should fall back to scientific name in the common name column (index 0)
     assert rows[0][0] == "Parus major"
+    # Species comment (column 4) and submission comment (column 18) should annotate the fallback
+    assert "common name unavailable" in rows[0][4]
+    assert "common name unavailable" in rows[0][18]
 
 
 @pytest.mark.asyncio

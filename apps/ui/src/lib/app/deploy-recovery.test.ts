@@ -159,4 +159,30 @@ describe('createDeployRecovery', () => {
         expect(nextMismatch).toBe('reload');
         expect(reload).toHaveBeenCalledTimes(2);
     });
+
+    it('increments recovery count on every trigger and exposes it via getRecoveryCount', () => {
+        const storage = createStorage();
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn
+        });
+
+        expect(recovery.getRecoveryCount()).toBe(0);
+
+        // First trigger → reload, count goes to 1
+        recovery.handleRuntimeFailure({
+            message: 'Failed to fetch dynamically imported module'
+        });
+        expect(recovery.getRecoveryCount()).toBe(1);
+
+        // Second trigger → warn (same signature), count goes to 2
+        recovery.handleRuntimeFailure({
+            message: 'Failed to fetch dynamically imported module'
+        });
+        expect(recovery.getRecoveryCount()).toBe(2);
+    });
 });

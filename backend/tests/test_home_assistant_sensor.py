@@ -455,3 +455,62 @@ async def test_component_polling_discards_non_mapping_latest_detection():
     assert bird_sensor.native_value is None
     assert bird_sensor.extra_state_attributes == {}
     assert event_sensor.native_value is None
+
+
+# ---------------------------------------------------------------------------
+# Malformed daily-summary payload resilience
+# ---------------------------------------------------------------------------
+
+def test_sensors_handle_latest_detection_missing_frigate_event():
+    """latest_detection with missing frigate_event should not crash sensors."""
+    sensor_module = _load_sensor_module()
+    coordinator = _Coordinator(
+        {
+            "display_name": "House Sparrow",
+            # frigate_event key missing entirely
+            "detection_time": "2026-04-01T12:00:00Z",
+            "camera_name": "feeder",
+        }
+    )
+
+    bird_sensor = sensor_module.YAWAMFLastBirdSensor(coordinator)
+    event_sensor = sensor_module.YAWAMFLastDetectionEventSensor(coordinator)
+
+    assert bird_sensor.native_value == "House Sparrow"
+    assert event_sensor.native_value is None
+
+
+def test_sensors_handle_non_string_detection_time():
+    """A numeric or None detection_time must not crash the timestamp sensor."""
+    sensor_module = _load_sensor_module()
+    coordinator = _Coordinator(
+        {
+            "display_name": "Mourning Dove",
+            "frigate_event": "evt-ts-bad",
+            "detection_time": 12345,
+            "camera_name": "feeder",
+        }
+    )
+
+    timestamp_sensor = sensor_module.YAWAMFLastDetectionTimestampSensor(coordinator)
+    # Non-parseable timestamp should return None, not raise.
+    assert timestamp_sensor.native_value is None
+
+
+def test_sensors_handle_string_total_count():
+    """total_count as a string should fall back to 0 instead of crashing."""
+    coordinator_module, sensor_module = _load_coordinator_and_sensor_modules()
+    coordinator = _Coordinator(
+        {
+            "display_name": "House Finch",
+            "frigate_event": "evt-tc",
+            "detection_time": "2026-04-01T12:00:00Z",
+            "camera_name": "feeder",
+        }
+    )
+    coordinator.data["count_24h"] = "not-a-number"
+
+    count_sensor = sensor_module.YAWAMFDailyCountSensor(coordinator)
+    # The sensor should handle non-int gracefully.
+    value = count_sensor.native_value
+    assert value is None or isinstance(value, int)

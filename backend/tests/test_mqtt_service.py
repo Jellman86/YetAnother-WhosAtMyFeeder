@@ -502,3 +502,127 @@ async def test_start_clears_intentional_reconnect_after_clean_reconnect_cycle(mo
 
     assert connect_count >= 2
     assert service._intentional_reconnect is False
+
+
+def test_stall_recovery_stops_reconnecting_at_cap(monkeypatch):
+    """After MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS the assisted stall path must stop triggering."""
+    monkeypatch.setattr(mqtt_module, "MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS", 3, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 30.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 120.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 5, raising=False)
+
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._connection_started_monotonic = 100.0
+    service._topic_last_message_monotonic = {
+        "frigate/events": 100.0,
+        "birdnet/detections": 390.0,
+    }
+    service._topic_message_counts = {
+        "frigate/events": 0,
+        "birdnet/detections": 25,
+    }
+    service._topic_message_counts_lifetime = {
+        "frigate/events": 10,
+        "birdnet/detections": 200,
+    }
+    service._last_reconnect_reason = "frigate_topic_stalled"
+
+    # Under the cap — should still reconnect.
+    service._stall_recovery_consecutive_no_frigate_reconnects = 2
+    assert service._should_reconnect_for_stalled_frigate_topic(
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        now=400.0,
+    ) is True
+
+    # At the cap — should stop.
+    service._stall_recovery_consecutive_no_frigate_reconnects = 3
+    assert service._should_reconnect_for_stalled_frigate_topic(
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        now=400.0,
+    ) is False
+
+
+def test_note_stall_reconnect_records_abandoned_diagnostic_at_cap(monkeypatch):
+    """When the reconnect cap is reached, the diagnostic must use the abandoned reason code."""
+    monkeypatch.setattr(mqtt_module, "MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS", 2, raising=False)
+
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._connection_started_monotonic = 100.0
+    service._topic_message_counts = {
+        "frigate/events": 0,
+        "birdnet/detections": 30,
+    }
+    service._stall_recovery_consecutive_no_frigate_reconnects = 1
+
+    recorded: list[dict] = []
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
+
+    service._note_stall_reconnect(
+        reason="frigate_topic_stalled",
+        now=410.0,
+        frigate_topic="frigate/events",
+        birdnet_topic="birdnet/detections",
+        no_frigate_after_previous_reconnect=True,
+    )
+
+    assert service._stall_recovery_consecutive_no_frigate_reconnects == 2
+    assert recorded[-1]["reason_code"] == "frigate_recovery_abandoned"
+    assert recorded[-1]["context"]["recovery_abandoned"] is True
+
+
+@pytest.mark.asyncio
+async def test_start_clears_intentional_reconnect_on_mqtt_error_path(monkeypatch):
+    """When MqttError is raised with _intentional_reconnect set, the flag is cleared and no backoff applied."""
+    from aiomqtt import MqttError
+
+    service = MQTTService("test+abc123")
+    processor = _RecordingProcessor()
+    connect_count = 0
+
+    class _ErrorClient:
+        def __init__(self, **kwargs):
+            del kwargs
+            nonlocal connect_count
+            connect_count += 1
+
+        async def __aenter__(self):
+            if connect_count == 1:
+                # Simulate the watchdog setting the flag right before MqttError
+                service._intentional_reconnect = True
+                raise MqttError("connection lost")
+            # Second connection: stop the loop.
+            service.running = False
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def subscribe(self, topic):
+            del topic
+
+        @property
+        def messages(self):
+            return _FakeMessages([])
+
+    async def _idle_watchdog(client, frigate_topic):
+        del client, frigate_topic
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_server", "mosquitto", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_port", 1883, raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_auth", False, raising=False)
+    monkeypatch.setattr(mqtt_module, "Client", _ErrorClient)
+    monkeypatch.setattr(service, "_connection_watchdog", _idle_watchdog)
+
+    await asyncio.wait_for(service.start(processor), timeout=2.0)
+
+    assert connect_count >= 2
+    assert service._intentional_reconnect is False
+    # Backoff should not have been applied (reconnect_delay stays at initial).
+    assert service.reconnect_delay == mqtt_module.INITIAL_BACKOFF

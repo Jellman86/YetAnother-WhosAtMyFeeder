@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import AsyncMock
+import time
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -334,3 +335,38 @@ async def test_circuit_status_open_until_is_utc(monkeypatch):
     assert open_until.endswith("+00:00"), (
         f"Expected UTC offset in open_until, got: {open_until!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker auto-close after cooldown
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_circuit_auto_closes_after_cooldown_expires(monkeypatch):
+    """The circuit must auto-close and clear failure history once the cooldown elapses."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_cooldown_minutes",
+        5,
+    )
+    service = AutoVideoClassifierService()
+
+    # Open the circuit.
+    service._record_failure("evt-ac-1", "video_timeout")
+    service._record_failure("evt-ac-2", "video_exception")
+    assert service._is_circuit_open() is True
+    assert service.get_status()["failure_count"] == 2
+
+    # Advance time past the cooldown window (5 min = 300 s).
+    service._circuit_open_until = time.time() - 1
+
+    assert service._is_circuit_open() is False
+    # Failure history must be cleared after the cooldown auto-close.
+    assert service.get_status()["failure_count"] == 0
+    assert len(service._failure_events) == 0
+    assert len(service._failure_event_ids) == 0
