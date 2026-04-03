@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +33,8 @@ class HighQualitySnapshotService:
     def __init__(self):
         self._active_ids: set[str] = set()
         self._queued_ids: set[str] = set()
+        self._deferred_ids: set[str] = set()
+        self._deferred_order: deque[str] = deque()
         self._completed_ids: set[str] = set()
         self._pending_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._worker_tasks: list[asyncio.Task] = []
@@ -40,6 +42,7 @@ class HighQualitySnapshotService:
         self._duplicate_requests = 0
         self._disabled_requests = 0
         self._queue_full_rejections = 0
+        self._queue_full_deferrals = 0
         self._outcomes: Counter[str] = Counter()
         self._last_result: dict[str, str] | None = None
 
@@ -48,7 +51,7 @@ class HighQualitySnapshotService:
             settings.media_cache.enabled
             and settings.media_cache.cache_snapshots
             and settings.media_cache.high_quality_event_snapshots
-            and settings.frigate.clips_enabled
+            and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         )
 
     def schedule_replacement(self, event_id: str) -> bool:
@@ -58,18 +61,15 @@ class HighQualitySnapshotService:
             return False
 
         self._cleanup_completed_workers()
-        if event_id in self._active_ids or event_id in self._queued_ids:
+        if event_id in self._active_ids or event_id in self._queued_ids or event_id in self._deferred_ids:
             self._duplicate_requests += 1
             return False
 
         self._ensure_workers_started()
-        try:
-            self._pending_queue.put_nowait(event_id)
-        except asyncio.QueueFull:
-            self._queue_full_rejections += 1
-            return False
-
-        self._queued_ids.add(event_id)
+        if not self._enqueue_pending(event_id):
+            self._deferred_ids.add(event_id)
+            self._deferred_order.append(event_id)
+            self._queue_full_deferrals += 1
         self._scheduled_total += 1
         return True
 
@@ -79,6 +79,8 @@ class HighQualitySnapshotService:
             return self._record_outcome(event_id, "disabled")
 
         clip_bytes, clip_error = await self._wait_for_clip(event_id)
+        if not clip_bytes:
+            clip_bytes = await self._load_recording_clip_bytes(event_id)
         if not clip_bytes:
             return self._record_outcome(event_id, clip_error or "clip_unavailable")
 
@@ -94,6 +96,35 @@ class HighQualitySnapshotService:
 
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes))
         return self._record_outcome(event_id, "replaced")
+
+    async def _load_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
+        """Fall back to the full-visit recording clip when the event clip is unavailable."""
+        if not settings.frigate.recording_clip_enabled:
+            return None
+
+        try:
+            from app.routers.proxy import _fetch_recording_clip_ready, _get_valid_cached_recording_clip_path
+        except Exception as e:
+            log.warning("Failed to import recording clip helpers for HQ snapshot fallback", event_id=event_id, error=str(e))
+            return None
+
+        try:
+            cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
+            if cached_path and cached_path.exists():
+                return await asyncio.to_thread(cached_path.read_bytes)
+
+            ready = await _fetch_recording_clip_ready(event_id, "en")
+            if not ready:
+                return None
+
+            cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
+            if cached_path and cached_path.exists():
+                return await asyncio.to_thread(cached_path.read_bytes)
+        except Exception as e:
+            log.warning("High-quality snapshot recording fallback failed", event_id=event_id, error=str(e))
+            return None
+
+        return None
 
     async def replace_from_clip_bytes(self, event_id: str, clip_bytes: bytes) -> str:
         """Best-effort replacement using clip bytes already fetched by another workflow."""
@@ -117,18 +148,23 @@ class HighQualitySnapshotService:
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
 
-            if event_id in self._queued_ids:
+            if event_id in self._queued_ids or event_id in self._deferred_ids:
                 self._completed_ids.add(event_id)
 
             log.info("High-quality snapshot replaced from clip bytes", event_id=event_id, size=len(image_bytes))
             return self._record_outcome(event_id, "replaced")
         finally:
             self._active_ids.discard(event_id)
+            self._promote_deferred_events()
 
     async def wait_for_idle(self) -> None:
         """Wait for all scheduled replacement tasks to complete."""
-        await self._pending_queue.join()
-        while self._active_ids:
+        while True:
+            self._promote_deferred_events()
+            await self._pending_queue.join()
+            self._promote_deferred_events()
+            if not self._active_ids and self._pending_queue.qsize() == 0 and not self._deferred_ids:
+                return
             await asyncio.sleep(0.01)
 
     async def stop(self) -> None:
@@ -141,9 +177,12 @@ class HighQualitySnapshotService:
         self._worker_tasks.clear()
         self._active_ids.clear()
         self._queued_ids.clear()
+        self._deferred_ids.clear()
+        self._deferred_order.clear()
         self._completed_ids.clear()
         self._pending_queue = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._queue_full_rejections = 0
+        self._queue_full_deferrals = 0
         self._scheduled_total = 0
         self._duplicate_requests = 0
         self._disabled_requests = 0
@@ -185,6 +224,7 @@ class HighQualitySnapshotService:
             finally:
                 self._active_ids.discard(event_id)
                 self._pending_queue.task_done()
+                self._promote_deferred_events()
 
     def _ensure_workers_started(self) -> None:
         self._cleanup_completed_workers()
@@ -214,14 +254,48 @@ class HighQualitySnapshotService:
             "enabled": self.enabled(),
             "active": len(self._active_ids),
             "queue_size": self._pending_queue.qsize(),
+            "deferred": len(self._deferred_ids),
             "workers": len(self._worker_tasks),
             "scheduled_total": self._scheduled_total,
             "duplicate_requests": self._duplicate_requests,
             "disabled_requests": self._disabled_requests,
             "queue_full_rejections": self._queue_full_rejections,
+            "queue_full_deferrals": self._queue_full_deferrals,
             "outcomes": dict(self._outcomes),
             "last_result": self._last_result,
         }
+
+    def _enqueue_pending(self, event_id: str) -> bool:
+        try:
+            self._pending_queue.put_nowait(event_id)
+        except asyncio.QueueFull:
+            return False
+        self._queued_ids.add(event_id)
+        return True
+
+    def _promote_deferred_events(self) -> None:
+        while self._deferred_order:
+            if self._pending_queue.full():
+                return
+
+            event_id = self._deferred_order.popleft()
+            if event_id not in self._deferred_ids:
+                continue
+
+            self._deferred_ids.discard(event_id)
+            if event_id in self._completed_ids:
+                self._completed_ids.discard(event_id)
+                self._duplicate_requests += 1
+                self._record_outcome(event_id, "duplicate")
+                continue
+            if event_id in self._active_ids or event_id in self._queued_ids:
+                self._duplicate_requests += 1
+                self._record_outcome(event_id, "duplicate")
+                continue
+            if not self._enqueue_pending(event_id):
+                self._deferred_ids.add(event_id)
+                self._deferred_order.appendleft(event_id)
+                return
 
     async def _wait_for_clip(self, event_id: str) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with bounded retries."""

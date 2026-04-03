@@ -48,6 +48,24 @@ async def test_schedule_snapshot_replacement_skips_when_feature_disabled(tmp_pat
 
 
 @pytest.mark.asyncio
+async def test_schedule_snapshot_replacement_accepts_recording_clip_only_mode(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_recording_only", b"frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.frigate, "clips_enabled", False, raising=False)
+    monkeypatch.setattr(settings.frigate, "recording_clip_enabled", True, raising=False)
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
+
+    queued = hq_module.high_quality_snapshot_service.schedule_replacement("evt_recording_only")
+
+    assert queued is True
+    status = hq_module.high_quality_snapshot_service.get_status()
+    assert status["enabled"] is True
+    assert status["queue_size"] == 1
+
+
+@pytest.mark.asyncio
 async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_replace", b"frigate-bytes")
@@ -72,6 +90,35 @@ async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, 
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_replace") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip_missing(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_recording_fallback", b"frigate-bytes")
+    await cache_service.cache_recording_clip("evt_recording_fallback", b"r" * 1024)
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.frigate.recording_clip_enabled = True
+
+    async def fake_wait_for_clip(event_id: str):
+        assert event_id == "evt_recording_fallback"
+        return None, "clip_not_found"
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_wait_for_clip",
+        fake_wait_for_clip,
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: b"derived-from-recording:" + clip_bytes,
+    )
+
+    result = await hq_module.high_quality_snapshot_service.process_event("evt_recording_fallback")
+
+    assert result == "replaced"
+    assert await cache_service.get_snapshot("evt_recording_fallback") == b"derived-from-recording:" + (b"r" * 1024)
 
 
 @pytest.mark.asyncio
@@ -109,7 +156,7 @@ async def test_schedule_snapshot_replacement_ignores_duplicates(tmp_path, monkey
 
 
 @pytest.mark.asyncio
-async def test_schedule_snapshot_replacement_rejects_when_queue_full(tmp_path, monkeypatch):
+async def test_schedule_snapshot_replacement_defers_when_queue_full(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt-queue-1", b"frigate-bytes")
     await cache_service.cache_snapshot("evt-queue-2", b"frigate-bytes")
@@ -123,10 +170,51 @@ async def test_schedule_snapshot_replacement_rejects_when_queue_full(tmp_path, m
     second = hq_module.high_quality_snapshot_service.schedule_replacement("evt-queue-2")
 
     assert first is True
-    assert second is False
+    assert second is True
     status = hq_module.high_quality_snapshot_service.get_status()
     assert status["queue_size"] == 1
-    assert status["queue_full_rejections"] == 1
+    assert status["deferred"] == 1
+    assert status["queue_full_rejections"] == 0
+    assert status["queue_full_deferrals"] == 1
+
+
+@pytest.mark.asyncio
+async def test_deferred_snapshot_replacements_drain_after_capacity_frees(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt-drain-1", b"frigate-bytes")
+    await cache_service.cache_snapshot("evt-drain-2", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "MAX_PENDING_QUEUE", 1, raising=False)
+    await hq_module.high_quality_snapshot_service.reset_state()
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
+
+    processed: list[str] = []
+
+    async def fake_process_event(event_id: str):
+        processed.append(event_id)
+        return "replaced"
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "process_event",
+        fake_process_event,
+    )
+
+    assert hq_module.high_quality_snapshot_service.schedule_replacement("evt-drain-1") is True
+    assert hq_module.high_quality_snapshot_service.schedule_replacement("evt-drain-2") is True
+
+    worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
+    await asyncio.wait_for(hq_module.high_quality_snapshot_service.wait_for_idle(), timeout=1.0)
+    worker_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await worker_task
+
+    assert processed == ["evt-drain-1", "evt-drain-2"]
+    status = hq_module.high_quality_snapshot_service.get_status()
+    assert status["queue_size"] == 0
+    assert status["deferred"] == 0
+    assert status["queue_full_deferrals"] == 1
 
 
 @pytest.mark.asyncio
@@ -256,6 +344,52 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
 
     assert worker_processed.is_set() is False
     assert await cache_service.get_snapshot("evt_clip_queued") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_satisfies_deferred_event_without_later_worker_processing(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_clip_deferred_1", b"frigate-bytes")
+    await cache_service.cache_snapshot("evt_clip_deferred_2", b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "MAX_PENDING_QUEUE", 1, raising=False)
+    await hq_module.high_quality_snapshot_service.reset_state()
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: b"derived-bytes",
+    )
+
+    worker_processed: list[str] = []
+
+    async def fake_process_event(event_id: str):
+        worker_processed.append(event_id)
+        return "replaced"
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "process_event",
+        fake_process_event,
+    )
+
+    assert hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_deferred_1") is True
+    assert hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_deferred_2") is True
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_deferred_2", b"clip-bytes")
+    assert result == "replaced"
+
+    worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
+    await asyncio.wait_for(hq_module.high_quality_snapshot_service.wait_for_idle(), timeout=1.0)
+    worker_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await worker_task
+
+    assert worker_processed == ["evt_clip_deferred_1"]
+    status = hq_module.high_quality_snapshot_service.get_status()
+    assert status["duplicate_requests"] >= 1
+    assert status["deferred"] == 0
 
 
 def test_extract_snapshot_from_clip_uses_configured_jpeg_quality(monkeypatch):

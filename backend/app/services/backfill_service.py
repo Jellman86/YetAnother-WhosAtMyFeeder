@@ -12,6 +12,8 @@ from app.services.classifier_service import (
     ClassifierService,
 )
 from app.services.frigate_client import frigate_client
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService
 from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import normalize_sub_label
@@ -253,6 +255,11 @@ class BackfillService:
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
                 return 'skipped', 'already_exists'
+
+            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                cached_snapshot = await media_cache.cache_snapshot(frigate_event, snapshot_data)
+                if cached_snapshot and settings.media_cache.high_quality_event_snapshots:
+                    high_quality_snapshot_service.schedule_replacement(frigate_event)
 
             log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
             return 'new', None

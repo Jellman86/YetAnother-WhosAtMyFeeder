@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from PIL import Image
 
+from app.services import backfill_service as backfill_module
 from app.services.backfill_service import BackfillService
 from app.services.classifier_service import BackgroundImageClassificationUnavailableError
 
@@ -130,6 +131,56 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
         "event_id": "evt-frigate-score",
     }
     save_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_historical_event_caches_snapshot_and_schedules_high_quality_upgrade(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    snapshot_bytes = buffer.getvalue()
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return snapshot_bytes
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+
+    settings = backfill_module.settings
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+
+    service.detection_service.save_detection = AsyncMock(return_value=(True, True))
+    cache_snapshot = AsyncMock(return_value="/tmp/evt-backfill-hq.jpg")
+    schedule_replacement = MagicMock(return_value=True)
+    monkeypatch.setattr(backfill_module, "media_cache", MagicMock(cache_snapshot=cache_snapshot), raising=False)
+    monkeypatch.setattr(
+        backfill_module,
+        "high_quality_snapshot_service",
+        MagicMock(schedule_replacement=schedule_replacement),
+        raising=False,
+    )
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-backfill-hq",
+            "camera": "front",
+            "start_time": 1700000000,
+            "top_score": 0.91,
+            "sub_label": None,
+        }
+    )
+
+    assert status == "new"
+    assert reason is None
+    cache_snapshot.assert_awaited_once_with("evt-backfill-hq", snapshot_bytes)
+    schedule_replacement.assert_called_once_with("evt-backfill-hq")
 
 
 @pytest.mark.asyncio

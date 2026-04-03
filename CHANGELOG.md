@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Backfilled detections now participate in the same high-quality snapshot pipeline as live ingest. YA-WAMF caches the backfill snapshot, queues HQ replacement without silently dropping overflow during large backfills, and when the original Frigate event clip is gone it now falls back to the best available full-visit recording clip instead of leaving the raw snapshot in place.
 - **Changed:** Completed a broad UI translation pass across all supported locales (`de`, `es`, `fr`, `it`, `ja`, `pt`, `ru`, `zh`) for previously fallback-heavy active strings. Public-view badges, explorer controls, full-visit/video labels, diagnostics copy, leaderboard analytics controls, and new settings/debug/full-visit capability copy now resolve through locale files instead of inline English defaults.
 - **Changed:** Detection cards redesigned for clarity. Image overlay reduced to confidence badge, time/play controls, and icon-only favorite/verified/audio badges. Audio details, weather breakdown, classification source, and Frigate score moved to the detection modal only. Weather now shown as a compact condition icon with temperature. Camera and date collapsed to a single metadata line.
 - **Added:** Frigate object-detection score now displayed in the detection modal metadata grid so it remains accessible after removal from the card overlay.
