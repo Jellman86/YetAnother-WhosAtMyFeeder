@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 import random
 import tempfile
@@ -787,8 +788,9 @@ class AutoVideoClassifierService:
 
             finally:
                 # Always cleanup temp file
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+                with contextlib.suppress(OSError):
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)

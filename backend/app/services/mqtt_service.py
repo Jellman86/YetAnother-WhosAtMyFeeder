@@ -29,6 +29,7 @@ MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES = max(1, int(os.getenv("MQTT_TOPIC_STALL_M
 MQTT_TOPIC_STALL_GRACE_SECONDS = max(10.0, float(os.getenv("MQTT_TOPIC_STALL_GRACE_SECONDS", "60")))
 MQTT_WATCHDOG_INTERVAL_SECONDS = max(10.0, float(os.getenv("MQTT_WATCHDOG_INTERVAL_SECONDS", "30")))
 MAX_HANDLER_WAIT_SECONDS = max(30.0, float(os.getenv("MQTT_MAX_HANDLER_WAIT_SECONDS", "120")))
+MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS = max(1, int(os.getenv("MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS", "5")))
 
 class MQTTService:
     def __init__(self, version: str = "unknown"):
@@ -176,14 +177,28 @@ class MQTTService:
             return
 
         self._stall_recovery_consecutive_no_frigate_reconnects += 1
+
+        at_cap = self._stall_recovery_consecutive_no_frigate_reconnects >= MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS
+        if at_cap:
+            reason_code = "frigate_recovery_abandoned"
+            message = (
+                f"Frigate topic absent after {self._stall_recovery_consecutive_no_frigate_reconnects} consecutive "
+                "stall-recovery reconnects; giving up further reconnects. Check the Frigate MQTT topic "
+                "configuration and verify Frigate is publishing events."
+            )
+        else:
+            reason_code = "frigate_recovery_no_frigate_resume"
+            message = "Frigate topic still absent after a stall-recovery reconnect; reconnecting again while BirdNET remains active."
+
         error_diagnostics_history.record(
             source="mqtt",
             component="mqtt_service",
-            reason_code="frigate_recovery_no_frigate_resume",
-            message="Frigate topic still absent after a stall-recovery reconnect; reconnecting again while BirdNET remains active.",
+            reason_code=reason_code,
+            message=message,
             severity="error" if self._stall_recovery_consecutive_no_frigate_reconnects >= 2 else "warning",
             context={
                 "consecutive_reconnects_without_frigate": self._stall_recovery_consecutive_no_frigate_reconnects,
+                "max_consecutive_reconnects": MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS,
                 "connection_uptime_seconds": round(
                     max(0.0, now - self._connection_started_monotonic),
                     1,
@@ -191,9 +206,16 @@ class MQTTService:
                 "birdnet_messages_seen": self._topic_message_counts.get(birdnet_topic, 0),
                 "frigate_messages_seen": self._topic_message_counts.get(frigate_topic, 0),
                 "last_reconnect_reason": reason,
+                "recovery_abandoned": at_cap,
             },
             correlation_key="mqtt:frigate_recovery_no_resume",
         )
+        if at_cap:
+            log.error(
+                "MQTT stall recovery abandoned: Frigate topic absent after maximum consecutive reconnects",
+                consecutive_reconnects_without_frigate=self._stall_recovery_consecutive_no_frigate_reconnects,
+                max_allowed=MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS,
+            )
 
     def _topic_age_seconds(self, topic: str, now: float | None = None) -> float | None:
         last = self._topic_last_message_monotonic.get(topic)
@@ -260,11 +282,16 @@ class MQTTService:
         # without any Frigate traffic at all. If BirdNET remains healthy and we
         # know Frigate traffic has existed earlier in this process, keep the
         # assisted recovery path armed across the reconnect boundary.
+        #
+        # Cap the number of consecutive no-Frigate reconnects to avoid an
+        # endless reconnect loop when Frigate is permanently misconfigured or
+        # the topic has genuinely changed.
         if (
             self._topic_message_counts.get(frigate_topic, 0) <= 0
             and self._topic_count_lifetime(frigate_topic) > 0
             and self._last_reconnect_reason in {"frigate_topic_stalled", "frigate_topic_stalled_watchdog"}
             and ts - self._connection_started_monotonic >= MQTT_FRIGATE_TOPIC_STALE_SECONDS
+            and self._stall_recovery_consecutive_no_frigate_reconnects < MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS
         ):
             return True
 

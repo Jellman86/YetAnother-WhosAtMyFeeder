@@ -20,6 +20,7 @@ interface HealthLike {
 }
 
 const RECOVERY_ATTEMPT_KEY = 'yawamf_deploy_recovery_attempt_v1';
+const RECOVERY_COUNT_KEY = 'yawamf_deploy_recovery_count_v1';
 const STALE_BUNDLE_PATTERNS = [
     'failed to fetch dynamically imported module',
     'error loading dynamically imported module',
@@ -76,8 +77,17 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
         storage.setItem(RECOVERY_ATTEMPT_KEY, value);
     }
 
+    function incrementRecoveryCount(): number {
+        if (!storage) return 0;
+        const raw = storage.getItem(RECOVERY_COUNT_KEY);
+        const count = (parseInt(raw ?? '0', 10) || 0) + 1;
+        storage.setItem(RECOVERY_COUNT_KEY, String(count));
+        return count;
+    }
+
     function triggerRecovery(): DeployRecoveryAction {
         if (!attemptSignature) return 'ignore';
+        incrementRecoveryCount();
         if (getStoredAttempt() === attemptSignature) {
             options.warn(warningMessage);
             return 'warn';
@@ -103,6 +113,12 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
                 return 'ignore';
             }
             return triggerRecovery();
+        },
+
+        /** Total deploy-recovery attempts since last counter reset (persisted in storage). */
+        getRecoveryCount(): number {
+            if (!storage) return 0;
+            return parseInt(storage.getItem(RECOVERY_COUNT_KEY) ?? '0', 10) || 0;
         }
     };
 }

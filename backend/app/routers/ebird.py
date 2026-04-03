@@ -34,6 +34,7 @@ def _format_ebird_row(
     duration_minutes: int,
     video_classification_provider: str | None,
     video_classification_backend: str | None,
+    used_scientific_fallback: bool = False,
 ) -> list[str]:
     date_str = checklist_start.strftime("%m/%d/%Y")
     time_str = checklist_start.strftime("%H:%M")
@@ -68,8 +69,16 @@ def _format_ebird_row(
     if confidence is not None and math.isfinite(confidence):
         submission_parts.append(f"confidence {confidence:.2f}")
 
+    if used_scientific_fallback:
+        submission_parts.append("common name unavailable")
     submission_comment = "; ".join(submission_parts)
-    species_comment = f"AI confidence {confidence:.2f}" if confidence is not None and math.isfinite(confidence) else ""
+
+    species_comment_parts: list[str] = []
+    if confidence is not None and math.isfinite(confidence):
+        species_comment_parts.append(f"AI confidence {confidence:.2f}")
+    if used_scientific_fallback:
+        species_comment_parts.append("common name unavailable")
+    species_comment = "; ".join(species_comment_parts)
 
     # Feeder cameras can fire many detections for the same visiting bird, so a
     # checklist row should stay conservative instead of turning trigger count
@@ -474,6 +483,13 @@ async def export_ebird_csv(
                 end_dt = checklist_end[ck]
                 duration = max(0, int((end_dt - start_dt).total_seconds() // 60))
 
+                # Detect when the export name is a scientific name fallback.
+                sci_lower = str(scientific_name or "").strip().lower()
+                is_sci_fallback = bool(
+                    sci_lower
+                    and export_name.strip().lower() == sci_lower
+                )
+
                 writer.writerow(
                     _format_ebird_row(
                         export_common_name=export_name,
@@ -485,6 +501,7 @@ async def export_ebird_csv(
                         duration_minutes=duration,
                         video_classification_provider=provider,
                         video_classification_backend=backend,
+                        used_scientific_fallback=is_sci_fallback,
                     )
                 )
 
