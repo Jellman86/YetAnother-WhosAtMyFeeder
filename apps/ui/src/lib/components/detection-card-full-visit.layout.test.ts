@@ -20,7 +20,8 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/95');
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionCardSource).toContain('absolute bottom-3 left-3 z-20 flex flex-col items-start gap-2');
-        expect(detectionCardSource).toContain('{#if canPlayVideo}\n                <div class="flex items-center gap-2">');
+        expect(detectionCardSource).toContain('{#if !analysisActive}');
+        expect(detectionCardSource).toContain('{#if canPlayVideo}\n                    <div class="flex items-center gap-2">');
         expect(detectionCardSource).toContain('inline-flex h-9 items-center gap-2 rounded-xl border border-white/25 bg-black/55');
         expect(detectionCardSource).not.toContain('absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100');
         expect(detectionCardSource).toContain('M7 3H5a2 2 0 00-2 2v2');
@@ -42,8 +43,8 @@ describe('detection card full-visit fetch wiring', () => {
 
     it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
         expect(detectionCardSource).toContain("relative rounded-[2rem] transition-all duration-300 ease-out");
-        expect(detectionCardSource).toContain("{selectionMode && selected ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35");
-        expect(detectionCardSource).toContain("{#if selectionMode && selected}");
+        expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35");
+        expect(detectionCardSource).toContain("{#if selectionMode && selected && !analysisActive}");
         expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none");
         expect(detectionCardSource).toContain("bg-cyan-500/24 backdrop-blur-sm");
         expect(detectionCardSource).toContain("absolute inset-0 z-50 flex items-center justify-center");
@@ -51,5 +52,15 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).not.toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
         expect(detectionCardSource).not.toContain("$_('common.selected', { default: 'Selected' })");
         expect(detectionCardSource).not.toContain("$_('common.select', { default: 'Select' })");
+    });
+
+    it('lets active video analysis take over the card chrome and border', () => {
+        expect(detectionCardSource).toContain("let analysisActive = $derived(!!reclassifyProgress);");
+        expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30");
+        expect(detectionCardSource).toContain('{#if analysisActive && reclassifyProgress}');
+        expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden');
+        expect(detectionCardSource).toContain('{#if !analysisActive}');
+        expect(detectionCardSource).toContain('{#if (onReclassify || onRetag) && !analysisActive}');
+        expect(detectionCardSource).toContain('{#if selectionMode && selected && !analysisActive}');
     });
 });
