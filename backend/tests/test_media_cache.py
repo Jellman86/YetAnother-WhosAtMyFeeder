@@ -169,3 +169,17 @@ def test_get_recording_clip_path_invalidates_cached_duration_when_file_changes(t
     assert resolved_first == recording_path
     assert resolved_second == recording_path
     assert calls["count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_thumbnail_cache_uses_distinct_key_from_snapshot_cache(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_thumb_split"
+
+    snapshot_path = await service.cache_snapshot(event_id, b"snapshot-bytes")
+    thumbnail_path = await service.cache_thumbnail(event_id, b"thumbnail-bytes")
+
+    assert snapshot_path == snapshots / f"{event_id}.jpg"
+    assert thumbnail_path == snapshots / f"{event_id}_thumb.jpg"
+    assert await service.get_snapshot(event_id) == b"snapshot-bytes"
+    assert await service.get_thumbnail(event_id) == b"thumbnail-bytes"

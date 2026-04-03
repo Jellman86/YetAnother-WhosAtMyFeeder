@@ -11,6 +11,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitFetchState');
         expect(detectionModalSource).toContain('Fetch full clip');
         expect(detectionModalSource).toContain('Full visit');
+        expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
         expect(detectionModalSource).toContain("title={$_('video_player.full_visit_ready'");
         expect(detectionModalSource).toContain('inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95');
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
@@ -19,6 +20,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55');
         expect(detectionModalSource).toContain('M7 3H5a2 2 0 00-2 2v2');
+        expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
 
         expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(eventsPageSource).toContain('selectedEventFullVisitHandler');

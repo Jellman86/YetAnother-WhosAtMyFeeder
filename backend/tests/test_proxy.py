@@ -3,6 +3,7 @@ from tempfile import NamedTemporaryFile
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, AsyncMock
+import io
 import app.routers.proxy as proxy_module
 from app.main import app
 from app.config import settings
@@ -10,6 +11,7 @@ import pytest
 import pytest_asyncio
 import httpx
 import time
+from PIL import Image
 
 @pytest_asyncio.fixture
 async def client():
@@ -807,8 +809,8 @@ async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.Asy
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_snapshot:
-        mock_snapshot.return_value = b"fake-jpeg"
+    with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_thumbnail:
+        mock_thumbnail.return_value = b"fake-jpeg"
 
         try:
             response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
@@ -816,6 +818,46 @@ async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.Asy
             assert response.content == b"fake-jpeg"
             assert response.headers["cache-control"] == "no-store, max-age=0"
             assert response.headers["pragma"] == "no-cache"
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+
+    tiny_image = Image.new("RGB", (175, 175), color=(12, 34, 56))
+    tiny_buffer = io.BytesIO()
+    tiny_image.save(tiny_buffer, format="JPEG", quality=80)
+    tiny_cached_jpeg = tiny_buffer.getvalue()
+    refreshed_snapshot = b"y" * 20000
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "image/jpeg"}
+    mock_response.content = refreshed_snapshot
+    mock_response.raise_for_status = MagicMock()
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
+         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_get_snapshot.return_value = tiny_cached_jpeg
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+            assert response.status_code == 200
+            assert response.content == refreshed_snapshot
+            mock_client.get.assert_awaited_once()
+            mock_cache_snapshot.assert_awaited_once_with("test_event_id", refreshed_snapshot)
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots

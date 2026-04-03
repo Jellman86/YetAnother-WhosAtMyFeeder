@@ -1,7 +1,6 @@
 <script lang="ts">
     import Map from './Map.svelte';
     import {
-        getThumbnailUrl,
         getSnapshotUrl,
         analyzeDetection,
         updateDetectionSpecies,
@@ -1568,7 +1567,7 @@
                             </div>
                         </div>
                     {:else}
-    	                <img src={getThumbnailUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
+    	                <img src={getSnapshotUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
     	                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
     	                {#if authStore.canModify && !readOnly}
     	                    <button

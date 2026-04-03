@@ -3,6 +3,7 @@ import json
 import re
 import hashlib
 import secrets
+import io
 from pathlib import Path as FilePath
 from time import perf_counter
 from tempfile import NamedTemporaryFile
@@ -82,6 +83,22 @@ def validate_event_id(event_id: str) -> bool:
 
 def validate_camera_name(camera: str) -> bool:
     return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
+
+
+def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes) -> bool:
+    """Detect obviously thumbnail-sized cached "snapshots" from earlier shared-cache behavior."""
+    if len(image_bytes) > 16_384:
+        return False
+
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            width, height = img.size
+    except Exception:
+        return False
+
+    return max(width, height) <= 256
 
 
 def _preview_lock(event_id: str) -> asyncio.Lock:
@@ -1221,7 +1238,9 @@ async def proxy_snapshot(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
         if cached:
-            return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            if not _is_probably_thumbnail_sized_snapshot(cached):
+                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            await media_cache.delete_snapshot(event_id)
 
     # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
@@ -2070,7 +2089,7 @@ async def proxy_thumb(
     # Thumbnails share cache with snapshots (they're the same image in Frigate)
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_snapshot(event_id)
+        cached = await media_cache.get_thumbnail(event_id)
         if cached:
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
@@ -2086,9 +2105,9 @@ async def proxy_thumb(
             )
         resp.raise_for_status()
 
-        # Cache the response (as snapshot since they're interchangeable)
+        # Cache the response using a dedicated thumbnail key.
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_snapshot(event_id, resp.content)
+            await media_cache.cache_thumbnail(event_id, resp.content)
 
         return Response(
             content=resp.content,

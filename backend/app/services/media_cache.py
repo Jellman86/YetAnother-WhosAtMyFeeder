@@ -125,6 +125,24 @@ class MediaCacheService:
 
         return path
 
+    def _thumbnail_path(self, event_id: str) -> Path:
+        """Get the path for a cached thumbnail image.
+
+        Raises:
+            ValueError: If event_id is invalid
+        """
+        safe_id = self._sanitize_event_id(event_id)
+        path = SNAPSHOTS_DIR / f"{safe_id}_thumb.jpg"
+
+        try:
+            resolved = path.resolve()
+            if not resolved.is_relative_to(SNAPSHOTS_DIR):
+                raise ValueError(f"Path traversal detected: {event_id}")
+        except (ValueError, OSError):
+            raise ValueError(f"Invalid thumbnail path for event: {event_id}")
+
+        return path
+
     def _clip_path(self, event_id: str) -> Path:
         """Get the path for a cached clip.
 
@@ -266,6 +284,20 @@ class MediaCacheService:
             log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
             return None
 
+    async def cache_thumbnail(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
+        """Cache a thumbnail image using a key distinct from the canonical snapshot."""
+        if not self._available:
+            log.warning("Media cache unavailable; skipping thumbnail cache write", error=self._init_error)
+            return None
+        try:
+            path = self._thumbnail_path(event_id)
+            await self._write_bytes_atomic(path, image_bytes)
+            log.debug("Cached thumbnail", event_id=event_id, size=len(image_bytes))
+            return path
+        except Exception as e:
+            log.error("Failed to cache thumbnail", event_id=event_id, error=str(e))
+            return None
+
     async def get_snapshot(self, event_id: str) -> Optional[bytes]:
         """Get a cached snapshot.
 
@@ -288,6 +320,27 @@ class MediaCacheService:
             log.error("Failed to read cached snapshot", event_id=event_id, error=str(e))
             return None
 
+    async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
+        """Get a cached thumbnail.
+
+        Args:
+            event_id: Frigate event ID
+
+        Returns:
+            Image bytes if cached, None otherwise
+        """
+        try:
+            path = self._thumbnail_path(event_id)
+            if await aiofiles.os.path.exists(path):
+                async with aiofiles.open(path, 'rb') as f:
+                    data = await f.read()
+                self._touch_access_time(path)
+                return data
+            return None
+        except Exception as e:
+            log.error("Failed to read cached thumbnail", event_id=event_id, error=str(e))
+            return None
+
     def get_snapshot_sync(self, event_id: str) -> Optional[bytes]:
         """Get a cached snapshot synchronously for in-process classifier helpers."""
         try:
@@ -307,6 +360,30 @@ class MediaCacheService:
             return self._snapshot_path(event_id).exists()
         except ValueError:
             # Invalid event_id
+            return False
+
+    async def delete_snapshot(self, event_id: str) -> bool:
+        """Delete the canonical cached snapshot for an event."""
+        try:
+            snapshot_path = self._snapshot_path(event_id)
+            if await aiofiles.os.path.exists(snapshot_path):
+                await aiofiles.os.remove(snapshot_path)
+                return True
+            return False
+        except Exception as e:
+            log.error("Failed to delete cached snapshot", event_id=event_id, error=str(e))
+            return False
+
+    async def delete_thumbnail(self, event_id: str) -> bool:
+        """Delete the cached thumbnail for an event."""
+        try:
+            thumbnail_path = self._thumbnail_path(event_id)
+            if await aiofiles.os.path.exists(thumbnail_path):
+                await aiofiles.os.remove(thumbnail_path)
+                return True
+            return False
+        except Exception as e:
+            log.error("Failed to delete cached thumbnail", event_id=event_id, error=str(e))
             return False
 
     async def cache_clip(self, event_id: str, clip_bytes: bytes) -> Optional[Path]:
@@ -641,6 +718,10 @@ class MediaCacheService:
             snapshot_path = self._snapshot_path(event_id)
             if await aiofiles.os.path.exists(snapshot_path):
                 await aiofiles.os.remove(snapshot_path)
+
+            thumbnail_path = self._thumbnail_path(event_id)
+            if await aiofiles.os.path.exists(thumbnail_path):
+                await aiofiles.os.remove(thumbnail_path)
 
             clip_path = self._clip_path(event_id)
             if await aiofiles.os.path.exists(clip_path):
