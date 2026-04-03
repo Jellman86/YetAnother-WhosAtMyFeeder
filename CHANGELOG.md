@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Detection cards redesigned for clarity. Image overlay reduced to confidence badge, time/play controls, and icon-only favorite/verified/audio badges. Audio details, weather breakdown, classification source, and Frigate score moved to the detection modal only. Weather now shown as a compact condition icon with temperature. Camera and date collapsed to a single metadata line.
+- **Added:** Frigate object-detection score now displayed in the detection modal metadata grid so it remains accessible after removal from the card overlay.
 - **Fixed:** MQTT stall-recovery reconnects are now capped at a configurable maximum (default 5) consecutive no-Frigate reconnects. When the cap is reached, YA-WAMF stops the reconnect loop and records a focused `frigate_recovery_abandoned` diagnostic directing the user to check their Frigate MQTT topic configuration, instead of reconnecting endlessly when Frigate is permanently unreachable or misconfigured (Issue #33 hardening).
 - **Fixed:** Video classifier temporary file cleanup now suppresses `OSError` so a secondary cleanup failure cannot mask the actual classification result or error.
 - **Fixed:** eBird CSV export now annotates the species comment and submission comment columns with `common name unavailable` when a row falls back to the scientific name because no English common name could be resolved. This makes scientific-name-only rows visually identifiable before eBird import (Issue #23 hardening).
