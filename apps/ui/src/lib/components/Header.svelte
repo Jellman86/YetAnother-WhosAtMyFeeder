@@ -64,20 +64,6 @@
                 </div>
             </button>
 
-            <!-- Desktop Navigation -->
-            <nav class="hidden md:flex items-center gap-1">
-                {#each navItems as item}
-                    <button
-                        class="nav-button"
-                        class:nav-button-active={isRouteActive(item.path)}
-                        class:nav-button-inactive={!isRouteActive(item.path)}
-                        onclick={() => handleNavClick(item.path)}
-                    >
-                        {item.label}
-                    </button>
-                {/each}
-            </nav>
-
             <!-- Right side controls -->
             <div class="flex items-center gap-2">
                 <!-- Public Mode Badge -->

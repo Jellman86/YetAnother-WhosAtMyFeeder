@@ -60,7 +60,6 @@
     } from '../api';
     import type { BlockedSpeciesEntry } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
-    import { layoutStore, type Layout } from '../stores/layout.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { validateAuthSettingsSave } from '../auth-password-policy';
@@ -1403,7 +1402,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
-    let currentLayout: Layout = $state('horizontal');
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
     let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>('default');
     let lastFeedbackKey = $state('');
@@ -1898,7 +1896,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     $effect(() => {
         currentTheme = themeStore.theme;
-        currentLayout = layoutStore.layout;
     });
     $effect(() => {
         currentFontTheme = themeStore.fontTheme;
@@ -3092,10 +3089,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         themeStore.setColorTheme(color);
     }
 
-    function setLayout(l: Layout) {
-        layoutStore.setLayout(l);
-    }
-
     function setLanguage(lang: string) {
         locale.set(lang);
         localStorage.setItem('preferred-language', lang);
@@ -3506,7 +3499,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'appearance'}
                 <AppearanceSettings
                     {currentTheme}
-                    {currentLayout}
                     currentLocale={$locale || 'en'}
                     currentDateFormat={dateFormat}
                     bind:displayCommonNames
@@ -3516,7 +3508,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {setFontTheme}
                     {currentColorTheme}
                     {setColorTheme}
-                    {setLayout}
                     {setLanguage}
                     setDateFormat={(value) => (dateFormat = value)}
                 />

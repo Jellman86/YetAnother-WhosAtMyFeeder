@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Changed:** Desktop navigation is now sidebar-only. The old horizontal desktop nav/layout mode has been removed, legacy stored `layout=horizontal` preferences are migrated back to `vertical`, the appearance layout picker is gone, and the current mobile menu/top-bar behavior stays unchanged.
 - **Fixed:** Replacing a cached canonical snapshot now also invalidates the derived card thumbnail, so Events/Explorer cards cannot keep serving a stale pre-HQ image after snapshot regeneration or high-quality replacement.
 - **Fixed:** Cleaned dead imports and an unused local from active backend runtime modules so `ruff` output is higher-signal again on the current media/species/auth work.
 - **Fixed:** Detection-card thumbnail requests now prefer a derived thumbnail from the canonical cached snapshot when one exists, so Events/Explorer cards visibly benefit from HQ snapshot generation instead of continuing to show Frigate's tiny low-resolution thumbnails.

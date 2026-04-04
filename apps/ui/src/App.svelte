@@ -3,7 +3,6 @@
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
-  import Header from './lib/components/Header.svelte';
   import MobileTopBar from './lib/components/MobileTopBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
@@ -47,11 +46,8 @@
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
 
-  // Track current layout using reactive derived
-  let currentLayout = $derived(layoutStore.layout);
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
-  let effectiveLayout = $derived(isMobile ? 'vertical' : currentLayout);
 
   // Router state
   let currentRoute = $state('/');
@@ -519,7 +515,7 @@
   {:else if requiresLogin}
       <Login />
   {:else}
-      {#if effectiveLayout === 'vertical'}
+      {#if isMobile}
           <MobileTopBar
               onToggleMenu={() => mobileSidebarOpen = !mobileSidebarOpen}
               onToggleTheme={() => themeStore.toggle()}
@@ -531,35 +527,26 @@
                   : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}
           />
 
-          <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-              {#snippet status()}
-                  <ConnectionStatus
-                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
-                      {notificationsActive}
-                      connected={detectionsStore.connected}
-                      className="gap-4 px-2"
-                  />
-              {/snippet}
-          </Sidebar>
-      {:else}
-          <Header {currentRoute} onNavigate={navigate} onShowKeyboardShortcuts={() => showKeyboardShortcuts = true}>
-              {#snippet status()}
-                  <ConnectionStatus
-                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
-                      {notificationsActive}
-                      connected={detectionsStore.connected}
-                  />
-              {/snippet}
-          </Header>
       {/if}
+
+      <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+          {#snippet status()}
+              <ConnectionStatus
+                  birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                  {notificationsActive}
+                  connected={detectionsStore.connected}
+                  className="gap-4 px-2"
+              />
+          {/snippet}
+      </Sidebar>
 
       <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
       <TelemetryBanner />
 
       <!-- Main Content Wrapper -->
       <div
-          class="flex-1 flex flex-col transition-all duration-300 {effectiveLayout === 'vertical' ? (isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : ''}"
-          style="--app-chrome-height: {effectiveLayout === 'horizontal' || isMobile ? '4rem' : '0rem'};"
+          class="flex-1 flex flex-col transition-all duration-300 {isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}"
+          style="--app-chrome-height: {isMobile ? '4rem' : '0rem'};"
       >
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
               <div class={globalProgressHasScrolled

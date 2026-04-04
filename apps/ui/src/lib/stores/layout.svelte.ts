@@ -1,4 +1,4 @@
-export type Layout = 'horizontal' | 'vertical';
+export type Layout = 'vertical';
 
 class LayoutStore {
     currentLayout = $state<Layout>('vertical');
@@ -7,9 +7,10 @@ class LayoutStore {
     constructor() {
         // Initialize from localStorage
         if (typeof localStorage !== 'undefined') {
-            const stored = localStorage.getItem('layout') as Layout | null;
-            if (stored) {
-                this.currentLayout = stored;
+            const stored = localStorage.getItem('layout');
+            this.currentLayout = 'vertical';
+            if (stored && stored !== 'vertical') {
+                localStorage.setItem('layout', 'vertical');
             }
 
             const storedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -39,12 +40,14 @@ class LayoutStore {
         return this.sidebarCollapsedState;
     }
 
-    setLayout(value: Layout) {
-        this.currentLayout = value;
+    setLayout(_value: Layout) {
+        // Desktop navigation is sidebar-only; keep any callers pinned to the sole supported layout.
+        this.currentLayout = 'vertical';
     }
 
     toggleLayout() {
-        this.currentLayout = this.currentLayout === 'horizontal' ? 'vertical' : 'horizontal';
+        // Horizontal layout has been removed; toggling no longer changes the navigation model.
+        this.currentLayout = 'vertical';
     }
 
     setSidebarCollapsed(value: boolean) {
