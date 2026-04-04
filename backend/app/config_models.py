@@ -586,6 +586,10 @@ class AppearanceSettings(BaseModel):
         default="classic",
         description="UI font theme: default, clean, studio, classic, compact"
     )
+    color_theme: str = Field(
+        default="default",
+        description="UI color theme: default, bluetit"
+    )
 
 class SystemSettings(BaseModel):
     """System-level performance and resource settings"""

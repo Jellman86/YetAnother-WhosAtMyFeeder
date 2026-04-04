@@ -340,6 +340,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # Appearance settings
     appearance_data = {
         'font_theme': os.environ.get('APPEARANCE__FONT_THEME', 'classic'),
+        'color_theme': os.environ.get('APPEARANCE__COLOR_THEME', 'default'),
     }
     
     species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
