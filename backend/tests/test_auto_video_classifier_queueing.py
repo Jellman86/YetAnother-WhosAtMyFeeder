@@ -27,13 +27,29 @@ async def test_queue_classification_records_skip_delay_flag_per_job():
     service = AutoVideoClassifierService()
 
     await service.queue_classification("evt-queue-2", "cam1", skip_delay=False)
-    event_id, camera, skip_delay, fallback_to_snapshot = service._pending_queue.get_nowait()
+    event_id, camera, skip_delay, fallback_to_snapshot, source = service._pending_queue.get_nowait()
     service._pending_queue.task_done()
 
     assert event_id == "evt-queue-2"
     assert camera == "cam1"
     assert skip_delay is False
     assert fallback_to_snapshot is False
+    assert source == "maintenance"
+
+
+@pytest.mark.asyncio
+async def test_queue_classification_records_job_source_per_job():
+    service = AutoVideoClassifierService()
+
+    await service.queue_classification("evt-queue-live", "cam1", source="live")
+    event_id, camera, skip_delay, fallback_to_snapshot, source = service._pending_queue.get_nowait()
+    service._pending_queue.task_done()
+
+    assert event_id == "evt-queue-live"
+    assert camera == "cam1"
+    assert skip_delay is True
+    assert fallback_to_snapshot is False
+    assert source == "live"
 
 
 @pytest.mark.asyncio
@@ -93,7 +109,25 @@ async def test_trigger_classification_uses_bounded_queue_path(monkeypatch: pytes
 
     await service.trigger_classification("evt-trigger-1", "cam1")
 
-    queue.assert_awaited_once_with("evt-trigger-1", "cam1", skip_delay=False)
+    queue.assert_awaited_once_with("evt-trigger-1", "cam1", skip_delay=False, source="live")
+
+
+@pytest.mark.asyncio
+async def test_trigger_classification_ignores_open_maintenance_circuit(monkeypatch: pytest.MonkeyPatch):
+    service = AutoVideoClassifierService()
+    queue = AsyncMock(return_value="queued")
+    service.queue_classification = queue  # type: ignore[method-assign]
+
+    monkeypatch.setattr(settings.classification, "auto_video_classification", True)
+    monkeypatch.setattr(settings.classification, "video_classification_failure_threshold", 1)
+
+    service._record_failure("evt-maint-open", "video_timeout", source="maintenance")
+    assert service.get_status()["maintenance_circuit_open"] is True
+    assert service.get_status()["circuit_open"] is False
+
+    await service.trigger_classification("evt-trigger-live-ok", "cam1")
+
+    queue.assert_awaited_once_with("evt-trigger-live-ok", "cam1", skip_delay=False, source="live")
 
 
 @pytest.mark.asyncio
@@ -239,6 +273,25 @@ async def test_ml_inference_errors_open_circuit_at_threshold(monkeypatch):
 
     status = service.get_status()
     assert status["circuit_open"] is True
+
+
+@pytest.mark.asyncio
+async def test_maintenance_ml_inference_errors_open_only_maintenance_circuit(monkeypatch):
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    service = AutoVideoClassifierService()
+
+    service._record_failure("evt-maint-1", "video_timeout", source="maintenance")
+    service._record_failure("evt-maint-2", "video_timeout", source="maintenance")
+
+    status = service.get_status()
+    assert status["circuit_open"] is False
+    assert status["failure_count"] == 0
+    assert status["maintenance_circuit_open"] is True
+    assert status["maintenance_failure_count"] == 2
 
 
 @pytest.mark.asyncio

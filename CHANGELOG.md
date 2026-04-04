@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Video-classification jobs are now source-aware for `#33` hardening. Owner-triggered maintenance/bulk analysis uses a separate maintenance breaker, so repeated batch `video_timeout` failures no longer open the live auto-video circuit that guards normal detections. Timeout diagnostics now also record the job source, camera, clip byte size, and runtime/provider context for easier root-cause analysis in exported bundles.
 - **Changed:** Desktop navigation is now sidebar-only. The old horizontal desktop nav/layout mode has been removed, legacy stored `layout=horizontal` preferences are migrated back to `vertical`, the appearance layout picker is gone, and the current mobile menu/top-bar behavior stays unchanged.
 - **Fixed:** Replacing a cached canonical snapshot now also invalidates the derived card thumbnail, so Events/Explorer cards cannot keep serving a stale pre-HQ image after snapshot regeneration or high-quality replacement.
 - **Fixed:** Cleaned dead imports and an unused local from active backend runtime modules so `ruff` output is higher-signal again on the current media/species/auth work.

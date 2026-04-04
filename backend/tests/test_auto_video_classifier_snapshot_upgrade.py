@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -78,7 +79,13 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
          patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
          patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
          patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()):
-        await service._process_event("evt-batch-fallback", "cam1", skip_delay=True, fallback_to_snapshot=True)
+        await service._process_event(
+            "evt-batch-fallback",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="maintenance",
+        )
 
     service._classifier.classify_async_background.assert_awaited_once()
     assert service._classifier.classify_async_background.await_args.kwargs["input_context"] == {
@@ -111,11 +118,17 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
          patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
          patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()), \
          patch.object(auto_video_classifier_module.asyncio, "sleep", new=AsyncMock()):
-        await service._process_event("evt-batch-fallback-retry", "cam1", skip_delay=True, fallback_to_snapshot=True)
+        await service._process_event(
+            "evt-batch-fallback-retry",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="maintenance",
+        )
 
     assert service._classifier.classify_async_background.await_count == 2
     service._save_results.assert_awaited_once_with("evt-batch-fallback-retry", {"label": "Robin", "score": 0.88, "index": 1})
-    service._record_success.assert_called_once_with("evt-batch-fallback-retry")
+    service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()
 
 
@@ -138,13 +151,23 @@ async def test_process_event_snapshot_fallback_marks_background_overload_distinc
          patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
          patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()), \
          patch.object(auto_video_classifier_module.asyncio, "sleep", new=AsyncMock()):
-        await service._process_event("evt-batch-fallback-overloaded", "cam1", skip_delay=True, fallback_to_snapshot=True)
+        await service._process_event(
+            "evt-batch-fallback-overloaded",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="maintenance",
+        )
 
     assert service._classifier.classify_async_background.await_count == 3
     service._update_status.assert_any_await("evt-batch-fallback-overloaded", "failed", error="background_image_overloaded", broadcast=True)
     service._save_results.assert_not_awaited()
     service._record_success.assert_not_called()
-    service._record_failure.assert_called_once_with("evt-batch-fallback-overloaded", "background_image_overloaded")
+    service._record_failure.assert_called_once_with(
+        "evt-batch-fallback-overloaded",
+        "background_image_overloaded",
+        source="maintenance",
+    )
 
 
 @pytest.mark.asyncio
@@ -288,7 +311,55 @@ async def test_record_failure_records_backend_diagnostic_when_video_circuit_open
         assert event["component"] == "auto_video_classifier"
         assert event["worker_pool"] == "video"
         assert event["context"]["failure_count"] == 2
+        assert event["context"]["source"] == "live"
     finally:
         settings.classification.video_classification_failure_threshold = original_threshold
         settings.classification.video_classification_failure_cooldown_minutes = original_cooldown
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_process_event_timeout_diagnostic_includes_job_source_and_clip_context():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(side_effect=asyncio.TimeoutError())
+    service._classifier.get_status = MagicMock(
+        return_value={
+            "inference_backend": "openvino",
+            "active_provider": "intel_gpu",
+            "selected_provider": "intel_gpu",
+        }
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ), patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+            await service._process_event(
+                "evt-video-timeout-maintenance",
+                "cam1",
+                skip_delay=True,
+                source="maintenance",
+            )
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(
+            item
+            for item in snapshot["events"]
+            if item["event_id"] == "evt-video-timeout-maintenance" and item["reason_code"] == "video_timeout"
+        )
+        assert event["context"]["source"] == "maintenance"
+        assert event["context"]["camera"] == "cam1"
+        assert event["context"]["clip_bytes"] == len(b"clip-bytes")
+        assert event["context"]["timeout_seconds"] == settings.classification.video_classification_timeout_seconds
+        assert event["context"]["inference_backend"] == "openvino"
+        assert event["context"]["active_provider"] == "intel_gpu"
+    finally:
         error_diagnostics_history.clear()

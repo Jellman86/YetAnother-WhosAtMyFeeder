@@ -563,7 +563,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     inat_user = await inaturalist_service.refresh_connected_user()
 
-    circuit_status = auto_video_classifier.get_circuit_status()
+    circuit_status = auto_video_classifier.get_circuit_status("live")
+    maintenance_circuit_status = auto_video_classifier.get_circuit_status("maintenance")
     effective_enrichment = get_effective_enrichment_settings()
     ebird_active = is_ebird_active()
 
@@ -612,6 +613,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_circuit_open": circuit_status.get("open", False),
         "video_classification_circuit_until": circuit_status.get("open_until"),
         "video_classification_circuit_failures": circuit_status.get("failure_count", 0),
+        "video_classification_maintenance_circuit_open": maintenance_circuit_status.get("open", False),
+        "video_classification_maintenance_circuit_until": maintenance_circuit_status.get("open_until"),
+        "video_classification_maintenance_circuit_failures": maintenance_circuit_status.get("failure_count", 0),
         # Media cache settings
         "media_cache_enabled": settings.media_cache.enabled,
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
@@ -1427,6 +1431,7 @@ async def _run_analyze_unknowns() -> dict:
                 d.frigate_event,
                 d.camera_name,
                 fallback_to_snapshot=True,
+                source="maintenance",
             )
             if result == "queued":
                 accepted += 1
