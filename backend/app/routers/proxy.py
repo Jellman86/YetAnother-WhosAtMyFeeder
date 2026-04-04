@@ -101,6 +101,18 @@ def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes) -> bool:
     return max(width, height) <= 256
 
 
+def _build_display_thumbnail_from_snapshot(image_bytes: bytes) -> bytes:
+    """Build a card-sized JPEG thumbnail from the canonical snapshot."""
+    from PIL import Image
+
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        rendered = img.convert("RGB")
+        rendered.thumbnail((960, 720), Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        rendered.save(output, format="JPEG", quality=88, optimize=True)
+        return output.getvalue()
+
+
 def _preview_lock(event_id: str) -> asyncio.Lock:
     lock = _preview_locks.get(event_id)
     if lock is None:
@@ -2086,11 +2098,21 @@ async def proxy_thumb(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
-    # Thumbnails share cache with snapshots (they're the same image in Frigate)
-    # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_thumbnail(event_id)
-        if cached:
+        snapshot_cached = await media_cache.get_snapshot(event_id)
+        if snapshot_cached:
+            if cached and not _is_probably_thumbnail_sized_snapshot(cached):
+                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            try:
+                derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
+                await media_cache.cache_thumbnail(event_id, derived)
+                return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            except Exception:
+                # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
+                if cached:
+                    return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        elif cached:
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"

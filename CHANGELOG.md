@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Detection-card thumbnail requests now prefer a derived thumbnail from the canonical cached snapshot when one exists, so Events/Explorer cards visibly benefit from HQ snapshot generation instead of continuing to show Frigate's tiny low-resolution thumbnails.
 - **Fixed:** Backfilled detections now participate in the same high-quality snapshot pipeline as live ingest. YA-WAMF caches the backfill snapshot, queues HQ replacement without silently dropping overflow during large backfills, and when the original Frigate event clip is gone it now falls back to the best available full-visit recording clip instead of leaving the raw snapshot in place.
 - **Changed:** Completed a broad UI translation pass across all supported locales (`de`, `es`, `fr`, `it`, `ja`, `pt`, `ru`, `zh`) for previously fallback-heavy active strings. Public-view badges, explorer controls, full-visit/video labels, diagnostics copy, leaderboard analytics controls, and new settings/debug/full-visit capability copy now resolve through locale files instead of inline English defaults.
 - **Added:** Blue Tit color theme — a selectable accent palette inspired by the app icon that remaps teal/emerald accents to cobalt blue and golden yellow across cards, buttons, gradients, navigation, and focus rings. Selectable in Appearance settings alongside the existing font and layout options, with full i18n support.
