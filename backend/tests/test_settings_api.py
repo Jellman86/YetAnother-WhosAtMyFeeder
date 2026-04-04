@@ -110,6 +110,26 @@ async def test_analysis_status_is_not_cacheable(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_settings_include_maintenance_video_circuit_fields_and_reset_reports_both(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_resp = await client.get("/api/settings")
+    assert get_resp.status_code == 200, get_resp.text
+    payload = get_resp.json()
+
+    assert "video_classification_maintenance_circuit_open" in payload
+    assert "video_classification_maintenance_circuit_until" in payload
+    assert "video_classification_maintenance_circuit_failures" in payload
+
+    reset_resp = await client.post("/api/maintenance/video-classification/reset-circuit")
+    assert reset_resp.status_code == 200, reset_resp.text
+    reset_payload = reset_resp.json()
+    assert "live_circuit" in reset_payload
+    assert "maintenance_circuit" in reset_payload
+
+
+@pytest.mark.asyncio
 async def test_settings_roundtrip_strict_non_finite_output(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
