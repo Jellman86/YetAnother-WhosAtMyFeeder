@@ -542,8 +542,9 @@
             );
 
         const series: any[] = [];
-        const primaryColor = '#16a34a';
-        const smoothColor = '#0f766e';
+        const isBlueTit = themeStore.colorTheme === 'bluetit';
+        const primaryColor = isBlueTit ? '#2563eb' : '#16a34a';
+        const smoothColor = isBlueTit ? '#1d4ed8' : '#0f766e';
         const temperatureColor = '#f97316';
         const windColor = '#38bdf8';
         const primaryName = metricLabel();
@@ -740,7 +741,9 @@
         };
     });
 
-    const comparePalette = ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b'];
+    const comparePalette = themeStore.colorTheme === 'bluetit'
+        ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b']
+        : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b'];
     const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
     function weekdayLabel(dayOfWeek: number): string {

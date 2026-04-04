@@ -278,66 +278,619 @@ html[data-theme='dark'] {
   }
 }
 
-/* ── Blue Tit Color Theme ── */
-/* Remaps teal/emerald accents to cobalt blue & golden yellow */
+/* ═══════════════════════════════════════════════════════════════════════
+   BLUE TIT COLOR THEME
+   Inspired by the Eurasian Blue Tit — cobalt crown, golden breast,
+   white cheeks, against a calm sky.  Distinct light & dark palettes.
 
-.theme-bluetit .card-interactive:hover {
-  @apply border-blue-500/40 dark:border-blue-500/40 ring-blue-400/30 dark:ring-blue-500/30;
-  box-shadow: 0 8px 25px -5px rgba(37, 99, 235, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+   Colour key (from the bird):
+     Cobalt crown  → blue-600 #2563eb  (primary accent)
+     Golden breast → amber-500 #f59e0b (secondary accent)
+     Sky backdrop  → blue-50  #eff6ff  (light surface tint)
+     Midnight wing → #0a1225          (dark surface)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Surfaces ── */
+
+html.theme-bluetit:not(.dark) {
+  --app-bg: #eef3fb;
+  --app-fg: #1e293b;
 }
 
-.theme-bluetit .stat-number {
-  @apply bg-gradient-to-r from-blue-600 to-amber-500 dark:from-blue-400 dark:to-amber-400;
+html.theme-bluetit.dark {
+  --app-bg: #070d1b;
+  --app-fg: #dfe6f0;
 }
 
+/* ── 2. Scrollbar & Selection ── */
+
+.theme-bluetit ::selection { background: rgba(37, 99, 235, 0.22); }
+
+.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb { background-color: #a4b6d4; }
+.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: #8a9ec4; }
+.theme-bluetit.dark ::-webkit-scrollbar-thumb { background-color: #293d5e; }
+.theme-bluetit.dark ::-webkit-scrollbar-thumb:hover { background-color: #354d72; }
+
+/* ── 3. Component Class Overrides ── */
+
+/* Card surfaces */
+.theme-bluetit:not(.dark) .card-base {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(191, 219, 254, 0.55);
+  --tw-ring-color: rgba(191, 219, 254, 0.35);
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.theme-bluetit.dark .card-base {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(30, 58, 138, 0.40);
+  --tw-ring-color: rgba(30, 58, 138, 0.28);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Card hover */
+.theme-bluetit:not(.dark) .card-interactive:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  --tw-ring-color: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 20px 30px -8px rgba(37, 99, 235, 0.13), 0 8px 12px -6px rgba(0, 0, 0, 0.05);
+}
+.theme-bluetit.dark .card-interactive:hover {
+  border-color: rgba(96, 165, 250, 0.40);
+  --tw-ring-color: rgba(96, 165, 250, 0.22);
+  box-shadow: 0 20px 30px -8px rgba(37, 99, 235, 0.18), 0 8px 12px -6px rgba(0, 0, 0, 0.4);
+}
+
+/* Rich card hover */
+.theme-bluetit:not(.dark) .card-rich:hover {
+  border-color: rgba(147, 197, 253, 0.55);
+  box-shadow: 0 16px 48px -12px rgba(37, 99, 235, 0.14), 0 8px 24px -8px rgba(0, 0, 0, 0.08);
+}
+.theme-bluetit.dark .card-rich:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 16px 48px -12px rgba(59, 130, 246, 0.20), 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+}
+
+/* Stat number gradient */
+.theme-bluetit:not(.dark) .stat-number {
+  background-image: linear-gradient(to right, #1d4ed8, #d97706);
+}
+.theme-bluetit.dark .stat-number {
+  background-image: linear-gradient(to right, #60a5fa, #fbbf24);
+}
+
+/* Stats ribbon */
+.theme-bluetit:not(.dark) .stats-ribbon {
+  background-image: linear-gradient(to right, #eff6ff, #f8fafc, #fffbeb);
+  border-color: rgba(191, 219, 254, 0.55);
+}
+.theme-bluetit.dark .stats-ribbon {
+  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.7));
+  border-color: rgba(30, 58, 138, 0.40);
+}
+
+/* Gradient line */
 .theme-bluetit .gradient-line {
-  @apply bg-gradient-to-r from-blue-500 via-amber-500 to-blue-500;
+  background-image: linear-gradient(to right, #2563eb, #f59e0b, #2563eb);
 }
 
-.theme-bluetit .tab-button-active {
-  @apply text-blue-600 dark:text-blue-400;
+/* Tab buttons */
+.theme-bluetit:not(.dark) .tab-button-active {
+  background-color: white;
+  color: #1d4ed8;
+}
+.theme-bluetit.dark .tab-button-active {
+  background-color: rgba(23, 37, 84, 0.7);
+  color: #60a5fa;
 }
 
+/* Primary button */
 .theme-bluetit .btn-primary {
-  @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500;
+  background-image: linear-gradient(to right, #2563eb, #1d4ed8);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.28);
+}
+.theme-bluetit .btn-primary:hover {
+  background-image: linear-gradient(to right, #3b82f6, #2563eb);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38);
 }
 
-.theme-bluetit .btn-secondary {
-  @apply hover:border-blue-300/60 hover:text-blue-700 dark:hover:text-blue-300;
+/* Secondary button */
+.theme-bluetit:not(.dark) .btn-secondary:hover {
+  border-color: rgba(147, 197, 253, 0.6);
+  color: #1d4ed8;
+}
+.theme-bluetit.dark .btn-secondary:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #93c5fd;
 }
 
-.theme-bluetit .input-base:focus {
-  @apply ring-blue-400/40 border-blue-400/60;
+/* Ghost button */
+.theme-bluetit:not(.dark) .btn-ghost:hover { background-color: rgba(219, 234, 254, 0.6); }
+.theme-bluetit.dark .btn-ghost:hover { background-color: rgba(30, 58, 138, 0.3); }
+
+/* Input focus */
+.theme-bluetit .input-base:focus,
+.theme-bluetit .select-base:focus {
+  --tw-ring-color: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
-.theme-bluetit .text-gradient {
-  @apply bg-gradient-to-r from-blue-500 to-amber-400;
+/* Navigation */
+.theme-bluetit:not(.dark) .nav-button-active {
+  background-color: rgba(219, 234, 254, 0.7);
+  color: #1e40af;
+  --tw-ring-color: rgba(191, 219, 254, 0.7);
+}
+.theme-bluetit.dark .nav-button-active {
+  background-color: rgba(30, 58, 138, 0.4);
+  color: #bfdbfe;
+  --tw-ring-color: rgba(29, 78, 216, 0.4);
+}
+.theme-bluetit:not(.dark) .nav-button-inactive:hover {
+  background-color: rgba(219, 234, 254, 0.5);
+}
+.theme-bluetit.dark .nav-button-inactive:hover {
+  background-color: rgba(30, 58, 138, 0.25);
 }
 
-.theme-bluetit .focus-ring:focus {
-  @apply ring-blue-500/50;
+/* Badges */
+.theme-bluetit:not(.dark) .badge-success {
+  background-color: rgba(254, 243, 199, 0.8);
+  border-color: rgba(253, 230, 138, 0.7);
+  color: #92400e;
+}
+.theme-bluetit.dark .badge-success {
+  background-color: rgba(120, 53, 15, 0.3);
+  border-color: rgba(180, 83, 9, 0.4);
+  color: #fcd34d;
 }
 
-.theme-bluetit .card-rich:hover {
-  box-shadow: 0 16px 48px -12px rgba(37, 99, 235, 0.15), 0 8px 24px -8px rgba(0, 0, 0, 0.1);
-  @apply border-blue-300/50 dark:border-blue-600/40;
+/* Text gradient */
+.theme-bluetit:not(.dark) .text-gradient {
+  background-image: linear-gradient(to right, #1d4ed8, #d97706);
+}
+.theme-bluetit.dark .text-gradient {
+  background-image: linear-gradient(to right, #60a5fa, #fbbf24);
 }
 
-.theme-bluetit .nav-button-active {
-  @apply bg-blue-100/70 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 ring-blue-200/70 dark:ring-blue-700/40;
-}
+/* Focus ring */
+.theme-bluetit .focus-ring:focus { --tw-ring-color: rgba(59, 130, 246, 0.5); }
 
+/* Border gradient */
 .theme-bluetit .border-gradient::before {
-  background: linear-gradient(135deg, theme('colors.blue.400/40'), theme('colors.amber.400/40'));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(251, 191, 36, 0.3));
 }
 
-.theme-bluetit .badge-success {
-  @apply bg-amber-100/80 dark:bg-amber-900/30 border-amber-200/70 dark:border-amber-700/40 text-amber-700 dark:text-amber-300;
+
+/* ── 4. Background Color Remapping ── */
+
+/* teal → blue */
+.theme-bluetit .bg-teal-50 { background-color: #eff6ff; }
+.theme-bluetit .bg-teal-100 { background-color: #dbeafe; }
+.theme-bluetit .bg-teal-300 { background-color: #93c5fd; }
+.theme-bluetit .bg-teal-400 { background-color: #3b82f6; }
+.theme-bluetit .bg-teal-400\/70 { background-color: rgb(59 130 246 / 0.7); }
+.theme-bluetit .bg-teal-500 { background-color: rgb(37 99 235 / var(--tw-bg-opacity, 1)); }
+.theme-bluetit .bg-teal-500\/5 { background-color: rgb(37 99 235 / 0.05); }
+.theme-bluetit .bg-teal-500\/10 { background-color: rgb(37 99 235 / 0.1); }
+.theme-bluetit .bg-teal-500\/15 { background-color: rgb(37 99 235 / 0.15); }
+.theme-bluetit .bg-teal-500\/20 { background-color: rgb(37 99 235 / 0.2); }
+.theme-bluetit .bg-teal-500\/90 { background-color: rgb(37 99 235 / 0.9); }
+.theme-bluetit .bg-teal-500\/95 { background-color: rgb(37 99 235 / 0.95); }
+.theme-bluetit .bg-teal-600 { background-color: #1d4ed8; }
+.theme-bluetit .bg-teal-700 { background-color: #1e40af; }
+.theme-bluetit .class\:bg-teal-400 { background-color: #3b82f6; }
+.theme-bluetit .class\:bg-teal-500 { background-color: #2563eb; }
+.theme-bluetit.dark .dark\:bg-teal-400 { background-color: #60a5fa; }
+.theme-bluetit.dark .dark\:bg-teal-400\/10 { background-color: rgb(96 165 250 / 0.1); }
+.theme-bluetit.dark .dark\:bg-teal-900\/20 { background-color: rgb(30 58 138 / 0.2); }
+.theme-bluetit.dark .dark\:bg-teal-900\/40 { background-color: rgb(30 58 138 / 0.4); }
+
+/* emerald → amber */
+.theme-bluetit .bg-emerald-50 { background-color: #fffbeb; }
+.theme-bluetit .bg-emerald-50\/70 { background-color: rgb(255 251 235 / 0.7); }
+.theme-bluetit .bg-emerald-100 { background-color: #fef3c7; }
+.theme-bluetit .bg-emerald-400 { background-color: #fbbf24; }
+.theme-bluetit .bg-emerald-400\/15 { background-color: rgb(251 191 36 / 0.15); }
+.theme-bluetit .bg-emerald-400\/70 { background-color: rgb(251 191 36 / 0.7); }
+.theme-bluetit .bg-emerald-400\/75 { background-color: rgb(251 191 36 / 0.75); }
+.theme-bluetit .bg-emerald-400\/90 { background-color: rgb(251 191 36 / 0.9); }
+.theme-bluetit .bg-emerald-500 { background-color: rgb(245 158 11 / var(--tw-bg-opacity, 1)); }
+.theme-bluetit .bg-emerald-500\/5 { background-color: rgb(245 158 11 / 0.05); }
+.theme-bluetit .bg-emerald-500\/10 { background-color: rgb(245 158 11 / 0.1); }
+.theme-bluetit .bg-emerald-500\/15 { background-color: rgb(245 158 11 / 0.15); }
+.theme-bluetit .bg-emerald-500\/18 { background-color: rgb(245 158 11 / 0.18); }
+.theme-bluetit .bg-emerald-500\/20 { background-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit .bg-emerald-500\/90 { background-color: rgb(245 158 11 / 0.9); }
+.theme-bluetit .bg-emerald-600 { background-color: #d97706; }
+.theme-bluetit.dark .dark\:bg-emerald-500\/10 { background-color: rgb(245 158 11 / 0.1); }
+.theme-bluetit.dark .dark\:bg-emerald-500\/20 { background-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit.dark .dark\:bg-emerald-900\/20 { background-color: rgb(120 53 15 / 0.2); }
+.theme-bluetit.dark .dark\:bg-emerald-900\/30 { background-color: rgb(120 53 15 / 0.3); }
+.theme-bluetit.dark .dark\:bg-emerald-900\/40 { background-color: rgb(120 53 15 / 0.4); }
+.theme-bluetit.dark .dark\:bg-emerald-950\/60 { background-color: rgb(69 26 3 / 0.6); }
+
+/* brand → blue */
+.theme-bluetit .bg-brand-100 { background-color: #dbeafe; }
+.theme-bluetit .bg-brand-100\/60 { background-color: rgb(219 234 254 / 0.6); }
+.theme-bluetit .bg-brand-500 { background-color: #2563eb; }
+.theme-bluetit .bg-brand-600 { background-color: #1d4ed8; }
+.theme-bluetit.dark .dark\:bg-brand-900\/30 { background-color: rgb(30 58 138 / 0.3); }
+
+
+/* ── 5. Text Color Remapping ── */
+
+/* teal → blue */
+.theme-bluetit .text-teal-400 { color: #60a5fa; }
+.theme-bluetit .text-teal-500 { color: #3b82f6; }
+.theme-bluetit .text-teal-600 { color: #1d4ed8; }
+.theme-bluetit .text-teal-600\/70 { color: rgb(29 78 216 / 0.7); }
+.theme-bluetit .text-teal-700 { color: #1e40af; }
+.theme-bluetit.dark .dark\:text-teal-300 { color: #93c5fd; }
+.theme-bluetit.dark .dark\:text-teal-400 { color: #60a5fa; }
+.theme-bluetit.dark .dark\:text-teal-400\/70 { color: rgb(96 165 250 / 0.7); }
+
+/* emerald → amber */
+.theme-bluetit .text-emerald-100 { color: #fef3c7; }
+.theme-bluetit .text-emerald-200 { color: #fde68a; }
+.theme-bluetit .text-emerald-400 { color: #fbbf24; }
+.theme-bluetit .text-emerald-500 { color: #f59e0b; }
+.theme-bluetit .text-emerald-600 { color: #d97706; }
+.theme-bluetit .text-emerald-600\/60 { color: rgb(217 119 6 / 0.6); }
+.theme-bluetit .text-emerald-600\/80 { color: rgb(217 119 6 / 0.8); }
+.theme-bluetit .text-emerald-700 { color: #b45309; }
+.theme-bluetit .text-emerald-700\/80 { color: rgb(180 83 9 / 0.8); }
+.theme-bluetit .text-emerald-800 { color: #92400e; }
+.theme-bluetit.dark .dark\:text-emerald-200 { color: #fde68a; }
+.theme-bluetit.dark .dark\:text-emerald-300 { color: #fcd34d; }
+.theme-bluetit.dark .dark\:text-emerald-300\/80 { color: rgb(252 211 77 / 0.8); }
+.theme-bluetit.dark .dark\:text-emerald-400 { color: #fbbf24; }
+.theme-bluetit.dark .dark\:text-emerald-400\/40 { color: rgb(251 191 36 / 0.4); }
+
+/* brand → blue */
+.theme-bluetit .text-brand-600 { color: #1d4ed8; }
+.theme-bluetit .text-brand-700 { color: #1e40af; }
+.theme-bluetit.dark .dark\:text-brand-300 { color: #93c5fd; }
+.theme-bluetit.dark .dark\:text-brand-400 { color: #60a5fa; }
+
+
+/* ── 6. Border Color Remapping ── */
+
+/* teal → blue */
+.theme-bluetit .border-teal-200 { border-color: #bfdbfe; }
+.theme-bluetit .border-teal-200\/60 { border-color: rgb(191 219 254 / 0.6); }
+.theme-bluetit .border-teal-300\/30 { border-color: rgb(147 197 253 / 0.3); }
+.theme-bluetit .border-teal-500 { border-color: #2563eb; }
+.theme-bluetit .border-teal-500\/10 { border-color: rgb(37 99 235 / 0.1); }
+.theme-bluetit .border-teal-500\/20 { border-color: rgb(37 99 235 / 0.2); }
+.theme-bluetit .border-teal-500\/30 { border-color: rgb(37 99 235 / 0.3); }
+.theme-bluetit .border-teal-600 { border-color: #1d4ed8; }
+.theme-bluetit.dark .dark\:border-teal-500\/20 { border-color: rgb(59 130 246 / 0.2); }
+.theme-bluetit.dark .dark\:border-teal-800\/50 { border-color: rgb(30 64 175 / 0.5); }
+.theme-bluetit.dark .dark\:border-teal-900\/40 { border-color: rgb(30 58 138 / 0.4); }
+
+/* emerald → amber */
+.theme-bluetit .border-emerald-100\/80 { border-color: rgb(254 243 199 / 0.8); }
+.theme-bluetit .border-emerald-200 { border-color: #fde68a; }
+.theme-bluetit .border-emerald-200\/70 { border-color: rgb(253 230 138 / 0.7); }
+.theme-bluetit .border-emerald-200\/80 { border-color: rgb(253 230 138 / 0.8); }
+.theme-bluetit .border-emerald-400\/30 { border-color: rgb(251 191 36 / 0.3); }
+.theme-bluetit .border-emerald-400\/35 { border-color: rgb(251 191 36 / 0.35); }
+.theme-bluetit .border-emerald-400\/40 { border-color: rgb(251 191 36 / 0.4); }
+.theme-bluetit .border-emerald-400\/45 { border-color: rgb(251 191 36 / 0.45); }
+.theme-bluetit .border-emerald-500\/10 { border-color: rgb(245 158 11 / 0.1); }
+.theme-bluetit .border-emerald-500\/20 { border-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit .border-emerald-500\/30 { border-color: rgb(245 158 11 / 0.3); }
+.theme-bluetit .border-emerald-600 { border-color: #d97706; }
+.theme-bluetit .border-l-emerald-500 { border-left-color: #f59e0b; }
+.theme-bluetit .border-t-emerald-500 { border-top-color: #f59e0b; }
+.theme-bluetit.dark .dark\:border-emerald-500\/20 { border-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit.dark .dark\:border-emerald-500\/40 { border-color: rgb(245 158 11 / 0.4); }
+.theme-bluetit.dark .dark\:border-emerald-700 { border-color: #b45309; }
+.theme-bluetit.dark .dark\:border-emerald-700\/50 { border-color: rgb(180 83 9 / 0.5); }
+.theme-bluetit.dark .dark\:border-emerald-800\/60 { border-color: rgb(146 64 14 / 0.6); }
+.theme-bluetit.dark .dark\:border-emerald-900\/50 { border-color: rgb(120 53 15 / 0.5); }
+
+
+/* ── 7. Ring Color Remapping ── */
+
+.theme-bluetit .ring-teal-300\/90 { --tw-ring-color: rgb(147 197 253 / 0.9); }
+.theme-bluetit .ring-teal-400 { --tw-ring-color: #60a5fa; }
+.theme-bluetit .ring-emerald-500\/20 { --tw-ring-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit.dark .dark\:ring-emerald-500\/10 { --tw-ring-color: rgb(245 158 11 / 0.1); }
+
+
+/* ── 8. Gradient Stop Remapping ── */
+
+/* from-teal → from-blue */
+.theme-bluetit .from-teal-50 { --tw-gradient-from: #eff6ff var(--tw-gradient-from-position); --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-teal-300 { --tw-gradient-from: #93c5fd var(--tw-gradient-from-position); --tw-gradient-to: rgb(147 197 253 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-teal-500 { --tw-gradient-from: #2563eb var(--tw-gradient-from-position); --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-teal-500\/5 { --tw-gradient-from: rgb(37 99 235 / 0.05) var(--tw-gradient-from-position); --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-teal-500\/20 { --tw-gradient-from: rgb(37 99 235 / 0.2) var(--tw-gradient-from-position); --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit.dark .dark\:from-teal-500\/10 { --tw-gradient-from: rgb(59 130 246 / 0.1) var(--tw-gradient-from-position); --tw-gradient-to: rgb(59 130 246 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit.dark .dark\:from-teal-950\/30 { --tw-gradient-from: rgb(23 37 84 / 0.3) var(--tw-gradient-from-position); --tw-gradient-to: rgb(23 37 84 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+
+/* to-teal → to-blue */
+.theme-bluetit .to-teal-50 { --tw-gradient-to: #eff6ff var(--tw-gradient-to-position); }
+.theme-bluetit .to-teal-500 { --tw-gradient-to: #2563eb var(--tw-gradient-to-position); }
+.theme-bluetit .to-teal-500\/6 { --tw-gradient-to: rgb(37 99 235 / 0.06) var(--tw-gradient-to-position); }
+.theme-bluetit.dark .dark\:to-teal-900\/20 { --tw-gradient-to: rgb(30 58 138 / 0.2) var(--tw-gradient-to-position); }
+
+/* via-teal → via-blue */
+.theme-bluetit .via-teal-300 { --tw-gradient-to: rgb(147 197 253 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #93c5fd var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit .via-teal-400\/40 { --tw-gradient-to: rgb(96 165 250 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), rgb(96 165 250 / 0.4) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit .via-teal-500 { --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #2563eb var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit .via-teal-500\/70 { --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), rgb(37 99 235 / 0.7) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+
+/* from-emerald → from-amber */
+.theme-bluetit .from-emerald-50 { --tw-gradient-from: #fffbeb var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 251 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-emerald-300 { --tw-gradient-from: #fcd34d var(--tw-gradient-from-position); --tw-gradient-to: rgb(252 211 77 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-emerald-400 { --tw-gradient-from: #fbbf24 var(--tw-gradient-from-position); --tw-gradient-to: rgb(251 191 36 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-emerald-500 { --tw-gradient-from: #f59e0b var(--tw-gradient-from-position); --tw-gradient-to: rgb(245 158 11 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-emerald-500\/6 { --tw-gradient-from: rgb(245 158 11 / 0.06) var(--tw-gradient-from-position); --tw-gradient-to: rgb(245 158 11 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .from-emerald-500\/70 { --tw-gradient-from: rgb(245 158 11 / 0.7) var(--tw-gradient-from-position); --tw-gradient-to: rgb(245 158 11 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit.dark .dark\:from-emerald-950\/30 { --tw-gradient-from: rgb(69 26 3 / 0.3) var(--tw-gradient-from-position); --tw-gradient-to: rgb(69 26 3 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+
+/* to-emerald → to-amber */
+.theme-bluetit .to-emerald-50 { --tw-gradient-to: #fffbeb var(--tw-gradient-to-position); }
+.theme-bluetit .to-emerald-500 { --tw-gradient-to: #f59e0b var(--tw-gradient-to-position); }
+.theme-bluetit .to-emerald-500\/20 { --tw-gradient-to: rgb(245 158 11 / 0.2) var(--tw-gradient-to-position); }
+.theme-bluetit .to-emerald-600 { --tw-gradient-to: #d97706 var(--tw-gradient-to-position); }
+.theme-bluetit .to-emerald-500\/10 { --tw-gradient-to: rgb(245 158 11 / 0.1) var(--tw-gradient-to-position); }
+.theme-bluetit.dark .dark\:to-emerald-500\/10 { --tw-gradient-to: rgb(245 158 11 / 0.1) var(--tw-gradient-to-position); }
+.theme-bluetit.dark .dark\:to-emerald-900\/20 { --tw-gradient-to: rgb(120 53 15 / 0.2) var(--tw-gradient-to-position); }
+
+/* via-emerald → via-amber */
+.theme-bluetit .via-emerald-50 { --tw-gradient-to: rgb(255 251 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #fffbeb var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit .via-emerald-500 { --tw-gradient-to: rgb(245 158 11 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #f59e0b var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit.dark .dark\:via-emerald-950\/20 { --tw-gradient-to: rgb(69 26 3 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), rgb(69 26 3 / 0.2) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+
+/* from-brand / to-brand → blue */
+.theme-bluetit .from-brand-500 { --tw-gradient-from: #2563eb var(--tw-gradient-from-position); --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .to-brand-500 { --tw-gradient-to: #2563eb var(--tw-gradient-to-position); }
+.theme-bluetit .before\:from-brand-500\/50::before { --tw-gradient-from: rgb(37 99 235 / 0.5) var(--tw-gradient-from-position); --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.theme-bluetit .before\:via-teal-400\/50::before { --tw-gradient-to: rgb(96 165 250 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), rgb(96 165 250 / 0.5) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.theme-bluetit .before\:to-brand-500\/50::before { --tw-gradient-to: rgb(37 99 235 / 0.5) var(--tw-gradient-to-position); }
+
+
+/* ── 9. Shadow Color Remapping ── */
+
+.theme-bluetit .shadow-teal-300\/70 { --tw-shadow-color: rgb(147 197 253 / 0.7); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-400\/20 { --tw-shadow-color: rgb(96 165 250 / 0.2); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-500\/10 { --tw-shadow-color: rgb(37 99 235 / 0.1); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-500\/20 { --tw-shadow-color: rgb(37 99 235 / 0.2); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-500\/30 { --tw-shadow-color: rgb(37 99 235 / 0.3); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-500\/40 { --tw-shadow-color: rgb(37 99 235 / 0.4); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-teal-900\/30 { --tw-shadow-color: rgb(30 58 138 / 0.3); --tw-shadow: var(--tw-shadow-colored); }
+.theme-bluetit .shadow-emerald-500\/40 { --tw-shadow-color: rgb(245 158 11 / 0.4); --tw-shadow: var(--tw-shadow-colored); }
+
+
+/* ── 10. Hover State Remapping ── */
+
+/* hover:bg-teal → blue */
+.theme-bluetit .hover\:bg-teal-50:hover { background-color: #eff6ff; }
+.theme-bluetit .hover\:bg-teal-500:hover { background-color: #2563eb; }
+.theme-bluetit .hover\:bg-teal-500\/20:hover { background-color: rgb(37 99 235 / 0.2); }
+.theme-bluetit .hover\:bg-teal-500\/90:hover { background-color: rgb(37 99 235 / 0.9); }
+.theme-bluetit .hover\:bg-teal-600:hover { background-color: #1d4ed8; }
+.theme-bluetit .hover\:bg-teal-700:hover { background-color: #1e40af; }
+.theme-bluetit .hover\:bg-teal-800:hover { background-color: #1e3a8a; }
+.theme-bluetit .hover\:text-teal-500:hover { color: #3b82f6; }
+.theme-bluetit .hover\:text-teal-600:hover { color: #1d4ed8; }
+.theme-bluetit .hover\:text-teal-700:hover { color: #1e40af; }
+.theme-bluetit .hover\:border-teal-400:hover { border-color: #60a5fa; }
+.theme-bluetit .hover\:border-teal-500\/20:hover { border-color: rgb(37 99 235 / 0.2); }
+.theme-bluetit .hover\:border-teal-500\/30:hover { border-color: rgb(37 99 235 / 0.3); }
+.theme-bluetit .hover\:border-teal-500\/40:hover { border-color: rgb(37 99 235 / 0.4); }
+.theme-bluetit .hover\:from-teal-400:hover { --tw-gradient-from: #60a5fa var(--tw-gradient-from-position); }
+.theme-bluetit .hover\:from-teal-600:hover { --tw-gradient-from: #1d4ed8 var(--tw-gradient-from-position); }
+.theme-bluetit .group:hover .theme-bluetit .group-hover\:border-teal-500\/50,
+.theme-bluetit .group:hover .group-hover\:border-teal-500\/50 { border-color: rgb(37 99 235 / 0.5); }
+
+/* hover:bg-emerald → amber */
+.theme-bluetit .hover\:bg-emerald-100\/70:hover { background-color: rgb(254 243 199 / 0.7); }
+.theme-bluetit .hover\:bg-emerald-200:hover { background-color: #fde68a; }
+.theme-bluetit .hover\:bg-emerald-500:hover { background-color: #f59e0b; }
+.theme-bluetit .hover\:bg-emerald-500\/20:hover { background-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit .hover\:bg-emerald-500\/25:hover { background-color: rgb(245 158 11 / 0.25); }
+.theme-bluetit .hover\:bg-emerald-500\/30:hover { background-color: rgb(245 158 11 / 0.3); }
+.theme-bluetit .hover\:bg-emerald-500\/35:hover { background-color: rgb(245 158 11 / 0.35); }
+.theme-bluetit .hover\:bg-emerald-50\/80:hover { background-color: rgb(255 251 235 / 0.8); }
+.theme-bluetit .hover\:bg-emerald-600:hover { background-color: #d97706; }
+.theme-bluetit .hover\:text-emerald-600:hover { color: #d97706; }
+.theme-bluetit .hover\:text-emerald-700:hover { color: #b45309; }
+.theme-bluetit .hover\:border-emerald-500:hover { border-color: #f59e0b; }
+.theme-bluetit .hover\:border-emerald-500\/20:hover { border-color: rgb(245 158 11 / 0.2); }
+.theme-bluetit .hover\:border-emerald-500\/30:hover { border-color: rgb(245 158 11 / 0.3); }
+.theme-bluetit .hover\:to-emerald-500:hover { --tw-gradient-to: #f59e0b var(--tw-gradient-to-position); }
+.theme-bluetit .hover\:to-emerald-600:hover { --tw-gradient-to: #d97706 var(--tw-gradient-to-position); }
+
+/* hover: brand → blue */
+.theme-bluetit .hover\:bg-brand-700:hover { background-color: #1e40af; }
+.theme-bluetit .hover\:border-brand-500:hover { border-color: #2563eb; }
+.theme-bluetit .hover\:text-brand-600:hover { color: #1d4ed8; }
+.theme-bluetit .hover\:text-brand-700:hover { color: #1e40af; }
+.theme-bluetit .group:hover .group-hover\:text-brand-600 { color: #1d4ed8; }
+
+/* dark:hover variants */
+.theme-bluetit.dark .dark\:hover\:bg-teal-900\/20:hover { background-color: rgb(30 58 138 / 0.2); }
+.theme-bluetit.dark .dark\:hover\:border-teal-500\/20:hover { border-color: rgb(59 130 246 / 0.2); }
+.theme-bluetit.dark .dark\:hover\:text-teal-300:hover { color: #93c5fd; }
+.theme-bluetit.dark .dark\:hover\:text-teal-400:hover { color: #60a5fa; }
+.theme-bluetit.dark .dark\:hover\:bg-emerald-800\/50:hover { background-color: rgb(146 64 14 / 0.5); }
+.theme-bluetit.dark .dark\:hover\:bg-emerald-900\/30:hover { background-color: rgb(120 53 15 / 0.3); }
+.theme-bluetit.dark .dark\:hover\:bg-emerald-900\/40:hover { background-color: rgb(120 53 15 / 0.4); }
+.theme-bluetit.dark .dark\:hover\:border-emerald-500:hover { border-color: #f59e0b; }
+.theme-bluetit.dark .dark\:hover\:border-emerald-500\/30:hover { border-color: rgb(245 158 11 / 0.3); }
+.theme-bluetit.dark .dark\:hover\:text-emerald-200:hover { color: #fde68a; }
+.theme-bluetit.dark .dark\:hover\:text-emerald-300:hover { color: #fcd34d; }
+.theme-bluetit.dark .dark\:hover\:text-emerald-400:hover { color: #fbbf24; }
+.theme-bluetit.dark .dark\:hover\:border-brand-500:hover { border-color: #2563eb; }
+.theme-bluetit.dark .dark\:hover\:text-brand-300:hover { color: #93c5fd; }
+.theme-bluetit.dark .dark\:hover\:text-brand-400:hover { color: #60a5fa; }
+.theme-bluetit.dark .dark\:group-hover\:text-brand-400 { color: #60a5fa; }
+
+
+/* ── 11. Focus State Remapping ── */
+
+.theme-bluetit .focus\:ring-teal-300:focus { --tw-ring-color: #93c5fd; }
+.theme-bluetit .focus\:ring-teal-400:focus { --tw-ring-color: #60a5fa; }
+.theme-bluetit .focus\:ring-teal-400\/70:focus { --tw-ring-color: rgb(96 165 250 / 0.7); }
+.theme-bluetit .focus\:ring-teal-500:focus { --tw-ring-color: #3b82f6; }
+.theme-bluetit .focus\:ring-teal-500\/20:focus { --tw-ring-color: rgb(37 99 235 / 0.2); }
+.theme-bluetit .focus\:ring-teal-500\/30:focus { --tw-ring-color: rgb(37 99 235 / 0.3); }
+.theme-bluetit .focus\:ring-teal-500\/50:focus { --tw-ring-color: rgb(37 99 235 / 0.5); }
+.theme-bluetit .focus\:border-teal-500:focus { border-color: #2563eb; }
+.theme-bluetit .focus\:ring-emerald-400\/60:focus { --tw-ring-color: rgb(251 191 36 / 0.6); }
+.theme-bluetit .focus\:ring-emerald-500:focus { --tw-ring-color: #f59e0b; }
+.theme-bluetit .focus\:bg-brand-500:focus { background-color: #2563eb; }
+
+/* accent */
+.theme-bluetit .accent-teal-500 { accent-color: #2563eb; }
+
+
+/* ── 12. Special Overrides ── */
+
+/* Video player controls */
+.theme-bluetit { --plyr-color-main: #2563eb; }
+
+/* Login button gradient (uses inline teal→emerald) */
+.theme-bluetit .from-teal-500.to-emerald-600 {
+  --tw-gradient-from: #2563eb var(--tw-gradient-from-position);
+  --tw-gradient-to: #1d4ed8 var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-.theme-bluetit ::selection {
-  @apply bg-blue-500/30;
+/* Progress bars (emerald→teal→sky becomes blue→amber→sky) */
+.theme-bluetit .from-emerald-500.via-teal-500.to-sky-500 {
+  --tw-gradient-from: #2563eb var(--tw-gradient-from-position);
+  --tw-gradient-stops: var(--tw-gradient-from), #f59e0b var(--tw-gradient-via-position), var(--tw-gradient-to);
 }
+.theme-bluetit .from-emerald-500\/70.via-teal-500\/70.to-sky-500\/70 {
+  --tw-gradient-from: rgb(37 99 235 / 0.7) var(--tw-gradient-from-position);
+  --tw-gradient-stops: var(--tw-gradient-from), rgb(245 158 11 / 0.7) var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+/* Pagination active */
+.theme-bluetit .from-teal-500.to-emerald-600 {
+  --tw-gradient-from: #2563eb var(--tw-gradient-from-position);
+  --tw-gradient-to: #1d4ed8 var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+/* Section header glow */
+.theme-bluetit .from-teal-500\/20.to-emerald-500\/20 {
+  --tw-gradient-from: rgb(37 99 235 / 0.2) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(245 158 11 / 0.2) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+/* ── 13. Video Player (Plyr) ── */
+
+.theme-bluetit :global(.plyr) { --plyr-color-main: #2563eb; }
+.theme-bluetit :global(.plyr--full-ui input[type='range']) { color: #2563eb; }
+
+/* ── 14. AI Analysis Surface & Markdown ── */
+
+/* Light mode surface */
+:global(.theme-bluetit:not(.dark)) .ai-surface {
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.07), rgba(29, 78, 216, 0.05));
+  border-color: rgba(37, 99, 235, 0.20);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+:global(.theme-bluetit:not(.dark)) .ai-surface::before {
+  background:
+    radial-gradient(900px 420px at 18% 0%, rgba(37, 99, 235, 0.10), transparent 60%),
+    radial-gradient(680px 420px at 92% 95%, rgba(29, 78, 216, 0.08), transparent 55%);
+}
+
+/* Dark mode surface */
+:global(.theme-bluetit.dark) .ai-surface {
+  background: linear-gradient(145deg, rgba(29, 78, 216, 0.18), rgba(15, 23, 42, 0.78));
+  border-color: rgba(96, 165, 250, 0.30);
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
+}
+:global(.theme-bluetit.dark) .ai-surface::before {
+  background:
+    radial-gradient(980px 440px at 16% 0%, rgba(96, 165, 250, 0.12), transparent 62%),
+    radial-gradient(760px 520px at 88% 90%, rgba(251, 191, 36, 0.08), transparent 58%),
+    radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
+}
+
+/* AI bubble variants */
+:global(.theme-bluetit:not(.dark)) .ai-bubble.ai-surface {
+  border-color: rgba(37, 99, 235, 0.20);
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.07), rgba(29, 78, 216, 0.05));
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+:global(.theme-bluetit.dark) .ai-bubble.ai-surface {
+  background: linear-gradient(145deg, rgba(29, 78, 216, 0.16), rgba(15, 23, 42, 0.78));
+  border-color: rgba(96, 165, 250, 0.30);
+}
+:global(.theme-bluetit:not(.dark)) .ai-bubble--assistant { border-color: rgba(37, 99, 235, 0.30); }
+
+/* Panel labels */
+:global(.theme-bluetit:not(.dark)) .ai-panel__label { color: rgb(29 78 216); }
+:global(.theme-bluetit.dark) .ai-panel__label { color: rgb(96 165 250); }
+
+/* Markdown headings */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h1),
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h2),
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h3),
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h4),
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h5),
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h6) { color: rgb(29 78 216); }
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h1),
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h2),
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h3),
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h4),
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h5),
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface h6) { color: rgb(96 165 250); }
+
+/* Markdown strong */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface strong) { color: rgb(30 64 175); }
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface strong) { color: rgb(191 219 254); }
+
+/* Markdown links */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface a) { color: rgb(29 78 216); }
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface a) { color: rgb(96 165 250); }
+
+/* Markdown code */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface code) {
+  background: rgba(37, 99, 235, 0.08);
+  color: rgb(29 78 216);
+}
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface code) {
+  background: rgba(96, 165, 250, 0.20);
+  color: rgb(191 219 254);
+}
+
+/* Markdown pre */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface pre) {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.10);
+}
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface pre) {
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+/* Markdown blockquote */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface blockquote) {
+  border-left-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.06);
+}
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface blockquote) {
+  background: rgba(37, 99, 235, 0.15);
+  border-left-color: rgba(96, 165, 250, 0.6);
+}
+
+/* Markdown list markers */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface li::marker) { color: rgba(37, 99, 235, 0.5); }
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface li::marker) { color: rgba(96, 165, 250, 0.5); }
+
+/* Markdown table headers */
+:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface th) { color: rgb(29 78 216); }
+:global(.theme-bluetit.dark) :global(.ai-markdown-surface th) { color: rgb(191 219 254); }
+
 
 /* Accessibility Modes */
 

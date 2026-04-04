@@ -1402,8 +1402,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
-    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>('default');
-    let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>('default');
+    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);
+    let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
@@ -2770,12 +2770,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             zenMode = settings.accessibility_zen_mode ?? false;
 
             // Appearance (persisted)
-            if (settings.appearance_font_theme) {
-                themeStore.setFontTheme(settings.appearance_font_theme as any);
-            }
-            if (settings.appearance_color_theme) {
-                themeStore.setColorTheme(settings.appearance_color_theme as any);
-            }
+            themeStore.setFontTheme((settings.appearance_font_theme ?? 'classic') as any);
+            themeStore.setColorTheme((settings.appearance_color_theme ?? 'default') as any);
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
