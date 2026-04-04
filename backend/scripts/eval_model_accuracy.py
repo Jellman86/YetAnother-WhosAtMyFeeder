@@ -38,7 +38,6 @@ import sys
 import time
 import urllib.request
 import tarfile
-import shutil
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -256,7 +255,7 @@ class ModelEvaluator:
 
         self.config: dict[str, Any] = json.loads(config_path.read_text())
         self.labels: list[str] = [
-            l.strip() for l in labels_path.read_text().splitlines() if l.strip()
+            label.strip() for label in labels_path.read_text().splitlines() if label.strip()
         ]
         self.label_index = build_label_index(self.labels)
 
@@ -342,7 +341,7 @@ class ModelEvaluator:
             pred_in_top5 = top_labels
 
             top1_hit = _normalise_label(pred_label) == _normalise_label(matched_gt)
-            top5_hit = any(_normalise_label(l) == _normalise_label(matched_gt) for l in pred_in_top5)
+            top5_hit = any(_normalise_label(label) == _normalise_label(matched_gt) for label in pred_in_top5)
 
             if top1_hit:
                 top1_correct += 1

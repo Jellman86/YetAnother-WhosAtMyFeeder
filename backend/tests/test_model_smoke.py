@@ -210,7 +210,7 @@ def test_labels_file_is_valid(model_id: str) -> None:
     labels_path = _model_dir(model_id) / "labels.txt"
     assert labels_path.exists(), f"{model_id}: labels.txt missing"
 
-    labels = [l.strip() for l in labels_path.read_text().splitlines() if l.strip()]
+    labels = [label.strip() for label in labels_path.read_text().splitlines() if label.strip()]
     assert len(labels) >= 10, f"{model_id}: expected at least 10 labels, got {len(labels)}"
 
     # No empty labels
@@ -241,7 +241,7 @@ def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) 
     session = ort_session_cache[model_id]
     model_dir = _model_dir(model_id)
     config = _load_config(model_id)
-    labels = [l.strip() for l in (model_dir / "labels.txt").read_text().splitlines() if l.strip()]
+    labels = [label.strip() for label in (model_dir / "labels.txt").read_text().splitlines() if label.strip()]
 
     input_size = config["input_size"]
     pre = config.get("preprocessing", {})
@@ -312,7 +312,7 @@ def test_model_config_num_classes_matches_labels(model_id: str) -> None:
         pytest.skip(f"{model_id}: no model_config.json — skipping num_classes check")
     model_dir = _model_dir(model_id)
     config = json.loads((model_dir / "model_config.json").read_text())
-    labels = [l.strip() for l in (model_dir / "labels.txt").read_text().splitlines() if l.strip()]
+    labels = [label.strip() for label in (model_dir / "labels.txt").read_text().splitlines() if label.strip()]
 
     if "num_classes" in config:
         assert config["num_classes"] == len(labels), (

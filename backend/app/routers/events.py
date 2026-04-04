@@ -21,7 +21,6 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.blocked_species import is_blocked_species
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy

@@ -2,14 +2,13 @@ import structlog
 import os
 import asyncio
 import math
-from datetime import datetime
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services.classifier_service import ClassifierService
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
-from app.utils.classifier_labels import normalize_classifier_label, collapse_classifier_label
+from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,

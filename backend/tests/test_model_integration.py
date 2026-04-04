@@ -108,7 +108,7 @@ def _load_installed_models() -> dict[str, dict[str, Any]]:
     for d in sorted(base.iterdir()) if base.exists() else []:
         if d.is_dir() and (d / "model.onnx").exists() and (d / "model_config.json").exists():
             config = json.loads((d / "model_config.json").read_text())
-            labels = [l.strip() for l in (d / "labels.txt").read_text().splitlines() if l.strip()]
+            labels = [label.strip() for label in (d / "labels.txt").read_text().splitlines() if label.strip()]
             models[d.name] = {"dir": d, "config": config, "labels": labels}
     return models
 
@@ -148,7 +148,7 @@ def _labels_cover_case(model_labels: list[str], acceptable_labels: list[str]) ->
     Uses the same substring matching as the correctness test so a model is only
     tested against species it was actually trained on.
     """
-    norm_model = [_normalise(l) for l in model_labels]
+    norm_model = [_normalise(label) for label in model_labels]
     norm_acceptable = [_normalise(a) for a in acceptable_labels]
     return any(
         any(acc in pred or pred in acc for pred in norm_model)

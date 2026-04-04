@@ -381,7 +381,7 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
     settings.media_cache.cache_clips = True
 
     with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=Path("/tmp/test_recording.mp4")), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))) as mock_context:
+         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))):
         try:
             response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
             assert response.status_code == 200

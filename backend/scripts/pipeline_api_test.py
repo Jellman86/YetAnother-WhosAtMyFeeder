@@ -200,7 +200,6 @@ def _preprocess_image(image_bytes: bytes, mode: str) -> bytes:
     try:
         from PIL import Image
         import io
-        import numpy as np
 
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         w, h = img.size
@@ -448,9 +447,12 @@ class PipelineTestRunner:
             intel_gpu = status.get("intel_gpu_available", False)
             openvino = status.get("openvino_available", False)
             hw_str = []
-            if cuda: hw_str.append("CUDA")
-            if intel_gpu: hw_str.append("Intel GPU")
-            if openvino: hw_str.append("OpenVINO")
+            if cuda:
+                hw_str.append("CUDA")
+            if intel_gpu:
+                hw_str.append("Intel GPU")
+            if openvino:
+                hw_str.append("OpenVINO")
             print(f"  Hardware: {', '.join(hw_str) if hw_str else 'CPU only'}")
         except Exception as e:
             print(f"  {_red(f'Failed to reach API: {e}')}")
@@ -487,7 +489,7 @@ class PipelineTestRunner:
 
         # --- Rejection cases ---
         print(f"\n{_bold('--- Synthetic Rejection Cases ---')}")
-        print(f"  (These should score BELOW threshold — testing the model doesn't hallucinate)")
+        print("  (These should score BELOW threshold — testing the model doesn't hallucinate)")
         rejection_results: list[dict] = []
         for case in manifest.get("rejection_cases", []):
             result = self._run_rejection_case(case)
@@ -700,7 +702,7 @@ def main() -> int:
         if args.auto_download:
             import subprocess as _sp
             download_script = Path(__file__).resolve().parent / "download_test_fixtures.py"
-            print(f"Fixture images not found — downloading automatically (--auto_download)...")
+            print("Fixture images not found — downloading automatically (--auto_download)...")
             result = _sp.run(
                 [sys.executable, str(download_script),
                  "--manifest", str(manifest_path),
@@ -710,7 +712,7 @@ def main() -> int:
             )
             if result.returncode != 0 or not downloaded_path.exists():
                 print("ERROR: auto-download failed. Run manually:", file=sys.stderr)
-                print(f"  python scripts/download_test_fixtures.py", file=sys.stderr)
+                print("  python scripts/download_test_fixtures.py", file=sys.stderr)
                 return 1
         else:
             print(

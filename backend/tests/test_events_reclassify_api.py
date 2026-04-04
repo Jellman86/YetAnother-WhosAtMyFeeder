@@ -1,9 +1,7 @@
 from datetime import datetime, timezone
 import io
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import cv2
 import httpx
 import pytest
 import pytest_asyncio

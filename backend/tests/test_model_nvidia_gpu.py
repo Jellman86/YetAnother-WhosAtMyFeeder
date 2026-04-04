@@ -63,7 +63,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -253,21 +253,19 @@ def _cuda_available() -> bool:
         return False
     # Probe with a tiny 1×1 ONNX identity model built from scratch
     try:
-        import onnx
         from onnx import helper, TensorProto
         x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 1])
         y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 1])
         node = helper.make_node("Identity", inputs=["x"], outputs=["y"])
         graph = helper.make_graph([node], "probe", [x], [y])
         model_proto = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 11)])
-        import tempfile, os
         with tempfile.NamedTemporaryFile(suffix=".onnx", delete=False) as f:
             f.write(model_proto.SerializeToString())
             tmp = f.name
         try:
             ok, _, sess = _ort_session(tmp, ["CUDAExecutionProvider", "CPUExecutionProvider"])
             if ok and sess:
-                out = sess.run(None, {"x": np.ones((1, 1), dtype=np.float32)})
+                sess.run(None, {"x": np.ones((1, 1), dtype=np.float32)})
                 return True
         finally:
             os.unlink(tmp)

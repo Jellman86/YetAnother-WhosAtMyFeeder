@@ -278,6 +278,7 @@ class MediaCacheService:
         try:
             path = self._snapshot_path(event_id)
             await self._write_bytes_atomic(path, image_bytes)
+            await self.delete_thumbnail(event_id)
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:

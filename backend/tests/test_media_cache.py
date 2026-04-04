@@ -87,6 +87,26 @@ async def test_replace_snapshot_uses_unique_temp_file_per_write(tmp_path, monkey
 
 
 @pytest.mark.asyncio
+async def test_replace_snapshot_invalidates_cached_thumbnail(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_replace_thumbnail"
+
+    original_snapshot = await service.cache_snapshot(event_id, b"old-snapshot")
+    thumbnail_path = await service.cache_thumbnail(event_id, b"old-thumbnail")
+
+    assert original_snapshot == snapshots / f"{event_id}.jpg"
+    assert thumbnail_path == snapshots / f"{event_id}_thumb.jpg"
+    assert await service.get_thumbnail(event_id) == b"old-thumbnail"
+
+    replaced_path = await service.replace_snapshot(event_id, b"new-snapshot")
+
+    assert replaced_path == original_snapshot
+    assert await service.get_snapshot(event_id) == b"new-snapshot"
+    assert await service.get_thumbnail(event_id) is None
+    assert not thumbnail_path.exists()
+
+
+@pytest.mark.asyncio
 async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_recording"

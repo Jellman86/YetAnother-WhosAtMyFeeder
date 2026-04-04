@@ -4,13 +4,13 @@ import pytest
 
 from app.config import settings
 from app.services import auto_video_classifier_service as auto_video_classifier_module
-
-AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
 from app.services.classifier_service import (
     BackgroundImageClassificationUnavailableError,
     VideoClassificationWorkerError,
 )
 from app.services.error_diagnostics import error_diagnostics_history
+
+AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
 
 
 @pytest.fixture(autouse=True)

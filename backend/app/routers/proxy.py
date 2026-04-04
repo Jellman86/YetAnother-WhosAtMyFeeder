@@ -699,8 +699,6 @@ async def _probe_recording_clip_response(
 
 
 async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
-    from app.services.media_cache import media_cache
-
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(
             status_code=403,
@@ -1431,7 +1429,6 @@ async def check_recording_clip_exists(
     auth: AuthContext = Depends(get_proxy_auth_context),
 ):
     lang = get_user_language(request)
-    from app.services.media_cache import media_cache
 
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(

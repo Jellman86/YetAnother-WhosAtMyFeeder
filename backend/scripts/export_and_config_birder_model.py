@@ -94,7 +94,7 @@ def export_and_config(
     if not labels_raw:
         raise RuntimeError(f"No labels found for {model_id}")
 
-    labels = normalize_classifier_labels(str(l).strip() for l in labels_raw if str(l).strip())
+    labels = normalize_classifier_labels(str(label).strip() for label in labels_raw if str(label).strip())
     labels_path = output_path / "labels.txt"
     labels_path.write_text("\n".join(labels) + "\n", encoding="utf-8")
     print(f"  {len(labels)} labels written to {labels_path}")

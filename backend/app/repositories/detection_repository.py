@@ -1852,7 +1852,6 @@ class DetectionRepository:
             return {}
 
         out: dict[str, dict[str, int]] = {}
-        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
 
         for species_name in species_names:
             name = str(species_name or "").strip()
