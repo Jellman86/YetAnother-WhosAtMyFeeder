@@ -443,3 +443,43 @@ async def test_stop_ignores_worker_tasks_from_closed_event_loop(tmp_path, monkey
     await hq_module.high_quality_snapshot_service.stop()
 
     assert hq_module.high_quality_snapshot_service.get_status()["workers"] == 0
+
+
+@pytest.mark.asyncio
+async def test_worker_loop_tracks_task_done_against_original_queue_when_service_queue_replaced(tmp_path, monkeypatch):
+    _make_cache_service(tmp_path, monkeypatch)
+    settings.media_cache.high_quality_event_snapshots = True
+
+    original_queue = asyncio.Queue()
+    await original_queue.put("evt_queue_swap")
+    hq_module.high_quality_snapshot_service._pending_queue = original_queue
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def fake_process_event(event_id: str):
+        assert event_id == "evt_queue_swap"
+        started.set()
+        await release.wait()
+        return "replaced"
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "process_event",
+        fake_process_event,
+    )
+
+    worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+
+    replacement_queue = asyncio.Queue()
+    hq_module.high_quality_snapshot_service._pending_queue = replacement_queue
+
+    worker_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await worker_task
+
+    assert original_queue.qsize() == 0
+    assert original_queue._unfinished_tasks == 0
+    assert replacement_queue.qsize() == 0
+    assert replacement_queue._unfinished_tasks == 0

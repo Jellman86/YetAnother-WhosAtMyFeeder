@@ -207,18 +207,19 @@ class HighQualitySnapshotService:
 
     async def _worker_loop(self, worker_index: int) -> None:
         while True:
-            event_id = await self._pending_queue.get()
+            queue = self._pending_queue
+            event_id = await queue.get()
             self._queued_ids.discard(event_id)
             if event_id in self._completed_ids:
                 self._completed_ids.discard(event_id)
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
-                self._pending_queue.task_done()
+                queue.task_done()
                 continue
             if event_id in self._active_ids:
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
-                self._pending_queue.task_done()
+                queue.task_done()
                 continue
             self._active_ids.add(event_id)
             try:
@@ -236,7 +237,7 @@ class HighQualitySnapshotService:
                 self._record_outcome(event_id, "worker_exception")
             finally:
                 self._active_ids.discard(event_id)
-                self._pending_queue.task_done()
+                queue.task_done()
                 self._promote_deferred_events()
 
     def _ensure_workers_started(self) -> None:
