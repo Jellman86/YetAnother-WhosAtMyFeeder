@@ -1460,7 +1460,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    function reconcileBackfillNotification(kind: 'detections' | 'weather', status: BackfillJobStatus | null) {
+    function reconcileBackfillNotification(kind: 'detections' | 'weather', status: BackfillJobStatus | null, scopedTotal = 0) {
         if (!status) {
             const prefix = `backfill:${kind}:`;
             jobProgressStore.closeActiveByPrefix(prefix, 'stale');
@@ -1483,8 +1483,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const errors = safeCount(status.errors);
 
         const isRunning = status.status === 'running';
-        const normalizedTotal = total > 0 ? total : 0;
-        const progressTotal = total > 0 ? total : (isRunning ? 0 : processed);
+        const normalizedTotal = total > 0 ? total : safeCount(scopedTotal);
+        const progressTotal = normalizedTotal > 0 ? normalizedTotal : (isRunning ? 0 : processed);
         settleBackfillProcessNotifications(kind, isRunning ? id : undefined);
 
         let title = kind === 'weather'
@@ -2298,14 +2298,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 } else if (detections.status === 'failed') {
                     emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
                 }
+                reconcileBackfillNotification('detections', detections, scoped.total);
             } else {
                 backfillJob = null;
                 backfillResult = null;
                 backfillTotalJobId = null;
                 backfillTotal = 0;
                 backfilling = false;
+                reconcileBackfillNotification('detections', detections, 0);
             }
-            reconcileBackfillNotification('detections', detections);
 
             if (weather) {
                 weatherBackfillJob = weather;
@@ -2326,14 +2327,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 } else if (weather.status === 'failed') {
                     emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
                 }
+                reconcileBackfillNotification('weather', weather, scoped.total);
             } else {
                 weatherBackfillJob = null;
                 weatherBackfillResult = null;
                 weatherBackfillTotalJobId = null;
                 weatherBackfillTotal = 0;
                 weatherBackfilling = false;
+                reconcileBackfillNotification('weather', weather, 0);
             }
-            reconcileBackfillNotification('weather', weather);
 
             const detectionsDone = !backfillJob || backfillJob.status !== 'running';
             const weatherDone = !weatherBackfillJob || weatherBackfillJob.status !== 'running';

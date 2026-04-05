@@ -54,7 +54,9 @@ export function updateScopedBackfillProgress(
     if (isSameJob) {
         return {
             jobId: nextJobId,
-            total: previous.total > 0 ? Math.max(previous.total, processed) : 0
+            total: previous.total > 0
+                ? Math.max(previous.total, processed)
+                : processed
         };
     }
 

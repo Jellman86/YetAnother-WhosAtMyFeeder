@@ -3,6 +3,7 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
+    import { buildStableActiveJobSlots, sameActiveSlotAssignments, type ActiveSlotAssignments } from '../jobs/active-slots';
     import { presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -30,10 +31,30 @@
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
-    let presentedActiveJobs = $derived(activeJobs.map((job) => ({
-        job,
-        presentation: presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)
-    })));
+    let activeSlotAssignments = $state<ActiveSlotAssignments>({});
+    let activeSlotCount = $derived.by(() => {
+        const configured = Math.max(
+            0,
+            Math.floor(Number(analysisStatus?.max_concurrent_effective ?? 0)),
+            Math.floor(Number(analysisStatus?.max_concurrent_configured ?? 0))
+        );
+        return Math.max(3, configured, activeJobs.length);
+    });
+    $effect(() => {
+        const next = buildStableActiveJobSlots(activeJobs, activeSlotAssignments, activeSlotCount);
+        if (!sameActiveSlotAssignments(activeSlotAssignments, next.assignments)) {
+            activeSlotAssignments = next.assignments;
+        }
+    });
+    let presentedActiveSlots = $derived.by(() =>
+        buildStableActiveJobSlots(activeJobs, activeSlotAssignments, activeSlotCount).slots.map((slot) => ({
+            slotIndex: slot.slotIndex,
+            job: slot.job,
+            presentation: slot.job
+                ? presentActiveJob(slot.job, pipelineByKind.get(slot.job.kind) ?? null, analysisStatus, nowTs, t)
+                : null
+        }))
+    );
     let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
@@ -152,43 +173,85 @@
         {#if activeJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
-            <div class="space-y-3">
-                {#each presentedActiveJobs as item (item.job.id)}
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {#each presentedActiveSlots as item (item.slotIndex)}
                     {@const job = item.job}
                     {@const presentation = item.presentation}
-                    {@const percent = presentation.percent}
-                    <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm">
+                    <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm min-h-[10.5rem]">
                         <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
-                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{presentation.activityLabel}</p>
+                            <div class="inline-flex items-center gap-2 min-w-0">
+                                <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                        <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"></rect>
+                                        <rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor" opacity="0.72"></rect>
+                                        <rect x="2" y="11" width="12" height="2" rx="1" fill="currentColor" opacity="0.48"></rect>
+                                    </svg>
+                                </span>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                    {$_('jobs.thread_slot', { default: 'Thread {index}', values: { index: item.slotIndex + 1 } })}
+                                </p>
                             </div>
-                            <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
-                                {job.status}
-                            </span>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            <span>{presentation.progressLabel}</span>
-                            {#if presentation.determinate && percent !== null}
-                                <span>{percent}%</span>
-                            {/if}
-                        </div>
-                        <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
-                            {#if presentation.determinate && percent !== null}
-                                <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${percent}%`}></div>
+                            {#if job}
+                                <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
+                                    <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-emerald-500 dark:bg-emerald-300'}`}></span>
+                                    {job.status}
+                                </span>
                             {:else}
-                                <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                                <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-300 dark:text-slate-600">
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                        <circle cx="8" cy="8" r="4.5" stroke="currentColor" stroke-width="1.5"></circle>
+                                    </svg>
+                                    {$_('jobs.thread_idle', { default: 'Idle' })}
+                                </span>
                             {/if}
                         </div>
-                        {#if presentation.detailLabel}
-                            <p class="mt-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
-                                {presentation.detailLabel}
-                            </p>
-                        {/if}
-                        {#if job.route}
-                            <button type="button" class="mt-2 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline" onclick={() => openRoute(job)}>
-                                {$_('notifications.open_action')}
-                            </button>
+                        {#if job && presentation}
+                            {@const percent = presentation.percent}
+                            <div class="mt-3">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
+                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{presentation.activityLabel}</p>
+                                </div>
+                                <div class="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                    <span>{presentation.progressLabel}</span>
+                                    {#if presentation.determinate && percent !== null}
+                                        <span>{percent}%</span>
+                                    {/if}
+                                </div>
+                                <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
+                                    {#if presentation.determinate && percent !== null}
+                                        <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${percent}%`}></div>
+                                    {:else}
+                                        <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                                    {/if}
+                                </div>
+                                {#if presentation.detailLabel}
+                                    <p class="mt-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
+                                        {presentation.detailLabel}
+                                    </p>
+                                {/if}
+                                {#if job.route}
+                                    <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline" onclick={() => openRoute(job)}>
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M6 4H12V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                                        </svg>
+                                        {$_('notifications.open_action')}
+                                    </button>
+                                {/if}
+                            </div>
+                        {:else}
+                            <div class="mt-4 rounded-2xl border border-dashed border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-950/30 px-4 py-6 text-center">
+                                <span class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-200/70 text-slate-500 dark:bg-slate-800/90 dark:text-slate-400">
+                                    <svg class="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                        <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
+                                        <path d="M5.5 8H10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                                    </svg>
+                                </span>
+                                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                                    {$_('jobs.thread_idle_detail', { default: 'This slot will hold the next active job.' })}
+                                </p>
+                            </div>
                         {/if}
                     </div>
                 {/each}

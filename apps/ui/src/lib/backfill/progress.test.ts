@@ -39,7 +39,7 @@ describe('updateScopedBackfillProgress', () => {
         });
     });
 
-    it('keeps totals unknown for the same running job until the backend reports one', () => {
+    it('uses observed progress as a scoped total when a running job never reports one', () => {
         const next = updateScopedBackfillProgress(
             { jobId: 'job-1', total: 0 },
             {
@@ -52,7 +52,7 @@ describe('updateScopedBackfillProgress', () => {
 
         expect(next).toEqual({
             jobId: 'job-1',
-            total: 0
+            total: 17
         });
     });
 
