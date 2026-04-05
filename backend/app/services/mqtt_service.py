@@ -77,10 +77,16 @@ class MQTTService:
         now = self._now_monotonic()
         frigate_topic = f"{settings.frigate.main_topic}/events"
         birdnet_topic = settings.frigate.audio_topic
+        birdnet_active_age_threshold = max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0)
         topic_ages = {
             frigate_topic: self._topic_age_seconds(frigate_topic, now),
             birdnet_topic: self._topic_age_seconds(birdnet_topic, now),
         }
+        stall_recovery_warning_active = bool(
+            self._stall_recovery_consecutive_no_frigate_reconnects > 0
+            and topic_ages[birdnet_topic] is not None
+            and topic_ages[birdnet_topic] <= birdnet_active_age_threshold
+        )
         return {
             "running": self.running,
             "paused": self.paused,
@@ -107,7 +113,8 @@ class MQTTService:
             "topic_liveness_reconnects": self._topic_liveness_reconnects,
             "last_reconnect_reason": self._last_reconnect_reason,
             "stall_recovery_consecutive_no_frigate_reconnects": self._stall_recovery_consecutive_no_frigate_reconnects,
-            "stall_recovery_warning_active": self._stall_recovery_consecutive_no_frigate_reconnects > 0,
+            "stall_recovery_warning_active": stall_recovery_warning_active,
+            "stall_recovery_warning_age_threshold_seconds": birdnet_active_age_threshold,
             "intentional_reconnect_pending": self._intentional_reconnect,
         }
 

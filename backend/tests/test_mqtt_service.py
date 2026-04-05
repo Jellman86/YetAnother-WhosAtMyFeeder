@@ -309,6 +309,9 @@ def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(
     service.running = True
     service._topic_liveness_reconnects = 1
     service._last_reconnect_reason = "frigate_topic_stalled"
+    service._topic_last_message_monotonic = {
+        "birdnet/detections": 405.0,
+    }
     service._topic_message_counts = {
         "frigate/events": 0,
         "birdnet/detections": 24,
@@ -321,6 +324,9 @@ def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(
         return kwargs
 
     monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", _record)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 410.0)
 
     should_reconnect = service._note_stall_reconnect(
         reason="frigate_topic_stalled",
@@ -336,6 +342,31 @@ def test_repeated_post_reconnect_no_frigate_sets_warning_and_records_diagnostic(
     assert status["stall_recovery_consecutive_no_frigate_reconnects"] == 1
     assert status["stall_recovery_warning_active"] is True
     assert recorded[0]["reason_code"] == "frigate_recovery_no_frigate_resume"
+
+
+def test_stall_recovery_warning_clears_when_birdnet_is_no_longer_fresh(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._stall_recovery_consecutive_no_frigate_reconnects = 1
+    service._connection_started_monotonic = 100.0
+    service._topic_message_counts = {
+        "frigate/events": 0,
+        "birdnet/detections": 2,
+    }
+    service._topic_last_message_monotonic = {
+        "birdnet/detections": 120.0,
+    }
+
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 280.0)
+
+    status = service.get_status()
+
+    assert status["stall_recovery_consecutive_no_frigate_reconnects"] == 1
+    assert status["topic_last_message_age_seconds"]["birdnet"] == 160.0
+    assert status["stall_recovery_warning_active"] is False
 
 
 def test_first_frigate_message_after_reconnect_warning_resets_counter(monkeypatch):
