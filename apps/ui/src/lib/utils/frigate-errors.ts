@@ -40,8 +40,15 @@ function isFrigateMediaError(code: string): boolean {
     );
 }
 
+function hasAccessibleMedia(detection: Detection): boolean {
+    return detection.has_clip === true || detection.has_snapshot === true;
+}
+
 export function hasFrigateMediaIssue(detection: Detection): boolean {
     const code = String(detection.video_classification_error || '');
+    if ((detection.has_frigate_event === false || code === 'event_not_found') && hasAccessibleMedia(detection)) {
+        return false;
+    }
     return (
         detection.has_frigate_event === false ||
         detection.has_snapshot === false ||
@@ -52,6 +59,32 @@ export function hasFrigateMediaIssue(detection: Detection): boolean {
 
 export function getVideoFailureInsight(detection: Detection, t: Translate): VideoFailureInsight {
     const code = String(detection.video_classification_error || 'unknown');
+
+    if ((detection.has_frigate_event === false || code === 'event_not_found') && hasAccessibleMedia(detection)) {
+        return {
+            errorCode: code,
+            summary: t('detection.video_analysis.errors.event_missing_media_cached', {
+                default: 'Frigate event metadata is gone, but cached media is still available in YA-WAMF.'
+            }),
+            causes: [
+                t('detection.video_analysis.error_details.causes.event_missing_media_cached', {
+                    default: 'YA-WAMF already cached media for this detection, so playback can still work even though the Frigate event no longer resolves.'
+                }),
+                t('detection.video_analysis.error_details.causes.event_missing_media_cached_retention', {
+                    default: 'Frigate may have rotated event metadata out of retention while YA-WAMF kept the derived snapshot or full-visit clip.'
+                })
+            ],
+            checks: [
+                t('detection.video_analysis.error_details.checks_items.use_cached_media', {
+                    default: 'Use the available snapshot or full clip in YA-WAMF; no immediate action is required if playback works.'
+                }),
+                t('detection.video_analysis.error_details.checks_items.frigate_retention_if_unexpected', {
+                    default: 'If this happened sooner than expected, review Frigate event retention settings.'
+                })
+            ],
+            isFrigateRelated: true
+        };
+    }
 
     if (detection.has_frigate_event === false || code === 'event_not_found') {
         return {

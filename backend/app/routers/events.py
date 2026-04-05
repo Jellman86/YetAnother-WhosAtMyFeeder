@@ -16,6 +16,7 @@ from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
@@ -202,26 +203,36 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
+    def cached_media_flags(event_id: str) -> dict[str, bool]:
+        cached_snapshot = media_cache.has_snapshot(event_id)
+        cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
+        return {
+            "has_clip": bool(cached_clip),
+            "has_snapshot": bool(cached_snapshot),
+        }
+
     async def check(event_id: str) -> tuple[str, dict[str, bool]]:
         async with semaphore:
             try:
                 event_data = await frigate_client.get_event(event_id)
+                cached_flags = cached_media_flags(event_id)
                 if not event_data:
                     return event_id, {
                         "has_frigate_event": False,
-                        "has_clip": False,
-                        "has_snapshot": False,
+                        "has_clip": cached_flags["has_clip"],
+                        "has_snapshot": cached_flags["has_snapshot"],
                     }
                 return event_id, {
                     "has_frigate_event": True,
-                    "has_clip": bool(event_data.get("has_clip", False)),
-                    "has_snapshot": bool(event_data.get("has_snapshot", True)),
+                    "has_clip": bool(event_data.get("has_clip", False)) or cached_flags["has_clip"],
+                    "has_snapshot": bool(event_data.get("has_snapshot", True)) or cached_flags["has_snapshot"],
                 }
             except Exception:
+                cached_flags = cached_media_flags(event_id)
                 return event_id, {
                     "has_frigate_event": False,
-                    "has_clip": False,
-                    "has_snapshot": False,
+                    "has_clip": cached_flags["has_clip"],
+                    "has_snapshot": cached_flags["has_snapshot"],
                 }
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))

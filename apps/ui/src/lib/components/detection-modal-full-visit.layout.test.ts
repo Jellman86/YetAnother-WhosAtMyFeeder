@@ -21,6 +21,9 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55');
         expect(detectionModalSource).toContain('M7 3H5a2 2 0 00-2 2v2');
         expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
+        expect(detectionModalSource).toContain("title={videoFailureInsight.summary}");
+        expect(detectionModalSource).toContain('inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92');
+        expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
         expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(eventsPageSource).toContain('selectedEventFullVisitHandler');

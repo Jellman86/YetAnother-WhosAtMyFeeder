@@ -1679,11 +1679,11 @@
                     {#if frigateIssueBadgeVisible}
                         <div class="absolute top-4 right-4 z-30">
                             <div
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-600/95 text-white text-[10px] font-black uppercase tracking-wider shadow-xl shadow-rose-900/35 border border-rose-300/30 backdrop-blur-sm"
-                                title={$_('detection.frigate_media_missing', { default: 'Frigate Media Missing' })}
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                title={videoFailureInsight.summary}
+                                aria-label={videoFailureInsight.summary}
                             >
-                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="w-3.5 h-3.5 rounded-[2px] bg-white/95 p-0.5 object-contain" />
-                                <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
+                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
                             </div>
                         </div>
                     {/if}
@@ -1810,9 +1810,12 @@
                             </p>
                         </div>
                         {#if videoFailureInsight.isFrigateRelated}
-                            <div class="shrink-0 inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white">
-                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="w-3 h-3 rounded-[2px] bg-white/95 p-0.5 object-contain" />
-                                <span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>
+                            <div
+                                class="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                title={$_('detection.frigate_badge', { default: 'Frigate' })}
+                                aria-label={$_('detection.frigate_badge', { default: 'Frigate' })}
+                            >
+                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-3.5 w-3.5 rounded-[3px] bg-white/95 p-0.5 object-contain" />
                             </div>
                         {/if}
                     </div>
