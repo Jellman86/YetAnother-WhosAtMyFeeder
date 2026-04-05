@@ -1619,7 +1619,7 @@
     	                        type="button"
     	                        onclick={handleFavoriteToggle}
     	                        disabled={favoritePending}
-    		                        class="absolute top-4 left-4 z-30 inline-flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+    	                        class="absolute top-4 left-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
     	                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
     	                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
     	                    >
@@ -1630,11 +1630,6 @@
     	                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
     	                            </svg>
     	                        {/if}
-    	                        <span class="text-[11px] font-black uppercase tracking-wider">
-    	                            {detection.is_favorite
-    	                                ? $_('detection.favorite_label_active', { default: 'Favorited' })
-    	                                : $_('detection.favorite_label', { default: 'Favorite' })}
-    	                        </span>
     	                    </button>
     	                {/if}
     	                <div class="absolute bottom-0 left-0 right-0 p-6">
@@ -1678,12 +1673,11 @@
                                         e.stopPropagation();
                                     }}
                                     aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                                    class="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                         <path d="M8 5v14l11-7z"/>
                                     </svg>
-                                    <span>{$_('common.play', { default: 'Play' })}</span>
                                 </button>
                             </div>
                         {/if}
