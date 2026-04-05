@@ -851,6 +851,13 @@
         try {
             const result = await analyzeDetection(detection.frigate_event, force);
             aiAnalysis = result.analysis;
+            detection.ai_analysis = result.analysis;
+            detection.ai_analysis_timestamp = result.analysis_timestamp;
+            detectionsStore.updateDetection({
+                ...detection,
+                ai_analysis: result.analysis,
+                ai_analysis_timestamp: result.analysis_timestamp,
+            });
             await loadConversation();
         } catch (e: any) {
             aiAnalysis = $_('detection.ai.error', { values: { message: e.message || 'Analysis failed' } });
@@ -877,13 +884,17 @@
                 category_name: selection.scientific_name ?? selection.display_name ?? requestedSpecies,
                 manual_tagged: true,
                 scientific_name: selection.scientific_name ?? detection.scientific_name,
-                common_name: selection.common_name ?? detection.common_name
+                common_name: selection.common_name ?? detection.common_name,
+                ai_analysis: null,
+                ai_analysis_timestamp: null,
             };
             detection.display_name = appliedSpecies;
             detection.category_name = nextDetection.category_name;
             detection.manual_tagged = true;
             detection.scientific_name = nextDetection.scientific_name;
             detection.common_name = nextDetection.common_name;
+            detection.ai_analysis = null;
+            detection.ai_analysis_timestamp = null;
             detectionsStore.updateDetection(nextDetection);
             showTagDropdown = false;
             tagSearchQuery = '';

@@ -45,4 +45,17 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('if (!authStore.hasOwnerAccess) return;');
         expect(detectionModalSource).not.toContain('{#if authStore.canModify}\n                <div class="flex gap-2">');
     });
+
+    it('persists generated AI analysis back into the current detection state', () => {
+        expect(detectionModalSource).toContain('result.analysis_timestamp');
+        expect(detectionModalSource).toContain('detection.ai_analysis = result.analysis;');
+        expect(detectionModalSource).toContain('detection.ai_analysis_timestamp = result.analysis_timestamp;');
+        expect(detectionModalSource).toContain('detectionsStore.updateDetection({');
+        expect(detectionModalSource).toContain('ai_analysis: result.analysis');
+        expect(detectionModalSource).toContain('ai_analysis_timestamp: result.analysis_timestamp');
+        expect(detectionModalSource).toContain('detection.ai_analysis = null;');
+        expect(detectionModalSource).toContain('detection.ai_analysis_timestamp = null;');
+        expect(dashboardPageSource).toContain('asText(d.ai_analysis)');
+        expect(dashboardPageSource).toContain('asText(d.ai_analysis_timestamp)');
+    });
 });

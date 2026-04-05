@@ -88,6 +88,7 @@ async def test_ai_analysis_prefers_cached_recording_clip(client: httpx.AsyncClie
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text
+        assert response.json()["analysis_timestamp"]
         mock_event_clip.assert_not_awaited()
         mock_extract.assert_called_once_with(b"recording-bytes", frame_count=5, clip_variant="recording")
         assert mock_analyze.await_args.kwargs["metadata"]["frame_source"] == "recording"
@@ -113,6 +114,7 @@ async def test_ai_analysis_falls_back_to_event_clip_when_recording_missing(clien
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text
+        assert response.json()["analysis_timestamp"]
         mock_event_clip.assert_awaited_once()
         mock_extract.assert_called_once_with(b"event-bytes", frame_count=5, clip_variant="event")
         assert mock_analyze.await_args.kwargs["metadata"]["frame_source"] == "event"
@@ -139,6 +141,7 @@ async def test_ai_analysis_falls_back_to_snapshot_when_clip_frames_unavailable(c
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text
+        assert response.json()["analysis_timestamp"]
         mock_snapshot.assert_awaited_once()
         assert mock_analyze.await_args.kwargs["image_data"] == b"snapshot-bytes"
         assert mock_analyze.await_args.kwargs["metadata"]["frame_source"] == "snapshot"

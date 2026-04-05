@@ -135,7 +135,9 @@
             asFlag(d.is_favorite),
             asText(d.video_classification_status),
             asText(d.video_classification_label),
-            asNumber(d.video_classification_score)
+            asNumber(d.video_classification_score),
+            asText(d.ai_analysis),
+            asText(d.ai_analysis_timestamp),
         ].join('|');
     }
 

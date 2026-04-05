@@ -279,11 +279,14 @@ export async function activateModel(modelId: string): Promise<{ status: string; 
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function analyzeDetection(eventId: string, force: boolean = false): Promise<{ analysis: string }> {
+export async function analyzeDetection(
+    eventId: string,
+    force: boolean = false,
+): Promise<{ analysis: string; analysis_timestamp: string }> {
     const url = force
         ? `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze?force=true`
         : `${API_BASE}/events/${encodeURIComponent(eventId)}/analyze`;
-    return fetchWithAbort<{ analysis: string }>(
+    return fetchWithAbort<{ analysis: string; analysis_timestamp: string }>(
         `analyze-${eventId}`,
         url,
         { method: 'POST' }

@@ -21,4 +21,9 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toContain("$_('common.selected', { default: 'selected' })");
         expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to tag together.'");
     });
+
+    it('treats AI analysis fields as part of selected-event sync state', () => {
+        expect(eventsSource).toContain('asText(d.ai_analysis)');
+        expect(eventsSource).toContain('asText(d.ai_analysis_timestamp)');
+    });
 });

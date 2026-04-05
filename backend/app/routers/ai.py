@@ -24,6 +24,7 @@ log = structlog.get_logger()
 
 class AIAnalysisResponse(BaseModel):
     analysis: str
+    analysis_timestamp: str
 
 class LeaderboardAnalysisRequest(BaseModel):
     config: dict
@@ -128,7 +129,10 @@ async def analyze_event(
         # Check if analysis already exists and force is not set
         if detection.ai_analysis and not force:
             log.info("returning_cached_analysis", event_id=event_id)
-            return AIAnalysisResponse(analysis=detection.ai_analysis)
+            return AIAnalysisResponse(
+                analysis=detection.ai_analysis,
+                analysis_timestamp=_serialize_timestamp(detection.ai_analysis_timestamp),
+            )
 
         if not auth.is_owner:
             raise HTTPException(
@@ -185,9 +189,12 @@ async def analyze_event(
         )
 
         # Save analysis to database
-        await repo.update_ai_analysis(event_id, analysis)
+        analysis_timestamp = await repo.update_ai_analysis(event_id, analysis)
 
-        return AIAnalysisResponse(analysis=analysis)
+        return AIAnalysisResponse(
+            analysis=analysis,
+            analysis_timestamp=_serialize_timestamp(analysis_timestamp),
+        )
 
 @router.get("/leaderboard/analysis", response_model=LeaderboardAnalysisResponse)
 async def get_leaderboard_analysis(

@@ -557,7 +557,7 @@ class DetectionRepository:
             )
             return False
 
-    async def update_ai_analysis(self, frigate_event: str, analysis: str):
+    async def update_ai_analysis(self, frigate_event: str, analysis: str) -> datetime:
         """Update AI naturalist analysis for an event."""
         now = utc_naive_now()
         await self.db.execute("""
@@ -567,6 +567,7 @@ class DetectionRepository:
             WHERE frigate_event = ?
         """, (analysis, now, frigate_event))
         await self.db.commit()
+        return now
 
     async def toggle_hidden(self, frigate_event: str) -> Optional[bool]:
         """Toggle the hidden status of a detection. Returns new hidden status or None if not found."""
