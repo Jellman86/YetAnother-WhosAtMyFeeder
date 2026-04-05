@@ -1072,6 +1072,31 @@
             radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
     }
 
+    /* Blue Tit theme — light */
+    :global(.theme-bluetit:not(.dark)) .ai-surface {
+        background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), rgba(29, 78, 216, 0.05));
+        border-color: rgba(37, 99, 235, 0.22);
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
+    }
+    :global(.theme-bluetit:not(.dark)) .ai-surface::before {
+        background:
+            radial-gradient(900px 420px at 18% 0%, rgba(37, 99, 235, 0.12), transparent 60%),
+            radial-gradient(680px 420px at 92% 95%, rgba(29, 78, 216, 0.10), transparent 55%);
+    }
+
+    /* Blue Tit theme — dark */
+    :global(.theme-bluetit.dark) .ai-surface {
+        background: linear-gradient(145deg, rgba(29, 78, 216, 0.22), rgba(15, 23, 42, 0.80));
+        border-color: rgba(96, 165, 250, 0.35);
+        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.44);
+    }
+    :global(.theme-bluetit.dark) .ai-surface::before {
+        background:
+            radial-gradient(980px 440px at 16% 0%, rgba(96, 165, 250, 0.14), transparent 62%),
+            radial-gradient(760px 520px at 88% 90%, rgba(251, 191, 36, 0.10), transparent 58%),
+            radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
+    }
+
     .ai-panel {
         position: relative;
     }
@@ -1089,6 +1114,9 @@
     :global([data-theme='dark']) .ai-panel__label {
         color: rgb(94 234 212);
     }
+
+    :global(.theme-bluetit:not(.dark)) .ai-panel__label { color: rgb(29 78 216); }
+    :global(.theme-bluetit.dark) .ai-panel__label { color: rgb(96 165 250); }
 
     :global(.dark) .ai-panel__content,
     :global([data-theme='dark']) .ai-panel__content {
@@ -1408,6 +1436,23 @@
 
     .ai-bubble--assistant {
         border-color: rgba(20, 184, 166, 0.35);
+    }
+
+    /* Blue Tit theme — ai-bubble */
+    :global(.theme-bluetit:not(.dark)) .ai-bubble.ai-surface {
+        border-color: rgba(37, 99, 235, 0.22);
+        background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), rgba(29, 78, 216, 0.05));
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
+    }
+    :global(.theme-bluetit.dark) .ai-bubble.ai-surface {
+        background: linear-gradient(145deg, rgba(29, 78, 216, 0.20), rgba(15, 23, 42, 0.80));
+        border-color: rgba(96, 165, 250, 0.35);
+    }
+    :global(.theme-bluetit:not(.dark)) .ai-bubble--assistant {
+        border-color: rgba(37, 99, 235, 0.35);
+    }
+    :global(.theme-bluetit.dark) .ai-bubble--assistant {
+        border-color: rgba(96, 165, 250, 0.40);
     }
 
     .ai-bubble--user {

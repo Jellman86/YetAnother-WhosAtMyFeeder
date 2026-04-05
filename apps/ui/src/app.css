@@ -784,112 +784,126 @@ html.theme-bluetit.dark {
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-/* ── 13. Video Player (Plyr) ── */
+/* ── 13. Video Player (Plyr) ──
+ * VideoPlayer.svelte globalises `.plyr` via its scoped `<style>` block, so we can
+ * target these classes directly from plain CSS here (no `:global()` wrapper).
+ */
 
-.theme-bluetit :global(.plyr) { --plyr-color-main: #2563eb; }
-.theme-bluetit :global(.plyr--full-ui input[type='range']) { color: #2563eb; }
-
-/* ── 14. AI Analysis Surface & Markdown ── */
-
-/* Light mode surface */
-:global(.theme-bluetit:not(.dark)) .ai-surface {
-  background: linear-gradient(145deg, rgba(37, 99, 235, 0.07), rgba(29, 78, 216, 0.05));
-  border-color: rgba(37, 99, 235, 0.20);
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+html.theme-bluetit .plyr {
+  --plyr-color-main: #2563eb;
+  --plyr-video-control-color-hover: #ffffff;
+  --plyr-range-fill-background: #2563eb;
+  --plyr-audio-control-color-hover: #2563eb;
+  --plyr-video-progress-buffered-background: rgba(37, 99, 235, 0.25);
 }
-:global(.theme-bluetit:not(.dark)) .ai-surface::before {
-  background:
-    radial-gradient(900px 420px at 18% 0%, rgba(37, 99, 235, 0.10), transparent 60%),
-    radial-gradient(680px 420px at 92% 95%, rgba(29, 78, 216, 0.08), transparent 55%);
-}
-
-/* Dark mode surface */
-:global(.theme-bluetit.dark) .ai-surface {
-  background: linear-gradient(145deg, rgba(29, 78, 216, 0.18), rgba(15, 23, 42, 0.78));
-  border-color: rgba(96, 165, 250, 0.30);
-  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
-}
-:global(.theme-bluetit.dark) .ai-surface::before {
-  background:
-    radial-gradient(980px 440px at 16% 0%, rgba(96, 165, 250, 0.12), transparent 62%),
-    radial-gradient(760px 520px at 88% 90%, rgba(251, 191, 36, 0.08), transparent 58%),
-    radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
+html.theme-bluetit.dark .plyr {
+  --plyr-color-main: #60a5fa;
+  --plyr-range-fill-background: #60a5fa;
+  --plyr-audio-control-color-hover: #60a5fa;
+  --plyr-video-progress-buffered-background: rgba(96, 165, 250, 0.28);
 }
 
-/* AI bubble variants */
-:global(.theme-bluetit:not(.dark)) .ai-bubble.ai-surface {
-  border-color: rgba(37, 99, 235, 0.20);
-  background: linear-gradient(145deg, rgba(37, 99, 235, 0.07), rgba(29, 78, 216, 0.05));
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
-}
-:global(.theme-bluetit.dark) .ai-bubble.ai-surface {
-  background: linear-gradient(145deg, rgba(29, 78, 216, 0.16), rgba(15, 23, 42, 0.78));
-  border-color: rgba(96, 165, 250, 0.30);
-}
-:global(.theme-bluetit:not(.dark)) .ai-bubble--assistant { border-color: rgba(37, 99, 235, 0.30); }
+/* Range/progress sliders */
+html.theme-bluetit .plyr--full-ui input[type='range'] { color: #2563eb; }
+html.theme-bluetit.dark .plyr--full-ui input[type='range'] { color: #60a5fa; }
 
-/* Panel labels */
-:global(.theme-bluetit:not(.dark)) .ai-panel__label { color: rgb(29 78 216); }
-:global(.theme-bluetit.dark) .ai-panel__label { color: rgb(96 165 250); }
+/* Progress bar buffered fill */
+html.theme-bluetit .plyr__progress__buffer { color: rgba(37, 99, 235, 0.35); }
+html.theme-bluetit.dark .plyr__progress__buffer { color: rgba(96, 165, 250, 0.38); }
+
+/* Hovered/active controls (play, volume, settings, etc.) */
+html.theme-bluetit .plyr__control:hover,
+html.theme-bluetit .plyr__control[aria-expanded='true'],
+html.theme-bluetit .plyr__control.plyr__tab-focus {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+html.theme-bluetit.dark .plyr__control:hover,
+html.theme-bluetit.dark .plyr__control[aria-expanded='true'],
+html.theme-bluetit.dark .plyr__control.plyr__tab-focus {
+  background: #60a5fa !important;
+  color: #0b1220 !important;
+}
+
+/* Overlaid big play button */
+html.theme-bluetit .plyr__control--overlaid {
+  background: rgba(37, 99, 235, 0.9) !important;
+}
+html.theme-bluetit.dark .plyr__control--overlaid {
+  background: rgba(96, 165, 250, 0.9) !important;
+}
+
+/* Menu item highlight */
+html.theme-bluetit .plyr__menu__container .plyr__control[role='menuitemradio'][aria-checked='true']::before {
+  background: #2563eb;
+}
+html.theme-bluetit.dark .plyr__menu__container .plyr__control[role='menuitemradio'][aria-checked='true']::before {
+  background: #60a5fa;
+}
+
+/* ── 14. AI Analysis Surface & Markdown ──
+ * `.ai-markdown-surface` descendants are globalised in DetectionModal.svelte,
+ * so we target them directly here.
+ */
 
 /* Markdown headings */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h1),
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h2),
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h3),
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h4),
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h5),
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface h6) { color: rgb(29 78 216); }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h1),
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h2),
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h3),
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h4),
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h5),
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface h6) { color: rgb(96 165 250); }
+html.theme-bluetit:not(.dark) .ai-markdown-surface h1,
+html.theme-bluetit:not(.dark) .ai-markdown-surface h2,
+html.theme-bluetit:not(.dark) .ai-markdown-surface h3,
+html.theme-bluetit:not(.dark) .ai-markdown-surface h4,
+html.theme-bluetit:not(.dark) .ai-markdown-surface h5,
+html.theme-bluetit:not(.dark) .ai-markdown-surface h6 { color: rgb(29 78 216); }
+html.theme-bluetit.dark .ai-markdown-surface h1,
+html.theme-bluetit.dark .ai-markdown-surface h2,
+html.theme-bluetit.dark .ai-markdown-surface h3,
+html.theme-bluetit.dark .ai-markdown-surface h4,
+html.theme-bluetit.dark .ai-markdown-surface h5,
+html.theme-bluetit.dark .ai-markdown-surface h6 { color: rgb(96 165 250); }
 
 /* Markdown strong */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface strong) { color: rgb(30 64 175); }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface strong) { color: rgb(191 219 254); }
+html.theme-bluetit:not(.dark) .ai-markdown-surface strong { color: rgb(30 64 175); }
+html.theme-bluetit.dark .ai-markdown-surface strong { color: rgb(191 219 254); }
 
 /* Markdown links */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface a) { color: rgb(29 78 216); }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface a) { color: rgb(96 165 250); }
+html.theme-bluetit:not(.dark) .ai-markdown-surface a { color: rgb(29 78 216); }
+html.theme-bluetit.dark .ai-markdown-surface a { color: rgb(96 165 250); }
 
 /* Markdown code */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface code) {
+html.theme-bluetit:not(.dark) .ai-markdown-surface code {
   background: rgba(37, 99, 235, 0.08);
   color: rgb(29 78 216);
 }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface code) {
+html.theme-bluetit.dark .ai-markdown-surface code {
   background: rgba(96, 165, 250, 0.20);
   color: rgb(191 219 254);
 }
 
 /* Markdown pre */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface pre) {
+html.theme-bluetit:not(.dark) .ai-markdown-surface pre {
   background: rgba(37, 99, 235, 0.06);
   border-color: rgba(37, 99, 235, 0.10);
 }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface pre) {
+html.theme-bluetit.dark .ai-markdown-surface pre {
   border-color: rgba(96, 165, 250, 0.18);
 }
 
 /* Markdown blockquote */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface blockquote) {
+html.theme-bluetit:not(.dark) .ai-markdown-surface blockquote {
   border-left-color: rgba(37, 99, 235, 0.45);
   background: rgba(37, 99, 235, 0.06);
 }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface blockquote) {
+html.theme-bluetit.dark .ai-markdown-surface blockquote {
   background: rgba(37, 99, 235, 0.15);
   border-left-color: rgba(96, 165, 250, 0.6);
 }
 
 /* Markdown list markers */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface li::marker) { color: rgba(37, 99, 235, 0.5); }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface li::marker) { color: rgba(96, 165, 250, 0.5); }
+html.theme-bluetit:not(.dark) .ai-markdown-surface li::marker { color: rgba(37, 99, 235, 0.5); }
+html.theme-bluetit.dark .ai-markdown-surface li::marker { color: rgba(96, 165, 250, 0.5); }
 
 /* Markdown table headers */
-:global(.theme-bluetit:not(.dark)) :global(.ai-markdown-surface th) { color: rgb(29 78 216); }
-:global(.theme-bluetit.dark) :global(.ai-markdown-surface th) { color: rgb(191 219 254); }
+html.theme-bluetit:not(.dark) .ai-markdown-surface th { color: rgb(29 78 216); }
+html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
 
 
 /* Accessibility Modes */
