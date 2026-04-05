@@ -93,6 +93,13 @@ def _empty_breaker_state() -> dict[JobSource, dict[str, object]]:
         },
     }
 
+
+def _empty_timeout_state() -> dict[JobSource, dict[str, object]]:
+    return {
+        "live": {"count": 0, "last": None},
+        "maintenance": {"count": 0, "last": None},
+    }
+
 class AutoVideoClassifierService:
     """
     Service to automatically classify video clips from Frigate events.
@@ -105,6 +112,7 @@ class AutoVideoClassifierService:
         self._active_tasks: Dict[str, asyncio.Task] = {}
         self._classifier = get_classifier()
         self._breaker_state = _empty_breaker_state()
+        self._timeout_state = _empty_timeout_state()
         self._pending_queue: asyncio.Queue[tuple[str, str, bool, bool, JobSource]] = asyncio.Queue(
             maxsize=MAX_PENDING_QUEUE
         )
@@ -144,6 +152,7 @@ class AutoVideoClassifierService:
             task.cancel()
         self._active_tasks.clear()
         self._pending_ids.clear()
+        self._timeout_state = _empty_timeout_state()
         log.info("AutoVideoClassifierService stopped")
 
     async def reset_state(self):
@@ -349,6 +358,9 @@ class AutoVideoClassifierService:
     def _breaker_bucket(self, source: JobSource) -> dict[str, object]:
         return self._breaker_state[source]
 
+    def _timeout_bucket(self, source: JobSource) -> dict[str, object]:
+        return self._timeout_state[source]
+
     def _reset_all_breakers(self) -> None:
         self._breaker_state = _empty_breaker_state()
 
@@ -437,6 +449,17 @@ class AutoVideoClassifierService:
                 [(ts, eid) for ts, eid in failure_events if eid != event_id]
             )
 
+    def _record_timeout(self, event_id: str, *, source: JobSource = "live", context: Optional[dict] = None) -> None:
+        bucket = self._timeout_bucket(source)
+        bucket["count"] = int(bucket.get("count") or 0) + 1
+        details = {
+            "event_id": event_id,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if context:
+            details.update(dict(context))
+        bucket["last"] = details
+
     def _is_circuit_open(self, source: JobSource = "live") -> bool:
         open_until = cast(float | None, self._breaker_bucket(source)["open_until"])
         if not open_until:
@@ -484,6 +507,8 @@ class AutoVideoClassifierService:
         self._cleanup_completed_tasks()
         circuit = self.get_circuit_status("live")
         maintenance_circuit = self.get_circuit_status("maintenance")
+        live_timeout = self._timeout_bucket("live")
+        maintenance_timeout = self._timeout_bucket("maintenance")
         pending = self._pending_queue.qsize()
         configured_max = int(settings.classification.video_classification_max_concurrent or 1)
         throttle_state = self._get_mqtt_throttle_state(configured_max)
@@ -496,6 +521,10 @@ class AutoVideoClassifierService:
             "maintenance_circuit_open": maintenance_circuit["open"],
             "maintenance_open_until": maintenance_circuit["open_until"],
             "maintenance_failure_count": maintenance_circuit["failure_count"],
+            "live_timeout_count": int(live_timeout["count"]),
+            "maintenance_timeout_count": int(maintenance_timeout["count"]),
+            "last_live_timeout": live_timeout["last"],
+            "last_maintenance_timeout": maintenance_timeout["last"],
             "pending_capacity": MAX_PENDING_QUEUE,
             "pending_available": max(0, MAX_PENDING_QUEUE - pending),
             "max_concurrent_configured": configured_max,
@@ -794,17 +823,42 @@ class AutoVideoClassifierService:
                     )
                 except asyncio.TimeoutError:
                     log.warning("Video classification timed out", event_id=frigate_event, timeout_seconds=timeout)
+                    timeout_context = {
+                        "timeout_seconds": timeout,
+                        "source": source,
+                        "camera": camera,
+                        "clip_bytes": len(clip_bytes),
+                        "max_frames": settings.classification.video_classification_frames,
+                    }
+                    timeout_context.update(self._clip_probe_context(tmp_path))
+
+                    if source == "maintenance" and fallback_to_snapshot:
+                        timeout_context["snapshot_fallback_attempted"] = True
+                        snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
+                        timeout_context["snapshot_fallback_recovered"] = snapshot_error is None
+                        if snapshot_error is not None:
+                            timeout_context["snapshot_fallback_error"] = snapshot_error
+                        self._record_timeout(frigate_event, source=source, context=timeout_context)
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="video_timeout",
+                            message="Video classification exceeded the configured timeout",
+                            severity="warning" if snapshot_error is None else "error",
+                            context=timeout_context,
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+
+                    self._record_timeout(frigate_event, source=source, context=timeout_context)
                     self._record_diagnostic(
                         frigate_event,
                         reason_code="video_timeout",
                         message="Video classification exceeded the configured timeout",
                         severity="error",
-                        context={
-                            "timeout_seconds": timeout,
-                            "source": source,
-                            "camera": camera,
-                            "clip_bytes": len(clip_bytes),
-                        },
+                        context=timeout_context,
                     )
                     await self._update_status(frigate_event, 'failed', error="video_timeout", broadcast=True)
                     self._record_failure(frigate_event, "video_timeout", source=source)
@@ -947,6 +1001,26 @@ class AutoVideoClassifierService:
         if isinstance(recovery, dict):
             context["last_runtime_recovery"] = dict(recovery)
         return context
+
+    def _clip_probe_context(self, clip_path: str) -> dict:
+        import cv2
+
+        context: dict = {}
+        cap = cv2.VideoCapture(clip_path)
+        try:
+            if not cap.isOpened():
+                return context
+            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            if frame_count > 0:
+                context["clip_frame_count"] = frame_count
+            if fps > 0:
+                context["clip_fps"] = round(fps, 3)
+            if frame_count > 0 and fps > 0:
+                context["clip_duration_seconds"] = round(frame_count / fps, 3)
+            return context
+        finally:
+            cap.release()
 
     async def _wait_for_clip(self, frigate_event: str, skip_delay: bool = False) -> tuple[Optional[bytes], Optional[str]]:
         """Poll Frigate for clip availability with retries."""

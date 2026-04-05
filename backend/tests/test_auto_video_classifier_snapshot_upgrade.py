@@ -359,7 +359,52 @@ async def test_process_event_timeout_diagnostic_includes_job_source_and_clip_con
         assert event["context"]["camera"] == "cam1"
         assert event["context"]["clip_bytes"] == len(b"clip-bytes")
         assert event["context"]["timeout_seconds"] == settings.classification.video_classification_timeout_seconds
+        assert event["context"]["max_frames"] == settings.classification.video_classification_frames
         assert event["context"]["inference_backend"] == "openvino"
         assert event["context"]["active_provider"] == "intel_gpu"
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_breaker_failure():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(side_effect=asyncio.TimeoutError())
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ), patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+            await service._process_event(
+                "evt-video-timeout-fallback",
+                "cam1",
+                skip_delay=True,
+                fallback_to_snapshot=True,
+                source="maintenance",
+            )
+
+        service._classify_from_snapshot.assert_awaited_once_with("evt-video-timeout-fallback", "cam1")
+        service._record_success.assert_called_once_with("evt-video-timeout-fallback", source="maintenance")
+        service._record_failure.assert_not_called()
+        service._update_status.assert_any_await("evt-video-timeout-fallback", "processing", error=None, broadcast=False)
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(
+            item
+            for item in snapshot["events"]
+            if item["event_id"] == "evt-video-timeout-fallback" and item["reason_code"] == "video_timeout"
+        )
+        assert event["context"]["snapshot_fallback_attempted"] is True
+        assert event["context"]["snapshot_fallback_recovered"] is True
     finally:
         error_diagnostics_history.clear()

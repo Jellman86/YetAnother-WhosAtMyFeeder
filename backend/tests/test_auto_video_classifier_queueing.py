@@ -423,3 +423,28 @@ async def test_circuit_auto_closes_after_cooldown_expires(monkeypatch):
     assert service.get_status()["failure_count"] == 0
     assert len(service._failure_events) == 0
     assert len(service._failure_event_ids) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_status_reports_timeout_counters_per_source():
+    service = AutoVideoClassifierService()
+
+    service._record_timeout(
+        "evt-live-timeout",
+        source="live",
+        context={"camera": "cam-live", "timeout_seconds": 180, "clip_bytes": 1234},
+    )
+    service._record_timeout(
+        "evt-maint-timeout",
+        source="maintenance",
+        context={"camera": "cam-maint", "timeout_seconds": 180, "clip_bytes": 5678},
+    )
+
+    status = service.get_status()
+
+    assert status["live_timeout_count"] == 1
+    assert status["maintenance_timeout_count"] == 1
+    assert status["last_live_timeout"]["event_id"] == "evt-live-timeout"
+    assert status["last_live_timeout"]["camera"] == "cam-live"
+    assert status["last_maintenance_timeout"]["event_id"] == "evt-maint-timeout"
+    assert status["last_maintenance_timeout"]["clip_bytes"] == 5678
