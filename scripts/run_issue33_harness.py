@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -53,7 +54,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mqtt-password", default=os.getenv("SOAK_MQTT_PASSWORD", os.getenv("MQTT_PASSWORD")))
     parser.add_argument("--mqtt-publish-container", default=os.getenv("SOAK_MQTT_PUBLISH_CONTAINER", ""))
     parser.add_argument("--frigate-topic", default=os.getenv("SOAK_FRIGATE_TOPIC", "frigate/events"))
-    parser.add_argument("--birdnet-topic", default=os.getenv("SOAK_BIRDNET_TOPIC", "birdnet/text"))
+    parser.add_argument("--birdnet-topic", default=os.getenv("SOAK_BIRDNET_TOPIC", ""))
     parser.add_argument("--disable-frigate-publisher", action="store_true")
     parser.add_argument("--disable-birdnet-publisher", action="store_true")
     parser.add_argument("--frigate-event-type", choices=["update", "new", "end"], default="update")
@@ -106,23 +107,109 @@ def _normalize_issue33_evaluation(
     evaluation: dict[str, Any],
     *,
     induced_frigate_stall: bool,
+    samples: list[Any] | None = None,
+    induced_frigate_stall_at: str | None = None,
+    birdnet_publish_stats: dict[str, Any] | None = None,
+    max_birdnet_active_age_seconds: float | None = None,
 ) -> dict[str, Any]:
-    if not induced_frigate_stall:
-        return evaluation
-
-    filtered_reasons = [
-        reason
-        for reason in list(evaluation.get("failure_reasons") or [])
-        if not (
-            reason.startswith("Frigate topic message growth below threshold ")
-            or reason.startswith("Frigate stream stalled while BirdNET remained active ")
-        )
-    ]
-
     normalized = dict(evaluation)
+    filtered_reasons = list(normalized.get("failure_reasons") or [])
+
+    if induced_frigate_stall:
+        filtered_reasons = [
+            reason
+            for reason in filtered_reasons
+            if not (
+                reason.startswith("Frigate topic message growth below threshold ")
+                or reason.startswith("Frigate stream stalled while BirdNET remained active ")
+                or reason.startswith("BirdNET topic message growth below threshold ")
+            )
+        ]
+
+    birdnet_state = _assess_issue33_birdnet_liveness(
+        samples=samples or [],
+        induced_frigate_stall=induced_frigate_stall,
+        induced_frigate_stall_at=induced_frigate_stall_at,
+        birdnet_publish_stats=birdnet_publish_stats or {},
+        max_birdnet_active_age_seconds=max_birdnet_active_age_seconds,
+    )
+    if birdnet_state["failure_reason"]:
+        filtered_reasons.append(str(birdnet_state["failure_reason"]))
+
     normalized["failure_reasons"] = filtered_reasons
     normalized["passed"] = len(filtered_reasons) == 0
+    normalized["birdnet_publisher_ok"] = birdnet_state["publisher_ok"]
+    normalized["birdnet_stall_window_samples"] = birdnet_state["stall_window_samples"]
+    normalized["birdnet_stayed_fresh_during_stall"] = birdnet_state["stayed_fresh"]
     return normalized
+
+
+def _assess_issue33_birdnet_liveness(
+    *,
+    samples: list[Any],
+    induced_frigate_stall: bool,
+    induced_frigate_stall_at: str | None,
+    birdnet_publish_stats: dict[str, Any],
+    max_birdnet_active_age_seconds: float | None,
+) -> dict[str, Any]:
+    if not samples and not birdnet_publish_stats:
+        return {
+            "publisher_ok": True,
+            "stall_window_samples": 0,
+            "stayed_fresh": True,
+            "failure_reason": None,
+        }
+
+    published = int(birdnet_publish_stats.get("published") or 0)
+    publish_failures = int(birdnet_publish_stats.get("publish_failures") or 0)
+    connect_failures = int(birdnet_publish_stats.get("connect_failures") or 0)
+    publisher_ok = published > 0 and publish_failures == 0 and connect_failures == 0
+
+    if not induced_frigate_stall:
+        return {
+            "publisher_ok": publisher_ok,
+            "stall_window_samples": 0,
+            "stayed_fresh": True,
+            "failure_reason": None,
+        }
+
+    if not publisher_ok:
+        return {
+            "publisher_ok": False,
+            "stall_window_samples": 0,
+            "stayed_fresh": False,
+            "failure_reason": "Synthetic BirdNET publisher did not produce healthy traffic.",
+        }
+
+    if not induced_frigate_stall_at or max_birdnet_active_age_seconds is None:
+        return {
+            "publisher_ok": True,
+            "stall_window_samples": 0,
+            "stayed_fresh": True,
+            "failure_reason": None,
+        }
+
+    stall_started_at = datetime.fromisoformat(induced_frigate_stall_at)
+    stall_samples = [sample for sample in samples if getattr(sample, "observed_at", stall_started_at) >= stall_started_at]
+    if not stall_samples:
+        return {
+            "publisher_ok": True,
+            "stall_window_samples": 0,
+            "stayed_fresh": False,
+            "failure_reason": "No health samples were captured during the induced Frigate stall window.",
+        }
+
+    stayed_fresh = all(
+        getattr(sample, "mqtt_birdnet_age_seconds", None) is not None
+        and float(getattr(sample, "mqtt_birdnet_age_seconds")) <= max_birdnet_active_age_seconds
+        for sample in stall_samples
+    )
+    return {
+        "publisher_ok": True,
+        "stall_window_samples": len(stall_samples),
+        "stayed_fresh": stayed_fresh,
+        "failure_reason": None if stayed_fresh else "BirdNET did not stay fresh during the induced Frigate stall window.",
+    }
 
 
 def _request_json_with_body(
@@ -144,6 +231,29 @@ def _request_json_with_body(
     with urlopen(request, timeout=timeout_seconds) as response:
         response_payload = response.read()
     return json.loads(response_payload.decode("utf-8"))
+
+
+def _fetch_owner_settings(
+    *,
+    backend_url: str,
+    token: str,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    url = urljoin(f"{backend_url.rstrip('/')}/", "api/settings")
+    request = Request(
+        url=url,
+        method="GET",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    with urlopen(request, timeout=timeout_seconds) as response:
+        response_payload = response.read()
+    payload = json.loads(response_payload.decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Settings response was not a JSON object")
+    return payload
 
 
 def _login_for_owner_token(
@@ -200,6 +310,24 @@ def _resolve_auth_token(args: argparse.Namespace) -> str | None:
     )
 
 
+def _resolve_birdnet_topic(args: argparse.Namespace, *, auth_token: str | None) -> str:
+    explicit_topic = str(args.birdnet_topic or "").strip()
+    if explicit_topic:
+        return explicit_topic
+    if not auth_token:
+        return "birdnet"
+    try:
+        settings_payload = _fetch_owner_settings(
+            backend_url=args.backend_url,
+            token=auth_token,
+            timeout_seconds=args.http_timeout_seconds,
+        )
+    except Exception:
+        return "birdnet"
+    topic = str(settings_payload.get("audio_topic") or "").strip()
+    return topic or "birdnet"
+
+
 def main() -> int:
     parser = _build_arg_parser()
     args = parser.parse_args()
@@ -208,6 +336,7 @@ def main() -> int:
         auth_token = _resolve_auth_token(args)
     except ValueError as exc:
         parser.error(str(exc))
+    args.birdnet_topic = _resolve_birdnet_topic(args, auth_token=auth_token)
 
     run_started_at = base_soak._now_utc()
     run_label = run_started_at.strftime("%Y%m%d-%H%M%S")
@@ -370,6 +499,10 @@ def main() -> int:
         induced_frigate_stall=(
             induced_frigate_stall_at is not None
         ),
+        samples=samples,
+        induced_frigate_stall_at=induced_frigate_stall_at,
+        birdnet_publish_stats=asdict(birdnet_stats),
+        max_birdnet_active_age_seconds=thresholds.max_birdnet_active_age_seconds,
     )
     run_finished_at = base_soak._now_utc()
     duration_actual_seconds = max(0.0, (run_finished_at - run_started_at).total_seconds())

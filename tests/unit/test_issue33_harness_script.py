@@ -1,6 +1,8 @@
 import importlib.util
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 
 
@@ -105,6 +107,57 @@ def test_login_for_owner_token_uses_api_login_endpoint(monkeypatch):
     assert captured["timeout"] == 7.5
 
 
+def test_fetch_settings_uses_authenticated_request(monkeypatch):
+    captured: dict = {}
+
+    class _FakeResponse:
+        def read(self):
+            return b'{"audio_topic":"birdnet"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def _fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["auth"] = request.headers.get("Authorization")
+        captured["timeout"] = timeout
+        return _FakeResponse()
+
+    monkeypatch.setattr(issue33, "urlopen", _fake_urlopen)
+
+    payload = issue33._fetch_owner_settings(
+        backend_url="http://example",
+        token="jwt-token",
+        timeout_seconds=9.0,
+    )
+
+    assert payload["audio_topic"] == "birdnet"
+    assert captured["url"] == "http://example/api/settings"
+    assert captured["auth"] == "Bearer jwt-token"
+    assert captured["timeout"] == 9.0
+
+
+def test_resolve_birdnet_topic_prefers_live_settings_when_no_explicit_topic(monkeypatch):
+    args = issue33._build_arg_parser().parse_args([])
+    monkeypatch.setattr(issue33, "_fetch_owner_settings", lambda **kwargs: {"audio_topic": "birdnet"})
+
+    topic = issue33._resolve_birdnet_topic(args, auth_token="jwt-token")
+
+    assert topic == "birdnet"
+
+
+def test_resolve_birdnet_topic_preserves_explicit_topic(monkeypatch):
+    args = issue33._build_arg_parser().parse_args(["--birdnet-topic", "birdnet/text"])
+    monkeypatch.setattr(issue33, "_fetch_owner_settings", lambda **kwargs: {"audio_topic": "birdnet"})
+
+    topic = issue33._resolve_birdnet_topic(args, auth_token="jwt-token")
+
+    assert topic == "birdnet/text"
+
+
 def test_login_for_owner_token_raises_readable_error_on_http_failure(monkeypatch):
     def _fake_urlopen(_request, timeout=None):
         raise HTTPError(
@@ -190,3 +243,78 @@ def test_normalize_issue33_evaluation_keeps_failures_without_induced_stall():
     assert normalized["failure_reasons"] == [
         "Frigate stream stalled while BirdNET remained active (1 incident(s)).",
     ]
+
+
+def test_normalize_issue33_evaluation_replaces_birdnet_delta_with_stall_window_freshness():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    samples = [
+        SimpleNamespace(observed_at=start, mqtt_birdnet_age_seconds=4.0),
+        SimpleNamespace(observed_at=start + timedelta(seconds=30), mqtt_birdnet_age_seconds=6.0),
+        SimpleNamespace(observed_at=start + timedelta(seconds=60), mqtt_birdnet_age_seconds=8.0),
+    ]
+    evaluation = {
+        "passed": False,
+        "failure_reasons": [
+            "BirdNET topic message growth below threshold (-9 < 10).",
+        ],
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+    )
+
+    assert normalized["passed"] is True
+    assert normalized["failure_reasons"] == []
+    assert normalized["birdnet_publisher_ok"] is True
+    assert normalized["birdnet_stall_window_samples"] == 3
+    assert normalized["birdnet_stayed_fresh_during_stall"] is True
+
+
+def test_normalize_issue33_evaluation_fails_when_birdnet_publisher_did_not_publish():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    samples = [SimpleNamespace(observed_at=start, mqtt_birdnet_age_seconds=3.0)]
+    evaluation = {
+        "passed": True,
+        "failure_reasons": [],
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        birdnet_publish_stats={"published": 0, "publish_failures": 1, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+    )
+
+    assert normalized["passed"] is False
+    assert "Synthetic BirdNET publisher did not produce healthy traffic." in normalized["failure_reasons"]
+
+
+def test_normalize_issue33_evaluation_fails_when_birdnet_goes_stale_during_stall():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    samples = [
+        SimpleNamespace(observed_at=start, mqtt_birdnet_age_seconds=4.0),
+        SimpleNamespace(observed_at=start + timedelta(seconds=40), mqtt_birdnet_age_seconds=45.0),
+    ]
+    evaluation = {
+        "passed": True,
+        "failure_reasons": [],
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+    )
+
+    assert normalized["passed"] is False
+    assert "BirdNET did not stay fresh during the induced Frigate stall window." in normalized["failure_reasons"]
