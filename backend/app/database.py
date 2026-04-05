@@ -226,6 +226,7 @@ class DatabasePool:
         self.database_path = database_path
         self.pool_size = pool_size
         self._pool: asyncio.Queue = asyncio.Queue(maxsize=pool_size)
+        self._all_connections: set[aiosqlite.Connection] = set()
         self._initialized = False
         self._lock = asyncio.Lock()
         self._acquire_count = 0
@@ -249,6 +250,7 @@ class DatabasePool:
         await conn.execute("PRAGMA cache_size=-64000;")  # 64MB cache
         await conn.execute("PRAGMA temp_store=MEMORY;")
         await conn.commit()
+        self._all_connections.add(conn)
         return conn
 
     async def initialize(self):
@@ -306,6 +308,7 @@ class DatabasePool:
                 await conn.close()
             except Exception:
                 pass
+            self._all_connections.discard(conn)
             # Create replacement connection
             new_conn = await self._create_connection()
             await self._pool.put(new_conn)
@@ -321,8 +324,17 @@ class DatabasePool:
                 try:
                     conn = self._pool.get_nowait()
                     await conn.close()
+                    self._all_connections.discard(conn)
                 except Exception as e:
                     log.warning("Error closing connection", error=str(e))
+
+            for conn in list(self._all_connections):
+                try:
+                    await conn.close()
+                except Exception as e:
+                    log.warning("Error closing checked-out connection", error=str(e))
+                finally:
+                    self._all_connections.discard(conn)
 
             self._initialized = False
             log.info("Database connection pool closed")
