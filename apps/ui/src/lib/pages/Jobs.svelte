@@ -3,7 +3,6 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
-    import { buildStableActiveJobSlots, sameActiveSlotAssignments, type ActiveSlotAssignments } from '../jobs/active-slots';
     import { presentActiveJob, presentJobKindIcon, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -27,8 +26,13 @@
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
-    let visibleActiveJobs = $derived.by(() => activeJobs.slice(0, activeSlotCount));
-    let hiddenActiveJobCount = $derived(Math.max(0, activeJobs.length - visibleActiveJobs.length));
+    let presentedActiveJobs = $derived.by(() => {
+        return [...activeJobs].sort((left, right) => {
+            const startedDiff = (left.startedAt ?? 0) - (right.startedAt ?? 0);
+            if (startedDiff !== 0) return startedDiff;
+            return left.id.localeCompare(right.id);
+        });
+    });
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
     let historyJobs = $derived(jobProgressStore.historyJobs);
     let recentJobs = $derived.by(() => {
@@ -47,27 +51,6 @@
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
-    let activeSlotAssignments = $state<ActiveSlotAssignments>({});
-    let activeSlotCount = $derived.by(() => {
-        const effective = Math.max(0, Math.floor(Number(analysisStatus?.max_concurrent_effective ?? 0)));
-        const configured = Math.max(0, Math.floor(Number(analysisStatus?.max_concurrent_configured ?? 0)));
-        return Math.max(1, effective, configured);
-    });
-    $effect(() => {
-        const next = buildStableActiveJobSlots(visibleActiveJobs, activeSlotAssignments, activeSlotCount);
-        if (!sameActiveSlotAssignments(activeSlotAssignments, next.assignments)) {
-            activeSlotAssignments = next.assignments;
-        }
-    });
-    let presentedActiveSlots = $derived.by(() =>
-        buildStableActiveJobSlots(visibleActiveJobs, activeSlotAssignments, activeSlotCount).slots.map((slot) => ({
-            slotIndex: slot.slotIndex,
-            job: slot.job,
-            presentation: slot.job
-                ? presentActiveJob(slot.job, pipelineByKind.get(slot.job.kind) ?? null, analysisStatus, nowTs, t)
-                : null
-        }))
-    );
     let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
@@ -95,6 +78,10 @@
             }
             window.location.assign(item.route);
         }
+    }
+
+    function isBackfillKind(kind: string) {
+        return kind === 'backfill' || kind === 'weather_backfill';
     }
 
 </script>
@@ -180,97 +167,97 @@
 
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.active', { default: 'Active' })}</h3>
+            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.active', { default: 'Active Work' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{activeJobs.length}</span>
         </div>
         {#if activeJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
-            {#if hiddenActiveJobCount > 0}
-                <p class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    {$_('jobs.active_overflow', { values: { count: hiddenActiveJobCount }, default: '{count} more active jobs exceed visible lane capacity.' })}
-                </p>
-            {/if}
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {#each presentedActiveSlots as item (item.slotIndex)}
-                    {@const job = item.job}
-                    {@const presentation = item.presentation}
+                {#each presentedActiveJobs as job (job.id)}
+                    {@const presentation = presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)}
+                    {@const jobKindIcon = presentJobKindIcon(job.kind)}
                     <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm min-h-[10.5rem]">
                         <div class="flex items-start justify-between gap-2">
                             <div class="inline-flex items-center gap-2 min-w-0">
                                 <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
-                                    <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                        <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"></rect>
-                                        <rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor" opacity="0.72"></rect>
-                                        <rect x="2" y="11" width="12" height="2" rx="1" fill="currentColor" opacity="0.48"></rect>
-                                    </svg>
+                                    {#if jobKindIcon.key === 'reclassify'}
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                        </svg>
+                                    {:else if jobKindIcon.key === 'backfill'}
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M8 2.5v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            <path d="M5.5 8 8 10.5 10.5 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                        </svg>
+                                    {:else if jobKindIcon.key === 'weather'}
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M5.5 11.5h5.25a2.25 2.25 0 1 0-.38-4.47 3.25 3.25 0 0 0-6.18.97A2 2 0 0 0 5.5 11.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path>
+                                        </svg>
+                                    {:else if jobKindIcon.key === 'download'}
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="M8 2.5v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            <path d="M5.5 7.5 8 10l2.5-2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                        </svg>
+                                    {:else}
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
+                                        </svg>
+                                    {/if}
                                 </span>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                                    {$_('jobs.thread_slot', { default: 'Thread {index}', values: { index: item.slotIndex + 1 } })}
+                                    {#if isBackfillKind(job.kind)}
+                                        {$_('jobs.coordinator_job', { default: 'Coordinator Job' })}
+                                    {:else}
+                                        {$_('jobs.active_job', { default: 'Active Job' })}
+                                    {/if}
                                 </p>
                             </div>
-                            {#if job}
-                                <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
-                                    <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-emerald-500 dark:bg-emerald-300'}`}></span>
-                                    {job.status}
-                                </span>
-                            {:else}
-                                <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-300 dark:text-slate-600">
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
+                                <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-emerald-500 dark:bg-emerald-300'}`}></span>
+                                {job.status}
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
+                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{presentation.activityLabel}</p>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                <span>{presentation.progressLabel}</span>
+                                {#if presentation.determinate && presentation.percent !== null}
+                                    <span>{presentation.percent}%</span>
+                                {/if}
+                            </div>
+                            <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
+                                {#if presentation.determinate && presentation.percent !== null}
+                                    <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${presentation.percent}%`}></div>
+                                {:else}
+                                    <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                                {/if}
+                            </div>
+                            {#if isBackfillKind(job.kind)}
+                                <p class="mt-2 text-[10px] font-semibold text-emerald-700/80 dark:text-emerald-300/80">
+                                    {$_('jobs.coordinator_detail', { default: 'One coordinator job manages classifier worker capacity for this backfill.' })}
+                                </p>
+                            {/if}
+                            {#if presentation.detailLabel}
+                                <p class="mt-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
+                                    {presentation.detailLabel}
+                                </p>
+                            {/if}
+                            {#if job.route}
+                                <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline" onclick={() => openRoute(job)}>
                                     <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                        <circle cx="8" cy="8" r="4.5" stroke="currentColor" stroke-width="1.5"></circle>
+                                        <path d="M6 4H12V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
                                     </svg>
-                                    {$_('jobs.thread_idle', { default: 'Idle' })}
-                                </span>
+                                    {$_('notifications.open_action')}
+                                </button>
                             {/if}
                         </div>
-                        {#if job && presentation}
-                            {@const percent = presentation.percent}
-                            <div class="mt-3">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
-                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{presentation.activityLabel}</p>
-                                </div>
-                                <div class="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                    <span>{presentation.progressLabel}</span>
-                                    {#if presentation.determinate && percent !== null}
-                                        <span>{percent}%</span>
-                                    {/if}
-                                </div>
-                                <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
-                                    {#if presentation.determinate && percent !== null}
-                                        <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${percent}%`}></div>
-                                    {:else}
-                                        <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
-                                    {/if}
-                                </div>
-                                {#if presentation.detailLabel}
-                                    <p class="mt-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">
-                                        {presentation.detailLabel}
-                                    </p>
-                                {/if}
-                                {#if job.route}
-                                    <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline" onclick={() => openRoute(job)}>
-                                        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                            <path d="M6 4H12V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                                        </svg>
-                                        {$_('notifications.open_action')}
-                                    </button>
-                                {/if}
-                            </div>
-                        {:else}
-                            <div class="mt-4 rounded-2xl border border-dashed border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-950/30 px-4 py-6 text-center">
-                                <span class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-200/70 text-slate-500 dark:bg-slate-800/90 dark:text-slate-400">
-                                    <svg class="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                        <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
-                                        <path d="M5.5 8H10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-                                    </svg>
-                                </span>
-                                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500">
-                                    {$_('jobs.thread_idle_detail', { default: 'This slot will hold the next active job.' })}
-                                </p>
-                            </div>
-                        {/if}
                     </div>
                 {/each}
             </div>
