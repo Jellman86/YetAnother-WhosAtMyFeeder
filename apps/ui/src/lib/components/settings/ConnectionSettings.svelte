@@ -366,7 +366,7 @@
                     </button>
                 </div>
 
-                <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-100 dark:text-amber-200'}">
+                <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
                     <div class="flex items-center justify-between gap-3">
                         <span class="font-black uppercase tracking-widest text-[10px]">
                             {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
