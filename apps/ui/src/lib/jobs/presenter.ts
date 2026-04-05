@@ -17,6 +17,11 @@ export interface PresentedActiveJob {
     isStale: boolean;
 }
 
+export interface PresentedJobKindIcon {
+    key: 'reclassify' | 'backfill' | 'weather' | 'download' | 'job';
+    label: string;
+}
+
 export interface PresentedPipelineKindRow {
     activityLabel: string;
     capacityLabel: string | null;
@@ -42,6 +47,22 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
 
 function supportsReclassifyQueueStatus(kind: string): boolean {
     return kind === 'reclassify' || kind === 'reclassify_batch';
+}
+
+export function presentJobKindIcon(kind: string): PresentedJobKindIcon {
+    switch (kind) {
+        case 'reclassify':
+        case 'reclassify_batch':
+            return { key: 'reclassify', label: 'Analysis' };
+        case 'backfill':
+            return { key: 'backfill', label: 'Backfill' };
+        case 'weather_backfill':
+            return { key: 'weather', label: 'Weather' };
+        case 'model_download':
+            return { key: 'download', label: 'Download' };
+        default:
+            return { key: 'job', label: 'Job' };
+    }
 }
 
 function rankRow(row: JobPipelineKindRow): number {

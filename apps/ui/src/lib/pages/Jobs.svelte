@@ -4,7 +4,7 @@
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
     import { buildStableActiveJobSlots, sameActiveSlotAssignments, type ActiveSlotAssignments } from '../jobs/active-slots';
-    import { presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
+    import { presentActiveJob, presentJobKindIcon, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
@@ -27,8 +27,21 @@
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
+    let visibleActiveJobs = $derived.by(() => activeJobs.slice(0, activeSlotCount));
+    let hiddenActiveJobCount = $derived(Math.max(0, activeJobs.length - visibleActiveJobs.length));
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
     let historyJobs = $derived(jobProgressStore.historyJobs);
+    let recentJobs = $derived.by(() => {
+        return [...historyJobs].sort((left, right) => {
+            const leftFinishedAt = left.finishedAt ?? left.updatedAt ?? 0;
+            const rightFinishedAt = right.finishedAt ?? right.updatedAt ?? 0;
+            const finishedDiff = rightFinishedAt - leftFinishedAt;
+            if (finishedDiff !== 0) return finishedDiff;
+            const updatedDiff = (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
+            if (updatedDiff !== 0) return updatedDiff;
+            return right.id.localeCompare(left.id);
+        });
+    });
     let queueByKind = $derived(analysisQueueStatusStore.queueByKind as QueueTelemetryByKind);
     let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
@@ -36,21 +49,18 @@
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
     let activeSlotAssignments = $state<ActiveSlotAssignments>({});
     let activeSlotCount = $derived.by(() => {
-        const configured = Math.max(
-            0,
-            Math.floor(Number(analysisStatus?.max_concurrent_effective ?? 0)),
-            Math.floor(Number(analysisStatus?.max_concurrent_configured ?? 0))
-        );
-        return Math.max(3, configured, activeJobs.length);
+        const effective = Math.max(0, Math.floor(Number(analysisStatus?.max_concurrent_effective ?? 0)));
+        const configured = Math.max(0, Math.floor(Number(analysisStatus?.max_concurrent_configured ?? 0)));
+        return Math.max(1, effective, configured);
     });
     $effect(() => {
-        const next = buildStableActiveJobSlots(activeJobs, activeSlotAssignments, activeSlotCount);
+        const next = buildStableActiveJobSlots(visibleActiveJobs, activeSlotAssignments, activeSlotCount);
         if (!sameActiveSlotAssignments(activeSlotAssignments, next.assignments)) {
             activeSlotAssignments = next.assignments;
         }
     });
     let presentedActiveSlots = $derived.by(() =>
-        buildStableActiveJobSlots(activeJobs, activeSlotAssignments, activeSlotCount).slots.map((slot) => ({
+        buildStableActiveJobSlots(visibleActiveJobs, activeSlotAssignments, activeSlotCount).slots.map((slot) => ({
             slotIndex: slot.slotIndex,
             job: slot.job,
             presentation: slot.job
@@ -176,6 +186,11 @@
         {#if activeJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
+            {#if hiddenActiveJobCount > 0}
+                <p class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    {$_('jobs.active_overflow', { values: { count: hiddenActiveJobCount }, default: '{count} more active jobs exceed visible lane capacity.' })}
+                </p>
+            {/if}
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {#each presentedActiveSlots as item (item.slotIndex)}
                     {@const job = item.job}
@@ -265,13 +280,14 @@
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.recent', { default: 'Recent' })}</h3>
-            <span class="text-[10px] font-semibold text-slate-400">{historyJobs.length}</span>
+            <span class="text-[10px] font-semibold text-slate-400">{recentJobs.length}</span>
         </div>
-        {#if historyJobs.length === 0}
+        {#if recentJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.recent_empty', { default: 'No completed jobs yet.' })}</p>
         {:else}
             <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {#each historyJobs as job (job.id)}
+                {#each recentJobs as job (job.id)}
+                    {@const jobKindIcon = presentJobKindIcon(job.kind)}
                     <button
                         type="button"
                         class="w-full text-left py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition px-2 rounded-xl"
@@ -279,11 +295,46 @@
                     >
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{job.message || ''}</p>
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">
-                                    {job.status} · {formatDateTime(job.finishedAt ?? job.updatedAt)}
-                                </p>
+                                <div class="flex items-start gap-2">
+                                    <span
+                                        class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                        title={jobKindIcon.label}
+                                        aria-label={jobKindIcon.label}
+                                    >
+                                        {#if jobKindIcon.key === 'reclassify'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                                <path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            </svg>
+                                        {:else if jobKindIcon.key === 'backfill'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                                <path d="M8 2.5v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                <path d="M5.5 8 8 10.5 10.5 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            </svg>
+                                        {:else if jobKindIcon.key === 'weather'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                                <path d="M5.5 11.5h5.25a2.25 2.25 0 1 0-.38-4.47 3.25 3.25 0 0 0-6.18.97A2 2 0 0 0 5.5 11.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path>
+                                            </svg>
+                                        {:else if jobKindIcon.key === 'download'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                                <path d="M8 2.5v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                <path d="M5.5 7.5 8 10l2.5-2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <path d="M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            </svg>
+                                        {:else}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                                <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
+                                            </svg>
+                                        {/if}
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{job.message || ''}</p>
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">
+                                            {job.status} · {formatDateTime(job.finishedAt ?? job.updatedAt)}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                             <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'failed' ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}">
                                 {job.status}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
-import { buildGlobalProgressSummary, presentActiveJob, presentPipelineKindRow } from './presenter';
+import { buildGlobalProgressSummary, presentActiveJob, presentJobKindIcon, presentPipelineKindRow } from './presenter';
 
 function renderTemplate(template: string, values: Record<string, unknown> = {}): string {
     return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
@@ -310,5 +310,11 @@ describe('jobs presenter', () => {
         expect(summary.percent).toBe(40);
         expect(summary.headline).toBe('2 jobs running');
         expect(summary.progressLabel).toBe('8 / 20 frames');
+    });
+
+    it('returns stable icon descriptors for supported job kinds', () => {
+        expect(presentJobKindIcon('backfill')).toEqual({ key: 'backfill', label: 'Backfill' });
+        expect(presentJobKindIcon('reclassify')).toEqual({ key: 'reclassify', label: 'Analysis' });
+        expect(presentJobKindIcon('model_download')).toEqual({ key: 'download', label: 'Download' });
     });
 });

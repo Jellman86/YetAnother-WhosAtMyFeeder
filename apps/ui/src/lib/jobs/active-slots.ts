@@ -13,7 +13,8 @@ export interface ActiveJobSlot<T extends ActiveSlotItem> {
 
 function normalizeSlotCount(requestedSlots: number, activeJobs: number): number {
     const parsed = Number.isFinite(requestedSlots) ? Math.max(0, Math.floor(requestedSlots)) : 0;
-    return Math.max(parsed, activeJobs);
+    if (parsed > 0) return parsed;
+    return activeJobs > 0 ? 1 : 0;
 }
 
 function nextFreeSlot(used: Set<number>, slotCount: number): number {
@@ -63,7 +64,6 @@ export function buildStableActiveJobSlots<T extends ActiveSlotItem>(
     for (const job of activeJobs) {
         const slotIndex = nextAssignments[job.id];
         if (slotIndex >= slots.length) {
-            slots.push({ slotIndex, job });
             continue;
         }
         slots[slotIndex] = { slotIndex, job };

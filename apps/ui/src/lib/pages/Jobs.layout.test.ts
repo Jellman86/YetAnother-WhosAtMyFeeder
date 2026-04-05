@@ -16,4 +16,22 @@ describe('jobs page stable active slots', () => {
         expect(jobsPageSource).toContain("jobs.thread_idle', { default: 'Idle' }");
         expect(jobsPageSource).not.toContain('{#each presentedActiveJobs as item (item.job.id)}');
     });
+
+    it('uses exact configured concurrency for active slots', () => {
+        expect(jobsPageSource).not.toContain('Math.max(3, configured, activeJobs.length)');
+        expect(jobsPageSource).toContain('return Math.max(1, effective, configured);');
+    });
+
+    it('sorts recent jobs by newest terminal event and renders job icons', () => {
+        expect(jobsPageSource).toContain('let recentJobs = $derived.by(() =>');
+        expect(jobsPageSource).toContain('const finishedDiff = rightFinishedAt - leftFinishedAt;');
+        expect(jobsPageSource).toContain('{#each recentJobs as job (job.id)}');
+        expect(jobsPageSource).toContain('presentJobKindIcon(job.kind)');
+    });
+
+    it('keeps lane count exact and surfaces active overflow separately', () => {
+        expect(jobsPageSource).toContain('let visibleActiveJobs = $derived.by(() => activeJobs.slice(0, activeSlotCount));');
+        expect(jobsPageSource).toContain('let hiddenActiveJobCount = $derived(Math.max(0, activeJobs.length - visibleActiveJobs.length));');
+        expect(jobsPageSource).toContain("jobs.active_overflow', { values: { count: hiddenActiveJobCount }");
+    });
 });

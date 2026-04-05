@@ -44,6 +44,17 @@ describe('buildStableActiveJobSlots', () => {
 
         expect(withReplacement.slots.map((slot) => slot.job?.id ?? null)).toEqual(['job-c', 'job-b']);
     });
+
+    it('does not inflate slot count beyond the requested visible capacity', () => {
+        const result = buildStableActiveJobSlots(
+            [{ id: 'job-a' }, { id: 'job-b' }, { id: 'job-c' }],
+            {},
+            2
+        );
+
+        expect(result.slots.map((slot) => slot.job?.id ?? null)).toEqual(['job-a', 'job-b']);
+        expect(result.assignments['job-c']).toBe(2);
+    });
 });
 
 describe('sameActiveSlotAssignments', () => {
