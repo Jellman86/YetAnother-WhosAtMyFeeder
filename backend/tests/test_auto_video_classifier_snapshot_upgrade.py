@@ -171,6 +171,33 @@ async def test_process_event_snapshot_fallback_marks_background_overload_distinc
 
 
 @pytest.mark.asyncio
+async def test_process_event_snapshot_fallback_uses_extended_background_queue_timeout():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Robin", "score": 0.88, "index": 1}]
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module.Image, "open", return_value=MagicMock()):
+        await service._process_event(
+            "evt-batch-fallback-timeout-budget",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="maintenance",
+        )
+
+    assert service._classifier.classify_async_background.await_args.kwargs["queue_timeout_seconds"] > 0.5
+
+
+@pytest.mark.asyncio
 async def test_process_event_passes_event_id_into_video_classification_context():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()

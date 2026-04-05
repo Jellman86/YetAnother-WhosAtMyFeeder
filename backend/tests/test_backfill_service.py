@@ -184,6 +184,37 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
 
 
 @pytest.mark.asyncio
+async def test_process_historical_event_uses_extended_background_queue_timeout(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+    service.detection_service.save_detection = AsyncMock(return_value=(True, True))
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-backfill-timeout-budget",
+            "camera": "front",
+            "start_time": 1700000000,
+        }
+    )
+
+    assert status == "new"
+    assert reason is None
+    assert classifier.classify_async_background.await_args.kwargs["queue_timeout_seconds"] > 0.5
+
+
+@pytest.mark.asyncio
 async def test_process_historical_event_returns_classifier_worker_reason(monkeypatch):
     classifier = MagicMock()
     classifier.classify_async_background = AsyncMock(

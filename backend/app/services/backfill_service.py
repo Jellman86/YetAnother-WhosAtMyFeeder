@@ -25,7 +25,9 @@ BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA = 1000
 BACKFILL_TRANSIENT_RETRY_ATTEMPTS = 2
 BACKFILL_TRANSIENT_RETRY_BACKOFF_SECONDS = 1.0
 BACKFILL_TRANSIENT_RETRY_MIN_REMAINING_SECONDS = 15.0
+BACKFILL_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 5.0
 BACKFILL_TRANSIENT_RETRY_REASONS = {
+    "background_image_overloaded",
     "background_image_worker_unavailable",
     "background_image_worker_startup_timeout",
     "background_image_worker_timed_out",
@@ -209,6 +211,7 @@ class BackfillService:
                 image,
                 camera_name=event.get("camera"),
                 input_context={"is_cropped": True, "event_id": frigate_event},
+                queue_timeout_seconds=BACKFILL_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             )
 
             if not results:

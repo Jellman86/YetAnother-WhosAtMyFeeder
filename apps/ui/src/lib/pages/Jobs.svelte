@@ -7,6 +7,7 @@
     import { presentActiveJob, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
+    import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { resetVideoCircuit } from '../api/maintenance';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
@@ -16,9 +17,11 @@
             nowTs = Date.now();
         }, 1000);
         const release = analysisQueueStatusStore.retain();
+        const releaseBackfill = backfillStatusStore.retain();
 
         return () => {
             release();
+            releaseBackfill();
             clearInterval(tick);
         };
     });

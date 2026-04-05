@@ -3631,14 +3631,16 @@ class ClassifierService:
         kind: str,
         runner: Callable[..., list[dict] | Awaitable[list[dict]]],
         *,
+        queue_timeout_seconds: float | None = None,
         runner_accepts_work_metadata: bool = False,
         on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None,
     ) -> list[dict]:
-        queue_timeout_seconds = (
-            CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS
-            if priority == "live"
-            else CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS
-        )
+        if not isinstance(queue_timeout_seconds, (int, float)) or queue_timeout_seconds <= 0:
+            queue_timeout_seconds = (
+                CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS
+                if priority == "live"
+                else CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS
+            )
         lease_timeout_seconds = (
             CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS
             if priority == "live"
@@ -3678,7 +3680,7 @@ class ClassifierService:
             _timeout_log = log.warning if self._image_admission_timeouts == 1 else log.debug
             _timeout_log(
                 "Image classification admission timed out; dropping request",
-                timeout_seconds=CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+                timeout_seconds=queue_timeout_seconds,
                 max_concurrent=capacity,
                 admission_timeouts=self._image_admission_timeouts,
             )
@@ -3705,12 +3707,18 @@ class ClassifierService:
         kind: str,
         fn: Callable[..., list[dict]],
         *args: Any,
+        queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         async def _runner() -> list[dict]:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(executor, fn, *args)
 
-        return await self._run_coordinated_inference(priority, kind, _runner)
+        return await self._run_coordinated_inference(
+            priority,
+            kind,
+            _runner,
+            queue_timeout_seconds=queue_timeout_seconds,
+        )
 
     async def _abort_supervised_request_after_lease_expiry(
         self,
@@ -3745,6 +3753,7 @@ class ClassifierService:
         camera_name: Optional[str],
         model_id: Optional[str],
         input_context: ClassificationInputContext | None = None,
+        queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         async def _runner(work_id: str, lease_token: int) -> list[dict]:
             return await self._run_supervised_inference(
@@ -3768,6 +3777,7 @@ class ClassifierService:
             priority,
             kind,
             _runner,
+            queue_timeout_seconds=queue_timeout_seconds,
             runner_accepts_work_metadata=True,
             on_lease_expired=_on_lease_expired,
         )
@@ -3899,6 +3909,7 @@ class ClassifierService:
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
         input_context: Any | None = None,
+        queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         """Background image-classification path using low-priority workers.
 
@@ -3914,6 +3925,7 @@ class ClassifierService:
                 camera_name,
                 model_id,
                 normalized_input_context,
+                queue_timeout_seconds=queue_timeout_seconds,
             )
         else:
             base_results = await self._run_coordinated_executor_inference(
@@ -3925,6 +3937,7 @@ class ClassifierService:
                 camera_name,
                 model_id,
                 normalized_input_context,
+                queue_timeout_seconds=queue_timeout_seconds,
             )
 
         if not base_results:

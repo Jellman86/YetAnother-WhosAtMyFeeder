@@ -69,6 +69,7 @@ _FRIGATE_CONNECTIVITY_ERROR_PREFIXES: tuple[str, ...] = (
     "clip_http_",   # e.g. clip_http_400, clip_http_502
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
+SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
 BackgroundImageClassificationUnavailableError = getattr(
     classifier_service_module,
     "BackgroundImageClassificationUnavailableError",
@@ -1220,6 +1221,7 @@ class AutoVideoClassifierService:
                     image,
                     camera_name=camera,
                     input_context=input_context,
+                    queue_timeout_seconds=SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS,
                 )
                 last_unavailable_error = None
                 break

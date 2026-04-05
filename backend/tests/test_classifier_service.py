@@ -533,6 +533,24 @@ async def test_classifier_service_routes_background_requests_through_supervisor(
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_forwards_background_queue_timeout_override(mock_tflite, mock_os_path_exists):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        service._image_execution_mode = "threadpool"
+        service._run_coordinated_executor_inference = AsyncMock(return_value=[{"label": "Robin", "score": 0.9}])  # type: ignore[method-assign]
+
+        img = Image.new("RGB", (32, 32), color="green")
+        await service.classify_async_background(
+            img,
+            camera_name="garden",
+            queue_timeout_seconds=3.5,
+        )
+
+        assert service._run_coordinated_executor_inference.await_args.kwargs["queue_timeout_seconds"] == 3.5
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_subprocess_live_queue_saturation_raises_fast(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
