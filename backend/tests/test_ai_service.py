@@ -244,6 +244,31 @@ async def test_build_prompt_includes_metadata(ai_service):
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_describes_recording_clip_frames(ai_service):
+    with patch('app.services.ai_service.settings') as mock_settings:
+        mock_settings.llm.analysis_prompt_template = "{frame_note}"
+
+        prompt = ai_service._build_prompt(
+            "Robin",
+            {"frame_count": 5, "frame_source": "recording"},
+        )
+
+        assert "full-visit clip" in prompt
+
+
+def test_extract_frames_from_clip_accepts_recording_variant(ai_service):
+    with patch("app.services.ai_service.cv2.VideoCapture") as mock_capture:
+        capture = MagicMock()
+        capture.get.side_effect = [20]
+        capture.read.return_value = (False, None)
+        mock_capture.return_value = capture
+
+        frames = ai_service.extract_frames_from_clip(b"clip-bytes", frame_count=5, clip_variant="recording")
+
+        assert frames == []
+
+
+@pytest.mark.asyncio
 async def test_image_encoding(ai_service):
     """Image data should be properly base64 encoded."""
     import base64

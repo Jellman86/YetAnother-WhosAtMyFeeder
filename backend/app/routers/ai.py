@@ -17,6 +17,7 @@ from app.utils.api_datetime import serialize_api_datetime
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.config import settings
+from app.routers.proxy import _get_valid_cached_recording_clip_path
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -53,6 +54,50 @@ def _serialize_timestamp(value: datetime | None) -> str:
 def _compute_config_key(config: dict) -> str:
     payload = json.dumps(config, sort_keys=True).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+async def _load_ai_analysis_frames(
+    event_id: str,
+    *,
+    frame_count: int,
+    lang: str,
+) -> tuple[list[bytes], str | None]:
+    if settings.frigate.recording_clip_enabled:
+        try:
+            recording_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
+        except HTTPException:
+            recording_path = None
+
+        if recording_path:
+            try:
+                with open(recording_path, "rb") as handle:
+                    recording_bytes = handle.read()
+                frames = ai_service.extract_frames_from_clip(
+                    recording_bytes,
+                    frame_count=frame_count,
+                    clip_variant="recording",
+                )
+                if frames:
+                    return frames, "recording"
+                log.warning("recording_clip_frame_extraction_failed", event_id=event_id)
+            except OSError as exc:
+                log.warning("recording_clip_read_failed", event_id=event_id, error=str(exc))
+
+    if settings.frigate.clips_enabled:
+        clip_bytes, clip_error = await frigate_client.get_clip_with_error(event_id)
+        if clip_bytes:
+            frames = ai_service.extract_frames_from_clip(
+                clip_bytes,
+                frame_count=frame_count,
+                clip_variant="event",
+            )
+            if frames:
+                return frames, "event"
+            log.warning("clip_frame_extraction_failed", event_id=event_id)
+        else:
+            log.info("clip_fetch_skipped", event_id=event_id, reason=clip_error)
+
+    return [], None
 
 @router.post("/events/{event_id}/analyze", response_model=AIAnalysisResponse)
 async def analyze_event(
@@ -98,15 +143,14 @@ async def analyze_event(
             await convo_repo.delete_turns(event_id)
 
         frames: list[bytes] = []
+        frame_source: str | None = None
         frame_count = max(1, min(frame_count, 10))
-        if use_clip and settings.frigate.clips_enabled:
-            clip_bytes, clip_error = await frigate_client.get_clip_with_error(event_id)
-            if clip_bytes:
-                frames = ai_service.extract_frames_from_clip(clip_bytes, frame_count=frame_count)
-                if not frames:
-                    log.warning("clip_frame_extraction_failed", event_id=event_id)
-            else:
-                log.info("clip_fetch_skipped", event_id=event_id, reason=clip_error)
+        if use_clip:
+            frames, frame_source = await _load_ai_analysis_frames(
+                event_id,
+                frame_count=frame_count,
+                lang=lang,
+            )
 
         image_data = None
         if not frames:
@@ -125,6 +169,9 @@ async def analyze_event(
         }
         if frames:
             metadata["frame_count"] = len(frames)
+            metadata["frame_source"] = frame_source or "event"
+        else:
+            metadata["frame_source"] = "snapshot"
 
         # Generate new analysis
         log.info("generating_new_analysis", event_id=event_id, force=force)

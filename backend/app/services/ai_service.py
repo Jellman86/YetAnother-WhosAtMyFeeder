@@ -471,10 +471,15 @@ class AIService:
         condition = metadata.get("weather_condition")
         time = metadata.get("time")
         frame_count = metadata.get("frame_count")
+        frame_source = metadata.get("frame_source")
         frame_note = (
-            f"I am showing you {frame_count} sequential frames from a short video clip."
-            if frame_count
-            else "I am showing you a snapshot of a bird detected at my feeder."
+            f"I am showing you {frame_count} sequential frames sampled around the middle of a full-visit clip."
+            if frame_count and frame_source == "recording"
+            else (
+                f"I am showing you {frame_count} sequential frames sampled around the middle of a short event clip."
+                if frame_count
+                else "I am showing you a snapshot of a bird detected at my feeder."
+            )
         )
         
         weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}." if temp is not None else ""
@@ -539,8 +544,13 @@ class AIService:
             "notes": notes,
         })
 
-    def extract_frames_from_clip(self, clip_bytes: bytes, frame_count: int = 5) -> list[bytes]:
-        """Extract a set of frames from a video clip, focused around the middle."""
+    def extract_frames_from_clip(
+        self,
+        clip_bytes: bytes,
+        frame_count: int = 5,
+        clip_variant: str = "event",
+    ) -> list[bytes]:
+        """Extract center-biased frames from a clip, widening the middle window for full visits."""
         if not clip_bytes:
             return []
         frames: list[bytes] = []
@@ -554,7 +564,9 @@ class AIService:
                     return []
                 frame_count = max(1, min(frame_count, total_frames))
                 center = total_frames / 2
-                window = max(frame_count, int(total_frames * 0.4))
+                normalized_variant = str(clip_variant or "event").strip().lower()
+                window_fraction = 0.6 if normalized_variant == "recording" else 0.4
+                window = max(frame_count, int(total_frames * window_fraction))
                 start = max(0, int(center - window / 2))
                 end = min(total_frames - 1, int(center + window / 2))
                 indices = np.linspace(start, end, frame_count).astype(int)
