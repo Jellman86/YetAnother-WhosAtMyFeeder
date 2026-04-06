@@ -43,6 +43,7 @@ detections = Table(
     Column("video_classification_provider", String),
     Column("video_classification_backend", String),
     Column("video_classification_model_id", String),
+    Column("video_result_blocked", Boolean, default=False),
     # AI naturalist analysis
     Column("ai_analysis", String),
     Column("ai_analysis_timestamp", TIMESTAMP),

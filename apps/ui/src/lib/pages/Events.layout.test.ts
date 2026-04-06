@@ -19,7 +19,7 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && showBulkTagModal}');
         expect(eventsSource).toContain("selectedEventIds.length");
         expect(eventsSource).toContain("$_('common.selected', { default: 'selected' })");
-        expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to tag together.'");
+        expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to act on.'");
     });
 
     it('treats AI analysis fields as part of selected-event sync state', () => {

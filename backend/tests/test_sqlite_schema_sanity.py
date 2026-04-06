@@ -97,10 +97,10 @@ def test_detections_schema_includes_video_result_blocked(tmp_path):
         col_names = [c[1] for c in cols]
         assert "video_result_blocked" in col_names
 
-        # Verify default value and nullability
+        # Verify default value — SQLite wraps string literals in quotes in PRAGMA table_info
         col = next(c for c in cols if c[1] == "video_result_blocked")
         dflt = col[4]  # default_value column
-        assert dflt == "0", f"Expected default '0', got {dflt!r}"
+        assert dflt in ("0", "'0'"), f"Expected default 0 or '0', got {dflt!r}"
 
         # Smoke: existing rows default to 0 (not blocked)
         conn.execute("PRAGMA foreign_keys=ON;")

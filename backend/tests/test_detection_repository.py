@@ -42,6 +42,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_provider TEXT,
             video_classification_backend TEXT,
             video_classification_model_id TEXT,
+            video_result_blocked BOOLEAN DEFAULT 0,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
             notified_at TIMESTAMP

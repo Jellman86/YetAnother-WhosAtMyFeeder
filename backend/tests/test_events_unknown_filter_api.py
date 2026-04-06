@@ -294,6 +294,7 @@ def test_detection_updated_payload_masks_hidden_noncanonical_labels():
         video_classification_backend=None,
         video_classification_model_id=None,
         video_classification_timestamp=None,
+        video_result_blocked=False,
     )
 
     payload = _detection_updated_payload(detection)
