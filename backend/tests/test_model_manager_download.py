@@ -99,6 +99,63 @@ def test_load_active_model_id_respects_selection(tmp_path, monkeypatch):
     assert manager.active_model_id == "eva02_large_inat21"
 
 
+def test_resolve_models_dir_prefers_model_dir_env(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    env_dir = tmp_path / "env-models"
+
+    monkeypatch.setenv("MODEL_DIR", str(env_dir))
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: path != "/data")
+    real_join = os.path.join
+
+    def fake_makedirs(path, exist_ok=False):
+        if path == str(env_dir):
+            return None
+        raise AssertionError(f"unexpected makedirs path: {path}")
+
+    monkeypatch.setattr(model_manager_module.os, "makedirs", fake_makedirs)
+    monkeypatch.setattr(
+        model_manager_module.os.path,
+        "join",
+        lambda *parts: real_join(*parts),
+    )
+
+    resolved = model_manager_module._resolve_models_dir()
+
+    assert resolved == str(env_dir)
+
+
+def test_resolve_models_dir_falls_back_when_data_models_unwritable(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    fallback_dir = tmp_path / "fallback-models"
+    fallback_dir_abs = os.path.abspath(str(fallback_dir))
+
+    monkeypatch.delenv("MODEL_DIR", raising=False)
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: path == "/data")
+
+    real_join = os.path.join
+
+    def fake_join(*parts):
+        if parts and parts[-1] == "../../data/models":
+            return str(fallback_dir)
+        return real_join(*parts)
+
+    def fake_makedirs(path, exist_ok=False):
+        if path == "/data/models":
+            raise PermissionError("no write access")
+        if path == fallback_dir_abs:
+            return None
+        raise AssertionError(f"unexpected makedirs path: {path}")
+
+    monkeypatch.setattr(model_manager_module.os.path, "join", fake_join)
+    monkeypatch.setattr(model_manager_module.os, "makedirs", fake_makedirs)
+
+    resolved = model_manager_module._resolve_models_dir()
+
+    assert resolved == fallback_dir_abs
+
+
 def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 

@@ -424,16 +424,33 @@ REMOTE_REGISTRY = [
     }
 ]
 
-# Use /data/models when running in a container with a mounted data volume.
-# Check for /data (the mount point) rather than /data/models so that a freshly
-# mounted volume without the subdirectory still routes models to the persistent
-# volume instead of silently falling back to the image-internal path.
-if os.path.isdir("/data"):
-    MODELS_DIR = "/data/models"
-else:
-    # Fallback for local development without a mounted /data volume
-    MODELS_DIR = os.path.join(os.path.dirname(__file__), "../../data/models")
-os.makedirs(MODELS_DIR, exist_ok=True)
+def _resolve_models_dir() -> str:
+    """Return a writable models directory for the current runtime."""
+    configured_dir = str(os.getenv("MODEL_DIR") or "").strip()
+    fallback_dir = os.path.join(os.path.dirname(__file__), "../../data/models")
+    candidates = []
+
+    if configured_dir:
+        candidates.append(configured_dir)
+    if os.path.isdir("/data"):
+        candidates.append("/data/models")
+    candidates.append(fallback_dir)
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = os.path.abspath(candidate)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        try:
+            os.makedirs(normalized, exist_ok=True)
+            return normalized
+        except OSError:
+            continue
+    raise OSError("Unable to resolve a writable models directory")
+
+
+MODELS_DIR = _resolve_models_dir()
 
 class ModelManager:
     def __init__(self):
