@@ -397,6 +397,7 @@ class DetectionService:
                 provider=video_provider,
                 backend=video_backend,
                 model_id=video_model_id,
+                blocked=is_blocked,
             )
 
             if is_blocked:

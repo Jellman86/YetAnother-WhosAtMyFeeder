@@ -282,6 +282,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_model_id": detection.video_classification_model_id,
         "video_classification_model_name": _video_classification_model_name(detection.video_classification_model_id),
         "video_classification_timestamp": serialize_api_datetime(detection.video_classification_timestamp),
+        "video_result_blocked": bool(detection.video_result_blocked),
     }
     if overrides:
         payload.update(overrides)

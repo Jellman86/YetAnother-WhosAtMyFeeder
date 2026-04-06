@@ -1009,7 +1009,11 @@ class ModelManager:
         except OSError as exc:
             if exc.errno != errno.EXDEV:
                 raise
-            shutil.copytree(src, dst)
+            try:
+                shutil.copytree(src, dst)
+            except Exception:
+                shutil.rmtree(dst, ignore_errors=True)  # remove partial copy so caller can roll back
+                raise
             shutil.rmtree(src, ignore_errors=True)
 
     def _swap_model_dirs(self, staged_dir: str, target_dir: str) -> None:

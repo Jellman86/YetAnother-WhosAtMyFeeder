@@ -857,13 +857,13 @@
         try {
             const result = await bulkDeleteDetections(ids);
             if (result.deleted_count > 0) {
-                events = events.filter(e => !ids.includes(e.frigate_event));
-                selectedEventIds = [];
+                events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success(`Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`);
             }
             if (result.missing_count > 0) {
                 toastStore.warning(`${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`);
             }
+            selectedEventIds = [];
         } catch (e: any) {
             toastStore.error(`Delete failed: ${e?.message || 'Unknown error'}`);
         } finally {

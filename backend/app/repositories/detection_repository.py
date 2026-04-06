@@ -63,6 +63,8 @@ class Detection:
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
+    # Blocked label flag
+    video_result_blocked: bool = False
 
 
 def _parse_datetime(value) -> datetime:
@@ -207,6 +209,9 @@ def _row_to_detection(row) -> Detection:
 
     if len(row) > 38:
         d.video_classification_model_id = row[38]
+
+    if len(row) > 39:
+        d.video_result_blocked = bool(row[39])
 
     return d
 
@@ -392,7 +397,7 @@ class DetectionRepository:
                       d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
                       d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event = ?""",
@@ -419,7 +424,7 @@ class DetectionRepository:
                       d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
                       d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event IS NOT NULL
@@ -445,6 +450,7 @@ class DetectionRepository:
         provider: Optional[str] = None,
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
+        blocked: bool = False,
     ):
         """Update video classification results for an event."""
         now = utc_naive_now()
@@ -458,9 +464,10 @@ class DetectionRepository:
                 video_classification_error = NULL,
                 video_classification_provider = ?,
                 video_classification_backend = ?,
-                video_classification_model_id = ?
+                video_classification_model_id = ?,
+                video_result_blocked = ?
             WHERE frigate_event = ?
-        """, (label, score, index, now, status, provider, backend, model_id, frigate_event))
+        """, (label, score, index, now, status, provider, backend, model_id, blocked, frigate_event))
         await self.db.commit()
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
@@ -917,7 +924,7 @@ class DetectionRepository:
                    d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
                    d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                    CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
@@ -1436,7 +1443,7 @@ class DetectionRepository:
                    d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp,
                    d.manual_tagged, d.notified_at,
                    CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             {join_sql}
@@ -3062,7 +3069,7 @@ class DetectionRepository:
                           d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
                           d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                           CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}
@@ -3079,7 +3086,7 @@ class DetectionRepository:
                           d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
                           d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                           CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id
+                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}

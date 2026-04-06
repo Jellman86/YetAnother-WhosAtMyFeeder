@@ -481,3 +481,57 @@ async def test_manual_update_rejects_noncanonical_model_group_labels(client: htt
         mock_broadcast.assert_not_awaited()
     finally:
         await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_removes_detections_and_broadcasts(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    base_taxa_id = 970000 + int(uuid.uuid4().hex[:4], 16)
+    event_ids = [f"bulkdel-{uuid.uuid4().hex[:10]}", f"bulkdel-{uuid.uuid4().hex[:10]}"]
+    for index, event_id in enumerate(event_ids):
+        await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+    try:
+        with patch(
+            "app.routers.events.broadcaster.broadcast",
+            new=AsyncMock(),
+        ) as mock_broadcast:
+            response = await client.post(
+                "/api/events/bulk/delete",
+                json={"event_ids": event_ids},
+            )
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["deleted_count"] == 2
+        assert payload["missing_count"] == 0
+        assert set(payload["deleted_event_ids"]) == set(event_ids)
+        assert payload["missing_event_ids"] == []
+
+        # Verify rows are actually removed from the database
+        async with get_db() as db:
+            async with db.execute(
+                "SELECT COUNT(*) FROM detections WHERE frigate_event IN (?, ?)",
+                (event_ids[0], event_ids[1]),
+            ) as cursor:
+                row = await cursor.fetchone()
+        assert row[0] == 0
+
+        # One SSE broadcast per deleted detection
+        assert mock_broadcast.await_count == 2
+    finally:
+        for index, event_id in enumerate(event_ids):
+            await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=base_taxa_id + index)
+
+
+@pytest.mark.asyncio
+async def test_bulk_delete_empty_list_rejected(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    # BulkDeleteRequest.event_ids has min_length=1; an empty list is a validation error
+    response = await client.post("/api/events/bulk/delete", json={"event_ids": []})
+
+    assert response.status_code == 422

@@ -87,6 +87,28 @@ def test_detections_schema_includes_video_classification_model_id(tmp_path):
         conn.close()
 
 
+def test_detections_schema_includes_video_result_blocked(tmp_path):
+    db_path = tmp_path / "schema_video_result_blocked.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(detections);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert "video_result_blocked" in col_names
+
+        # Verify default value and nullability
+        col = next(c for c in cols if c[1] == "video_result_blocked")
+        dflt = col[4]  # default_value column
+        assert dflt == "0", f"Expected default '0', got {dflt!r}"
+
+        # Smoke: existing rows default to 0 (not blocked)
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA integrity_check;")
+    finally:
+        conn.close()
+
+
 def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_path):
     db_path = tmp_path / "schema_species_rollup.db"
     _upgrade_db(db_path)

@@ -1805,6 +1805,11 @@
                             ? detection.common_name
                             : detection.video_classification_label}
                     </p>
+                    {#if detection.video_result_blocked}
+                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species — not applied' })}
+                        </p>
+                    {/if}
                     <div class="flex flex-wrap items-center gap-2 mt-1">
                         <p class="text-[10px] text-slate-500 italic leading-tight">
                             {$_('detection.video_analysis.verified_desc')}

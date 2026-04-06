@@ -448,3 +448,48 @@ async def test_apply_video_result_does_not_override_known_species_with_hidden_no
     primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     assert primary_updates == []
     mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_records_blocked_flag_and_skips_promotion(mock_deps):
+    """When video label is blocked, video_result_blocked=True is stored but primary fields stay unchanged."""
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.85
+    existing.display_name = "House Sparrow"
+    existing.category_name = "House Sparrow"
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    with patch("app.services.detection_service.settings") as mock_settings, \
+         patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+        mock_settings.classification.blocked_labels = ["House Sparrow"]
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.min_detection_confidence = 0.6
+        mock_settings.frigate.trust_frigate_sublabels = False
+
+        await service.apply_video_result("event1", "House Sparrow", 0.92, 5)
+
+    # update_video_classification must be called with blocked=True
+    mock_deps["repo"].update_video_classification.assert_called_once()
+    call_kwargs = mock_deps["repo"].update_video_classification.call_args.kwargs
+    assert call_kwargs.get("blocked") is True
+
+    # Primary species fields must NOT be updated (no UPDATE detections statement)
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+
+    # No audio correlation or broadcast since we returned early
+    mock_deps["audio"].correlate_species.assert_not_called()
+    mock_deps["broadcaster"].broadcast.assert_not_called()
