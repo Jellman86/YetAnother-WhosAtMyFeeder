@@ -219,8 +219,8 @@
             <div class="space-y-6">
                 <div>
                     <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.provider')}</span>
-                    <div class="grid grid-cols-3 gap-2">
-                        {#each ['gemini', 'openai', 'claude'] as provider}
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {#each ['gemini', 'openai', 'claude', 'openrouter'] as provider}
                             <button
                                 type="button"
                                 aria-pressed={llmProvider === provider}
@@ -292,6 +292,7 @@
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
                             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
                             <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
+                            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="block text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
                         </div>
                     </div>
                 </div>

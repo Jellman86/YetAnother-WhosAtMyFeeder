@@ -95,6 +95,20 @@ class AIService:
                         return True, "AI test succeeded."
                 return False, "AI returned an empty response."
 
+            if provider == "openrouter":
+                url = "https://openrouter.ai/api/v1/chat/completions"
+                headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 16}
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    choices = resp.json().get("choices", [])
+                    if choices:
+                        content = choices[0].get("message", {}).get("content")
+                        if content:
+                            return True, "AI test succeeded."
+                return False, "AI returned an empty response."
+
             return False, "Unsupported AI provider."
         except httpx.HTTPStatusError as e:
             detail = e.response.text if e.response is not None else str(e)
@@ -130,6 +144,8 @@ class AIService:
             return await self._analyze_openai_prompt(prompt, images, feature="analysis")
         elif settings.llm.provider == "claude":
             return await self._analyze_claude_prompt(prompt, images, feature="analysis")
+        elif settings.llm.provider == "openrouter":
+            return await self._analyze_openrouter_prompt(prompt, images, feature="analysis")
 
         return "Unsupported AI provider."
 
@@ -149,6 +165,8 @@ class AIService:
             return await self._analyze_openai_prompt(prompt, images, feature="chart")
         elif settings.llm.provider == "claude":
             return await self._analyze_claude_prompt(prompt, images, feature="chart")
+        elif settings.llm.provider == "openrouter":
+            return await self._analyze_openrouter_prompt(prompt, images, feature="chart")
 
         return "Unsupported AI provider."
 
@@ -166,6 +184,8 @@ class AIService:
             return await self._generate_openai_text(prompt, feature="chat")
         elif settings.llm.provider == "claude":
             return await self._generate_claude_text(prompt, feature="chat")
+        elif settings.llm.provider == "openrouter":
+            return await self._generate_openrouter_text(prompt, feature="chat")
 
         return "Unsupported AI provider."
 
@@ -463,6 +483,92 @@ class AIService:
                 return "AI returned an empty response."
         except Exception as e:
             log.error("Claude text generation failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
+    async def _analyze_openrouter_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
+        """Analyze using OpenRouter (OpenAI-compatible API with vision support)."""
+        url = "https://openrouter.ai/api/v1/chat/completions"
+
+        content = [{"type": "text", "text": prompt}]
+        for image_data, mime_type in images:
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{mime_type};base64,{image_base64}"
+                }
+            })
+
+        headers = {
+            "Authorization": f"Bearer {settings.llm.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": settings.llm.model,
+            "messages": [{"role": "user", "content": content}],
+            "max_tokens": 500,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="openrouter",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("prompt_tokens", 0),
+                        output_tokens=usage.get("completion_tokens", 0),
+                    )
+
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content")
+
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("OpenRouter analysis failed", error=str(e))
+            return f"Error during AI analysis: {str(e)}"
+
+    async def _generate_openrouter_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
+        """Generate text using OpenRouter (OpenAI-compatible API)."""
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.llm.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": settings.llm.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 500,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+                usage = data.get("usage", {})
+                if usage:
+                    await self._record_usage(
+                        provider="openrouter",
+                        model=settings.llm.model,
+                        feature=feature,
+                        input_tokens=usage.get("prompt_tokens", 0),
+                        output_tokens=usage.get("completion_tokens", 0),
+                    )
+
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content")
+                return "AI returned an empty response."
+        except Exception as e:
+            log.error("OpenRouter text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
     def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:

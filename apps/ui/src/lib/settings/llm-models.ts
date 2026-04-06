@@ -1,4 +1,4 @@
-export type LlmProvider = 'gemini' | 'openai' | 'claude';
+export type LlmProvider = 'gemini' | 'openai' | 'claude' | 'openrouter';
 
 export type LlmModelOption = {
     value: string;
@@ -20,13 +20,20 @@ const LLM_MODEL_OPTIONS: Record<LlmProvider, LlmModelOption[]> = {
         { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
         { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
         { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' }
+    ],
+    openrouter: [
+        { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash' },
+        { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
+        { value: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
+        { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' }
     ]
 };
 
 const RECOMMENDED_LLM_MODEL: Record<LlmProvider, string> = {
     gemini: 'gemini-2.5-flash',
     openai: 'gpt-5.4',
-    claude: 'claude-sonnet-4-6'
+    claude: 'claude-sonnet-4-6',
+    openrouter: 'google/gemini-2.5-flash-preview'
 };
 
 const LLM_MODEL_ALIASES: Record<LlmProvider, Record<string, string>> = {
@@ -37,11 +44,12 @@ const LLM_MODEL_ALIASES: Record<LlmProvider, Record<string, string>> = {
     },
     claude: {
         'claude-sonnet-4-5': 'claude-sonnet-4-6'
-    }
+    },
+    openrouter: {}
 };
 
 function normalizeProvider(provider: string): LlmProvider {
-    if (provider === 'openai' || provider === 'claude') return provider;
+    if (provider === 'openai' || provider === 'claude' || provider === 'openrouter') return provider;
     return 'gemini';
 }
 

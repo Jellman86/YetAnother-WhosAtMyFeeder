@@ -310,3 +310,96 @@ async def test_image_encoding(ai_service):
             # Should be valid base64
             decoded = base64.b64decode(encoded_data)
             assert decoded == test_image
+
+
+@pytest.mark.asyncio
+async def test_analyze_openrouter_success(ai_service):
+    """Should analyze image via OpenRouter (OpenAI-compatible) successfully."""
+    with patch('app.services.ai_service.settings') as mock_settings:
+        mock_settings.llm.enabled = True
+        mock_settings.llm.api_key = "sk-or-test"
+        mock_settings.llm.provider = "openrouter"
+        mock_settings.llm.model = "google/gemini-2.5-flash-preview"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "content": "This House Sparrow is foraging at the feeder."
+                }
+            }],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 20}
+        }
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock()
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await ai_service.analyze_detection(
+                species="House Sparrow",
+                image_data=b"fake_image_data",
+                metadata={"camera": "front_yard"}
+            )
+
+            assert "Sparrow" in result or "foraging" in result.lower()
+
+            # Should call the OpenRouter endpoint
+            call_args = mock_instance.post.call_args
+            assert "openrouter.ai" in call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_test_connection_openrouter_success(ai_service):
+    """test_connection should return True for a valid OpenRouter key."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "OK"}}]
+    }
+
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_instance = MagicMock()
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock()
+        mock_instance.post = AsyncMock(return_value=mock_response)
+        mock_client.return_value = mock_instance
+
+        ok, msg = await ai_service.test_connection(
+            provider="openrouter",
+            model="google/gemini-2.5-flash-preview",
+            api_key="sk-or-test"
+        )
+
+        assert ok is True
+        call_args = mock_instance.post.call_args
+        assert "openrouter.ai" in call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_test_connection_openrouter_empty_response(ai_service):
+    """test_connection should return False when OpenRouter returns no choices."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {"choices": []}
+
+    with patch('httpx.AsyncClient') as mock_client:
+        mock_instance = MagicMock()
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock()
+        mock_instance.post = AsyncMock(return_value=mock_response)
+        mock_client.return_value = mock_instance
+
+        ok, msg = await ai_service.test_connection(
+            provider="openrouter",
+            model="google/gemini-2.5-flash-preview",
+            api_key="sk-or-test"
+        )
+
+        assert ok is False
