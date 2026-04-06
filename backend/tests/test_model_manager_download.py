@@ -156,6 +156,29 @@ def test_resolve_models_dir_falls_back_when_data_models_unwritable(tmp_path, mon
     assert resolved == fallback_dir_abs
 
 
+def test_resolve_models_dir_uses_data_models_when_no_env_and_data_mounted(tmp_path, monkeypatch):
+    """No MODEL_DIR env + /data is a directory → resolve to /data/models (the persistent volume path)."""
+    from app.services import model_manager as model_manager_module
+
+    monkeypatch.delenv("MODEL_DIR", raising=False)
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: path == "/data")
+
+    real_join = os.path.join
+
+    makedirs_calls = []
+
+    def fake_makedirs(path, exist_ok=False):
+        makedirs_calls.append(path)
+
+    monkeypatch.setattr(model_manager_module.os.path, "join", real_join)
+    monkeypatch.setattr(model_manager_module.os, "makedirs", fake_makedirs)
+
+    resolved = model_manager_module._resolve_models_dir()
+
+    assert resolved == "/data/models", f"Expected /data/models, got {resolved!r}"
+    assert makedirs_calls and makedirs_calls[0] == "/data/models"
+
+
 def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 

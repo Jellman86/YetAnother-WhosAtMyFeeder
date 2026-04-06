@@ -83,7 +83,6 @@ COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh
 COPY docker/monolith/healthcheck.sh /usr/local/bin/yawamf-healthcheck.sh
 
 ENV DB_PATH=/data/speciesid.db
-ENV MODEL_DIR=/app/data/models
 ENV HOME=/tmp
 ENV XDG_CACHE_HOME=/tmp/.cache
 ENV XDG_CONFIG_HOME=/tmp/.config

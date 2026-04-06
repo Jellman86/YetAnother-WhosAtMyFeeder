@@ -452,6 +452,16 @@ def _resolve_models_dir() -> str:
 
 MODELS_DIR = _resolve_models_dir()
 
+_PERSISTENT_MODELS_PREFIX = "/data/models"
+if not MODELS_DIR.startswith(_PERSISTENT_MODELS_PREFIX):
+    import warnings
+    warnings.warn(
+        f"Model directory resolved to '{MODELS_DIR}' which is inside the container "
+        f"image filesystem. Downloaded models will be lost on container restart. "
+        f"Mount a persistent volume at /data or set MODEL_DIR to a writable host path.",
+        stacklevel=2,
+    )
+
 class ModelManager:
     def __init__(self):
         # Ensure models directory exists
