@@ -319,7 +319,7 @@ async def test_analyze_openrouter_success(ai_service):
         mock_settings.llm.enabled = True
         mock_settings.llm.api_key = "sk-or-test"
         mock_settings.llm.provider = "openrouter"
-        mock_settings.llm.model = "google/gemini-2.5-flash-preview"
+        mock_settings.llm.model = "google/gemini-2.5-flash"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -372,7 +372,7 @@ async def test_test_connection_openrouter_success(ai_service):
 
         ok, msg = await ai_service.test_connection(
             provider="openrouter",
-            model="google/gemini-2.5-flash-preview",
+            model="google/gemini-2.5-flash",
             api_key="sk-or-test"
         )
 
@@ -398,7 +398,7 @@ async def test_test_connection_openrouter_empty_response(ai_service):
 
         ok, msg = await ai_service.test_connection(
             provider="openrouter",
-            model="google/gemini-2.5-flash-preview",
+            model="google/gemini-2.5-flash",
             api_key="sk-or-test"
         )
 

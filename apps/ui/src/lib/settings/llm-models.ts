@@ -22,7 +22,8 @@ const LLM_MODEL_OPTIONS: Record<LlmProvider, LlmModelOption[]> = {
         { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' }
     ],
     openrouter: [
-        { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash' },
+        { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+        { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
         { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
         { value: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
         { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' }
@@ -33,7 +34,7 @@ const RECOMMENDED_LLM_MODEL: Record<LlmProvider, string> = {
     gemini: 'gemini-2.5-flash',
     openai: 'gpt-5.4',
     claude: 'claude-sonnet-4-6',
-    openrouter: 'google/gemini-2.5-flash-preview'
+    openrouter: 'google/gemini-2.5-flash'
 };
 
 const LLM_MODEL_ALIASES: Record<LlmProvider, Record<string, string>> = {
@@ -45,7 +46,9 @@ const LLM_MODEL_ALIASES: Record<LlmProvider, Record<string, string>> = {
     claude: {
         'claude-sonnet-4-5': 'claude-sonnet-4-6'
     },
-    openrouter: {}
+    openrouter: {
+        'google/gemini-2.5-flash-preview': 'google/gemini-2.5-flash'
+    }
 };
 
 function normalizeProvider(provider: string): LlmProvider {
@@ -80,6 +83,12 @@ export function resolveStoredLlmModel(provider: string, model: string | null | u
 export function coerceLlmModelForProvider(provider: string, model: string | null | undefined): string {
     const normalizedProvider = normalizeProvider(provider);
     const resolved = resolveStoredLlmModel(normalizedProvider, model);
+
+    // OpenRouter exposes thousands of models — accept any non-empty ID, not just presets.
+    if (normalizedProvider === 'openrouter' && resolved) {
+        return resolved;
+    }
+
     const options = LLM_MODEL_OPTIONS[normalizedProvider];
 
     if (options.some((option) => option.value === resolved)) {

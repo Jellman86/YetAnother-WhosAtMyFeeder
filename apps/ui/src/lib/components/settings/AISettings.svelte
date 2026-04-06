@@ -252,18 +252,35 @@
 
                 <div>
                     <label for="llm-model" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.llm.model')}</label>
-                    <select
-                        id="llm-model"
-                        bind:value={llmModel}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900 outline-none appearance-none"
-                    >
-                        {#each availableModels as model}
-                            <option value={model.value}>{model.label}</option>
-                        {/each}
-                    </select>
-                    <p class="mt-2 text-[9px] text-slate-400 font-bold italic">
-                        {$_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(llmProvider)}` })}
-                    </p>
+                    {#if llmProvider === 'openrouter'}
+                        <datalist id="llm-model-suggestions">
+                            {#each availableModels as model}
+                                <option value={model.value}>{model.label}</option>
+                            {/each}
+                        </datalist>
+                        <input
+                            id="llm-model"
+                            type="text"
+                            list="llm-model-suggestions"
+                            bind:value={llmModel}
+                            placeholder={getRecommendedLlmModel(llmProvider)}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900 outline-none"
+                        />
+                        <p class="mt-2 text-[9px] text-slate-400 font-bold italic">{$_('settings.llm.openrouter_model_hint', { default: 'Enter any OpenRouter model ID (e.g. google/gemini-2.5-flash). Browse models at openrouter.ai/models.' })}</p>
+                    {:else}
+                        <select
+                            id="llm-model"
+                            bind:value={llmModel}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900 outline-none appearance-none"
+                        >
+                            {#each availableModels as model}
+                                <option value={model.value}>{model.label}</option>
+                            {/each}
+                        </select>
+                        <p class="mt-2 text-[9px] text-slate-400 font-bold italic">
+                            {$_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(llmProvider)}` })}
+                        </p>
+                    {/if}
                 </div>
 
                 <div class="pt-2">

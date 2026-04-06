@@ -97,7 +97,12 @@ class AIService:
 
             if provider == "openrouter":
                 url = "https://openrouter.ai/api/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
+                    "X-Title": "YA-WAMF",
+                }
                 payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 16}
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, headers=headers, json=payload)
@@ -502,6 +507,8 @@ class AIService:
         headers = {
             "Authorization": f"Bearer {settings.llm.api_key}",
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
+            "X-Title": "YA-WAMF",
         }
 
         payload = {
@@ -541,6 +548,8 @@ class AIService:
         headers = {
             "Authorization": f"Bearer {settings.llm.api_key}",
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
+            "X-Title": "YA-WAMF",
         }
         payload = {
             "model": settings.llm.model,
