@@ -12,17 +12,31 @@ def normalize_classifier_label(label: str | None) -> str:
         return text
 
     taxonomy_parts = parts[1:]
-    scientific_start = None
+
+    # Find the rightmost all-lowercase token — this is the species epithet.
+    # Scientific names follow the pattern: Genus species [subspecies ...].
+    # Common-name words appended after the scientific name always start with an
+    # uppercase letter, so the last all-lowercase token marks the species end.
+    species_end = None
     for idx in range(len(taxonomy_parts) - 1, -1, -1):
-        token = taxonomy_parts[idx]
-        if token[:1].isupper() and any(ch.islower() for ch in token[1:]):
-            scientific_start = idx
+        if taxonomy_parts[idx].islower():
+            species_end = idx
             break
 
-    if scientific_start is None:
+    if species_end is None:
         return text
 
-    normalized = ' '.join(taxonomy_parts[scientific_start:]).strip()
+    # Walk left across any consecutive lowercase tokens (subspecies epithets).
+    species_start = species_end
+    while species_start > 0 and taxonomy_parts[species_start - 1].islower():
+        species_start -= 1
+
+    # The genus is the PascalCase token immediately before the lowercase run.
+    if species_start == 0 or not taxonomy_parts[species_start - 1][:1].isupper():
+        return text
+
+    genus_idx = species_start - 1
+    normalized = ' '.join(taxonomy_parts[genus_idx:species_end + 1]).strip()
     return normalized or text
 
 
