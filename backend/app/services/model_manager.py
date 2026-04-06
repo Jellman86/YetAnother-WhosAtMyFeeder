@@ -1,3 +1,4 @@
+import errno
 import json
 import os
 import shutil
@@ -423,13 +424,16 @@ REMOTE_REGISTRY = [
     }
 ]
 
-# Use /data/models if it exists (standard for container), otherwise use local data dir
-if os.path.exists("/data/models"):
+# Use /data/models when running in a container with a mounted data volume.
+# Check for /data (the mount point) rather than /data/models so that a freshly
+# mounted volume without the subdirectory still routes models to the persistent
+# volume instead of silently falling back to the image-internal path.
+if os.path.isdir("/data"):
     MODELS_DIR = "/data/models"
 else:
-    # Fallback to local project directory
+    # Fallback for local development without a mounted /data volume
     MODELS_DIR = os.path.join(os.path.dirname(__file__), "../../data/models")
-    os.makedirs(MODELS_DIR, exist_ok=True)
+os.makedirs(MODELS_DIR, exist_ok=True)
 
 class ModelManager:
     def __init__(self):
@@ -997,19 +1001,30 @@ class ModelManager:
             missing_csv = ", ".join(missing)
             raise RuntimeError(f"Downloaded model payload is missing required files: {missing_csv}")
 
+    @staticmethod
+    def _rename_or_move(src: str, dst: str) -> None:
+        """Rename src to dst, falling back to copy+delete on cross-device (EXDEV) errors."""
+        try:
+            os.rename(src, dst)
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            shutil.copytree(src, dst)
+            shutil.rmtree(src, ignore_errors=True)
+
     def _swap_model_dirs(self, staged_dir: str, target_dir: str) -> None:
         had_existing = os.path.isdir(target_dir)
         backup_dir = f"{target_dir}.backup-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
 
         if had_existing:
-            os.rename(target_dir, backup_dir)
+            self._rename_or_move(target_dir, backup_dir)
 
         try:
-            os.rename(staged_dir, target_dir)
+            self._rename_or_move(staged_dir, target_dir)
         except Exception:
             if had_existing and os.path.isdir(backup_dir) and not os.path.exists(target_dir):
                 try:
-                    os.rename(backup_dir, target_dir)
+                    self._rename_or_move(backup_dir, target_dir)
                 except Exception as rollback_error:
                     log.error(
                         "Failed to rollback model directory after swap error",

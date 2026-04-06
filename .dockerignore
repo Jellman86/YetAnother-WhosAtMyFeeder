@@ -16,3 +16,4 @@ tmp
 .mypy_cache
 docs
 dashboard-preview.png
+backend/data/models
