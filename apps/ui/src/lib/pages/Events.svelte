@@ -6,6 +6,7 @@
         getThumbnailUrl,
         hideDetection,
         deleteDetection,
+        bulkDeleteDetections,
         fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
@@ -76,6 +77,8 @@
     let bulkTagPendingId = $state<string | null>(null);
     let bulkSearchTimeout: ReturnType<typeof setTimeout> | null = null;
     let bulkSearching = $state(false);
+    let bulkDeleting = $state(false);
+    let bulkReclassifying = $state(false);
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
     let recordingClipFetchEnabled = $derived(
@@ -844,6 +847,55 @@
             bulkTagging = false;
         }
     }
+
+    async function handleBulkDelete() {
+        if (selectedEventIds.length === 0) return;
+        const count = selectedEventIds.length;
+        if (!window.confirm(`Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+        bulkDeleting = true;
+        const ids = [...selectedEventIds];
+        try {
+            const result = await bulkDeleteDetections(ids);
+            if (result.deleted_count > 0) {
+                events = events.filter(e => !ids.includes(e.frigate_event));
+                selectedEventIds = [];
+                toastStore.success(`Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`);
+            }
+            if (result.missing_count > 0) {
+                toastStore.warning(`${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`);
+            }
+        } catch (e: any) {
+            toastStore.error(`Delete failed: ${e?.message || 'Unknown error'}`);
+        } finally {
+            bulkDeleting = false;
+        }
+    }
+
+    async function handleBulkReclassify() {
+        if (selectedEventIds.length === 0) return;
+        bulkReclassifying = true;
+        const ids = [...selectedEventIds];
+        let queued = 0;
+        let failed = 0;
+        try {
+            for (const eventId of ids) {
+                try {
+                    await reclassifyDetection(eventId, 'video');
+                    queued++;
+                } catch {
+                    failed++;
+                }
+            }
+            selectedEventIds = [];
+            if (failed === 0) {
+                toastStore.success(`Queued ${queued} detection${queued === 1 ? '' : 's'} for video analysis`);
+            } else {
+                toastStore.warning(`Queued ${queued}, failed to queue ${failed}`);
+            }
+        } finally {
+            bulkReclassifying = false;
+        }
+    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -875,12 +927,12 @@
         <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-200/80 dark:border-cyan-500/30 bg-cyan-50/70 dark:bg-cyan-500/10">
             <div>
                 <p class="text-sm font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-100">
-                    {$_('actions.manual_tag')}
+                    {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
                 <p class="text-xs text-cyan-700/80 dark:text-cyan-100/80">
                     {selectedEventIds.length
                         ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
-                        : $_('common.select', { default: 'Select' }) + ' events to tag together.'}
+                        : $_('common.select', { default: 'Select' }) + ' events to act on.'}
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -894,11 +946,27 @@
                 </button>
                 <button
                     type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onclick={handleBulkReclassify}
+                    disabled={selectedEventIds.length === 0 || bulkReclassifying || bulkDeleting}
+                >
+                    {bulkReclassifying ? $_('common.working', { default: 'Working…' }) : $_('actions.reclassify_selected', { default: 'Reclassify Selected' })}
+                </button>
+                <button
+                    type="button"
                     class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-cyan-600 text-white border-cyan-500 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     onclick={() => showBulkTagModal = true}
-                    disabled={selectedEventIds.length === 0}
+                    disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
                     {$_('actions.manual_tag')}
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-red-600 text-white border-red-500 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onclick={handleBulkDelete}
+                    disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
+                >
+                    {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete Selected' })}
                 </button>
             </div>
         </div>

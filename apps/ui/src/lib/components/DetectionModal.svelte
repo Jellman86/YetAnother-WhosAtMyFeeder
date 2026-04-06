@@ -1801,7 +1801,9 @@
                         {/if}
                     </div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                        {detection.video_classification_label}
+                        {detection.video_classification_label === detection.scientific_name && detection.common_name
+                            ? detection.common_name
+                            : detection.video_classification_label}
                     </p>
                     <div class="flex flex-wrap items-center gap-2 mt-1">
                         <p class="text-[10px] text-slate-500 italic leading-tight">

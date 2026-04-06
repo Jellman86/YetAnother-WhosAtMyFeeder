@@ -123,6 +123,22 @@ export async function deleteDetection(frigateEventId: string): Promise<{ status:
     return handleResponse<{ status: string }>(response);
 }
 
+export interface BulkDeleteResult {
+    deleted_count: number;
+    missing_count: number;
+    deleted_event_ids: string[];
+    missing_event_ids: string[];
+}
+
+export async function bulkDeleteDetections(eventIds: string[]): Promise<BulkDeleteResult> {
+    const response = await apiFetch(`${API_BASE}/events/bulk/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_ids: eventIds }),
+    });
+    return handleResponse<BulkDeleteResult>(response);
+}
+
 export interface HideDetectionResult {
     status: string;
     event_id: string;

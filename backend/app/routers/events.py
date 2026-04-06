@@ -854,6 +854,18 @@ class BulkManualTagResponse(BaseModel):
     new_species: str | None = None
 
 
+class BulkDeleteRequest(BaseModel):
+    """Request to delete multiple detections."""
+    event_ids: List[str] = Field(..., min_length=1, max_length=200, description="Frigate event IDs to delete")
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted_count: int
+    missing_count: int
+    deleted_event_ids: List[str]
+    missing_event_ids: List[str]
+
+
 class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
     status: str
@@ -1501,6 +1513,55 @@ async def bulk_manual_tag_events(
         missing_event_ids=missing_event_ids,
         failed_event_ids=failed_event_ids,
         new_species=last_new_species,
+    )
+
+
+@router.post("/events/bulk/delete", response_model=BulkDeleteResponse)
+async def bulk_delete_events(
+    body: BulkDeleteRequest,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Delete multiple detections by Frigate event ID. Owner only."""
+    requested_ids: list[str] = []
+    seen_ids: set[str] = set()
+    for raw_id in body.event_ids:
+        event_id = str(raw_id or "").strip()
+        if not event_id or event_id in seen_ids:
+            continue
+        seen_ids.add(event_id)
+        requested_ids.append(event_id)
+
+    if not requested_ids:
+        raise HTTPException(status_code=400, detail="No valid event IDs supplied")
+
+    deleted_event_ids: list[str] = []
+    missing_event_ids: list[str] = []
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        for event_id in requested_ids:
+            detection = await repo.get_by_frigate_event(event_id)
+            if not detection:
+                missing_event_ids.append(event_id)
+                continue
+            deleted = await repo.delete_by_frigate_event(event_id)
+            if deleted:
+                await broadcaster.broadcast({
+                    "type": "detection_deleted",
+                    "data": {
+                        "frigate_event": event_id,
+                        "timestamp": serialize_api_datetime(detection.detection_time),
+                    },
+                })
+                deleted_event_ids.append(event_id)
+            else:
+                missing_event_ids.append(event_id)
+
+    return BulkDeleteResponse(
+        deleted_count=len(deleted_event_ids),
+        missing_count=len(missing_event_ids),
+        deleted_event_ids=deleted_event_ids,
+        missing_event_ids=missing_event_ids,
     )
 
 
