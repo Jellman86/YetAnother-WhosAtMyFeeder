@@ -538,9 +538,16 @@ class AIService:
                     return choices[0].get("message", {}).get("content")
 
                 return "AI returned an empty response."
+        except httpx.HTTPStatusError as e:
+            try:
+                detail = e.response.json().get("error", {}).get("message") or e.response.text
+            except Exception:
+                detail = e.response.text if e.response is not None else str(e)
+            log.error("OpenRouter analysis failed", status=e.response.status_code if e.response else None, model=settings.llm.model, error=detail)
+            return f"AI analysis failed: {detail}"
         except Exception as e:
             log.error("OpenRouter analysis failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+            return f"AI analysis failed: {str(e)}"
 
     async def _generate_openrouter_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         """Generate text using OpenRouter (OpenAI-compatible API)."""
@@ -576,9 +583,16 @@ class AIService:
                 if choices:
                     return choices[0].get("message", {}).get("content")
                 return "AI returned an empty response."
+        except httpx.HTTPStatusError as e:
+            try:
+                detail = e.response.json().get("error", {}).get("message") or e.response.text
+            except Exception:
+                detail = e.response.text if e.response is not None else str(e)
+            log.error("OpenRouter text generation failed", status=e.response.status_code if e.response else None, model=settings.llm.model, error=detail)
+            return f"AI analysis failed: {detail}"
         except Exception as e:
             log.error("OpenRouter text generation failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+            return f"AI analysis failed: {str(e)}"
 
     def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:
         """Construct the prompt for the LLM."""
