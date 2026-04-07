@@ -611,7 +611,15 @@ class AIService:
             )
         )
         
-        weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}." if temp is not None else ""
+        if temp is not None:
+            temp_unit = metadata.get("temp_unit", "celsius")
+            if temp_unit == "fahrenheit":
+                display_temp = round(temp * 9 / 5 + 32, 1)
+                weather_str = f"The weather is currently {display_temp}°F and {condition or 'clear'}."
+            else:
+                weather_str = f"The weather is currently {temp}°C and {condition or 'clear'}."
+        else:
+            weather_str = ""
 
         language_note = f"Respond in {language}." if language else ""
         template = settings.llm.analysis_prompt_template

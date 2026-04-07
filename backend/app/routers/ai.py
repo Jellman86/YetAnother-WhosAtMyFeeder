@@ -13,6 +13,7 @@ from app.repositories.ai_conversation_repository import AIConversationRepository
 from app.database import get_db
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.timezone import get_user_timezone
 from app.utils.api_datetime import serialize_api_datetime
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -166,10 +167,14 @@ async def analyze_event(
                 )
 
         # Metadata for prompt
+        user_tz = get_user_timezone(request)
+        local_time = detection.detection_time.replace(tzinfo=timezone.utc).astimezone(user_tz)
+        temp_unit = settings.location.temperature_unit
         metadata = {
             "temperature": detection.temperature,
+            "temp_unit": temp_unit,
             "weather_condition": detection.weather_condition,
-            "time": detection.detection_time.strftime("%H:%M")
+            "time": local_time.strftime("%H:%M")
         }
         if frames:
             metadata["frame_count"] = len(frames)

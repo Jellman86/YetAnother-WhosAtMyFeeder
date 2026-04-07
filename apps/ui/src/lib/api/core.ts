@@ -91,6 +91,13 @@ export function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
         }
     }
 
+    if (typeof Intl !== 'undefined') {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz) {
+            headers['X-Timezone'] = tz;
+        }
+    }
+
     return headers;
 }
 
