@@ -149,13 +149,18 @@ def _fetch_frigate_events(frigate_api_url: str, timeout_seconds: float, limit: i
     return [item for item in payload if isinstance(item, dict)]
 
 
-def _build_frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> str:
+def _build_frigate_payload(
+    event_id: str,
+    event_type: str,
+    false_positive: bool = False,
+    camera: str = "soak_cam",
+) -> str:
     return json.dumps(
         {
             "type": event_type,
             "after": {
                 "id": event_id,
-                "camera": "soak_cam",
+                "camera": camera,
                 "label": "bird",
                 "start_time": time.time(),
                 "false_positive": false_positive,
