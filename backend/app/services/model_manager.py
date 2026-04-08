@@ -15,6 +15,9 @@ from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 log = structlog.get_logger()
 
+_PERSISTENT_MODELS_DIR = "/data/models"
+_PACKAGED_DEFAULT_MODEL_DIR = "/app/data/models"
+
 # Model Registry
 # Supports both TFLite and ONNX runtimes
 REMOTE_REGISTRY = [
@@ -424,16 +427,32 @@ REMOTE_REGISTRY = [
     }
 ]
 
+def _configured_models_dir() -> str:
+    return str(os.getenv("MODEL_DIR") or "").strip()
+
+
+def _is_packaged_legacy_models_dir(path: str) -> bool:
+    return os.path.abspath(path) == os.path.abspath(_PACKAGED_DEFAULT_MODEL_DIR)
+
+
+def _should_prefer_persistent_models_dir(configured_dir: str) -> bool:
+    return bool(configured_dir) and _is_packaged_legacy_models_dir(configured_dir) and os.path.isdir("/data")
+
+
 def _resolve_models_dir() -> str:
     """Return a writable models directory for the current runtime."""
-    configured_dir = str(os.getenv("MODEL_DIR") or "").strip()
+    configured_dir = _configured_models_dir()
     fallback_dir = os.path.join(os.path.dirname(__file__), "../../data/models")
     candidates = []
 
-    if configured_dir:
-        candidates.append(configured_dir)
     if os.path.isdir("/data"):
-        candidates.append("/data/models")
+        candidates.append(_PERSISTENT_MODELS_DIR)
+    if configured_dir and not _should_prefer_persistent_models_dir(configured_dir):
+        candidates.insert(0, configured_dir)
+    elif configured_dir:
+        # Older backend images set MODEL_DIR=/app/data/models, which writes into
+        # the container filesystem instead of the mounted /data volume.
+        candidates.append(configured_dir)
     candidates.append(fallback_dir)
 
     seen: set[str] = set()
@@ -450,9 +469,73 @@ def _resolve_models_dir() -> str:
     raise OSError("Unable to resolve a writable models directory")
 
 
-MODELS_DIR = _resolve_models_dir()
+def _dir_has_entries(path: str) -> bool:
+    try:
+        with os.scandir(path) as entries:
+            return any(True for _ in entries)
+    except FileNotFoundError:
+        return False
 
-_PERSISTENT_MODELS_PREFIX = "/data/models"
+
+def _maybe_migrate_legacy_models_dir(target_dir: str) -> None:
+    configured_dir = _configured_models_dir()
+    if not configured_dir or not _is_packaged_legacy_models_dir(configured_dir):
+        return
+    if not os.path.isdir("/data"):
+        return
+
+    legacy_dir = os.path.abspath(configured_dir)
+    target_dir = os.path.abspath(target_dir)
+    if legacy_dir == target_dir or not os.path.isdir(legacy_dir):
+        return
+    if not _dir_has_entries(legacy_dir):
+        return
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    migrated_entries: list[str] = []
+    skipped_entries: list[str] = []
+    try:
+        with os.scandir(legacy_dir) as entries:
+            for entry in entries:
+                source_path = entry.path
+                destination_path = os.path.join(target_dir, entry.name)
+                if os.path.exists(destination_path):
+                    skipped_entries.append(entry.name)
+                    continue
+                shutil.move(source_path, destination_path)
+                migrated_entries.append(entry.name)
+    except Exception:
+        log.exception(
+            "Failed migrating legacy model directory contents into persistent models dir",
+            legacy_models_dir=legacy_dir,
+            persistent_models_dir=target_dir,
+            migrated_entries=migrated_entries,
+            skipped_entries=skipped_entries,
+        )
+        raise
+
+    if migrated_entries:
+        log.warning(
+            "Migrated legacy packaged model directory entries into persistent /data/models",
+            legacy_models_dir=legacy_dir,
+            persistent_models_dir=target_dir,
+            migrated_entries=migrated_entries,
+            skipped_entries=skipped_entries,
+        )
+    elif skipped_entries:
+        log.warning(
+            "Skipped legacy packaged model directory migration because all entries already exist in persistent /data/models",
+            legacy_models_dir=legacy_dir,
+            persistent_models_dir=target_dir,
+            skipped_entries=skipped_entries,
+        )
+
+
+MODELS_DIR = _resolve_models_dir()
+_maybe_migrate_legacy_models_dir(MODELS_DIR)
+
+_PERSISTENT_MODELS_PREFIX = _PERSISTENT_MODELS_DIR
 if not MODELS_DIR.startswith(_PERSISTENT_MODELS_PREFIX):
     import warnings
     warnings.warn(

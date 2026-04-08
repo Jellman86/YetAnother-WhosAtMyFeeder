@@ -125,6 +125,26 @@ def test_resolve_models_dir_prefers_model_dir_env(tmp_path, monkeypatch):
     assert resolved == str(env_dir)
 
 
+def test_resolve_models_dir_prefers_data_models_over_packaged_legacy_default(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    monkeypatch.setenv("MODEL_DIR", "/app/data/models")
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: path == "/data")
+    real_join = os.path.join
+    makedirs_calls = []
+
+    def fake_makedirs(path, exist_ok=False):
+        makedirs_calls.append(path)
+
+    monkeypatch.setattr(model_manager_module.os.path, "join", real_join)
+    monkeypatch.setattr(model_manager_module.os, "makedirs", fake_makedirs)
+
+    resolved = model_manager_module._resolve_models_dir()
+
+    assert resolved == "/data/models"
+    assert makedirs_calls and makedirs_calls[0] == "/data/models"
+
+
 def test_resolve_models_dir_falls_back_when_data_models_unwritable(tmp_path, monkeypatch):
     from app.services import model_manager as model_manager_module
 
@@ -177,6 +197,77 @@ def test_resolve_models_dir_uses_data_models_when_no_env_and_data_mounted(tmp_pa
 
     assert resolved == "/data/models", f"Expected /data/models, got {resolved!r}"
     assert makedirs_calls and makedirs_calls[0] == "/data/models"
+
+
+def test_maybe_migrate_legacy_models_dir_moves_packaged_default_into_persistent_dir(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    legacy_dir = tmp_path / "legacy-models"
+    target_dir = tmp_path / "persistent-models"
+    legacy_model_dir = legacy_dir / "convnext_large_inat21"
+    legacy_model_dir.mkdir(parents=True, exist_ok=True)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (legacy_model_dir / "model.onnx").write_bytes(b"onnx")
+    (legacy_dir / "active_model.json").write_text('{"active_model_id":"convnext_large_inat21"}', encoding="utf-8")
+
+    monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+
+    model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
+
+    assert not (legacy_model_dir / "model.onnx").exists()
+    assert not (legacy_dir / "active_model.json").exists()
+    assert (target_dir / "convnext_large_inat21" / "model.onnx").exists()
+    assert (target_dir / "active_model.json").exists()
+
+
+def test_maybe_migrate_legacy_models_dir_does_not_override_conflicting_entries(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    legacy_dir = tmp_path / "legacy-models"
+    target_dir = tmp_path / "persistent-models"
+    legacy_model_dir = legacy_dir / "convnext_large_inat21"
+    target_model_dir = target_dir / "convnext_large_inat21"
+    legacy_model_dir.mkdir(parents=True, exist_ok=True)
+    target_model_dir.mkdir(parents=True, exist_ok=True)
+    (legacy_model_dir / "model.onnx").write_bytes(b"legacy")
+    (target_model_dir / "model.onnx").write_bytes(b"target")
+
+    monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+
+    model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
+
+    assert (legacy_model_dir / "model.onnx").read_bytes() == b"legacy"
+    assert (target_model_dir / "model.onnx").read_bytes() == b"target"
+
+
+def test_maybe_migrate_legacy_models_dir_merges_missing_entries_without_overwriting(tmp_path, monkeypatch):
+    from app.services import model_manager as model_manager_module
+
+    legacy_dir = tmp_path / "legacy-models"
+    target_dir = tmp_path / "persistent-models"
+    legacy_model_dir = legacy_dir / "convnext_large_inat21"
+    target_model_dir = target_dir / "eva02_large_inat21"
+    legacy_model_dir.mkdir(parents=True, exist_ok=True)
+    target_model_dir.mkdir(parents=True, exist_ok=True)
+    (legacy_model_dir / "model.onnx").write_bytes(b"legacy")
+    (legacy_dir / "active_model.json").write_text('{"active_model_id":"convnext_large_inat21"}', encoding="utf-8")
+    (target_model_dir / "model.onnx").write_bytes(b"target")
+
+    monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
+    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+
+    model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
+
+    assert not (legacy_model_dir / "model.onnx").exists()
+    assert not (legacy_dir / "active_model.json").exists()
+    assert (target_model_dir / "model.onnx").read_bytes() == b"target"
+    assert (target_dir / "convnext_large_inat21" / "model.onnx").read_bytes() == b"legacy"
+    assert (target_dir / "active_model.json").exists()
 
 
 def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_path, monkeypatch):

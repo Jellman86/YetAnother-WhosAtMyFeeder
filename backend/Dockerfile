@@ -70,7 +70,7 @@ COPY --chown=appuser:appuser . .
 
 # Set environment variables
 ENV DB_PATH=/data/speciesid.db
-ENV MODEL_DIR=/app/data/models
+ENV MODEL_DIR=/data/models
 # OpenVINO (and related GPU runtimes) may write telemetry/shader cache under HOME/XDG paths.
 # Compose overrides the container user to a numeric UID/GID, so default HOME can become `/`.
 # Point caches/config to /tmp (writable, per-container) to avoid noisy warnings and failures.
