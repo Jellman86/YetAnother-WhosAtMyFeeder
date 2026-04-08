@@ -62,6 +62,8 @@
         onReclassify?: (detection: Detection) => void;
         onPlayVideo?: (frigateEvent: string, playIntent?: 'auto' | 'user') => void;
         onFetchFullVisit?: (detection: Detection) => void;
+        onDeleteSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
+        onHideSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
@@ -78,6 +80,8 @@
         onReclassify,
         onPlayVideo,
         onFetchFullVisit,
+        onDeleteSuccess,
+        onHideSuccess,
         onViewSpecies,
         readOnly = false,
         fullVisitAvailable = false,
@@ -920,6 +924,7 @@
             const result = await hideDetection(detection.frigate_event);
             if (result.is_hidden) {
                 detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+                await onHideSuccess?.(detection.frigate_event, detection.detection_time);
                 onClose();
             }
         } catch (e: any) {
@@ -936,6 +941,7 @@
         try {
             await deleteDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+            await onDeleteSuccess?.(detection.frigate_event, detection.detection_time);
             onClose();
         } catch (e: any) {
             alert($_('notifications.reclassify_failed', { values: { message: e.message } }));

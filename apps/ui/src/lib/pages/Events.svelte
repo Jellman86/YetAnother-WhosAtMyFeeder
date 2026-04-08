@@ -606,6 +606,7 @@
                 detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
                 selectedEvent = null;
                 hiddenCount++;
+                await refreshEventMetadata(true, false);
             }
         } catch {} finally { hiding = false; }
     }
@@ -618,6 +619,7 @@
             events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
             detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
             selectedEvent = null;
+            await refreshEventMetadata(true, false);
         } catch {} finally { deleting = false; }
     }
 
@@ -864,6 +866,7 @@
                 toastStore.warning(`${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`);
             }
             selectedEventIds = [];
+            await refreshEventMetadata(true, false);
         } catch (e: any) {
             toastStore.error(`Delete failed: ${e?.message || 'Unknown error'}`);
         } finally {
@@ -1179,6 +1182,19 @@
         onClose={() => selectedEvent = null}
         onReclassify={handleReclassify}
         onFetchFullVisit={selectedEventFullVisitHandler}
+        onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
+            events = events.filter((event) => event.frigate_event !== deletedEventId);
+            detectionsStore.removeDetection(deletedEventId, detectionTime);
+            selectedEvent = null;
+            await refreshEventMetadata(true, false);
+        }}
+        onHideSuccess={async (hiddenEventId: string, detectionTime?: string) => {
+            events = events.filter((event) => event.frigate_event !== hiddenEventId);
+            detectionsStore.removeDetection(hiddenEventId, detectionTime);
+            selectedEvent = null;
+            hiddenCount++;
+            await refreshEventMetadata(true, false);
+        }}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
             videoShareToken = null;

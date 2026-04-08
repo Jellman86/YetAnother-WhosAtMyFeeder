@@ -26,4 +26,13 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toContain('asText(d.ai_analysis)');
         expect(eventsSource).toContain('asText(d.ai_analysis_timestamp)');
     });
+
+    it('refreshes filter metadata after delete and hide mutations', () => {
+        expect(eventsSource).toContain('await refreshEventMetadata(true, false);');
+    });
+
+    it('wires modal delete and hide success back into page refresh logic', () => {
+        expect(eventsSource).toContain('onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {');
+        expect(eventsSource).toContain('onHideSuccess={async (hiddenEventId: string, detectionTime?: string) => {');
+    });
 });
