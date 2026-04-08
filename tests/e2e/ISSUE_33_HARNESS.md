@@ -154,6 +154,165 @@ live instance if the real Frigate keeps publishing on the same topic. Prefer a
 test environment where the harness fully owns the Frigate topic, or temporarily
 isolate real Frigate MQTT publishing during the stall window.
 
+## Apr 8 Isolated Stall Run
+
+The latest isolated live run used the replay-backed `issue33-live` profile and
+temporarily stopped the real `frigate` container during the synthetic stall
+window:
+
+- artifact:
+  `/config/workspace/YA-WAMF/tmp/issue33-harness/20260408-1340-isolated-frigate-stop/summary.json`
+- pause marker:
+  `2026-04-08T13:42:20.226426+00:00`
+- resume marker:
+  `2026-04-08T13:49:18.643696+00:00`
+
+What this run proved:
+
+- drops started exactly when the Frigate stall began
+- drops plateaued exactly when the synthetic Frigate publisher resumed
+- no maintenance timeout or video-circuit opening was observed
+- no live-image admission timeouts were observed
+
+Important outcome:
+
+- the drop reason was `classify_snapshot_unavailable`
+- diagnostics showed `focused_video_likely_last_error=event_http_500` during the
+  outage window
+- `topic_liveness_reconnects_delta` still stayed `0`
+- the run therefore still did **not** reproduce
+  `frigate_recovery_no_frigate_resume`
+
+The most important caveat from this run is new:
+
+- even after the real `frigate` container was stopped and the harness recorded
+  `frigate_publisher_paused`, `mqtt_frigate_count` still continued to rise
+- that means Frigate-topic traffic was still leaking during the intended stall
+  window
+- because the topic never went quiet, the backend's stalled-topic reconnect
+  logic still was not being cleanly exercised
+
+Interpretation:
+
+- this run is useful evidence for outage handling under load
+- it is **not** a clean Track B reproducer for the MQTT reconnect path
+- the next harness fix should be to eliminate Frigate-topic leakage during the
+  pause window before changing `mqtt_service.py` again
+
+## Apr 8 Hard-Stop Rerun
+
+The next Apr 8 rerun updated the harness to fully stop and join all synthetic
+Frigate publisher threads during the stall window, then recreate them on resume.
+
+- artifact:
+  `/config/workspace/YA-WAMF/tmp/issue33-harness/20260408-1423-isolated-hard-stop/summary.json`
+- pause marker:
+  `2026-04-08T14:25:24.071541+00:00`
+- resume marker:
+  `2026-04-08T14:32:23.750483+00:00`
+
+What changed:
+
+- the harness no longer relies on a cooperative pause flag for Frigate traffic
+- synthetic Frigate publishers are torn down during the stall and recreated at
+  resume
+
+What the rerun showed:
+
+- the result shape improved slightly:
+  - `event_dropped_delta: 780` instead of `798`
+  - drops froze exactly at the resume marker
+  - completions resumed immediately after replay resumed
+- `maintenance_video_timeout.failed=false`
+- `mqtt_no_frigate_resume.failed=false`
+- `topic_liveness_reconnects_delta` still stayed `0`
+
+Most important interpretation:
+
+- hard-stopping the synthetic publishers did **not** make the Frigate topic go
+  stale under the `issue33-live` load profile
+- `mqtt_frigate_count` still rose through the whole stall window while the real
+  `frigate` container was stopped
+- the backend stayed at `mqtt.in_flight=200`, so the remaining "fresh Frigate"
+  signal is likely backlog drain rather than live publisher leakage
+
+This changes the next harness task:
+
+- the primary problem is no longer just synthetic-publisher leakage
+- the stall detector now also needs to distinguish real new Frigate traffic from
+  backlog already queued inside YA-WAMF
+- until that is fixed, a heavy `issue33-live` stall run still cannot cleanly
+  validate the MQTT reconnect path
+
+## Apr 8 Stall-Probe Profile
+
+To address the backlog-masking problem, the harness now supports a dedicated
+lower-pressure Track B profile:
+
+- `--stress-profile issue33-stall-probe`
+
+This profile keeps replay-backed Frigate and BirdNET traffic alive, but avoids
+the `issue33-live` queue saturation that kept the Frigate topic from ever aging
+out.
+
+Current defaults:
+
+- `--duration-seconds 900`
+- `--poll-interval-seconds 2`
+- `--trigger-analysis-interval-seconds 0`
+- `--induce-frigate-stall-after-seconds 90`
+- `--frigate-stall-duration-seconds 420`
+- `--frigate-load-source replay`
+- `--frigate-publish-interval-seconds 0.75`
+- `--birdnet-publish-interval-seconds 0.5`
+- `--frigate-publisher-replicas 1`
+- `--birdnet-publisher-replicas 1`
+
+Use it like this:
+
+```bash
+/config/workspace/YA-WAMF/backend/venv/bin/python \
+  /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
+  --backend-url http://yawamf:8080 \
+  --stress-profile issue33-stall-probe \
+  --scenario mqtt-no-frigate-resume \
+  --username <owner_username> \
+  --password <owner_password> \
+  --mqtt-host mosquitto \
+  --mqtt-port 1883 \
+  --mqtt-username <mqtt_username> \
+  --mqtt-password <mqtt_password> \
+  --mqtt-publish-container mosquitto
+```
+
+## Apr 8 Stall-Probe Result
+
+The corrected rerun with the lower-pressure profile passed:
+
+- artifact:
+  `/config/workspace/YA-WAMF/tmp/issue33-harness/20260408-1511-stall-probe-fixed/summary.json`
+- pause marker:
+  `2026-04-08T15:13:10.829542+00:00`
+- resume marker:
+  `2026-04-08T15:20:10.857333+00:00`
+
+Key outcome:
+
+- `status: pass`
+- `topic_liveness_reconnects_delta: 1`
+- `last_reconnect_reason: frigate_topic_stalled`
+- `mqtt_no_frigate_resume.failed=false`
+- `degraded_ratio: 0.0`
+- `event_dropped_delta: 13`
+- `live_image_admission_timeouts_delta: 0`
+
+Interpretation:
+
+- the MQTT reconnect path does work on current `dev` when the harness creates a
+  real Frigate-topic stall instead of a backlog-masked pseudo-stall
+- the remaining `#33` work should no longer start with `mqtt_service.py`
+- for Track B on current code, use `issue33-stall-probe`, not `issue33-live`
+
 Observed live failure shape from the Apr 6 runs:
 
 - MQTT pressure stayed at `critical`
@@ -186,6 +345,10 @@ Recommended next step for another agent:
    - early load-collapse / backpressure failure
    - maintenance timeout behavior
    - later MQTT no-Frigate-resume recovery
+5. Treat the Apr 8 isolated-stall result as a harness-quality checkpoint:
+   - the outage produced `classify_snapshot_unavailable` drops as expected
+   - but Frigate-topic traffic still leaked during the pause
+   - fix that leak before claiming Track B is tested
 
 ## Basic Combined Run
 

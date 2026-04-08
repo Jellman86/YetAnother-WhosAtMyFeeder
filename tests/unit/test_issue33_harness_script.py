@@ -60,6 +60,14 @@ def test_build_arg_parser_accepts_issue33_live_stress_profile():
     assert args.stress_profile == "issue33-live"
 
 
+def test_build_arg_parser_accepts_issue33_stall_probe_stress_profile():
+    parser = issue33._build_arg_parser()
+
+    args = parser.parse_args(["--stress-profile", "issue33-stall-probe"])
+
+    assert args.stress_profile == "issue33-stall-probe"
+
+
 def test_apply_stress_profile_uses_aggressive_issue33_live_defaults():
     parser = issue33._build_arg_parser()
     args = parser.parse_args(["--stress-profile", "issue33-live"])
@@ -79,6 +87,29 @@ def test_apply_stress_profile_uses_aggressive_issue33_live_defaults():
     assert args.frigate_publisher_replicas == 4
     assert args.birdnet_publisher_replicas == 3
     assert args.max_pressure_level == "critical"
+
+
+def test_apply_stress_profile_uses_lower_pressure_issue33_stall_probe_defaults():
+    parser = issue33._build_arg_parser()
+    args = parser.parse_args(["--stress-profile", "issue33-stall-probe"])
+
+    issue33._apply_stress_profile(args, parser=parser)
+
+    assert args.duration_seconds == 900
+    assert args.poll_interval_seconds == 2.0
+    assert args.trigger_analysis_interval_seconds == 0.0
+    assert args.analysis_trigger_burst_count == 1
+    assert args.induce_frigate_stall_after_seconds == 90.0
+    assert args.frigate_stall_duration_seconds == 420.0
+    assert args.frigate_load_source == "replay"
+    assert args.frigate_event_type == "new"
+    assert args.frigate_publish_interval_seconds == 0.75
+    assert args.birdnet_publish_interval_seconds == 0.5
+    assert args.frigate_publisher_replicas == 1
+    assert args.birdnet_publisher_replicas == 1
+    assert args.max_pressure_level == "high"
+    assert args.max_degraded_ratio == 0.35
+    assert args.min_samples == 45
 
 
 def test_apply_stress_profile_preserves_explicit_overrides():
@@ -389,6 +420,77 @@ def test_should_pause_frigate_publisher_forever_when_duration_is_non_positive():
     ) is True
 
 
+class _FakeThread:
+    def __init__(self, alive=True):
+        self._alive = alive
+        self.join_calls = []
+
+    def is_alive(self):
+        return self._alive
+
+    def join(self, timeout=None):
+        self.join_calls.append(timeout)
+        self._alive = False
+
+
+def test_set_frigate_publishers_running_stops_and_joins_threads():
+    stop_event = issue33.threading.Event()
+    threads = [_FakeThread(), _FakeThread()]
+    started = []
+
+    updated_threads, updated_stop_event, changed = issue33._set_frigate_publishers_running(
+        should_run=False,
+        threads=threads,
+        stop_event=stop_event,
+        start_publishers=lambda _stop_event: started.append(_stop_event) or [],
+    )
+
+    assert changed is True
+    assert updated_threads == []
+    assert updated_stop_event is stop_event
+    assert stop_event.is_set() is True
+    assert started == []
+    assert threads[0].join_calls == [1.0]
+    assert threads[1].join_calls == [1.0]
+
+
+def test_set_frigate_publishers_running_restarts_when_threads_are_not_alive():
+    stop_event = issue33.threading.Event()
+    dead_thread = _FakeThread(alive=False)
+    replacement_threads = [_FakeThread()]
+    started_events = []
+
+    updated_threads, updated_stop_event, changed = issue33._set_frigate_publishers_running(
+        should_run=True,
+        threads=[dead_thread],
+        stop_event=stop_event,
+        start_publishers=lambda new_stop_event: started_events.append(new_stop_event) or replacement_threads,
+    )
+
+    assert changed is True
+    assert updated_threads == replacement_threads
+    assert updated_stop_event is started_events[0]
+    assert updated_stop_event is not stop_event
+
+
+def test_set_frigate_publishers_running_keeps_existing_threads_when_already_running():
+    stop_event = issue33.threading.Event()
+    live_thread = _FakeThread(alive=True)
+    started = []
+
+    updated_threads, updated_stop_event, changed = issue33._set_frigate_publishers_running(
+        should_run=True,
+        threads=[live_thread],
+        stop_event=stop_event,
+        start_publishers=lambda _stop_event: started.append(_stop_event) or [_FakeThread()],
+    )
+
+    assert changed is False
+    assert updated_threads == [live_thread]
+    assert updated_stop_event is stop_event
+    assert started == []
+
+
 def test_normalize_issue33_evaluation_accepts_induced_stall_when_reconnect_occurs():
     evaluation = {
         "passed": False,
@@ -430,10 +532,12 @@ def test_normalize_issue33_evaluation_keeps_failures_without_induced_stall():
 
 def test_normalize_issue33_evaluation_replaces_birdnet_delta_with_stall_window_freshness():
     start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    resume = start + timedelta(seconds=60)
     samples = [
         SimpleNamespace(observed_at=start, mqtt_birdnet_age_seconds=4.0),
         SimpleNamespace(observed_at=start + timedelta(seconds=30), mqtt_birdnet_age_seconds=6.0),
         SimpleNamespace(observed_at=start + timedelta(seconds=60), mqtt_birdnet_age_seconds=8.0),
+        SimpleNamespace(observed_at=start + timedelta(seconds=120), mqtt_birdnet_age_seconds=45.0),
     ]
     evaluation = {
         "passed": False,
@@ -447,6 +551,7 @@ def test_normalize_issue33_evaluation_replaces_birdnet_delta_with_stall_window_f
         induced_frigate_stall=True,
         samples=samples,
         induced_frigate_stall_at=start.isoformat(),
+        resumed_frigate_at=resume.isoformat(),
         birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
         max_birdnet_active_age_seconds=20.0,
     )
@@ -455,6 +560,33 @@ def test_normalize_issue33_evaluation_replaces_birdnet_delta_with_stall_window_f
     assert normalized["failure_reasons"] == []
     assert normalized["birdnet_publisher_ok"] is True
     assert normalized["birdnet_stall_window_samples"] == 3
+    assert normalized["birdnet_stayed_fresh_during_stall"] is True
+
+
+def test_normalize_issue33_evaluation_ignores_missing_birdnet_age_sample_during_stall():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    resume = start + timedelta(seconds=60)
+    samples = [
+        SimpleNamespace(observed_at=start, mqtt_birdnet_age_seconds=4.0),
+        SimpleNamespace(observed_at=start + timedelta(seconds=20), mqtt_birdnet_age_seconds=None),
+        SimpleNamespace(observed_at=start + timedelta(seconds=40), mqtt_birdnet_age_seconds=6.0),
+    ]
+    evaluation = {
+        "passed": True,
+        "failure_reasons": [],
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        resumed_frigate_at=resume.isoformat(),
+        birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+    )
+
+    assert normalized["passed"] is True
     assert normalized["birdnet_stayed_fresh_during_stall"] is True
 
 
