@@ -811,3 +811,73 @@ def test_event_processor_status_stays_degraded_when_incomplete_events_remain_aft
     assert status["critical_failures"] == 1
     assert status["incomplete_events"] == 1
     assert status["status"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_extends_retry_budget_during_frigate_stall_recovery():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-stall-retry-1",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.Image.open", return_value=MagicMock()), \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None, None, b"fakeimage"])
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": "frigate_topic_stalled",
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 320.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is not None
+    results, snapshot_data = result
+    assert results[0]["label"] == "Sparrow"
+    assert snapshot_data == b"fakeimage"
+    assert mock_frigate.get_snapshot.await_count == 4
+    assert mock_sleep.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_keeps_single_retry_without_frigate_recovery_signal():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-stall-retry-2",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None, b"fakeimage"])
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is None
+    assert mock_frigate.get_snapshot.await_count == 2
+    assert mock_sleep.await_count == 1

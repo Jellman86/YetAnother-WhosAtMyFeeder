@@ -28,6 +28,7 @@ from app.services.notification_dispatcher import notification_dispatcher
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.full_visit_clip_service import full_visit_clip_service
+from app.services.mqtt_service import mqtt_service
 from app.utils.frigate import normalize_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -65,6 +66,14 @@ LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
             "2.0",
         )
     ),
+)
+EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS = max(
+    0.5,
+    float(os.getenv("EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS", "2.0")),
+)
+EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
+    0,
+    int(os.getenv("EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES", "5")),
 )
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
 _CLASSIFY_SNAPSHOT_TIMED_OUT = object()
@@ -669,6 +678,65 @@ class EventProcessor:
             return False
         return self._live_event_age_seconds(event) >= LIVE_EVENT_STALE_SECONDS
 
+    def _mqtt_snapshot_recovery_active(self) -> bool:
+        try:
+            status = mqtt_service.get_status() or {}
+        except Exception:
+            return False
+
+        if not isinstance(status, dict):
+            return False
+
+        if bool(status.get("intentional_reconnect_pending")):
+            return True
+
+        last_reconnect_reason = str(status.get("last_reconnect_reason") or "").strip().lower()
+        if last_reconnect_reason in {"frigate_topic_stalled", "frigate_topic_stalled_watchdog"}:
+            return True
+
+        if bool(status.get("stall_recovery_warning_active")):
+            return True
+
+        topic_ages = status.get("topic_last_message_age_seconds") or {}
+        if not isinstance(topic_ages, dict):
+            return False
+
+        frigate_age = topic_ages.get("frigate")
+        birdnet_age = topic_ages.get("birdnet")
+        try:
+            stale_after_seconds = float(status.get("frigate_topic_stale_seconds") or 0.0)
+        except (TypeError, ValueError):
+            stale_after_seconds = 0.0
+
+        if stale_after_seconds <= 0.0:
+            return False
+        if birdnet_age is None:
+            return False
+        try:
+            birdnet_age = float(birdnet_age)
+        except (TypeError, ValueError):
+            return False
+        if birdnet_age > max(10.0, stale_after_seconds / 2.0):
+            return False
+        if frigate_age is None:
+            return True
+        try:
+            return float(frigate_age) >= stale_after_seconds
+        except (TypeError, ValueError):
+            return False
+
+    def _snapshot_unavailable_retry_budget(self, event: EventData) -> int:
+        retries = 1
+        if self._mqtt_snapshot_recovery_active():
+            retries += EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES
+
+        remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
+        freshness_retry_cap = max(
+            1,
+            int(remaining_freshness // EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS),
+        )
+        return min(retries, freshness_retry_cap)
+
     def _try_acquire_live_event_key(self, event: EventData) -> bool:
         if not getattr(settings.classification, "live_event_coalescing_enabled", True):
             return True
@@ -716,13 +784,28 @@ class EventProcessor:
 
         # Normal classification path
         try:
-            # Retry once on snapshot unavailability to handle the Frigate race condition
-            # where the MQTT `end` event fires before the snapshot is queryable.
-            snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
-            if not snapshot_data:
-                log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
-                await asyncio.sleep(2.0)
+            retry_budget = self._snapshot_unavailable_retry_budget(event)
+            snapshot_data: bytes | None = None
+            for retry_index in range(retry_budget + 1):
                 snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
+                if snapshot_data:
+                    break
+
+                if retry_index >= retry_budget:
+                    break
+
+                if retry_budget > 1:
+                    log.info(
+                        "Snapshot unavailable during Frigate recovery, retrying",
+                        event_id=event.frigate_event,
+                        retry_attempt=retry_index + 1,
+                        retry_budget=retry_budget,
+                        retry_delay_seconds=EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS,
+                    )
+                else:
+                    log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
+
+                await asyncio.sleep(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS)
             if not snapshot_data:
                 log.info("Skipping MQTT event - snapshot unavailable after retry", event_id=event.frigate_event)
                 return None
