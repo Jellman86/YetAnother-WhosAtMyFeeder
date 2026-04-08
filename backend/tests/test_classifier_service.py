@@ -3191,6 +3191,23 @@ def test_probe_onnxruntime_cuda_provider_safe_reports_nonzero_subprocess_exit():
     assert "exit code 139" in (result["error"] or "")
 
 
+def test_probe_onnxruntime_cuda_provider_safe_uses_real_session_and_inference():
+    observed: dict[str, object] = {}
+
+    def _fake_run(args, **kwargs):
+        observed["args"] = list(args)
+        return types.SimpleNamespace(returncode=0, stdout='{"ok": true, "error": null}\n', stderr="")
+
+    with patch("app.services.classifier_service.subprocess.run", side_effect=_fake_run):
+        result = _probe_onnxruntime_cuda_provider_safe()
+
+    script = str((observed.get("args") or [None, None, ""])[2])
+    assert "InferenceSession" in script
+    assert "sess.run" in script
+    assert "CUDAExecutionProvider" in script
+    assert result["ok"] is True
+
+
 def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():
     with patch("app.services.classifier_service.ONNX_AVAILABLE", False), \
          patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
