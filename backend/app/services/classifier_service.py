@@ -2672,9 +2672,14 @@ class ClassifierService:
                         input_size=input_size,
                         ort_providers=["CPUExecutionProvider"],
                     )
-                    fallback_model.load()
-                    self._models["bird"] = fallback_model
-                    return
+                    if fallback_model.load():
+                        self._models["bird"] = fallback_model
+                        return
+                    log.warning(
+                        "ONNX Runtime CPU fallback model load failed; falling back to TFLite",
+                        error=fallback_model.error,
+                    )
+                    runtime = 'tflite'
                 prev_reason = self._inference_fallback_reason
                 fallback_reason = _summarize_openvino_load_error(
                     self._openvino_model_compile_error,
@@ -2722,9 +2727,14 @@ class ClassifierService:
                         device_name="CPU",
                         startup_self_test_enabled=not self._worker_process_mode,
                     )
-                    fallback_model.load()
-                    self._models["bird"] = fallback_model
-                    return
+                    if fallback_model.load():
+                        self._models["bird"] = fallback_model
+                        return
+                    log.warning(
+                        "OpenVINO CPU fallback model load failed; falling back to TFLite",
+                        error=fallback_model.error,
+                    )
+                    runtime = 'tflite'
                 log.warning("ONNX Runtime model load failed; falling back to TFLite", error=bird_model.error)
                 runtime = 'tflite'
 

@@ -914,6 +914,73 @@ async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
 
 
 @pytest.mark.asyncio
+async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(monkeypatch):
+    spec = {
+        "model_path": "/tmp/bird.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "onnx",
+        "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
+    }
+
+    openvino_model = MagicMock()
+    openvino_model.load.return_value = False
+    openvino_model.error = "openvino compile failed"
+
+    onnx_fallback_model = MagicMock()
+    onnx_fallback_model.load.return_value = False
+    onnx_fallback_model.error = "onnx fallback failed"
+
+    tflite_fallback_model = MagicMock()
+    tflite_fallback_model.loaded = True
+    tflite_fallback_model.error = None
+    tflite_fallback_model.labels = []
+
+    def _fake_refresh(self, *, force=False):
+        caps = {
+            "openvino_available": True,
+            "ort_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+        }
+        self._accel_caps = caps
+        return caps
+
+    def _fake_build(self, _spec, *, backend, provider):
+        if backend == "tflite":
+            return tflite_fallback_model
+        raise AssertionError(f"unexpected backend fallback: {backend}/{provider}")
+
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        lambda *_args, **_kwargs: {
+            "backend": "openvino",
+            "active_provider": "intel_gpu",
+            "openvino_device": "GPU",
+            "fallback_reason": None,
+        },
+    )
+    monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: openvino_model)
+    monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: onnx_fallback_model)
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
+         patch.object(ClassifierService, "_build_bird_model_for_backend", _fake_build):
+        service = ClassifierService()
+
+    try:
+        assert service._models["bird"] is tflite_fallback_model
+        assert service.model_loaded is True
+        assert service._inference_backend == "tflite"
+        openvino_model.load.assert_called_once()
+        onnx_fallback_model.load.assert_called_once()
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, mock_os_path_exists):
     class _FakeBirdModel:
         loaded = True

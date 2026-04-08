@@ -50,6 +50,17 @@ def test_build_error_message_reports_known_detection_failures():
     assert msg == "2 missing snapshots, 1 classifier worker unavailable, 3 timed out, 1 processing exception"
 
 
+def test_build_error_message_reports_model_unavailable_reason():
+    msg = _build_error_message(
+        3,
+        {
+            "background_image_model_unavailable": 2,
+            "classification_failed": 1,
+        },
+    )
+    assert msg == "2 classifier model unavailable, 1 empty classifier result"
+
+
 def test_build_running_message_reports_scanning_when_total_unknown():
     job = BackfillJobStatus(id="job-1", kind="detections", status="running")
     assert _build_running_message(job, {}) == "Scanning historical events"

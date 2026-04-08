@@ -244,6 +244,35 @@ async def test_process_historical_event_returns_classifier_worker_reason(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_process_historical_event_reports_model_unavailable_when_classifier_is_unloaded(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(return_value=[])
+    classifier.model_loaded = False
+    classifier.model_error = "Failed to load ONNX model: broken artifact"
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-model-unavailable",
+            "camera": "front",
+            "start_time": 1700000000,
+        }
+    )
+
+    assert status == "error"
+    assert reason == "background_image_model_unavailable"
+
+
+@pytest.mark.asyncio
 async def test_process_historical_event_with_timeout_retries_transient_classifier_failure():
     service = BackfillService(MagicMock())
     attempts: list[str] = []

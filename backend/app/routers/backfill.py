@@ -205,6 +205,7 @@ def _build_error_message(errors: int, error_reasons: Optional[dict[str, int]] = 
         ("background_image_lease_expired", "classifier lease expiry"),
         ("background_image_overloaded", "classifier overload"),
         ("background_image_circuit_open", "classifier recovery pause"),
+        ("background_image_model_unavailable", "classifier model unavailable"),
         ("classification_failed", "empty classifier result"),
         ("timeout", "timed out"),
         ("exception", "processing exception"),

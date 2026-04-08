@@ -216,17 +216,29 @@ class BackfillService:
 
             if not results:
                 log.debug("No classification results", event_id=frigate_event)
+                model_loaded = getattr(self.classifier, "model_loaded", None)
+                model_error = getattr(self.classifier, "model_error", None)
+                reason_code = "classification_failed"
+                message = "Historical event classification returned no results"
+                context = {"camera": event.get("camera")}
+                if isinstance(model_loaded, bool):
+                    context["model_loaded"] = model_loaded
+                if model_error:
+                    context["model_error"] = str(model_error)
+                if model_loaded is False:
+                    reason_code = "background_image_model_unavailable"
+                    message = "Historical event classification unavailable: bird model not loaded"
                 error_diagnostics_history.record(
                     source="backfill",
                     component="detections",
                     stage="classify_snapshot",
-                    reason_code="classification_failed",
-                    message="Historical event classification returned no results",
+                    reason_code=reason_code,
+                    message=message,
                     severity="error",
                     event_id=frigate_event,
-                    context={"camera": event.get("camera")},
+                    context=context,
                 )
-                return 'error', 'classification_failed'
+                return 'error', reason_code
 
             # Capture Frigate metadata (needed for fallback)
             frigate_score = event.get('top_score')
