@@ -515,7 +515,7 @@ async def search_species(
     hydrate_missing: bool = Query(False, description="Best-effort hydrate missing taxonomy/common names"),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
-    """Search for species labels (from classifier) and return with taxonomy info."""
+    """Search classifier labels plus cached/stored taxa and return taxonomy info."""
     q = (q or "").strip()
     limit = max(1, min(limit, 100))
 
@@ -542,11 +542,10 @@ async def search_species(
             ) as cursor:
                 cached_rows = await cursor.fetchall()
 
-            label_set = set(labels)
             for sci_name, common_name in cached_rows:
-                if sci_name and sci_name in label_set:
+                if sci_name and not should_hide_species_label(sci_name):
                     matches.append(sci_name)
-                if common_name and common_name in label_set:
+                if common_name and not should_hide_species_label(common_name):
                     matches.append(common_name)
 
             # Include labels whose localized common names match the query.
@@ -562,10 +561,34 @@ async def search_species(
                     localized_rows = await cursor.fetchall()
 
                 for sci_name, common_name in localized_rows:
-                    if sci_name and sci_name in label_set:
+                    if sci_name and not should_hide_species_label(sci_name):
                         matches.append(sci_name)
-                    if common_name and common_name in label_set:
+                    if common_name and not should_hide_species_label(common_name):
                         matches.append(common_name)
+
+            # Include stored detection labels so owners can block taxa that were
+            # previously detected even if the active classifier no longer exposes
+            # them in its current label set.
+            async with db.execute(
+                """
+                SELECT DISTINCT display_name, category_name, scientific_name, common_name
+                FROM detections
+                WHERE is_hidden = 0
+                  AND (
+                    LOWER(COALESCE(display_name, '')) LIKE ?
+                    OR LOWER(COALESCE(category_name, '')) LIKE ?
+                    OR LOWER(COALESCE(scientific_name, '')) LIKE ?
+                    OR LOWER(COALESCE(common_name, '')) LIKE ?
+                  )
+                """,
+                (f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%")
+            ) as cursor:
+                detection_rows = await cursor.fetchall()
+
+            for row in detection_rows:
+                for candidate in row:
+                    if candidate and not should_hide_species_label(candidate):
+                        matches.append(candidate)
 
             seen = set()
             matches = [m for m in matches if not (m in seen or seen.add(m))]

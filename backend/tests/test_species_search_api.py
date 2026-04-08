@@ -190,3 +190,54 @@ async def test_species_search_hides_noncanonical_model_labels(client: httpx.Asyn
     assert len(payload) == 1
     assert payload[0]["id"] == "Great Tit"
     assert payload[0]["display_name"] == "Great Tit"
+
+
+@pytest.mark.asyncio
+async def test_species_search_includes_cached_non_classifier_taxa_for_blocking(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    taxa_id = 558558
+    async with get_db() as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id) VALUES (?, ?, ?)",
+            ("Dreissena polymorpha", "Zebra Mussel", taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                "2026-04-08 10:00:00",
+                1,
+                0.91,
+                "Zebra Mussel",
+                "Zebra Mussel",
+                f"evt-{uuid.uuid4().hex[:8]}",
+                "feeder",
+                "Dreissena polymorpha",
+                "Zebra Mussel",
+                taxa_id,
+            ),
+        )
+        await db.commit()
+
+    try:
+        with patch("app.routers.species.get_classifier", return_value=_MockClassifier(["Great Tit"])):
+            response = await client.get("/api/species/search?q=zebra&limit=20")
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert len(payload) == 1
+        assert payload[0]["scientific_name"] == "Dreissena polymorpha"
+        assert payload[0]["common_name"] == "Zebra Mussel"
+        assert payload[0]["taxa_id"] == taxa_id
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE taxa_id = ?", (taxa_id,))
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
+            await db.commit()
