@@ -881,3 +881,62 @@ async def test_classify_snapshot_keeps_single_retry_without_frigate_recovery_sig
     assert result is None
     assert mock_frigate.get_snapshot.await_count == 2
     assert mock_sleep.await_count == 1
+
+
+def test_snapshot_retry_budget_does_not_stay_elevated_after_frigate_traffic_resumes():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-stall-retry-3",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with patch("app.services.event_processor.mqtt_service") as mock_mqtt:
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": "frigate_topic_stalled",
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 0.4, "birdnet": 0.2},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        retry_budget = processor._snapshot_unavailable_retry_budget(event)
+
+    assert retry_budget == 1
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_caps_retry_sleep_to_remaining_freshness():
+    classifier = MagicMock()
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-stall-retry-4",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep, \
+         patch("app.services.event_processor.time.time", return_value=1700000045.2), \
+         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 45.0):
+        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None])
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is None
+    assert mock_frigate.get_snapshot.await_count == 2
+    mock_sleep.assert_awaited_once_with(pytest.approx(0.8))

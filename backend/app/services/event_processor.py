@@ -690,10 +690,6 @@ class EventProcessor:
         if bool(status.get("intentional_reconnect_pending")):
             return True
 
-        last_reconnect_reason = str(status.get("last_reconnect_reason") or "").strip().lower()
-        if last_reconnect_reason in {"frigate_topic_stalled", "frigate_topic_stalled_watchdog"}:
-            return True
-
         if bool(status.get("stall_recovery_warning_active")):
             return True
 
@@ -805,7 +801,10 @@ class EventProcessor:
                 else:
                     log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
 
-                await asyncio.sleep(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS)
+                remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
+                if remaining_freshness <= 0.0:
+                    break
+                await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
             if not snapshot_data:
                 log.info("Skipping MQTT event - snapshot unavailable after retry", event_id=event.frigate_event)
                 return None
