@@ -12,7 +12,11 @@ from types import SimpleNamespace
 
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
-from app.services.classifier_service import ClassifierService, LiveImageClassificationOverloadedError
+from app.services.classifier_service import (
+    CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+    ClassifierService,
+    LiveImageClassificationOverloadedError,
+)
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
@@ -52,6 +56,15 @@ EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(
 )
 LIVE_EVENT_STALE_SECONDS = max(
     1.0, float(os.getenv("LIVE_EVENT_STALE_SECONDS", "45"))
+)
+LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
+    CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+    float(
+        os.getenv(
+            "LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS",
+            "2.0",
+        )
+    ),
 )
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
 _CLASSIFY_SNAPSHOT_TIMED_OUT = object()
@@ -644,6 +657,13 @@ class EventProcessor:
             return 0.0
         return max(0.0, time.time() - float(event.received_at_ts))
 
+    def _live_classification_queue_timeout_seconds(self, event: EventData) -> float:
+        remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
+        return max(
+            CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
+            min(LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS, remaining_freshness),
+        )
+
     def _is_stale_live_event(self, event: EventData) -> bool:
         if event.is_false_positive:
             return False
@@ -712,6 +732,7 @@ class EventProcessor:
                 image,
                 camera_name=event.camera,
                 input_context={"is_cropped": True, "event_id": event.frigate_event},
+                queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
 
             if not results:

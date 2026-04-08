@@ -3818,6 +3818,7 @@ class ClassifierService:
         self,
         fn: Callable[..., list[dict]],
         *args: Any,
+        queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         if self._image_execution_mode == "subprocess" and args:
             return await self._run_coordinated_supervised_inference(
@@ -3827,6 +3828,7 @@ class ClassifierService:
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
                 args[3] if len(args) > 3 else None,
+                queue_timeout_seconds=queue_timeout_seconds,
             )
         return await self._run_coordinated_executor_inference(
             "live",
@@ -3834,6 +3836,7 @@ class ClassifierService:
             "live_image_inference",
             fn,
             *args,
+            queue_timeout_seconds=queue_timeout_seconds,
         )
 
     async def classify_async(
@@ -3882,10 +3885,18 @@ class ClassifierService:
         camera_name: Optional[str] = None,
         model_id: Optional[str] = None,
         input_context: Any | None = None,
+        queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         """Live image-classification path with bounded admission and accurate in-flight tracking."""
         normalized_input_context = _normalize_classification_input_context(input_context)
-        base_results = await self._run_live_image_inference(self.classify, image, camera_name, model_id, normalized_input_context)
+        base_results = await self._run_live_image_inference(
+            self.classify,
+            image,
+            camera_name,
+            model_id,
+            normalized_input_context,
+            queue_timeout_seconds=queue_timeout_seconds,
+        )
 
         if not base_results:
             return base_results

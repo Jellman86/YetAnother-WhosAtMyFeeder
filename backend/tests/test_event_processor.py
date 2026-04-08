@@ -57,6 +57,7 @@ async def test_process_mqtt_message_valid_bird():
             "is_cropped": True,
             "event_id": "123",
         }
+        assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(2.0)
         mock_det_service.save_detection.assert_called_once()
         mock_frigate.set_sublabel.assert_called_with("123", "Cardinal")
 
@@ -469,6 +470,46 @@ async def test_process_mqtt_message_records_distinct_overload_drop_reason():
     status = processor.get_status()
     assert status["drop_reasons"]["classify_snapshot_overloaded"] == 1
     assert "classify_snapshot_unavailable" not in status["drop_reasons"]
+
+
+@pytest.mark.asyncio
+async def test_process_mqtt_message_caps_live_queue_timeout_to_remaining_freshness():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.DetectionService") as MockDetectionService, \
+         patch("app.services.event_processor.media_cache") as mock_cache, \
+         patch("app.services.event_processor.audio_service") as mock_audio, \
+         patch("app.services.event_processor.weather_service") as mock_weather, \
+         patch("app.services.event_processor.notification_service") as mock_notif, \
+         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
+         patch("app.services.event_processor.Image.open"):
+        processor = EventProcessor(classifier)
+
+        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.set_sublabel = AsyncMock()
+        mock_cache.cache_snapshot = AsyncMock()
+        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
+
+        mock_det_service = MockDetectionService.return_value
+        mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
+        mock_det_service.save_detection = AsyncMock(return_value=(True, True))
+        mock_det_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock(notified_at=None))
+
+        mock_audio.find_match = AsyncMock(return_value=None)
+        mock_weather.get_current_weather = AsyncMock(return_value={})
+        mock_notif.notify_detection = AsyncMock(return_value=False)
+
+        event_received_at = 1700000001.0 - 44.0
+        payload = {
+            "after": {"id": "evt-freshness-budget", "label": "bird", "camera": "cam1", "start_time": 1700000000},
+            "__received_at_ts": event_received_at,
+        }
+
+        await processor._process_event_payload(payload)
+
+        assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(1.0)
 
 
 @pytest.mark.asyncio

@@ -2063,6 +2063,33 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_classify_async_live_passes_custom_queue_timeout(
+    mock_tflite, mock_os_path_exists
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True):
+            service = ClassifierService()
+            img = Image.new("RGB", (100, 100))
+
+            with patch.object(service, "_run_live_image_inference", new=AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 0}])) as mock_run:
+                results = await service.classify_async_live(
+                    img,
+                    camera_name="front",
+                    queue_timeout_seconds=1.75,
+                )
+
+            assert results[0]["label"] == "Robin"
+            assert mock_run.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(1.75)
+            await service.shutdown()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_uses_separate_executors_for_image_and_video_work(mock_tflite, mock_os_path_exists):
     class _FakeLoop:
         def __init__(self, real_loop):
