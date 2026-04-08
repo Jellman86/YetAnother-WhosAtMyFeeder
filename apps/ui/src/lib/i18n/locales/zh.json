@@ -766,6 +766,7 @@
       "active_provider_label": "当前生效",
       "intel_gpu_status": "Intel GPU",
       "provider_fallback_reason": "回退：",
+      "model_config_warning": "模型配置警告：",
       "provider_intel_gpu": "Intel GPU（OpenVINO）",
       "selected_provider_label": "已选择",
       "openvino_status": "OpenVINO",

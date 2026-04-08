@@ -774,6 +774,7 @@
       "active_provider_label": "Активен",
       "intel_gpu_status": "Intel GPU",
       "provider_fallback_reason": "Резервный режим:",
+      "model_config_warning": "Предупреждение о конфигурации модели:",
       "provider_intel_gpu": "Intel GPU (OpenVINO)",
       "selected_provider_label": "Выбран",
       "openvino_status": "OpenVINO",

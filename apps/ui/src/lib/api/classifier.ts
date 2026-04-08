@@ -32,6 +32,7 @@ export interface ClassifierStatus {
     active_provider?: string;
     inference_backend?: string;
     fallback_reason?: string | null;
+    model_config_warnings?: string[];
     available_providers?: string[];
     cuda_enabled?: boolean;
     personalized_rerank_enabled?: boolean;

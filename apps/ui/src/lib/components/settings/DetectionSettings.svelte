@@ -560,6 +560,13 @@
                             {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
                         </p>
                     {/if}
+                    {#if classifierStatus.model_config_warnings?.length}
+                        {#each classifierStatus.model_config_warnings as modelConfigWarning}
+                            <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                {$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}
+                            </p>
+                        {/each}
+                    {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3 space-y-2">
                             <p class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">

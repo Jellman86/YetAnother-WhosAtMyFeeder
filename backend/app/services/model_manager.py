@@ -675,6 +675,64 @@ class ModelManager:
             log.warning("Failed to load installed model config", model_dir=model_dir, error=str(exc))
             return {}
 
+    def _sanitize_installed_inference_providers(
+        self,
+        *,
+        installed_providers: list[Any],
+        registry_providers: list[Any],
+        model_dir: str,
+    ) -> tuple[list[str], list[str]]:
+        allowed_registry: list[str] = []
+        allowed_registry_set: set[str] = set()
+        for provider in registry_providers:
+            normalized = str(provider or "").strip().lower()
+            if not normalized or normalized in allowed_registry_set:
+                continue
+            allowed_registry.append(normalized)
+            allowed_registry_set.add(normalized)
+
+        installed_normalized: list[str] = []
+        seen_installed: set[str] = set()
+        for provider in installed_providers:
+            normalized = str(provider or "").strip().lower()
+            if not normalized or normalized in seen_installed:
+                continue
+            installed_normalized.append(normalized)
+            seen_installed.add(normalized)
+
+        supported = [provider for provider in installed_normalized if provider in allowed_registry_set]
+        unsupported = [provider for provider in installed_normalized if provider not in allowed_registry_set]
+
+        if not unsupported:
+            return supported, []
+
+        unsupported_text = ", ".join(unsupported)
+        if supported:
+            warning = (
+                "Installed model_config.json advertised providers no longer supported by the current "
+                f"registry and they were ignored: {unsupported_text}"
+            )
+            log.warning(
+                "Installed model config advertised unsupported inference providers; ignoring extras",
+                model_dir=model_dir,
+                unsupported_providers=unsupported,
+                registry_supported_providers=allowed_registry,
+                retained_providers=supported,
+            )
+            return supported, [warning]
+
+        warning = (
+            "Installed model_config.json only advertised providers no longer supported by the current "
+            f"registry: {unsupported_text}. Falling back to registry-supported providers."
+        )
+        log.warning(
+            "Installed model config advertised only unsupported inference providers; falling back to registry providers",
+            model_dir=model_dir,
+            unsupported_providers=unsupported,
+            registry_supported_providers=allowed_registry,
+        )
+        return list(allowed_registry), [warning]
+
     def _apply_installed_model_config(
         self,
         spec: dict[str, Any],
@@ -687,6 +745,7 @@ class ModelManager:
 
         merged = dict(spec)
         merged["model_config_path"] = os.path.join(model_dir, "model_config.json")
+        model_config_warnings = list(merged.get("model_config_warnings") or [])
         runtime = config.get("runtime")
         if isinstance(runtime, str) and runtime.strip():
             merged["runtime"] = runtime.strip()
@@ -719,7 +778,17 @@ class ModelManager:
         merged["crop_generator"] = self._normalize_crop_generator_block(crop_generator)
         providers = config.get("supported_inference_providers")
         if isinstance(providers, list) and providers:
-            merged["supported_inference_providers"] = list(providers)
+            sanitized_providers, provider_warnings = self._sanitize_installed_inference_providers(
+                installed_providers=providers,
+                registry_providers=list(spec.get("supported_inference_providers") or []),
+                model_dir=model_dir,
+            )
+            if sanitized_providers:
+                merged["supported_inference_providers"] = sanitized_providers
+            if provider_warnings:
+                model_config_warnings.extend(provider_warnings)
+        if model_config_warnings:
+            merged["model_config_warnings"] = model_config_warnings
         return merged
 
     def _resolve_family_variant_meta(

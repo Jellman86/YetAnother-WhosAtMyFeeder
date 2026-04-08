@@ -811,6 +811,7 @@
       "active_provider_label": "Active",
       "inference_backend_label": "Backend",
       "provider_fallback_reason": "Fallback:",
+      "model_config_warning": "Model config warning:",
       "execution_mode": "Execution Mode",
       "execution_mode_desc": "In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.",
       "mode_subprocess": "Subprocess (Isolated)",

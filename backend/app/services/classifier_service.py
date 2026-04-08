@@ -2055,6 +2055,7 @@ class ClassifierService:
         self._gpu_restore_not_before_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._bird_model_artifact_metadata: dict[str, Any] = {}
+        self._model_config_warnings: list[str] = []
         self._bird_model_compatibility: dict[str, Any] = {}
         self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
         self._accel_caps_last_refreshed_monotonic: float | None = None
@@ -2091,6 +2092,7 @@ class ClassifierService:
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
         runtime = str(spec.get("runtime") or "tflite")
         crop_generator = dict(spec.get("crop_generator") or {})
+        model_config_warnings = list(spec.get("model_config_warnings") or [])
 
         if not os.path.exists(model_path):
             model_path, labels_path = self._get_model_paths(
@@ -2109,6 +2111,7 @@ class ClassifierService:
             "runtime": runtime,
             "resolved_region": spec.get("resolved_region"),
             "supported_inference_providers": supported_inference_providers,
+            "model_config_warnings": model_config_warnings,
             "crop_generator": crop_generator,
         }
 
@@ -2132,6 +2135,7 @@ class ClassifierService:
             "label_grouping": dict(spec.get("label_grouping") or {}),
             "declared_runtime": str(spec.get("runtime") or ""),
             "model_type": self._classify_model_artifact_type(str(spec.get("model_path") or "")),
+            "model_config_warnings": list(spec.get("model_config_warnings") or []),
         }
         snapshot.update(dict(self._bird_model_artifact_metadata or {}))
         return snapshot
@@ -2532,6 +2536,9 @@ class ClassifierService:
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
+        model_config_warnings = [
+            str(item).strip() for item in (spec.get("model_config_warnings") or []) if str(item).strip()
+        ]
 
         log.info("Initializing bird model",
                  path=model_path,
@@ -2546,6 +2553,7 @@ class ClassifierService:
         self._inference_fallback_reason = None
         self._inference_backend = "tflite"
         self._active_inference_provider = "tflite"
+        self._model_config_warnings = model_config_warnings
         self._bird_model_artifact_metadata = _extract_model_artifact_metadata(model_path)
         self._bird_model_compatibility = {
             "artifact_trust_state": "unknown",
@@ -3129,6 +3137,7 @@ class ClassifierService:
             "active_provider": effective_provider,
             "inference_backend": effective_backend,
             "fallback_reason": self._inference_fallback_reason,
+            "model_config_warnings": list(self._model_config_warnings or []),
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             "image_admission_timeouts": self._image_admission_timeouts,

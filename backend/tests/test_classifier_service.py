@@ -981,6 +981,39 @@ async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(mo
 
 
 @pytest.mark.asyncio
+async def test_init_bird_model_surfaces_model_config_provider_warning_in_status():
+    spec = {
+        "model_path": "/tmp/bird.tflite",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "tflite",
+        "supported_inference_providers": ["cpu"],
+        "model_config_warnings": [
+            "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: intel_gpu"
+        ],
+    }
+
+    bird_model = MagicMock()
+    bird_model.loaded = True
+    bird_model.error = None
+    bird_model.labels = []
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_build_bird_model_for_backend", return_value=bird_model):
+        service = ClassifierService()
+
+    try:
+        status = service.get_status()
+        assert status["fallback_reason"] is None
+        assert status["model_config_warnings"] == [
+            "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: intel_gpu"
+        ]
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, mock_os_path_exists):
     class _FakeBirdModel:
         loaded = True

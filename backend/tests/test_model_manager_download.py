@@ -493,6 +493,62 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["label_grouping"] == {}
 
 
+def test_get_active_model_spec_filters_unsupported_installed_providers_and_records_warning(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "eva02_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "eva02_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["supported_inference_providers"] == ["intel_cpu", "cpu"]
+    assert spec["model_config_warnings"] == [
+        "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: intel_gpu"
+    ]
+
+
+def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "eva02_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "supported_inference_providers": ["intel_gpu"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "eva02_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    assert spec["model_config_warnings"] == [
+        "Installed model_config.json only advertised providers no longer supported by the current registry: intel_gpu. Falling back to registry-supported providers."
+    ]
+
+
 def test_get_active_model_spec_disables_invalid_crop_generator_in_installed_model_config(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 

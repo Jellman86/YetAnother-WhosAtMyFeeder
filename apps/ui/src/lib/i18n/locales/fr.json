@@ -766,6 +766,7 @@
       "active_provider_label": "Actif",
       "intel_gpu_status": "GPU Intel",
       "provider_fallback_reason": "Fallback :",
+      "model_config_warning": "Avertissement de configuration du modèle :",
       "provider_intel_gpu": "GPU Intel (OpenVINO)",
       "selected_provider_label": "Sélectionné",
       "openvino_status": "OpenVINO",

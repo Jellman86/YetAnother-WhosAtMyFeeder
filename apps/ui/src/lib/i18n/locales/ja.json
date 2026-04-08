@@ -766,6 +766,7 @@
       "active_provider_label": "使用中",
       "intel_gpu_status": "Intel GPU",
       "provider_fallback_reason": "フォールバック:",
+      "model_config_warning": "モデル設定の警告:",
       "provider_intel_gpu": "Intel GPU (OpenVINO)",
       "selected_provider_label": "選択",
       "openvino_status": "OpenVINO",
