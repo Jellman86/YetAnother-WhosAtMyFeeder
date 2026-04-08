@@ -33,6 +33,7 @@ from app.services.classifier_service import (  # noqa: E402
     _extract_openvino_unsupported_ops,
     _normalize_inference_provider,
     _probe_openvino_gpu_plugin_error_safe,
+    _probe_onnxruntime_cuda_provider_safe,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
     _select_video_frame_indices,
@@ -2983,6 +2984,9 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
     caps = {
         "ort_available": True,
         "cuda_available": False,
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
+        "cuda_probe_error": None,
         "openvino_available": False,
         "intel_gpu_available": False,
         "intel_cpu_available": False,
@@ -2992,6 +2996,25 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
     assert sel["backend"] == "onnxruntime"
     assert sel["ort_providers"] == ["CPUExecutionProvider"]
     assert sel["fallback_reason"] is not None
+
+
+def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_probe_fails():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "cuda_provider_installed": True,
+        "cuda_hardware_available": True,
+        "cuda_probe_error": "OSError: libcublasLt.so.12: cannot open shared object file",
+        "openvino_available": False,
+        "intel_gpu_available": False,
+        "intel_cpu_available": False,
+    }
+    sel = _resolve_inference_selection("cuda", caps)
+    assert sel["active_provider"] == "cpu"
+    assert sel["backend"] == "onnxruntime"
+    assert sel["ort_providers"] == ["CPUExecutionProvider"]
+    assert "failed runtime probe" in (sel["fallback_reason"] or "")
+    assert "libcublasLt.so.12" in (sel["fallback_reason"] or "")
 
 
 def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_possible():
@@ -3104,6 +3127,25 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_without
     assert caps["cuda_available"] is False
 
 
+def test_detect_acceleration_capabilities_does_not_report_cuda_available_when_probe_fails():
+    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service.ort") as mock_ort, \
+         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=True), \
+         patch(
+             "app.services.classifier_service._probe_onnxruntime_cuda_provider_safe",
+             return_value={"ok": False, "error": "OSError: libcublasLt.so.12: cannot open shared object file"},
+         ):
+        mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+        caps = _detect_acceleration_capabilities()
+
+    assert caps["ort_available"] is True
+    assert caps["cuda_provider_installed"] is True
+    assert caps["cuda_hardware_available"] is True
+    assert caps["cuda_available"] is False
+    assert "libcublasLt.so.12" in (caps["cuda_probe_error"] or "")
+
+
 def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
     fake_openvino = types.SimpleNamespace(Core=object, __version__="2026.0.0")
 
@@ -3139,6 +3181,14 @@ def test_probe_openvino_gpu_plugin_error_safe_reports_nonzero_subprocess_exit():
         err = _probe_openvino_gpu_plugin_error_safe()
     assert err is not None
     assert "exit code 139" in err
+
+
+def test_probe_onnxruntime_cuda_provider_safe_reports_nonzero_subprocess_exit():
+    completed = types.SimpleNamespace(returncode=139, stdout="", stderr="")
+    with patch("app.services.classifier_service.subprocess.run", return_value=completed):
+        result = _probe_onnxruntime_cuda_provider_safe()
+    assert result["ok"] is False
+    assert "exit code 139" in (result["error"] or "")
 
 
 def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():

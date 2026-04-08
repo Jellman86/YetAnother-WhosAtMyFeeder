@@ -518,8 +518,10 @@
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
                             {#if classifierStatus.cuda_available}
                                 {$_('settings.detection.cuda_available')}
-                            {:else if classifierStatus.cuda_provider_installed}
+                            {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
                                 {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
+                            {:else if classifierStatus.cuda_provider_installed}
+                                {$_('settings.detection.cuda_unavailable')}
                             {:else}
                                 {$_('settings.detection.cuda_unavailable')}
                             {/if}
@@ -566,6 +568,17 @@
                                 {$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}
                             </p>
                         {/each}
+                    {/if}
+                    {#if classifierStatus.cuda_probe_error}
+                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
+                            <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                                CUDA diagnostics
+                            </div>
+                            <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                                <p><span class="font-black">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
+                                <p><span class="font-black">Probe error:</span> {classifierStatus.cuda_probe_error}</p>
+                            </div>
+                        </div>
                     {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3 space-y-2">

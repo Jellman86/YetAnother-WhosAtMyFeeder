@@ -21,6 +21,7 @@ export interface ClassifierStatus {
     cuda_provider_installed?: boolean;
     cuda_hardware_available?: boolean;
     cuda_available?: boolean;
+    cuda_probe_error?: string | null;
     intel_cpu_available?: boolean;
     intel_gpu_available?: boolean;
     dev_dri_present?: boolean;

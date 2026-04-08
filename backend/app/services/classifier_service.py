@@ -725,6 +725,7 @@ def _detect_acceleration_capabilities() -> dict:
         "cuda_provider_installed": False,
         "cuda_hardware_available": False,
         "cuda_available": False,
+        "cuda_probe_error": None,
         "openvino_available": bool(OPENVINO_AVAILABLE and OpenVINOCore is not None),
         "openvino_version": _OPENVINO_SUPPORT.get("version"),
         "openvino_import_path": _OPENVINO_SUPPORT.get("import_path"),
@@ -752,7 +753,15 @@ def _detect_acceleration_capabilities() -> dict:
             caps["cuda_provider_installed"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
             if caps["cuda_provider_installed"]:
                 caps["cuda_hardware_available"] = _detect_cuda_hardware_available()
-            caps["cuda_available"] = bool(caps["cuda_provider_installed"] and caps["cuda_hardware_available"])
+                if caps["cuda_hardware_available"]:
+                    cuda_probe = _probe_onnxruntime_cuda_provider_safe()
+                    if not cuda_probe.get("ok"):
+                        caps["cuda_probe_error"] = cuda_probe.get("error") or "CUDA provider probe failed"
+            caps["cuda_available"] = bool(
+                caps["cuda_provider_installed"]
+                and caps["cuda_hardware_available"]
+                and not caps["cuda_probe_error"]
+            )
         except Exception as e:
             log.warning("Failed to inspect ONNX Runtime providers", error=str(e))
 
@@ -770,6 +779,64 @@ def _detect_acceleration_capabilities() -> dict:
             log.warning("Failed to inspect OpenVINO devices", error=caps["openvino_probe_error"])
 
     return caps
+
+
+def _probe_onnxruntime_cuda_provider_safe() -> dict:
+    """Probe whether ONNX Runtime's CUDA provider library can actually load."""
+    script = (
+        "import ctypes, json, pathlib, sys\n"
+        "try:\n"
+        "    import onnxruntime as ort\n"
+        "    providers = list(ort.get_available_providers() or [])\n"
+        "    if 'CUDAExecutionProvider' not in providers:\n"
+        "        print(json.dumps({'ok': False, 'error': 'CUDAExecutionProvider not advertised by onnxruntime'}))\n"
+        "        sys.exit(2)\n"
+        "    capi_dir = pathlib.Path(getattr(ort, '__file__', '')).resolve().parent / 'capi'\n"
+        "    candidates = [\n"
+        "        capi_dir / 'libonnxruntime_providers_cuda.so',\n"
+        "        capi_dir / 'onnxruntime_providers_cuda.dll',\n"
+        "        capi_dir / 'libonnxruntime_providers_cuda.dylib',\n"
+        "    ]\n"
+        "    provider_library = next((str(path) for path in candidates if path.exists()), None)\n"
+        "    if provider_library is None:\n"
+        "        print(json.dumps({'ok': False, 'error': 'CUDA provider library not found in onnxruntime package'}))\n"
+        "        sys.exit(2)\n"
+        "    ctypes.CDLL(provider_library)\n"
+        "    print(json.dumps({'ok': True, 'error': None, 'provider_library': provider_library}))\n"
+        "except Exception as e:\n"
+        "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
+        "    sys.exit(2)\n"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "TimeoutExpired: ONNX Runtime CUDA probe timed out"}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+    stdout = (proc.stdout or "").strip()
+    stderr = (proc.stderr or "").strip()
+    if stdout:
+        try:
+            result = json.loads(stdout)
+            if isinstance(result, dict):
+                result.setdefault("ok", proc.returncode == 0)
+                result.setdefault("error", None)
+                if proc.returncode != 0 and not result.get("error"):
+                    result["error"] = f"ONNX Runtime CUDA probe failed with exit code {proc.returncode}"
+                return result
+        except Exception:
+            pass
+
+    return {
+        "ok": False,
+        "error": stderr or f"ONNX Runtime CUDA probe failed with exit code {proc.returncode}",
+    }
 
 
 def _probe_openvino_devices_safe() -> dict:
@@ -921,6 +988,15 @@ def _detect_cuda_hardware_available() -> bool:
     return False
 
 
+def _cuda_unavailable_reason(caps: dict) -> str:
+    probe_error = str(caps.get("cuda_probe_error") or "").strip()
+    if probe_error:
+        return f"CUDA provider detected but failed runtime probe: {probe_error}"
+    if caps.get("cuda_provider_installed") and not caps.get("cuda_hardware_available"):
+        return "CUDAExecutionProvider is installed but no NVIDIA GPU is accessible in this runtime"
+    return "CUDAExecutionProvider is not available"
+
+
 def _resolve_inference_selection(
     requested_provider: Optional[str],
     caps: dict,
@@ -987,7 +1063,11 @@ def _resolve_inference_selection(
                 "openvino_device": None,
                 "fallback_reason": None,
             }
-        return _ort_cpu(_reason_with_constraint("CUDA requested but CUDAExecutionProvider is not available", "cuda", "CUDA"))
+        return _ort_cpu(_reason_with_constraint(
+            f"CUDA requested but {_cuda_unavailable_reason(caps)}",
+            "cuda",
+            "CUDA",
+        ))
 
     if requested == "intel_cpu":
         if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
@@ -1061,6 +1141,8 @@ def _resolve_inference_selection(
         fallback_reason = None
         if allowed and "intel_gpu" not in allowed:
             fallback_reason = "Active model artifact does not support Intel GPU"
+        elif caps.get("cuda_probe_error"):
+            fallback_reason = _cuda_unavailable_reason(caps)
         return {
             "requested_provider": requested,
             "active_provider": "intel_cpu",
@@ -1072,6 +1154,8 @@ def _resolve_inference_selection(
     fallback_reason = None
     if allowed and "intel_gpu" not in allowed:
         fallback_reason = "Active model artifact does not support Intel GPU"
+    elif caps.get("cuda_probe_error"):
+        fallback_reason = _cuda_unavailable_reason(caps)
     return _ort_cpu(fallback_reason)
 
 
@@ -2589,6 +2673,14 @@ class ClassifierService:
                     process_groups=self._accel_caps.get("process_groups"),
                 )
 
+        if self._accel_caps.get("cuda_probe_error"):
+            log.warning(
+                "CUDA unavailable (probe)",
+                error=self._accel_caps.get("cuda_probe_error"),
+                provider_installed=self._accel_caps.get("cuda_provider_installed"),
+                hardware_available=self._accel_caps.get("cuda_hardware_available"),
+            )
+
         # Create appropriate model instance based on runtime
         if runtime == 'onnx':
             selection = _resolve_inference_selection(
@@ -3126,6 +3218,7 @@ class ClassifierService:
             "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
             "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),
             "cuda_available": bool(self._accel_caps.get("cuda_available")),
+            "cuda_probe_error": self._accel_caps.get("cuda_probe_error"),
             "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
             "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
