@@ -16,8 +16,9 @@ numpy<2.0.0
 # For now, let's try tflite-support and see if it installs, or use a specific known compatible version.
 # tflite-support==0.4.4
 tensorflow-cpu; python_version >= '3.12'
-# ONNX Runtime (GPU wheel includes CPU fallback and CUDA provider when host libs are present)
-onnxruntime-gpu>=1.16.0
+# ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace runtime.
+# The host still needs NVIDIA Container Toolkit (or equivalent) to expose the driver/GPU.
+onnxruntime-gpu[cuda,cudnn]>=1.24.0
 # OpenVINO runtime for Intel CPU/iGPU acceleration.
 # Pinned to 2025.4.x: 2025.4 introduced a LayerNorm scale/bias reshape fix
 # (confirmed in Intel release notes) that is required for correct ViT-based

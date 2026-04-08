@@ -242,6 +242,34 @@ def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     assert results[1]["score"] == pytest.approx(0.25, rel=1e-3)
 
 
+def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation():
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        input_size=224,
+        ort_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+
+    mock_session_options = MagicMock()
+    mock_session = MagicMock()
+
+    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service.os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data="Bird A\n")), \
+         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
+         patch("app.services.classifier_service.ort") as mock_ort:
+        mock_ort.SessionOptions.return_value = mock_session_options
+        mock_ort.GraphOptimizationLevel.ORT_ENABLE_ALL = "ALL"
+        mock_ort.InferenceSession.return_value = mock_session
+
+        success = model.load()
+
+    assert success is True
+    mock_preload.assert_called_once_with()
+    mock_ort.InferenceSession.assert_called_once()
+
+
 def test_onnx_preprocess_letterbox_respects_configured_padding_color():
     model = ONNXModelInstance(
         "test",
@@ -3116,6 +3144,7 @@ async def test_classifier_service_respects_artifact_provider_constraints(mock_os
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_without_nvidia_device():
     with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
          patch("app.services.classifier_service.ort") as mock_ort, \
          patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False):
         mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -3125,10 +3154,12 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_without
     assert caps["ort_available"] is True
     assert caps["cuda_provider_installed"] is True
     assert caps["cuda_available"] is False
+    mock_preload.assert_called_once_with()
 
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_when_probe_fails():
     with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
          patch("app.services.classifier_service.ort") as mock_ort, \
          patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=True), \
          patch(
@@ -3144,6 +3175,27 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_when_pr
     assert caps["cuda_hardware_available"] is True
     assert caps["cuda_available"] is False
     assert "libcublasLt.so.12" in (caps["cuda_probe_error"] or "")
+    mock_preload.assert_called_once_with()
+
+
+def test_detect_acceleration_capabilities_preloads_onnxruntime_cuda_runtime_before_provider_probe():
+    events: list[str] = []
+
+    def _record_preload():
+        events.append("preload")
+
+    def _record_provider_check():
+        events.append("providers")
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
+         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries", side_effect=_record_preload), \
+         patch("app.services.classifier_service.ort") as mock_ort, \
+         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False):
+        mock_ort.get_available_providers.side_effect = _record_provider_check
+        _detect_acceleration_capabilities()
+
+    assert events[:2] == ["preload", "providers"]
 
 
 def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
@@ -3202,10 +3254,28 @@ def test_probe_onnxruntime_cuda_provider_safe_uses_real_session_and_inference():
         result = _probe_onnxruntime_cuda_provider_safe()
 
     script = str((observed.get("args") or [None, None, ""])[2])
+    assert "preload_dlls" in script
     assert "InferenceSession" in script
     assert "sess.run" in script
     assert "CUDAExecutionProvider" in script
     assert result["ok"] is True
+
+
+def test_preload_onnxruntime_cuda_runtime_libraries_uses_empty_directory_search():
+    mock_ort = MagicMock()
+    mock_ort.preload_dlls = MagicMock()
+
+    with patch.object(classifier_service_module, "ort", mock_ort):
+        classifier_service_module._preload_onnxruntime_cuda_runtime_libraries()
+
+    mock_ort.preload_dlls.assert_called_once_with(directory="")
+
+
+def test_preload_onnxruntime_cuda_runtime_libraries_noops_without_preload_api():
+    mock_ort = types.SimpleNamespace()
+
+    with patch.object(classifier_service_module, "ort", mock_ort):
+        classifier_service_module._preload_onnxruntime_cuda_runtime_libraries()
 
 
 def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():

@@ -67,16 +67,23 @@ RUN set -eux; \
         ocl-icd-libopencl1; \
     rm -rf /var/lib/apt/lists/*
 
+# CUDA/cuDNN userspace for ONNX Runtime is installed via backend/requirements.txt.
+# The host still needs NVIDIA Container Toolkit (or equivalent) to provide GPU passthrough.
+
 COPY --from=backend-builder /wheels /wheels
 COPY backend/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir /wheels/*
+RUN pip install --no-cache-dir --find-links /wheels -r /app/requirements.txt
 
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /config /data /app/data/models && \
     chown -R appuser:appuser /app /config /data /usr/share/nginx/html
 
 COPY --from=ui-builder /ui/dist /usr/share/nginx/html
-COPY backend/ /app/
+COPY backend/alembic.ini /app/alembic.ini
+COPY backend/download_model.py /app/download_model.py
+COPY backend/app /app/app
+COPY backend/locales /app/locales
+COPY backend/migrations /app/migrations
 COPY docker/monolith/nginx-main.conf /etc/nginx/nginx.conf
 COPY docker/monolith/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh

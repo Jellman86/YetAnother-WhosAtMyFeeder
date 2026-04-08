@@ -31,7 +31,9 @@ ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 
-# Install runtime libs for opencv/tflite and Intel iGPU OpenVINO acceleration (single-image).
+# Install runtime libs for opencv/tflite and Intel iGPU OpenVINO acceleration.
+# NVIDIA CUDA/cuDNN userspace for ONNX Runtime is installed via backend/requirements.txt;
+# the host still needs NVIDIA Container Toolkit (or equivalent) for GPU passthrough.
 # Debian 13 no longer ships the Intel NEO OpenCL/Level Zero runtime packages OpenVINO GPU needs,
 # so we add Intel's graphics repo and install the userspace runtime stack explicitly.
 RUN set -eux; \
@@ -59,14 +61,20 @@ RUN set -eux; \
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 
-RUN pip install --no-cache /wheels/*
+# Install from requirements so extras like onnxruntime-gpu[cuda,cudnn] remain active
+# while still preferring the prebuilt local wheels we produced in the builder stage.
+RUN pip install --no-cache-dir --find-links /wheels -r requirements.txt
 
 # Create a non-root user and setup directories
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /app /data /config /app/data/models && \
     chown -R appuser:appuser /app /data /config
 
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser download_model.py /app/download_model.py
+COPY --chown=appuser:appuser app /app/app
+COPY --chown=appuser:appuser locales /app/locales
+COPY --chown=appuser:appuser migrations /app/migrations
 
 # Set environment variables
 ENV DB_PATH=/data/speciesid.db

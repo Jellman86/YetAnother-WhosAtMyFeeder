@@ -100,7 +100,7 @@ Notes:
 Goal: validate end-to-end CUDA acceleration with ONNX models (ConvNeXt/EVA-02) on real NVIDIA hardware.
 
 Checklist:
-1. Ensure container runtime exposes your NVIDIA GPU (`nvidia-smi` works in the backend container).
+1. Ensure container runtime exposes your NVIDIA GPU (`nvidia-smi` works in the backend container). The official YA-WAMF images now package the CUDA/cuDNN userspace runtime for ONNX Runtime, but the host still must provide NVIDIA driver/runtime passthrough.
 2. In Settings -> Detection, set ONNX inference provider to `cuda` (or `auto` if CUDA is the desired preferred path on your host).
 3. Activate an ONNX model (recommended: ConvNeXt Large or EVA-02 Large).
 4. Confirm `/api/classifier/status` reports CUDA available and active provider as CUDA during inference.

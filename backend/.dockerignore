@@ -1,0 +1,11 @@
+.coverage
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
+data/
+debug_white_screen.png
+models/
+scripts/
+tests/
+venv/

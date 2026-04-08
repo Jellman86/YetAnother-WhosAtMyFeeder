@@ -38,6 +38,22 @@ except ImportError:
     ort = None
     ONNX_AVAILABLE = False
 
+
+def _preload_onnxruntime_cuda_runtime_libraries() -> None:
+    """Preload packaged CUDA/cuDNN runtime libraries for ONNX Runtime.
+
+    ONNX Runtime supports shipping the CUDA/cuDNN userspace stack via pip.
+    In that setup the shared libraries live under Python site-packages rather
+    than a standard system library path, so we ask ORT to preload them
+    explicitly before probing or creating CUDA sessions.
+    """
+    if not ONNX_AVAILABLE or ort is None:
+        return
+    preload_dlls = getattr(ort, "preload_dlls", None)
+    if not callable(preload_dlls):
+        return
+    preload_dlls(directory="")
+
 def _detect_openvino_support() -> dict:
     """Resolve OpenVINO Core import across package versions.
 
@@ -750,6 +766,7 @@ def _detect_acceleration_capabilities() -> dict:
 
     if caps["ort_available"]:
         try:
+            _preload_onnxruntime_cuda_runtime_libraries()
             caps["cuda_provider_installed"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
             if caps["cuda_provider_installed"]:
                 caps["cuda_hardware_available"] = _detect_cuda_hardware_available()
@@ -788,6 +805,9 @@ def _probe_onnxruntime_cuda_provider_safe() -> dict:
         "import numpy as np\n"
         "try:\n"
         "    import onnxruntime as ort\n"
+        "    preload_dlls = getattr(ort, 'preload_dlls', None)\n"
+        "    if callable(preload_dlls):\n"
+        "        preload_dlls(directory='')\n"
         "    providers = list(ort.get_available_providers() or [])\n"
         "    if 'CUDAExecutionProvider' not in providers:\n"
         "        print(json.dumps({'ok': False, 'error': 'CUDAExecutionProvider not advertised by onnxruntime'}))\n"
@@ -1569,6 +1589,8 @@ class ONNXModelInstance:
 
             # Use providers resolved by ClassifierService (already validated/fallback-aware)
             providers = list(self.ort_providers or ["CPUExecutionProvider"])
+            if "CUDAExecutionProvider" in providers:
+                _preload_onnxruntime_cuda_runtime_libraries()
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
             self.loaded = True
             self.error = None

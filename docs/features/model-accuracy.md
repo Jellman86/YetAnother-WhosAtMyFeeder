@@ -213,7 +213,7 @@ Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests eve
 
 #### Prerequisites
 
-NVIDIA Container Toolkit must be installed on the host.  Add GPU access to `docker-compose.yml`:
+The official YA-WAMF images now package the CUDA/cuDNN userspace runtime needed by `onnxruntime-gpu`. NVIDIA Container Toolkit must still be installed on the host so the GPU driver/runtime is exposed inside the container. Add GPU access to `docker-compose.yml`:
 
 ```yaml
 services:

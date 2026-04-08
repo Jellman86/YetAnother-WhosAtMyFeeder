@@ -41,6 +41,8 @@ services:
     #   - "44"   # video (example)
     #   - "107"  # render (example)
     # NVIDIA CUDA example (Docker Compose v2.20+):
+    # The official image now includes the CUDA/cuDNN userspace runtime for ORT.
+    # Your host still needs NVIDIA Container Toolkit (or equivalent).
     # gpus: all
     # environment:
     #   - NVIDIA_VISIBLE_DEVICES=all
