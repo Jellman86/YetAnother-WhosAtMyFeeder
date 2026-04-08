@@ -60,6 +60,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--http-timeout-seconds", type=float, default=5.0)
     parser.add_argument("--trigger-analysis-interval-seconds", type=float, default=120.0)
     parser.add_argument("--induce-frigate-stall-after-seconds", type=float, default=180.0)
+    parser.add_argument(
+        "--frigate-stall-duration-seconds",
+        type=float,
+        default=0.0,
+        help="How long to pause Frigate publishing after the induced stall starts. <= 0 keeps it paused for the rest of the run.",
+    )
     parser.add_argument("--mqtt-host", default=os.getenv("SOAK_MQTT_HOST", os.getenv("MQTT_SERVER", "127.0.0.1")))
     parser.add_argument("--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883"))))
     parser.add_argument("--mqtt-username", default=os.getenv("SOAK_MQTT_USERNAME", os.getenv("MQTT_USERNAME")))
@@ -127,6 +133,7 @@ def _apply_stress_profile(
         "analysis_trigger_burst_count": 4,
         "analysis_trigger_burst_spacing_seconds": 0.75,
         "induce_frigate_stall_after_seconds": 120.0,
+        "frigate_stall_duration_seconds": 420.0,
         "frigate_load_source": "replay",
         "frigate_event_type": "new",
         "frigate_publish_interval_seconds": 0.2,
@@ -166,6 +173,19 @@ def _should_stop_frigate_publisher(*, elapsed_seconds: float, stop_after_seconds
     return elapsed_seconds >= stop_after_seconds
 
 
+def _should_pause_frigate_publisher(
+    *,
+    elapsed_seconds: float,
+    stop_after_seconds: float,
+    stall_duration_seconds: float,
+) -> bool:
+    if stop_after_seconds <= 0 or elapsed_seconds < stop_after_seconds:
+        return False
+    if stall_duration_seconds <= 0:
+        return True
+    return elapsed_seconds < (stop_after_seconds + stall_duration_seconds)
+
+
 def _publisher_replicas(disabled: bool, replicas: int) -> range:
     if disabled:
         return range(0)
@@ -181,6 +201,7 @@ def _normalize_issue33_evaluation(
     induced_frigate_stall_at: str | None = None,
     birdnet_publish_stats: dict[str, Any] | None = None,
     max_birdnet_active_age_seconds: float | None = None,
+    min_stall_duration_seconds: float | None = None,
 ) -> dict[str, Any]:
     normalized = dict(evaluation)
     filtered_reasons = list(normalized.get("failure_reasons") or [])
@@ -218,11 +239,22 @@ def _normalize_issue33_evaluation(
     if birdnet_state["failure_reason"]:
         filtered_reasons.append(str(birdnet_state["failure_reason"]))
 
+    frigate_state = _assess_issue33_frigate_stall_effectiveness(
+        samples=samples or [],
+        induced_frigate_stall=induced_frigate_stall,
+        induced_frigate_stall_at=induced_frigate_stall_at,
+        min_stall_duration_seconds=min_stall_duration_seconds,
+    )
+    if frigate_state["failure_reason"]:
+        filtered_reasons.append(str(frigate_state["failure_reason"]))
+
     normalized["failure_reasons"] = filtered_reasons
     normalized["passed"] = len(filtered_reasons) == 0
     normalized["birdnet_publisher_ok"] = birdnet_state["publisher_ok"]
     normalized["birdnet_stall_window_samples"] = birdnet_state["stall_window_samples"]
     normalized["birdnet_stayed_fresh_during_stall"] = birdnet_state["stayed_fresh"]
+    normalized["frigate_stall_effective"] = frigate_state["stall_effective"]
+    normalized["frigate_stall_window_samples"] = frigate_state["stall_window_samples"]
     return normalized
 
 
@@ -291,6 +323,77 @@ def _assess_issue33_birdnet_liveness(
         "stall_window_samples": len(stall_samples),
         "stayed_fresh": stayed_fresh,
         "failure_reason": None if stayed_fresh else "BirdNET did not stay fresh during the induced Frigate stall window.",
+    }
+
+
+def _assess_issue33_frigate_stall_effectiveness(
+    *,
+    samples: list[Any],
+    induced_frigate_stall: bool,
+    induced_frigate_stall_at: str | None,
+    min_stall_duration_seconds: float | None,
+) -> dict[str, Any]:
+    if not induced_frigate_stall or not induced_frigate_stall_at or not samples:
+        return {
+            "stall_effective": True,
+            "stall_window_samples": 0,
+            "failure_reason": None,
+        }
+
+    stall_started_at = datetime.fromisoformat(induced_frigate_stall_at)
+    stall_samples = [sample for sample in samples if getattr(sample, "observed_at", stall_started_at) >= stall_started_at]
+    if not stall_samples:
+        return {
+            "stall_effective": True,
+            "stall_window_samples": 0,
+            "failure_reason": None,
+        }
+
+    observation_seconds = max(
+        0.0,
+        (getattr(stall_samples[-1], "observed_at", stall_started_at) - stall_started_at).total_seconds(),
+    )
+    required_window = max(10.0, float(min_stall_duration_seconds or 0.0))
+    if observation_seconds < required_window:
+        return {
+            "stall_effective": True,
+            "stall_window_samples": len(stall_samples),
+            "failure_reason": None,
+        }
+
+    frigate_ages = [
+        float(age)
+        for age in (getattr(sample, "mqtt_frigate_age_seconds", None) for sample in stall_samples)
+        if age is not None
+    ]
+    frigate_counts = [
+        int(count)
+        for count in (getattr(sample, "mqtt_frigate_count", None) for sample in stall_samples)
+        if count is not None
+    ]
+    if not frigate_ages or len(frigate_counts) < 2:
+        return {
+            "stall_effective": True,
+            "stall_window_samples": len(stall_samples),
+            "failure_reason": None,
+        }
+
+    max_frigate_age = max(frigate_ages)
+    frigate_count_delta = max(frigate_counts) - min(frigate_counts)
+    if max_frigate_age < 10.0 and frigate_count_delta > 0:
+        return {
+            "stall_effective": False,
+            "stall_window_samples": len(stall_samples),
+            "failure_reason": (
+                "Live Frigate traffic remained active during the induced stall window. "
+                "The synthetic stall was masked, so MQTT stall-recovery was not actually exercised."
+            ),
+        }
+
+    return {
+        "stall_effective": True,
+        "stall_window_samples": len(stall_samples),
+        "failure_reason": None,
     }
 
 
@@ -644,9 +747,11 @@ def main() -> int:
 
     stop_event = threading.Event()
     frigate_stop_event = threading.Event()
+    frigate_pause_event = threading.Event()
     frigate_stats = base_soak.PublisherStats()
     birdnet_stats = base_soak.PublisherStats()
     induced_frigate_stall_at: str | None = None
+    resumed_frigate_at: str | None = None
     replay_seed_events: list[dict[str, Any]] = []
 
     def _handle_signal(_signum, _frame) -> None:
@@ -717,6 +822,7 @@ def main() -> int:
                 "interval_seconds": max(0.05, args.frigate_publish_interval_seconds),
                 "client_id_prefix": f"issue33-frigate-r{replica}",
                 "publish_container": args.mqtt_publish_container or None,
+                "pause_event": frigate_pause_event,
             },
             daemon=True,
         )
@@ -759,20 +865,32 @@ def main() -> int:
         observed_at = base_soak._now_utc()
 
         if (
-            induced_frigate_stall_at is None
-            and not args.disable_frigate_publisher
-            and _should_stop_frigate_publisher(
+            not args.disable_frigate_publisher
+            and _should_pause_frigate_publisher(
                 elapsed_seconds=elapsed,
                 stop_after_seconds=args.induce_frigate_stall_after_seconds,
+                stall_duration_seconds=args.frigate_stall_duration_seconds,
             )
         ):
-            frigate_stop_event.set()
-            induced_frigate_stall_at = observed_at.isoformat()
+            if not frigate_pause_event.is_set():
+                frigate_pause_event.set()
+                induced_frigate_stall_at = observed_at.isoformat()
+                base_soak._write_ndjson_line(
+                    samples_path,
+                    {
+                        "type": "frigate_publisher_paused",
+                        "observed_at": induced_frigate_stall_at,
+                        "elapsed_seconds": round(elapsed, 1),
+                    },
+                )
+        elif frigate_pause_event.is_set():
+            frigate_pause_event.clear()
+            resumed_frigate_at = observed_at.isoformat()
             base_soak._write_ndjson_line(
                 samples_path,
                 {
-                    "type": "frigate_publisher_stopped",
-                    "observed_at": induced_frigate_stall_at,
+                    "type": "frigate_publisher_resumed",
+                    "observed_at": resumed_frigate_at,
                     "elapsed_seconds": round(elapsed, 1),
                 },
             )
@@ -881,6 +999,7 @@ def main() -> int:
         induced_frigate_stall_at=induced_frigate_stall_at,
         birdnet_publish_stats=asdict(birdnet_stats),
         max_birdnet_active_age_seconds=thresholds.max_birdnet_active_age_seconds,
+        min_stall_duration_seconds=thresholds.min_stall_duration_seconds,
     )
     tracks = _evaluate_issue33_tracks(
         scenario=args.scenario,
@@ -920,6 +1039,7 @@ def main() -> int:
             "poll_interval_seconds": args.poll_interval_seconds,
             "trigger_analysis_interval_seconds": args.trigger_analysis_interval_seconds,
             "induce_frigate_stall_after_seconds": args.induce_frigate_stall_after_seconds,
+            "frigate_stall_duration_seconds": args.frigate_stall_duration_seconds,
             "mqtt_host": args.mqtt_host,
             "mqtt_port": args.mqtt_port,
             "mqtt_publish_container": args.mqtt_publish_container,
@@ -952,6 +1072,7 @@ def main() -> int:
         },
         "analysis_triggers": analysis_triggers,
         "induced_frigate_stall_at": induced_frigate_stall_at,
+        "resumed_frigate_at": resumed_frigate_at,
         "replay": {
             "seed_count": len(replay_seed_events),
             "seed_event_ids": [str(event.get("id")) for event in replay_seed_events if event.get("id")],

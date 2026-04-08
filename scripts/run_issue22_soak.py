@@ -410,10 +410,14 @@ def _publisher_loop(
     interval_seconds: float,
     client_id_prefix: str,
     publish_container: str | None = None,
+    pause_event: threading.Event | None = None,
 ) -> None:
     if publish_container:
         sequence = 0
         while not stop_event.is_set():
+            if pause_event is not None and pause_event.is_set():
+                time.sleep(min(interval_seconds, 0.25))
+                continue
             payload = payload_factory(sequence)
             sequence += 1
             try:
@@ -446,6 +450,9 @@ def _publisher_loop(
 
     try:
         while not stop_event.is_set():
+            if pause_event is not None and pause_event.is_set():
+                time.sleep(min(interval_seconds, 0.25))
+                continue
             if not connected:
                 try:
                     _connect_mqtt_client(

@@ -71,6 +71,7 @@ def test_apply_stress_profile_uses_aggressive_issue33_live_defaults():
     assert args.analysis_trigger_burst_count == 4
     assert args.analysis_trigger_burst_spacing_seconds == 0.75
     assert args.induce_frigate_stall_after_seconds == 120.0
+    assert args.frigate_stall_duration_seconds == 420.0
     assert args.frigate_load_source == "replay"
     assert args.frigate_event_type == "new"
     assert args.frigate_publish_interval_seconds == 0.2
@@ -357,6 +358,37 @@ def test_should_stop_frigate_publisher_after_configured_delay():
     assert issue33._should_stop_frigate_publisher(elapsed_seconds=120.0, stop_after_seconds=0.0) is False
 
 
+def test_should_pause_frigate_publisher_only_within_stall_window():
+    assert issue33._should_pause_frigate_publisher(
+        elapsed_seconds=29.9,
+        stop_after_seconds=30.0,
+        stall_duration_seconds=420.0,
+    ) is False
+    assert issue33._should_pause_frigate_publisher(
+        elapsed_seconds=30.0,
+        stop_after_seconds=30.0,
+        stall_duration_seconds=420.0,
+    ) is True
+    assert issue33._should_pause_frigate_publisher(
+        elapsed_seconds=449.9,
+        stop_after_seconds=30.0,
+        stall_duration_seconds=420.0,
+    ) is True
+    assert issue33._should_pause_frigate_publisher(
+        elapsed_seconds=450.0,
+        stop_after_seconds=30.0,
+        stall_duration_seconds=420.0,
+    ) is False
+
+
+def test_should_pause_frigate_publisher_forever_when_duration_is_non_positive():
+    assert issue33._should_pause_frigate_publisher(
+        elapsed_seconds=120.0,
+        stop_after_seconds=30.0,
+        stall_duration_seconds=0.0,
+    ) is True
+
+
 def test_normalize_issue33_evaluation_accepts_induced_stall_when_reconnect_occurs():
     evaluation = {
         "passed": False,
@@ -469,6 +501,45 @@ def test_normalize_issue33_evaluation_fails_when_birdnet_goes_stale_during_stall
 
     assert normalized["passed"] is False
     assert "BirdNET did not stay fresh during the induced Frigate stall window." in normalized["failure_reasons"]
+
+
+def test_normalize_issue33_evaluation_fails_when_live_frigate_traffic_masks_stall():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    samples = [
+        SimpleNamespace(
+            observed_at=start,
+            mqtt_frigate_age_seconds=0.2,
+            mqtt_frigate_count=100,
+            mqtt_birdnet_age_seconds=0.2,
+        ),
+        SimpleNamespace(
+            observed_at=start + timedelta(seconds=45),
+            mqtt_frigate_age_seconds=0.3,
+            mqtt_frigate_count=140,
+            mqtt_birdnet_age_seconds=0.3,
+        ),
+    ]
+    evaluation = {
+        "passed": True,
+        "failure_reasons": [],
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=30.0,
+    )
+
+    assert normalized["passed"] is False
+    assert any(
+        reason.startswith("Live Frigate traffic remained active during the induced stall window.")
+        for reason in normalized["failure_reasons"]
+    )
+    assert normalized["frigate_stall_effective"] is False
 
 
 def test_normalize_issue33_evaluation_maintenance_scenario_ignores_mqtt_threshold_failures():

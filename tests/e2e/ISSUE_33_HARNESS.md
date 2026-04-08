@@ -13,7 +13,7 @@ independently or together.
 
 1. Publishes Frigate and BirdNET MQTT traffic.
    Frigate load can be synthetic or replay-backed from real Frigate event ids.
-2. Optionally stops the Frigate publisher after a configured delay while BirdNET keeps running.
+2. Optionally pauses the synthetic Frigate publisher after a configured delay while BirdNET keeps running, and can later resume it.
 3. Polls `/health` on a fixed interval.
 4. Optionally polls `/api/diagnostics/workspace` when owner auth is available.
 5. Optionally triggers unknown-analysis queueing to add maintenance video pressure.
@@ -63,6 +63,7 @@ The `issue33-live` profile currently expands to:
 - `--analysis-trigger-burst-count 4`
 - `--analysis-trigger-burst-spacing-seconds 0.75`
 - `--induce-frigate-stall-after-seconds 120`
+- `--frigate-stall-duration-seconds 420`
 - `--frigate-load-source replay`
 - `--frigate-publish-interval-seconds 0.2`
 - `--birdnet-publish-interval-seconds 0.25`
@@ -111,12 +112,18 @@ The live monolith testing on Apr 6 showed that replaying a real Frigate event id
 completed cleanly and avoided `classify_snapshot_unavailable`, so replay-backed
 Frigate load should be preferred for reporter-faithful stress runs.
 
-For the post-stall MQTT recovery path specifically, use a long enough run to
-cross the backend's stalled-topic threshold. On Apr 6, both a 420s run and a
-600s run with `--induce-frigate-stall-after-seconds 60` still only reached
-`298.3s` and `298.5s` max Frigate age, stopping just short of the backend's
-`300s` threshold. Do not assume 600s is sufficient on every host; verify the
-actual `evaluation.stall_incidents[].max_frigate_age_seconds` in `summary.json`.
+For the post-stall MQTT recovery path specifically, there are now two separate
+constraints:
+
+1. the run must be long enough to cross the backend's stalled-topic threshold
+2. the harness must actually own the Frigate topic during the stall window
+
+On a live feeder, ambient real Frigate traffic can keep the topic active even
+after the replay publisher pauses. In that case the harness now reports:
+
+- `Live Frigate traffic remained active during the induced stall window...`
+
+That means Track B was **not** exercised, even if the replay publisher paused.
 
 ## Apr 6 Live Run Notes
 
@@ -132,7 +139,7 @@ The Apr 6 live monolith runs established two important operational facts:
 3. Replaying a real Frigate-backed event id completed cleanly on the live
    backend and avoided the synthetic snapshot-404 failure.
 
-However, those same runs also exposed a reproduction caveat:
+However, the later Apr 8 live runs exposed a second reproduction caveat:
 
 - synthetic Frigate event ids still cause snapshot fetch `404`s
 - the backend then drops the work as `classify_snapshot_unavailable`
@@ -141,6 +148,11 @@ However, those same runs also exposed a reproduction caveat:
 That means the current stress harness is good at reproducing high-load collapse,
 but it is not yet a clean reporter-faithful reproducer for later `#33` symptoms
 when synthetic Frigate ids are used. Prefer replay-backed Frigate load for that.
+
+And even with replay-backed load, the MQTT stall track can still be invalid on a
+live instance if the real Frigate keeps publishing on the same topic. Prefer a
+test environment where the harness fully owns the Frigate topic, or temporarily
+isolate real Frigate MQTT publishing during the stall window.
 
 Observed live failure shape from the Apr 6 runs:
 
@@ -160,13 +172,16 @@ Primary artifact examples:
 - `/config/workspace/YA-WAMF/tmp/issue33-harness/20260406-074717/summary.json`
 - `/config/workspace/YA-WAMF/tmp/issue33-harness/20260406-081950/summary.json`
 - `/config/workspace/YA-WAMF/tmp/issue33-harness/20260406-082739/summary.json`
+- `/config/workspace/YA-WAMF/tmp/issue33-harness/20260408-120457/summary.json`
+- `/config/workspace/YA-WAMF/tmp/issue33-harness/20260408-123341/summary.json`
 
 Recommended next step for another agent:
 
 1. Keep the `issue33-live` stress profile.
 2. Re-run the same busy-feeder stress shape with replay-backed Frigate load.
-3. Use a duration long enough to cross the stalled-topic threshold when testing
-   MQTT no-resume behavior.
+3. For MQTT no-resume testing, verify the stall was actually effective. If the
+   harness reports that live Frigate traffic masked the stall, the run is not a
+   valid Track B reproducer.
 4. Only then judge whether the remaining `#33` root cause is:
    - early load-collapse / backpressure failure
    - maintenance timeout behavior
@@ -189,8 +204,17 @@ Recommended next step for another agent:
 
 ## MQTT-Only Track
 
-This mode starts both publishers, then stops Frigate after three minutes while
-BirdNET continues. That should force the backend into its stall-recovery path.
+This mode starts both publishers, then pauses the synthetic Frigate publisher
+while BirdNET continues. Use `--frigate-stall-duration-seconds` to control how
+long the pause lasts.
+
+Important:
+
+- on a live instance, this only exercises Track B if the real Frigate is not
+  still publishing on the same topic
+- if the run fails with `Live Frigate traffic remained active during the induced
+  stall window...`, the synthetic stall was masked and MQTT stall-recovery was
+  not actually tested
 
 ```bash
 /config/workspace/YA-WAMF/backend/venv/bin/python \
@@ -202,6 +226,7 @@ BirdNET continues. That should force the backend into its stall-recovery path.
   --birdnet-topic birdnet/text \
   --mqtt-publish-container mosquitto \
   --induce-frigate-stall-after-seconds 180 \
+  --frigate-stall-duration-seconds 420 \
   --min-reconnect-delta 1
 ```
 
@@ -251,6 +276,8 @@ Important `summary.json` fields:
 11. `config.birdnet_publisher_replicas`
 12. `config.frigate_load_source`
 13. `replay.seed_event_ids`
+14. `config.frigate_stall_duration_seconds`
+15. `evaluation.frigate_stall_effective`
 
 ## Important
 
