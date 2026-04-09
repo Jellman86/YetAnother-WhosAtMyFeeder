@@ -50,6 +50,7 @@ async def _insert_detection(
     scientific_name: str | None = None,
     common_name: str | None = None,
     taxa_id: int | None = None,
+    is_hidden: bool = False,
 ) -> None:
     async with get_db() as db:
         await db.execute(
@@ -58,7 +59,7 @@ async def _insert_detection(
                 detection_time, detection_index, score, display_name, category_name,
                 frigate_event, camera_name, is_hidden, manual_tagged,
                 scientific_name, common_name, taxa_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
             """,
             (
                 datetime.now(timezone.utc).isoformat(sep=" "),
@@ -68,6 +69,7 @@ async def _insert_detection(
                 category_name or species_name,
                 event_id,
                 camera_name,
+                1 if is_hidden else 0,
                 scientific_name,
                 common_name,
                 taxa_id,
@@ -174,6 +176,66 @@ async def test_events_filters_canonicalize_unknown_aliases_to_single_option(clie
     finally:
         for event_id in event_ids:
             await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_events_filters_exclude_hidden_species_rows(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    hidden_species = f"Zebra Mussel {uuid.uuid4().hex[:6]}"
+    visible_species = f"Visible Species {uuid.uuid4().hex[:6]}"
+    hidden_event = f"evt-{uuid.uuid4().hex[:8]}"
+    visible_event = f"evt-{uuid.uuid4().hex[:8]}"
+
+    await _insert_detection(hidden_event, hidden_species, "cam-hidden", is_hidden=True)
+    await _insert_detection(visible_event, visible_species, "cam-hidden")
+
+    try:
+        events_resp = await client.get(
+            "/api/events",
+            params={"species": hidden_species, "limit": 20},
+        )
+        assert events_resp.status_code == 200
+        assert events_resp.json() == []
+
+        count_resp = await client.get(
+            "/api/events/count",
+            params={"species": hidden_species},
+        )
+        assert count_resp.status_code == 200
+        assert count_resp.json()["count"] == 0
+
+        filters_resp = await client.get("/api/events/filters", params={"force_refresh": "true"})
+        assert filters_resp.status_code == 200
+        species_values = {item["value"] for item in filters_resp.json()["species"]}
+        assert visible_species in species_values
+        assert hidden_species not in species_values
+    finally:
+        await _delete_detection(hidden_event)
+        await _delete_detection(visible_event)
+
+
+@pytest.mark.asyncio
+async def test_events_filters_exclude_hidden_only_cameras(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    hidden_event = f"evt-{uuid.uuid4().hex[:8]}"
+    visible_event = f"evt-{uuid.uuid4().hex[:8]}"
+
+    await _insert_detection(hidden_event, f"Hidden Camera Species {uuid.uuid4().hex[:6]}", "cam-hidden-only", is_hidden=True)
+    await _insert_detection(visible_event, f"Visible Camera Species {uuid.uuid4().hex[:6]}", "cam-visible")
+
+    try:
+        filters_resp = await client.get("/api/events/filters", params={"force_refresh": "true"})
+        assert filters_resp.status_code == 200
+        cameras = set(filters_resp.json()["cameras"])
+        assert "cam-visible" in cameras
+        assert "cam-hidden-only" not in cameras
+    finally:
+        await _delete_detection(hidden_event)
+        await _delete_detection(visible_event)
 
 
 @pytest.mark.asyncio

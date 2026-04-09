@@ -1189,6 +1189,7 @@ class DetectionRepository:
                 LEFT JOIN taxonomy_cache tc
                     ON d.scientific_name IS NOT NULL
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             ),
             ranked AS (
                 SELECT
@@ -1224,7 +1225,12 @@ class DetectionRepository:
     async def get_unique_cameras(self) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""
         async with self.db.execute(
-            "SELECT DISTINCT camera_name FROM detections ORDER BY camera_name ASC"
+            """
+            SELECT DISTINCT camera_name
+            FROM detections
+            WHERE (is_hidden = 0 OR is_hidden IS NULL)
+            ORDER BY camera_name ASC
+            """
         ) as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
