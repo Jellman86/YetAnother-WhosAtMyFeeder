@@ -1,12 +1,10 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import {
-        incidentWorkspaceStore,
-        type IncidentRecord
-    } from '../stores/incident_workspace.svelte';
+    import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
     import {
         jobDiagnosticsStore,
+        type DiagnosticsExportOptions,
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
@@ -16,42 +14,22 @@
     let workspacePayload = $derived(incidentWorkspaceStore.workspacePayload);
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
+    let health = $derived((workspacePayload?.health as Record<string, any> | null) ?? null);
+    let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
+    let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
-    let selectedIncidentId = $state<string | null>(null);
     let refreshing = $state(false);
     let clearing = $state(false);
     let refreshError = $state('');
 
-    let allIncidents = $derived([...currentIssues, ...recentIncidents]);
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
         if (typeof raw !== 'string' || raw.length === 0) return null;
         const parsed = Date.parse(raw);
         return Number.isFinite(parsed) ? parsed : null;
     });
-    let selectedIncident = $derived.by(() =>
-        allIncidents.find((incident) => incident.id === selectedIncidentId)
-        ?? allIncidents[0]
-        ?? null
-    );
-    let selectedDiagnosticGroups = $derived.by(() => incidentWorkspaceStore.getDiagnosticGroups(selectedIncident));
-    let backendDiagnosticGroupCount = $derived.by(
-        () => [...currentIssues, ...recentIncidents].reduce(
-            (count, incident) => count + incidentWorkspaceStore.getDiagnosticGroups(incident).length,
-            0
-        )
-    );
     let latestBundle = $derived(bundles[0] ?? null);
-
-    $effect(() => {
-        if (!selectedIncidentId && allIncidents[0]) {
-            selectedIncidentId = allIncidents[0].id;
-        }
-        if (selectedIncidentId && !allIncidents.some((incident) => incident.id === selectedIncidentId)) {
-            selectedIncidentId = allIncidents[0]?.id ?? null;
-        }
-    });
 
     onMount(() => {
         void refreshWorkspace();
@@ -84,7 +62,6 @@
         try {
             await incidentWorkspaceStore.clearRemote();
             jobDiagnosticsStore.clear();
-            selectedIncidentId = null;
             await incidentWorkspaceStore.refresh();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to clear incident workspace';
@@ -102,25 +79,30 @@
         }
     }
 
-    function statusBadgeClass(incident: IncidentRecord): string {
-        if (incident.status === 'resolved') return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
-        if (incident.status === 'recovering') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200';
-        return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200';
-    }
-
-    function severityClass(incident: IncidentRecord): string {
-        if (incident.severity === 'critical') return 'text-rose-700 dark:text-rose-300';
-        if (incident.severity === 'error') return 'text-amber-700 dark:text-amber-300';
-        return 'text-slate-600 dark:text-slate-300';
+    function buildExportOptions(): DiagnosticsExportOptions {
+        return {
+            workspacePayload: workspacePayload ?? undefined,
+            currentIssues,
+            recentIncidents,
+            reportNotes: reportNotes.trim() || undefined,
+        };
     }
 
     function captureBundle() {
         const label = captureLabel.trim();
         const notes = reportNotes.trim();
-        const bundle = jobDiagnosticsStore.captureBundle(label || undefined, notes || undefined, workspacePayload ?? undefined);
+        const bundle = jobDiagnosticsStore.captureBundle(
+            label || undefined,
+            notes || undefined,
+            buildExportOptions()
+        );
         if (bundle) {
             captureLabel = '';
         }
+    }
+
+    function downloadCurrentJson() {
+        jobDiagnosticsStore.downloadJson(undefined, buildExportOptions());
     }
 
     function downloadBundle(bundle: JobDiagnosticBundle) {
@@ -154,232 +136,435 @@
         return notes.length > 140 ? `${notes.slice(0, 137)}...` : notes;
     }
 
-    async function copyIssueSummary() {
-        const draft = incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
-            bundleLabel: captureLabel.trim() || undefined,
-            bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
-            reportNotes: reportNotes.trim() || undefined
-        });
-        if (!draft.body || typeof navigator === 'undefined' || !navigator.clipboard) return;
-        await navigator.clipboard.writeText(draft.body);
+    function asNumber(value: unknown): number {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
     }
 
-    function openGithubIssue() {
-        if (!selectedIncident || typeof window === 'undefined') return;
-        const draft = incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
-            bundleLabel: captureLabel.trim() || undefined,
-            bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
-            reportNotes: reportNotes.trim() || undefined
+    function asText(value: unknown, fallback = 'Unknown'): string {
+        if (typeof value !== 'string') return fallback;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : fallback;
+    }
+
+    function toneClass(value: string): string {
+        const normalized = value.trim().toLowerCase();
+        if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
+            return 'border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200';
+        }
+        if (['warning', 'degraded', 'high', 'recovering', 'queued'].includes(normalized)) {
+            return 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200';
+        }
+        if (['critical', 'error', 'failing', 'failed', 'open'].includes(normalized)) {
+            return 'border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200';
+        }
+        return 'border-slate-200/80 bg-slate-50 text-slate-700 dark:border-slate-700/60 dark:bg-slate-900/50 dark:text-slate-200';
+    }
+
+    function severityToneClass(severity: string): string {
+        return toneClass(severity);
+    }
+
+    function overallStatusLabel(): string {
+        return asText(health?.status, 'Unknown');
+    }
+
+    function overallSummary(): string {
+        const status = overallStatusLabel().toLowerCase();
+        if (status === 'ok' || status === 'healthy') {
+            return 'All monitored services look healthy right now.';
+        }
+        if (status === 'degraded') {
+            return 'Some subsystems are under pressure or recovering, but the app is still serving traffic.';
+        }
+        return 'The app is reporting active faults that need attention.';
+    }
+
+    function latestHealthLine(): string {
+        if (!workspaceCapturedAt) return 'No recent workspace snapshot yet.';
+        return $_('jobs.errors_latest_health', {
+            values: {
+                status: overallStatusLabel(),
+                at: formatDateTime(workspaceCapturedAt)
+            },
+            default: 'Latest health: {status} at {at}'
         });
-        const title = encodeURIComponent(draft.title);
-        const body = encodeURIComponent(draft.body);
-        window.open(
-            `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/new?title=${title}&body=${body}`,
-            '_blank',
-            'noopener,noreferrer'
-        );
+    }
+
+    function eventPipelineStatus(): string {
+        const pipeline = health?.event_pipeline ?? {};
+        const criticalFailures = asNumber(pipeline.critical_failures);
+        const dropped = asNumber(pipeline.dropped_events);
+        if (criticalFailures > 0) return 'critical';
+        if (dropped > 0) return 'degraded';
+        return asText(pipeline.status, overallStatusLabel());
+    }
+
+    function eventPipelineSummary(): string {
+        const pipeline = health?.event_pipeline ?? {};
+        const criticalFailures = asNumber(pipeline.critical_failures);
+        const dropped = asNumber(pipeline.dropped_events);
+        if (criticalFailures > 0) return `${criticalFailures.toLocaleString()} critical failures recorded.`;
+        if (dropped > 0) return `${dropped.toLocaleString()} events have been dropped.`;
+        return 'The ingest pipeline is processing detections normally.';
+    }
+
+    function mqttStatus(): string {
+        return asText(health?.mqtt?.pressure_level, 'unknown');
+    }
+
+    function mqttSummary(): string {
+        const mqtt = health?.mqtt ?? {};
+        const pressure = asText(mqtt.pressure_level, 'unknown').toLowerCase();
+        const inFlight = asNumber(mqtt.in_flight);
+        const capacity = asNumber(mqtt.in_flight_capacity);
+        if (pressure === 'critical' || pressure === 'high') {
+            return `MQTT handlers are under ${pressure} pressure at ${inFlight}/${capacity} in flight.`;
+        }
+        const reconnects = asNumber(mqtt.topic_liveness_reconnects);
+        return reconnects > 0
+            ? `MQTT recovered cleanly after ${reconnects.toLocaleString()} topic reconnects.`
+            : 'MQTT traffic is flowing normally.';
+    }
+
+    function liveClassificationStatus(): string {
+        const live = health?.ml?.live_image ?? {};
+        return asText(live.pressure_level || live.status, 'unknown');
+    }
+
+    function liveClassificationSummary(): string {
+        const live = health?.ml?.live_image ?? {};
+        const queued = asNumber(live.queued);
+        const running = asNumber(live.in_flight);
+        const maxConcurrent = asNumber(live.max_concurrent);
+        if (live.recovery_active) {
+            return `Live classification is recovering while ${running}/${maxConcurrent} slots are active.`;
+        }
+        if (queued > 0) {
+            return `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.`;
+        }
+        return 'Live classification capacity is currently clear.';
+    }
+
+    function videoStatus(): string {
+        const video = health?.video_classifier ?? {};
+        if (video.circuit_open) return 'open';
+        return asText(video.status, 'unknown');
+    }
+
+    function videoSummary(): string {
+        const video = health?.video_classifier ?? {};
+        if (video.circuit_open) {
+            return `Video circuit breaker is open with ${asNumber(video.failure_count).toLocaleString()} recent failures.`;
+        }
+        return `${asNumber(video.pending).toLocaleString()} queued, ${asNumber(video.active).toLocaleString()} active video jobs.`;
+    }
+
+    function backgroundStatus(): string {
+        const background = health?.ml?.background_image ?? {};
+        if (background.background_throttled) return 'degraded';
+        return asText(background.status, 'unknown');
+    }
+
+    function backgroundSummary(): string {
+        const background = health?.ml?.background_image ?? {};
+        if (background.background_throttled) {
+            return `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.`;
+        }
+        return `${asNumber(background.queued).toLocaleString()} queued background items, ${asNumber(background.in_flight).toLocaleString()} in flight.`;
+    }
+
+    function dispatcherStatus(): string {
+        const droppedJobs = asNumber(health?.notification_dispatcher?.dropped_jobs);
+        const dbWait = asNumber(health?.db_pool?.acquire_wait_max_ms);
+        if (droppedJobs > 0) return 'error';
+        if (dbWait >= 5000) return 'warning';
+        return 'ok';
+    }
+
+    function dispatcherSummary(): string {
+        const dispatcher = health?.notification_dispatcher ?? {};
+        const dbPool = health?.db_pool ?? {};
+        const droppedJobs = asNumber(dispatcher.dropped_jobs);
+        const dbWait = asNumber(dbPool.acquire_wait_max_ms);
+        if (droppedJobs > 0) {
+            return `Notification dispatcher dropped ${droppedJobs.toLocaleString()} jobs.`;
+        }
+        if (dbWait >= 5000) {
+            return `DB acquire wait reached ${dbWait.toLocaleString()}ms.`;
+        }
+        return 'Notification dispatch and DB pool look healthy.';
+    }
+
+    function startupStatus(): string {
+        return startupWarnings.length > 0 ? 'warning' : 'ok';
+    }
+
+    function startupSummary(): string {
+        if (startupWarnings.length <= 0) {
+            return 'No startup warnings are currently recorded.';
+        }
+        const first = startupWarnings[0] ?? {};
+        const phase = asText((first as Record<string, unknown>).phase, 'unknown phase');
+        return `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.`;
     }
 </script>
 
 <div class="space-y-6">
-    <section class="card-base p-6">
-        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-            <div>
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
-                <p class="text-xs text-slate-500">
-                    {$_('jobs.errors_subtitle', { default: 'Owner incident workspace for current failures, evidence bundles, and issue reporting.' })}
-                </p>
+    <section class="card-base overflow-hidden">
+        <div class="border-b border-slate-200/70 dark:border-slate-800/70 px-6 py-5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Health-first operator view for current system status, recent backend evidence, and diagnostics exports.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="btn btn-secondary px-3 py-2 text-xs"
+                        onclick={downloadCurrentJson}
+                    >
+                        {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                    </button>
+                    <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={clearWorkspace} disabled={clearing || refreshing}>
+                        {clearing ? 'Clearing...' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
+                    </button>
+                    <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={refreshWorkspace} disabled={refreshing}>
+                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button
-                    type="button"
-                    class="btn btn-secondary px-3 py-2 text-xs"
-                    onclick={() => jobDiagnosticsStore.downloadJson(undefined, workspacePayload ?? undefined)}
-                >
-                    {$_('jobs.errors_export', { default: 'Export Current JSON' })}
-                </button>
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={clearWorkspace} disabled={clearing || refreshing}>
-                    {clearing ? 'Clearing...' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
-                </button>
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={refreshWorkspace} disabled={refreshing}>
-                    {refreshing ? 'Refreshing...' : 'Refresh'}
-                </button>
-            </div>
-        </div>
-
-        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-300">
-            {currentIssues.length.toLocaleString()} current issues • {recentIncidents.length.toLocaleString()} recent incidents • {backendDiagnosticGroupCount.toLocaleString()} grouped diagnostics
-            {#if workspacePayload?.health}
-                <span class="ml-2">· {$_('jobs.errors_latest_health', {
-                    values: {
-                        status: String(workspacePayload.health.status ?? 'unknown'),
-                        at: formatDateTime(workspaceCapturedAt ?? Date.now())
-                    },
-                    default: 'Latest health: {status} at {at}'
-                })}</span>
+            {#if refreshError}
+                <p class="mt-3 text-xs text-rose-600 dark:text-rose-300">{refreshError}</p>
             {/if}
         </div>
 
-        {#if refreshError}
-            <p class="mt-2 text-xs text-rose-600 dark:text-rose-300">{refreshError}</p>
-        {/if}
-    </section>
-
-    <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-6">
-        <section class="card-base p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">
-                    {$_('jobs.current_issues_title', { default: 'Current Issues' })}
-                </h3>
-                <span class="text-[10px] font-semibold text-slate-400">{currentIssues.length}</span>
-            </div>
-            {#if currentIssues.length === 0}
-                <p class="text-xs text-slate-500">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
-            {:else}
-                <div class="space-y-2">
-                    {#each currentIssues as incident (incident.id)}
-                        <button
-                            type="button"
-                            class="w-full rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/60 px-3 py-3 text-left"
-                            onclick={() => (selectedIncidentId = incident.id)}
-                        >
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div class="min-w-0 flex items-center gap-2">
-                                    <span class={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(incident)}`}>
-                                        {incident.status}
-                                    </span>
-                                    <span class={`text-xs font-black uppercase tracking-wide ${severityClass(incident)}`}>
-                                        {incident.affected_area}
-                                    </span>
-                                </div>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                    {formatDateTime(incident.lastSeenAt)}
-                                </span>
-                            </div>
-                            <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
-                        </button>
-                    {/each}
-                </div>
-            {/if}
-        </section>
-
-        <section class="card-base p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">
-                    {$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}
-                </h3>
-                <span class="text-[10px] font-semibold text-slate-400">{recentIncidents.length}</span>
-            </div>
-            {#if recentIncidents.length === 0}
-                <p class="text-xs text-slate-500">{$_('jobs.recent_incidents_empty', { default: 'No resolved incidents yet.' })}</p>
-            {:else}
-                <div class="space-y-2">
-                    {#each recentIncidents as incident (incident.id)}
-                        <button
-                            type="button"
-                            class="w-full rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/50 px-3 py-3 text-left"
-                            onclick={() => (selectedIncidentId = incident.id)}
-                        >
-                            <div class="flex items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(incident)}`}>
-                                    {incident.status}
-                                </span>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                    {formatDateTime(incident.lastSeenAt)}
-                                </span>
-                            </div>
-                            <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
-                        </button>
-                    {/each}
-                </div>
-            {/if}
-        </section>
-    </div>
-
-    <div class="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr] gap-6">
-        <section class="card-base p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">
-                    {$_('jobs.incident_detail_title', { default: 'Incident Detail' })}
-                </h3>
-                {#if selectedIncident}
-                    <span class={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(selectedIncident)}`}>
-                        {selectedIncident.status}
-                    </span>
-                {/if}
-            </div>
-            {#if !selectedIncident}
-                <p class="text-xs text-slate-500">{$_('jobs.report_issue_empty', { default: 'Select an incident to inspect or report it.' })}</p>
-            {:else}
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-sm font-semibold text-slate-900 dark:text-white">{selectedIncident.title}</p>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{selectedIncident.summary}</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        <div>Area: {selectedIncident.affected_area}</div>
-                        <div>Reason: {selectedIncident.primaryReasonCode}</div>
-                        <div>First seen: {formatDateTime(selectedIncident.startedAt)}</div>
-                        <div>Last seen: {formatDateTime(selectedIncident.lastSeenAt)}</div>
-                    </div>
-                    <div>
-                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Evidence</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-300">
-                            {selectedIncident.evidenceRefs.length > 0 ? selectedIncident.evidenceRefs.join(', ') : 'No evidence references yet.'}
+        <div class="px-6 py-6">
+            <div class="rounded-3xl border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.94))] p-6 dark:border-slate-700/60 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.9),_rgba(2,6,23,0.95))]">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
+                                {overallStatusLabel()}
+                            </span>
+                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                                {currentIssues.length.toLocaleString()} current
+                            </span>
+                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                                {backendEvents.length.toLocaleString()} backend events
+                            </span>
+                        </div>
+                        <h4 class="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">System Status</h4>
+                        <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-200">
+                            {overallSummary()}
                         </p>
+                        <p class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-300">{latestHealthLine()}</p>
                     </div>
-                    <div>
-                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Grouped Diagnostics</p>
-                        {#if selectedDiagnosticGroups.length === 0}
-                            <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
+                    <div class="grid min-w-[220px] grid-cols-2 gap-3 text-right">
+                        <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Health Snapshots</p>
+                            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Saved Bundles</p>
+                            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{eventPipelineStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{eventPipelineSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Started</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Completed</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Dropped</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Critical</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(mqttStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">MQTT</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{mqttStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{mqttSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Reconnects</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
+                        <div class="col-span-2"><span class="block text-[10px] uppercase tracking-wider opacity-70">Last Reconnect Reason</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Live Classification</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{liveClassificationStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{liveClassificationSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queued</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Capacity</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Abandoned</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(videoStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Video Classification</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{videoStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{videoSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Pending</span><span>{asNumber(health?.video_classifier?.pending).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Active</span><span>{asNumber(health?.video_classifier?.active).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Failures</span><span>{asNumber(health?.video_classifier?.failure_count).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Open Until</span><span>{asText(health?.video_classifier?.open_until, 'Closed')}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Background Maintenance</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{backgroundStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{backgroundSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queued</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Abandoned</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Throttled</span><span>{health?.ml?.background_image?.background_throttled ? 'Yes' : 'No'}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Notifications & DB</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{dispatcherStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{dispatcherSummary()}</p>
+                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Dropped Jobs</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queue Size</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">DB Wait Max</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
+                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">DB Timeouts</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
+                    </div>
+                </article>
+
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(startupStatus())}">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Startup Warnings</h4>
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{startupStatus()}</span>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">{startupSummary()}</p>
+                    <div class="mt-4 space-y-2 text-xs font-semibold">
+                        {#if startupWarnings.length === 0}
+                            <p class="opacity-80">No startup warnings captured in the current workspace snapshot.</p>
                         {:else}
-                            <div class="space-y-2">
-                                {#each selectedDiagnosticGroups.slice(0, 5) as group (group.fingerprint)}
-                                    <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2">
-                                        <div class="flex flex-wrap items-center justify-between gap-2">
-                                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-500">{group.component} · {group.reasonCode}</span>
-                                            <span class="text-[10px] font-semibold text-slate-400">{group.count}x</span>
-                                        </div>
-                                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{group.message}</p>
-                                    </div>
-                                {/each}
-                            </div>
+                            {#each startupWarnings.slice(0, 2) as warning}
+                                <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                                    <p class="text-[10px] uppercase tracking-wider opacity-70">{asText((warning as Record<string, unknown>).phase, 'unknown phase')}</p>
+                                    <p class="mt-1">{asText((warning as Record<string, unknown>).error, 'Unknown warning')}</p>
+                                </div>
+                            {/each}
                         {/if}
                     </div>
-                    <div>
-                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">Health Snapshots</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-300">{healthSnapshots.length.toLocaleString()} captured locally</p>
-                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
+        <section class="card-base p-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
+                    <p class="mt-1 text-xs text-slate-500">Current and recently resolved incidents are still available, but no longer drive the whole page.</p>
                 </div>
-            {/if}
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
+            </div>
+            <div class="space-y-3">
+                {#if currentIssues.length === 0}
+                    <p class="text-xs text-slate-500">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
+                {:else}
+                    {#each currentIssues as incident (incident.id)}
+                        <article class="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-950/40">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                    {incident.status}
+                                </span>
+                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
+                        </article>
+                    {/each}
+                {/if}
+
+                {#if recentIncidents.length > 0}
+                    <div class="pt-3">
+                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
+                        <div class="mt-3 space-y-2">
+                            {#each recentIncidents.slice(0, 4) as incident (incident.id)}
+                                <article class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-900/40">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                            {incident.status}
+                                        </span>
+                                        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                    </div>
+                                    <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
+                                </article>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+            </div>
         </section>
 
         <section class="card-base p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">
-                    {$_('jobs.report_issue_title', { default: 'Report Issue' })}
-                </h3>
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Recent Backend Diagnostics</h3>
+                    <p class="mt-1 text-xs text-slate-500">Newest warnings and errors from the backend workspace snapshot.</p>
+                </div>
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
             </div>
-            {#if !selectedIncident}
-                <p class="text-xs text-slate-500">{$_('jobs.report_issue_empty', { default: 'Select an incident to inspect or report it.' })}</p>
+            {#if backendEvents.length === 0}
+                <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
             {:else}
                 <div class="space-y-3">
-                    <textarea class="textarea textarea-bordered min-h-24 w-full text-xs" bind:value={reportNotes} placeholder="Optional repro notes"></textarea>
-                    <textarea class="textarea textarea-bordered min-h-40 w-full text-xs" readonly value={incidentWorkspaceStore.buildIssueDraft(selectedIncident, {
-                        bundleLabel: captureLabel.trim() || undefined,
-                        bundleSchemaVersion: Number(jobDiagnosticsStore.exportJson().schema_version ?? 0) || null,
-                        reportNotes: reportNotes.trim() || undefined
-                    }).body}></textarea>
-                    <div class="flex items-center gap-2">
-                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={copyIssueSummary}>
-                            {$_('jobs.report_issue_copy_summary', { default: 'Copy Issue Summary' })}
-                        </button>
-                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={openGithubIssue}>
-                            {$_('jobs.report_issue_open_github', { default: 'Open GitHub Issue' })}
-                        </button>
-                    </div>
+                    {#each backendEvents.slice(0, 8) as event (event.id)}
+                        <article class={`rounded-2xl border px-4 py-3 ${severityToneClass(event.severity ?? 'warning')}`}>
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em]">
+                                        {event.severity}
+                                    </span>
+                                    <span class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                                        {event.component} · {event.reason_code}
+                                    </span>
+                                </div>
+                                <span class="text-[10px] font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{event.message}</p>
+                            {#if event.event_id || event.correlation_key}
+                                <p class="mt-2 text-xs opacity-80">
+                                    {#if event.event_id}<span>Event {event.event_id}</span>{/if}
+                                    {#if event.event_id && event.correlation_key}<span> • </span>{/if}
+                                    {#if event.correlation_key}<span>{event.correlation_key}</span>{/if}
+                                </p>
+                            {/if}
+                        </article>
+                    {/each}
                 </div>
             {/if}
         </section>
@@ -390,7 +575,7 @@
             <div>
                 <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.error_bundles_title', { default: 'Error Bundles' })}</h3>
                 <p class="text-xs text-slate-500">
-                    {$_('jobs.error_bundles_subtitle', { default: 'Capture and keep multiple diagnostics bundles, then download any bundle later.' })}
+                    Download the current diagnostics snapshot or capture labeled bundles with notes for later comparison.
                 </p>
             </div>
             <div class="flex items-center gap-2">
@@ -408,94 +593,129 @@
             </div>
         </div>
 
-        {#if latestBundle}
-            <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                                Saved locally
-                            </span>
-                            <span class="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
-                                Latest Bundle Ready
-                            </span>
-                        </div>
-                        <h4 class="mt-3 truncate text-lg font-semibold text-slate-900 dark:text-white">{latestBundle.label}</h4>
-                        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            Captured {formatDateTime(latestBundle.createdAt)}
-                        </p>
-                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{bundleSummaryText(latestBundle)}</p>
-                        {#if bundleNotesPreview(latestBundle)}
-                            <p class="mt-3 rounded-2xl bg-white/75 px-3 py-2 text-xs text-slate-600 dark:bg-slate-950/40 dark:text-slate-200">
-                                <span class="font-black uppercase tracking-wider text-slate-400">Notes</span>
-                                <span class="ml-2">{bundleNotesPreview(latestBundle)}</span>
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_1fr]">
+            <div class="space-y-4">
+                <div class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center rounded-full bg-sky-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                                    Current Snapshot
+                                </span>
+                                <span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
+                                    Owner gated
+                                </span>
+                            </div>
+                            <h4 class="mt-3 text-lg font-semibold text-slate-900 dark:text-white">Download Current Bundle</h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                                Includes workspace health, backend diagnostics, focused diagnostics, classifier status, startup warnings, incidents, and client context.
                             </p>
-                        {/if}
-                    </div>
-                    <div class="flex flex-col gap-2 sm:items-end">
-                        <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={() => downloadBundle(latestBundle)}>
-                            Download Latest
-                        </button>
-                        <button type="button" class="btn btn-secondary px-4 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(latestBundle.id)}>
-                            Delete Latest
-                        </button>
+                            <textarea
+                                class="textarea textarea-bordered mt-4 min-h-24 w-full text-xs"
+                                bind:value={reportNotes}
+                                placeholder="Optional notes to include when you capture a saved bundle"
+                            ></textarea>
+                        </div>
+                        <div class="flex flex-col gap-2 sm:items-end">
+                            <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={downloadCurrentJson}>
+                                {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        {:else}
-            <div class="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
-                No captured bundles available yet.
-            </div>
-        {/if}
 
-        <div class="mt-5 flex items-center justify-between gap-3">
-            <div>
-                <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">Saved Bundles</h4>
-                <p class="text-xs text-slate-500">Distinct snapshots stay local until you download or delete them.</p>
-            </div>
-            <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
-                {bundles.length.toLocaleString()} saved
-            </span>
-        </div>
-
-        {#if bundles.length === 0}
-            <p class="mt-3 text-xs text-slate-500">No captured bundles available yet.</p>
-        {:else}
-            <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {#each bundles as bundle, index (bundle.id)}
-                    <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
-                        <div class="flex items-start justify-between gap-3">
+                {#if latestBundle}
+                    <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm">
+                        <div class="flex flex-wrap items-start justify-between gap-4">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    {#if index === 0}
-                                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
-                                            Newest
-                                        </span>
-                                    {/if}
-                                    <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
+                                    <span class="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                                        Saved locally
+                                    </span>
+                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                        Latest Bundle Ready
+                                    </span>
                                 </div>
-                                <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                    {formatDateTime(bundle.createdAt)}
+                                <h4 class="mt-3 truncate text-lg font-semibold text-slate-900 dark:text-white">{latestBundle.label}</h4>
+                                <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                    Captured {formatDateTime(latestBundle.createdAt)}
                                 </p>
-                                <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>
-                                {#if bundleNotesPreview(bundle)}
-                                    <p class="mt-3 line-clamp-3 text-xs text-slate-600 dark:text-slate-200">
-                                        {bundleNotesPreview(bundle)}
+                                <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{bundleSummaryText(latestBundle)}</p>
+                                {#if bundleNotesPreview(latestBundle)}
+                                    <p class="mt-3 rounded-2xl bg-white/75 px-3 py-2 text-xs text-slate-600 dark:bg-slate-950/40 dark:text-slate-200">
+                                        <span class="font-black uppercase tracking-wider text-slate-400">Notes</span>
+                                        <span class="ml-2">{bundleNotesPreview(latestBundle)}</span>
                                     </p>
                                 {/if}
                             </div>
-                            <div class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
-                                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => downloadBundle(bundle)}>
-                                    Download
+                            <div class="flex flex-col gap-2 sm:items-end">
+                                <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={() => downloadBundle(latestBundle)}>
+                                    Download Latest
                                 </button>
-                                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                    Delete
+                                <button type="button" class="btn btn-secondary px-4 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(latestBundle.id)}>
+                                    Delete Latest
                                 </button>
                             </div>
                         </div>
-                    </article>
-                {/each}
+                    </div>
+                {:else}
+                    <div class="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
+                        No captured bundles available yet.
+                    </div>
+                {/if}
             </div>
-        {/if}
+
+            <div>
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">Saved Bundles</h4>
+                        <p class="text-xs text-slate-500">Distinct snapshots stay local until you download or delete them.</p>
+                    </div>
+                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
+                        {bundles.length.toLocaleString()} saved
+                    </span>
+                </div>
+
+                {#if bundles.length === 0}
+                    <p class="mt-3 text-xs text-slate-500">No captured bundles available yet.</p>
+                {:else}
+                    <div class="mt-4 space-y-3">
+                        {#each bundles as bundle, index (bundle.id)}
+                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            {#if index === 0}
+                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                                    Newest
+                                                </span>
+                                            {/if}
+                                            <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
+                                        </div>
+                                        <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                            {formatDateTime(bundle.createdAt)}
+                                        </p>
+                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>
+                                        {#if bundleNotesPreview(bundle)}
+                                            <p class="mt-3 line-clamp-3 text-xs text-slate-600 dark:text-slate-200">
+                                                {bundleNotesPreview(bundle)}
+                                            </p>
+                                        {/if}
+                                    </div>
+                                    <div class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => downloadBundle(bundle)}>
+                                            Download
+                                        </button>
+                                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        </div>
     </section>
 </div>

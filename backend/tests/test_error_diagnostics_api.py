@@ -226,6 +226,54 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
 
 
 @pytest.mark.asyncio
+async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    error_diagnostics_history.record(
+        source="event_pipeline",
+        component="event_processor",
+        reason_code="stage_timeout",
+        message="Classification timed out",
+        severity="error",
+        event_id="evt-owner-bundle-1",
+        correlation_key="event_pipeline:stage_timeout",
+        snapshot_ref="health-bundle-1",
+    )
+
+    original_get_status = classifier_router.classifier_service.get_status
+    try:
+        classifier_router.classifier_service.get_status = lambda: {
+            "active_provider": "intel_cpu",
+            "inference_backend": "openvino",
+        }
+
+        response = await client.get("/api/diagnostics/bundle")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        assert payload["schema_version"] == "2026-04-09.owner-diagnostics-bundle.v1"
+        assert payload["summary"]["diagnostic_events"] == 1
+        assert payload["summary"]["health_status"] == payload["health"]["status"]
+        assert payload["server"]["service"] == payload["health"]["service"]
+        assert payload["workspace"]["backend_diagnostics"]["events"][0]["event_id"] == "evt-owner-bundle-1"
+        assert payload["classifier"]["active_provider"] == "intel_cpu"
+        assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
+        assert isinstance(payload["focused_diagnostics"], dict)
+    finally:
+        classifier_router.classifier_service.get_status = original_get_status
+
+
+@pytest.mark.asyncio
+async def test_guest_cannot_fetch_diagnostics_bundle(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    response = await client.get("/api/diagnostics/bundle")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_owner_can_clear_diagnostics_history(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

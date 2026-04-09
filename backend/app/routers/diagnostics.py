@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -8,6 +9,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
 WORKSPACE_SCHEMA_VERSION = "2026-03-12.owner-incident-workspace.v1"
+BUNDLE_SCHEMA_VERSION = "2026-04-09.owner-diagnostics-bundle.v1"
 
 _VIDEO_DIAGNOSTIC_COMPONENTS = {"auto_video_classifier", "video_classifier"}
 _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "circuit_open"}
@@ -75,6 +77,57 @@ def _build_video_classifier_focus(
     }
 
 
+async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
+    from app.main import health_check
+    from app.routers.classifier import classifier_service
+
+    health = await health_check()
+    backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
+    return {
+        "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
+        "backend_diagnostics": backend_diagnostics,
+        "focused_diagnostics": {
+            "video_classifier": _build_video_classifier_focus(backend_diagnostics, health),
+        },
+        "health": health,
+        "classifier": classifier_service.get_status(),
+        "startup_warnings": health.get("startup_warnings") or [],
+    }
+
+
+async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
+    workspace = await _collect_workspace_payload(limit)
+    health = workspace.get("health") if isinstance(workspace, dict) else {}
+    health = health if isinstance(health, dict) else {}
+    backend_diagnostics = workspace.get("backend_diagnostics") if isinstance(workspace, dict) else {}
+    backend_diagnostics = backend_diagnostics if isinstance(backend_diagnostics, dict) else {}
+    classifier = workspace.get("classifier") if isinstance(workspace, dict) else {}
+    classifier = classifier if isinstance(classifier, dict) else {}
+    startup_warnings = workspace.get("startup_warnings") if isinstance(workspace, dict) else []
+    startup_warnings = startup_warnings if isinstance(startup_warnings, list) else []
+
+    return {
+        "schema_version": BUNDLE_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": {
+            "health_status": health.get("status") or "unknown",
+            "diagnostic_events": int(backend_diagnostics.get("returned_events") or 0),
+            "startup_warning_count": len(startup_warnings),
+        },
+        "server": {
+            "service": health.get("service") or "unknown",
+            "version": health.get("version") or "unknown",
+            "startup_instance_id": health.get("startup_instance_id") or "unknown",
+        },
+        "workspace": workspace,
+        "health": health,
+        "classifier": classifier,
+        "startup_warnings": startup_warnings,
+        "backend_diagnostics": backend_diagnostics,
+        "focused_diagnostics": workspace.get("focused_diagnostics") or {},
+    }
+
+
 @router.get("/errors")
 async def get_error_diagnostics_history(
     limit: int = Query(default=200, ge=1, le=1000),
@@ -98,21 +151,16 @@ async def get_owner_workspace_diagnostics(
     _auth: AuthContext = Depends(require_owner),
 ):
     """Return bounded diagnostics evidence for the owner incident workspace."""
-    from app.main import health_check
-    from app.routers.classifier import classifier_service
+    return await _collect_workspace_payload(limit)
 
-    health = await health_check()
-    backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
-    return {
-        "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
-        "backend_diagnostics": backend_diagnostics,
-        "focused_diagnostics": {
-            "video_classifier": _build_video_classifier_focus(backend_diagnostics, health),
-        },
-        "health": health,
-        "classifier": classifier_service.get_status(),
-        "startup_warnings": health.get("startup_warnings") or [],
-    }
+
+@router.get("/bundle")
+async def get_owner_diagnostics_bundle(
+    limit: int = Query(default=200, ge=1, le=1000),
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Return the full owner diagnostics bundle as one exportable JSON payload."""
+    return await _collect_bundle_payload(limit)
 
 
 @router.post("/clear")

@@ -46,7 +46,21 @@ export interface DiagnosticsWorkspacePayload {
         video_classifier?: VideoClassifierFocusedDiagnostics;
     };
     health: Record<string, unknown>;
+    classifier?: Record<string, unknown>;
     startup_warnings: Array<Record<string, unknown>>;
+}
+
+export interface DiagnosticsBundlePayload {
+    schema_version: string;
+    generated_at: string;
+    summary: Record<string, unknown>;
+    server: Record<string, unknown>;
+    workspace: DiagnosticsWorkspacePayload;
+    health: Record<string, unknown>;
+    classifier: Record<string, unknown>;
+    startup_warnings: Array<Record<string, unknown>>;
+    backend_diagnostics: DiagnosticsWorkspacePayload['backend_diagnostics'];
+    focused_diagnostics?: DiagnosticsWorkspacePayload['focused_diagnostics'];
 }
 
 export async function fetchDiagnosticsWorkspace(limit = 200): Promise<DiagnosticsWorkspacePayload> {
@@ -64,4 +78,9 @@ export async function clearDiagnosticsWorkspace(): Promise<ClearDiagnosticsWorks
         method: 'POST'
     });
     return handleResponse<ClearDiagnosticsWorkspaceResponse>(response);
+}
+
+export async function fetchDiagnosticsBundle(limit = 200): Promise<DiagnosticsBundlePayload> {
+    const response = await apiFetch(`${API_BASE}/diagnostics/bundle?limit=${Math.max(1, Math.floor(limit))}`);
+    return handleResponse<DiagnosticsBundlePayload>(response);
 }

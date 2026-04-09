@@ -361,13 +361,15 @@ describe('jobDiagnosticsStore', () => {
 
         const payload = jobDiagnosticsStore.exportJson();
 
-        expect(payload.schema_version).toBe(2);
+        expect(payload.schema_version).toBe(3);
         expect(payload.environment).toMatchObject({
             app_version: expect.any(String),
             git_hash: expect.any(String)
         });
         expect(payload.health).toBeTruthy();
-        expect(payload.incidents).toEqual([]);
+        expect(payload.client_context).toBeTruthy();
+        expect(payload.workspace_snapshot).toBeNull();
+        expect(payload.incidents).toEqual({ current: [], recent: [] });
         expect(payload.timeline).toEqual([]);
         expect(payload.raw_evidence).toMatchObject({
             error_groups: expect.any(Array),
@@ -378,6 +380,7 @@ describe('jobDiagnosticsStore', () => {
 
     it('exports focused backend diagnostics when workspace payload is provided', () => {
         const payload = jobDiagnosticsStore.exportJson({
+            workspacePayload: {
             workspace_schema_version: '2026-03-12.owner-incident-workspace.v1',
             backend_diagnostics: {
                 captured_at: '2026-04-01T20:29:40Z',
@@ -446,8 +449,14 @@ describe('jobDiagnosticsStore', () => {
             health: {
                 status: 'degraded'
             },
+            classifier: {
+                active_provider: 'intel_gpu'
+            },
             startup_warnings: []
-        } as any);
+            } as any,
+            currentIssues: [{ id: 'issue-1', title: 'Active issue' }],
+            recentIncidents: [{ id: 'issue-2', title: 'Resolved issue' }]
+        });
 
         expect(payload.backend_diagnostics).toMatchObject({
             returned_events: 2,
@@ -461,6 +470,16 @@ describe('jobDiagnosticsStore', () => {
                     context: { last_error: 'video_timeout' }
                 }
             }
+        });
+        expect(payload.classifier).toMatchObject({
+            active_provider: 'intel_gpu'
+        });
+        expect(payload.workspace_snapshot).toMatchObject({
+            workspace_schema_version: '2026-03-12.owner-incident-workspace.v1'
+        });
+        expect(payload.incidents).toEqual({
+            current: [{ id: 'issue-1', title: 'Active issue' }],
+            recent: [{ id: 'issue-2', title: 'Resolved issue' }]
         });
     });
 
@@ -480,7 +499,7 @@ describe('jobDiagnosticsStore', () => {
         expect(bundle?.payload.report).toMatchObject({
             label: 'incident repro',
             notes: 'repro after database reset',
-            schema_version: 2
+            schema_version: 3
         });
     });
 
@@ -645,6 +664,9 @@ describe('jobDiagnosticsStore', () => {
     });
 
     it('renders a prominent latest-bundle card and clear saved-bundle library copy', () => {
+        expect(errorsPageSource).toContain('System Status');
+        expect(errorsPageSource).toContain('Recent Backend Diagnostics');
+        expect(errorsPageSource).toContain('Download Current Bundle');
         expect(errorsPageSource).toContain('Latest Bundle Ready');
         expect(errorsPageSource).toContain('Download Latest');
         expect(errorsPageSource).toContain('Newest');

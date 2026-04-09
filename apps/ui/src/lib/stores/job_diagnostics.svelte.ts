@@ -53,6 +53,13 @@ export interface JobDiagnosticBundle {
     payload: Record<string, unknown>;
 }
 
+export interface DiagnosticsExportOptions {
+    workspacePayload?: DiagnosticsWorkspacePayload | null;
+    currentIssues?: unknown[];
+    recentIncidents?: unknown[];
+    reportNotes?: string;
+}
+
 const MAX_GROUPS = 200;
 const MAX_HEALTH_SNAPSHOTS = 80;
 const MAX_BUNDLE_HEALTH_SNAPSHOTS = 25;
@@ -89,6 +96,43 @@ function normalizeString(value: unknown, fallback = ''): string {
 function normalizeEventId(value: unknown): string | null {
     const normalized = normalizeString(value);
     return normalized.length > 0 ? normalized : null;
+}
+
+function cloneJson<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function collectClientContext(): Record<string, unknown> {
+    if (typeof window === 'undefined') {
+        return {
+            timezone: 'unknown',
+            language: 'unknown',
+            online: null,
+            route: null,
+            href: null,
+            viewport: null,
+            screen: null,
+            user_agent: null,
+        };
+    }
+
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const screenInfo = typeof screen !== 'undefined' ? screen : null;
+    return {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown',
+        language: nav?.language ?? 'unknown',
+        languages: Array.isArray(nav?.languages) ? nav?.languages : [],
+        online: typeof nav?.onLine === 'boolean' ? nav.onLine : null,
+        user_agent: nav?.userAgent ?? null,
+        route: window.location?.pathname ?? null,
+        href: window.location?.href ?? null,
+        viewport: typeof window.innerWidth === 'number' && typeof window.innerHeight === 'number'
+            ? { width: window.innerWidth, height: window.innerHeight }
+            : null,
+        screen: screenInfo
+            ? { width: screenInfo.width, height: screenInfo.height }
+            : null,
+    };
 }
 
 function sumCounterMap(counters: unknown): number {
@@ -667,14 +711,14 @@ class JobDiagnosticsStore {
         this.persist();
     }
 
-    exportJson(workspacePayload?: DiagnosticsWorkspacePayload | null): Record<string, unknown> {
-        return this.buildExportPayload(this.groups, this.healthSnapshots, workspacePayload);
+    exportJson(options: DiagnosticsExportOptions = {}): Record<string, unknown> {
+        return this.buildExportPayload(this.groups, this.healthSnapshots, options);
     }
 
     captureBundle(
         label?: string,
         notes?: string,
-        workspacePayload?: DiagnosticsWorkspacePayload | null
+        options: DiagnosticsExportOptions = {}
     ): JobDiagnosticBundle | null {
         if (this.groups.length <= 0 && this.healthSnapshots.length <= 0) return null;
         const id = `bundle:${Date.now()}:${this.bundleCounter++}`;
@@ -683,7 +727,10 @@ class JobDiagnosticsStore {
         const payload = this.buildExportPayload(
             this.groups,
             this.healthSnapshots.slice(0, MAX_BUNDLE_HEALTH_SNAPSHOTS),
-            workspacePayload
+            {
+                ...options,
+                reportNotes: normalizeString(notes, '')
+            }
         );
         payload.report = {
             label: resolvedLabel,
@@ -725,8 +772,9 @@ class JobDiagnosticsStore {
     private buildExportPayload(
         groups: JobDiagnosticGroup[],
         healthSnapshots: JobDiagnosticHealthSnapshot[],
-        workspacePayload?: DiagnosticsWorkspacePayload | null
+        options: DiagnosticsExportOptions = {}
     ): Record<string, unknown> {
+        const workspacePayload = options.workspacePayload;
         const totalEvents = groups.reduce((sum, group) => sum + group.count, 0);
         const firstSeen = groups.reduce((min, group) => Math.min(min, group.firstSeen), Number.POSITIVE_INFINITY);
         const lastSeen = groups.reduce((max, group) => Math.max(max, group.lastSeen), 0);
@@ -748,10 +796,18 @@ class JobDiagnosticsStore {
             }
             : undefined;
         const focusedDiagnostics = workspacePayload?.focused_diagnostics
-            ? JSON.parse(JSON.stringify(workspacePayload.focused_diagnostics))
+            ? cloneJson(workspacePayload.focused_diagnostics)
             : undefined;
+        const workspaceSnapshot = workspacePayload ? cloneJson(workspacePayload) : null;
+        const classifier = workspacePayload?.classifier ? cloneJson(workspacePayload.classifier) : null;
+        const startupWarnings = Array.isArray(workspacePayload?.startup_warnings)
+            ? cloneJson(workspacePayload.startup_warnings)
+            : [];
+        const currentIssues = Array.isArray(options.currentIssues) ? cloneJson(options.currentIssues) : [];
+        const recentIncidents = Array.isArray(options.recentIncidents) ? cloneJson(options.recentIncidents) : [];
+        const clientContext = collectClientContext();
         return {
-            schema_version: 2,
+            schema_version: 3,
             generated_at: new Date().toISOString(),
             workspace_schema_version: workspacePayload?.workspace_schema_version ?? null,
             environment: {
@@ -764,6 +820,7 @@ class JobDiagnosticsStore {
                 git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
                 branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
             },
+            client_context: clientContext,
             summary: {
                 error_groups: groups.length,
                 total_events: totalEvents,
@@ -771,15 +828,29 @@ class JobDiagnosticsStore {
                 first_seen: Number.isFinite(firstSeen) ? new Date(firstSeen).toISOString() : null,
                 last_seen: lastSeen > 0 ? new Date(lastSeen).toISOString() : null
             },
-            health: normalizedHealthSnapshots[0] ?? null,
+            workspace_snapshot: workspaceSnapshot,
+            health: workspacePayload?.health ?? normalizedHealthSnapshots[0] ?? null,
+            classifier,
+            startup_warnings: startupWarnings,
             backend_diagnostics: normalizedBackendDiagnostics ?? null,
             focused_diagnostics: focusedDiagnostics ?? null,
-            incidents: [],
+            incidents: {
+                current: currentIssues,
+                recent: recentIncidents,
+            },
             timeline: [],
             raw_evidence: {
                 error_groups: normalizedGroups,
                 health_snapshots: normalizedHealthSnapshots,
-                backend_diagnostics: normalizedBackendDiagnostics
+                backend_diagnostics: normalizedBackendDiagnostics,
+                workspace_snapshot: workspaceSnapshot,
+                classifier,
+                startup_warnings: startupWarnings,
+                incidents: {
+                    current: currentIssues,
+                    recent: recentIncidents,
+                },
+                client_context: clientContext,
             },
             error_groups: normalizedGroups,
             health_snapshots: normalizedHealthSnapshots
@@ -788,9 +859,9 @@ class JobDiagnosticsStore {
 
     downloadJson(
         filename = `yawamf-job-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`,
-        workspacePayload?: DiagnosticsWorkspacePayload | null
+        options: DiagnosticsExportOptions = {}
     ): void {
-        const payload = this.exportJson(workspacePayload);
+        const payload = this.exportJson(options);
         this.downloadPayload(payload, filename);
     }
 
