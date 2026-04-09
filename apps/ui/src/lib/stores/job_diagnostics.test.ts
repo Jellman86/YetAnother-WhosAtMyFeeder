@@ -666,11 +666,12 @@ describe('jobDiagnosticsStore', () => {
     it('renders a prominent latest-bundle card and clear saved-bundle library copy', () => {
         expect(errorsPageSource).toContain('System Status');
         expect(errorsPageSource).toContain('Recent Backend Diagnostics');
-        expect(errorsPageSource).toContain('Download Current Bundle');
-        expect(errorsPageSource).toContain('Latest Bundle Ready');
+        expect(errorsPageSource).toContain('Export Current JSON');
+        expect(errorsPageSource).toContain('Capture Bundle');
+        expect(errorsPageSource).toContain('Latest Bundle');
         expect(errorsPageSource).toContain('Download Latest');
         expect(errorsPageSource).toContain('Newest');
         expect(errorsPageSource).toContain('No captured bundles available yet.');
-        expect(errorsPageSource).toContain('Saved locally');
+        expect(errorsPageSource).toContain('Saved Bundles');
     });
 });
