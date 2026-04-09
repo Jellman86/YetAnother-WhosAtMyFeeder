@@ -262,3 +262,22 @@ def test_maintenance_guardrail_status_rejects_when_queue_is_stalled(monkeypatch)
     assert status["coalesce_analyze_unknowns"] is True
     assert status["reject_new_work"] is True
     assert "stalled" in str(status["maintenance_status_message"]).lower()
+
+
+def test_maintenance_guardrail_status_keeps_active_work_running_without_false_stall(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._active_metadata = {
+        "evt-maint-active": {"source": "maintenance", "started_at": 0.0},
+    }
+    service._maintenance_last_progress_at = 0.0
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=180.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        status = service.get_maintenance_guardrail_status()
+
+    assert status["pending_maintenance"] == 0
+    assert status["active_maintenance"] == 1
+    assert status["maintenance_state"] == "running"
+    assert status["coalesce_analyze_unknowns"] is True
+    assert status["reject_new_work"] is False
+    assert "running" in str(status["maintenance_status_message"]).lower()

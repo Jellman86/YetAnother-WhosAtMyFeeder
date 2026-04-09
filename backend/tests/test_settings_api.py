@@ -260,6 +260,77 @@ async def test_backfill_async_rejects_when_taxonomy_sync_is_running(
 
 
 @pytest.mark.asyncio
+async def test_taxonomy_sync_derives_reject_new_work_from_partial_guardrail_payload(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    monkeypatch.setattr(
+        settings_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {"is_running": False, "processed": 0, "total": 0, "current_item": None, "error": None},
+    )
+    monkeypatch.setattr(
+        settings_router.auto_video_classifier,
+        "get_maintenance_guardrail_status",
+        lambda: {
+            "maintenance_state": "stalled",
+            "maintenance_status_message": "Maintenance work is already heavily backlogged.",
+            "pending_maintenance": 5,
+            "active_maintenance": 1,
+            "oldest_maintenance_pending_age_seconds": 91.0,
+            "maintenance_circuit_open": False,
+        },
+    )
+
+    response = await client.post("/api/maintenance/taxonomy/sync")
+    assert response.status_code == 409, response.text
+    assert "backlogged" in response.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_backfill_async_rejects_when_maintenance_pressure_is_high(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+    backfill_router._JOB_TASKS.clear()
+
+    monkeypatch.setattr(
+        backfill_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {
+            "is_running": False,
+            "processed": 0,
+            "total": 0,
+            "current_item": None,
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        backfill_router.auto_video_classifier,
+        "get_maintenance_guardrail_status",
+        lambda: {
+            "maintenance_state": "stalled",
+            "maintenance_status_message": "Maintenance work is already heavily backlogged.",
+            "pending_maintenance": 12,
+            "active_maintenance": 1,
+            "oldest_maintenance_pending_age_seconds": 91.0,
+            "maintenance_circuit_open": False,
+        },
+    )
+
+    response = await client.post("/api/backfill/async", json={"date_range": "week"})
+    assert response.status_code == 409, response.text
+    assert "backlogged" in response.text.lower()
+
+
+@pytest.mark.asyncio
 async def test_settings_include_maintenance_video_circuit_fields_and_reset_reports_both(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
