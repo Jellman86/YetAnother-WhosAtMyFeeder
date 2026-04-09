@@ -191,6 +191,248 @@ async def test_health_not_degraded_when_mqtt_stall_recovery_warning_is_inactive(
 
 
 @pytest.mark.asyncio
+async def test_health_not_degraded_by_mqtt_critical_pressure_without_backlog_wait(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(
+            get_status=lambda: {
+                "pressure_level": "critical",
+                "stall_recovery_warning_active": False,
+                "backlog_wait_active": False,
+                "recent_handler_slot_wait_exhaustion": False,
+            }
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "auto_video_classifier",
+        SimpleNamespace(get_status=lambda: {"pending": 0, "active": 0, "circuit_open": False}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "get_db_pool_status",
+        lambda: {"acquire_wait_max_ms": 0.0},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "event_processor",
+        SimpleNamespace(
+            get_status=lambda: {
+                "status": "ok",
+                "started_events": 120,
+                "completed_events": 118,
+                "dropped_events": 0,
+                "incomplete_events": 0,
+                "critical_failures": 0,
+                "stage_timeouts": {},
+                "stage_failures": {},
+                "stage_fallbacks": {},
+                "drop_reasons": {},
+                "last_stage_timeout": None,
+                "last_stage_failure": None,
+                "last_drop": None,
+                "last_completed": None,
+                "recent_outcomes": [],
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["mqtt"]["pressure_level"] == "critical"
+
+
+@pytest.mark.asyncio
+async def test_health_degraded_when_mqtt_handler_backlog_wait_is_active(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(
+            get_status=lambda: {
+                "pressure_level": "critical",
+                "stall_recovery_warning_active": False,
+                "backlog_wait_active": True,
+                "backlog_wait_seconds": 18.0,
+                "recent_handler_slot_wait_exhaustion": False,
+            }
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "auto_video_classifier",
+        SimpleNamespace(get_status=lambda: {"pending": 0, "active": 0, "circuit_open": False}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "get_db_pool_status",
+        lambda: {"acquire_wait_max_ms": 0.0},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "event_processor",
+        SimpleNamespace(
+            get_status=lambda: {
+                "status": "ok",
+                "started_events": 120,
+                "completed_events": 118,
+                "dropped_events": 0,
+                "incomplete_events": 0,
+                "critical_failures": 0,
+                "stage_timeouts": {},
+                "stage_failures": {},
+                "stage_fallbacks": {},
+                "drop_reasons": {},
+                "last_stage_timeout": None,
+                "last_stage_failure": None,
+                "last_drop": None,
+                "last_completed": None,
+                "recent_outcomes": [],
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["mqtt"]["backlog_wait_active"] is True
+
+
+@pytest.mark.asyncio
+async def test_health_degraded_when_mqtt_recent_handler_slot_wait_exhaustion_is_active(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    app.state.startup_warnings = []
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "mqtt_service",
+        SimpleNamespace(
+            get_status=lambda: {
+                "pressure_level": "normal",
+                "stall_recovery_warning_active": False,
+                "backlog_wait_active": False,
+                "recent_handler_slot_wait_exhaustion": True,
+                "last_handler_slot_wait_exhausted_age_seconds": 22.0,
+            }
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "auto_video_classifier",
+        SimpleNamespace(get_status=lambda: {"pending": 0, "active": 0, "circuit_open": False}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "high_quality_snapshot_service",
+        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "get_db_pool_status",
+        lambda: {"acquire_wait_max_ms": 0.0},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "event_processor",
+        SimpleNamespace(
+            get_status=lambda: {
+                "status": "ok",
+                "started_events": 120,
+                "completed_events": 118,
+                "dropped_events": 0,
+                "incomplete_events": 0,
+                "critical_failures": 0,
+                "stage_timeouts": {},
+                "stage_failures": {},
+                "stage_fallbacks": {},
+                "drop_reasons": {},
+                "last_stage_timeout": None,
+                "last_stage_failure": None,
+                "last_drop": None,
+                "last_completed": None,
+                "recent_outcomes": [],
+            }
+        ),
+        raising=False,
+    )
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["mqtt"]["recent_handler_slot_wait_exhaustion"] is True
+
+
+@pytest.mark.asyncio
 async def test_health_includes_event_pipeline_status(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

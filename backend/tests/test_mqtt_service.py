@@ -223,6 +223,32 @@ def test_get_status_reports_pressure_level_and_thresholds(monkeypatch):
     assert service.get_status()["pressure_level"] == "critical"
 
 
+def test_get_status_reports_backlog_wait_state(monkeypatch):
+    service = MQTTService("test+abc123")
+    service._backlog_wait_started_monotonic = 100.0
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 112.3)
+
+    status = service.get_status()
+
+    assert status["backlog_wait_active"] is True
+    assert status["backlog_wait_seconds"] == 12.3
+    assert status["recent_handler_slot_wait_exhaustion"] is False
+
+
+def test_get_status_reports_recent_handler_slot_wait_exhaustion(monkeypatch):
+    service = MQTTService("test+abc123")
+    service._last_handler_slot_wait_exhausted_monotonic = 180.0
+    service._handler_slot_wait_exhaustions = 2
+    monkeypatch.setattr(mqtt_module, "MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS", 60.0, raising=False)
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 200.0)
+
+    status = service.get_status()
+
+    assert status["handler_slot_wait_exhaustions"] == 2
+    assert status["recent_handler_slot_wait_exhaustion"] is True
+    assert status["last_handler_slot_wait_exhausted_age_seconds"] == 20.0
+
+
 def test_should_reconnect_when_frigate_topic_is_stale_but_birdnet_is_active(monkeypatch):
     service = MQTTService("test+abc123")
     service.running = True

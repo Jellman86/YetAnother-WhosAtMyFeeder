@@ -30,6 +30,10 @@ MQTT_TOPIC_STALL_GRACE_SECONDS = max(10.0, float(os.getenv("MQTT_TOPIC_STALL_GRA
 MQTT_WATCHDOG_INTERVAL_SECONDS = max(10.0, float(os.getenv("MQTT_WATCHDOG_INTERVAL_SECONDS", "30")))
 MAX_HANDLER_WAIT_SECONDS = max(30.0, float(os.getenv("MQTT_MAX_HANDLER_WAIT_SECONDS", "120")))
 MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS = max(1, int(os.getenv("MQTT_MAX_CONSECUTIVE_NO_FRIGATE_RECONNECTS", "5")))
+MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS = max(
+    30.0,
+    float(os.getenv("MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS", "120")),
+)
 
 class MQTTService:
     def __init__(self, version: str = "unknown"):
@@ -48,6 +52,9 @@ class MQTTService:
         self._stall_recovery_consecutive_no_frigate_reconnects = 0
         self._last_reconnect_reason: str | None = None
         self._intentional_reconnect: bool = False
+        self._backlog_wait_started_monotonic: float | None = None
+        self._handler_slot_wait_exhaustions = 0
+        self._last_handler_slot_wait_exhausted_monotonic: float | None = None
         # Simplified Client ID: yawamf-{git_hash}
         # version format is usually "2.0.0+abc1234"
         git_hash = version.split('+')[-1] if '+' in version else "unknown"
@@ -78,6 +85,22 @@ class MQTTService:
         frigate_topic = f"{settings.frigate.main_topic}/events"
         birdnet_topic = settings.frigate.audio_topic
         birdnet_active_age_threshold = max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0)
+        backlog_wait_started = self._backlog_wait_started_monotonic
+        backlog_wait_seconds = (
+            round(max(0.0, now - backlog_wait_started), 1)
+            if backlog_wait_started is not None
+            else None
+        )
+        last_wait_exhausted = self._last_handler_slot_wait_exhausted_monotonic
+        last_wait_exhausted_age_seconds = (
+            round(max(0.0, now - last_wait_exhausted), 1)
+            if last_wait_exhausted is not None
+            else None
+        )
+        recent_handler_slot_wait_exhaustion = bool(
+            last_wait_exhausted_age_seconds is not None
+            and last_wait_exhausted_age_seconds <= MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS
+        )
         topic_ages = {
             frigate_topic: self._topic_age_seconds(frigate_topic, now),
             birdnet_topic: self._topic_age_seconds(birdnet_topic, now),
@@ -96,6 +119,11 @@ class MQTTService:
             "handler_concurrency": MQTT_HANDLER_CONCURRENCY,
             "pressure_level": pressure_level,
             "under_pressure": pressure_level in {"high", "critical"},
+            "backlog_wait_active": backlog_wait_started is not None,
+            "backlog_wait_seconds": backlog_wait_seconds,
+            "handler_slot_wait_exhaustions": self._handler_slot_wait_exhaustions,
+            "recent_handler_slot_wait_exhaustion": recent_handler_slot_wait_exhaustion,
+            "last_handler_slot_wait_exhausted_age_seconds": last_wait_exhausted_age_seconds,
             "connection_uptime_seconds": (
                 round(now - self._connection_started_monotonic, 1)
                 if self._connection_started_monotonic is not None
@@ -308,34 +336,41 @@ class MQTTService:
 
     async def _wait_for_handler_slot(self):
         wait_started: float | None = None
-        while len(self._in_flight_tasks) >= MQTT_MAX_IN_FLIGHT_MESSAGES and self.running:
-            loop = asyncio.get_running_loop()
-            if wait_started is None:
-                wait_started = loop.time()
-            waited = loop.time() - wait_started
-            remaining = MAX_HANDLER_WAIT_SECONDS - waited
-            if remaining <= 0:
-                log.error(
-                    "MQTT handler slot wait exceeded maximum; unblocking message loop to prevent stall",
-                    waited_seconds=round(waited, 1),
-                    in_flight=len(self._in_flight_tasks),
-                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+        try:
+            while len(self._in_flight_tasks) >= MQTT_MAX_IN_FLIGHT_MESSAGES and self.running:
+                loop = asyncio.get_running_loop()
+                if wait_started is None:
+                    wait_started = loop.time()
+                    self._backlog_wait_started_monotonic = wait_started
+                waited = loop.time() - wait_started
+                remaining = MAX_HANDLER_WAIT_SECONDS - waited
+                if remaining <= 0:
+                    self._handler_slot_wait_exhaustions += 1
+                    self._last_handler_slot_wait_exhausted_monotonic = loop.time()
+                    log.error(
+                        "MQTT handler slot wait exceeded maximum; unblocking message loop to prevent stall",
+                        waited_seconds=round(waited, 1),
+                        in_flight=len(self._in_flight_tasks),
+                        limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+                        exhaustion_count=self._handler_slot_wait_exhaustions,
+                    )
+                    break
+                done, _pending = await asyncio.wait(
+                    self._in_flight_tasks,
+                    return_when=asyncio.FIRST_COMPLETED,
+                    timeout=min(5.0, remaining),
                 )
-                break
-            done, _pending = await asyncio.wait(
-                self._in_flight_tasks,
-                return_when=asyncio.FIRST_COMPLETED,
-                timeout=min(5.0, remaining),
-            )
-            if not done:
-                log.warning(
-                    "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
-                    in_flight=len(self._in_flight_tasks),
-                    limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
-                    waited_seconds=round(loop.time() - wait_started, 1),
-                )
-            for task in done:
-                self._in_flight_tasks.discard(task)
+                if not done:
+                    log.warning(
+                        "MQTT handler backlog saturated; waiting for in-flight tasks to drain",
+                        in_flight=len(self._in_flight_tasks),
+                        limit=MQTT_MAX_IN_FLIGHT_MESSAGES,
+                        waited_seconds=round(loop.time() - wait_started, 1),
+                    )
+                for task in done:
+                    self._in_flight_tasks.discard(task)
+        finally:
+            self._backlog_wait_started_monotonic = None
 
     def _parse_frigate_payload_meta(self, payload: bytes) -> dict | None:
         try:
@@ -524,6 +559,7 @@ class MQTTService:
                         frigate_topic: 0,
                         birdnet_topic: 0,
                     }
+                    self._backlog_wait_started_monotonic = None
 
                     log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])
 
@@ -678,6 +714,7 @@ class MQTTService:
         self._topic_message_counts = {}
         self._topic_message_counts_lifetime = {}
         self._stall_recovery_consecutive_no_frigate_reconnects = 0
+        self._backlog_wait_started_monotonic = None
 
     def pause(self):
         self.paused = True

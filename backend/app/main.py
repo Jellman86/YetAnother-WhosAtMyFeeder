@@ -686,7 +686,8 @@ async def health_check():
             or bool(live_image_health.get("recovery_active"))
         )
         or startup_warnings
-        or mqtt_health.get("pressure_level") in {"high", "critical"}
+        or bool(mqtt_health.get("backlog_wait_active"))
+        or bool(mqtt_health.get("recent_handler_slot_wait_exhaustion"))
         or bool(mqtt_health.get("stall_recovery_warning_active"))
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
