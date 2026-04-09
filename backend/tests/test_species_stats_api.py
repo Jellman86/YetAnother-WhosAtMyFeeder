@@ -274,6 +274,76 @@ async def test_leaderboard_species_includes_unknown_bird_without_sql_binding_err
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_species_uses_canonical_common_name_for_variant_aliases(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    suffix = uuid.uuid4().hex[:8]
+    taxa_id = 910000 + int(suffix[:4], 16)
+    event_prefix = f"leaderboard-canonical-{suffix}"
+    scientific_name = f"Haemorhous mexicanus {suffix}"
+    common_name = f"House Finch {suffix}"
+    variant_labels = [
+        f"{common_name} (Female/immature)",
+        f"{common_name} (Male)",
+    ]
+    now = datetime.now(timezone.utc).isoformat(sep=" ")
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        for idx, display_name in enumerate(variant_labels, start=1):
+            await db.execute(
+                """
+                INSERT INTO detections (
+                    detection_time, detection_index, score, display_name, category_name,
+                    frigate_event, camera_name, is_hidden, manual_tagged,
+                    scientific_name, common_name, taxa_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+                """,
+                (
+                    now,
+                    idx,
+                    0.92,
+                    display_name,
+                    display_name,
+                    f"{event_prefix}_{idx}",
+                    "test-camera",
+                    scientific_name,
+                    common_name,
+                    taxa_id,
+                ),
+            )
+        await db.commit()
+
+    try:
+        response = await client.get("/api/leaderboard/species?span=month")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        canonical_rows = [row for row in payload["species"] if row["species"] == common_name]
+        assert len(canonical_rows) == 1
+        assert canonical_rows[0]["window_count"] >= 2
+        assert canonical_rows[0]["common_name"] == common_name
+        assert canonical_rows[0]["scientific_name"] == scientific_name
+        assert not any(row["species"] in variant_labels for row in payload["species"])
+
+        all_species_response = await client.get("/api/species")
+        assert all_species_response.status_code == 200, all_species_response.text
+        all_species = all_species_response.json()
+        canonical_all_rows = [row for row in all_species if row["species"] == common_name]
+        assert len(canonical_all_rows) == 1
+        assert canonical_all_rows[0]["count"] >= 2
+        assert not any(row["species"] in variant_labels for row in all_species)
+    finally:
+        await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
+
+
+@pytest.mark.asyncio
 async def test_species_stats_accepts_cyrillic_common_name_and_aggregates_aliases(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

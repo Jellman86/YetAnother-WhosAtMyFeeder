@@ -17,6 +17,7 @@
     import { chart } from '../actions/apexchart';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
+    import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { themeStore } from '../stores/theme.svelte';
@@ -964,7 +965,15 @@
             window_start: timeline?.window_start ?? null,
             window_end: timeline?.window_end ?? null,
             total_count: timeline?.total_count ?? 0,
-            points: timeline?.points?.length ?? 0
+            points: timeline?.points?.length ?? 0,
+            ...buildLeaderboardAnalysisPromptConfig({
+                timeframe: `${spanLabel()} (${formatRangeCompact(timeline?.window_start, timeline?.window_end)})`,
+                metricLabel: metricLabel(),
+                bucketLabel: bucketLabel(timeline?.bucket),
+                trendMode,
+                chartDetectionType: detectionUsesBars() ? 'bar' : 'line',
+                timeline,
+            })
         };
     }
 
@@ -1021,12 +1030,7 @@
                 throw new Error('Unable to capture chart image');
             }
             const result = await analyzeLeaderboardGraph({
-                config: {
-                    timeframe: `${spanLabel()} (${formatRangeCompact(timeline.window_start, timeline.window_end)})`,
-                    total_count: timeline.total_count,
-                    series: [metricLabel()],
-                    notes: `Metric: ${metricLabel()}. Grouped by ${bucketLabel(timeline.bucket)}. Trend mode: ${trendMode}.`
-                },
+                config,
                 image_base64: imageBase64,
                 force,
                 config_key: key

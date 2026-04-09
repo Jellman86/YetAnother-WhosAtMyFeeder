@@ -148,6 +148,18 @@ def _should_hydrate_species_label(label: str) -> bool:
     return True
 
 
+def _canonical_species_response_name(
+    species_label: str | None,
+    common_name: str | None,
+    scientific_name: str | None,
+) -> str | None:
+    if common_name:
+        return common_name
+    if scientific_name:
+        return scientific_name
+    return species_label
+
+
 def _looks_like_scientific_name(value: str | None) -> bool:
     return bool(value and SCIENTIFIC_NAME_PATTERN.match(value.strip()))
 
@@ -996,7 +1008,11 @@ async def get_species_list(request: Request):
                     common_name = localized
 
             filtered_stats.append({
-                "species": s["species"],
+                "species": _canonical_species_response_name(
+                    s["species"],
+                    common_name,
+                    s.get("scientific_name"),
+                ),
                 "count": s["count"],
                 "scientific_name": s.get("scientific_name"),
                 "common_name": common_name,
@@ -1109,7 +1125,11 @@ async def get_leaderboard_species(
                 pct = (delta / r["prev_count"]) * 100.0
 
             filtered.append({
-                "species": r["species"],
+                "species": _canonical_species_response_name(
+                    r["species"],
+                    common_name,
+                    r.get("scientific_name"),
+                ),
                 "scientific_name": r.get("scientific_name"),
                 "common_name": common_name,
                 "taxa_id": taxa_id,
