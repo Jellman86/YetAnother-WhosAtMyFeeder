@@ -435,3 +435,62 @@ async def test_timeline_compare_canonical_species_with_taxonomy_cache_joins_clea
     finally:
         await _delete_detection(event_id)
         await _delete_taxonomy_cache_entry(taxa_id)
+
+
+def _heatmap_cell(payload: dict, *, day_of_week: int, hour: int) -> int:
+    for cell in payload["cells"]:
+        if cell["day_of_week"] == day_of_week and cell["hour"] == hour:
+            return cell["count"]
+    raise AssertionError(f"Missing heatmap cell {day_of_week=}, {hour=}")
+
+
+@pytest.mark.asyncio
+async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_buckets(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 10, 18, 0, 0)
+
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return utc_window_end.replace(tzinfo=tz)
+            return cls(
+                utc_window_end.year,
+                utc_window_end.month,
+                utc_window_end.day,
+                utc_window_end.hour,
+                utc_window_end.minute,
+                utc_window_end.second,
+            )
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeDateTime)
+
+    previous_local_day_event_id = f"stats-heatmap-prev-{uuid.uuid4().hex[:8]}"
+    same_local_day_event_id = f"stats-heatmap-same-{uuid.uuid4().hex[:8]}"
+    await _insert_detection_at_timestamp(previous_local_day_event_id, "2026-04-10 02:15:00")
+    await _insert_detection_at_timestamp(same_local_day_event_id, "2026-04-10 13:30:00")
+
+    try:
+        response = await client.get(
+            "/api/stats/detections/activity-heatmap",
+            params={"span": "week"},
+            headers={"X-Timezone": "America/New_York"},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        # 2026-04-10 02:15 UTC -> 2026-04-09 22:15 America/New_York (Thursday)
+        assert _heatmap_cell(payload, day_of_week=4, hour=22) == 1
+        # 2026-04-10 13:30 UTC -> 2026-04-10 09:30 America/New_York (Friday)
+        assert _heatmap_cell(payload, day_of_week=5, hour=9) == 1
+        # The raw UTC buckets should not be used when a browser timezone is provided.
+        assert _heatmap_cell(payload, day_of_week=5, hour=2) == 0
+        assert _heatmap_cell(payload, day_of_week=5, hour=13) == 0
+    finally:
+        await _delete_detection(previous_local_day_event_id)
+        await _delete_detection(same_local_day_event_id)

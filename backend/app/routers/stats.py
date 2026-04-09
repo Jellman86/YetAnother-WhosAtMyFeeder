@@ -14,6 +14,7 @@ from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import utc_naive_now
+from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
 
@@ -719,7 +720,15 @@ async def get_detection_activity_heatmap(
                 window_start = now
             window_end = now
 
-        counts = await repo.get_activity_heatmap_counts(window_start, window_end)
+        user_tz = get_user_timezone(request)
+        utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(window_start, window_end)
+        counts: dict[int, dict[int, int]] = {}
+        for bucket_start, count in utc_hourly_counts:
+            local_bucket = bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz)
+            day_of_week = (local_bucket.weekday() + 1) % 7  # 0=Sunday..6=Saturday
+            hour = local_bucket.hour
+            counts.setdefault(day_of_week, {})
+            counts[day_of_week][hour] = counts[day_of_week].get(hour, 0) + int(count)
         cells: list[DetectionsActivityHeatmapCell] = []
         total_count = 0
         max_cell_count = 0

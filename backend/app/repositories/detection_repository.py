@@ -2027,35 +2027,32 @@ class DetectionRepository:
 
         return out
 
-    async def get_activity_heatmap_counts(
+    async def get_activity_heatmap_utc_hourly_counts(
         self,
         start: datetime,
         end: datetime,
-    ) -> dict[int, dict[int, int]]:
-        """Return detection counts grouped by weekday (0=Sunday) and hour (0-23)."""
+    ) -> list[tuple[datetime, int]]:
+        """Return visible detection counts grouped by UTC hour buckets."""
         query = """
             SELECT
-                CAST(strftime('%w', detection_time) AS integer) as dow,
-                CAST(strftime('%H', detection_time) AS integer) as hour_of_day,
+                strftime('%Y-%m-%d %H:00:00', detection_time) as bucket_start,
                 COUNT(*) as c
             FROM detections
             WHERE detection_time >= ? AND detection_time < ?
               AND (is_hidden = 0 OR is_hidden IS NULL)
-            GROUP BY dow, hour_of_day
-            ORDER BY dow ASC, hour_of_day ASC
+            GROUP BY bucket_start
+            ORDER BY bucket_start ASC
         """
         async with self.db.execute(query, (start, end)) as cursor:
             rows = await cursor.fetchall()
 
-        out: dict[int, dict[int, int]] = {}
+        out: list[tuple[datetime, int]] = []
         for row in rows:
-            dow = int(row[0] or 0)
-            hour_of_day = int(row[1] or 0)
-            count = int(row[2] or 0)
-            if dow < 0 or dow > 6 or hour_of_day < 0 or hour_of_day > 23:
+            bucket_start = _parse_datetime(row[0])
+            count = int(row[1] or 0)
+            if count <= 0:
                 continue
-            out.setdefault(dow, {})
-            out[dow][hour_of_day] = count
+            out.append((bucket_start, count))
         return out
 
     async def get_species_counts(self) -> list[dict]:
