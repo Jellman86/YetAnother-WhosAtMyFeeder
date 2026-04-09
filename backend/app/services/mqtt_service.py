@@ -44,9 +44,18 @@ class MQTTService:
         self._handler_semaphore = asyncio.Semaphore(MQTT_HANDLER_CONCURRENCY)
         self._in_flight_tasks: set[asyncio.Task] = set()
         self._event_task_tails: dict[str, asyncio.Task] = {}
+        self._event_tail_depths: dict[str, int] = {}
         self._topic_last_message_monotonic: dict[str, float] = {}
         self._topic_message_counts: dict[str, int] = {}
         self._topic_message_counts_lifetime: dict[str, int] = {}
+        self._task_kind_by_id: dict[int, str] = {}
+        self._audio_active_task: asyncio.Task | None = None
+        self._audio_pending_task: asyncio.Task | None = None
+        self._audio_pending_payload: bytes | None = None
+        self._audio_messages_superseded = 0
+        self._audio_dispatch_count = 0
+        self._frigate_dispatch_count = 0
+        self._max_event_tail_depth = 0
         self._connection_started_monotonic: float | None = None
         self._topic_liveness_reconnects = 0
         self._stall_recovery_consecutive_no_frigate_reconnects = 0
@@ -82,6 +91,14 @@ class MQTTService:
         in_flight = len(self._in_flight_tasks)
         pressure_level = self._compute_pressure_level(in_flight)
         now = self._now_monotonic()
+        in_flight_by_topic = {
+            "frigate": 0,
+            "birdnet": 0,
+        }
+        for task in self._in_flight_tasks:
+            kind = self._task_kind_by_id.get(id(task))
+            if kind in in_flight_by_topic:
+                in_flight_by_topic[kind] += 1
         frigate_topic = f"{settings.frigate.main_topic}/events"
         birdnet_topic = settings.frigate.audio_topic
         birdnet_active_age_threshold = max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0)
@@ -115,12 +132,21 @@ class MQTTService:
             "paused": self.paused,
             "connected": self.client is not None,
             "in_flight": in_flight,
+            "in_flight_by_topic": in_flight_by_topic,
             "in_flight_capacity": MQTT_MAX_IN_FLIGHT_MESSAGES,
             "handler_concurrency": MQTT_HANDLER_CONCURRENCY,
+            "dispatch_counts": {
+                "frigate": self._frigate_dispatch_count,
+                "birdnet": self._audio_dispatch_count,
+            },
             "pressure_level": pressure_level,
             "under_pressure": pressure_level in {"high", "critical"},
             "backlog_wait_active": backlog_wait_started is not None,
             "backlog_wait_seconds": backlog_wait_seconds,
+            "audio_pending_coalesced": self._audio_pending_payload is not None,
+            "audio_messages_superseded": self._audio_messages_superseded,
+            "frigate_event_tail_count": len(self._event_task_tails),
+            "max_frigate_event_tail_depth": self._max_event_tail_depth,
             "handler_slot_wait_exhaustions": self._handler_slot_wait_exhaustions,
             "recent_handler_slot_wait_exhaustion": recent_handler_slot_wait_exhaustion,
             "last_handler_slot_wait_exhausted_age_seconds": last_wait_exhausted_age_seconds,
@@ -170,9 +196,17 @@ class MQTTService:
         """Reset backoff delay after successful connection."""
         self.reconnect_delay = INITIAL_BACKOFF
 
-    def _track_handler_task(self, task: asyncio.Task):
+    def _track_handler_task(self, task: asyncio.Task, kind: str):
         self._in_flight_tasks.add(task)
-        task.add_done_callback(lambda done: self._in_flight_tasks.discard(done))
+        self._task_kind_by_id[id(task)] = kind
+
+        def _cleanup(done: asyncio.Task) -> None:
+            self._in_flight_tasks.discard(done)
+            self._task_kind_by_id.pop(id(done), None)
+            if kind == "birdnet" and self._audio_active_task is done:
+                self._audio_active_task = None
+
+        task.add_done_callback(_cleanup)
 
     def _now_monotonic(self) -> float:
         return time.monotonic()
@@ -464,24 +498,79 @@ class MQTTService:
 
         task_name = f"mqtt_dispatch_frigate:{event_id or 'unknown'}"
         task = create_background_task(_run(), name=task_name)
-        self._track_handler_task(task)
+        self._frigate_dispatch_count += 1
+        self._track_handler_task(task, "frigate")
 
         if event_id:
+            previous_depth = int(self._event_tail_depths.get(event_id, 0) or 0)
+            if previous_task is not None and not previous_task.done():
+                depth = max(2, previous_depth + 1)
+            else:
+                depth = 1
+            self._event_tail_depths[event_id] = depth
+            self._max_event_tail_depth = max(self._max_event_tail_depth, depth)
             self._event_task_tails[event_id] = task
 
             def _cleanup(done: asyncio.Task, eid: str = event_id) -> None:
                 if self._event_task_tails.get(eid) is done:
                     self._event_task_tails.pop(eid, None)
+                    self._event_tail_depths.pop(eid, None)
 
             task.add_done_callback(_cleanup)
         return task
 
     def _schedule_audio_message(self, event_processor, payload: bytes) -> asyncio.Task:
+        active_task = self._audio_active_task
+        if active_task is not None and not active_task.done():
+            if self._audio_pending_payload is not None:
+                self._audio_messages_superseded += 1
+            self._audio_pending_payload = payload
+            if self._audio_pending_task is not None and not self._audio_pending_task.done():
+                return self._audio_pending_task
+
+            async def _run_pending() -> None:
+                try:
+                    while self.running:
+                        current_active = self._audio_active_task
+                        if current_active is not None and not current_active.done():
+                            try:
+                                await current_active
+                            except asyncio.CancelledError:
+                                return
+                            except Exception:
+                                pass
+
+                        next_payload = self._audio_pending_payload
+                        self._audio_pending_payload = None
+                        if next_payload is None or not self.running:
+                            return
+
+                        followup = create_background_task(
+                            self._dispatch_audio_message(event_processor, next_payload),
+                            name="mqtt_dispatch_birdnet",
+                        )
+                        self._audio_active_task = followup
+                        self._audio_dispatch_count += 1
+                        self._track_handler_task(followup, "birdnet")
+                        await followup
+                        if self._audio_pending_payload is None:
+                            return
+                finally:
+                    self._audio_pending_task = None
+
+            self._audio_pending_task = create_background_task(
+                _run_pending(),
+                name="mqtt_dispatch_birdnet_pending",
+            )
+            return self._audio_pending_task
+
         task = create_background_task(
             self._dispatch_audio_message(event_processor, payload),
             name="mqtt_dispatch_birdnet",
         )
-        self._track_handler_task(task)
+        self._audio_active_task = task
+        self._audio_dispatch_count += 1
+        self._track_handler_task(task, "birdnet")
         return task
 
     async def _connection_watchdog(self, client, frigate_topic: str) -> None:
@@ -518,7 +607,14 @@ class MQTTService:
         for task in list(self._in_flight_tasks):
             task.cancel()
         self._in_flight_tasks.clear()
+        self._task_kind_by_id.clear()
         self._event_task_tails.clear()
+        self._event_tail_depths.clear()
+        self._audio_active_task = None
+        self._audio_pending_payload = None
+        if self._audio_pending_task is not None:
+            self._audio_pending_task.cancel()
+        self._audio_pending_task = None
 
     async def start(self, event_processor):
         self.running = True
@@ -560,6 +656,9 @@ class MQTTService:
                         birdnet_topic: 0,
                     }
                     self._backlog_wait_started_monotonic = None
+                    self._audio_active_task = None
+                    self._audio_pending_payload = None
+                    self._audio_pending_task = None
 
                     log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])
 

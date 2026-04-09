@@ -35,6 +35,22 @@ class _RecordingProcessor:
         del payload
 
 
+class _RecordingAudioProcessor:
+    def __init__(self):
+        self.payloads: list[dict] = []
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def process_mqtt_message(self, payload: bytes):
+        del payload
+
+    async def process_audio_message(self, payload: bytes):
+        data = json.loads(payload)
+        self.payloads.append(data)
+        self.started.set()
+        await self.release.wait()
+
+
 class _SlowProcessor:
     async def process_mqtt_message(self, payload: bytes):
         del payload
@@ -247,6 +263,54 @@ def test_get_status_reports_recent_handler_slot_wait_exhaustion(monkeypatch):
     assert status["handler_slot_wait_exhaustions"] == 2
     assert status["recent_handler_slot_wait_exhaustion"] is True
     assert status["last_handler_slot_wait_exhausted_age_seconds"] == 20.0
+
+
+@pytest.mark.asyncio
+async def test_schedule_audio_message_coalesces_to_latest_pending_payload():
+    service = MQTTService("test+abc123")
+    service.running = True
+    processor = _RecordingAudioProcessor()
+
+    payload_a = json.dumps({"species": "one"}).encode()
+    payload_b = json.dumps({"species": "two"}).encode()
+    payload_c = json.dumps({"species": "three"}).encode()
+
+    task_a = service._schedule_audio_message(processor, payload_a)
+    await asyncio.wait_for(processor.started.wait(), timeout=0.2)
+
+    task_b = service._schedule_audio_message(processor, payload_b)
+    task_c = service._schedule_audio_message(processor, payload_c)
+
+    processor.release.set()
+    await asyncio.wait_for(asyncio.gather(task_a, task_b, task_c), timeout=0.5)
+
+    assert [payload["species"] for payload in processor.payloads] == ["one", "three"]
+    status = service.get_status()
+    assert status["audio_pending_coalesced"] is False
+    assert status["audio_messages_superseded"] == 1
+
+
+def test_get_status_reports_in_flight_breakdown_and_audio_coalescing():
+    service = MQTTService("test+abc123")
+    task_a = object()
+    task_b = object()
+    service._in_flight_tasks = {task_a, task_b}
+    service._task_kind_by_id = {id(task_a): "frigate", id(task_b): "birdnet"}
+    service._audio_pending_payload = b"{}"
+    service._audio_messages_superseded = 3
+    service._audio_dispatch_count = 7
+    service._frigate_dispatch_count = 11
+    service._max_event_tail_depth = 4
+    service._event_task_tails = {"evt-1": object(), "evt-2": object()}
+
+    status = service.get_status()
+
+    assert status["in_flight_by_topic"] == {"frigate": 1, "birdnet": 1}
+    assert status["dispatch_counts"] == {"frigate": 11, "birdnet": 7}
+    assert status["audio_pending_coalesced"] is True
+    assert status["audio_messages_superseded"] == 3
+    assert status["frigate_event_tail_count"] == 2
+    assert status["max_frigate_event_tail_depth"] == 4
 
 
 def test_should_reconnect_when_frigate_topic_is_stale_but_birdnet_is_active(monkeypatch):
