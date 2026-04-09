@@ -152,7 +152,7 @@
     function toneClass(value: string): string {
         const normalized = value.trim().toLowerCase();
         if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
-            return 'border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200';
+            return 'border-teal-200/80 bg-teal-50 text-teal-700 dark:border-teal-800/60 dark:bg-teal-900/30 dark:text-teal-300';
         }
         if (['warning', 'degraded', 'high', 'recovering', 'queued'].includes(normalized)) {
             return 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200';
