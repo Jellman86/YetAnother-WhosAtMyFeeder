@@ -21,6 +21,9 @@ function pick(obj: LocaleRoot, path: string): unknown {
 const REQUIRED_KEYS = [
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality',
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality_help',
+    'settings.data.timezone_repair_title',
+    'settings.data.timezone_repair_preview_button',
+    'settings.data.timezone_repair_apply_button',
     'settings.integrations.ebird.export_from',
     'settings.integrations.ebird.export_from_label',
     'settings.integrations.ebird.export_to',

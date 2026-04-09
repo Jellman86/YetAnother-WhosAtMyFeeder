@@ -67,6 +67,15 @@ class Detection:
     video_result_blocked: bool = False
 
 
+@dataclass
+class TimezoneRepairRow:
+    id: int
+    detection_time: datetime
+    frigate_event: str
+    camera_name: str
+    display_name: str
+
+
 def _parse_datetime(value) -> datetime:
     """Parse datetime from SQLite storage format."""
     if isinstance(value, datetime):
@@ -407,6 +416,57 @@ class DetectionRepository:
             if row:
                 return _row_to_detection(row)
             return None
+
+    async def get_by_id(self, detection_id: int) -> Optional[Detection]:
+        async with self.db.execute(
+            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
+                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
+                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
+                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
+                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
+                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+               FROM detections d
+               LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               WHERE d.id = ?""",
+            (detection_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return _row_to_detection(row)
+            return None
+
+    async def list_timezone_repair_rows(self) -> list[TimezoneRepairRow]:
+        async with self.db.execute(
+            """
+            SELECT id, detection_time, frigate_event, camera_name, display_name
+            FROM detections
+            WHERE frigate_event IS NOT NULL
+              AND frigate_event != ''
+            ORDER BY detection_time DESC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            TimezoneRepairRow(
+                id=int(row[0]),
+                detection_time=_parse_datetime(row[1]),
+                frigate_event=str(row[2]),
+                camera_name=str(row[3] or ""),
+                display_name=str(row[4] or ""),
+            )
+            for row in rows
+        ]
+
+    async def update_detection_time_by_id(self, detection_id: int, detection_time: datetime) -> int:
+        await self.db.execute(
+            "UPDATE detections SET detection_time = ? WHERE id = ?",
+            (detection_time, detection_id),
+        )
+        await self.db.commit()
+        return await self._last_statement_changes()
 
     async def get_recent_full_visit_candidates(
         self,

@@ -19,6 +19,7 @@ from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
+from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.ai_service import AIService
 from app.services.bird_model_region_resolver import normalize_bird_model_region
@@ -108,6 +109,10 @@ class NotificationTestRequest(BaseModel):
     api_token: Optional[str] = Field(None, max_length=512)
     bot_token: Optional[str] = Field(None, max_length=512)
     chat_id: Optional[str] = Field(None, max_length=128)
+
+
+class TimezoneRepairApplyRequest(BaseModel):
+    confirm: bool = False
 
 @router.post("/settings/notifications/test")
 async def test_notification(
@@ -1221,6 +1226,23 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
             "retention_days": settings.maintenance.retention_days,
             "detections_to_cleanup": to_delete
         }
+
+
+@router.get("/maintenance/timezone-repair/preview")
+async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
+    """Preview legacy detection timestamp repairs validated against Frigate. Owner only."""
+    return await timezone_repair_service.preview()
+
+
+@router.post("/maintenance/timezone-repair/apply")
+async def apply_timezone_repair(
+    request: TimezoneRepairApplyRequest,
+    auth: AuthContext = Depends(require_owner),
+):
+    """Apply legacy detection timestamp repairs validated against Frigate. Owner only."""
+    if not request.confirm:
+        raise HTTPException(status_code=400, detail="Timezone repair requires explicit confirmation.")
+    return await timezone_repair_service.apply(confirm=True)
 
 @router.post("/maintenance/cleanup")
 async def run_cleanup(auth: AuthContext = Depends(require_owner)):

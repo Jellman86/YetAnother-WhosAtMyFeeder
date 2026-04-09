@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
-    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus } from '../../api';
+    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus, TimezoneRepairPreview } from '../../api';
 
     // Props
     let {
@@ -24,6 +24,9 @@
         cleaningCache,
         taxonomyStatus,
         syncingTaxonomy,
+        timezoneRepairPreview,
+        previewingTimezoneRepair,
+        applyingTimezoneRepair,
         backfillDateRange = $bindable<'day' | 'week' | 'month' | 'custom'>('week'),
         backfillStartDate = $bindable(''),
         backfillEndDate = $bindable(''),
@@ -46,6 +49,8 @@
         handlePurgeMissingSnapshots,
         handleCacheCleanup,
         handleStartTaxonomySync,
+        handlePreviewTimezoneRepair,
+        handleApplyTimezoneRepair,
         handleBackfill,
         handleWeatherBackfill,
         handleAnalyzeUnknowns,
@@ -71,6 +76,9 @@
         cleaningCache: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
         syncingTaxonomy: boolean;
+        timezoneRepairPreview: TimezoneRepairPreview | null;
+        previewingTimezoneRepair: boolean;
+        applyingTimezoneRepair: boolean;
         backfillDateRange: 'day' | 'week' | 'month' | 'custom';
         backfillStartDate: string;
         backfillEndDate: string;
@@ -93,6 +101,8 @@
         handlePurgeMissingSnapshots: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
+        handlePreviewTimezoneRepair: () => Promise<void>;
+        handleApplyTimezoneRepair: () => Promise<void>;
         handleBackfill: () => Promise<void>;
         handleWeatherBackfill: () => Promise<void>;
         handleAnalyzeUnknowns: () => Promise<void>;
@@ -110,6 +120,10 @@
         const date = new Date(String(value));
         if (Number.isNaN(date.getTime())) return '';
         return date.toLocaleTimeString();
+    };
+    const formatPreviewTimestamp = (value: unknown): string => {
+        if (!value) return '';
+        return String(value).replace('T', ' ').replace(/Z$/, ' UTC');
     };
 
     const formatDateOnly = (date: Date): string => {
@@ -166,6 +180,8 @@
             backfillEndDate = todayDateOnly();
         }
     });
+
+    const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
 </script>
 
 <div class="space-y-6">
@@ -423,6 +439,111 @@
             {/if}
             {$_('settings.data.taxonomy_run_button')}
         </button>
+    </section>
+
+    <section class="card-base rounded-3xl p-8">
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.timezone_repair_title', { default: 'Timezone Repair' })}</h3>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
+                    {$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
+                </p>
+            </div>
+            {#if timezoneRepairPreview}
+                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 px-4 py-3 text-right">
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{timezoneRepairCandidates}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        {$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}
+                    </p>
+                </div>
+            {/if}
+        </div>
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+            {$_('settings.data.timezone_repair_note', { default: 'This only updates detections when Frigate still has the matching event and the timestamp difference looks like a real timezone offset.' })}
+        </p>
+
+        {#if timezoneRepairPreview}
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
+                </div>
+                <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
+                    <p class="text-lg font-black text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
+                </div>
+                <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
+                    <p class="text-lg font-black text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
+                </div>
+            </div>
+
+            {#if timezoneRepairPreview.candidates.length > 0}
+                <div class="rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
+                    <div class="px-5 py-4 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            {$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}
+                        </p>
+                    </div>
+                    <div class="divide-y divide-slate-200 dark:divide-slate-700">
+                        {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
+                            <div class="px-5 py-4 space-y-1">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-sm font-black text-slate-900 dark:text-white truncate">
+                                        {candidate.display_name || candidate.frigate_event}
+                                    </p>
+                                    <span class="text-[10px] font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">
+                                        {candidate.status.replace(/_/g, ' ')}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
+                                <div class="text-xs text-slate-600 dark:text-slate-300">
+                                    <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
+                                    {#if candidate.repaired_detection_time}
+                                        <span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>
+                                    {/if}
+                                    {#if candidate.delta_hours !== null}
+                                        <span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        {/if}
+
+        <div class="flex flex-col md:flex-row gap-3">
+            <button
+                onclick={handlePreviewTimezoneRepair}
+                disabled={previewingTimezoneRepair || applyingTimezoneRepair}
+                aria-label={$_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
+                class="flex-1 px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800 transition-all disabled:opacity-50"
+            >
+                {previewingTimezoneRepair
+                    ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning...' })
+                    : $_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
+            </button>
+            <button
+                onclick={handleApplyTimezoneRepair}
+                disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
+                aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
+                class="flex-1 px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+            >
+                {applyingTimezoneRepair
+                    ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
+                    : $_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
+            </button>
+        </div>
     </section>
 
     <!-- Missed Detections (Backfill) -->

@@ -25,6 +25,8 @@
         runCacheCleanup,
         fetchTaxonomyStatus,
         startTaxonomySync,
+        fetchTimezoneRepairPreview,
+        applyTimezoneRepair,
         resetDatabase,
         clearClassificationFeedback,
         analyzeUnknowns,
@@ -53,6 +55,7 @@
         type CacheStats,
         type CacheCleanupResult,
         type TaxonomySyncStatus,
+        type TimezoneRepairPreview,
         type VersionInfo,
         type AnalysisStatus,
         type AudioSourceOption,
@@ -1809,6 +1812,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let clearingFavorites = $state(false);
     let purgingMissingClips = $state(false);
     let purgingMissingSnapshots = $state(false);
+    let timezoneRepairPreview = $state<TimezoneRepairPreview | null>(null);
+    let previewingTimezoneRepair = $state(false);
+    let applyingTimezoneRepair = $state(false);
 
     // Media cache state
     let cacheEnabled = $state(true);
@@ -2027,6 +2033,64 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: e?.message || 'Unknown error' } }) };
         } finally {
             syncingTaxonomy = false;
+        }
+    }
+
+    async function handlePreviewTimezoneRepair() {
+        previewingTimezoneRepair = true;
+        try {
+            timezoneRepairPreview = await fetchTimezoneRepairPreview();
+            const count = timezoneRepairPreview.summary.repair_candidate_count;
+            message = {
+                type: 'success',
+                text: count > 0
+                    ? $_('settings.data.timezone_repair_preview_found', {
+                        default: '{count} detections can be repaired.',
+                        values: { count }
+                    })
+                    : $_('settings.data.timezone_repair_preview_none', {
+                        default: 'No safe timezone repairs were found.'
+                    })
+            };
+        } catch (e: any) {
+            message = {
+                type: 'error',
+                text: e.message || $_('settings.data.timezone_repair_error', {
+                    default: 'Timezone repair scan failed.'
+                })
+            };
+        } finally {
+            previewingTimezoneRepair = false;
+        }
+    }
+
+    async function handleApplyTimezoneRepair() {
+        const confirmMsg = $_('settings.data.timezone_repair_confirm', {
+            default: 'Apply safe timezone repairs to the previewed detections?'
+        });
+        if (!confirm(confirmMsg)) return;
+
+        applyingTimezoneRepair = true;
+        try {
+            const result = await applyTimezoneRepair();
+            timezoneRepairPreview = result.preview;
+            message = {
+                type: 'success',
+                text: $_('settings.data.timezone_repair_apply_success', {
+                    default: 'Repaired {count} detections.',
+                    values: { count: result.repaired_count }
+                })
+            };
+            await loadMaintenanceStats();
+        } catch (e: any) {
+            message = {
+                type: 'error',
+                text: e.message || $_('settings.data.timezone_repair_error', {
+                    default: 'Timezone repair failed.'
+                })
+            };
+        } finally {
+            applyingTimezoneRepair = false;
         }
     }
 
@@ -3474,6 +3538,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {weatherBackfillTotal}
                     {taxonomyStatus}
                     {syncingTaxonomy}
+                    {timezoneRepairPreview}
+                    {previewingTimezoneRepair}
+                    {applyingTimezoneRepair}
                     {resettingDatabase}
                     {clearingFeedback}
                     {analyzingUnknowns}
@@ -3485,6 +3552,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handlePurgeMissingSnapshots}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
+                    {handlePreviewTimezoneRepair}
+                    {handleApplyTimezoneRepair}
                     {handleBackfill}
                     {handleWeatherBackfill}
                     {handleAnalyzeUnknowns}

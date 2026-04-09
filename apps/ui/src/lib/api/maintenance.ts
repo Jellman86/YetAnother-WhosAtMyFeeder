@@ -104,6 +104,38 @@ export interface TaxonomySyncStatus {
     error: string | null;
 }
 
+export interface TimezoneRepairCandidate {
+    detection_id: number;
+    frigate_event: string;
+    camera_name: string;
+    display_name: string;
+    status: 'ok' | 'repair_candidate' | 'missing_frigate_event' | 'unsupported_delta' | string;
+    stored_detection_time: string;
+    frigate_start_time: string | null;
+    repaired_detection_time: string | null;
+    delta_hours: number | null;
+    error?: string | null;
+}
+
+export interface TimezoneRepairPreview {
+    summary: {
+        scanned_count: number;
+        repair_candidate_count: number;
+        ok_count: number;
+        missing_frigate_event_count: number;
+        lookup_error_count: number;
+        unsupported_delta_count: number;
+    };
+    candidates: TimezoneRepairCandidate[];
+}
+
+export interface TimezoneRepairApplyResult {
+    status: string;
+    repaired_count: number;
+    skipped_count: number;
+    preview: TimezoneRepairPreview;
+}
+
 export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
     const response = await apiFetch(`${API_BASE}/maintenance/stats`);
     return handleResponse<MaintenanceStats>(response);
@@ -172,6 +204,20 @@ export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
 export async function startTaxonomySync(): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
     return handleResponse<{ status: string }>(response);
+}
+
+export async function fetchTimezoneRepairPreview(): Promise<TimezoneRepairPreview> {
+    const response = await apiFetch(`${API_BASE}/maintenance/timezone-repair/preview`, { cache: 'no-store' });
+    return handleResponse<TimezoneRepairPreview>(response);
+}
+
+export async function applyTimezoneRepair(): Promise<TimezoneRepairApplyResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/timezone-repair/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true })
+    });
+    return handleResponse<TimezoneRepairApplyResult>(response);
 }
 
 export async function testNotification(platform: string, credentials: Record<string, unknown> = {}): Promise<{ status: string; message: string }> {
