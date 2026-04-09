@@ -22,6 +22,7 @@
     let refreshing = $state(false);
     let clearing = $state(false);
     let refreshError = $state('');
+    let lastRefreshedAt = $state<number | null>(null);
 
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
@@ -40,6 +41,7 @@
         refreshError = '';
         try {
             await incidentWorkspaceStore.refresh();
+            lastRefreshedAt = Date.now();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
             refreshError = message;
@@ -308,51 +310,77 @@
         const phase = asText((first as Record<string, unknown>).phase, 'unknown phase');
         return `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.`;
     }
+
+    function refreshedAgoText(): string | null {
+        if (!lastRefreshedAt) return null;
+        const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
+        if (diff < 10) return 'Updated just now';
+        if (diff < 60) return `Updated ${diff}s ago`;
+        return `Updated ${Math.floor(diff / 60)}m ago`;
+    }
 </script>
 
 <div class="space-y-6">
+    <!-- ── Section header ─────────────────────────────────────────── -->
     <section class="card-base overflow-hidden">
         <div class="border-b border-slate-200/70 dark:border-slate-800/70 px-6 py-5">
-            <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
-                    <p class="mt-1 text-xs text-slate-500">
-                        Health-first operator view for current system status, recent backend evidence, and diagnostics exports.
-                    </p>
+                    <p class="mt-1 text-xs text-slate-500">Live system health for your bird detection setup.</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    {#if refreshedAgoText()}
+                        <span class="text-[11px] font-semibold text-slate-400">{refreshedAgoText()}</span>
+                    {/if}
                     <button
                         type="button"
                         class="btn btn-secondary px-3 py-2 text-xs"
-                        onclick={downloadCurrentJson}
+                        onclick={clearWorkspace}
+                        disabled={clearing || refreshing}
                     >
-                        {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                        {clearing ? 'Clearing…' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
                     </button>
-                    <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={clearWorkspace} disabled={clearing || refreshing}>
-                        {clearing ? 'Clearing...' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
-                    </button>
-                    <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={refreshWorkspace} disabled={refreshing}>
-                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                    <button
+                        type="button"
+                        class="btn btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs"
+                        onclick={refreshWorkspace}
+                        disabled={refreshing}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {refreshing ? 'Refreshing…' : 'Refresh Now'}
                     </button>
                 </div>
             </div>
             {#if refreshError}
-                <p class="mt-3 text-xs text-rose-600 dark:text-rose-300">{refreshError}</p>
+                <p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-300">
+                    {refreshError}
+                </p>
             {/if}
         </div>
 
+        <!-- ── System Status hero ──────────────────────────────────── -->
         <div class="px-6 py-6">
-            <div class="rounded-3xl border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0.94))] p-6 dark:border-slate-700/60 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.9),_rgba(2,6,23,0.95))]">
+            <div class="rounded-3xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-sky-50/80 via-white to-emerald-50/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70 p-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
+                            <span class={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
                                 {overallStatusLabel()}
                             </span>
-                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
                                 {currentIssues.length.toLocaleString()} current
                             </span>
-                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
                                 {backendEvents.length.toLocaleString()} backend events
                             </span>
                         </div>
@@ -366,128 +394,204 @@
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Health Snapshots</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
+                            <p class="mt-1 text-[10px] text-slate-400">this session</p>
                         </div>
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Saved Bundles</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
+                            <p class="mt-1 text-[10px] text-slate-400">stored locally</p>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- ── Subsystem cards ─────────────────────────────────── -->
             <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+                <!-- Event Pipeline -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{eventPipelineStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{eventPipelineSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Started</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Completed</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Dropped</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Critical</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{eventPipelineStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Started</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Completed</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Dropped</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Critical</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- MQTT -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(mqttStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">MQTT</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{mqttStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{mqttSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Reconnects</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
-                        <div class="col-span-2"><span class="block text-[10px] uppercase tracking-wider opacity-70">Last Reconnect Reason</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">MQTT</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{mqttStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Reconnects</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
+                                <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">Last Reconnect Reason</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- Live Classification -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Live Classification</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{liveClassificationStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{liveClassificationSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queued</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Capacity</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Abandoned</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Live Classification</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{liveClassificationStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queued</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Capacity</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Abandoned</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- Video Classification -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(videoStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Video Classification</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{videoStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{videoSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Pending</span><span>{asNumber(health?.video_classifier?.pending).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Active</span><span>{asNumber(health?.video_classifier?.active).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Failures</span><span>{asNumber(health?.video_classifier?.failure_count).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Open Until</span><span>{asText(health?.video_classifier?.open_until, 'Closed')}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Video Classification</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{videoStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{videoSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Pending</span><span>{asNumber(health?.video_classifier?.pending).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Active</span><span>{asNumber(health?.video_classifier?.active).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Failures</span><span>{asNumber(health?.video_classifier?.failure_count).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Open Until</span><span>{asText(health?.video_classifier?.open_until, 'Closed')}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- Background Maintenance -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Background Maintenance</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{backgroundStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{backgroundSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queued</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">In Flight</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Abandoned</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Throttled</span><span>{health?.ml?.background_image?.background_throttled ? 'Yes' : 'No'}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Background Maintenance</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{backgroundStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queued</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Abandoned</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Throttled</span><span>{health?.ml?.background_image?.background_throttled ? 'Yes' : 'No'}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- Notifications & DB -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Notifications & DB</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{dispatcherStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{dispatcherSummary()}</p>
-                    <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Dropped Jobs</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">Queue Size</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">DB Wait Max</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
-                        <div><span class="block text-[10px] uppercase tracking-wider opacity-70">DB Timeouts</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Notifications & DB</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{dispatcherStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Dropped Jobs</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queue Size</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">DB Wait Max</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">DB Timeouts</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
+                            </div>
+                        </div>
                     </div>
                 </article>
 
+                <!-- Startup Warnings -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(startupStatus())}">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-black uppercase tracking-[0.18em]">Startup Warnings</h4>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">{startupStatus()}</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold">{startupSummary()}</p>
-                    <div class="mt-4 space-y-2 text-xs font-semibold">
-                        {#if startupWarnings.length === 0}
-                            <p class="opacity-80">No startup warnings captured in the current workspace snapshot.</p>
-                        {:else}
-                            {#each startupWarnings.slice(0, 2) as warning}
-                                <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
-                                    <p class="text-[10px] uppercase tracking-wider opacity-70">{asText((warning as Record<string, unknown>).phase, 'unknown phase')}</p>
-                                    <p class="mt-1">{asText((warning as Record<string, unknown>).error, 'Unknown warning')}</p>
-                                </div>
-                            {/each}
-                        {/if}
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Startup Warnings</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{startupStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
+                            <div class="mt-4 space-y-2 text-xs font-semibold">
+                                {#if startupWarnings.length === 0}
+                                    <p class="opacity-80">No startup warnings captured in the current workspace snapshot.</p>
+                                {:else}
+                                    {#each startupWarnings.slice(0, 2) as warning}
+                                        <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
+                                            <p class="text-xs uppercase tracking-wider opacity-80">{asText((warning as Record<string, unknown>).phase, 'unknown phase')}</p>
+                                            <p class="mt-1">{asText((warning as Record<string, unknown>).error, 'Unknown warning')}</p>
+                                        </div>
+                                    {/each}
+                                {/if}
+                            </div>
+                        </div>
                     </div>
                 </article>
+
             </div>
         </div>
     </section>
 
+    <!-- ── Current Issues + Recent Diagnostics ────────────────────── -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
         <section class="card-base p-6">
-            <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
-                    <p class="mt-1 text-xs text-slate-500">Current and recently resolved incidents are still available, but no longer drive the whole page.</p>
+                    <p class="mt-1 text-xs text-slate-500">Active incidents that need attention.</p>
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
             </div>
@@ -498,7 +602,7 @@
                     {#each currentIssues as incident (incident.id)}
                         <article class="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-950/40">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                     {incident.status}
                                 </span>
                                 <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
@@ -516,7 +620,7 @@
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-900/40">
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                             {incident.status}
                                         </span>
                                         <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
@@ -531,7 +635,7 @@
         </section>
 
         <section class="card-base p-6">
-            <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Recent Backend Diagnostics</h3>
                     <p class="mt-1 text-xs text-slate-500">Newest warnings and errors from the backend workspace snapshot.</p>
@@ -546,10 +650,10 @@
                         <article class={`rounded-2xl border px-4 py-3 ${severityToneClass(event.severity ?? 'warning')}`}>
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em]">
+                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em]">
                                         {event.severity}
                                     </span>
-                                    <span class="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                                    <span class="text-xs font-black uppercase tracking-[0.2em] opacity-80">
                                         {event.component} · {event.reason_code}
                                     </span>
                                 </div>
@@ -570,23 +674,16 @@
         </section>
     </div>
 
+    <!-- ── Diagnostics Bundles ─────────────────────────────────────── -->
     <section class="card-base p-6">
-        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.error_bundles_title', { default: 'Error Bundles' })}</h3>
+                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.error_bundles_title', { default: 'Diagnostics Bundles' })}</h3>
                 <p class="text-xs text-slate-500">
                     Download the current diagnostics snapshot or capture labeled bundles with notes for later comparison.
                 </p>
             </div>
-            <div class="flex items-center gap-2">
-                <input
-                    class="input input-bordered h-9 w-52 text-xs"
-                    bind:value={captureLabel}
-                    placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-                />
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={captureBundle}>
-                    {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
-                </button>
+            <div class="flex flex-wrap items-center gap-2">
                 <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
                     {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
                 </button>
@@ -595,49 +692,44 @@
 
         <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_1fr]">
             <div class="space-y-4">
+                <!-- Download current snapshot -->
                 <div class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-700/60 dark:bg-slate-900/40">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center rounded-full bg-sky-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                                    Current Snapshot
-                                </span>
-                                <span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-300">
-                                    Owner gated
-                                </span>
-                            </div>
-                            <h4 class="mt-3 text-lg font-semibold text-slate-900 dark:text-white">Download Current Bundle</h4>
-                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                Includes workspace health, backend diagnostics, focused diagnostics, classifier status, startup warnings, incidents, and client context.
-                            </p>
-                            <textarea
-                                class="textarea textarea-bordered mt-4 min-h-24 w-full text-xs"
-                                bind:value={reportNotes}
-                                placeholder="Optional notes to include when you capture a saved bundle"
-                            ></textarea>
-                        </div>
-                        <div class="flex flex-col gap-2 sm:items-end">
-                            <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={downloadCurrentJson}>
-                                {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Download Current Snapshot</h4>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.
+                    </p>
+                    <textarea
+                        class="textarea textarea-bordered mt-4 min-h-24 w-full text-xs"
+                        bind:value={reportNotes}
+                        placeholder="Optional notes to include when you capture a saved bundle"
+                    ></textarea>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={downloadCurrentJson}>
+                            {$_('jobs.errors_export', { default: 'Export Current JSON' })}
+                        </button>
+                        <div class="flex flex-1 items-center gap-2">
+                            <input
+                                class="input input-bordered h-9 flex-1 text-xs"
+                                bind:value={captureLabel}
+                                placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                            />
+                            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={captureBundle}>
+                                {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
                             </button>
                         </div>
                     </div>
                 </div>
 
+                <!-- Latest saved bundle preview -->
                 {#if latestBundle}
-                    <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm">
+                    <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm dark:border-emerald-800/60 dark:bg-gradient-to-br dark:from-emerald-950/30 dark:via-slate-900/60 dark:to-slate-900/40">
                         <div class="flex flex-wrap items-start justify-between gap-4">
                             <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                                        Saved locally
-                                    </span>
-                                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
-                                        Latest Bundle Ready
-                                    </span>
-                                </div>
+                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    Latest Bundle
+                                </span>
                                 <h4 class="mt-3 truncate text-lg font-semibold text-slate-900 dark:text-white">{latestBundle.label}</h4>
-                                <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                     Captured {formatDateTime(latestBundle.createdAt)}
                                 </p>
                                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{bundleSummaryText(latestBundle)}</p>
@@ -653,7 +745,7 @@
                                     Download Latest
                                 </button>
                                 <button type="button" class="btn btn-secondary px-4 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(latestBundle.id)}>
-                                    Delete Latest
+                                    Delete
                                 </button>
                             </div>
                         </div>
@@ -665,6 +757,7 @@
                 {/if}
             </div>
 
+            <!-- Saved bundles list -->
             <div>
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -681,12 +774,12 @@
                 {:else}
                     <div class="mt-4 space-y-3">
                         {#each bundles as bundle, index (bundle.id)}
-                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
+                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white dark:border-emerald-800/60 dark:bg-slate-900/60' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
                                             {#if index === 0}
-                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                     Newest
                                                 </span>
                                             {/if}
