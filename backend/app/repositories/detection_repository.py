@@ -2953,6 +2953,34 @@ class DetectionRepository:
                 distribution[hour] = row[1]
             return distribution
 
+    async def get_species_utc_hourly_counts(self, species_name: str) -> list[tuple[datetime, int]]:
+        """Return counts grouped by UTC hour buckets for a canonical species lookup."""
+        join_sql, species_condition, params = await self._canonical_species_query_parts(
+            detection_alias="d",
+            species_name=species_name,
+        )
+        async with self.db.execute(
+            f"""
+                SELECT strftime('%Y-%m-%d %H:00:00', d.detection_time) as bucket_start, COUNT(*)
+                FROM detections d
+                {join_sql}
+                WHERE {species_condition}
+                GROUP BY bucket_start
+                ORDER BY bucket_start ASC
+            """,
+            params,
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        out: list[tuple[datetime, int]] = []
+        for row in rows:
+            bucket_start = _parse_datetime(row[0])
+            count = int(row[1] or 0)
+            if count <= 0:
+                continue
+            out.append((bucket_start, count))
+        return out
+
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
         """Get detection counts per species for a specific time range."""
         query = """

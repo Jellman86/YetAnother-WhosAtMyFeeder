@@ -145,6 +145,59 @@ def _format_clock_range(values: list[str]) -> Optional[str]:
     return start if start == end else f"{start}–{end}"
 
 
+def _parse_utc_bucket_key(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _localized_bucket_key_and_label(
+    utc_bucket_start: datetime,
+    bucket: Literal["hour", "day", "month"],
+    user_tz,
+    *,
+    detailed_hour_label: bool = False,
+) -> tuple[str, str]:
+    local_dt = utc_bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz)
+    if bucket == "month":
+        local_start = local_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        label = local_start.strftime("%b %Y")
+    elif bucket == "day":
+        local_start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        label = local_start.strftime("%b %d")
+    else:
+        local_start = local_dt.replace(minute=0, second=0, microsecond=0)
+        label = local_start.strftime("%b %d %H:00") if detailed_hour_label else local_start.strftime("%H:00")
+    key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+    return key, label
+
+
+def _build_local_timeline_points(
+    window_start: datetime,
+    window_end: datetime,
+    bucket: Literal["hour", "day", "month"],
+    user_tz,
+    *,
+    detailed_hour_label: bool = False,
+) -> list[DetectionsTimelinePoint]:
+    points_by_key: dict[str, DetectionsTimelinePoint] = {}
+    cursor = window_start.replace(minute=0, second=0, microsecond=0)
+    end_hour = window_end.replace(minute=0, second=0, microsecond=0)
+    while cursor <= end_hour:
+        key, label = _localized_bucket_key_and_label(
+            cursor,
+            bucket,
+            user_tz,
+            detailed_hour_label=detailed_hour_label,
+        )
+        if key not in points_by_key:
+            points_by_key[key] = DetectionsTimelinePoint(
+                bucket_start=key,
+                label=label,
+                count=0,
+            )
+        cursor = cursor + timedelta(hours=1)
+    return list(points_by_key.values())
+
+
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
 async def get_daily_summary(
@@ -158,6 +211,7 @@ async def get_daily_summary(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
+    user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
     
@@ -165,7 +219,11 @@ async def get_daily_summary(
         repo = DetectionRepository(db)
         
         # 1. Hourly distribution
-        hourly = await repo.get_global_hourly_distribution(start_dt, end_dt)
+        hourly = [0] * 24
+        hourly_counts = await repo.get_timebucket_counts_hourly(start_dt, end_dt)
+        for bucket_key, count in hourly_counts.items():
+            local_dt = _parse_utc_bucket_key(bucket_key).replace(tzinfo=timezone.utc).astimezone(user_tz)
+            hourly[local_dt.hour] += int(count)
         
         # 2. Species counts
         species_raw = await repo.get_daily_species_counts(start_dt, end_dt)
@@ -420,6 +478,7 @@ async def get_detection_timeline_span(
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     lang = get_user_language(request)
+    user_tz = get_user_timezone(request)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -428,38 +487,25 @@ async def get_detection_timeline_span(
             window_start = now - timedelta(hours=24)
             window_end = now
             bucket = "hour"
-            counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
-
-            start_hour = window_start.replace(minute=0, second=0, microsecond=0)
-            end_hour = window_end.replace(minute=0, second=0, microsecond=0)
-            points: List[DetectionsTimelinePoint] = []
-            cursor = start_hour
-            while cursor <= end_hour:
-                key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
-                points.append(DetectionsTimelinePoint(
-                    bucket_start=key,
-                    label=cursor.replace(tzinfo=timezone.utc).strftime("%H:00"),
-                    count=int(counts.get(key, 0)),
-                ))
-                cursor = cursor + timedelta(hours=1)
+            points = _build_local_timeline_points(
+                window_start,
+                window_end,
+                bucket,
+                user_tz,
+                detailed_hour_label=False,
+            )
 
         elif span in ("week", "month"):
             days = 7 if span == "week" else 30
             window_start = now - timedelta(days=days)
             window_end = now
             bucket = "day"
-            counts = await repo.get_timebucket_counts_daily(window_start, window_end)
-            points = []
-            cursor = window_start.date()
-            end_date = window_end.date()
-            while cursor <= end_date:
-                key = cursor.isoformat()
-                points.append(DetectionsTimelinePoint(
-                    bucket_start=f"{key}T00:00:00Z",
-                    label=cursor.strftime("%b %d"),
-                    count=int(counts.get(key, 0))
-                ))
-                cursor = cursor + timedelta(days=1)
+            points = _build_local_timeline_points(
+                window_start,
+                window_end,
+                bucket,
+                user_tz,
+            )
 
         else:
             oldest, newest = await repo.get_detection_time_bounds()
@@ -479,57 +525,66 @@ async def get_detection_timeline_span(
 
             if total_days <= 2:
                 bucket = "hour"
-                counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
-                start_hour = window_start.replace(minute=0, second=0, microsecond=0)
-                end_hour = window_end.replace(minute=0, second=0, microsecond=0)
-                points = []
-                cursor = start_hour
-                while cursor <= end_hour:
-                    key = cursor.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
-                    points.append(DetectionsTimelinePoint(
-                        bucket_start=key,
-                        label=cursor.replace(tzinfo=timezone.utc).strftime("%b %d %H:00"),
-                        count=int(counts.get(key, 0)),
-                    ))
-                    cursor = cursor + timedelta(hours=1)
+                points = _build_local_timeline_points(
+                    window_start,
+                    window_end,
+                    bucket,
+                    user_tz,
+                    detailed_hour_label=True,
+                )
             elif total_days <= 180:
                 bucket = "day"
-                counts = await repo.get_timebucket_counts_daily(window_start, window_end)
-                points = []
-                cursor = window_start.date()
-                end_date = window_end.date()
-                while cursor <= end_date:
-                    key = cursor.isoformat()
-                    points.append(DetectionsTimelinePoint(
-                        bucket_start=f"{key}T00:00:00Z",
-                        label=cursor.strftime("%b %d"),
-                        count=int(counts.get(key, 0)),
-                    ))
-                    cursor = cursor + timedelta(days=1)
+                points = _build_local_timeline_points(
+                    window_start,
+                    window_end,
+                    bucket,
+                    user_tz,
+                )
             else:
                 bucket = "month"
-                counts = await repo.get_timebucket_counts_monthly(window_start, window_end)
-                points = []
-                cursor = date(window_start.year, window_start.month, 1)
-                end_month = date(window_end.year, window_end.month, 1)
-                while cursor <= end_month:
-                    key = cursor.isoformat()
-                    points.append(DetectionsTimelinePoint(
-                        bucket_start=f"{key}T00:00:00Z",
-                        label=cursor.strftime("%b %Y"),
-                        count=int(counts.get(key, 0)),
-                    ))
-                    if cursor.month == 12:
-                        cursor = date(cursor.year + 1, 1, 1)
-                    else:
-                        cursor = date(cursor.year, cursor.month + 1, 1)
+                points = _build_local_timeline_points(
+                    window_start,
+                    window_end,
+                    bucket,
+                    user_tz,
+                )
 
-        metrics_by_bucket = await repo.get_timebucket_metrics(window_start, window_end, bucket)
-        for point in points:
-            metrics = metrics_by_bucket.get(point.bucket_start, {})
-            point.unique_species = int(metrics.get("unique_species") or 0)
+        points_by_key = {point.bucket_start: point for point in points}
+        hourly_counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
+        hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
+        metric_rollups: dict[str, dict[str, float | int]] = {}
+
+        for bucket_key, count in hourly_counts.items():
+            utc_bucket = _parse_utc_bucket_key(bucket_key)
+            local_key, _label = _localized_bucket_key_and_label(
+                utc_bucket,
+                bucket,
+                user_tz,
+                detailed_hour_label=(bucket == "hour" and span == "all"),
+            )
+            point = points_by_key.get(local_key)
+            if not point:
+                continue
+            point.count += int(count)
+
+            metrics = hourly_metrics.get(bucket_key, {})
+            rollup = metric_rollups.setdefault(local_key, {"unique_species": 0, "confidence_sum": 0.0, "weight": 0})
+            rollup["unique_species"] = max(int(rollup["unique_species"]), int(metrics.get("unique_species") or 0))
             avg_confidence = metrics.get("avg_confidence")
-            point.avg_confidence = float(avg_confidence) if avg_confidence is not None else None
+            weight = int(metrics.get("count") or count or 0)
+            if avg_confidence is not None and weight > 0:
+                rollup["confidence_sum"] = float(rollup["confidence_sum"]) + (float(avg_confidence) * weight)
+                rollup["weight"] = int(rollup["weight"]) + weight
+
+        for point in points:
+            metrics = metric_rollups.get(point.bucket_start, {})
+            point.unique_species = int(metrics.get("unique_species") or 0)
+            weight = int(metrics.get("weight") or 0)
+            point.avg_confidence = (
+                float(metrics["confidence_sum"]) / weight
+                if weight > 0 and metrics.get("confidence_sum") is not None
+                else None
+            )
 
         compare_series = None
         if compare_species:
@@ -546,10 +601,22 @@ async def get_detection_timeline_span(
                 compare_counts = await repo.get_timebucket_species_counts_for_names(
                     start=window_start,
                     end=window_end,
-                    bucket=bucket,
+                    bucket="hour",
                     species_names=sanitized_compare,
                     language=lang,
                 )
+                localized_compare_counts: dict[str, dict[str, int]] = {}
+                for bucket_key, species_counts in compare_counts.items():
+                    utc_bucket = _parse_utc_bucket_key(bucket_key)
+                    local_key, _label = _localized_bucket_key_and_label(
+                        utc_bucket,
+                        bucket,
+                        user_tz,
+                        detailed_hour_label=(bucket == "hour" and span == "all"),
+                    )
+                    row = localized_compare_counts.setdefault(local_key, {})
+                    for selected, count in species_counts.items():
+                        row[selected] = row.get(selected, 0) + int(count)
                 compare_series = []
                 for selected in sanitized_compare:
                     compare_series.append(
@@ -558,7 +625,7 @@ async def get_detection_timeline_span(
                             points=[
                                 DetectionsTimelineComparePoint(
                                     bucket_start=point.bucket_start,
-                                    count=int(compare_counts.get(point.bucket_start, {}).get(selected, 0)),
+                                    count=int(localized_compare_counts.get(point.bucket_start, {}).get(selected, 0)),
                                 )
                                 for point in points
                             ],
@@ -587,7 +654,7 @@ async def get_detection_timeline_span(
                             return {}
                         return raw or {}
 
-                    def _agg_bucket(start_dt: datetime, hours: int) -> dict:
+                    def _agg_bucket_range(start_dt: datetime, end_dt: datetime) -> dict:
                         temps = []
                         winds = []
                         precip = 0.0
@@ -597,8 +664,10 @@ async def get_detection_timeline_span(
                         rain_seen = False
                         snow_seen = False
                         codes: list[int] = []
-                        for i in range(hours):
-                            hdt = start_dt + timedelta(hours=i)
+                        cursor = start_dt.replace(minute=0, second=0, microsecond=0)
+                        stop = end_dt.replace(minute=0, second=0, microsecond=0)
+                        while cursor < stop:
+                            hdt = cursor
                             w = _weather_at_hour(hdt) or {}
                             t = w.get("temperature")
                             if t is not None:
@@ -639,6 +708,7 @@ async def get_detection_timeline_span(
                                     codes.append(int(code))
                                 except Exception:
                                     pass
+                            cursor = cursor + timedelta(hours=1)
 
                         mode_code = None
                         if codes:
@@ -656,14 +726,14 @@ async def get_detection_timeline_span(
 
                     # Aggregate weather per timeline point.
                     weather_points: list[DetectionsTimelineWeatherPoint] = []
-                    for p in points:
-                        start_dt = datetime.fromisoformat(p.bucket_start.replace("Z", "+00:00")).replace(tzinfo=None)
-                        if bucket == "hour":
-                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 1)))
-                        elif bucket == "halfday":
-                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 12)))
-                        else:
-                            weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket(start_dt, 24)))
+                    point_starts = [
+                        datetime.fromisoformat(point.bucket_start.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+                        for point in points
+                    ]
+                    for idx, p in enumerate(points):
+                        start_dt = point_starts[idx]
+                        end_dt = point_starts[idx + 1] if idx + 1 < len(point_starts) else window_end
+                        weather_points.append(DetectionsTimelineWeatherPoint(**_agg_bucket_range(start_dt, end_dt)))
 
                     # Compute sunrise/sunset range over the window (daily)
                     if sun:

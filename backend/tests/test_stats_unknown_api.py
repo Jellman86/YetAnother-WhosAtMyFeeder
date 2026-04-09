@@ -444,6 +444,13 @@ def _heatmap_cell(payload: dict, *, day_of_week: int, hour: int) -> int:
     raise AssertionError(f"Missing heatmap cell {day_of_week=}, {hour=}")
 
 
+def _timeline_point(payload: dict, bucket_start: str) -> dict:
+    for point in payload["points"]:
+        if point["bucket_start"] == bucket_start:
+            return point
+    raise AssertionError(f"Missing timeline point {bucket_start=}")
+
+
 @pytest.mark.asyncio
 async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_buckets(
     client: httpx.AsyncClient,
@@ -494,3 +501,98 @@ async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_bucke
     finally:
         await _delete_detection(previous_local_day_event_id)
         await _delete_detection(same_local_day_event_id)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_uses_request_timezone_for_hourly_distribution(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 10, 18, 0, 0)
+
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return utc_window_end.replace(tzinfo=tz)
+            return cls(
+                utc_window_end.year,
+                utc_window_end.month,
+                utc_window_end.day,
+                utc_window_end.hour,
+                utc_window_end.minute,
+                utc_window_end.second,
+            )
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeDateTime)
+    monkeypatch.setattr(stats_router, "utc_naive_now", lambda: utc_window_end, raising=False)
+
+    previous_local_day_event_id = f"stats-daily-summary-prev-{uuid.uuid4().hex[:8]}"
+    await _insert_detection_at_timestamp(previous_local_day_event_id, "2026-04-10 02:15:00")
+
+    try:
+        response = await client.get(
+            "/api/stats/daily-summary",
+            headers={"X-Timezone": "America/New_York"},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["hourly_distribution"][22] >= 1
+        assert payload["hourly_distribution"][2] == 0
+    finally:
+        await _delete_detection(previous_local_day_event_id)
+
+
+@pytest.mark.asyncio
+async def test_timeline_uses_request_timezone_for_daily_points_and_compare_series(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 10, 18, 0, 0)
+
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return utc_window_end.replace(tzinfo=tz)
+            return cls(
+                utc_window_end.year,
+                utc_window_end.month,
+                utc_window_end.day,
+                utc_window_end.hour,
+                utc_window_end.minute,
+                utc_window_end.second,
+            )
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeDateTime)
+
+    event_id = f"stats-timeline-local-{uuid.uuid4().hex[:8]}"
+    await _insert_detection_at_timestamp(event_id, "2026-04-10 02:15:00")
+
+    try:
+        response = await client.get(
+            "/api/stats/detections/timeline",
+            params={"span": "week", "compare_species": ["Common Wood-Pigeon"]},
+            headers={"X-Timezone": "America/New_York"},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        local_bucket = _timeline_point(payload, "2026-04-09T04:00:00Z")
+        assert local_bucket["count"] >= 1
+
+        utc_bucket = _timeline_point(payload, "2026-04-10T04:00:00Z")
+        assert utc_bucket["count"] == 0
+
+        series = payload["compare_series"][0]
+        series_points = {point["bucket_start"]: point["count"] for point in series["points"]}
+        assert series_points["2026-04-09T04:00:00Z"] >= 1
+        assert series_points["2026-04-10T04:00:00Z"] == 0
+    finally:
+        await _delete_detection(event_id)

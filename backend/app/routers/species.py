@@ -21,6 +21,7 @@ from app.utils.canonical_species import should_hide_species_label, user_facing_s
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
+from app.utils.timezone import get_user_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -358,6 +359,21 @@ def _to_utc_naive(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is None:
         return dt
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _accumulate_local_distributions(
+    distributions: tuple[list[int], list[int], list[int]],
+    hourly_counts: list[tuple[datetime, int]],
+    user_tz,
+) -> None:
+    hourly, daily, monthly = distributions
+    for bucket_start, count in hourly_counts:
+        if count <= 0:
+            continue
+        local_dt = bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz)
+        hourly[local_dt.hour] += count
+        daily[(local_dt.weekday() + 1) % 7] += count  # 0=Sunday..6=Saturday
+        monthly[local_dt.month - 1] += count
 
 
 async def _get_cached_species_info(species_name: str, taxa_id: int | None, language: str, refresh: bool) -> SpeciesInfo | None:
@@ -1194,6 +1210,7 @@ async def get_species_stats(
         and settings.public_access.enabled
         and not settings.public_access.show_camera_names
     )
+    user_tz = get_user_timezone(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -1245,12 +1262,8 @@ async def get_species_stats(
                 confidence_count += basic_stats["total"]
 
                 # Aggregate distributions
-                label_hourly = await repo.get_hourly_distribution(label)
-                label_daily = await repo.get_daily_distribution(label)
-                label_monthly = await repo.get_monthly_distribution(label)
-                hourly = [h + lh for h, lh in zip(hourly, label_hourly)]
-                daily = [d + ld for d, ld in zip(daily, label_daily)]
-                monthly = [m + lm for m, lm in zip(monthly, label_monthly)]
+                label_hourly_counts = await repo.get_species_utc_hourly_counts(label)
+                _accumulate_local_distributions((hourly, daily, monthly), label_hourly_counts, user_tz)
 
                 # Get camera breakdown
                 label_cameras = await repo.get_camera_breakdown(label)

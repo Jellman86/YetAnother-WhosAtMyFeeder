@@ -92,6 +92,54 @@ async def _cleanup_taxon_and_detections(taxa_id: int, event_prefix: str) -> None
         await db.commit()
 
 
+async def _insert_species_detection_at_timestamp(
+    event_id: str,
+    *,
+    detection_time: str,
+    taxa_id: int,
+    scientific_name: str,
+    common_name: str,
+    localized_common_name: str,
+) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO taxonomy_translations (taxa_id, language_code, common_name)
+            VALUES (?, ?, ?)
+            """,
+            (taxa_id, "es", localized_common_name),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+            """,
+            (
+                detection_time,
+                1,
+                0.9,
+                common_name,
+                common_name,
+                event_id,
+                "test-camera",
+                scientific_name,
+                common_name,
+                taxa_id,
+            ),
+        )
+        await db.commit()
+
+
 async def _insert_hidden_unknown_detection(event_id: str) -> None:
     async with get_db() as db:
         await db.execute(
@@ -248,6 +296,62 @@ async def test_species_stats_handles_mixed_naive_and_aware_detection_times(clien
         assert data["last_seen"].endswith("Z")
         assert len(data["recent_sightings"]) == 2
         assert all(item["detection_time"].endswith("Z") for item in data["recent_sightings"])
+    finally:
+        await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
+
+
+@pytest.mark.asyncio
+async def test_species_stats_uses_request_timezone_for_distributions(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    suffix = uuid.uuid4().hex[:8]
+    taxa_id = 900000 + int(suffix[:4], 16)
+    event_prefix = f"speciesstats-local-{suffix}"
+    scientific_name = f"Aves{suffix} localis"
+    common_name = f"Local Bird {suffix}"
+    localized_common_name = f"Pajaro Local {suffix}"
+
+    await _insert_species_detection_at_timestamp(
+        f"{event_prefix}_1",
+        detection_time="2026-04-10 02:15:00",
+        taxa_id=taxa_id,
+        scientific_name=scientific_name,
+        common_name=common_name,
+        localized_common_name=localized_common_name,
+    )
+    await _insert_species_detection_at_timestamp(
+        f"{event_prefix}_2",
+        detection_time="2026-04-10 13:30:00",
+        taxa_id=taxa_id,
+        scientific_name=scientific_name,
+        common_name=common_name,
+        localized_common_name=localized_common_name,
+    )
+    await _insert_species_detection_at_timestamp(
+        f"{event_prefix}_3",
+        detection_time="2026-05-01 02:15:00",
+        taxa_id=taxa_id,
+        scientific_name=scientific_name,
+        common_name=common_name,
+        localized_common_name=localized_common_name,
+    )
+
+    try:
+        response = await client.get(
+            f"/api/species/{quote(localized_common_name, safe='')}/stats",
+            headers={"Accept-Language": "es", "X-Timezone": "America/New_York"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        assert data["hourly_distribution"][22] == 2
+        assert data["hourly_distribution"][9] == 1
+        assert data["hourly_distribution"][2] == 0
+        assert data["daily_distribution"][4] == 2
+        assert data["daily_distribution"][5] == 1
+        assert data["monthly_distribution"][3] == 3
+        assert data["monthly_distribution"][4] == 0
     finally:
         await _cleanup_taxon_and_detections(taxa_id=taxa_id, event_prefix=event_prefix)
 
