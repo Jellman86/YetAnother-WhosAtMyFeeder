@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import aiosqlite
@@ -12,6 +12,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 
 log = structlog.get_logger()
+TAXONOMY_PROGRESS_STALLED_SECONDS = 120.0
 
 
 class CanonicalIdentityRepairService:
@@ -38,10 +39,42 @@ class CanonicalIdentityRepairService:
             "total": 0,
             "current_item": None,
             "error": None,
+            "last_progress_at": None,
+            "message": None,
         }
 
     def get_status(self) -> dict:
-        return dict(self._status)
+        status = dict(self._status)
+        progress_state = "idle"
+        message = str(status.get("message") or "").strip() or None
+        seconds_since_progress = None
+        last_progress_at = status.get("last_progress_at")
+        if isinstance(last_progress_at, str) and last_progress_at.strip():
+            try:
+                observed_at = datetime.fromisoformat(last_progress_at)
+                seconds_since_progress = round(
+                    max(0.0, (datetime.now(timezone.utc) - observed_at).total_seconds()),
+                    3,
+                )
+            except ValueError:
+                seconds_since_progress = None
+
+        if status.get("is_running"):
+            progress_state = "running"
+            if isinstance(seconds_since_progress, (int, float)) and seconds_since_progress >= TAXONOMY_PROGRESS_STALLED_SECONDS:
+                progress_state = "stalled"
+                message = message or "Taxonomy repair is still running but progress appears stalled"
+            else:
+                message = message or "Taxonomy repair is running"
+        elif status.get("error"):
+            progress_state = "failed"
+        elif status.get("current_item"):
+            progress_state = "completed"
+
+        status["progress_state"] = progress_state
+        status["seconds_since_progress"] = seconds_since_progress
+        status["message"] = message
+        return status
 
     def _lookup_candidates(self, row: dict) -> list[str]:
         candidates: list[str] = []
@@ -197,6 +230,8 @@ class CanonicalIdentityRepairService:
             "total": await self._count_candidates(db),
             "current_item": None,
             "error": None,
+            "last_progress_at": datetime.now(timezone.utc).isoformat(),
+            "message": "Taxonomy repair is running",
         }
 
         try:
@@ -217,6 +252,7 @@ class CanonicalIdentityRepairService:
                         skipped_ids.add(int(row["id"]))
                         processed += 1
                         self._status["processed"] = processed
+                        self._status["last_progress_at"] = datetime.now(timezone.utc).isoformat()
                         continue
 
                     taxonomy = await self._resolve_taxonomy(repo, db, row)
@@ -229,6 +265,7 @@ class CanonicalIdentityRepairService:
                         skipped_ids.add(int(row["id"]))
                     processed += 1
                     self._status["processed"] = processed
+                    self._status["last_progress_at"] = datetime.now(timezone.utc).isoformat()
 
                 await db.commit()
                 log.info(
@@ -248,10 +285,12 @@ class CanonicalIdentityRepairService:
                 "rollups_rebuilt": rollups_rebuilt,
             }
             self._status["current_item"] = "Completed"
+            self._status["message"] = "Taxonomy repair completed"
             log.info("canonical_identity_repair_complete", **summary)
             return summary
         except Exception as exc:
             self._status["error"] = str(exc)
+            self._status["message"] = str(exc)
             raise
         finally:
             self._status["is_running"] = False

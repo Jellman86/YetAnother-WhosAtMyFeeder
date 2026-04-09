@@ -7,6 +7,8 @@ import pytest_asyncio
 import app.config as config_module
 from app.config import Settings, settings
 from app.main import app
+from app.routers import settings as settings_router
+from app.routers import backfill as backfill_router
 
 
 @pytest_asyncio.fixture
@@ -107,6 +109,154 @@ async def test_analysis_status_is_not_cacheable(client: httpx.AsyncClient):
     assert response.status_code == 200, response.text
     assert response.headers.get("Cache-Control") == "no-store, max-age=0"
     assert response.headers.get("Pragma") == "no-cache"
+
+
+@pytest.mark.asyncio
+async def test_analyze_unknowns_coalesces_when_maintenance_video_is_already_in_progress(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    def _busy_status():
+        return {
+            "pending": 6,
+            "active": 1,
+            "circuit_open": False,
+            "maintenance_circuit_open": False,
+            "maintenance_state": "deprioritized",
+            "maintenance_status_message": "Maintenance video analysis is already in progress.",
+            "pending_maintenance": 6,
+            "active_maintenance": 1,
+            "oldest_maintenance_pending_age_seconds": 22.0,
+            "maintenance_starvation_relief_active": False,
+            "throttled_for_live_pressure": True,
+            "throttled_for_mqtt_pressure": False,
+            "live_pressure_active": True,
+            "live_in_flight": 2,
+            "live_queued": 5,
+            "mqtt_in_flight": 0,
+            "mqtt_in_flight_capacity": 200,
+            "max_concurrent_configured": 4,
+            "max_concurrent_effective": 0,
+            "mqtt_pressure_level": "normal",
+        }
+
+    async def _unexpected_run():
+        raise AssertionError("analyze unknowns should have been coalesced")
+
+    monkeypatch.setattr(
+        settings_router.auto_video_classifier,
+        "get_maintenance_guardrail_status",
+        _busy_status,
+    )
+    monkeypatch.setattr(settings_router, "_run_analyze_unknowns", _unexpected_run)
+
+    response = await client.post("/api/maintenance/analyze-unknowns")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "in_progress"
+    assert "already in progress" in payload["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_taxonomy_sync_rejects_when_maintenance_pressure_is_high(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    monkeypatch.setattr(
+        settings_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {"is_running": False, "processed": 0, "total": 0, "current_item": None, "error": None},
+    )
+    monkeypatch.setattr(
+        settings_router.auto_video_classifier,
+        "get_maintenance_guardrail_status",
+        lambda: {
+            "pending": 28,
+            "active": 1,
+            "circuit_open": False,
+            "maintenance_circuit_open": False,
+            "maintenance_state": "stalled",
+            "maintenance_status_message": "Maintenance work is already heavily backlogged.",
+            "pending_maintenance": 28,
+            "active_maintenance": 1,
+            "oldest_maintenance_pending_age_seconds": 91.0,
+            "maintenance_starvation_relief_active": True,
+            "throttled_for_live_pressure": True,
+            "throttled_for_mqtt_pressure": False,
+            "live_pressure_active": True,
+            "live_in_flight": 2,
+            "live_queued": 4,
+            "mqtt_in_flight": 0,
+            "mqtt_in_flight_capacity": 200,
+            "max_concurrent_configured": 4,
+            "max_concurrent_effective": 1,
+            "mqtt_pressure_level": "normal",
+        },
+    )
+
+    response = await client.post("/api/maintenance/taxonomy/sync")
+    assert response.status_code == 409, response.text
+    assert "backlogged" in response.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_backfill_async_rejects_when_taxonomy_sync_is_running(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+    backfill_router._JOB_TASKS.clear()
+
+    monkeypatch.setattr(
+        backfill_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {
+            "is_running": True,
+            "processed": 12,
+            "total": 50,
+            "current_item": "Blue Tit",
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        backfill_router.auto_video_classifier,
+        "get_maintenance_guardrail_status",
+        lambda: {
+            "pending": 0,
+            "active": 0,
+            "circuit_open": False,
+            "maintenance_circuit_open": False,
+            "maintenance_state": "idle",
+            "maintenance_status_message": "",
+            "pending_maintenance": 0,
+            "active_maintenance": 0,
+            "oldest_maintenance_pending_age_seconds": None,
+            "maintenance_starvation_relief_active": False,
+            "throttled_for_live_pressure": False,
+            "throttled_for_mqtt_pressure": False,
+            "live_pressure_active": False,
+            "live_in_flight": 0,
+            "live_queued": 0,
+            "mqtt_in_flight": 0,
+            "mqtt_in_flight_capacity": 200,
+            "max_concurrent_configured": 4,
+            "max_concurrent_effective": 4,
+            "mqtt_pressure_level": "normal",
+        },
+    )
+
+    response = await client.post("/api/backfill/async", json={"date_range": "week"})
+    assert response.status_code == 409, response.text
+    assert "taxonomy" in response.text.lower()
 
 
 @pytest.mark.asyncio

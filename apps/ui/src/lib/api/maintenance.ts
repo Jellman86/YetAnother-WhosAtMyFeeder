@@ -83,6 +83,11 @@ export interface AnalysisStatus {
     mqtt_in_flight?: number;
     mqtt_in_flight_capacity?: number;
     oldest_maintenance_pending_age_seconds?: number;
+    pending_maintenance?: number;
+    active_maintenance?: number;
+    maintenance_state?: string;
+    maintenance_status_message?: string;
+    maintenance_seconds_since_progress?: number | null;
 }
 
 export interface ResetDatabaseResult {
@@ -104,6 +109,10 @@ export interface TaxonomySyncStatus {
     processed: number;
     current_item: string | null;
     error: string | null;
+    message?: string | null;
+    progress_state?: string;
+    last_progress_at?: string | null;
+    seconds_since_progress?: number | null;
 }
 
 export interface TimezoneRepairCandidate {

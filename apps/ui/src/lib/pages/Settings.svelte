@@ -2001,7 +2001,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     id: 'taxonomy:sync',
                     kind: 'taxonomy_sync',
                     title: $_('settings.data.taxonomy_title'),
-                    message: taxonomyStatus.current_item || $_('settings.data.taxonomy_syncing'),
+                    message: taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_syncing'),
                     current: taxonomyStatus.processed,
                     total: taxonomyStatus.total,
                     source: 'poll'

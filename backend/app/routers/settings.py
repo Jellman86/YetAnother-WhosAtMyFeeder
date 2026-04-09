@@ -42,6 +42,47 @@ PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 
+
+def _maintenance_guardrail_status() -> dict:
+    def _derive(status: dict) -> dict:
+        pending_maintenance = int(status.get("pending_maintenance") or 0)
+        active_maintenance = int(status.get("active_maintenance") or 0)
+        oldest_pending_age = status.get("oldest_maintenance_pending_age_seconds")
+        maintenance_state = str(status.get("maintenance_state") or "idle")
+        return {
+            **status,
+            "reject_new_work": bool(
+                status.get("maintenance_circuit_open")
+                or maintenance_state == "stalled"
+                or pending_maintenance >= 25
+                or (isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= 45.0)
+            ),
+            "coalesce_analyze_unknowns": bool(pending_maintenance > 0 or active_maintenance > 0),
+        }
+
+    guard_getter = getattr(auto_video_classifier, "get_maintenance_guardrail_status", None)
+    if callable(guard_getter):
+        guard = guard_getter()
+        if isinstance(guard, dict):
+            if "reject_new_work" in guard and "coalesce_analyze_unknowns" in guard:
+                return guard
+            return _derive(guard)
+
+    status_getter = getattr(auto_video_classifier, "get_status", None)
+    if callable(status_getter):
+        status = status_getter()
+        if isinstance(status, dict):
+            return _derive(status)
+    return {}
+
+
+def _maintenance_busy_message(status: dict | None = None) -> str:
+    guard = status or _maintenance_guardrail_status()
+    message = str(guard.get("maintenance_status_message") or "").strip()
+    if message:
+        return message
+    return "Maintenance work is already in progress."
+
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
@@ -56,6 +97,10 @@ async def start_taxonomy_sync(
     status = canonical_identity_repair_service.get_status()
     if status["is_running"]:
         return {"status": "already_running"}
+
+    guard = _maintenance_guardrail_status()
+    if bool(guard.get("reject_new_work")):
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message(guard))
 
     background_tasks.add_task(canonical_identity_repair_service.run)
     return {"status": "started"}
@@ -1501,6 +1546,23 @@ async def _run_analyze_unknowns() -> dict:
 @router.post("/maintenance/analyze-unknowns")
 async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
+    guard = _maintenance_guardrail_status()
+    if bool(guard.get("coalesce_analyze_unknowns")):
+        pending_maintenance = int(guard.get("pending_maintenance") or 0)
+        active_maintenance = int(guard.get("active_maintenance") or 0)
+        return {
+            "status": "in_progress",
+            "count": pending_maintenance + active_maintenance,
+            "accepted": 0,
+            "skipped_duplicate": 0,
+            "dropped_full": 0,
+            "skipped_no_clip": 0,
+            "skipped_missing_event": 0,
+            "skipped_outside_retention": 0,
+            "precheck_errors": 0,
+            "total_candidates": 0,
+            "message": f"{_maintenance_busy_message(guard)} Batch analysis is already in progress.",
+        }
     return await _run_analyze_unknowns()
 
 

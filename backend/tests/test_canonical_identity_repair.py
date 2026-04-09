@@ -260,3 +260,26 @@ async def test_canonical_identity_repair_service_preserves_rollups_when_rebuild_
             row = await cursor.fetchone()
 
         assert row[0] == 1
+
+
+def test_canonical_identity_repair_status_reports_stalled_progress():
+    from app.services.canonical_identity_repair_service import CanonicalIdentityRepairService
+
+    service = CanonicalIdentityRepairService()
+    service._status = {
+        "is_running": True,
+        "processed": 10,
+        "total": 200,
+        "current_item": "Blue Tit",
+        "error": None,
+        "last_progress_at": "2026-04-09T08:00:00+00:00",
+    }
+
+    with patch("app.services.canonical_identity_repair_service.datetime") as mock_datetime:
+        mock_datetime.now.return_value = datetime.fromisoformat("2026-04-09T08:02:30+00:00")
+        mock_datetime.fromisoformat = datetime.fromisoformat
+        status = service.get_status()
+
+    assert status["progress_state"] == "stalled"
+    assert status["seconds_since_progress"] == 150.0
+    assert "stalled" in str(status["message"]).lower()

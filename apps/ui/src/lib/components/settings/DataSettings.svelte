@@ -408,18 +408,18 @@
             {#if taxonomyStatus.is_running}
                 <div class="mb-6">
                     <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                        <span class="text-slate-400">{taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                        <span class="text-slate-400">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
                         <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                     </div>
                 </div>
-            {:else if taxonomyStatus.current_item}
+            {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
                 <div class="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
                     {#if taxonomyStatus.error}
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
                     {:else}
                         <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.current_item}</p>
+                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
                     {/if}
                 </div>
             {/if}
@@ -742,6 +742,11 @@
                         <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
                         <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
                     </div>
+                    {#if analysisStatus.maintenance_status_message}
+                        <div class="text-[10px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
+                            {analysisStatus.maintenance_status_message}
+                        </div>
+                    {/if}
                     {#if analysisStatus.circuit_open}
                         <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>

@@ -18,6 +18,7 @@ from app.auth import require_owner, AuthContext
 from app.services.broadcaster import broadcaster
 from app.services.mqtt_service import mqtt_service
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.tasks import create_background_task
 
@@ -47,6 +48,8 @@ _JOB_STORE: dict[str, BackfillJobStatus] = {}
 _LATEST_JOB_BY_KIND: dict[str, str] = {}
 _JOB_TASKS: dict[str, asyncio.Task] = {}
 _JOB_LOCK = asyncio.Lock()
+BACKFILL_DEPRIORITIZED_AGE_SECONDS = 15.0
+BACKFILL_STALLED_AGE_SECONDS = 90.0
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -66,6 +69,45 @@ async def _get_running_job(kind: str) -> Optional[BackfillJobStatus]:
     if job and job.status == "running":
         return job
     return None
+
+
+def _maintenance_busy_message() -> str:
+    guard = _maintenance_guardrail_status()
+    message = str(guard.get("maintenance_status_message") or "").strip()
+    return message or "Maintenance work is already in progress."
+
+
+def _maintenance_guardrail_status() -> dict:
+    def _derive(status: dict) -> dict:
+        pending_maintenance = int(status.get("pending_maintenance") or 0)
+        active_maintenance = int(status.get("active_maintenance") or 0)
+        oldest_pending_age = status.get("oldest_maintenance_pending_age_seconds")
+        maintenance_state = str(status.get("maintenance_state") or "idle")
+        return {
+            **status,
+            "reject_new_work": bool(
+                status.get("maintenance_circuit_open")
+                or maintenance_state == "stalled"
+                or pending_maintenance >= 25
+                or (isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= 45.0)
+            ),
+            "coalesce_analyze_unknowns": bool(pending_maintenance > 0 or active_maintenance > 0),
+        }
+
+    guard_getter = getattr(auto_video_classifier, "get_maintenance_guardrail_status", None)
+    if callable(guard_getter):
+        guard = guard_getter()
+        if isinstance(guard, dict):
+            if "reject_new_work" in guard and "coalesce_analyze_unknowns" in guard:
+                return guard
+            return _derive(guard)
+
+    status_getter = getattr(auto_video_classifier, "get_status", None)
+    if callable(status_getter):
+        status = status_getter()
+        if isinstance(status, dict):
+            return _derive(status)
+    return {}
 
 class BackfillRequest(BaseModel):
     date_range: str = Field(
@@ -170,6 +212,22 @@ def _build_running_message(job: BackfillJobStatus, classifier_status: Optional[d
             return "Scanning detections for missing weather"
         return "Filling weather history"
 
+    background_status = classifier_status.get("background") or {}
+    oldest_queued_age = background_status.get("oldest_queued_age_seconds")
+    if (
+        classifier_status.get("background_throttled")
+        and processed <= 0
+        and isinstance(oldest_queued_age, (int, float))
+        and oldest_queued_age >= BACKFILL_STALLED_AGE_SECONDS
+    ):
+        return "Stalled while waiting for maintenance classifier capacity"
+    if (
+        classifier_status.get("background_throttled")
+        and processed <= 0
+        and isinstance(oldest_queued_age, (int, float))
+        and oldest_queued_age >= BACKFILL_DEPRIORITIZED_AGE_SECONDS
+    ):
+        return "Deprioritized while live detections keep classifier capacity"
     if total <= 0:
         return "Scanning historical events"
     if worker_recovery_active and processed <= 0:
@@ -373,6 +431,14 @@ async def backfill_detections_async(
 ):
     """Run detection backfill in the background and return a job status."""
     lang = get_user_language(request)
+    taxonomy_status = canonical_identity_repair_service.get_status()
+    if taxonomy_status.get("is_running"):
+        raise HTTPException(status_code=409, detail="Taxonomy repair is currently running. Please wait for it to finish.")
+
+    guard = _maintenance_guardrail_status()
+    if bool(guard.get("reject_new_work")):
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+
     async with _JOB_LOCK:
         running = await _get_running_job("detections")
         if running:

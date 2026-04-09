@@ -123,3 +123,45 @@ def test_build_running_message_reports_classifier_recovery_mid_run():
         )
         == "Waiting for classifier workers to recover"
     )
+
+
+def test_build_running_message_reports_deprioritized_queue():
+    job = BackfillJobStatus(
+        id="job-5",
+        kind="detections",
+        status="running",
+        processed=0,
+        total=200,
+    )
+    assert (
+        _build_running_message(
+            job,
+            {
+                "background_throttled": True,
+                "background": {"queued": 12, "oldest_queued_age_seconds": 22.0},
+                "background_starvation_relief_active": False,
+            },
+        )
+        == "Deprioritized while live detections keep classifier capacity"
+    )
+
+
+def test_build_running_message_reports_stalled_queue():
+    job = BackfillJobStatus(
+        id="job-6",
+        kind="detections",
+        status="running",
+        processed=0,
+        total=200,
+    )
+    assert (
+        _build_running_message(
+            job,
+            {
+                "background_throttled": True,
+                "background": {"queued": 24, "oldest_queued_age_seconds": 95.0},
+                "background_starvation_relief_active": True,
+            },
+        )
+        == "Stalled while waiting for maintenance classifier capacity"
+    )

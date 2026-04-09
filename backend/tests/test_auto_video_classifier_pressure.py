@@ -58,7 +58,9 @@ def _build_service(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "app.services.error_diagnostics",
-        types.SimpleNamespace(error_diagnostics_history=object()),
+        types.SimpleNamespace(
+            error_diagnostics_history=types.SimpleNamespace(record=lambda **kwargs: None)
+        ),
     )
     monkeypatch.setitem(sys.modules, "app.database", types.SimpleNamespace(get_db=lambda: None))
     monkeypatch.setitem(
@@ -215,3 +217,48 @@ def test_starved_maintenance_queue_stays_paused_when_mqtt_pressure_is_critical(m
 
     assert state["maintenance_starvation_relief_active"] is False
     assert state["effective_max_concurrent"] == 0
+
+
+def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._classifier = type(
+        "FakeClassifier",
+        (),
+        {"get_admission_status": lambda self: {"live": {"queued": 2, "running": 0}}},
+    )()
+    service._pending_metadata = {
+        "evt-maint-1": {"source": "maintenance", "queued_at": 0.0},
+        "evt-maint-2": {"source": "maintenance", "queued_at": 5.0},
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=20.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        status = service.get_maintenance_guardrail_status()
+
+    assert status["pending_maintenance"] == 2
+    assert status["active_maintenance"] == 0
+    assert status["maintenance_state"] == "deprioritized"
+    assert status["coalesce_analyze_unknowns"] is True
+    assert status["reject_new_work"] is False
+    assert "deprioritized" in str(status["maintenance_status_message"]).lower()
+
+
+def test_maintenance_guardrail_status_rejects_when_queue_is_stalled(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._classifier = type(
+        "FakeClassifier",
+        (),
+        {"get_admission_status": lambda self: {"live": {"queued": 1, "running": 1}}},
+    )()
+    service._pending_metadata = {
+        "evt-maint-starved": {"source": "maintenance", "queued_at": 0.0},
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        status = service.get_maintenance_guardrail_status()
+
+    assert status["maintenance_state"] == "stalled"
+    assert status["coalesce_analyze_unknowns"] is True
+    assert status["reject_new_work"] is True
+    assert "stalled" in str(status["maintenance_status_message"]).lower()

@@ -30,6 +30,11 @@ from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
 MAINTENANCE_VIDEO_STARVATION_RELIEF_SECONDS = 5.0
+MAINTENANCE_DEPRIORITIZED_AGE_SECONDS = 15.0
+MAINTENANCE_STALLED_AGE_SECONDS = 90.0
+MAINTENANCE_REJECT_NEW_WORK_PENDING_THRESHOLD = 25
+MAINTENANCE_REJECT_NEW_WORK_AGE_SECONDS = 45.0
+MAINTENANCE_STATUS_DIAGNOSTIC_COOLDOWN_SECONDS = 60.0
 
 # ---------------------------------------------------------------------------
 # Circuit-breaker failure classification
@@ -120,11 +125,15 @@ class AutoVideoClassifierService:
         )
         self._pending_ids: set[str] = set()
         self._pending_metadata: dict[str, dict[str, object]] = {}
+        self._active_metadata: dict[str, dict[str, object]] = {}
         self._queue_lock = asyncio.Lock()
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
         self._running = False
         self._last_mqtt_throttle_log_ts: float = 0.0
+        self._maintenance_last_progress_at: float | None = None
+        self._last_reported_maintenance_state: str | None = None
+        self._last_reported_maintenance_state_at: float | None = None
 
     async def start(self):
         """Start the queue processor."""
@@ -156,6 +165,7 @@ class AutoVideoClassifierService:
         self._active_tasks.clear()
         self._pending_ids.clear()
         self._pending_metadata.clear()
+        self._active_metadata.clear()
         self._timeout_state = _empty_timeout_state()
         log.info("AutoVideoClassifierService stopped")
 
@@ -182,6 +192,7 @@ class AutoVideoClassifierService:
                 break
         self._pending_ids.clear()
         self._pending_metadata.clear()
+        self._active_metadata.clear()
 
         # Reset circuit breaker state
         self._reset_all_breakers()
@@ -256,6 +267,12 @@ class AutoVideoClassifierService:
                         name=f"video_classifier:{frigate_event}"
                     )
                     self._active_tasks[frigate_event] = task
+                    self._active_metadata[frigate_event] = {
+                        "source": source,
+                        "started_at": time.monotonic(),
+                    }
+                    if source == "maintenance":
+                        self._maintenance_last_progress_at = time.monotonic()
                     task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
                     # Only clear pending dedupe marker after active registration.
                     self._pending_ids.discard(frigate_event)
@@ -535,6 +552,8 @@ class AutoVideoClassifierService:
         pending = self._pending_queue.qsize()
         configured_max = int(settings.classification.video_classification_max_concurrent or 1)
         throttle_state = self._get_mqtt_throttle_state(configured_max)
+        maintenance_summary = self._maintenance_status_summary(throttle_state)
+        self._emit_maintenance_status_diagnostic(maintenance_summary)
         return {
             "pending": pending,
             "active": len(self._active_tasks),
@@ -561,7 +580,7 @@ class AutoVideoClassifierService:
             "live_queued": throttle_state["live_queued"],
             "mqtt_in_flight": throttle_state["mqtt_in_flight"],
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
-            "oldest_maintenance_pending_age_seconds": throttle_state["oldest_maintenance_pending_age_seconds"],
+            **maintenance_summary,
         }
 
     async def queue_classification(
@@ -607,6 +626,9 @@ class AutoVideoClassifierService:
         try:
             self._active_tasks.pop(frigate_event, None)
             self._pending_metadata.pop(frigate_event, None)
+            metadata = self._active_metadata.pop(frigate_event, None)
+            if isinstance(metadata, dict) and str(metadata.get("source") or "") == "maintenance":
+                self._maintenance_last_progress_at = time.monotonic()
             if task.cancelled():
                 log.debug("Video classification task was cancelled", event_id=frigate_event)
             elif task.exception():
@@ -628,6 +650,127 @@ class AutoVideoClassifierService:
         if not ages:
             return None
         return round(max(ages), 3)
+
+    def _count_active_jobs(self, *, source: JobSource | None = None) -> int:
+        count = 0
+        for metadata in self._active_metadata.values():
+            if source is not None and str(metadata.get("source") or "") != source:
+                continue
+            count += 1
+        return count
+
+    def _maintenance_status_summary(self, throttle_state: dict | None = None) -> dict[str, object]:
+        throttle = throttle_state or self._get_mqtt_throttle_state(
+            int(settings.classification.video_classification_max_concurrent or 1)
+        )
+        pending_maintenance = sum(
+            1
+            for metadata in self._pending_metadata.values()
+            if str(metadata.get("source") or "") == "maintenance"
+        )
+        active_maintenance = self._count_active_jobs(source="maintenance")
+        oldest_pending_age = throttle.get("oldest_maintenance_pending_age_seconds")
+        maintenance_circuit_open = bool(self.get_circuit_status("maintenance")["open"])
+        now = time.monotonic()
+        seconds_since_progress = (
+            round(max(0.0, now - float(self._maintenance_last_progress_at)), 3)
+            if isinstance(self._maintenance_last_progress_at, (int, float))
+            else None
+        )
+
+        state = "idle"
+        message = ""
+        if maintenance_circuit_open:
+            state = "recovering"
+            message = "Maintenance video circuit is recovering after repeated failures"
+        elif pending_maintenance <= 0 and active_maintenance <= 0:
+            state = "idle"
+            message = ""
+        elif pending_maintenance > 0 and bool(throttle.get("throttled_for_live_pressure")):
+            if isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= MAINTENANCE_STALLED_AGE_SECONDS:
+                state = "stalled"
+                message = "Maintenance work is stalled while waiting for maintenance classifier capacity"
+            elif isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= MAINTENANCE_DEPRIORITIZED_AGE_SECONDS:
+                state = "deprioritized"
+                message = "Maintenance work is deprioritized while live detections keep classifier capacity"
+            else:
+                state = "queued"
+                message = "Maintenance work is queued behind live detections"
+        elif pending_maintenance > 0:
+            state = "queued"
+            message = "Maintenance work is queued"
+        elif active_maintenance > 0:
+            state = "running"
+            message = "Maintenance work is running"
+
+        return {
+            "pending_maintenance": pending_maintenance,
+            "active_maintenance": active_maintenance,
+            "oldest_maintenance_pending_age_seconds": oldest_pending_age,
+            "maintenance_seconds_since_progress": seconds_since_progress,
+            "maintenance_state": state,
+            "maintenance_status_message": message,
+            "maintenance_circuit_open": maintenance_circuit_open,
+        }
+
+    def get_maintenance_guardrail_status(self) -> dict[str, object]:
+        throttle_state = self._get_mqtt_throttle_state(int(settings.classification.video_classification_max_concurrent or 1))
+        summary = self._maintenance_status_summary(throttle_state)
+        oldest_pending_age = summary.get("oldest_maintenance_pending_age_seconds")
+        pending_maintenance = int(summary.get("pending_maintenance") or 0)
+        state = str(summary.get("maintenance_state") or "idle")
+        reject_new_work = bool(
+            summary.get("maintenance_circuit_open")
+            or state == "stalled"
+            or pending_maintenance >= MAINTENANCE_REJECT_NEW_WORK_PENDING_THRESHOLD
+            or (
+                isinstance(oldest_pending_age, (int, float))
+                and oldest_pending_age >= MAINTENANCE_REJECT_NEW_WORK_AGE_SECONDS
+            )
+        )
+        coalesce_analyze_unknowns = bool(
+            int(summary.get("pending_maintenance") or 0) > 0
+            or int(summary.get("active_maintenance") or 0) > 0
+        )
+        return {
+            **summary,
+            "reject_new_work": reject_new_work,
+            "coalesce_analyze_unknowns": coalesce_analyze_unknowns,
+        }
+
+    def _emit_maintenance_status_diagnostic(self, summary: dict[str, object]) -> None:
+        state = str(summary.get("maintenance_state") or "idle")
+        if state not in {"deprioritized", "stalled", "recovering"}:
+            self._last_reported_maintenance_state = None
+            self._last_reported_maintenance_state_at = None
+            return
+        now = time.monotonic()
+        if (
+            self._last_reported_maintenance_state == state
+            and isinstance(self._last_reported_maintenance_state_at, (int, float))
+            and (now - float(self._last_reported_maintenance_state_at)) < MAINTENANCE_STATUS_DIAGNOSTIC_COOLDOWN_SECONDS
+        ):
+            return
+
+        self._last_reported_maintenance_state = state
+        self._last_reported_maintenance_state_at = now
+        severity = "warning" if state == "deprioritized" else "error"
+        reason_code = f"maintenance_{state}"
+        error_diagnostics_history.record(
+            source="video_classifier",
+            component="auto_video_classifier",
+            reason_code=reason_code,
+            message=str(summary.get("maintenance_status_message") or "Maintenance work is not making healthy progress"),
+            severity=severity,
+            correlation_key="maintenance:queue-state",
+            worker_pool="video",
+            context={
+                "pending_maintenance": int(summary.get("pending_maintenance") or 0),
+                "active_maintenance": int(summary.get("active_maintenance") or 0),
+                "oldest_maintenance_pending_age_seconds": summary.get("oldest_maintenance_pending_age_seconds"),
+                "maintenance_seconds_since_progress": summary.get("maintenance_seconds_since_progress"),
+            },
+        )
 
     async def trigger_classification(self, frigate_event: str, camera: str):
         """
