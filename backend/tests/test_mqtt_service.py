@@ -51,6 +51,22 @@ class _RecordingAudioProcessor:
         await self.release.wait()
 
 
+class _BlockingFrigateProcessor:
+    def __init__(self):
+        self.payloads: list[dict] = []
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def process_mqtt_message(self, payload: bytes):
+        data = json.loads(payload)
+        self.payloads.append(data)
+        self.started.set()
+        await self.release.wait()
+
+    async def process_audio_message(self, payload: bytes):
+        del payload
+
+
 class _SlowProcessor:
     async def process_mqtt_message(self, payload: bytes):
         del payload
@@ -290,6 +306,32 @@ async def test_schedule_audio_message_coalesces_to_latest_pending_payload():
     assert status["audio_messages_superseded"] == 1
 
 
+@pytest.mark.asyncio
+async def test_schedule_frigate_message_coalesces_to_latest_pending_payload_for_same_event():
+    service = MQTTService("test+abc123")
+    service.running = True
+    processor = _BlockingFrigateProcessor()
+
+    payload_a = _frigate_payload("evt-1", "new")
+    payload_b = _frigate_payload("evt-1", "new")
+    payload_c = _frigate_payload("evt-1", "update", false_positive=True)
+
+    task_a = service._schedule_frigate_message(processor, payload_a)
+    await asyncio.wait_for(processor.started.wait(), timeout=0.2)
+
+    task_b = service._schedule_frigate_message(processor, payload_b)
+    task_c = service._schedule_frigate_message(processor, payload_c)
+
+    processor.release.set()
+    await asyncio.wait_for(asyncio.gather(task_a, task_b, task_c), timeout=0.5)
+
+    processed = [(payload["type"], payload["after"].get("false_positive", False)) for payload in processor.payloads]
+    assert processed == [("new", False), ("update", True)]
+    status = service.get_status()
+    assert status["frigate_messages_superseded"] == 1
+    assert status["max_frigate_event_tail_depth"] == 2
+
+
 def test_get_status_reports_in_flight_breakdown_and_audio_coalescing():
     service = MQTTService("test+abc123")
     task_a = object()
@@ -311,6 +353,15 @@ def test_get_status_reports_in_flight_breakdown_and_audio_coalescing():
     assert status["audio_messages_superseded"] == 3
     assert status["frigate_event_tail_count"] == 2
     assert status["max_frigate_event_tail_depth"] == 4
+
+
+def test_get_status_reports_frigate_superseded_count():
+    service = MQTTService("test+abc123")
+    service._frigate_messages_superseded = 5
+
+    status = service.get_status()
+
+    assert status["frigate_messages_superseded"] == 5
 
 
 def test_should_reconnect_when_frigate_topic_is_stale_but_birdnet_is_active(monkeypatch):

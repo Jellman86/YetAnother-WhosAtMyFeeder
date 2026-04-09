@@ -45,6 +45,8 @@ class MQTTService:
         self._in_flight_tasks: set[asyncio.Task] = set()
         self._event_task_tails: dict[str, asyncio.Task] = {}
         self._event_tail_depths: dict[str, int] = {}
+        self._event_pending_tasks: dict[str, asyncio.Task] = {}
+        self._event_pending_payloads: dict[str, bytes] = {}
         self._topic_last_message_monotonic: dict[str, float] = {}
         self._topic_message_counts: dict[str, int] = {}
         self._topic_message_counts_lifetime: dict[str, int] = {}
@@ -55,6 +57,7 @@ class MQTTService:
         self._audio_messages_superseded = 0
         self._audio_dispatch_count = 0
         self._frigate_dispatch_count = 0
+        self._frigate_messages_superseded = 0
         self._max_event_tail_depth = 0
         self._connection_started_monotonic: float | None = None
         self._topic_liveness_reconnects = 0
@@ -145,6 +148,7 @@ class MQTTService:
             "backlog_wait_seconds": backlog_wait_seconds,
             "audio_pending_coalesced": self._audio_pending_payload is not None,
             "audio_messages_superseded": self._audio_messages_superseded,
+            "frigate_messages_superseded": self._frigate_messages_superseded,
             "frigate_event_tail_count": len(self._event_task_tails),
             "max_frigate_event_tail_depth": self._max_event_tail_depth,
             "handler_slot_wait_exhaustions": self._handler_slot_wait_exhaustions,
@@ -481,7 +485,61 @@ class MQTTService:
         if event_id is None:
             meta = self._parse_frigate_payload_meta(payload)
             event_id = (meta or {}).get("event_id")
-        previous_task = self._event_task_tails.get(event_id or "")
+        event_key = event_id or ""
+        previous_task = self._event_task_tails.get(event_key)
+
+        if event_key and previous_task is not None and not previous_task.done():
+            if event_key in self._event_pending_payloads:
+                self._frigate_messages_superseded += 1
+            self._event_pending_payloads[event_key] = payload
+            existing_pending = self._event_pending_tasks.get(event_key)
+            if existing_pending is not None and not existing_pending.done():
+                self._event_tail_depths[event_key] = 2
+                self._max_event_tail_depth = max(self._max_event_tail_depth, 2)
+                return existing_pending
+
+            async def _run_pending() -> None:
+                try:
+                    while self.running:
+                        current_active = self._event_task_tails.get(event_key)
+                        if current_active is not None and not current_active.done():
+                            try:
+                                await current_active
+                            except asyncio.CancelledError:
+                                return
+                            except Exception:
+                                pass
+
+                        next_payload = self._event_pending_payloads.pop(event_key, None)
+                        if next_payload is None or not self.running:
+                            return
+
+                        followup = create_background_task(
+                            self._dispatch_frigate_message(event_processor, next_payload),
+                            name=f"mqtt_dispatch_frigate:{event_key or 'unknown'}",
+                        )
+                        self._frigate_dispatch_count += 1
+                        self._track_handler_task(followup, "frigate")
+                        self._event_task_tails[event_key] = followup
+                        self._event_tail_depths[event_key] = 2
+                        self._max_event_tail_depth = max(self._max_event_tail_depth, 2)
+                        await followup
+                        if event_key not in self._event_pending_payloads:
+                            return
+                finally:
+                    self._event_pending_tasks.pop(event_key, None)
+                    if self._event_task_tails.get(event_key) is None or self._event_task_tails.get(event_key).done():
+                        self._event_task_tails.pop(event_key, None)
+                        self._event_tail_depths.pop(event_key, None)
+
+            pending_task = create_background_task(
+                _run_pending(),
+                name=f"mqtt_dispatch_frigate_pending:{event_key or 'unknown'}",
+            )
+            self._event_pending_tasks[event_key] = pending_task
+            self._event_tail_depths[event_key] = 2
+            self._max_event_tail_depth = max(self._max_event_tail_depth, 2)
+            return pending_task
 
         async def _run():
             if previous_task is not None:
@@ -501,18 +559,14 @@ class MQTTService:
         self._frigate_dispatch_count += 1
         self._track_handler_task(task, "frigate")
 
-        if event_id:
-            previous_depth = int(self._event_tail_depths.get(event_id, 0) or 0)
-            if previous_task is not None and not previous_task.done():
-                depth = max(2, previous_depth + 1)
-            else:
-                depth = 1
-            self._event_tail_depths[event_id] = depth
+        if event_key:
+            depth = 1
+            self._event_tail_depths[event_key] = depth
             self._max_event_tail_depth = max(self._max_event_tail_depth, depth)
-            self._event_task_tails[event_id] = task
+            self._event_task_tails[event_key] = task
 
-            def _cleanup(done: asyncio.Task, eid: str = event_id) -> None:
-                if self._event_task_tails.get(eid) is done:
+            def _cleanup(done: asyncio.Task, eid: str = event_key) -> None:
+                if self._event_task_tails.get(eid) is done and eid not in self._event_pending_tasks:
                     self._event_task_tails.pop(eid, None)
                     self._event_tail_depths.pop(eid, None)
 
@@ -610,6 +664,10 @@ class MQTTService:
         self._task_kind_by_id.clear()
         self._event_task_tails.clear()
         self._event_tail_depths.clear()
+        for task in list(self._event_pending_tasks.values()):
+            task.cancel()
+        self._event_pending_tasks.clear()
+        self._event_pending_payloads.clear()
         self._audio_active_task = None
         self._audio_pending_payload = None
         if self._audio_pending_task is not None:
