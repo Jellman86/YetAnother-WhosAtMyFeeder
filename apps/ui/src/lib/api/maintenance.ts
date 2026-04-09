@@ -76,11 +76,13 @@ export interface AnalysisStatus {
     mqtt_pressure_level?: string;
     throttled_for_mqtt_pressure?: boolean;
     throttled_for_live_pressure?: boolean;
+    maintenance_starvation_relief_active?: boolean;
     live_pressure_active?: boolean;
     live_in_flight?: number;
     live_queued?: number;
     mqtt_in_flight?: number;
     mqtt_in_flight_capacity?: number;
+    oldest_maintenance_pending_age_seconds?: number;
 }
 
 export interface ResetDatabaseResult {

@@ -144,11 +144,13 @@ export class AnalysisQueueStatusStore {
                 status.mqtt_pressure_level ?? '',
                 status.throttled_for_mqtt_pressure ? 1 : 0,
                 status.throttled_for_live_pressure ? 1 : 0,
+                status.maintenance_starvation_relief_active ? 1 : 0,
                 status.live_pressure_active ? 1 : 0,
                 status.live_in_flight ?? '',
                 status.live_queued ?? '',
                 status.mqtt_in_flight ?? '',
-                status.mqtt_in_flight_capacity ?? ''
+                status.mqtt_in_flight_capacity ?? '',
+                status.oldest_maintenance_pending_age_seconds ?? ''
             ].join('|');
             if (signature !== this.analysisStatusSignature) {
                 this.analysisStatus = status;

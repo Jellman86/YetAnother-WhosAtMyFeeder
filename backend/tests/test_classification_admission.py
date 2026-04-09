@@ -148,6 +148,56 @@ async def test_background_work_waits_while_live_pressure_is_active():
 
 
 @pytest.mark.asyncio
+async def test_background_work_gets_relief_after_starvation_threshold():
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=1.0,
+        background_lease_timeout_seconds=1.0,
+        background_starvation_threshold_seconds=0.01,
+    )
+    release_live = asyncio.Event()
+    live_started = asyncio.Event()
+    background_started = asyncio.Event()
+
+    async def live_runner():
+        live_started.set()
+        await release_live.wait()
+        return "live"
+
+    async def background_runner():
+        background_started.set()
+        return "background"
+
+    live_task = asyncio.create_task(
+        coordinator.submit(
+            priority="live",
+            kind="snapshot_classification",
+            runner=live_runner,
+        )
+    )
+    await asyncio.wait_for(live_started.wait(), timeout=1.0)
+
+    background_task = asyncio.create_task(
+        coordinator.submit(
+            priority="background",
+            kind="snapshot_classification",
+            runner=background_runner,
+            queue_timeout_seconds=1.0,
+        )
+    )
+
+    await asyncio.sleep(0.05)
+    assert background_started.is_set() is True
+    assert await background_task == "background"
+
+    release_live.set()
+    assert await live_task == "live"
+
+    await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_live_queue_is_served_before_background_queue_when_capacity_returns():
     coordinator = ClassificationAdmissionCoordinator(
         live_capacity=1,

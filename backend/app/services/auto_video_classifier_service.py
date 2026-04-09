@@ -29,6 +29,7 @@ from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
+MAINTENANCE_VIDEO_STARVATION_RELIEF_SECONDS = 5.0
 
 # ---------------------------------------------------------------------------
 # Circuit-breaker failure classification
@@ -118,6 +119,7 @@ class AutoVideoClassifierService:
             maxsize=MAX_PENDING_QUEUE
         )
         self._pending_ids: set[str] = set()
+        self._pending_metadata: dict[str, dict[str, object]] = {}
         self._queue_lock = asyncio.Lock()
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
@@ -153,6 +155,7 @@ class AutoVideoClassifierService:
             task.cancel()
         self._active_tasks.clear()
         self._pending_ids.clear()
+        self._pending_metadata.clear()
         self._timeout_state = _empty_timeout_state()
         log.info("AutoVideoClassifierService stopped")
 
@@ -172,11 +175,13 @@ class AutoVideoClassifierService:
         # Drain pending queue
         while not self._pending_queue.empty():
             try:
-                self._pending_queue.get_nowait()
+                item = self._pending_queue.get_nowait()
+                self._pending_metadata.pop(str(item[0]), None)
                 self._pending_queue.task_done()
             except asyncio.QueueEmpty:
                 break
         self._pending_ids.clear()
+        self._pending_metadata.clear()
 
         # Reset circuit breaker state
         self._reset_all_breakers()
@@ -229,6 +234,7 @@ class AutoVideoClassifierService:
                 try:
                     if frigate_event in self._active_tasks:
                         self._pending_ids.discard(frigate_event)
+                        self._pending_metadata.pop(frigate_event, None)
                         continue
 
                     if self._is_circuit_open(source):
@@ -253,12 +259,14 @@ class AutoVideoClassifierService:
                     task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
                     # Only clear pending dedupe marker after active registration.
                     self._pending_ids.discard(frigate_event)
+                    self._pending_metadata.pop(frigate_event, None)
 
                     log.debug("Started queued video classification",
                               event_id=frigate_event,
                               queue_size=self._pending_queue.qsize())
                 except Exception as e:
                     self._pending_ids.discard(frigate_event)
+                    self._pending_metadata.pop(frigate_event, None)
                     log.error(
                         "Failed to start queued video classification",
                         event_id=frigate_event,
@@ -307,6 +315,14 @@ class AutoVideoClassifierService:
             live_queued = 0
             live_pressure_active = False
 
+        oldest_maintenance_pending_age = self._oldest_pending_age_seconds(source="maintenance")
+        maintenance_starvation_relief_active = bool(
+            live_pressure_active
+            and mqtt_level != "critical"
+            and isinstance(oldest_maintenance_pending_age, (int, float))
+            and oldest_maintenance_pending_age >= MAINTENANCE_VIDEO_STARVATION_RELIEF_SECONDS
+        )
+
         effective = configured
 
         # Priority 1: MQTT ingest pressure (system-wide safety)
@@ -321,14 +337,19 @@ class AutoVideoClassifierService:
 
         # Priority 2: Live event pressure (UI responsiveness)
         # Drain in-flight video work, but do not start new video jobs while live work exists.
-        if live_pressure_active:
+        # If maintenance work has been starved for a sustained window, allow one
+        # queued maintenance slot through unless MQTT pressure is already critical.
+        if live_pressure_active and not maintenance_starvation_relief_active:
             effective = 0
+        elif maintenance_starvation_relief_active:
+            effective = max(1, min(effective, 1))
 
         throttled = effective < configured
         return {
             "throttled": throttled,
             "throttled_for_mqtt_pressure": mqtt_throttled,
             "throttled_for_live_pressure": live_pressure_active,
+            "maintenance_starvation_relief_active": maintenance_starvation_relief_active,
             "configured_max_concurrent": configured,
             "effective_max_concurrent": effective,
             "mqtt_pressure_level": mqtt_level,
@@ -338,6 +359,7 @@ class AutoVideoClassifierService:
             "live_pressure_active": live_pressure_active,
             "live_in_flight": live_in_flight,
             "live_queued": live_queued,
+            "oldest_maintenance_pending_age_seconds": oldest_maintenance_pending_age,
         }
 
     async def _stale_watchdog_loop(self):
@@ -533,11 +555,13 @@ class AutoVideoClassifierService:
             "mqtt_pressure_level": throttle_state["mqtt_pressure_level"],
             "throttled_for_mqtt_pressure": throttle_state["throttled_for_mqtt_pressure"],
             "throttled_for_live_pressure": throttle_state["throttled_for_live_pressure"],
+            "maintenance_starvation_relief_active": throttle_state["maintenance_starvation_relief_active"],
             "live_pressure_active": throttle_state["live_pressure_active"],
             "live_in_flight": throttle_state["live_in_flight"],
             "live_queued": throttle_state["live_queued"],
             "mqtt_in_flight": throttle_state["mqtt_in_flight"],
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
+            "oldest_maintenance_pending_age_seconds": throttle_state["oldest_maintenance_pending_age_seconds"],
         }
 
     async def queue_classification(
@@ -571,6 +595,10 @@ class AutoVideoClassifierService:
                 )
                 return "full"
             self._pending_ids.add(frigate_event)
+            self._pending_metadata[frigate_event] = {
+                "source": source,
+                "queued_at": time.monotonic(),
+            }
             log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
             return "queued"
 
@@ -578,6 +606,7 @@ class AutoVideoClassifierService:
         """Safely cleanup a completed task from the active tasks dict."""
         try:
             self._active_tasks.pop(frigate_event, None)
+            self._pending_metadata.pop(frigate_event, None)
             if task.cancelled():
                 log.debug("Video classification task was cancelled", event_id=frigate_event)
             elif task.exception():
@@ -586,6 +615,19 @@ class AutoVideoClassifierService:
                          error=str(task.exception()))
         except Exception as e:
             log.error("Error during task cleanup", event_id=frigate_event, error=str(e))
+
+    def _oldest_pending_age_seconds(self, *, source: JobSource | None = None) -> float | None:
+        now = time.monotonic()
+        ages: list[float] = []
+        for metadata in self._pending_metadata.values():
+            if source is not None and str(metadata.get("source") or "") != source:
+                continue
+            queued_at = metadata.get("queued_at")
+            if isinstance(queued_at, (int, float)):
+                ages.append(max(0.0, now - float(queued_at)))
+        if not ages:
+            return None
+        return round(max(ages), 3)
 
     async def trigger_classification(self, frigate_event: str, camera: str):
         """

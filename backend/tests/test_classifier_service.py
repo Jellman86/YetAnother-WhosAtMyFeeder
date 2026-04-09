@@ -3688,11 +3688,13 @@ async def test_classifier_get_admission_status_is_lightweight_and_exposes_thrott
             "failed": 0,
             "abandoned": 0,
             "rejected": 0,
+            "oldest_queued_age_seconds": 12.5,
             "oldest_running_age_seconds": None,
         },
         "late_completions_ignored": 0,
         "recent_outcomes": [],
         "background_throttled": True,
+        "background_starvation_relief_active": True,
         "closed": False,
     })
 
@@ -3701,6 +3703,8 @@ async def test_classifier_get_admission_status_is_lightweight_and_exposes_thrott
 
     assert status["background_throttled"] is True
     assert status["background"]["queued"] == 3
+    assert status["background"]["oldest_queued_age_seconds"] == pytest.approx(12.5)
+    assert status["background_starvation_relief_active"] is True
     await service.shutdown()
 
 

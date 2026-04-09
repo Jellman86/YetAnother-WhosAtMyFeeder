@@ -169,3 +169,49 @@ def test_mqtt_and_live_pressure_are_reported_separately(monkeypatch):
     assert state["throttled_for_mqtt_pressure"] is True
     assert state["throttled_for_live_pressure"] is False
     assert state["live_pressure_active"] is False
+
+
+def test_starved_maintenance_queue_gets_single_video_slot_under_live_pressure(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._classifier = type(
+        "FakeClassifier",
+        (),
+        {"get_admission_status": lambda self: {"live": {"queued": 1, "running": 1}}},
+    )()
+    service._pending_metadata = {
+        "evt-maint-starved": {
+            "source": "maintenance",
+            "queued_at": 0.0,
+        }
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        state = service._get_mqtt_throttle_state(configured_max=4)
+
+    assert state["throttled"] is True
+    assert state["throttled_for_live_pressure"] is True
+    assert state["maintenance_starvation_relief_active"] is True
+    assert state["effective_max_concurrent"] == 1
+
+
+def test_starved_maintenance_queue_stays_paused_when_mqtt_pressure_is_critical(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._classifier = type(
+        "FakeClassifier",
+        (),
+        {"get_admission_status": lambda self: {"live": {"queued": 1, "running": 1}}},
+    )()
+    service._pending_metadata = {
+        "evt-maint-starved": {
+            "source": "maintenance",
+            "queued_at": 0.0,
+        }
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
+        state = service._get_mqtt_throttle_state(configured_max=4)
+
+    assert state["maintenance_starvation_relief_active"] is False
+    assert state["effective_max_concurrent"] == 0

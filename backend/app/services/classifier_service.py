@@ -3049,6 +3049,7 @@ class ClassifierService:
         background_metrics = admission_metrics["background"]
         throttled = bool(admission_metrics["background_throttled"])
         queued = int(background_metrics["queued"])
+        oldest_queued_age = background_metrics.get("oldest_queued_age_seconds")
         status = "degraded" if throttled and queued > 0 else "ok"
         return {
             "status": status,
@@ -3056,6 +3057,8 @@ class ClassifierService:
             "queued": queued,
             "abandoned": int(background_metrics["abandoned"]),
             "background_throttled": throttled,
+            "oldest_queued_age_seconds": oldest_queued_age,
+            "starvation_relief_active": bool(admission_metrics.get("background_starvation_relief_active")),
         }
 
     def get_admission_status(self) -> dict:
@@ -3074,9 +3077,11 @@ class ClassifierService:
                 "queued": int(admission_metrics["background"]["queued"]),
                 "running": int(admission_metrics["background"]["running"]),
                 "abandoned": int(admission_metrics["background"]["abandoned"]),
+                "oldest_queued_age_seconds": admission_metrics["background"].get("oldest_queued_age_seconds"),
                 "oldest_running_age_seconds": admission_metrics["background"].get("oldest_running_age_seconds"),
             },
             "background_throttled": bool(admission_metrics["background_throttled"]),
+            "background_starvation_relief_active": bool(admission_metrics.get("background_starvation_relief_active")),
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
         }
         supervisor_metrics = self._get_supervisor_metrics()

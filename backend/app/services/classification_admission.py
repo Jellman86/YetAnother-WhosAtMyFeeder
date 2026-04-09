@@ -74,6 +74,7 @@ class ClassificationAdmissionCoordinator:
         live_lease_timeout_seconds: float,
         background_lease_timeout_seconds: float,
         default_queue_timeout_seconds: float = 0.25,
+        background_starvation_threshold_seconds: float = 2.0,
     ) -> None:
         self._live_capacity = max(1, int(live_capacity))
         self._background_capacity = max(1, int(background_capacity))
@@ -82,6 +83,7 @@ class ClassificationAdmissionCoordinator:
             "background": max(0.01, float(background_lease_timeout_seconds)),
         }
         self._default_queue_timeout_seconds = max(0.01, float(default_queue_timeout_seconds))
+        self._background_starvation_threshold_seconds = max(0.01, float(background_starvation_threshold_seconds))
 
         self._lock = asyncio.Lock()
         self._condition = asyncio.Condition(self._lock)
@@ -222,11 +224,13 @@ class ClassificationAdmissionCoordinator:
                 "failed": self._failed["background"],
                 "abandoned": self._abandoned["background"],
                 "rejected": self._rejected["background"],
+                "oldest_queued_age_seconds": self._oldest_pending_age_seconds("background"),
                 "oldest_running_age_seconds": self._oldest_active_age_seconds("background"),
             },
             "late_completions_ignored": self._late_completions_ignored,
             "recent_outcomes": list(self._recent_outcomes),
             "background_throttled": self._is_live_pressure_active(),
+            "background_starvation_relief_active": self._is_background_starvation_relief_active(),
             "closed": self._closed,
         }
 
@@ -259,7 +263,10 @@ class ClassificationAdmissionCoordinator:
         while (
             self._pending["background"]
             and self._running["background"] < self._background_capacity
-            and not self._is_live_pressure_active()
+            and (
+                not self._is_live_pressure_active()
+                or self._is_background_starvation_relief_active()
+            )
         ):
             item = self._pending["background"].popleft()
             self._admit_locked(item)
@@ -366,6 +373,14 @@ class ClassificationAdmissionCoordinator:
     def _is_live_pressure_active(self) -> bool:
         return bool(self._pending["live"]) or self._running["live"] >= self._live_capacity
 
+    def _is_background_starvation_relief_active(self) -> bool:
+        if not self._is_live_pressure_active():
+            return False
+        oldest_pending_age = self._oldest_pending_age_seconds("background")
+        if oldest_pending_age is None:
+            return False
+        return oldest_pending_age >= self._background_starvation_threshold_seconds
+
     def _remove_pending_locked(self, item: _WorkItem) -> None:
         queue = self._pending[item.priority]
         try:
@@ -395,6 +410,16 @@ class ClassificationAdmissionCoordinator:
             for item in self._active.values()
             if item.priority == priority and item.admitted_at is not None
         ]
+        if not ages:
+            return None
+        return round(max(ages), 3)
+
+    def _oldest_pending_age_seconds(self, priority: WorkPriority) -> float | None:
+        pending = self._pending[priority]
+        if not pending:
+            return None
+        now = time.monotonic()
+        ages = [max(0.0, now - item.enqueued_at) for item in pending]
         if not ages:
             return None
         return round(max(ages), 3)
