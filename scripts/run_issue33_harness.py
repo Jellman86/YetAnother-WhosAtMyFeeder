@@ -283,6 +283,7 @@ def _normalize_issue33_evaluation(
                 reason.startswith("Frigate topic message growth below threshold ")
                 or reason.startswith("Frigate stream stalled while BirdNET remained active ")
                 or reason.startswith("BirdNET topic message growth below threshold ")
+                or reason.startswith("MQTT topic-liveness reconnect growth below threshold ")
             )
         ]
 

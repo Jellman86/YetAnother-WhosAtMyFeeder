@@ -510,6 +510,55 @@ def test_normalize_issue33_evaluation_accepts_induced_stall_when_reconnect_occur
     assert normalized["failure_reasons"] == []
 
 
+def test_normalize_issue33_evaluation_accepts_induced_stall_when_frigate_recovers_without_reconnect():
+    start = datetime(2026, 4, 5, 6, 21, 0, tzinfo=timezone.utc)
+    resume = start + timedelta(seconds=180)
+    samples = [
+        SimpleNamespace(
+            observed_at=start,
+            mqtt_frigate_age_seconds=0.3,
+            mqtt_frigate_count=100,
+            mqtt_birdnet_age_seconds=0.4,
+        ),
+        SimpleNamespace(
+            observed_at=start + timedelta(seconds=120),
+            mqtt_frigate_age_seconds=180.0,
+            mqtt_frigate_count=100,
+            mqtt_birdnet_age_seconds=0.5,
+        ),
+        SimpleNamespace(
+            observed_at=resume,
+            mqtt_frigate_age_seconds=0.6,
+            mqtt_frigate_count=140,
+            mqtt_birdnet_age_seconds=0.4,
+        ),
+    ]
+    evaluation = {
+        "passed": False,
+        "failure_reasons": [
+            "Frigate topic message growth below threshold (-163 < 1).",
+            "MQTT topic-liveness reconnect growth below threshold (0 < 1).",
+        ],
+        "topic_liveness_reconnects_delta": 0,
+    }
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        induced_frigate_stall=True,
+        samples=samples,
+        induced_frigate_stall_at=start.isoformat(),
+        resumed_frigate_at=resume.isoformat(),
+        birdnet_publish_stats={"published": 20, "publish_failures": 0, "connect_failures": 0},
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=30.0,
+    )
+
+    assert normalized["passed"] is True
+    assert normalized["failure_reasons"] == []
+    assert normalized["frigate_stall_effective"] is True
+    assert normalized["birdnet_stayed_fresh_during_stall"] is True
+
+
 def test_normalize_issue33_evaluation_keeps_failures_without_induced_stall():
     evaluation = {
         "passed": False,
