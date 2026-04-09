@@ -1218,6 +1218,13 @@
     "empty_title": "Noch keine Ereignisse",
     "empty_desc": "Starte ein Backfill oder warte auf neue Erkennungen.",
     "load_failed": "Ereignisse konnten nicht geladen werden",
+    "bulk_tag_partial": "{count} ausgewählte Ereignisse wurden nicht aktualisiert.",
+    "bulk_delete_confirm": "{count} Erkennungen löschen? Dies kann nicht rückgängig gemacht werden.",
+    "bulk_delete_success": "{count} Erkennungen gelöscht.",
+    "bulk_delete_missing": "{count} Erkennungen wurden nicht gefunden.",
+    "bulk_delete_failed": "Löschen fehlgeschlagen: {message}",
+    "bulk_reclassify_success": "{count} Erkennungen zur Videoanalyse eingereiht.",
+    "bulk_reclassify_partial": "{queued} eingereiht; {failed} konnten nicht eingereiht werden.",
     "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss",
     "timeline_keyboard_hint": "Timeline-Tastatur: [ vorheriger Tag, ] nächster Tag, 0 zurücksetzen"
   },

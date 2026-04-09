@@ -837,7 +837,8 @@
             );
             if (result.failed_count > 0 || result.missing_count > 0) {
                 toastStore.warning(
-                    $_('notifications.reclassify_fallback', {
+                    $_('events.bulk_tag_partial', {
+                        values: { count: result.failed_count + result.missing_count },
                         default: `${result.failed_count + result.missing_count} selected events were not updated.`
                     })
                 );
@@ -853,22 +854,34 @@
     async function handleBulkDelete() {
         if (selectedEventIds.length === 0) return;
         const count = selectedEventIds.length;
-        if (!window.confirm(`Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+        if (!window.confirm($_('events.bulk_delete_confirm', {
+            values: { count },
+            default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
+        }))) return;
         bulkDeleting = true;
         const ids = [...selectedEventIds];
         try {
             const result = await bulkDeleteDetections(ids);
             if (result.deleted_count > 0) {
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
-                toastStore.success(`Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`);
+                toastStore.success($_('events.bulk_delete_success', {
+                    values: { count: result.deleted_count },
+                    default: `Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`
+                }));
             }
             if (result.missing_count > 0) {
-                toastStore.warning(`${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`);
+                toastStore.warning($_('events.bulk_delete_missing', {
+                    values: { count: result.missing_count },
+                    default: `${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`
+                }));
             }
             selectedEventIds = [];
             await refreshEventMetadata(true, false);
         } catch (e: any) {
-            toastStore.error(`Delete failed: ${e?.message || 'Unknown error'}`);
+            toastStore.error($_('events.bulk_delete_failed', {
+                values: { message: e?.message || 'Unknown error' },
+                default: `Delete failed: ${e?.message || 'Unknown error'}`
+            }));
         } finally {
             bulkDeleting = false;
         }
@@ -891,9 +904,15 @@
             }
             selectedEventIds = [];
             if (failed === 0) {
-                toastStore.success(`Queued ${queued} detection${queued === 1 ? '' : 's'} for video analysis`);
+                toastStore.success($_('events.bulk_reclassify_success', {
+                    values: { count: queued },
+                    default: `Queued ${queued} detection${queued === 1 ? '' : 's'} for video analysis`
+                }));
             } else {
-                toastStore.warning(`Queued ${queued}, failed to queue ${failed}`);
+                toastStore.warning($_('events.bulk_reclassify_partial', {
+                    values: { queued, failed },
+                    default: `Queued ${queued}, failed to queue ${failed}`
+                }));
             }
         } finally {
             bulkReclassifying = false;

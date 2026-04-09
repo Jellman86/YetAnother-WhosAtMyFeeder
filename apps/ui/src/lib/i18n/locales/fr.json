@@ -1218,6 +1218,13 @@
     "empty_title": "Aucun événement pour le moment",
     "empty_desc": "Lancez un backfill ou attendez de nouvelles détections.",
     "load_failed": "Échec du chargement des événements",
+    "bulk_tag_partial": "{count} événements sélectionnés n’ont pas été mis à jour.",
+    "bulk_delete_confirm": "Supprimer {count} détections ? Cette action est irréversible.",
+    "bulk_delete_success": "{count} détections supprimées.",
+    "bulk_delete_missing": "{count} détections sont introuvables.",
+    "bulk_delete_failed": "Échec de la suppression : {message}",
+    "bulk_reclassify_success": "{count} détections mises en file pour l’analyse vidéo.",
+    "bulk_reclassify_partial": "{queued} mises en file ; échec pour {failed}.",
     "classification_legend": "Sources de classification : Manuel, Vidéo, Instantané",
     "timeline_keyboard_hint": "Clavier de la chronologie : [ jour précédent, ] jour suivant, 0 réinitialiser"
   },

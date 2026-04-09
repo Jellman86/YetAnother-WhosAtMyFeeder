@@ -1226,6 +1226,13 @@
     "empty_title": "Nenhum evento ainda",
     "empty_desc": "Faça backfill ou aguarde novas detecções para vê-las aqui.",
     "load_failed": "Falha ao carregar eventos",
+    "bulk_tag_partial": "{count} eventos selecionados não foram atualizados.",
+    "bulk_delete_confirm": "Excluir {count} detecções? Esta ação não pode ser desfeita.",
+    "bulk_delete_success": "{count} detecções excluídas.",
+    "bulk_delete_missing": "{count} detecções não foram encontradas.",
+    "bulk_delete_failed": "Falha ao excluir: {message}",
+    "bulk_reclassify_success": "{count} detecções enfileiradas para análise de vídeo.",
+    "bulk_reclassify_partial": "{queued} enfileiradas; falha ao enfileirar {failed}.",
     "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo",
     "timeline_keyboard_hint": "Teclado da linha do tempo: [ dia anterior, ] próximo dia, 0 redefinir"
   },

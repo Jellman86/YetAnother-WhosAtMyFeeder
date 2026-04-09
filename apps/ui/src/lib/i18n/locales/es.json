@@ -1218,6 +1218,13 @@
     "empty_title": "Sin eventos todavía",
     "empty_desc": "Ejecuta un backfill o espera nuevas detecciones.",
     "load_failed": "Error al cargar los eventos",
+    "bulk_tag_partial": "{count} eventos seleccionados no se actualizaron.",
+    "bulk_delete_confirm": "¿Eliminar {count} detecciones? Esta acción no se puede deshacer.",
+    "bulk_delete_success": "Se eliminaron {count} detecciones.",
+    "bulk_delete_missing": "No se encontraron {count} detecciones.",
+    "bulk_delete_failed": "Error al eliminar: {message}",
+    "bulk_reclassify_success": "Se pusieron en cola {count} detecciones para análisis de video.",
+    "bulk_reclassify_partial": "En cola: {queued}; no se pudieron poner en cola: {failed}.",
     "classification_legend": "Fuentes de clasificación: Manual, Vídeo, Instantánea",
     "timeline_keyboard_hint": "Teclado de línea de tiempo: [ día anterior, ] día siguiente, 0 restablecer"
   },

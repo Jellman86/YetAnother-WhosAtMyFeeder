@@ -1218,6 +1218,13 @@
     "empty_title": "イベントはまだありません",
     "empty_desc": "バックフィルを実行するか、新しい検出を待ってください。",
     "load_failed": "イベントの読み込みに失敗しました",
+    "bulk_tag_partial": "選択したイベント {count} 件は更新されませんでした。",
+    "bulk_delete_confirm": "{count} 件の検出を削除しますか？ この操作は元に戻せません。",
+    "bulk_delete_success": "{count} 件の検出を削除しました。",
+    "bulk_delete_missing": "{count} 件の検出が見つかりませんでした。",
+    "bulk_delete_failed": "削除に失敗しました: {message}",
+    "bulk_reclassify_success": "{count} 件の検出を動画解析キューに追加しました。",
+    "bulk_reclassify_partial": "{queued} 件を追加し、{failed} 件は追加できませんでした。",
     "classification_legend": "分類ソース: 手動 / 動画 / スナップショット",
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット"
   },

@@ -1218,6 +1218,13 @@
     "empty_title": "暂无事件",
     "empty_desc": "运行回填或等待新的检测。",
     "load_failed": "加载事件失败",
+    "bulk_tag_partial": "{count} 个已选事件未能更新。",
+    "bulk_delete_confirm": "删除 {count} 条检测？此操作无法撤销。",
+    "bulk_delete_success": "已删除 {count} 条检测。",
+    "bulk_delete_missing": "未找到 {count} 条检测。",
+    "bulk_delete_failed": "删除失败：{message}",
+    "bulk_reclassify_success": "已将 {count} 条检测加入视频分析队列。",
+    "bulk_reclassify_partial": "已加入队列 {queued} 条；{failed} 条加入失败。",
     "classification_legend": "分类来源：手动、视频、快照",
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置"
   },

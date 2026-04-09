@@ -1226,6 +1226,13 @@
     "empty_title": "Nessun evento ancora",
     "empty_desc": "Esegui backfill o attendi nuovi rilevamenti per vederli qui.",
     "load_failed": "Caricamento eventi fallito",
+    "bulk_tag_partial": "{count} eventi selezionati non sono stati aggiornati.",
+    "bulk_delete_confirm": "Eliminare {count} rilevamenti? Questa azione non può essere annullata.",
+    "bulk_delete_success": "Eliminati {count} rilevamenti.",
+    "bulk_delete_missing": "{count} rilevamenti non trovati.",
+    "bulk_delete_failed": "Eliminazione non riuscita: {message}",
+    "bulk_reclassify_success": "Accodati {count} rilevamenti per l’analisi video.",
+    "bulk_reclassify_partial": "Accodati {queued}; impossibile accodarne {failed}.",
     "classification_legend": "Fonti di classificazione: Manuale, Video, Istantanea",
     "timeline_keyboard_hint": "Tastiera timeline: [ giorno precedente, ] giorno successivo, 0 reimposta"
   },

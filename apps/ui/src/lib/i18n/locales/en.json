@@ -1226,6 +1226,13 @@
     "empty_title": "No events yet",
     "empty_desc": "Backfill or wait for new detections to see them here.",
     "load_failed": "Failed to load events",
+    "bulk_tag_partial": "{count} selected events were not updated.",
+    "bulk_delete_confirm": "Delete {count} detections? This cannot be undone.",
+    "bulk_delete_success": "Deleted {count} detections.",
+    "bulk_delete_missing": "{count} detections were not found.",
+    "bulk_delete_failed": "Delete failed: {message}",
+    "bulk_reclassify_success": "Queued {count} detections for video analysis.",
+    "bulk_reclassify_partial": "Queued {queued}; failed to queue {failed}.",
     "classification_legend": "Classification sources: Manual, Video, Snapshot",
     "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
   },
