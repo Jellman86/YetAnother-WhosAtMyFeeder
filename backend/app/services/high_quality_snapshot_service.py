@@ -23,6 +23,8 @@ from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
+HQ_HINT_CROP_EXPAND_RATIO = 0.24
+
 
 class HighQualitySnapshotService:
     """Best-effort background replacement of cached snapshots from event clips."""
@@ -570,12 +572,16 @@ class HighQualitySnapshotService:
         height = bottom - top
         if width <= 0 or height <= 0:
             return None
-        expand_ratio = 0.12
+        expand_ratio = HQ_HINT_CROP_EXPAND_RATIO
         min_crop_size = 96
         try:
-            expand_ratio = max(0.0, float(getattr(bird_crop_service, "expand_ratio", expand_ratio)))
+            raw_expand_ratio = getattr(bird_crop_service, "hint_expand_ratio", None)
+            if isinstance(raw_expand_ratio, bool):
+                raw_expand_ratio = None
+            if isinstance(raw_expand_ratio, (int, float, str)):
+                expand_ratio = max(0.0, float(raw_expand_ratio))
         except Exception:
-            expand_ratio = 0.12
+            expand_ratio = HQ_HINT_CROP_EXPAND_RATIO
         try:
             min_crop_size = max(1, int(getattr(bird_crop_service, "min_crop_size", min_crop_size)))
         except Exception:

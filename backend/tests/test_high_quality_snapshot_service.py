@@ -68,6 +68,14 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
     assert service._extract_crop_event_hints(None) is None
 
 
+def test_expand_hint_box_keeps_more_context_around_frigate_box():
+    service = hq_module.HighQualitySnapshotService()
+
+    expanded = service._expand_hint_box((50, 50, 150, 150), (300, 300))
+
+    assert expanded == (26, 26, 174, 174)
+
+
 def test_candidate_frame_indices_prefers_event_path_timing():
     service = hq_module.HighQualitySnapshotService()
 
@@ -241,7 +249,7 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     cached = await cache_service.get_snapshot("evt_scheduled_hint")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (30, 20)
+        assert img.size == (44, 30)
 
 
 @pytest.mark.asyncio
@@ -280,7 +288,7 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
     cached = await cache_service.get_snapshot("evt_hint_crop")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (30, 20)
+        assert img.size == (44, 30)
     status = hq_module.high_quality_snapshot_service.get_status()
     assert status["outcomes"]["bird_crop_replaced"] == 1
     assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "bird_crop_replaced"}
