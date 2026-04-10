@@ -702,6 +702,8 @@
       "batch_analysis_recent_failures": "Échecs récents",
       "cache_high_quality_event_snapshots": "Instantanés HQ des événements",
       "cache_high_quality_event_snapshots_help": "Remplace plus tard les instantanés Frigate par une image du clip principal.",
+      "cache_high_quality_event_snapshot_bird_crop": "Recadrages HQ d'oiseaux",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Utilise le détecteur de recadrage d'oiseaux sur les images HQ. Revient à l'image HQ complète si aucun recadrage n'est trouvé.",
       "batch_analysis_complete": "Analyse par lot terminée"
     },
     "security": {

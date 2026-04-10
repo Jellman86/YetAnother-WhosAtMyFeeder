@@ -702,6 +702,8 @@
       "batch_analysis_recent_failures": "最近失败",
       "cache_high_quality_event_snapshots": "HQ 事件快照",
       "cache_high_quality_event_snapshots_help": "稍后用主码流剪辑中的一帧替换 Frigate 快照。",
+      "cache_high_quality_event_snapshot_bird_crop": "HQ 鸟类裁剪快照",
+      "cache_high_quality_event_snapshot_bird_crop_help": "对 HQ 帧使用鸟类裁剪检测器。若未找到裁剪，则回退到完整 HQ 帧。",
       "batch_analysis_complete": "批量分析已完成"
     },
     "security": {

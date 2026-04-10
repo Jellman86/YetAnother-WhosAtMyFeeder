@@ -710,6 +710,8 @@
       "batch_analysis_recent_failures": "Недавние ошибки",
       "cache_high_quality_event_snapshots": "HQ-снимки событий",
       "cache_high_quality_event_snapshots_help": "Позже заменяет снимки Frigate кадром из клипа основного потока.",
+      "cache_high_quality_event_snapshot_bird_crop": "HQ-кадры с обрезкой птицы",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Использует детектор обрезки птицы на HQ-кадрах. Если обрезка не найдена, используется полный HQ-кадр.",
       "batch_analysis_complete": "Пакетный анализ завершён"
     },
     "security": {

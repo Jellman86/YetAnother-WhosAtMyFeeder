@@ -19,6 +19,7 @@
         cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
+        cacheHighQualityEventSnapshotBirdCrop = $bindable(false),
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
         cacheStats,
         cleaningCache,
@@ -71,6 +72,7 @@
         cacheSnapshots: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
+        cacheHighQualityEventSnapshotBirdCrop: boolean;
         cacheHighQualityEventSnapshotJpegQuality: number;
         cacheStats: CacheStats | null;
         cleaningCache: boolean;
@@ -334,7 +336,10 @@
                             <p class="text-xs font-black uppercase tracking-widest">{$_('settings.data.cache_clips')}</p>
                         </button>
                         <button
-                            onclick={() => cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots}
+                            onclick={() => {
+                                cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots;
+                                if (!cacheHighQualityEventSnapshots) cacheHighQualityEventSnapshotBirdCrop = false;
+                            }}
                             aria-label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Upgrade event snapshots from clips' })}
                             class="p-4 rounded-2xl border-2 transition-all text-center {cacheHighQualityEventSnapshots ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
                         >
@@ -346,6 +351,18 @@
                     </div>
                     {#if cacheHighQualityEventSnapshots}
                         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 space-y-3">
+                            <button
+                                onclick={() => cacheHighQualityEventSnapshotBirdCrop = !cacheHighQualityEventSnapshotBirdCrop}
+                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
+                                class="w-full p-4 rounded-2xl border-2 transition-all text-left {cacheHighQualityEventSnapshotBirdCrop ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-500 dark:text-slate-400'}"
+                            >
+                                <p class="text-xs font-black uppercase tracking-widest">
+                                    {$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
+                                </p>
+                                <p class="mt-2 text-[10px] font-bold normal-case tracking-normal text-slate-500 dark:text-slate-400">
+                                    {$_('settings.data.cache_high_quality_event_snapshot_bird_crop_help', { default: 'Use the bird crop detector on HQ frames. Falls back to the full HQ frame if no crop is found.' })}
+                                </p>
+                            </button>
                             <div class="flex items-center justify-between gap-4">
                                 <div>
                                     <p class="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">

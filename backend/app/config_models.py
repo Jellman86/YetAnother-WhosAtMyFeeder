@@ -366,6 +366,10 @@ class MediaCacheSettings(BaseModel):
         default=False,
         description="Asynchronously replace cached event snapshots with a frame derived from the Frigate clip",
     )
+    high_quality_event_snapshot_bird_crop: bool = Field(
+        default=False,
+        description="Run the bird crop detector on derived high-quality event snapshots before caching",
+    )
     high_quality_event_snapshot_jpeg_quality: int = Field(
         default=95,
         ge=70,

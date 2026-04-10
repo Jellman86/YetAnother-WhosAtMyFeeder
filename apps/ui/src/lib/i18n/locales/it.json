@@ -710,6 +710,8 @@
       "batch_analysis_recent_failures": "Errori recenti",
       "cache_high_quality_event_snapshots": "Snapshot HQ degli eventi",
       "cache_high_quality_event_snapshots_help": "Sostituisce in seguito gli snapshot di Frigate con un fotogramma del clip del flusso principale.",
+      "cache_high_quality_event_snapshot_bird_crop": "Ritagli HQ degli uccelli",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Usa il rilevatore di ritaglio degli uccelli sui fotogrammi HQ. Se non trova un ritaglio, usa il fotogramma HQ completo.",
       "batch_analysis_complete": "Analisi batch completata"
     },
     "security": {

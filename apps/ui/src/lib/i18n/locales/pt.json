@@ -710,6 +710,8 @@
       "batch_analysis_recent_failures": "Falhas recentes",
       "cache_high_quality_event_snapshots": "Snapshots HQ de eventos",
       "cache_high_quality_event_snapshots_help": "Substitui mais tarde os snapshots do Frigate por um quadro do clipe do fluxo principal.",
+      "cache_high_quality_event_snapshot_bird_crop": "Recortes HQ de aves",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Usa o detector de recorte de aves em quadros HQ. Se não encontrar recorte, volta ao quadro HQ completo.",
       "batch_analysis_complete": "Análise em lote concluída"
     },
     "security": {

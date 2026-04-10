@@ -5,14 +5,17 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
+from io import BytesIO
 from collections import Counter, deque
 from pathlib import Path
 from typing import Optional
 
 import cv2
 import structlog
+from PIL import Image
 
 from app.config import settings
+from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
 from app.utils.tasks import create_background_task
@@ -89,6 +92,7 @@ class HighQualitySnapshotService:
         except Exception as e:
             log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
             return self._record_outcome(event_id, "frame_extract_failed")
+        image_bytes = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes)
 
         replaced = await media_cache.replace_snapshot(event_id, image_bytes)
         if not replaced:
@@ -143,6 +147,7 @@ class HighQualitySnapshotService:
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
+            image_bytes = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes)
 
             replaced = await media_cache.replace_snapshot(event_id, image_bytes)
             if not replaced:
@@ -342,6 +347,46 @@ class HighQualitySnapshotService:
                 os.unlink(tmp_path)
             except FileNotFoundError:
                 pass
+
+    def _maybe_crop_snapshot_bytes(self, event_id: str, image_bytes: bytes) -> bytes:
+        """Optionally run the crop detector against the HQ frame, falling back to the frame."""
+        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+            return image_bytes
+
+        try:
+            with Image.open(BytesIO(image_bytes)) as img:
+                source_image = img.convert("RGB")
+        except Exception as e:
+            log.warning("High-quality bird crop source decode failed", event_id=event_id, error=str(e))
+            return image_bytes
+
+        try:
+            crop_result = bird_crop_service.generate_crop(source_image)
+        except Exception as e:
+            log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
+            return image_bytes
+
+        crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
+        if not isinstance(crop_image, Image.Image):
+            log.debug(
+                "High-quality bird crop unavailable; keeping full HQ frame",
+                event_id=event_id,
+                reason=(crop_result or {}).get("reason") if isinstance(crop_result, dict) else "invalid_crop_result",
+            )
+            return image_bytes
+
+        try:
+            output = BytesIO()
+            crop_image.convert("RGB").save(
+                output,
+                format="JPEG",
+                quality=int(settings.media_cache.high_quality_event_snapshot_jpeg_quality),
+                optimize=True,
+            )
+            return output.getvalue()
+        except Exception as e:
+            log.warning("High-quality bird crop encode failed", event_id=event_id, error=str(e))
+            return image_bytes
 
     def _extract_snapshot_from_clip_path(self, clip_path: Path) -> bytes:
         cap = cv2.VideoCapture(str(clip_path))

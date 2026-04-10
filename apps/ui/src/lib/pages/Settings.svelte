@@ -1678,6 +1678,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
             { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
+            { key: 'cacheHighQualityEventSnapshotBirdCrop', val: cacheHighQualityEventSnapshotBirdCrop, store: s.media_cache_high_quality_event_snapshot_bird_crop ?? false },
             { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
@@ -1821,6 +1822,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheSnapshots = $state(true);
     let cacheClips = $state(false);
     let cacheHighQualityEventSnapshots = $state(false);
+    let cacheHighQualityEventSnapshotBirdCrop = $state(false);
     let cacheHighQualityEventSnapshotJpegQuality = $state(95);
     let cacheRetentionDays = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
@@ -2617,6 +2619,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             cacheSnapshots = settings.media_cache_snapshots ?? true;
             cacheClips = settings.media_cache_clips ?? false;
             cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
+            cacheHighQualityEventSnapshotBirdCrop = settings.media_cache_high_quality_event_snapshot_bird_crop ?? false;
             cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
             // Location settings
@@ -2923,6 +2926,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
                 media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
+                media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots && cacheHighQualityEventSnapshotBirdCrop,
                 media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
                 media_cache_retention_days: cacheRetentionDays,
                 location_latitude: locationLat,
@@ -3516,6 +3520,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheHighQualityEventSnapshots
+                    bind:cacheHighQualityEventSnapshotBirdCrop
                     bind:cacheHighQualityEventSnapshotJpegQuality
                     bind:cacheRetentionDays
                     bind:backfillDateRange

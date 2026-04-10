@@ -269,6 +269,8 @@
       "cache_cleanup_error": "Cache cleanup failed",
       "cache_high_quality_event_snapshots": "HQ Event Snapshots",
       "cache_high_quality_event_snapshots_help": "Replace Frigate snapshots later with a frame from the main-stream clip.",
+      "cache_high_quality_event_snapshot_bird_crop": "HQ Bird Crop Snapshots",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Use the bird crop detector on HQ frames. Falls back to the full HQ frame if no crop is found.",
       "backfill_error": "Backfill failed",
       "weather_backfill_error": "Weather backfill failed",
       "analysis_error": "Analysis failed",

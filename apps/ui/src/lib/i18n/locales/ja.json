@@ -702,6 +702,8 @@
       "batch_analysis_recent_failures": "最近の失敗",
       "cache_high_quality_event_snapshots": "HQ イベントスナップショット",
       "cache_high_quality_event_snapshots_help": "後で Frigate のスナップショットをメインストリームクリップのフレームに置き換えます。",
+      "cache_high_quality_event_snapshot_bird_crop": "HQ 鳥クロップスナップショット",
+      "cache_high_quality_event_snapshot_bird_crop_help": "HQ フレームに鳥クロップ検出器を使用します。クロップが見つからない場合は完全な HQ フレームに戻します。",
       "batch_analysis_complete": "一括分析が完了しました"
     },
     "security": {

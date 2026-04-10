@@ -368,6 +368,10 @@ class SettingsUpdate(BaseModel):
         False,
         description="Replace cached event snapshots with a frame derived from the Frigate clip when available",
     )
+    media_cache_high_quality_event_snapshot_bird_crop: bool = Field(
+        False,
+        description="Run the bird crop detector on high-quality event snapshots before caching",
+    )
     media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
         95,
         ge=70,
@@ -671,6 +675,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
         "media_cache_high_quality_event_snapshots": settings.media_cache.high_quality_event_snapshots,
+        "media_cache_high_quality_event_snapshot_bird_crop": settings.media_cache.high_quality_event_snapshot_bird_crop,
         "media_cache_high_quality_event_snapshot_jpeg_quality": settings.media_cache.high_quality_event_snapshot_jpeg_quality,
         "media_cache_retention_days": settings.media_cache.retention_days,
         # Location settings
@@ -941,6 +946,8 @@ async def update_settings(
         settings.media_cache.cache_clips = update.media_cache_clips
     if "media_cache_high_quality_event_snapshots" in fields_set:
         settings.media_cache.high_quality_event_snapshots = update.media_cache_high_quality_event_snapshots
+    if "media_cache_high_quality_event_snapshot_bird_crop" in fields_set:
+        settings.media_cache.high_quality_event_snapshot_bird_crop = update.media_cache_high_quality_event_snapshot_bird_crop
     if "media_cache_high_quality_event_snapshot_jpeg_quality" in fields_set:
         settings.media_cache.high_quality_event_snapshot_jpeg_quality = update.media_cache_high_quality_event_snapshot_jpeg_quality
     if "media_cache_retention_days" in fields_set:

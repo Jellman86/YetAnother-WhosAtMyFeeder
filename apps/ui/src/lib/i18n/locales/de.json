@@ -281,6 +281,8 @@
       "batch_analysis_recent_failures": "Jüngste Fehler",
       "cache_high_quality_event_snapshots": "HQ-Ereignis-Snapshots",
       "cache_high_quality_event_snapshots_help": "Frigate-Snapshots später durch einen Frame aus dem Hauptstream-Clip ersetzen.",
+      "cache_high_quality_event_snapshot_bird_crop": "HQ-Vogelzuschnitt-Snapshots",
+      "cache_high_quality_event_snapshot_bird_crop_help": "Verwendet den Vogel-Zuschnittsdetektor auf HQ-Frames. Fällt auf den vollständigen HQ-Frame zurück, wenn kein Zuschnitt gefunden wird.",
       "batch_analysis_complete": "Batch-Analyse abgeschlossen"
     },
     "security": {
