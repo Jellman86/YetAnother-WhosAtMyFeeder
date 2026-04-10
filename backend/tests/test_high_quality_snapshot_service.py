@@ -315,7 +315,8 @@ def test_maybe_crop_snapshot_bytes_prefers_model_crop_over_event_hint(monkeypatc
     assert g > r
 
 
-def test_maybe_crop_snapshot_bytes_keeps_full_frame_when_model_finds_no_crop(monkeypatch):
+def test_maybe_crop_snapshot_bytes_falls_back_to_hint_when_model_finds_no_crop(monkeypatch):
+    """When the model is installed but returns no_candidate, hints should be used as fallback."""
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
     monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
@@ -330,6 +331,28 @@ def test_maybe_crop_snapshot_bytes_keeps_full_frame_when_model_finds_no_crop(mon
         "evt_no_model_crop",
         frame_bytes,
         {"data": {"box": [5, 5, 20, 20]}},
+    )
+
+    assert crop_applied is True
+    fake_crop_service.generate_crop.assert_called_once()
+
+
+def test_maybe_crop_snapshot_bytes_keeps_full_frame_when_model_and_hints_both_fail(monkeypatch):
+    """When the model finds no crop AND no hint box is available, the full frame is kept."""
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.get_status.return_value = {"installed": True, "enabled_for_runtime": True}
+    fake_crop_service.generate_crop.return_value = {"crop_image": None, "reason": "no_candidate"}
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
+        "evt_no_model_no_hints",
+        frame_bytes,
+        None,
     )
 
     assert crop_applied is False

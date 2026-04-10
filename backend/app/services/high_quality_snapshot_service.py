@@ -470,8 +470,11 @@ class HighQualitySnapshotService:
 
         model_available = self._bird_crop_model_available()
         crop_result = self._crop_from_bird_model(source_image, event_id=event_id) if model_available else None
-        if not model_available:
-            crop_result = self._crop_from_event_hints(source_image, event_data)
+        if not self._has_crop_image(crop_result):
+            # Model unavailable, errored, or found no bird — try Frigate hint box as fallback.
+            hint_result = self._crop_from_event_hints(source_image, event_data)
+            if self._has_crop_image(hint_result):
+                crop_result = hint_result
 
         crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
         if not isinstance(crop_image, Image.Image):
