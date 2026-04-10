@@ -40,6 +40,7 @@ class HighQualitySnapshotService:
         self._deferred_ids: set[str] = set()
         self._deferred_order: deque[str] = deque()
         self._completed_ids: set[str] = set()
+        self._crop_event_hints: dict[str, dict[str, Any]] = {}
         self._pending_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._worker_tasks: list[asyncio.Task] = []
         self._scheduled_total = 0
@@ -58,13 +59,14 @@ class HighQualitySnapshotService:
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         )
 
-    def schedule_replacement(self, event_id: str) -> bool:
+    def schedule_replacement(self, event_id: str, event_data: Optional[dict[str, Any]] = None) -> bool:
         """Schedule background replacement if enabled and not already active."""
         if not self.enabled():
             self._disabled_requests += 1
             return False
 
         self._cleanup_completed_workers()
+        self._store_crop_event_hints(event_id, event_data)
         if event_id in self._active_ids or event_id in self._queued_ids or event_id in self._deferred_ids:
             self._duplicate_requests += 1
             return False
@@ -80,8 +82,10 @@ class HighQualitySnapshotService:
     async def process_event(self, event_id: str) -> str:
         """Fetch the clip, derive a frame, and atomically replace the cached snapshot."""
         if not self.enabled():
+            self._crop_event_hints.pop(event_id, None)
             return self._record_outcome(event_id, "disabled")
 
+        event_data = self._pop_crop_event_hints(event_id)
         clip_bytes, clip_error = await self._wait_for_clip(event_id)
         if not clip_bytes:
             clip_bytes = await self._load_recording_clip_bytes(event_id)
@@ -93,7 +97,8 @@ class HighQualitySnapshotService:
         except Exception as e:
             log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
             return self._record_outcome(event_id, "frame_extract_failed")
-        event_data = await self._load_event_data_for_crop(event_id)
+        if event_data is None:
+            event_data = await self._load_event_data_for_crop(event_id)
         image_bytes, crop_applied = await asyncio.to_thread(
             self._maybe_crop_snapshot_bytes,
             event_id,
@@ -149,6 +154,7 @@ class HighQualitySnapshotService:
 
         self._cleanup_completed_workers()
         if event_id in self._active_ids:
+            self._crop_event_hints.pop(event_id, None)
             self._duplicate_requests += 1
             return self._record_outcome(event_id, "duplicate")
 
@@ -208,6 +214,7 @@ class HighQualitySnapshotService:
         self._deferred_ids.clear()
         self._deferred_order.clear()
         self._completed_ids.clear()
+        self._crop_event_hints.clear()
         self._pending_queue = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._queue_full_rejections = 0
         self._queue_full_deferrals = 0
@@ -235,11 +242,13 @@ class HighQualitySnapshotService:
             self._queued_ids.discard(event_id)
             if event_id in self._completed_ids:
                 self._completed_ids.discard(event_id)
+                self._crop_event_hints.pop(event_id, None)
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
                 queue.task_done()
                 continue
             if event_id in self._active_ids:
+                self._crop_event_hints.pop(event_id, None)
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
                 queue.task_done()
@@ -298,6 +307,7 @@ class HighQualitySnapshotService:
             "disabled_requests": self._disabled_requests,
             "queue_full_rejections": self._queue_full_rejections,
             "queue_full_deferrals": self._queue_full_deferrals,
+            "crop_hints": len(self._crop_event_hints),
             "outcomes": dict(self._outcomes),
             "last_result": self._last_result,
         }
@@ -322,10 +332,12 @@ class HighQualitySnapshotService:
             self._deferred_ids.discard(event_id)
             if event_id in self._completed_ids:
                 self._completed_ids.discard(event_id)
+                self._crop_event_hints.pop(event_id, None)
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
                 continue
             if event_id in self._active_ids or event_id in self._queued_ids:
+                self._crop_event_hints.pop(event_id, None)
                 self._duplicate_requests += 1
                 self._record_outcome(event_id, "duplicate")
                 continue
@@ -365,6 +377,27 @@ class HighQualitySnapshotService:
                 os.unlink(tmp_path)
             except FileNotFoundError:
                 pass
+
+    def _store_crop_event_hints(self, event_id: str, event_data: Optional[dict[str, Any]]) -> None:
+        hints = self._extract_crop_event_hints(event_data)
+        if hints:
+            self._crop_event_hints[event_id] = hints
+
+    def _pop_crop_event_hints(self, event_id: str) -> Optional[dict[str, Any]]:
+        return self._crop_event_hints.pop(event_id, None)
+
+    def _extract_crop_event_hints(self, event_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        if not isinstance(event_data, dict):
+            return None
+        raw_payload = event_data.get("data")
+        if not isinstance(raw_payload, dict):
+            return None
+        payload: dict[str, Any] = {}
+        for key in ("box", "region"):
+            raw_hint = raw_payload.get(key)
+            if isinstance(raw_hint, (list, tuple)) and len(raw_hint) == 4:
+                payload[key] = list(raw_hint)
+        return {"data": payload} if payload else None
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""

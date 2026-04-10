@@ -92,6 +92,7 @@ class EventData:
         self.received_at_ts: float = float(data.get('__received_at_ts') or time.time())
         self.sub_label: Optional[str] = normalize_sub_label(after.get('sub_label'))
         self.frigate_score: Optional[float] = after.get('top_score')
+        self.data: Dict[str, Any] = after.get('data') if isinstance(after.get('data'), dict) else {}
         self.is_false_positive: bool = after.get('false_positive', False)
         
         if self.frigate_score is None and 'data' in after:
@@ -1008,7 +1009,11 @@ class EventProcessor:
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
                 if settings.media_cache.high_quality_event_snapshots:
-                    high_quality_snapshot_service.schedule_replacement(event.frigate_event)
+                    event_payload = getattr(event, "data", {})
+                    high_quality_snapshot_service.schedule_replacement(
+                        event.frigate_event,
+                        event_data={"data": event_payload if isinstance(event_payload, dict) else {}},
+                    )
 
             # Trigger auto video classification
             if settings.classification.auto_video_classification:

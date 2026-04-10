@@ -274,7 +274,7 @@ class BackfillService:
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 cached_snapshot = await media_cache.cache_snapshot(frigate_event, snapshot_data)
                 if cached_snapshot and settings.media_cache.high_quality_event_snapshots:
-                    high_quality_snapshot_service.schedule_replacement(frigate_event)
+                    high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
             log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
             return 'new', None

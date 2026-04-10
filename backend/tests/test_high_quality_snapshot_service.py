@@ -36,6 +36,32 @@ def _make_cache_service(tmp_path, monkeypatch):
     return service
 
 
+def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
+    service = hq_module.HighQualitySnapshotService()
+
+    hints = service._extract_crop_event_hints(
+        {
+            "id": "evt",
+            "data": {
+                "box": (0.1, 0.2, 0.3, 0.4),
+                "region": ["10", "20", "30", "40"],
+                "score": 0.99,
+            },
+            "large_irrelevant_payload": "ignored",
+        }
+    )
+
+    assert hints == {
+        "data": {
+            "box": [0.1, 0.2, 0.3, 0.4],
+            "region": ["10", "20", "30", "40"],
+        }
+    }
+    assert service._extract_crop_event_hints({"data": {"box": [1, 2, 3]}}) is None
+    assert service._extract_crop_event_hints({"data": "bad"}) is None
+    assert service._extract_crop_event_hints(None) is None
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def reset_high_quality_snapshot_service_state():
     original_media_enabled = settings.media_cache.enabled
@@ -115,6 +141,55 @@ async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, 
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_replace") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_scheduled_hint", b"frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.expand_ratio = 0.0
+    fake_crop_service.min_crop_size = 1
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+    monkeypatch.setattr(
+        hq_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=({"data": {"box": [0, 0, 100, 80]}}, None)),
+    )
+
+    async def fake_wait_for_clip(event_id: str):
+        assert event_id == "evt_scheduled_hint"
+        return b"clip-bytes", None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", fake_wait_for_clip)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: frame_bytes,
+    )
+
+    queued = hq_module.high_quality_snapshot_service.schedule_replacement(
+        "evt_scheduled_hint",
+        event_data={"data": {"box": [20, 10, 30, 20]}},
+    )
+    worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
+    await asyncio.wait_for(hq_module.high_quality_snapshot_service.wait_for_idle(), timeout=1.0)
+    worker_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await worker_task
+
+    assert queued is True
+    hq_module.frigate_client.get_event_with_error.assert_not_awaited()
+    fake_crop_service.generate_crop.assert_not_called()
+    cached = await cache_service.get_snapshot("evt_scheduled_hint")
+    assert cached is not None
+    with Image.open(BytesIO(cached)) as img:
+        assert img.size == (30, 20)
 
 
 @pytest.mark.asyncio

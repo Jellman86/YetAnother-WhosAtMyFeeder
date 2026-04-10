@@ -174,13 +174,24 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
             "start_time": 1700000000,
             "top_score": 0.91,
             "sub_label": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
         }
     )
 
     assert status == "new"
     assert reason is None
     cache_snapshot.assert_awaited_once_with("evt-backfill-hq", snapshot_bytes)
-    schedule_replacement.assert_called_once_with("evt-backfill-hq")
+    schedule_replacement.assert_called_once_with(
+        "evt-backfill-hq",
+        event_data={
+            "id": "evt-backfill-hq",
+            "camera": "front",
+            "start_time": 1700000000,
+            "top_score": 0.91,
+            "sub_label": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        },
+    )
 
 
 @pytest.mark.asyncio

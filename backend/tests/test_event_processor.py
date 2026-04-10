@@ -308,6 +308,7 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         start_time_ts=1700000000,
         frigate_score=0.95,
         sub_label=None,
+        data={"box": [0.2, 0.3, 0.4, 0.5]},
         type="new",
         detection_dt=None,
     )
@@ -343,7 +344,10 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         )
 
     mock_cache.cache_snapshot.assert_awaited_once_with("evt-hq-1", b"img")
-    mock_hq.schedule_replacement.assert_called_once_with("evt-hq-1")
+    mock_hq.schedule_replacement.assert_called_once_with(
+        "evt-hq-1",
+        event_data={"data": {"box": [0.2, 0.3, 0.4, 0.5]}},
+    )
 
 
 @pytest.mark.asyncio
