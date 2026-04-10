@@ -1,8 +1,11 @@
 import asyncio
+import sys
+from types import SimpleNamespace
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
+import numpy as np
 import pytest
 import pytest_asyncio
 from PIL import Image
@@ -73,7 +76,162 @@ def test_expand_hint_box_keeps_more_context_around_frigate_box():
 
     expanded = service._expand_hint_box((50, 50, 150, 150), (300, 300))
 
-    assert expanded == (26, 26, 174, 174)
+    assert expanded == (14, 14, 186, 186)
+
+
+def test_extract_snapshot_from_clip_path_prefers_frame_with_model_confirmed_crop(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+    monkeypatch.setattr(service, "_candidate_frame_indices", lambda **_kwargs: [0, 1])
+
+    red_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    red_frame[:, :] = (0, 0, 255)
+    green_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    green_frame[:, :] = (0, 255, 0)
+
+    class FakeCapture:
+        def __init__(self):
+            self.index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == hq_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 2
+            if prop == hq_module.cv2.CAP_PROP_FPS:
+                return 1
+            return 0
+
+        def set(self, _prop, value):
+            self.index = int(value)
+
+        def read(self):
+            return True, [red_frame, green_frame][self.index]
+
+        def release(self):
+            pass
+
+    fake_crop_service = MagicMock()
+
+    def generate_crop(image):
+        r, g, _b = image.getpixel((0, 0))
+        if g > r:
+            return {
+                "crop_image": image.crop((4, 4, 28, 28)),
+                "box": (4, 4, 28, 28),
+                "confidence": 0.91,
+                "reason": "selected",
+            }
+        return {"crop_image": None, "reason": "no_candidate", "confidence": None}
+
+    fake_crop_service.generate_crop.side_effect = generate_crop
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+    monkeypatch.setattr(hq_module.cv2, "VideoCapture", lambda _path: FakeCapture())
+
+    result = service._extract_snapshot_from_clip_path(Path("/tmp/demo.mp4"))
+
+    with Image.open(BytesIO(result)) as img:
+        r, g, _b = img.convert("RGB").getpixel((0, 0))
+    assert g > r
+    assert fake_crop_service.generate_crop.call_count == 2
+
+
+def test_extract_snapshot_from_clip_path_skips_crop_scoring_when_model_missing(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+    monkeypatch.setattr(service, "_candidate_frame_indices", lambda **_kwargs: [0, 1])
+
+    red_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    red_frame[:, :] = (0, 0, 255)
+    green_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    green_frame[:, :] = (0, 255, 0)
+
+    class FakeCapture:
+        def __init__(self):
+            self.index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == hq_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 2
+            if prop == hq_module.cv2.CAP_PROP_FPS:
+                return 1
+            return 0
+
+        def set(self, _prop, value):
+            self.index = int(value)
+
+        def read(self):
+            return True, [red_frame, green_frame][self.index]
+
+        def release(self):
+            pass
+
+    fake_crop_service = MagicMock()
+    fake_crop_service.get_status.return_value = {"installed": False}
+    fake_crop_service.generate_crop.side_effect = AssertionError("crop model should not be called")
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+    monkeypatch.setattr(hq_module.cv2, "VideoCapture", lambda _path: FakeCapture())
+
+    result = service._extract_snapshot_from_clip_path(Path("/tmp/demo.mp4"))
+
+    with Image.open(BytesIO(result)) as img:
+        r, g, _b = img.convert("RGB").getpixel((0, 0))
+    assert r > g
+    fake_crop_service.generate_crop.assert_not_called()
+
+
+def test_extract_snapshot_from_clip_path_skips_crop_scoring_under_pressure(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: False)
+    monkeypatch.setattr(service, "_candidate_frame_indices", lambda **_kwargs: [0, 1])
+
+    red_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    red_frame[:, :] = (0, 0, 255)
+    green_frame = np.zeros((40, 40, 3), dtype=np.uint8)
+    green_frame[:, :] = (0, 255, 0)
+
+    class FakeCapture:
+        def __init__(self):
+            self.index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == hq_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 2
+            if prop == hq_module.cv2.CAP_PROP_FPS:
+                return 1
+            return 0
+
+        def set(self, _prop, value):
+            self.index = int(value)
+
+        def read(self):
+            return True, [red_frame, green_frame][self.index]
+
+        def release(self):
+            pass
+
+    fake_crop_service = MagicMock()
+    fake_crop_service.get_status.return_value = {"installed": True, "enabled_for_runtime": True}
+    fake_crop_service.generate_crop.side_effect = AssertionError("crop model should not run under pressure")
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+    monkeypatch.setattr(hq_module.cv2, "VideoCapture", lambda _path: FakeCapture())
+
+    result = service._extract_snapshot_from_clip_path(Path("/tmp/demo.mp4"))
+
+    with Image.open(BytesIO(result)) as img:
+        r, g, _b = img.convert("RGB").getpixel((0, 0))
+    assert r > g
+    fake_crop_service.generate_crop.assert_not_called()
 
 
 def test_candidate_frame_indices_prefers_event_path_timing():
@@ -120,6 +278,135 @@ def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
     )
 
     assert indices[:3] == [24, 23, 25]
+
+
+def test_maybe_crop_snapshot_bytes_prefers_model_crop_over_event_hint(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+
+    source = Image.new("RGB", (100, 80), color="blue")
+    source.paste(Image.new("RGB", (20, 20), color="green"), (65, 30))
+    buffer = BytesIO()
+    source.save(buffer, format="JPEG", quality=95)
+
+    fake_crop_service = MagicMock()
+    fake_crop_service.min_crop_size = 1
+    fake_crop_service.get_status.return_value = {"installed": True, "enabled_for_runtime": True}
+    fake_crop_service.generate_crop.return_value = {
+        "crop_image": source.crop((65, 30, 85, 50)),
+        "box": (65, 30, 85, 50),
+        "confidence": 0.88,
+        "reason": "selected",
+    }
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
+        "evt_model_crop",
+        buffer.getvalue(),
+        {"data": {"box": [5, 5, 20, 20]}},
+    )
+
+    assert crop_applied is True
+    fake_crop_service.generate_crop.assert_called_once()
+    with Image.open(BytesIO(cropped_bytes)) as img:
+        assert img.size[0] > 20
+        r, g, _b = img.convert("RGB").getpixel((img.size[0] // 2, img.size[1] // 2))
+    assert g > r
+
+
+def test_maybe_crop_snapshot_bytes_keeps_full_frame_when_model_finds_no_crop(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.get_status.return_value = {"installed": True, "enabled_for_runtime": True}
+    fake_crop_service.generate_crop.return_value = {"crop_image": None, "reason": "no_candidate"}
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
+        "evt_no_model_crop",
+        frame_bytes,
+        {"data": {"box": [5, 5, 20, 20]}},
+    )
+
+    assert crop_applied is False
+    assert cropped_bytes == frame_bytes
+    fake_crop_service.generate_crop.assert_called_once()
+
+
+def test_maybe_crop_snapshot_bytes_keeps_full_frame_under_pressure(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: False)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.get_status.return_value = {"installed": True, "enabled_for_runtime": True}
+    fake_crop_service.generate_crop.side_effect = AssertionError("crop model should not run under pressure")
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
+        "evt_pressure",
+        frame_bytes,
+        {"data": {"box": [5, 5, 20, 20]}},
+    )
+
+    assert crop_applied is False
+    assert cropped_bytes == frame_bytes
+    fake_crop_service.generate_crop.assert_not_called()
+
+
+def test_background_crop_work_is_blocked_by_mqtt_pressure(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+
+    from app.services.mqtt_service import mqtt_service
+
+    monkeypatch.setattr(
+        mqtt_service,
+        "get_status",
+        lambda: {
+            "pressure_level": "elevated",
+            "under_pressure": False,
+            "backlog_wait_active": False,
+            "recent_handler_slot_wait_exhaustion": False,
+        },
+    )
+    monkeypatch.setattr(service, "_classifier_pressure_allows_background_crop", lambda: True)
+
+    assert service._background_crop_work_allowed() is False
+
+
+def test_background_crop_work_is_blocked_by_classifier_pressure(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+
+    from app.services.mqtt_service import mqtt_service
+
+    fake_classifier = MagicMock()
+    fake_classifier.get_admission_status.return_value = {
+        "live": {"queued": 0, "running": 1},
+        "background": {"queued": 0, "running": 0},
+        "background_throttled": False,
+    }
+    monkeypatch.setitem(
+        sys.modules,
+        "app.services.classifier_service",
+        SimpleNamespace(_classifier_instance=fake_classifier),
+    )
+    monkeypatch.setattr(
+        mqtt_service,
+        "get_status",
+        lambda: {
+            "pressure_level": "normal",
+            "under_pressure": False,
+            "backlog_wait_active": False,
+            "recent_handler_slot_wait_exhaustion": False,
+        },
+    )
+
+    assert service._background_crop_work_allowed() is False
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -214,6 +501,7 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     fake_crop_service = MagicMock()
     fake_crop_service.expand_ratio = 0.0
     fake_crop_service.min_crop_size = 1
+    fake_crop_service.get_status.return_value = {"installed": False}
     monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
     monkeypatch.setattr(
         hq_module.frigate_client,
@@ -249,7 +537,7 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     cached = await cache_service.get_snapshot("evt_scheduled_hint")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (44, 30)
+        assert img.size == (52, 34)
 
 
 @pytest.mark.asyncio
@@ -263,6 +551,7 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
     fake_crop_service = MagicMock()
     fake_crop_service.expand_ratio = 0.0
     fake_crop_service.min_crop_size = 1
+    fake_crop_service.get_status.return_value = {"installed": False}
     monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
     monkeypatch.setattr(
         hq_module.frigate_client,
@@ -288,7 +577,7 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
     cached = await cache_service.get_snapshot("evt_hint_crop")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (44, 30)
+        assert img.size == (52, 34)
     status = hq_module.high_quality_snapshot_service.get_status()
     assert status["outcomes"]["bird_crop_replaced"] == 1
     assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "bird_crop_replaced"}
@@ -335,7 +624,7 @@ async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_ena
     cached = await cache_service.get_snapshot("evt_crop")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (18, 20)
+        assert img.size == (23, 27)
 
 
 @pytest.mark.asyncio

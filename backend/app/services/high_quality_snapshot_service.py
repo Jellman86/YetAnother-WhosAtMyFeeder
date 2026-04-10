@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import math
 import os
+import sys
 import tempfile
 from io import BytesIO
 from collections import Counter, deque
@@ -23,7 +24,9 @@ from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
-HQ_HINT_CROP_EXPAND_RATIO = 0.24
+HQ_HINT_CROP_EXPAND_RATIO = 0.36
+HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
+HQ_MAX_CROP_SCORING_FRAMES = 3
 
 
 class HighQualitySnapshotService:
@@ -454,6 +457,9 @@ class HighQualitySnapshotService:
         """Optionally run the crop detector against the HQ frame, falling back to the frame."""
         if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
             return image_bytes, False
+        if not self._background_crop_work_allowed():
+            log.debug("Skipping high-quality bird crop while classifier or MQTT pressure is active", event_id=event_id)
+            return image_bytes, False
 
         try:
             with Image.open(BytesIO(image_bytes)) as img:
@@ -462,13 +468,10 @@ class HighQualitySnapshotService:
             log.warning("High-quality bird crop source decode failed", event_id=event_id, error=str(e))
             return image_bytes, False
 
-        crop_result = self._crop_from_event_hints(source_image, event_data)
-        if not crop_result:
-            try:
-                crop_result = bird_crop_service.generate_crop(source_image)
-            except Exception as e:
-                log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
-                return image_bytes, False
+        model_available = self._bird_crop_model_available()
+        crop_result = self._crop_from_bird_model(source_image, event_id=event_id) if model_available else None
+        if not model_available:
+            crop_result = self._crop_from_event_hints(source_image, event_data)
 
         crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
         if not isinstance(crop_image, Image.Image):
@@ -497,6 +500,62 @@ class HighQualitySnapshotService:
         except Exception as e:
             log.warning("High-quality bird crop encode failed", event_id=event_id, error=str(e))
             return image_bytes, False
+
+    def _crop_from_bird_model(self, image: Image.Image, *, event_id: Optional[str] = None) -> Optional[dict[str, Any]]:
+        try:
+            crop_result = bird_crop_service.generate_crop(image)
+        except Exception as e:
+            log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
+            return None
+        if not self._has_crop_image(crop_result):
+            return crop_result if isinstance(crop_result, dict) else None
+        return self._expand_model_crop_context(image, crop_result)
+
+    @staticmethod
+    def _has_crop_image(crop_result: Any) -> bool:
+        return isinstance(crop_result, dict) and isinstance(crop_result.get("crop_image"), Image.Image)
+
+    def _expand_model_crop_context(self, image: Image.Image, crop_result: dict[str, Any]) -> dict[str, Any]:
+        box = self._normalize_crop_box(crop_result.get("box"), image.size)
+        if box is None:
+            return crop_result
+        expanded = self._expand_box_by_ratio(
+            box,
+            image.size,
+            expand_ratio=HQ_MODEL_CROP_EXTRA_EXPAND_RATIO,
+            min_crop_size=1,
+        )
+        if expanded is None or expanded == box:
+            return crop_result
+        updated = dict(crop_result)
+        updated["crop_image"] = image.crop(expanded)
+        updated["box"] = expanded
+        return updated
+
+    def _normalize_crop_box(
+        self,
+        raw_box: Any,
+        image_size: tuple[int, int],
+    ) -> Optional[tuple[int, int, int, int]]:
+        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            return None
+        try:
+            left = float(raw_box[0])
+            top = float(raw_box[1])
+            right = float(raw_box[2])
+            bottom = float(raw_box[3])
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in (left, top, right, bottom)):
+            return None
+        image_width, image_height = image_size
+        left_i = max(0, min(image_width, int(math.floor(left))))
+        top_i = max(0, min(image_height, int(math.floor(top))))
+        right_i = max(0, min(image_width, int(math.ceil(right))))
+        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
+        if right_i <= left_i or bottom_i <= top_i:
+            return None
+        return left_i, top_i, right_i, bottom_i
 
     def _crop_from_event_hints(
         self,
@@ -587,8 +646,29 @@ class HighQualitySnapshotService:
         except Exception:
             min_crop_size = 96
 
-        pad_x = int(round(width * expand_ratio))
-        pad_y = int(round(height * expand_ratio))
+        return self._expand_box_by_ratio(
+            box,
+            image_size,
+            expand_ratio=expand_ratio,
+            min_crop_size=min_crop_size,
+        )
+
+    def _expand_box_by_ratio(
+        self,
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+        *,
+        expand_ratio: float,
+        min_crop_size: int,
+    ) -> Optional[tuple[int, int, int, int]]:
+        left, top, right, bottom = box
+        width = right - left
+        height = bottom - top
+        if width <= 0 or height <= 0:
+            return None
+
+        pad_x = int(round(width * max(0.0, expand_ratio)))
+        pad_y = int(round(height * max(0.0, expand_ratio)))
         expanded_left = max(0, left - pad_x)
         expanded_top = max(0, top - pad_y)
         expanded_right = min(int(image_size[0]), right + pad_x)
@@ -738,8 +818,16 @@ class HighQualitySnapshotService:
                 fps=fps,
                 event_data=event_data,
             )
+            score_crops = bool(
+                getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)
+                and self._bird_crop_model_available()
+                and self._background_crop_work_allowed()
+            )
 
             seen: set[int] = set()
+            first_readable: bytes | None = None
+            best_crop_frame: tuple[float, bytes] | None = None
+            crop_frames_scored = 0
             for frame_index in candidate_indices:
                 if frame_index in seen:
                     continue
@@ -758,11 +846,157 @@ class HighQualitySnapshotService:
                     )
                     if not encoded_ok:
                         raise ValueError("Failed to encode extracted frame as JPEG")
-                    return encoded.tobytes()
+                    encoded_bytes = encoded.tobytes()
+                    if first_readable is None:
+                        first_readable = encoded_bytes
+                    if not score_crops:
+                        return encoded_bytes
+
+                    if crop_frames_scored < HQ_MAX_CROP_SCORING_FRAMES:
+                        crop_frames_scored += 1
+                        crop_score = self._score_frame_for_bird_crop(frame, frame_order=crop_frames_scored)
+                        if crop_score is not None and (
+                            best_crop_frame is None or crop_score > best_crop_frame[0]
+                        ):
+                            best_crop_frame = (crop_score, encoded_bytes)
+                    if crop_frames_scored >= HQ_MAX_CROP_SCORING_FRAMES and first_readable is not None:
+                        break
+
+            if best_crop_frame is not None:
+                return best_crop_frame[1]
+            if first_readable is not None:
+                return first_readable
 
             raise ValueError("No readable frame found in clip")
         finally:
             cap.release()
+
+    def _score_frame_for_bird_crop(self, frame: Any, *, frame_order: int) -> Optional[float]:
+        try:
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(rgb_frame).convert("RGB")
+        except Exception as e:
+            log.debug("High-quality crop frame conversion failed", error=str(e))
+            return None
+
+        crop_result = self._crop_from_bird_model(image)
+        if not self._has_crop_image(crop_result):
+            return None
+        return self._score_crop_result(crop_result, image.size, frame_order=frame_order)
+
+    def _bird_crop_model_available(self) -> bool:
+        get_status = getattr(bird_crop_service, "get_status", None)
+        if not callable(get_status):
+            return True
+        try:
+            status = get_status()
+        except Exception:
+            return True
+        if not isinstance(status, dict):
+            return True
+        installed = status.get("installed")
+        if installed is False:
+            return False
+        enabled = status.get("enabled_for_runtime")
+        if enabled is False:
+            return False
+        return True
+
+    def _background_crop_work_allowed(self) -> bool:
+        """Keep optional HQ crop inference out of issue-33 pressure paths."""
+        return self._mqtt_pressure_allows_background_crop() and self._classifier_pressure_allows_background_crop()
+
+    def _mqtt_pressure_allows_background_crop(self) -> bool:
+        try:
+            from app.services.mqtt_service import mqtt_service
+
+            status = mqtt_service.get_status() or {}
+        except Exception:
+            return True
+        if not isinstance(status, dict):
+            return True
+        pressure_level = str(status.get("pressure_level") or "normal").lower()
+        if pressure_level in {"elevated", "high", "critical"}:
+            return False
+        if bool(status.get("under_pressure")):
+            return False
+        if bool(status.get("backlog_wait_active")):
+            return False
+        if bool(status.get("recent_handler_slot_wait_exhaustion")):
+            return False
+        return True
+
+    def _classifier_pressure_allows_background_crop(self) -> bool:
+        try:
+            classifier_module = sys.modules.get("app.services.classifier_service")
+            if classifier_module is None:
+                return True
+            classifier = getattr(classifier_module, "_classifier_instance", None)
+            if classifier is None:
+                return True
+            get_admission_status = getattr(classifier, "get_admission_status", None)
+            if not callable(get_admission_status):
+                return True
+            status = get_admission_status() or {}
+        except Exception:
+            return True
+        if not isinstance(status, dict):
+            return True
+
+        live = status.get("live") if isinstance(status.get("live"), dict) else {}
+        background = status.get("background") if isinstance(status.get("background"), dict) else {}
+        live_busy = self._safe_status_int(live.get("queued")) > 0 or self._safe_status_int(live.get("running")) > 0
+        background_busy = (
+            self._safe_status_int(background.get("queued")) > 0
+            or self._safe_status_int(background.get("running")) > 0
+        )
+        if live_busy or background_busy:
+            return False
+        if bool(status.get("background_throttled")):
+            return False
+        return True
+
+    @staticmethod
+    def _safe_status_int(value: Any) -> int:
+        try:
+            parsed = int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, parsed)
+
+    def _score_crop_result(
+        self,
+        crop_result: dict[str, Any],
+        image_size: tuple[int, int],
+        *,
+        frame_order: int,
+    ) -> Optional[float]:
+        crop_image = crop_result.get("crop_image")
+        if not isinstance(crop_image, Image.Image):
+            return None
+        confidence = self._finite_float(crop_result.get("confidence"))
+        if confidence is None:
+            confidence = 0.5
+
+        box = self._normalize_crop_box(crop_result.get("box"), image_size)
+        image_area = max(1, int(image_size[0]) * int(image_size[1]))
+        if box is not None:
+            crop_area = max(1, (box[2] - box[0]) * (box[3] - box[1]))
+        else:
+            crop_area = max(1, int(crop_image.width) * int(crop_image.height))
+        area_bonus = min(0.05, crop_area / image_area * 0.05)
+        order_penalty = max(0, frame_order - 1) * 0.001
+        return confidence + area_bonus - order_penalty
+
+    @staticmethod
+    def _finite_float(value: Any) -> Optional[float]:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(parsed):
+            return None
+        return parsed
 
     def _record_outcome(self, event_id: str, result: str) -> str:
         self._outcomes[result] += 1

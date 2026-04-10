@@ -276,6 +276,105 @@ The same release should also deliver a full UI refresh so the major-version jump
 
 ---
 
+### 9. Next-Version Accurate Bird Crop Detector Tier 🐦
+**Priority:** P1 | **Effort:** M-L (1-2 weeks) | **Status:** Deferred to next version
+
+The current bird-crop detector is intentionally lightweight and fail-soft. It uses the managed crop-detector path to provide a fast CPU-friendly localization stage, but recent HQ snapshot testing shows that the detector can still miss or clip birds in busy feeder scenes, especially when the bird is partly occluded, near the frame edge, or competing with feeder structure/background detail.
+
+This work should be kept out of the current hardening cycle. The immediate priority remains stabilizing the existing HQ snapshot/crop path and issue-33 pressure behavior. The next version can add a more accurate detector tier without destabilizing current installs.
+
+**Current baseline:**
+- Keep the existing lightweight detector as the default crop detector because it is small, fast, CPU-friendly, and already integrated with the managed model flow.
+- Treat crop generation as optional. If the detector is missing, overloaded, or fails inference, YA-WAMF must continue with the original snapshot/frame.
+- Preserve the current HQ snapshot behavior: HQ Event Snapshots should still produce the best available full-frame source, and HQ Bird Crop Snapshots should remain a separate opt-in crop layer.
+
+**Proposed direction:**
+- Add an optional "Accurate" crop detector tier alongside the current "Fast" detector.
+- Use a permissively licensed ONNX detector candidate, with YOLOX-Tiny or YOLOX-S as first candidates to benchmark.
+- Avoid making Ultralytics YOLO models the default bundled path unless licensing is explicitly resolved, because the AGPL/commercial licensing model is not a clean fit for YA-WAMF's current distribution assumptions.
+- Prefer a bird-feeder-specific fine-tuned detector in the long term, but only after the generic accurate tier is proven useful.
+
+**Architecture:**
+1. **Model registry**
+- Extend the crop-detector managed artifact contract to support multiple detector tiers:
+  - `fast`: current lightweight detector, default.
+  - `accurate`: optional heavier detector for users who prefer crop accuracy over speed.
+- Store tier metadata in the existing model-manager style registry rather than hard-coding paths.
+- Expose installed, downloading, healthy, provider, file size, and validation state per detector tier.
+
+2. **Runtime selection**
+- Add a setting such as `bird_crop_detector_tier` with values `fast` and `accurate`.
+- Default to `fast` for all existing installs.
+- If `accurate` is selected but not installed or unhealthy, fall back to `fast` if available.
+- If no healthy detector is available, return the full HQ frame or original classifier input without blocking classification.
+
+3. **Detector adapter layer**
+- Keep detector parsing behind a narrow adapter interface:
+  - load model
+  - preprocess image
+  - run inference
+  - normalize candidate boxes
+  - score candidates
+  - return crop plus diagnostics
+- Add a YOLOX adapter separately from the existing SSD-style parser so output contracts do not become ambiguous.
+- Reject unknown output shapes fail-soft instead of guessing.
+
+4. **Crop quality improvements**
+- Score candidate boxes using confidence, area sanity, frame-edge clipping risk, and optional center/feeder context.
+- Keep a configurable context expansion margin so the bird is not tightly clipped.
+- For HQ Event Snapshots with HQ Bird Crop enabled, evaluate a small bounded set of candidate frames and choose the best crop-confirmed frame.
+- Keep the current issue-33 pressure gate: optional crop scoring should be skipped under MQTT/classifier pressure.
+
+5. **UI and diagnostics**
+- Show detector tier selection in the Model Manager or Detection settings near the crop-detector status.
+- Label the trade-off clearly:
+  - `Fast`: lower CPU/RAM, may miss difficult crops.
+  - `Accurate`: better localization, higher CPU/RAM, optional install.
+- Include detector tier, detector health, chosen crop box, confidence, source frame index, and fallback reason in diagnostics bundles.
+- Keep the setting owner-only and do not expose it on public/guest surfaces.
+
+**Non-goals for first next-version pass:**
+- Do not replace HQ Event Snapshots with crops. Cropping remains a separate opt-in layer.
+- Do not require GPU support for the accurate detector.
+- Do not make the heavier detector mandatory for existing users.
+- Do not increase default background concurrency.
+- Do not introduce Docker socket access or host-level diagnostics requirements.
+
+**Testing strategy:**
+1. **Unit tests**
+- Detector tier selection and fallback behavior.
+- Missing/unhealthy accurate detector falls back to fast.
+- Missing all detectors returns original/full frame.
+- Unknown detector output shape fails soft.
+- Crop context expansion does not exceed image bounds.
+- Pressure gate skips optional accurate crop work.
+
+2. **Integration tests**
+- Managed model install/status flow exposes both detector tiers.
+- HQ Bird Crop Snapshots use the selected healthy detector.
+- Backfill jobs do not exceed configured classifier/crop concurrency.
+- Diagnostic bundle includes detector tier and fallback reason.
+
+3. **Fixture-based crop evaluation**
+- Add a small labeled feeder-image fixture set with expected bird-visible crop bounds.
+- Track miss rate, clipped-bird rate, average crop size, and runtime per detector tier.
+- Compare `fast` vs `accurate` before changing defaults.
+
+4. **Soak tests**
+- Run the issue-33 pressure harness with HQ Event Snapshots and HQ Bird Crop enabled.
+- Confirm MQTT reconnects, classifier queue pressure, and backfill behavior do not regress.
+- Confirm optional crop work backs off under pressure and resumes when the system is quiet.
+
+**Acceptance Criteria:**
+- Existing installs keep the current fast detector behavior unless the owner explicitly selects the accurate tier.
+- The accurate tier can be installed, selected, validated, and diagnosed through the normal managed-model flow.
+- If the accurate tier fails, YA-WAMF falls back cleanly without breaking detections, snapshots, notifications, or backfills.
+- Fixture benchmarks show a measurable reduction in missed/clipped bird crops versus the fast detector.
+- Issue-33 pressure testing remains stable with crop scoring enabled.
+- Docs explain when to use `fast` vs `accurate`, including hardware and CPU-load trade-offs.
+
+---
+
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
 **Status:** Planned, not yet hardware-validated.
