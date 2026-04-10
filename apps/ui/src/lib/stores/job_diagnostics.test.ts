@@ -663,15 +663,17 @@ describe('jobDiagnosticsStore', () => {
         expect(jobDiagnosticsStore.bundles.length).toBe(0);
     });
 
-    it('renders a prominent latest-bundle card and clear saved-bundle library copy', () => {
+    it('renders one saved-bundle library and themed capture fields', () => {
         expect(errorsPageSource).toContain('System Status');
         expect(errorsPageSource).toContain('Recent Backend Diagnostics');
         expect(errorsPageSource).toContain('Export Current JSON');
         expect(errorsPageSource).toContain('Capture Bundle');
-        expect(errorsPageSource).toContain('Latest Bundle');
-        expect(errorsPageSource).toContain('Download Latest');
+        expect(errorsPageSource).not.toContain('Latest Bundle');
+        expect(errorsPageSource).not.toContain('Download Latest');
         expect(errorsPageSource).toContain('Newest');
         expect(errorsPageSource).toContain('No captured bundles available yet.');
         expect(errorsPageSource).toContain('Saved Bundles');
+        expect(errorsPageSource).toContain('rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3');
+        expect(errorsPageSource).toContain('rounded-2xl border border-slate-200/80 bg-white/85 px-3');
     });
 });

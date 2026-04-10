@@ -28,21 +28,17 @@
     let activeJobs = $derived(jobProgressStore.activeJobs);
     let presentedActiveJobs = $derived.by(() => {
         return [...activeJobs].sort((left, right) => {
-            const startedDiff = (left.startedAt ?? 0) - (right.startedAt ?? 0);
+            const startedDiff = (right.startedAt ?? 0) - (left.startedAt ?? 0);
             if (startedDiff !== 0) return startedDiff;
-            return left.id.localeCompare(right.id);
+            return right.id.localeCompare(left.id);
         });
     });
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
     let historyJobs = $derived(jobProgressStore.historyJobs);
     let recentJobs = $derived.by(() => {
         return [...historyJobs].sort((left, right) => {
-            const leftFinishedAt = left.finishedAt ?? left.updatedAt ?? 0;
-            const rightFinishedAt = right.finishedAt ?? right.updatedAt ?? 0;
-            const finishedDiff = rightFinishedAt - leftFinishedAt;
-            if (finishedDiff !== 0) return finishedDiff;
-            const updatedDiff = (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
-            if (updatedDiff !== 0) return updatedDiff;
+            const recentDiff = jobRecentSortTimestamp(right) - jobRecentSortTimestamp(left);
+            if (recentDiff !== 0) return recentDiff;
             return right.id.localeCompare(left.id);
         });
     });
@@ -82,6 +78,10 @@
 
     function isBackfillKind(kind: string) {
         return kind === 'backfill' || kind === 'weather_backfill';
+    }
+
+    function jobRecentSortTimestamp(job: JobProgressItem): number {
+        return Math.max(job.finishedAt ?? 0, job.updatedAt ?? 0, job.startedAt ?? 0);
     }
 
 </script>

@@ -16,14 +16,14 @@ describe('jobs page active work semantics', () => {
         expect(jobsPageSource).not.toContain("jobs.thread_idle', { default: 'Idle' }");
     });
 
-    it('keeps active jobs in a stable started-at order', () => {
-        expect(jobsPageSource).toContain('const startedDiff = (left.startedAt ?? 0) - (right.startedAt ?? 0);');
-        expect(jobsPageSource).toContain('return left.id.localeCompare(right.id);');
+    it('keeps active jobs newest-started first without update-time jumps', () => {
+        expect(jobsPageSource).toContain('const startedDiff = (right.startedAt ?? 0) - (left.startedAt ?? 0);');
+        expect(jobsPageSource).toContain('return right.id.localeCompare(left.id);');
     });
 
     it('sorts recent jobs by newest terminal event and renders job icons', () => {
         expect(jobsPageSource).toContain('let recentJobs = $derived.by(() =>');
-        expect(jobsPageSource).toContain('const finishedDiff = rightFinishedAt - leftFinishedAt;');
+        expect(jobsPageSource).toContain('const recentDiff = jobRecentSortTimestamp(right) - jobRecentSortTimestamp(left);');
         expect(jobsPageSource).toContain('{#each recentJobs as job (job.id)}');
         expect(jobsPageSource).toContain('presentJobKindIcon(job.kind)');
     });

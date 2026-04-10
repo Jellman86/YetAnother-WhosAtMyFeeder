@@ -554,9 +554,16 @@ class AutoVideoClassifierService:
         throttle_state = self._get_mqtt_throttle_state(configured_max)
         maintenance_summary = self._maintenance_status_summary(throttle_state)
         self._emit_maintenance_status_diagnostic(maintenance_summary)
+        active = len(self._active_tasks)
+        status = self._queue_status(
+            pending=pending,
+            active=active,
+            circuit_open=bool(circuit["open"] or maintenance_circuit["open"]),
+        )
         return {
+            "status": status,
             "pending": pending,
-            "active": len(self._active_tasks),
+            "active": active,
             "circuit_open": circuit["open"],
             "open_until": circuit["open_until"],
             "failure_count": circuit["failure_count"],
@@ -582,6 +589,16 @@ class AutoVideoClassifierService:
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
             **maintenance_summary,
         }
+
+    @staticmethod
+    def _queue_status(*, pending: int, active: int, circuit_open: bool) -> str:
+        if circuit_open:
+            return "open"
+        if active > 0:
+            return "processing"
+        if pending > 0:
+            return "queued"
+        return "idle"
 
     async def queue_classification(
         self,

@@ -72,9 +72,14 @@ class NotificationCenterStore {
                     ? candidate.meta
                     : undefined
             });
-            if (normalized.length >= MAX_ITEMS) break;
         }
-        return normalized;
+        return normalized
+            .sort((left, right) => {
+                const timestampDiff = right.timestamp - left.timestamp;
+                if (timestampDiff !== 0) return timestampDiff;
+                return right.id.localeCompare(left.id);
+            })
+            .slice(0, MAX_ITEMS);
     }
 
     hydrate() {

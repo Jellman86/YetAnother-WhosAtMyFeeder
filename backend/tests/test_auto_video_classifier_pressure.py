@@ -92,6 +92,17 @@ def test_mqtt_pressure_throttle_normal_keeps_configured_concurrency(monkeypatch)
     assert state["effective_max_concurrent"] == 4
 
 
+def test_get_status_reports_processing_when_video_jobs_are_active(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._active_tasks = {"evt-active": types.SimpleNamespace(done=lambda: False)}
+
+    with patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        status = service.get_status()
+
+    assert status["active"] == 1
+    assert status["status"] == "processing"
+
+
 def test_mqtt_pressure_throttle_elevated_reduces_to_half(monkeypatch):
     service = _build_service(monkeypatch)
     with patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("elevated")):

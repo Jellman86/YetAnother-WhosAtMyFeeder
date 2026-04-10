@@ -64,6 +64,7 @@ export interface AnalyzeUnknownsResult {
 }
 
 export interface AnalysisStatus {
+    status?: 'idle' | 'queued' | 'processing' | 'open' | string;
     pending: number;
     active: number;
     circuit_open: boolean;

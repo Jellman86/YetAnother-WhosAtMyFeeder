@@ -51,4 +51,23 @@ describe('notificationCenter access filtering', () => {
 
         expect(notificationCenter.items.map((item) => item.id)).toEqual(['system:health']);
     });
+
+    it('orders notifications by newest timestamp first', () => {
+        notificationCenter.add({
+            id: 'newer',
+            type: 'update',
+            title: 'Newer',
+            timestamp: 2000,
+            meta: { source: 'ui' }
+        });
+        notificationCenter.add({
+            id: 'older',
+            type: 'update',
+            title: 'Older',
+            timestamp: 1000,
+            meta: { source: 'ui' }
+        });
+
+        expect(notificationCenter.items.map((item) => item.id)).toEqual(['newer', 'older']);
+    });
 });

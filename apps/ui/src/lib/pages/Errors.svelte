@@ -8,6 +8,7 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
+    import { getVideoClassifierCardState } from '../errors/health';
 
     let currentIssues = $derived(incidentWorkspaceStore.currentIssues);
     let recentIncidents = $derived(incidentWorkspaceStore.recentIncidents);
@@ -15,6 +16,7 @@
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
     let health = $derived((workspacePayload?.health as Record<string, any> | null) ?? null);
+    let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
@@ -30,7 +32,6 @@
         const parsed = Date.parse(raw);
         return Number.isFinite(parsed) ? parsed : null;
     });
-    let latestBundle = $derived(bundles[0] ?? null);
 
     onMount(() => {
         void refreshWorkspace();
@@ -154,7 +155,7 @@
         if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
             return 'border-teal-200/80 bg-teal-50 text-teal-700 dark:border-teal-800/60 dark:bg-teal-900/30 dark:text-teal-300';
         }
-        if (['warning', 'degraded', 'high', 'recovering', 'queued'].includes(normalized)) {
+        if (['warning', 'degraded', 'high', 'recovering', 'queued', 'processing', 'running'].includes(normalized)) {
             return 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200';
         }
         if (['critical', 'error', 'failing', 'failed', 'open'].includes(normalized)) {
@@ -246,20 +247,6 @@
             return `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.`;
         }
         return 'Live classification capacity is currently clear.';
-    }
-
-    function videoStatus(): string {
-        const video = health?.video_classifier ?? {};
-        if (video.circuit_open) return 'open';
-        return asText(video.status, 'unknown');
-    }
-
-    function videoSummary(): string {
-        const video = health?.video_classifier ?? {};
-        if (video.circuit_open) {
-            return `Video circuit breaker is open with ${asNumber(video.failure_count).toLocaleString()} recent failures.`;
-        }
-        return `${asNumber(video.pending).toLocaleString()} queued, ${asNumber(video.active).toLocaleString()} active video jobs.`;
     }
 
     function backgroundStatus(): string {
@@ -480,7 +467,7 @@
                 </article>
 
                 <!-- Video Classification -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(videoStatus())}">
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(videoClassifierCard.status)}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -490,14 +477,14 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
                                 <h4 class="text-sm font-black uppercase tracking-[0.18em]">Video Classification</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{videoStatus()}</span>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{videoClassifierCard.status}</span>
                             </div>
-                            <p class="mt-2 text-sm font-semibold">{videoSummary()}</p>
+                            <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Pending</span><span>{asNumber(health?.video_classifier?.pending).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Active</span><span>{asNumber(health?.video_classifier?.active).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Failures</span><span>{asNumber(health?.video_classifier?.failure_count).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Open Until</span><span>{asText(health?.video_classifier?.open_until, 'Closed')}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Pending</span><span>{videoClassifierCard.pending.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Active</span><span>{videoClassifierCard.active.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Failures</span><span>{videoClassifierCard.failureCount.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Open Until</span><span>{videoClassifierCard.openUntil}</span></div>
                             </div>
                         </div>
                     </div>
@@ -699,7 +686,7 @@
                         Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.
                     </p>
                     <textarea
-                        class="textarea textarea-bordered mt-4 min-h-24 w-full text-xs"
+                        class="mt-4 min-h-24 w-full rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                         bind:value={reportNotes}
                         placeholder="Optional notes to include when you capture a saved bundle"
                     ></textarea>
@@ -709,7 +696,7 @@
                         </button>
                         <div class="flex flex-1 items-center gap-2">
                             <input
-                                class="input input-bordered h-9 flex-1 text-xs"
+                                class="h-10 flex-1 rounded-2xl border border-slate-200/80 bg-white/85 px-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                                 bind:value={captureLabel}
                                 placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
                             />
@@ -719,42 +706,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Latest saved bundle preview -->
-                {#if latestBundle}
-                    <div class="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white p-5 shadow-sm dark:border-emerald-800/60 dark:bg-gradient-to-br dark:from-emerald-950/30 dark:via-slate-900/60 dark:to-slate-900/40">
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div class="min-w-0 flex-1">
-                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                    Latest Bundle
-                                </span>
-                                <h4 class="mt-3 truncate text-lg font-semibold text-slate-900 dark:text-white">{latestBundle.label}</h4>
-                                <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                    Captured {formatDateTime(latestBundle.createdAt)}
-                                </p>
-                                <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{bundleSummaryText(latestBundle)}</p>
-                                {#if bundleNotesPreview(latestBundle)}
-                                    <p class="mt-3 rounded-2xl bg-white/75 px-3 py-2 text-xs text-slate-600 dark:bg-slate-950/40 dark:text-slate-200">
-                                        <span class="font-black uppercase tracking-wider text-slate-400">Notes</span>
-                                        <span class="ml-2">{bundleNotesPreview(latestBundle)}</span>
-                                    </p>
-                                {/if}
-                            </div>
-                            <div class="flex flex-col gap-2 sm:items-end">
-                                <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={() => downloadBundle(latestBundle)}>
-                                    Download Latest
-                                </button>
-                                <button type="button" class="btn btn-secondary px-4 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(latestBundle.id)}>
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                {:else}
-                    <div class="rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
-                        No captured bundles available yet.
-                    </div>
-                {/if}
             </div>
 
             <!-- Saved bundles list -->
