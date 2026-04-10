@@ -1028,6 +1028,77 @@ async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client
 
 
 @pytest.mark.asyncio
+async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy._bird_crop_runtime_available", return_value=True):
+        mock_get_snapshot.return_value = b"cached-hq-frame"
+        mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot/status")
+            assert response.status_code == 200
+            body = response.json()
+            assert body["event_id"] == "test_event_id"
+            assert body["cached"] is True
+            assert body["source"] == "high_quality_snapshot"
+            assert body["already_hq_bird_crop"] is False
+            assert body["can_generate_hq_bird_crop"] is True
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
+async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy._bird_crop_runtime_available", return_value=True), \
+         patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process:
+        mock_get_snapshot.return_value = b"cached-hq-frame"
+        mock_get_metadata.side_effect = [
+            {"source": "high_quality_snapshot"},
+            {"source": "high_quality_bird_crop"},
+        ]
+        mock_process.return_value = "bird_crop_replaced"
+
+        try:
+            response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop")
+            assert response.status_code == 200
+            body = response.json()
+            assert body["event_id"] == "test_event_id"
+            assert body["status"] == "generated_hq_bird_crop"
+            assert body["source"] == "high_quality_bird_crop"
+            assert body["already_hq_bird_crop"] is True
+            mock_process.assert_awaited_once_with("test_event_id")
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
     """Sprite endpoint should serve generated sprite file."""
     original_setting = settings.frigate.clips_enabled

@@ -30,6 +30,21 @@ export interface RecordingClipAvailabilityResponse {
     fetched: boolean;
 }
 
+export interface SnapshotStatusResponse {
+    event_id: string;
+    cached: boolean;
+    source: string | null;
+    high_quality_event_snapshots_enabled: boolean;
+    high_quality_bird_crop_enabled: boolean;
+    already_hq_bird_crop: boolean;
+    can_generate_hq_bird_crop: boolean;
+}
+
+export interface SnapshotGenerateResponse extends SnapshotStatusResponse {
+    status: 'already_hq_bird_crop' | 'generated_hq_bird_crop' | 'generated_hq_snapshot';
+    result: string;
+}
+
 export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
@@ -152,4 +167,16 @@ export async function fetchRecordingClip(frigateEvent: string): Promise<Recordin
         method: 'POST',
     });
     return handleResponse<RecordingClipFetchResponse>(response);
+}
+
+export async function fetchSnapshotStatus(frigateEvent: string): Promise<SnapshotStatusResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/status`);
+    return handleResponse<SnapshotStatusResponse>(response);
+}
+
+export async function generateHighQualityBirdCropSnapshot(frigateEvent: string): Promise<SnapshotGenerateResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/hq-bird-crop`, {
+        method: 'POST',
+    });
+    return handleResponse<SnapshotGenerateResponse>(response);
 }

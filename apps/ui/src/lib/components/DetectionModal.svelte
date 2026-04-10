@@ -2,6 +2,8 @@
     import Map from './Map.svelte';
     import {
         getSnapshotUrl,
+        fetchSnapshotStatus,
+        generateHighQualityBirdCropSnapshot,
         analyzeDetection,
         updateDetectionSpecies,
         hideDetection,
@@ -24,7 +26,8 @@
         type SpeciesInfo,
         type EbirdNearbyResult,
         type EbirdNotableResult,
-        type ConversationTurn
+        type ConversationTurn,
+        type SnapshotStatusResponse
     } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
@@ -166,6 +169,11 @@
         scrollLocked = false;
     }
 
+    function withCacheBust(url: string, token: number): string {
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}v=${token}`;
+    }
+
     const syncDarkMode = () => {
         if (typeof document === 'undefined') return;
         isDarkMode = document.documentElement.classList.contains('dark');
@@ -193,6 +201,39 @@
         lockDocumentScroll();
         return () => {
             unlockDocumentScroll();
+        };
+    });
+
+    $effect(() => {
+        const eventId = detection?.frigate_event;
+        if (!eventId || !hasOwnerDetectionActions) {
+            snapshotStatus = null;
+            snapshotStatusLoading = false;
+            return;
+        }
+
+        let cancelled = false;
+        snapshotStatusLoading = true;
+
+        void (async () => {
+            try {
+                const status = await fetchSnapshotStatus(eventId);
+                if (!cancelled && detection.frigate_event === eventId) {
+                    snapshotStatus = status;
+                }
+            } catch {
+                if (!cancelled) {
+                    snapshotStatus = null;
+                }
+            } finally {
+                if (!cancelled) {
+                    snapshotStatusLoading = false;
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
         };
     });
 
@@ -341,6 +382,10 @@
     let updatingTag = $state(false);
     let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
+    let manualHqBirdCropPending = $state(false);
+    let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
+    let snapshotStatusLoading = $state(false);
+    let snapshotRefreshToken = $state(Date.now());
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
@@ -461,6 +506,13 @@
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
+    const showManualHqBirdCropAction = $derived(
+        hasOwnerDetectionActions
+        && !showMediaSlotVideoAnalysis
+        && !reclassifyProgress
+        && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
+    );
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
@@ -968,6 +1020,37 @@
             toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
         } finally {
             favoritePending = false;
+        }
+    }
+
+    async function handleManualHqBirdCrop(event: Event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!authStore.hasOwnerAccess || readOnly || !detection || manualHqBirdCropPending) return;
+
+        manualHqBirdCropPending = true;
+        try {
+            const result = await generateHighQualityBirdCropSnapshot(detection.frigate_event);
+            snapshotStatus = result;
+            snapshotRefreshToken = Date.now();
+            if (result.status === 'generated_hq_bird_crop') {
+                toastStore.success($_('detection.manual_hq_bird_crop_success', { default: 'Generated HQ bird crop' }));
+            } else if (result.status === 'already_hq_bird_crop') {
+                toastStore.info($_('detection.manual_hq_bird_crop_already', { default: 'HQ bird crop already applied' }));
+            } else {
+                toastStore.info($_('detection.manual_hq_bird_crop_unavailable', { default: 'HQ bird crop unavailable; kept full HQ snapshot' }));
+            }
+        } catch (e: any) {
+            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            manualHqBirdCropPending = false;
+            if (authStore.hasOwnerAccess && !readOnly) {
+                try {
+                    snapshotStatus = await fetchSnapshotStatus(detection.frigate_event);
+                } catch {
+                    // Keep the last known status if the refresh probe fails.
+                }
+            }
         }
     }
 
@@ -1629,7 +1712,7 @@
                             </div>
                         </div>
                     {:else}
-    	                <img src={getSnapshotUrl(detection.frigate_event)} alt={detection.display_name} class="w-full h-full object-cover" />
+                        <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-cover" />
     	                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
     	                {#if authStore.canModify && !readOnly}
     	                    <button
@@ -1649,6 +1732,27 @@
     	                        {/if}
     	                    </button>
     	                {/if}
+                        {#if showManualHqBirdCropAction}
+                            <button
+                                type="button"
+                                onclick={handleManualHqBirdCrop}
+                                disabled={manualHqBirdCropPending || snapshotStatusLoading}
+                                class="absolute top-4 right-16 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+                                title={$_('detection.manual_hq_bird_crop', { default: 'Generate HQ bird crop' })}
+                                aria-label={$_('detection.manual_hq_bird_crop', { default: 'Generate HQ bird crop' })}
+                            >
+                                {#if manualHqBirdCropPending}
+                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                {:else}
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path d="M5 8a2 2 0 0 1 2-2h2l1.2-1.6A1 1 0 0 1 11 4h2a1 1 0 0 1 .8.4L15 6h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <circle cx="12" cy="11.5" r="3.25"></circle>
+                                        <path d="M8 20l2-2"></path>
+                                        <path d="M16 20l-2-2"></path>
+                                    </svg>
+                                {/if}
+                            </button>
+                        {/if}
     	                <div class="absolute bottom-0 left-0 right-0 p-6">
     	                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}

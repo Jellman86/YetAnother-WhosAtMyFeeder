@@ -46,6 +46,16 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain('{#if authStore.canModify}\n                <div class="flex gap-2">');
     });
 
+    it('wires an owner-only HQ crop action into the snapshot hero', () => {
+        expect(detectionModalSource).toContain('fetchSnapshotStatus');
+        expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
+        expect(detectionModalSource).toContain('showManualHqBirdCropAction');
+        expect(detectionModalSource).toContain('manualHqBirdCropPending');
+        expect(detectionModalSource).toContain('handleManualHqBirdCrop');
+        expect(detectionModalSource).toContain("manual_hq_bird_crop', { default: 'Generate HQ bird crop' }");
+        expect(detectionModalSource).toContain("manual_hq_bird_crop_unavailable', { default: 'HQ bird crop unavailable; kept full HQ snapshot' }");
+    });
+
     it('persists generated AI analysis back into the current detection state', () => {
         expect(detectionModalSource).toContain('result.analysis_timestamp');
         expect(detectionModalSource).toContain('detection.ai_analysis = result.analysis;');

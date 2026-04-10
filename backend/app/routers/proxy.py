@@ -20,7 +20,9 @@ import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
 from app.config import settings
+from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
+from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.frigate_recording import evaluate_recording_clip_capability
@@ -46,6 +48,7 @@ router = APIRouter()
 _http_client: httpx.AsyncClient | None = None
 _preview_locks: dict[str, asyncio.Lock] = {}
 _recording_clip_fetch_locks: dict[str, asyncio.Lock] = {}
+_snapshot_generation_locks: dict[str, asyncio.Lock] = {}
 
 VIDEO_PREVIEW_REQUESTS = Counter(
     "video_preview_requests_total",
@@ -160,6 +163,70 @@ def _recording_clip_fetch_lock(event_id: str) -> asyncio.Lock:
     return lock
 
 
+def _snapshot_generation_lock(event_id: str) -> asyncio.Lock:
+    lock = _snapshot_generation_locks.get(event_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _snapshot_generation_locks[event_id] = lock
+    return lock
+
+
+def _hq_bird_crop_feature_enabled() -> bool:
+    return bool(
+        settings.media_cache.enabled
+        and settings.media_cache.cache_snapshots
+        and settings.media_cache.high_quality_event_snapshots
+        and settings.media_cache.high_quality_event_snapshot_bird_crop
+    )
+
+
+def _bird_crop_runtime_available() -> bool:
+    get_status = getattr(bird_crop_service, "get_status", None)
+    if not callable(get_status):
+        return True
+    try:
+        status = get_status() or {}
+    except Exception:
+        return True
+    if not isinstance(status, dict):
+        return True
+    if status.get("installed") is False:
+        return False
+    if status.get("enabled_for_runtime") is False:
+        return False
+    return True
+
+
+async def _build_snapshot_status(event_id: str):
+    from app.services.media_cache import media_cache
+
+    cached = False
+    source: str | None = None
+
+    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+        cached = await media_cache.get_snapshot(event_id) is not None
+        if cached:
+            metadata = await media_cache.get_snapshot_metadata(event_id)
+            source = str((metadata or {}).get("source") or "").strip() or None
+
+    already_hq_bird_crop = source == "high_quality_bird_crop"
+    can_generate_hq_bird_crop = bool(
+        _hq_bird_crop_feature_enabled()
+        and _bird_crop_runtime_available()
+        and not already_hq_bird_crop
+    )
+
+    return SnapshotStatusResponse(
+        event_id=event_id,
+        cached=cached,
+        source=source,
+        high_quality_event_snapshots_enabled=bool(settings.media_cache.high_quality_event_snapshots),
+        high_quality_bird_crop_enabled=bool(settings.media_cache.high_quality_event_snapshot_bird_crop),
+        already_hq_bird_crop=already_hq_bird_crop,
+        can_generate_hq_bird_crop=can_generate_hq_bird_crop,
+    )
+
+
 def _format_vtt_timestamp(seconds: float) -> str:
     whole_ms = max(0, int(round(seconds * 1000)))
     hours = whole_ms // 3_600_000
@@ -257,6 +324,21 @@ class RecordingClipFetchResponse(BaseModel):
     status: Literal["ready"]
     clip_variant: Literal["recording"] = "recording"
     cached: bool
+
+
+class SnapshotStatusResponse(BaseModel):
+    event_id: str
+    cached: bool
+    source: str | None = None
+    high_quality_event_snapshots_enabled: bool
+    high_quality_bird_crop_enabled: bool
+    already_hq_bird_crop: bool
+    can_generate_hq_bird_crop: bool
+
+
+class SnapshotGenerateResponse(SnapshotStatusResponse):
+    status: Literal["already_hq_bird_crop", "generated_hq_bird_crop", "generated_hq_snapshot"]
+    result: str
 
 
 def _iso_or_now(value: datetime | None) -> str:
@@ -1254,6 +1336,55 @@ async def get_recording_clip_capability(
         frigate_config=frigate_config,
         selected_cameras=settings.frigate.camera,
     )
+
+
+@router.get("/frigate/{event_id}/snapshot/status", response_model=SnapshotStatusResponse)
+async def get_snapshot_status(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    return await _build_snapshot_status(event_id)
+
+
+@router.post("/frigate/{event_id}/snapshot/hq-bird-crop", response_model=SnapshotGenerateResponse)
+async def generate_hq_bird_crop_snapshot(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if not _hq_bird_crop_feature_enabled():
+        raise HTTPException(status_code=409, detail="HQ bird crop snapshots are not enabled")
+    if not _bird_crop_runtime_available():
+        raise HTTPException(status_code=409, detail="Bird crop detector is not available")
+
+    async with _snapshot_generation_lock(event_id):
+        before = await _build_snapshot_status(event_id)
+        if before.already_hq_bird_crop:
+            return SnapshotGenerateResponse(
+                **before.model_dump(),
+                status="already_hq_bird_crop",
+                result="already_hq_bird_crop",
+            )
+
+        result = await high_quality_snapshot_service.process_event(event_id)
+        after = await _build_snapshot_status(event_id)
+        if result == "bird_crop_replaced" or after.already_hq_bird_crop:
+            status = "generated_hq_bird_crop"
+        elif result == "replaced":
+            status = "generated_hq_snapshot"
+        else:
+            raise HTTPException(status_code=409, detail=f"HQ bird crop generation unavailable: {result}")
+
+        return SnapshotGenerateResponse(
+            **after.model_dump(),
+            status=status,
+            result=result,
+        )
 
 @router.get("/frigate/{event_id}/snapshot.jpg")
 @guest_rate_limit()
