@@ -66,6 +66,7 @@ SNAPSHOT_NO_STORE_HEADERS = {
     "Cache-Control": "no-store, max-age=0",
     "Pragma": "no-cache",
 }
+HIGH_QUALITY_SNAPSHOT_SOURCES = {"high_quality_snapshot", "high_quality_bird_crop"}
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -73,6 +74,22 @@ def get_http_client() -> httpx.AsyncClient:
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=30.0)
     return _http_client
+
+
+async def _cached_snapshot_allowed_for_current_settings(media_cache, event_id: str) -> bool:
+    """Return False when a cached HQ snapshot should not be served under current settings."""
+    if settings.media_cache.high_quality_event_snapshots:
+        return True
+
+    metadata = await media_cache.get_snapshot_metadata(event_id)
+    source = str((metadata or {}).get("source") or "").strip()
+    # Legacy cached snapshots have no metadata. When HQ snapshots are disabled,
+    # refresh them once so old full-frame HQ replacements do not keep winning.
+    if not source or source in HIGH_QUALITY_SNAPSHOT_SOURCES:
+        await media_cache.delete_snapshot(event_id)
+        await media_cache.delete_thumbnail(event_id)
+        return False
+    return True
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
@@ -1248,9 +1265,11 @@ async def proxy_snapshot(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
         if cached:
-            if not _is_probably_thumbnail_sized_snapshot(cached):
+            cache_allowed = await _cached_snapshot_allowed_for_current_settings(media_cache, event_id)
+            if cache_allowed and not _is_probably_thumbnail_sized_snapshot(cached):
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            await media_cache.delete_snapshot(event_id)
+            if cache_allowed:
+                await media_cache.delete_snapshot(event_id)
 
     # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
@@ -2102,6 +2121,9 @@ async def proxy_thumb(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_thumbnail(event_id)
         snapshot_cached = await media_cache.get_snapshot(event_id)
+        if snapshot_cached and not await _cached_snapshot_allowed_for_current_settings(media_cache, event_id):
+            snapshot_cached = None
+            cached = None
         if snapshot_cached:
             if cached and not _is_probably_thumbnail_sized_snapshot(cached):
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)

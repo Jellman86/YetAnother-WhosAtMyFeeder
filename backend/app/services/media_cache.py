@@ -1,6 +1,7 @@
 """Media cache service for storing snapshots and clips locally."""
 
 import asyncio
+import json
 import os
 import time
 import uuid
@@ -8,7 +9,7 @@ import aiofiles
 import aiofiles.os
 import structlog
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 log = structlog.get_logger()
@@ -124,6 +125,9 @@ class MediaCacheService:
             raise ValueError(f"Invalid snapshot path for event: {event_id}")
 
         return path
+
+    def _snapshot_metadata_path(self, event_id: str) -> Path:
+        return self._snapshot_path(event_id).with_suffix(".jpg.meta.json")
 
     def _thumbnail_path(self, event_id: str) -> Path:
         """Get the path for a cached thumbnail image.
@@ -248,7 +252,7 @@ class MediaCacheService:
                 pass
             raise
 
-    async def cache_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
+    async def cache_snapshot(self, event_id: str, image_bytes: bytes, source: str = "frigate_snapshot") -> Optional[Path]:
         """Cache a snapshot image.
 
         Args:
@@ -264,13 +268,14 @@ class MediaCacheService:
         try:
             path = self._snapshot_path(event_id)
             await self._write_bytes_atomic(path, image_bytes)
+            await self._write_snapshot_metadata(event_id, source=source)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to cache snapshot", event_id=event_id, error=str(e))
             return None
 
-    async def replace_snapshot(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
+    async def replace_snapshot(self, event_id: str, image_bytes: bytes, source: str = "high_quality_snapshot") -> Optional[Path]:
         """Atomically replace a cached snapshot without exposing partial reads."""
         if not self._available:
             log.warning("Media cache unavailable; skipping snapshot replacement", error=self._init_error)
@@ -278,11 +283,35 @@ class MediaCacheService:
         try:
             path = self._snapshot_path(event_id)
             await self._write_bytes_atomic(path, image_bytes)
+            await self._write_snapshot_metadata(event_id, source=source)
             await self.delete_thumbnail(event_id)
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
+            return None
+
+    async def _write_snapshot_metadata(self, event_id: str, *, source: str) -> None:
+        metadata = {
+            "source": str(source or "unknown"),
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        path = self._snapshot_metadata_path(event_id)
+        encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
+        await self._write_bytes_atomic(path, encoded)
+
+    async def get_snapshot_metadata(self, event_id: str) -> Optional[dict]:
+        """Read cached snapshot metadata, if present and valid."""
+        try:
+            path = self._snapshot_metadata_path(event_id)
+            if not await aiofiles.os.path.exists(path):
+                return None
+            async with aiofiles.open(path, "r", encoding="utf-8") as f:
+                raw = await f.read()
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except Exception as e:
+            log.debug("Failed to read cached snapshot metadata", event_id=event_id, error=str(e))
             return None
 
     async def cache_thumbnail(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
@@ -367,10 +396,16 @@ class MediaCacheService:
         """Delete the canonical cached snapshot for an event."""
         try:
             snapshot_path = self._snapshot_path(event_id)
+            metadata_path = self._snapshot_metadata_path(event_id)
             if await aiofiles.os.path.exists(snapshot_path):
                 await aiofiles.os.remove(snapshot_path)
-                return True
-            return False
+                removed = True
+            else:
+                removed = False
+            if await aiofiles.os.path.exists(metadata_path):
+                await aiofiles.os.remove(metadata_path)
+                removed = True
+            return removed
         except Exception as e:
             log.error("Failed to delete cached snapshot", event_id=event_id, error=str(e))
             return False

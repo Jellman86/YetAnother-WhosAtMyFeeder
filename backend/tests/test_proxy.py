@@ -785,8 +785,10 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
 async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
 
     with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_snapshot:
         mock_snapshot.return_value = b"fake-jpeg"
@@ -800,6 +802,56 @@ async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.Asyn
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = False
+
+    hq_snapshot = b"old-hq-snapshot"
+    cropped_snapshot = b"frigate-cropped-snapshot"
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "image/jpeg"}
+    mock_response.content = cropped_snapshot
+    mock_response.raise_for_status = MagicMock()
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.services.media_cache.media_cache.delete_snapshot", new_callable=AsyncMock) as mock_delete_snapshot, \
+         patch("app.services.media_cache.media_cache.delete_thumbnail", new_callable=AsyncMock) as mock_delete_thumbnail, \
+         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
+         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_get_snapshot.return_value = hq_snapshot
+        mock_get_metadata.return_value = {"source": "high_quality_bird_crop"}
+        mock_frigate._get_headers = MagicMock(return_value={})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+
+            assert response.status_code == 200
+            assert response.content == cropped_snapshot
+            mock_delete_snapshot.assert_awaited_once_with("test_event_id")
+            mock_delete_thumbnail.assert_awaited_once_with("test_event_id")
+            mock_client.get.assert_awaited_once_with(
+                f"{settings.frigate.frigate_url}/api/events/test_event_id/snapshot.jpg",
+                headers={},
+                params={"crop": 1, "quality": 95},
+            )
+            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio
@@ -827,8 +879,10 @@ async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.Asy
 async def test_proxy_thumbnail_prefers_derived_thumbnail_from_cached_snapshot(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
 
     high_res = Image.new("RGB", (2560, 1920), color=(200, 120, 40))
     high_res_buffer = io.BytesIO()
@@ -860,6 +914,7 @@ async def test_proxy_thumbnail_prefers_derived_thumbnail_from_cached_snapshot(cl
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio

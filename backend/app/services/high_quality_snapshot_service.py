@@ -92,13 +92,13 @@ class HighQualitySnapshotService:
         if not clip_bytes:
             return self._record_outcome(event_id, clip_error or "clip_unavailable")
 
+        if event_data is None:
+            event_data = await self._load_event_data_for_crop(event_id)
         try:
-            image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes)
+            image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, event_data)
         except Exception as e:
             log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
             return self._record_outcome(event_id, "frame_extract_failed")
-        if event_data is None:
-            event_data = await self._load_event_data_for_crop(event_id)
         image_bytes, crop_applied = await asyncio.to_thread(
             self._maybe_crop_snapshot_bytes,
             event_id,
@@ -106,7 +106,11 @@ class HighQualitySnapshotService:
             event_data,
         )
 
-        replaced = await media_cache.replace_snapshot(event_id, image_bytes)
+        replaced = await media_cache.replace_snapshot(
+            event_id,
+            image_bytes,
+            source="high_quality_bird_crop" if crop_applied else "high_quality_snapshot",
+        )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
 
@@ -161,11 +165,11 @@ class HighQualitySnapshotService:
         self._active_ids.add(event_id)
         try:
             try:
-                image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes)
+                crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
+                image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, crop_event_data)
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
-            crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
             image_bytes, crop_applied = await asyncio.to_thread(
                 self._maybe_crop_snapshot_bytes,
                 event_id,
@@ -173,7 +177,11 @@ class HighQualitySnapshotService:
                 crop_event_data,
             )
 
-            replaced = await media_cache.replace_snapshot(event_id, image_bytes)
+            replaced = await media_cache.replace_snapshot(
+                event_id,
+                image_bytes,
+                source="high_quality_bird_crop" if crop_applied else "high_quality_snapshot",
+            )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
 
@@ -364,14 +372,14 @@ class HighQualitySnapshotService:
             await asyncio.sleep(self.CLIP_RETRY_INTERVAL_SECONDS * (2**attempt))
         return None, last_error
 
-    def _extract_snapshot_from_clip(self, clip_bytes: bytes) -> bytes:
+    def _extract_snapshot_from_clip(self, clip_bytes: bytes, event_data: Optional[dict[str, Any]] = None) -> bytes:
         """Write clip bytes to a temp file and extract a representative JPEG frame."""
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp.write(clip_bytes)
             tmp_path = Path(tmp.name)
 
         try:
-            return self._extract_snapshot_from_clip_path(tmp_path)
+            return self._extract_snapshot_from_clip_path(tmp_path, event_data=event_data)
         finally:
             try:
                 os.unlink(tmp_path)
@@ -397,7 +405,23 @@ class HighQualitySnapshotService:
             raw_hint = raw_payload.get(key)
             if isinstance(raw_hint, (list, tuple)) and len(raw_hint) == 4:
                 payload[key] = list(raw_hint)
-        return {"data": payload} if payload else None
+        raw_path_data = raw_payload.get("path_data")
+        if isinstance(raw_path_data, list):
+            path_data = []
+            for item in raw_path_data[:50]:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    point, timestamp = item[0], item[1]
+                    if isinstance(point, (list, tuple)) and len(point) >= 2:
+                        path_data.append([list(point[:2]), timestamp])
+            if path_data:
+                payload["path_data"] = path_data
+
+        hints: dict[str, Any] = {"data": payload} if payload else {}
+        for key in ("start_time", "end_time"):
+            value = event_data.get(key)
+            if value is not None:
+                hints[key] = value
+        return hints or None
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
@@ -571,19 +595,143 @@ class HighQualitySnapshotService:
             return None
         return expanded_left, expanded_top, expanded_right, expanded_bottom
 
-    def _extract_snapshot_from_clip_path(self, clip_path: Path) -> bytes:
+    def _candidate_frame_indices(
+        self,
+        *,
+        frame_count: int,
+        fps: float,
+        event_data: Optional[dict[str, Any]] = None,
+    ) -> list[int]:
+        if frame_count <= 0:
+            return [0]
+
+        candidates: list[int] = []
+        target_indices = self._target_frame_indices_from_event_path(
+            frame_count=frame_count,
+            fps=fps,
+            event_data=event_data,
+        )
+        for target_index in target_indices:
+            candidates.extend([target_index, target_index - 1, target_index + 1])
+
+        mid = frame_count // 2
+        candidates.extend([mid, max(0, mid - 1), 0])
+
+        seen: set[int] = set()
+        normalized: list[int] = []
+        for raw_index in candidates:
+            index = max(0, min(frame_count - 1, int(raw_index)))
+            if index in seen:
+                continue
+            seen.add(index)
+            normalized.append(index)
+        return normalized
+
+    def _target_frame_indices_from_event_path(
+        self,
+        *,
+        frame_count: int,
+        fps: float,
+        event_data: Optional[dict[str, Any]],
+    ) -> list[int]:
+        if frame_count <= 0 or fps <= 0.0 or not isinstance(event_data, dict):
+            return []
+        try:
+            start_time = float(event_data.get("start_time"))
+        except (TypeError, ValueError):
+            return []
+        if not math.isfinite(start_time):
+            return []
+
+        raw_payload = event_data.get("data")
+        payload = raw_payload if isinstance(raw_payload, dict) else {}
+        path_points: list[tuple[float, float, float]] = []
+        for item in payload.get("path_data") or []:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            point = item[0]
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                x = float(point[0])
+                y = float(point[1])
+                timestamp = float(item[1])
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(x) and math.isfinite(y) and math.isfinite(timestamp):
+                path_points.append((timestamp, x, y))
+        if not path_points:
+            return []
+
+        ordered_timestamps = self._ordered_path_timestamps_for_crop(payload, path_points)
+        clip_duration_seconds = float(frame_count) / float(fps)
+        indices: list[int] = []
+        for target_time in ordered_timestamps:
+            offset_seconds = max(0.0, target_time - start_time)
+            offset_seconds = min(offset_seconds, max(0.0, clip_duration_seconds))
+            indices.append(int(round(offset_seconds * fps)))
+        return indices
+
+    def _ordered_path_timestamps_for_crop(
+        self,
+        payload: dict[str, Any],
+        path_points: list[tuple[float, float, float]],
+    ) -> list[float]:
+        ordered: list[float] = []
+        seen: set[float] = set()
+
+        def add_timestamp(timestamp: float) -> None:
+            if timestamp in seen:
+                return
+            seen.add(timestamp)
+            ordered.append(timestamp)
+
+        box_center = self._normalized_box_center(payload)
+        if box_center is not None:
+            center_x, center_y = box_center
+            normalized_points = [
+                item for item in path_points
+                if 0.0 <= item[1] <= 1.0 and 0.0 <= item[2] <= 1.0
+            ]
+            for timestamp, _x, _y in sorted(
+                normalized_points,
+                key=lambda item: ((item[1] - center_x) ** 2 + (item[2] - center_y) ** 2, item[0]),
+            ):
+                add_timestamp(timestamp)
+
+        by_time = sorted(path_points, key=lambda item: item[0])
+        fallback_indices = [len(by_time) // 2, len(by_time) - 1, 0]
+        for index in fallback_indices:
+            add_timestamp(by_time[index][0])
+        return ordered
+
+    def _normalized_box_center(self, payload: dict[str, Any]) -> Optional[tuple[float, float]]:
+        raw_box = payload.get("box")
+        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            return None
+        try:
+            x, y, width, height = [float(value) for value in raw_box]
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in (x, y, width, height)):
+            return None
+        if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 and 0.0 < width <= 1.0 and 0.0 < height <= 1.0):
+            return None
+        return x + width / 2.0, y + height / 2.0
+
+    def _extract_snapshot_from_clip_path(self, clip_path: Path, event_data: Optional[dict[str, Any]] = None) -> bytes:
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
             raise ValueError(f"Unable to open clip for snapshot extraction: {clip_path}")
 
         try:
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-            candidate_indices = []
-            if frame_count > 0:
-                mid = frame_count // 2
-                candidate_indices.extend([mid, max(0, mid - 1), 0])
-            else:
-                candidate_indices.append(0)
+            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+            candidate_indices = self._candidate_frame_indices(
+                frame_count=frame_count,
+                fps=fps,
+                event_data=event_data,
+            )
 
             seen: set[int] = set()
             for frame_index in candidate_indices:

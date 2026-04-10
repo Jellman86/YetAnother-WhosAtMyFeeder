@@ -107,6 +107,29 @@ async def test_replace_snapshot_invalidates_cached_thumbnail(tmp_path, monkeypat
 
 
 @pytest.mark.asyncio
+async def test_snapshot_metadata_tracks_source_and_is_removed_with_snapshot(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_snapshot_metadata"
+
+    await service.cache_snapshot(event_id, b"frigate-bytes")
+    cached_metadata = await service.get_snapshot_metadata(event_id)
+
+    assert cached_metadata is not None
+    assert cached_metadata["source"] == "frigate_snapshot"
+    assert cached_metadata["updated_at"].endswith("Z")
+
+    await service.replace_snapshot(event_id, b"hq-bytes", source="high_quality_bird_crop")
+    replaced_metadata = await service.get_snapshot_metadata(event_id)
+
+    assert replaced_metadata is not None
+    assert replaced_metadata["source"] == "high_quality_bird_crop"
+
+    assert await service.delete_snapshot(event_id) is True
+    assert await service.get_snapshot(event_id) is None
+    assert await service.get_snapshot_metadata(event_id) is None
+
+
+@pytest.mark.asyncio
 async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_recording"

@@ -45,21 +45,73 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
             "data": {
                 "box": (0.1, 0.2, 0.3, 0.4),
                 "region": ["10", "20", "30", "40"],
+                "path_data": [[[0.5, 0.6], 100.1]],
                 "score": 0.99,
             },
+            "start_time": 100.0,
+            "end_time": 101.0,
             "large_irrelevant_payload": "ignored",
         }
     )
 
     assert hints == {
+        "start_time": 100.0,
+        "end_time": 101.0,
         "data": {
             "box": [0.1, 0.2, 0.3, 0.4],
             "region": ["10", "20", "30", "40"],
+            "path_data": [[[0.5, 0.6], 100.1]],
         }
     }
     assert service._extract_crop_event_hints({"data": {"box": [1, 2, 3]}}) is None
     assert service._extract_crop_event_hints({"data": "bad"}) is None
     assert service._extract_crop_event_hints(None) is None
+
+
+def test_candidate_frame_indices_prefers_event_path_timing():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(
+        frame_count=90,
+        fps=30.0,
+        event_data={
+            "start_time": 100.0,
+            "end_time": 103.0,
+            "data": {
+                "path_data": [
+                    [[0.5, 0.8], 100.1],
+                    [[0.6, 0.8], 100.4],
+                    [[0.7, 0.8], 100.8],
+                ]
+            },
+        },
+    )
+
+    assert indices[:3] == [12, 11, 13]
+    assert 45 in indices
+    assert 0 in indices
+
+
+def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(
+        frame_count=90,
+        fps=30.0,
+        event_data={
+            "start_time": 100.0,
+            "data": {
+                "box": [0.75, 0.70, 0.10, 0.10],
+                "path_data": [
+                    [[0.2, 0.2], 100.1],
+                    [[0.4, 0.4], 100.4],
+                    [[0.8, 0.75], 100.8],
+                ],
+            },
+        },
+    )
+
+    assert indices[:3] == [24, 23, 25]
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -134,7 +186,7 @@ async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, 
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_replace")
@@ -170,7 +222,7 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: frame_bytes,
+        lambda clip_bytes, *_args: frame_bytes,
     )
 
     queued = hq_module.high_quality_snapshot_service.schedule_replacement(
@@ -218,7 +270,7 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: frame_bytes,
+        lambda clip_bytes, *_args: frame_bytes,
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_crop")
@@ -265,7 +317,7 @@ async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_ena
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: frame_bytes,
+        lambda clip_bytes, *_args: frame_bytes,
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop")
@@ -304,7 +356,7 @@ async def test_process_event_falls_back_to_hq_frame_when_bird_crop_unavailable(t
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: frame_bytes,
+        lambda clip_bytes, *_args: frame_bytes,
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop_fallback")
@@ -333,7 +385,7 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-from-recording:" + clip_bytes,
+        lambda clip_bytes, *_args: b"derived-from-recording:" + clip_bytes,
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_recording_fallback")
@@ -456,7 +508,7 @@ async def test_high_quality_snapshot_service_status_tracks_outcomes(tmp_path, mo
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_status")
@@ -478,7 +530,7 @@ async def test_replace_from_clip_bytes_replaces_cached_snapshot_when_enabled(tmp
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_bytes", b"clip-bytes")
@@ -496,7 +548,7 @@ async def test_replace_from_clip_bytes_is_disabled_when_feature_flag_off(tmp_pat
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_disabled", b"clip-bytes")
@@ -536,7 +588,7 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     worker_processed = asyncio.Event()
@@ -580,7 +632,7 @@ async def test_replace_from_clip_bytes_satisfies_deferred_event_without_later_wo
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
         "_extract_snapshot_from_clip",
-        lambda clip_bytes: b"derived-bytes",
+        lambda clip_bytes, *_args: b"derived-bytes",
     )
 
     worker_processed: list[str] = []
