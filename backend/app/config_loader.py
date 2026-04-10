@@ -131,7 +131,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'video_classification_delay': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY', '30')),
         'video_classification_max_retries': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES', '3')),
         'video_classification_retry_interval': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL', '15')),
-        'video_classification_max_concurrent': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT', '5')),
+        'video_classification_max_concurrent': int(os.environ.get('CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT', '1')),
         'video_classification_failure_threshold': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_THRESHOLD', '5')),
         'video_classification_failure_window_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES', '10')),
         'video_classification_failure_cooldown_minutes': int(os.environ.get('CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES', '15')),

@@ -251,7 +251,7 @@ class ClassificationSettings(BaseModel):
     video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
-    video_classification_max_concurrent: int = Field(default=5, ge=1, le=20, description="Maximum concurrent video classification tasks")
+    video_classification_max_concurrent: int = Field(default=1, ge=1, le=20, description="Maximum concurrent video classification tasks")
     video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
     video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
     video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")

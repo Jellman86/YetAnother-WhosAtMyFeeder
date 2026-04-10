@@ -2098,7 +2098,7 @@ class ClassifierService:
             1,
             min(
                 2,
-                int(getattr(settings.classification, "video_classification_max_concurrent", 2) or 2),
+                int(getattr(settings.classification, "video_classification_max_concurrent", 1) or 1),
             ),
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT

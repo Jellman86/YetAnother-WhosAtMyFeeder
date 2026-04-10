@@ -346,7 +346,7 @@ class SettingsUpdate(BaseModel):
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
-    video_classification_max_concurrent: Optional[int] = Field(5, ge=1, le=20, description="Maximum concurrent video classification jobs")
+    video_classification_max_concurrent: Optional[int] = Field(1, ge=1, le=20, description="Maximum concurrent video classification jobs")
     video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
     image_execution_mode: Optional[str] = Field(
         "in_process",

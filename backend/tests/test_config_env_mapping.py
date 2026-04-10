@@ -83,7 +83,7 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
     ("video_classification_delay", "CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY", "42", 30, 42),
     ("video_classification_max_retries", "CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES", "9", 3, 9),
     ("video_classification_retry_interval", "CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL", "21", 15, 21),
-    ("video_classification_max_concurrent", "CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT", "7", 5, 7),
+    ("video_classification_max_concurrent", "CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT", "7", 1, 7),
     ("video_classification_failure_threshold", "CLASSIFICATION__VIDEO_FAILURE_THRESHOLD", "11", 5, 11),
     (
         "video_classification_failure_window_minutes",
@@ -220,7 +220,7 @@ def test_classification_startup_load_env_precedence_with_full_file_payload(monke
                     "video_classification_delay": 30,
                     "video_classification_max_retries": 3,
                     "video_classification_retry_interval": 15,
-                    "video_classification_max_concurrent": 5,
+                    "video_classification_max_concurrent": 1,
                     "video_classification_failure_threshold": 5,
                     "video_classification_failure_window_minutes": 10,
                     "video_classification_failure_cooldown_minutes": 15,

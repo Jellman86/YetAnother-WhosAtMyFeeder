@@ -139,7 +139,7 @@
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
-    let videoClassificationMaxConcurrent = $state(5);
+    let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let cropModelOverrides = $state<Record<string, CropModelOverride>>({});
@@ -1652,7 +1652,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
-            { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 5 },
+            { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             {
                 key: 'cropModelOverrides',
@@ -2585,7 +2585,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
-            videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 5;
+            videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             ({ cropModelOverrides, cropSourceOverrides } = resolveCropOverridesFromSettings(

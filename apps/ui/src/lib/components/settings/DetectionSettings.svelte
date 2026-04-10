@@ -25,7 +25,7 @@
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
-        videoClassificationMaxConcurrent = $bindable(5),
+        videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
