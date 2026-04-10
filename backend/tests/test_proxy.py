@@ -876,7 +876,7 @@ async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.Asy
 
 
 @pytest.mark.asyncio
-async def test_proxy_thumbnail_prefers_derived_thumbnail_from_cached_snapshot(client: httpx.AsyncClient):
+async def test_proxy_thumbnail_ignores_legacy_cached_thumbnail_when_snapshot_exists(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
@@ -889,22 +889,23 @@ async def test_proxy_thumbnail_prefers_derived_thumbnail_from_cached_snapshot(cl
     high_res.save(high_res_buffer, format="JPEG", quality=92)
     high_res_bytes = high_res_buffer.getvalue()
 
-    tiny_image = Image.new("RGB", (175, 175), color=(12, 34, 56))
-    tiny_buffer = io.BytesIO()
-    tiny_image.save(tiny_buffer, format="JPEG", quality=70)
-    tiny_thumb = tiny_buffer.getvalue()
+    legacy_wide = Image.new("RGB", (960, 720), color=(90, 20, 20))
+    legacy_wide_buffer = io.BytesIO()
+    legacy_wide.save(legacy_wide_buffer, format="JPEG", quality=88)
+    legacy_wide_thumb = legacy_wide_buffer.getvalue()
 
     with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail, \
          patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
          patch("app.services.media_cache.media_cache.cache_thumbnail", new_callable=AsyncMock) as mock_cache_thumbnail, \
          patch("app.routers.proxy.get_http_client") as mock_http_client:
-        mock_get_thumbnail.return_value = tiny_thumb
+        mock_get_thumbnail.return_value = legacy_wide_thumb
         mock_get_snapshot.return_value = high_res_bytes
 
         try:
             response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
             assert response.status_code == 200
             assert response.headers["cache-control"] == "no-store, max-age=0"
+            assert response.content != legacy_wide_thumb
             mock_http_client.assert_not_called()
             mock_cache_thumbnail.assert_awaited_once()
 
@@ -915,6 +916,31 @@ async def test_proxy_thumbnail_prefers_derived_thumbnail_from_cached_snapshot(cl
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_thumbnail_keeps_known_frigate_thumbnail_without_snapshot(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+
+    cached_frigate_thumbnail = b"frigate-thumbnail"
+
+    with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail, \
+         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.routers.proxy.get_http_client") as mock_http_client:
+        mock_get_thumbnail.return_value = cached_frigate_thumbnail
+        mock_get_snapshot.return_value = None
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
+            assert response.status_code == 200
+            assert response.content == cached_frigate_thumbnail
+            mock_http_client.assert_not_called()
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
 
 
 @pytest.mark.asyncio

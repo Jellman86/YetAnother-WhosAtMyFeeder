@@ -107,6 +107,41 @@ async def test_replace_snapshot_invalidates_cached_thumbnail(tmp_path, monkeypat
 
 
 @pytest.mark.asyncio
+async def test_cache_snapshot_invalidates_cached_thumbnail(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_cache_thumbnail"
+
+    thumbnail_path = await service.cache_thumbnail(event_id, b"old-thumbnail", source="snapshot_derived")
+    assert thumbnail_path == snapshots / f"{event_id}_thumb.jpg"
+    assert await service.get_thumbnail(event_id) == b"old-thumbnail"
+
+    snapshot_path = await service.cache_snapshot(event_id, b"new-snapshot")
+
+    assert snapshot_path == snapshots / f"{event_id}.jpg"
+    assert await service.get_snapshot(event_id) == b"new-snapshot"
+    assert await service.get_thumbnail(event_id) is None
+    assert await service.get_thumbnail_metadata(event_id) is None
+    assert not thumbnail_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_thumbnail_metadata_tracks_source_and_is_removed_with_thumbnail(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_thumbnail_metadata"
+
+    await service.cache_thumbnail(event_id, b"thumbnail-bytes", source="snapshot_derived")
+    cached_metadata = await service.get_thumbnail_metadata(event_id)
+
+    assert cached_metadata is not None
+    assert cached_metadata["source"] == "snapshot_derived"
+    assert cached_metadata["updated_at"].endswith("Z")
+
+    assert await service.delete_thumbnail(event_id) is True
+    assert await service.get_thumbnail(event_id) is None
+    assert await service.get_thumbnail_metadata(event_id) is None
+
+
+@pytest.mark.asyncio
 async def test_snapshot_metadata_tracks_source_and_is_removed_with_snapshot(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_snapshot_metadata"
@@ -124,9 +159,14 @@ async def test_snapshot_metadata_tracks_source_and_is_removed_with_snapshot(tmp_
     assert replaced_metadata is not None
     assert replaced_metadata["source"] == "high_quality_bird_crop"
 
+    await service.cache_thumbnail(event_id, b"thumbnail-bytes", source="snapshot_derived")
+    assert await service.get_thumbnail(event_id) == b"thumbnail-bytes"
+
     assert await service.delete_snapshot(event_id) is True
     assert await service.get_snapshot(event_id) is None
     assert await service.get_snapshot_metadata(event_id) is None
+    assert await service.get_thumbnail(event_id) is None
+    assert await service.get_thumbnail_metadata(event_id) is None
 
 
 @pytest.mark.asyncio

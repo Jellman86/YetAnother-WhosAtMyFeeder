@@ -147,6 +147,9 @@ class MediaCacheService:
 
         return path
 
+    def _thumbnail_metadata_path(self, event_id: str) -> Path:
+        return self._thumbnail_path(event_id).with_suffix(".jpg.meta.json")
+
     def _clip_path(self, event_id: str) -> Path:
         """Get the path for a cached clip.
 
@@ -269,6 +272,7 @@ class MediaCacheService:
             path = self._snapshot_path(event_id)
             await self._write_bytes_atomic(path, image_bytes)
             await self._write_snapshot_metadata(event_id, source=source)
+            await self.delete_thumbnail(event_id)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
@@ -314,7 +318,7 @@ class MediaCacheService:
             log.debug("Failed to read cached snapshot metadata", event_id=event_id, error=str(e))
             return None
 
-    async def cache_thumbnail(self, event_id: str, image_bytes: bytes) -> Optional[Path]:
+    async def cache_thumbnail(self, event_id: str, image_bytes: bytes, source: str = "frigate_thumbnail") -> Optional[Path]:
         """Cache a thumbnail image using a key distinct from the canonical snapshot."""
         if not self._available:
             log.warning("Media cache unavailable; skipping thumbnail cache write", error=self._init_error)
@@ -322,10 +326,34 @@ class MediaCacheService:
         try:
             path = self._thumbnail_path(event_id)
             await self._write_bytes_atomic(path, image_bytes)
+            await self._write_thumbnail_metadata(event_id, source=source)
             log.debug("Cached thumbnail", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to cache thumbnail", event_id=event_id, error=str(e))
+            return None
+
+    async def _write_thumbnail_metadata(self, event_id: str, *, source: str) -> None:
+        metadata = {
+            "source": str(source or "unknown"),
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        path = self._thumbnail_metadata_path(event_id)
+        encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
+        await self._write_bytes_atomic(path, encoded)
+
+    async def get_thumbnail_metadata(self, event_id: str) -> Optional[dict]:
+        """Read cached thumbnail metadata, if present and valid."""
+        try:
+            path = self._thumbnail_metadata_path(event_id)
+            if not await aiofiles.os.path.exists(path):
+                return None
+            async with aiofiles.open(path, "r", encoding="utf-8") as f:
+                raw = await f.read()
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except Exception as e:
+            log.debug("Failed to read cached thumbnail metadata", event_id=event_id, error=str(e))
             return None
 
     async def get_snapshot(self, event_id: str) -> Optional[bytes]:
@@ -405,6 +433,8 @@ class MediaCacheService:
             if await aiofiles.os.path.exists(metadata_path):
                 await aiofiles.os.remove(metadata_path)
                 removed = True
+            thumbnail_removed = await self.delete_thumbnail(event_id)
+            removed = removed or thumbnail_removed
             return removed
         except Exception as e:
             log.error("Failed to delete cached snapshot", event_id=event_id, error=str(e))
@@ -414,10 +444,15 @@ class MediaCacheService:
         """Delete the cached thumbnail for an event."""
         try:
             thumbnail_path = self._thumbnail_path(event_id)
+            metadata_path = self._thumbnail_metadata_path(event_id)
+            removed = False
             if await aiofiles.os.path.exists(thumbnail_path):
                 await aiofiles.os.remove(thumbnail_path)
-                return True
-            return False
+                removed = True
+            if await aiofiles.os.path.exists(metadata_path):
+                await aiofiles.os.remove(metadata_path)
+                removed = True
+            return removed
         except Exception as e:
             log.error("Failed to delete cached thumbnail", event_id=event_id, error=str(e))
             return False

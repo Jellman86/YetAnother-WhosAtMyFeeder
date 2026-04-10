@@ -130,6 +130,20 @@ def _build_display_thumbnail_from_snapshot(image_bytes: bytes) -> bytes:
         return output.getvalue()
 
 
+def _cached_thumbnail_allowed_for_current_snapshot(metadata: dict | None, *, has_snapshot: bool) -> bool:
+    """Return whether a cached thumbnail still matches the configured snapshot source."""
+    source = str((metadata or {}).get("source") or "").strip()
+    if has_snapshot:
+        # Legacy thumbnails had no source metadata. Once a canonical snapshot is
+        # available, regenerate from it so cards follow the current snapshot config.
+        return source == "snapshot_derived"
+    # Without a canonical snapshot, keep old cached thumbnails for compatibility
+    # unless metadata proves they were derived from a now-missing snapshot.
+    if not source:
+        return True
+    return source == "frigate_thumbnail"
+
+
 def _preview_lock(event_id: str) -> asyncio.Lock:
     lock = _preview_locks.get(event_id)
     if lock is None:
@@ -2121,21 +2135,26 @@ async def proxy_thumb(
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_thumbnail(event_id)
         snapshot_cached = await media_cache.get_snapshot(event_id)
+        thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
         if snapshot_cached and not await _cached_snapshot_allowed_for_current_settings(media_cache, event_id):
             snapshot_cached = None
             cached = None
         if snapshot_cached:
-            if cached and not _is_probably_thumbnail_sized_snapshot(cached):
+            if (
+                cached
+                and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
+                and not _is_probably_thumbnail_sized_snapshot(cached)
+            ):
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
             try:
                 derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
-                await media_cache.cache_thumbnail(event_id, derived)
+                await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
                 return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
             except Exception:
                 # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
-                if cached:
+                if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
                     return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-        elif cached:
+        elif cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False):
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
@@ -2152,7 +2171,7 @@ async def proxy_thumb(
 
         # Cache the response using a dedicated thumbnail key.
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_thumbnail(event_id, resp.content)
+            await media_cache.cache_thumbnail(event_id, resp.content, source="frigate_thumbnail")
 
         return Response(
             content=resp.content,
