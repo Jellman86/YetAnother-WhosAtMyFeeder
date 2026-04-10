@@ -1257,7 +1257,11 @@ async def proxy_snapshot(
     client = get_http_client()
     headers = frigate_client._get_headers()
     try:
-        resp = await client.get(url, headers=headers)
+        resp = await client.get(
+            url,
+            headers=headers,
+            params={"crop": 1, "quality": 95},
+        )
         if resp.status_code == 404:
             raise HTTPException(
                 status_code=404,

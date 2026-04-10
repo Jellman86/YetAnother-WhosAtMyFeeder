@@ -895,8 +895,52 @@ async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(
             response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
             assert response.status_code == 200
             assert response.content == refreshed_snapshot
-            mock_client.get.assert_awaited_once()
+            mock_client.get.assert_awaited_once_with(
+                f"{settings.frigate.frigate_url}/api/events/test_event_id/snapshot.jpg",
+                headers={},
+                params={"crop": 1, "quality": 95},
+            )
             mock_cache_snapshot.assert_awaited_once_with("test_event_id", refreshed_snapshot)
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+
+    cropped_snapshot = b"cropped-snapshot"
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "image/jpeg"}
+    mock_response.content = cropped_snapshot
+    mock_response.raise_for_status = MagicMock()
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
+
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
+         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
+         patch("app.routers.proxy.frigate_client") as mock_frigate:
+        mock_get_snapshot.return_value = None
+        mock_frigate._get_headers = MagicMock(return_value={"Authorization": "Bearer token"})
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+            assert response.status_code == 200
+            assert response.content == cropped_snapshot
+            mock_client.get.assert_awaited_once_with(
+                f"{settings.frigate.frigate_url}/api/events/test_event_id/snapshot.jpg",
+                headers={"Authorization": "Bearer token"},
+                params={"crop": 1, "quality": 95},
+            )
+            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
