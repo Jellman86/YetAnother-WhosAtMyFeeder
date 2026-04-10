@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import tempfile
 from io import BytesIO
 from collections import Counter, deque
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import cv2
 import structlog
@@ -92,14 +93,20 @@ class HighQualitySnapshotService:
         except Exception as e:
             log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
             return self._record_outcome(event_id, "frame_extract_failed")
-        image_bytes = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes)
+        event_data = await self._load_event_data_for_crop(event_id)
+        image_bytes, crop_applied = await asyncio.to_thread(
+            self._maybe_crop_snapshot_bytes,
+            event_id,
+            image_bytes,
+            event_data,
+        )
 
         replaced = await media_cache.replace_snapshot(event_id, image_bytes)
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
 
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes))
-        return self._record_outcome(event_id, "replaced")
+        return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
 
     async def _load_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         """Fall back to the full-visit recording clip when the event clip is unavailable."""
@@ -130,7 +137,12 @@ class HighQualitySnapshotService:
 
         return None
 
-    async def replace_from_clip_bytes(self, event_id: str, clip_bytes: bytes) -> str:
+    async def replace_from_clip_bytes(
+        self,
+        event_id: str,
+        clip_bytes: bytes,
+        event_data: Optional[dict[str, Any]] = None,
+    ) -> str:
         """Best-effort replacement using clip bytes already fetched by another workflow."""
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
@@ -147,7 +159,13 @@ class HighQualitySnapshotService:
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
-            image_bytes = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes)
+            crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
+            image_bytes, crop_applied = await asyncio.to_thread(
+                self._maybe_crop_snapshot_bytes,
+                event_id,
+                image_bytes,
+                crop_event_data,
+            )
 
             replaced = await media_cache.replace_snapshot(event_id, image_bytes)
             if not replaced:
@@ -157,7 +175,7 @@ class HighQualitySnapshotService:
                 self._completed_ids.add(event_id)
 
             log.info("High-quality snapshot replaced from clip bytes", event_id=event_id, size=len(image_bytes))
-            return self._record_outcome(event_id, "replaced")
+            return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
         finally:
             self._active_ids.discard(event_id)
             self._promote_deferred_events()
@@ -348,23 +366,50 @@ class HighQualitySnapshotService:
             except FileNotFoundError:
                 pass
 
-    def _maybe_crop_snapshot_bytes(self, event_id: str, image_bytes: bytes) -> bytes:
+    async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
+        """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
+        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+            return None
+
+        try:
+            event_data, error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
+        except Exception as e:
+            log.debug("High-quality bird crop event metadata fetch failed", event_id=event_id, error=str(e))
+            return None
+
+        if not isinstance(event_data, dict):
+            log.debug(
+                "High-quality bird crop event metadata unavailable",
+                event_id=event_id,
+                reason=error or "event_unavailable",
+            )
+            return None
+        return event_data
+
+    def _maybe_crop_snapshot_bytes(
+        self,
+        event_id: str,
+        image_bytes: bytes,
+        event_data: Optional[dict[str, Any]] = None,
+    ) -> tuple[bytes, bool]:
         """Optionally run the crop detector against the HQ frame, falling back to the frame."""
         if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
-            return image_bytes
+            return image_bytes, False
 
         try:
             with Image.open(BytesIO(image_bytes)) as img:
                 source_image = img.convert("RGB")
         except Exception as e:
             log.warning("High-quality bird crop source decode failed", event_id=event_id, error=str(e))
-            return image_bytes
+            return image_bytes, False
 
-        try:
-            crop_result = bird_crop_service.generate_crop(source_image)
-        except Exception as e:
-            log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
-            return image_bytes
+        crop_result = self._crop_from_event_hints(source_image, event_data)
+        if not crop_result:
+            try:
+                crop_result = bird_crop_service.generate_crop(source_image)
+            except Exception as e:
+                log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
+                return image_bytes, False
 
         crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
         if not isinstance(crop_image, Image.Image):
@@ -373,7 +418,7 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 reason=(crop_result or {}).get("reason") if isinstance(crop_result, dict) else "invalid_crop_result",
             )
-            return image_bytes
+            return image_bytes, False
 
         try:
             output = BytesIO()
@@ -383,10 +428,115 @@ class HighQualitySnapshotService:
                 quality=int(settings.media_cache.high_quality_event_snapshot_jpeg_quality),
                 optimize=True,
             )
-            return output.getvalue()
+            log.debug(
+                "High-quality bird crop applied",
+                event_id=event_id,
+                reason=str(crop_result.get("reason") or "crop"),
+                crop_box=crop_result.get("box"),
+            )
+            return output.getvalue(), True
         except Exception as e:
             log.warning("High-quality bird crop encode failed", event_id=event_id, error=str(e))
-            return image_bytes
+            return image_bytes, False
+
+    def _crop_from_event_hints(
+        self,
+        image: Image.Image,
+        event_data: Optional[dict[str, Any]],
+    ) -> Optional[dict[str, Any]]:
+        raw_payload = (event_data or {}).get("data") if isinstance(event_data, dict) else None
+        payload = raw_payload if isinstance(raw_payload, dict) else {}
+        for hint_key, reason in (("box", "frigate_box"), ("region", "frigate_region")):
+            box = self._restore_frigate_hint_box(payload.get(hint_key), image.size)
+            if box is None:
+                continue
+            expanded = self._expand_hint_box(box, image.size)
+            if expanded is None:
+                continue
+            return {
+                "crop_image": image.crop(expanded),
+                "box": expanded,
+                "confidence": None,
+                "reason": reason,
+            }
+        return None
+
+    def _restore_frigate_hint_box(
+        self,
+        raw_hint: Any,
+        image_size: tuple[int, int],
+    ) -> Optional[tuple[int, int, int, int]]:
+        if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
+            return None
+        try:
+            left = float(raw_hint[0])
+            top = float(raw_hint[1])
+            width = float(raw_hint[2])
+            height = float(raw_hint[3])
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in (left, top, width, height)):
+            return None
+
+        image_width, image_height = image_size
+        normalized = (
+            0.0 <= left <= 1.0
+            and 0.0 <= top <= 1.0
+            and 0.0 <= width <= 1.0
+            and 0.0 <= height <= 1.0
+        )
+        if normalized:
+            left *= float(image_width)
+            top *= float(image_height)
+            width *= float(image_width)
+            height *= float(image_height)
+
+        right = left + width
+        bottom = top + height
+        if right <= left or bottom <= top:
+            return None
+        left_i = max(0, min(image_width, int(math.floor(left))))
+        top_i = max(0, min(image_height, int(math.floor(top))))
+        right_i = max(0, min(image_width, int(math.ceil(right))))
+        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
+        if right_i <= left_i or bottom_i <= top_i:
+            return None
+        return left_i, top_i, right_i, bottom_i
+
+    def _expand_hint_box(
+        self,
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+    ) -> Optional[tuple[int, int, int, int]]:
+        left, top, right, bottom = box
+        width = right - left
+        height = bottom - top
+        if width <= 0 or height <= 0:
+            return None
+        expand_ratio = 0.12
+        min_crop_size = 96
+        try:
+            expand_ratio = max(0.0, float(getattr(bird_crop_service, "expand_ratio", expand_ratio)))
+        except Exception:
+            expand_ratio = 0.12
+        try:
+            min_crop_size = max(1, int(getattr(bird_crop_service, "min_crop_size", min_crop_size)))
+        except Exception:
+            min_crop_size = 96
+
+        pad_x = int(round(width * expand_ratio))
+        pad_y = int(round(height * expand_ratio))
+        expanded_left = max(0, left - pad_x)
+        expanded_top = max(0, top - pad_y)
+        expanded_right = min(int(image_size[0]), right + pad_x)
+        expanded_bottom = min(int(image_size[1]), bottom + pad_y)
+        crop_width = expanded_right - expanded_left
+        crop_height = expanded_bottom - expanded_top
+        if crop_width < min_crop_size or crop_height < min_crop_size:
+            return None
+        if expanded_right <= expanded_left or expanded_bottom <= expanded_top:
+            return None
+        return expanded_left, expanded_top, expanded_right, expanded_bottom
 
     def _extract_snapshot_from_clip_path(self, clip_path: Path) -> bytes:
         cap = cv2.VideoCapture(str(clip_path))

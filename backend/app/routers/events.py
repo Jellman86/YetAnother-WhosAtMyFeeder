@@ -1299,7 +1299,11 @@ async def reclassify_event(
                             try:
                                 if settings.media_cache.high_quality_event_snapshots:
                                     try:
-                                        await high_quality_snapshot_service.replace_from_clip_bytes(event_id, clip_data)
+                                        await high_quality_snapshot_service.replace_from_clip_bytes(
+                                            event_id,
+                                            clip_data,
+                                            event_data=event_data,
+                                        )
                                     except Exception as e:
                                         log.warning(
                                             "High-quality snapshot upgrade failed during manual video reclassification",

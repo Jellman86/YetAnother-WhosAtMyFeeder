@@ -139,7 +139,17 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
             response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
 
         assert response.status_code == 200, response.text
-        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, b"\x00\x00\x00\x18ftypisomclip")
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+            event_id,
+            b"\x00\x00\x00\x18ftypisomclip",
+            event_data={
+                "has_clip": True,
+                "data": {
+                    "box": [0.2, 0.3, 0.4, 0.5],
+                    "region": [0.1, 0.2, 0.8, 0.9],
+                },
+            },
+        )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"] == {
             "is_cropped": False,
@@ -189,7 +199,11 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
 
         assert response.status_code == 200, response.text
         mock_frigate.get_clip_with_error.assert_awaited_once()
-        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, b"\x00\x00\x00\x18ftypisomevent")
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+            event_id,
+            b"\x00\x00\x00\x18ftypisomevent",
+            event_data={"has_clip": True},
+        )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
         assert not recording_path.exists()
@@ -231,7 +245,11 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
 
         assert response.status_code == 200, response.text
         mock_frigate.get_clip_with_error.assert_awaited_once()
-        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, b"\x00\x00\x00\x18ftypisomevent")
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+            event_id,
+            b"\x00\x00\x00\x18ftypisomevent",
+            event_data={"has_clip": True},
+        )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
     finally:
@@ -272,7 +290,11 @@ async def test_reclassify_video_prefers_cached_recording_clip_when_available(cli
             response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
 
         assert response.status_code == 200, response.text
-        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(event_id, recording_bytes)
+        mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+            event_id,
+            recording_bytes,
+            event_data={"has_clip": True},
+        )
         mock_frigate.get_clip_with_error.assert_not_awaited()
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "recording"

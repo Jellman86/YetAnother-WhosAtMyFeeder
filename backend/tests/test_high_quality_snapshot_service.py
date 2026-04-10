@@ -1,7 +1,7 @@
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -38,9 +38,26 @@ def _make_cache_service(tmp_path, monkeypatch):
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_high_quality_snapshot_service_state():
+    original_media_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_high_quality_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_high_quality_bird_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    original_clips_enabled = settings.frigate.clips_enabled
+    original_recording_clip_enabled = settings.frigate.recording_clip_enabled
     await hq_module.high_quality_snapshot_service.reset_state()
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = False
+    settings.media_cache.high_quality_event_snapshot_bird_crop = False
+    settings.frigate.clips_enabled = True
     yield
     await hq_module.high_quality_snapshot_service.reset_state()
+    settings.media_cache.enabled = original_media_enabled
+    settings.media_cache.cache_snapshots = original_cache_snapshots
+    settings.media_cache.high_quality_event_snapshots = original_high_quality_snapshots
+    settings.media_cache.high_quality_event_snapshot_bird_crop = original_high_quality_bird_crop
+    settings.frigate.clips_enabled = original_clips_enabled
+    settings.frigate.recording_clip_enabled = original_recording_clip_enabled
 
 
 @pytest.mark.asyncio
@@ -101,6 +118,48 @@ async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, 
 
 
 @pytest.mark.asyncio
+async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_hint_crop", b"frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.expand_ratio = 0.0
+    fake_crop_service.min_crop_size = 1
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+    monkeypatch.setattr(
+        hq_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=({"data": {"box": [20, 10, 30, 20]}}, None)),
+    )
+
+    async def fake_wait_for_clip(event_id: str):
+        assert event_id == "evt_hint_crop"
+        return b"clip-bytes", None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", fake_wait_for_clip)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes: frame_bytes,
+    )
+
+    result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_crop")
+
+    assert result == "bird_crop_replaced"
+    fake_crop_service.generate_crop.assert_not_called()
+    cached = await cache_service.get_snapshot("evt_hint_crop")
+    assert cached is not None
+    with Image.open(BytesIO(cached)) as img:
+        assert img.size == (30, 20)
+    status = hq_module.high_quality_snapshot_service.get_status()
+    assert status["outcomes"]["bird_crop_replaced"] == 1
+    assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "bird_crop_replaced"}
+
+
+@pytest.mark.asyncio
 async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_enabled(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_crop", b"frigate-bytes")
@@ -117,6 +176,12 @@ async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_ena
     }
     monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
 
+    async def no_event_data(event_id: str):
+        assert event_id == "evt_crop"
+        return None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_load_event_data_for_crop", no_event_data)
+
     async def fake_wait_for_clip(event_id: str):
         assert event_id == "evt_crop"
         return b"clip-bytes", None
@@ -130,7 +195,7 @@ async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_ena
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop")
 
-    assert result == "replaced"
+    assert result == "bird_crop_replaced"
     fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_crop")
     assert cached is not None
@@ -149,6 +214,12 @@ async def test_process_event_falls_back_to_hq_frame_when_bird_crop_unavailable(t
     fake_crop_service = MagicMock()
     fake_crop_service.generate_crop.return_value = {"crop_image": None, "reason": "no_crop"}
     monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    async def no_event_data(event_id: str):
+        assert event_id == "evt_crop_fallback"
+        return None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_load_event_data_for_crop", no_event_data)
 
     async def fake_wait_for_clip(event_id: str):
         assert event_id == "evt_crop_fallback"

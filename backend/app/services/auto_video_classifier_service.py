@@ -953,7 +953,11 @@ class AutoVideoClassifierService:
 
             if settings.media_cache.high_quality_event_snapshots:
                 try:
-                    await high_quality_snapshot_service.replace_from_clip_bytes(frigate_event, clip_bytes)
+                    await high_quality_snapshot_service.replace_from_clip_bytes(
+                        frigate_event,
+                        clip_bytes,
+                        event_data=event_data,
+                    )
                 except Exception as e:
                     log.warning(
                         "High-quality snapshot upgrade failed during auto video classification",

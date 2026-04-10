@@ -39,7 +39,11 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
 
         await service._process_event("evt-auto-video-upgrade", "cam1", skip_delay=True)
 
-    mock_hq.replace_from_clip_bytes.assert_awaited_once_with("evt-auto-video-upgrade", b"clip-bytes")
+    mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+        "evt-auto-video-upgrade",
+        b"clip-bytes",
+        event_data={"has_clip": True},
+    )
     service._save_results.assert_awaited_once()
 
 
@@ -61,7 +65,11 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
 
         await service._process_event("evt-auto-video-upgrade-failure", "cam1", skip_delay=True)
 
-    mock_hq.replace_from_clip_bytes.assert_awaited_once_with("evt-auto-video-upgrade-failure", b"clip-bytes")
+    mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+        "evt-auto-video-upgrade-failure",
+        b"clip-bytes",
+        event_data={"has_clip": True},
+    )
     service._save_results.assert_awaited_once()
 
 
