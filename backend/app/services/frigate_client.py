@@ -118,15 +118,36 @@ class FrigateClient:
         Returns:
             Image bytes or None if failed
         """
+        snapshot, _error = await self.get_snapshot_with_error(event_id, crop=crop, quality=quality)
+        return snapshot
+
+    async def get_snapshot_with_error(
+        self,
+        event_id: str,
+        crop: bool = True,
+        quality: int = 95,
+        timeout: float = 30.0,
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch snapshot image for an event with explicit error reason."""
         params = {"crop": 1 if crop else 0, "quality": quality}
         try:
-            resp = await self.get(f"api/events/{event_id}/snapshot.jpg", params=params)
+            resp = await self.get(f"api/events/{event_id}/snapshot.jpg", params=params, timeout=timeout)
             if resp.status_code == 200:
-                return resp.content
+                return resp.content, None
+            if resp.status_code == 404:
+                log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
+                return None, "snapshot_not_found"
             log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
+            return None, f"snapshot_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Snapshot fetch timed out", event_id=event_id)
+            return None, "snapshot_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching snapshot", event_id=event_id, error=str(e))
+            return None, "snapshot_request_error"
         except Exception as e:
             log.error("Error fetching snapshot", event_id=event_id, error=str(e))
-        return None
+            return None, "snapshot_unknown_error"
 
     async def get_clip_with_error(self, event_id: str, timeout: float = 20.0) -> tuple[Optional[bytes], Optional[str]]:
         """Fetch video clip for an event with explicit error reason."""

@@ -783,8 +783,14 @@ class EventProcessor:
         try:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
             snapshot_data: bytes | None = None
+            snapshot_source = "frigate_snapshot_cropped"
+            last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
-                snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=95)
+                snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
+                    event.frigate_event,
+                    crop=True,
+                    quality=95,
+                )
                 if snapshot_data:
                     break
 
@@ -807,14 +813,22 @@ class EventProcessor:
                     break
                 await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
             if not snapshot_data:
-                log.info("Skipping MQTT event - snapshot unavailable after retry", event_id=event.frigate_event)
+                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
+                    event.frigate_event
+                )
+            if not snapshot_data:
+                log.info(
+                    "Skipping MQTT event - snapshot unavailable after retry",
+                    event_id=event.frigate_event,
+                    last_snapshot_error=last_snapshot_error,
+                )
                 return None
 
             image = Image.open(BytesIO(snapshot_data))
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,
-                input_context={"is_cropped": True, "event_id": event.frigate_event},
+                input_context={"is_cropped": snapshot_source == "frigate_snapshot_cropped", "event_id": event.frigate_event},
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
 
@@ -829,6 +843,33 @@ class EventProcessor:
         except Exception as e:
             log.error("Classification failed", event_id=event.frigate_event, error=str(e))
             return None
+
+    async def _load_snapshot_classification_fallback(self, event_id: str) -> tuple[Optional[bytes], str]:
+        """Try progressively less ideal snapshot sources before dropping the event."""
+        snapshot_data, error = await frigate_client.get_snapshot_with_error(event_id, crop=False, quality=95)
+        if snapshot_data:
+            self._record_stage_fallback("classify_snapshot", event_id)
+            log.info("Using uncropped Frigate snapshot fallback for classification", event_id=event_id)
+            return snapshot_data, "frigate_snapshot_uncropped"
+
+        thumbnail_data = await frigate_client.get_thumbnail(event_id)
+        if thumbnail_data:
+            self._record_stage_fallback("classify_snapshot", event_id)
+            log.info("Using Frigate thumbnail fallback for classification", event_id=event_id)
+            return thumbnail_data, "frigate_thumbnail"
+
+        cached_snapshot = await media_cache.get_snapshot(event_id)
+        if cached_snapshot:
+            self._record_stage_fallback("classify_snapshot", event_id)
+            log.info("Using cached snapshot fallback for classification", event_id=event_id)
+            return cached_snapshot, "cached_snapshot"
+
+        log.debug(
+            "No classification snapshot fallback available",
+            event_id=event_id,
+            uncropped_snapshot_error=error,
+        )
+        return None, "unavailable"
 
     async def _gather_context_data(self, event: EventData) -> Dict[str, Any]:
         """Gather audio and weather context data in parallel.

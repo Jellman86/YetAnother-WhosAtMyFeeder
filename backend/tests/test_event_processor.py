@@ -32,7 +32,7 @@ async def test_process_mqtt_message_valid_bird():
         # Mock EventProcessor with dependencies already patched
         processor = EventProcessor(classifier)
 
-        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
         mock_frigate.set_sublabel = AsyncMock()
 
         mock_cache.cache_snapshot = AsyncMock()
@@ -79,7 +79,7 @@ async def test_process_mqtt_message_skips_frigate_write_back_when_disabled():
 
         processor = EventProcessor(classifier)
 
-        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
@@ -491,7 +491,7 @@ async def test_process_mqtt_message_caps_live_queue_timeout_to_remaining_freshne
          patch("app.services.event_processor.Image.open"):
         processor = EventProcessor(classifier)
 
-        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
         mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
@@ -526,7 +526,7 @@ async def test_process_mqtt_message_preserves_live_overload_from_classifier_serv
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
          patch("app.services.event_processor.Image.open", return_value=MagicMock()):
         processor = EventProcessor(classifier)
-        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
 
         payload = b'{"type":"new","after":{"id":"evt-overload-live","label":"bird","camera":"cam1","start_time":1700000000}}'
         await processor.process_mqtt_message(payload)
@@ -546,7 +546,7 @@ async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
          patch("app.services.event_processor.Image.open", return_value=MagicMock()):
         processor = EventProcessor(classifier)
-        mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
 
         payload = b'{"type":"new","after":{"id":"evt-lease-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
         await processor.process_mqtt_message(payload)
@@ -835,7 +835,14 @@ async def test_classify_snapshot_extends_retry_budget_during_frigate_stall_recov
          patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
          patch("app.services.event_processor.Image.open", return_value=MagicMock()), \
          patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
-        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None, None, b"fakeimage"])
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (b"fakeimage", None),
+            ]
+        )
         mock_mqtt.get_status.return_value = {
             "last_reconnect_reason": "frigate_topic_stalled",
             "intentional_reconnect_pending": False,
@@ -850,7 +857,7 @@ async def test_classify_snapshot_extends_retry_budget_during_frigate_stall_recov
     results, snapshot_data = result
     assert results[0]["label"] == "Sparrow"
     assert snapshot_data == b"fakeimage"
-    assert mock_frigate.get_snapshot.await_count == 4
+    assert mock_frigate.get_snapshot_with_error.await_count == 4
     assert mock_sleep.await_count == 3
 
 
@@ -871,7 +878,15 @@ async def test_classify_snapshot_keeps_single_retry_without_frigate_recovery_sig
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
          patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
          patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
-        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None, b"fakeimage"])
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+            ]
+        )
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache = MagicMock()
         mock_mqtt.get_status.return_value = {
             "last_reconnect_reason": None,
             "intentional_reconnect_pending": False,
@@ -880,10 +895,12 @@ async def test_classify_snapshot_keeps_single_retry_without_frigate_recovery_sig
             "frigate_topic_stale_seconds": 300.0,
         }
 
-        result = await processor._classify_snapshot(event)
+        with patch("app.services.event_processor.media_cache", mock_cache):
+            mock_cache.get_snapshot = AsyncMock(return_value=None)
+            result = await processor._classify_snapshot(event)
 
     assert result is None
-    assert mock_frigate.get_snapshot.await_count == 2
+    assert mock_frigate.get_snapshot_with_error.await_count == 3
     assert mock_sleep.await_count == 1
 
 
@@ -930,7 +947,62 @@ async def test_classify_snapshot_caps_retry_sleep_to_remaining_freshness():
          patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep, \
          patch("app.services.event_processor.time.time", return_value=1700000045.2), \
          patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 45.0):
-        mock_frigate.get_snapshot = AsyncMock(side_effect=[None, None])
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+            ]
+        )
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        with patch("app.services.event_processor.media_cache") as mock_cache:
+            mock_cache.get_snapshot = AsyncMock(return_value=None)
+            result = await processor._classify_snapshot(event)
+
+    assert result is None
+    assert mock_frigate.get_snapshot_with_error.await_count == 3
+    mock_sleep.assert_awaited_once_with(pytest.approx(0.8))
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_falls_back_to_uncropped_snapshot_when_cropped_missing():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-fallback-uncropped",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    image_mock = MagicMock()
+    image_mock.convert.return_value = image_mock
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.media_cache") as mock_cache, \
+         patch("app.services.event_processor.Image.open", return_value=image_mock), \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (b"uncropped-bytes", None),
+            ]
+        )
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache.get_snapshot = AsyncMock(return_value=None)
         mock_mqtt.get_status.return_value = {
             "last_reconnect_reason": None,
             "intentional_reconnect_pending": False,
@@ -941,6 +1013,109 @@ async def test_classify_snapshot_caps_retry_sleep_to_remaining_freshness():
 
         result = await processor._classify_snapshot(event)
 
-    assert result is None
-    assert mock_frigate.get_snapshot.await_count == 2
-    mock_sleep.assert_awaited_once_with(pytest.approx(0.8))
+    assert result is not None
+    results, snapshot_data = result
+    assert results[0]["label"] == "Sparrow"
+    assert snapshot_data == b"uncropped-bytes"
+    assert mock_frigate.get_snapshot_with_error.await_args_list[0].kwargs == {"crop": True, "quality": 95}
+    assert mock_frigate.get_snapshot_with_error.await_args_list[1].kwargs == {"crop": True, "quality": 95}
+    assert mock_frigate.get_snapshot_with_error.await_args_list[2].kwargs == {"crop": False, "quality": 95}
+    mock_frigate.get_thumbnail.assert_not_awaited()
+    mock_cache.get_snapshot.assert_not_awaited()
+    mock_sleep.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_falls_back_to_thumbnail_before_drop():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-fallback-thumbnail",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    image_mock = MagicMock()
+    image_mock.convert.return_value = image_mock
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.media_cache") as mock_cache, \
+         patch("app.services.event_processor.Image.open", return_value=image_mock), \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+            ]
+        )
+        mock_frigate.get_thumbnail = AsyncMock(return_value=b"thumb-bytes")
+        mock_cache.get_snapshot = AsyncMock(return_value=None)
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is not None
+    _, snapshot_data = result
+    assert snapshot_data == b"thumb-bytes"
+    mock_cache.get_snapshot.assert_not_awaited()
+    mock_sleep.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_falls_back_to_cached_snapshot_before_drop():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-fallback-cache",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    image_mock = MagicMock()
+    image_mock.convert.return_value = image_mock
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
+         patch("app.services.event_processor.media_cache") as mock_cache, \
+         patch("app.services.event_processor.Image.open", return_value=image_mock), \
+         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+            ]
+        )
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache.get_snapshot = AsyncMock(return_value=b"cached-bytes")
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is not None
+    _, snapshot_data = result
+    assert snapshot_data == b"cached-bytes"
+    mock_cache.get_snapshot.assert_awaited_once_with("evt-fallback-cache")
+    mock_sleep.assert_awaited_once()
