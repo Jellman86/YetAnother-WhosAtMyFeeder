@@ -9,6 +9,7 @@ from app.config import Settings, settings
 from app.main import app
 from app.routers import settings as settings_router
 from app.routers import backfill as backfill_router
+from app.services.maintenance_coordinator import maintenance_coordinator
 
 
 @pytest_asyncio.fixture
@@ -22,9 +23,18 @@ async def client():
 def reset_auth_config():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
+    original_video_classification_max_concurrent = settings.classification.video_classification_max_concurrent
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
+    settings.classification.video_classification_max_concurrent = original_video_classification_max_concurrent
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_maintenance_coordinator():
+    await maintenance_coordinator.reset()
+    yield
+    await maintenance_coordinator.reset()
 
 
 @pytest.mark.asyncio
@@ -328,6 +338,77 @@ async def test_backfill_async_rejects_when_maintenance_pressure_is_high(
     response = await client.post("/api/backfill/async", json={"date_range": "week"})
     assert response.status_code == 409, response.text
     assert "backlogged" in response.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_backfill_async_rejects_when_global_maintenance_slot_is_occupied(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.video_classification_max_concurrent = 1
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+    backfill_router._JOB_TASKS.clear()
+
+    monkeypatch.setattr(
+        backfill_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {
+            "is_running": False,
+            "processed": 0,
+            "total": 0,
+            "current_item": None,
+            "error": None,
+        },
+    )
+
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="taxonomy_sync")
+    assert acquired is True
+    try:
+        response = await client.post("/api/backfill/async", json={"date_range": "week"})
+        assert response.status_code == 409, response.text
+        assert "maintenance work is running" in response.text.lower()
+    finally:
+        await maintenance_coordinator.release("test-maintenance-slot")
+
+
+@pytest.mark.asyncio
+async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupied(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.video_classification_max_concurrent = 1
+
+    async def _unexpected_run():
+        raise AssertionError("analyze unknowns should have been coalesced")
+
+    monkeypatch.setattr(settings_router, "_run_analyze_unknowns", _unexpected_run)
+
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    assert acquired is True
+    try:
+        response = await client.post("/api/maintenance/analyze-unknowns")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "in_progress"
+        assert "already in progress" in payload["message"].lower()
+    finally:
+        await maintenance_coordinator.release("test-maintenance-slot")
+
+
+@pytest.mark.asyncio
+async def test_maintenance_coordinator_rejects_duplicate_holder_acquire():
+    acquired = await maintenance_coordinator.try_acquire("dup-holder", kind="backfill")
+    assert acquired is True
+    try:
+        acquired_again = await maintenance_coordinator.try_acquire("dup-holder", kind="backfill")
+        assert acquired_again is False
+    finally:
+        await maintenance_coordinator.release("dup-holder")
 
 
 @pytest.mark.asyncio

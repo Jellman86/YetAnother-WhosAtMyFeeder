@@ -21,6 +21,7 @@ from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
+from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.ai_service import AIService
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
@@ -102,7 +103,22 @@ async def start_taxonomy_sync(
     if bool(guard.get("reject_new_work")):
         raise HTTPException(status_code=409, detail=_maintenance_busy_message(guard))
 
-    background_tasks.add_task(canonical_identity_repair_service.run)
+    holder_id = "taxonomy_sync"
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="taxonomy_sync")
+    if not acquired:
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message(guard))
+
+    async def _run_with_slot() -> None:
+        try:
+            await canonical_identity_repair_service.run()
+        finally:
+            await maintenance_coordinator.release(holder_id)
+
+    try:
+        background_tasks.add_task(_run_with_slot)
+    except Exception:
+        await maintenance_coordinator.release(holder_id)
+        raise
     return {"status": "started"}
 
 @router.post("/settings/birdnet/test")
@@ -1422,6 +1438,24 @@ async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
 
 async def _run_analyze_unknowns() -> dict:
     """Core logic for analyzing unknown detections. Used by endpoint and scheduler."""
+    holder_id = "analyze_unknowns"
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="analyze_unknowns")
+    if not acquired:
+        status = await maintenance_coordinator.get_status()
+        active_total = int(status.get("active_total") or 0)
+        return {
+            "status": "in_progress",
+            "count": active_total,
+            "accepted": 0,
+            "skipped_duplicate": 0,
+            "dropped_full": 0,
+            "skipped_no_clip": 0,
+            "skipped_missing_event": 0,
+            "skipped_outside_retention": 0,
+            "precheck_errors": 0,
+            "total_candidates": 0,
+            "message": "Maintenance work is already in progress. Batch analysis is already in progress.",
+        }
     accepted = 0
     skipped_duplicate = 0
     dropped_full = 0
@@ -1429,90 +1463,92 @@ async def _run_analyze_unknowns() -> dict:
     skipped_missing_event = 0
     skipped_outside_retention = 0
     precheck_errors = 0
-    async with get_db() as db:
-        repo = DetectionRepository(db)
-        unknowns = await repo.get_unknown_detections()
+    try:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            unknowns = await repo.get_unknown_detections()
+            log.info("Batch analysis triggered", total_unknowns=len(unknowns))
 
-        log.info("Batch analysis triggered", total_unknowns=len(unknowns))
+            # Pre-check availability before queueing to avoid failure storms when
+            # detections are older than Frigate media retention or clips are missing.
+            frigate_cfg = await frigate_client.get_config()
+            retention_by_camera: dict[str, int | None] = {}
+            for d in unknowns:
+                if d.camera_name not in retention_by_camera:
+                    retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
 
-        # Pre-check availability before queueing to avoid failure storms when
-        # detections are older than Frigate media retention or clips are missing.
-        frigate_cfg = await frigate_client.get_config()
-        retention_by_camera: dict[str, int | None] = {}
-        for d in unknowns:
-            if d.camera_name not in retention_by_camera:
-                retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
+            now = datetime.now()
+            semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
 
-        now = datetime.now()
-        semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
+            async def precheck_detection(detection):
+                retention_days = retention_by_camera.get(detection.camera_name)
+                if retention_days is not None:
+                    cutoff = now - timedelta(days=retention_days)
+                    if detection.detection_time < cutoff:
+                        return ("outside_retention", detection)
 
-        async def precheck_detection(detection):
-            retention_days = retention_by_camera.get(detection.camera_name)
-            if retention_days is not None:
-                cutoff = now - timedelta(days=retention_days)
-                if detection.detection_time < cutoff:
-                    return ("outside_retention", detection)
+                async with semaphore:
+                    event_data, event_error = await frigate_client.get_event_with_error(
+                        detection.frigate_event,
+                        timeout=8.0
+                    )
 
-            async with semaphore:
-                event_data, event_error = await frigate_client.get_event_with_error(
-                    detection.frigate_event,
-                    timeout=8.0
-                )
+                if not event_data:
+                    if event_error == "event_not_found":
+                        return ("missing_event", detection)
+                    # Transient precheck issues should not suppress classification;
+                    # keep these in the queue path and let worker retries handle it.
+                    return ("precheck_error", detection)
 
-            if not event_data:
-                if event_error == "event_not_found":
-                    return ("missing_event", detection)
-                # Transient precheck issues should not suppress classification;
-                # keep these in the queue path and let worker retries handle it.
-                return ("precheck_error", detection)
+                if not bool(event_data.get("has_clip", False)):
+                    return ("no_clip", detection)
 
-            if not bool(event_data.get("has_clip", False)):
-                return ("no_clip", detection)
+                return ("eligible", detection)
 
-            return ("eligible", detection)
+            prechecked = await asyncio.gather(*(precheck_detection(d) for d in unknowns))
 
-        prechecked = await asyncio.gather(*(precheck_detection(d) for d in unknowns))
+            for state, d in prechecked:
+                if state == "outside_retention":
+                    skipped_outside_retention += 1
+                    await repo.update_video_status(
+                        d.frigate_event,
+                        "failed",
+                        error="frigate_retention_expired"
+                    )
+                    continue
+                if state == "missing_event":
+                    skipped_missing_event += 1
+                    await repo.update_video_status(
+                        d.frigate_event,
+                        "failed",
+                        error="event_not_found"
+                    )
+                    continue
+                if state == "no_clip":
+                    skipped_no_clip += 1
+                    await repo.update_video_status(
+                        d.frigate_event,
+                        "failed",
+                        error="clip_not_retained"
+                    )
+                    continue
+                if state == "precheck_error":
+                    precheck_errors += 1
 
-        for state, d in prechecked:
-            if state == "outside_retention":
-                skipped_outside_retention += 1
-                await repo.update_video_status(
+                result = await auto_video_classifier.queue_classification(
                     d.frigate_event,
-                    "failed",
-                    error="frigate_retention_expired"
+                    d.camera_name,
+                    fallback_to_snapshot=True,
+                    source="maintenance",
                 )
-                continue
-            if state == "missing_event":
-                skipped_missing_event += 1
-                await repo.update_video_status(
-                    d.frigate_event,
-                    "failed",
-                    error="event_not_found"
-                )
-                continue
-            if state == "no_clip":
-                skipped_no_clip += 1
-                await repo.update_video_status(
-                    d.frigate_event,
-                    "failed",
-                    error="clip_not_retained"
-                )
-                continue
-            if state == "precheck_error":
-                precheck_errors += 1
-
-            result = await auto_video_classifier.queue_classification(
-                d.frigate_event,
-                d.camera_name,
-                fallback_to_snapshot=True,
-                source="maintenance",
-            )
-            if result == "queued":
-                accepted += 1
-            elif result == "duplicate":
-                skipped_duplicate += 1
-            elif result == "full":
-                dropped_full += 1
+                if result == "queued":
+                    accepted += 1
+                elif result == "duplicate":
+                    skipped_duplicate += 1
+                elif result == "full":
+                    dropped_full += 1
+    finally:
+        await maintenance_coordinator.release(holder_id)
 
     count = accepted  # Backward-compatible field expected by current UI.
     msg = (

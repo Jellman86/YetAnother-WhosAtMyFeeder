@@ -20,6 +20,7 @@ from app.services.mqtt_service import mqtt_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.maintenance_coordinator import maintenance_coordinator
 from app.utils.tasks import create_background_task
 
 router = APIRouter()
@@ -50,6 +51,10 @@ _JOB_TASKS: dict[str, asyncio.Task] = {}
 _JOB_LOCK = asyncio.Lock()
 BACKFILL_DEPRIORITIZED_AGE_SECONDS = 15.0
 BACKFILL_STALLED_AGE_SECONDS = 90.0
+
+
+def _maintenance_holder_id(kind: str, job_id: str) -> str:
+    return f"{kind}:{job_id}"
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -372,6 +377,10 @@ async def backfill_detections(
     - 'custom': Use start_date and end_date parameters
     """
     lang = get_user_language(request)
+    holder_id = _maintenance_holder_id("backfill_detections_sync", str(uuid4()))
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="backfill")
+    if not acquired:
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
         start, end = _resolve_date_range(
             backfill_request.date_range,
@@ -421,6 +430,8 @@ async def backfill_detections(
             status_code=500,
             detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
+    finally:
+        await maintenance_coordinator.release(holder_id)
 
 
 @router.post("/backfill/async", response_model=BackfillJobStatus)
@@ -450,6 +461,10 @@ async def backfill_detections_async(
             status="running",
             started_at=_now_iso()
         )
+        holder_id = _maintenance_holder_id("backfill_detections", job.id)
+        acquired = await maintenance_coordinator.try_acquire(holder_id, kind="backfill")
+        if not acquired:
+            raise HTTPException(status_code=409, detail=_maintenance_busy_message())
         _track_job(job)
 
     async def runner():
@@ -550,8 +565,14 @@ async def backfill_detections_async(
                 "type": "backfill_failed",
                 "data": _job_payload(job)
             })
+        finally:
+            await maintenance_coordinator.release(holder_id)
 
-    task = create_background_task(runner(), name=f"backfill_job:{job.id}")
+    try:
+        task = create_background_task(runner(), name=f"backfill_job:{job.id}")
+    except Exception:
+        await maintenance_coordinator.release(holder_id)
+        raise
     _JOB_TASKS[job.id] = task
     task.add_done_callback(lambda _: _JOB_TASKS.pop(job.id, None))
     return job
@@ -565,6 +586,10 @@ async def backfill_weather(
 ):
     """Backfill missing weather fields for detections in a date range."""
     lang = get_user_language(request)
+    holder_id = _maintenance_holder_id("backfill_weather_sync", str(uuid4()))
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="weather_backfill")
+    if not acquired:
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
         start, end = _resolve_date_range(
             backfill_request.date_range,
@@ -672,6 +697,8 @@ async def backfill_weather(
             status_code=500,
             detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
+    finally:
+        await maintenance_coordinator.release(holder_id)
 
 
 @router.post("/backfill/weather/async", response_model=BackfillJobStatus)
@@ -693,6 +720,10 @@ async def backfill_weather_async(
             status="running",
             started_at=_now_iso()
         )
+        holder_id = _maintenance_holder_id("backfill_weather", job.id)
+        acquired = await maintenance_coordinator.try_acquire(holder_id, kind="weather_backfill")
+        if not acquired:
+            raise HTTPException(status_code=409, detail=_maintenance_busy_message())
         _track_job(job)
 
     async def runner():
@@ -831,8 +862,14 @@ async def backfill_weather_async(
                 "type": "backfill_failed",
                 "data": _job_payload(job)
             })
+        finally:
+            await maintenance_coordinator.release(holder_id)
 
-    task = create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
+    try:
+        task = create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
+    except Exception:
+        await maintenance_coordinator.release(holder_id)
+        raise
     _JOB_TASKS[job.id] = task
     task.add_done_callback(lambda _: _JOB_TASKS.pop(job.id, None))
     return job

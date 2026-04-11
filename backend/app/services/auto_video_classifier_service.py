@@ -20,6 +20,7 @@ from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.maintenance_coordinator import maintenance_coordinator
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
@@ -134,6 +135,10 @@ class AutoVideoClassifierService:
         self._maintenance_last_progress_at: float | None = None
         self._last_reported_maintenance_state: str | None = None
         self._last_reported_maintenance_state_at: float | None = None
+
+    @staticmethod
+    def _maintenance_holder_id(source: JobSource, event_id: str) -> str:
+        return f"{source}:{event_id}"
 
     async def start(self):
         """Start the queue processor."""
@@ -255,6 +260,20 @@ class AutoVideoClassifierService:
                         await asyncio.sleep(1)
                         continue
 
+                    maintenance_holder_id = None
+                    if source == "maintenance":
+                        maintenance_holder_id = self._maintenance_holder_id(source, frigate_event)
+                        acquired = await maintenance_coordinator.try_acquire(
+                            maintenance_holder_id,
+                            kind="video_classification",
+                        )
+                        if not acquired:
+                            self._pending_queue.put_nowait(
+                                (frigate_event, camera, skip_delay, fallback_to_snapshot, source)
+                            )
+                            await asyncio.sleep(1)
+                            continue
+
                     # Start task - skip initial delay for queued (historical) tasks
                     task = create_background_task(
                         self._process_event(
@@ -270,6 +289,7 @@ class AutoVideoClassifierService:
                     self._active_metadata[frigate_event] = {
                         "source": source,
                         "started_at": time.monotonic(),
+                        "maintenance_holder_id": maintenance_holder_id,
                     }
                     if source == "maintenance":
                         self._maintenance_last_progress_at = time.monotonic()
@@ -282,6 +302,8 @@ class AutoVideoClassifierService:
                               event_id=frigate_event,
                               queue_size=self._pending_queue.qsize())
                 except Exception as e:
+                    if source == "maintenance":
+                        await maintenance_coordinator.release(self._maintenance_holder_id(source, frigate_event))
                     self._pending_ids.discard(frigate_event)
                     self._pending_metadata.pop(frigate_event, None)
                     log.error(
@@ -644,8 +666,14 @@ class AutoVideoClassifierService:
             self._active_tasks.pop(frigate_event, None)
             self._pending_metadata.pop(frigate_event, None)
             metadata = self._active_metadata.pop(frigate_event, None)
+            maintenance_holder_id = None
             if isinstance(metadata, dict) and str(metadata.get("source") or "") == "maintenance":
                 self._maintenance_last_progress_at = time.monotonic()
+                maintenance_holder_id = str(metadata.get("maintenance_holder_id") or "").strip() or None
+            if maintenance_holder_id:
+                asyncio.get_running_loop().create_task(
+                    maintenance_coordinator.release(maintenance_holder_id)
+                )
             if task.cancelled():
                 log.debug("Video classification task was cancelled", event_id=frigate_event)
             elif task.exception():
@@ -680,12 +708,19 @@ class AutoVideoClassifierService:
         throttle = throttle_state or self._get_mqtt_throttle_state(
             int(settings.classification.video_classification_max_concurrent or 1)
         )
+        coordinator_status = maintenance_coordinator.get_status_nowait()
+        active_by_kind = coordinator_status.get("active_by_kind") or {}
         pending_maintenance = sum(
             1
             for metadata in self._pending_metadata.values()
             if str(metadata.get("source") or "") == "maintenance"
         )
-        active_maintenance = self._count_active_jobs(source="maintenance")
+        active_video_maintenance = self._count_active_jobs(source="maintenance")
+        active_external_maintenance = max(
+            0,
+            int(coordinator_status.get("active_total") or 0) - active_video_maintenance,
+        )
+        active_maintenance = active_video_maintenance + active_external_maintenance
         oldest_pending_age = throttle.get("oldest_maintenance_pending_age_seconds")
         maintenance_circuit_open = bool(self.get_circuit_status("maintenance")["open"])
         now = time.monotonic()
@@ -723,6 +758,11 @@ class AutoVideoClassifierService:
         return {
             "pending_maintenance": pending_maintenance,
             "active_maintenance": active_maintenance,
+            "active_video_maintenance": active_video_maintenance,
+            "active_external_maintenance": active_external_maintenance,
+            "maintenance_capacity": int(coordinator_status.get("capacity") or 1),
+            "maintenance_available": int(coordinator_status.get("available") or 0),
+            "active_maintenance_by_kind": dict(active_by_kind) if isinstance(active_by_kind, dict) else {},
             "oldest_maintenance_pending_age_seconds": oldest_pending_age,
             "maintenance_seconds_since_progress": seconds_since_progress,
             "maintenance_state": state,

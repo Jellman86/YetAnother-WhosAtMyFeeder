@@ -292,3 +292,18 @@ def test_maintenance_guardrail_status_keeps_active_work_running_without_false_st
     assert status["coalesce_analyze_unknowns"] is True
     assert status["reject_new_work"] is False
     assert "running" in str(status["maintenance_status_message"]).lower()
+
+
+def test_maintenance_guardrail_status_counts_external_maintenance_slots(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    coordinator = importlib.import_module("app.services.maintenance_coordinator").maintenance_coordinator
+    coordinator._holders = {"backfill:job-1": "backfill"}
+
+    with patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+        status = service.get_maintenance_guardrail_status()
+
+    assert status["active_external_maintenance"] == 1
+    assert status["active_maintenance"] == 1
+    assert status["coalesce_analyze_unknowns"] is True
+    assert status["maintenance_state"] == "running"
