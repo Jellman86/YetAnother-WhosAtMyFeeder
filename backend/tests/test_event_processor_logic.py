@@ -14,6 +14,9 @@ def mock_dependencies():
          patch("app.services.event_processor.Image.open"):
 
         mock_frigate.get_snapshot = AsyncMock(return_value=b"fakeimage")
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache.get_snapshot = AsyncMock(return_value=None)
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
         mock_weather.get_current_weather = AsyncMock(return_value={"temperature": 20, "condition_text": "Sunny"})
