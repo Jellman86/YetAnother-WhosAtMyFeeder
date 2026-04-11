@@ -242,6 +242,90 @@ describe('getVisibleTieredModelLineup', () => {
             { id: 'eva02_large_inat21' },
         ]);
     });
+
+    it('keeps the active advanced model visible when advanced models are collapsed', () => {
+        const models: ModelMetadata[] = [
+            {
+                id: 'eva02_large_inat21',
+                name: 'EVA-02 Large (Elite Accuracy)',
+                description: 'Advanced option',
+                architecture: 'EVA-02-Large',
+                file_size_mb: 1200,
+                accuracy_tier: 'Elite (91%+)',
+                inference_speed: 'Slow (~1s)',
+                download_url: 'https://example.com/models/eva02_large_inat21.onnx',
+                weights_url: 'https://example.com/models/eva02_large_inat21.onnx.data',
+                labels_url: 'https://example.com/models/eva02_large_inat21_labels.txt',
+                input_size: 336,
+                runtime: 'onnx',
+                supported_inference_providers: ['cpu', 'cuda'],
+                tier: 'advanced',
+                taxonomy_scope: 'wildlife_wide',
+                recommended_for: 'Advanced users',
+                estimated_ram_mb: 3072,
+                advanced_only: true,
+                sort_order: 30,
+                status: 'stable',
+                notes: 'Elite accuracy model.',
+                artifact_kind: 'classifier',
+            },
+            {
+                id: 'rope_vit_b14_inat21',
+                name: 'RoPE-ViT B/14',
+                description: 'Advanced option',
+                architecture: 'RoPE-ViT',
+                file_size_mb: 375,
+                accuracy_tier: 'Very High',
+                inference_speed: 'Medium-Slow',
+                download_url: 'https://example.com/models/rope_vit_b14_inat21.onnx',
+                labels_url: 'https://example.com/models/rope_vit_b14_inat21_labels.txt',
+                input_size: 224,
+                runtime: 'onnx',
+                supported_inference_providers: ['cpu', 'cuda'],
+                tier: 'medium',
+                taxonomy_scope: 'birds_only',
+                recommended_for: 'Advanced users',
+                estimated_ram_mb: 1536,
+                advanced_only: true,
+                sort_order: 18,
+                status: 'stable',
+                notes: 'Advanced bird model.',
+                artifact_kind: 'classifier',
+            },
+            {
+                id: 'mobilenet_v2_birds',
+                name: 'MobileNet V2 (Fast)',
+                description: 'Default model',
+                architecture: 'MobileNetV2',
+                file_size_mb: 3.4,
+                accuracy_tier: 'Medium',
+                inference_speed: 'Fast (~30ms)',
+                download_url: 'https://example.com/models/mobilenet_v2_birds.tflite',
+                labels_url: 'https://example.com/models/mobilenet_v2_birds_labels.txt',
+                input_size: 224,
+                runtime: 'tflite',
+                supported_inference_providers: ['cpu'],
+                tier: 'cpu_only',
+                taxonomy_scope: 'birds_only',
+                recommended_for: 'Default bird-only inference',
+                estimated_ram_mb: 128,
+                advanced_only: false,
+                sort_order: 10,
+                status: 'stable',
+                notes: 'Fastest option.',
+                artifact_kind: 'classifier',
+            },
+        ];
+
+        expect(getVisibleTieredModelLineup(models, false, 'eva02_large_inat21')).toMatchObject([
+            { id: 'mobilenet_v2_birds' },
+            { id: 'eva02_large_inat21' },
+        ]);
+        expect(getVisibleTieredModelLineup(models, false, 'rope_vit_b14_inat21')).toMatchObject([
+            { id: 'mobilenet_v2_birds' },
+            { id: 'rope_vit_b14_inat21' },
+        ]);
+    });
 });
 
 describe('ClassifierStatus', () => {

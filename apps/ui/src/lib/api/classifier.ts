@@ -196,11 +196,15 @@ export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): 
     );
 }
 
-export function getVisibleTieredModelLineup(models: ModelMetadata[], showAdvanced: boolean = false): ModelMetadata[] {
+export function getVisibleTieredModelLineup(
+    models: ModelMetadata[],
+    showAdvanced: boolean = false,
+    selectedOrActiveModelId?: string | null
+): ModelMetadata[] {
     return [...models]
         .sort(compareTieredModelMetadata)
         .filter((model) => (model.artifact_kind || 'classifier') === 'classifier')
-        .filter((model) => showAdvanced || !model.advanced_only);
+        .filter((model) => showAdvanced || !model.advanced_only || model.id === selectedOrActiveModelId);
 }
 
 function formatModelMetadataLabel(value: string): string {

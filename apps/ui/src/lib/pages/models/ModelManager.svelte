@@ -485,7 +485,7 @@
         {@const cropDetectorDownload = cropDetectorModel ? downloadStatuses[cropDetectorModel.id] : undefined}
         {@const cropDetectorInstalled = isCropDetectorInstalled()}
         {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorInstalled)}
-        {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels)}
+        {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
             {#if cropDetectorModel}
@@ -582,9 +582,9 @@
                             onclick={() => { 
                                 showAdvancedModels = !showAdvancedModels; 
                                 if (!showAdvancedModels) {
-                                    const m = visibleModels.find(x => x.id === selectedModelId);
-                                    if (m && m.advanced_only) {
-                                        selectedModelId = visibleModels.find(x => !x.advanced_only)?.id || null;
+                                    const collapsedModels = getVisibleTieredModelLineup(classifierModels, false, selectedModelId);
+                                    if (!collapsedModels.some((model) => model.id === selectedModelId)) {
+                                        selectedModelId = collapsedModels[0]?.id || null;
                                     }
                                 }
                             }}
