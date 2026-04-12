@@ -26,11 +26,11 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
   <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
 </p>
 
-> [!WARNING]
-> **Deployment Transition Notice**
-> YA-WAMF is moving toward a **single-container deployment**.
-> Existing split `frontend + backend` installs continue to work during the `v2.x` transition window, but **v3.0 is planned to require a compose update** to the monolithic container.
-> If you already run YA-WAMF, do not redeploy blindly. Read the migration guidance in [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md) before changing your stack.
+> [!NOTE]
+> **Single-Container Deployment**
+> YA-WAMF now recommends the **monolithic container** (`yawamf-monalithic`) as the primary deployment.
+> The older split `wamf-frontend + wamf-backend` layout still functions but is a legacy path — no new development effort is directed at it.
+> If you are migrating an existing split install, read [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md) before changing your stack.
 
 ## Features at a Glance
 
@@ -154,7 +154,7 @@ curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/ma
 cp .env.example .env
 ```
 
-> This quick start assumes the monolithic canary image line. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available, but it now follows the legacy two-container layout.
+> This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
 
 **2. Configure your environment:**
 
@@ -209,7 +209,7 @@ docker compose -f docker-compose.monolith.yml up -d
 
 If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
 
-> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates (after changing image tags or pulling the latest `:latest`/`:dev`).
+> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates. Use `:latest` for stable releases or a pinned `:vX.Y.Z` tag. The `:dev` tag tracks the development branch and may be unstable.
 
 **5. Access the dashboard:**
 
@@ -275,7 +275,7 @@ This is expected behaviour for birds. If a bird is only at the feeder for 2 seco
 YA-WAMF also supports optional `Full visit` clips for longer playback from Frigate recordings. When enabled in **Settings → Connection → Frigate**, YA-WAMF requests a configurable camera-level window around the detection timestamp, persists that full-visit file locally, and automatically prefers it on the normal clip route once it has been generated. The default window is `30` seconds before plus `90` seconds after the detection.
 
 **Q: How do I update YA-WAMF?**
-Run `docker compose pull && docker compose up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
+Run `docker compose -f docker-compose.monolith.yml pull && docker compose -f docker-compose.monolith.yml up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
 
 ## Configuration
 
@@ -328,9 +328,11 @@ YA-WAMF includes a robust video proxy that streams clips directly from Frigate. 
 YA-WAMF includes a custom component for Home Assistant to bring your bird sightings into your smart home.
 
 **Features:**
-- **Last Bird Detected Sensor:** Shows the name of the most recent visitor with all metadata (score, camera, weather) as attributes.
-- **Daily Count Sensor:** Keeps track of how many birds have visited today.
-- **Camera Entity:** (Optional) Proxy for the latest bird snapshot.
+- **Last Bird Detected:** Name of the most recent visitor with score, camera, and weather attributes. Only updates on a new detection event.
+- **Last Detection Event:** The raw YA-WAMF/Frigate event ID. Use this as your automation trigger — it fires on every new detection regardless of species.
+- **Last Detection Time:** A proper Home Assistant timestamp entity for the most recent detection.
+- **Daily Count:** Rolling 24-hour detection count.
+- **Latest Snapshot:** (Optional) Camera entity showing the last detected bird.
 
 **Setup:**
 1. Copy the `custom_components/yawamf` folder to your Home Assistant `custom_components` directory.
