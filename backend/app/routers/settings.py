@@ -3,6 +3,7 @@ import re
 import asyncio
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 import structlog
@@ -83,6 +84,10 @@ def _maintenance_busy_message(status: dict | None = None) -> str:
     if message:
         return message
     return "Maintenance work is already in progress."
+
+
+def _maintenance_holder_id(kind: str) -> str:
+    return f"{kind}:{uuid4()}"
 
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
@@ -1299,7 +1304,14 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
 @router.get("/maintenance/timezone-repair/preview")
 async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
     """Preview legacy detection timestamp repairs validated against Frigate. Owner only."""
-    return await timezone_repair_service.preview()
+    holder_id = _maintenance_holder_id("timezone_repair_preview")
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="timezone_repair")
+    if not acquired:
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+    try:
+        return await timezone_repair_service.preview()
+    finally:
+        await maintenance_coordinator.release(holder_id)
 
 
 @router.post("/maintenance/timezone-repair/apply")
@@ -1310,7 +1322,14 @@ async def apply_timezone_repair(
     """Apply legacy detection timestamp repairs validated against Frigate. Owner only."""
     if not request.confirm:
         raise HTTPException(status_code=400, detail="Timezone repair requires explicit confirmation.")
-    return await timezone_repair_service.apply(confirm=True)
+    holder_id = _maintenance_holder_id("timezone_repair_apply")
+    acquired = await maintenance_coordinator.try_acquire(holder_id, kind="timezone_repair")
+    if not acquired:
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+    try:
+        return await timezone_repair_service.apply(confirm=True)
+    finally:
+        await maintenance_coordinator.release(holder_id)
 
 @router.post("/maintenance/cleanup")
 async def run_cleanup(auth: AuthContext = Depends(require_owner)):

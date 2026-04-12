@@ -166,3 +166,28 @@ async def test_timezone_repair_apply_updates_only_validated_candidates(
         repaired = await repo.get_by_id(candidate_id)
         assert repaired is not None
         assert repaired.detection_time == datetime(2026, 4, 1, 12, 15, 0)
+
+
+@pytest.mark.asyncio
+async def test_timezone_repair_preview_ignores_rows_outside_legacy_regression_window(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    await _insert_detection("evt-before-regression", "2026-03-30 08:15:00")
+    repair_id = await _insert_detection("evt-in-regression", "2026-04-01 08:15:00")
+
+    async def _fake_get_event_with_error(event_id: str, timeout: float = 10.0):
+        if event_id == "evt-in-regression":
+            return {
+                "id": event_id,
+                "start_time": datetime(2026, 4, 1, 12, 15, tzinfo=timezone.utc).timestamp(),
+            }, None
+        raise AssertionError(f"unexpected event_id {event_id}")
+
+    service = TimezoneRepairService()
+    monkeypatch.setattr(service._frigate_client, "get_event_with_error", _fake_get_event_with_error)
+
+    preview = await service.preview()
+
+    assert preview["summary"]["scanned_count"] == 1
+    assert preview["summary"]["repair_candidate_count"] == 1
+    assert [candidate["detection_id"] for candidate in preview["candidates"]] == [repair_id]

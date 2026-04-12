@@ -401,6 +401,42 @@ async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupi
 
 
 @pytest.mark.asyncio
+async def test_timezone_repair_preview_rejects_when_global_maintenance_slot_is_occupied(
+    client: httpx.AsyncClient,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.video_classification_max_concurrent = 1
+
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    assert acquired is True
+    try:
+        response = await client.get("/api/maintenance/timezone-repair/preview")
+        assert response.status_code == 409, response.text
+        assert "maintenance work is running" in response.text.lower()
+    finally:
+        await maintenance_coordinator.release("test-maintenance-slot")
+
+
+@pytest.mark.asyncio
+async def test_timezone_repair_apply_rejects_when_global_maintenance_slot_is_occupied(
+    client: httpx.AsyncClient,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.video_classification_max_concurrent = 1
+
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    assert acquired is True
+    try:
+        response = await client.post("/api/maintenance/timezone-repair/apply", json={"confirm": True})
+        assert response.status_code == 409, response.text
+        assert "maintenance work is running" in response.text.lower()
+    finally:
+        await maintenance_coordinator.release("test-maintenance-slot")
+
+
+@pytest.mark.asyncio
 async def test_maintenance_coordinator_rejects_duplicate_holder_acquire():
     acquired = await maintenance_coordinator.try_acquire("dup-holder", kind="backfill")
     assert acquired is True

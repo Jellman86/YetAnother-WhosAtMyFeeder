@@ -438,16 +438,43 @@ class DetectionRepository:
                 return _row_to_detection(row)
             return None
 
-    async def list_timezone_repair_rows(self) -> list[TimezoneRepairRow]:
-        async with self.db.execute(
-            """
+    async def count_timezone_repair_rows(self, *, detected_after: datetime | None = None) -> int:
+        query = """
+            SELECT COUNT(*)
+            FROM detections
+            WHERE frigate_event IS NOT NULL
+              AND frigate_event != ''
+        """
+        params: list[object] = []
+        if detected_after is not None:
+            query += " AND datetime(detection_time) >= datetime(?)"
+            params.append(detected_after.strftime("%Y-%m-%d %H:%M:%S"))
+        async with self.db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0] or 0) if row else 0
+
+    async def list_timezone_repair_rows(
+        self,
+        *,
+        detected_after: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[TimezoneRepairRow]:
+        query = """
             SELECT id, detection_time, frigate_event, camera_name, display_name
             FROM detections
             WHERE frigate_event IS NOT NULL
               AND frigate_event != ''
-            ORDER BY detection_time DESC
-            """
-        ) as cursor:
+        """
+        params: list[object] = []
+        if detected_after is not None:
+            query += " AND datetime(detection_time) >= datetime(?)"
+            params.append(detected_after.strftime("%Y-%m-%d %H:%M:%S"))
+        query += " ORDER BY detection_time DESC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(int(limit))
+
+        async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
         return [
             TimezoneRepairRow(

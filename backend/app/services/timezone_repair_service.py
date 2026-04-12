@@ -15,6 +15,8 @@ log = structlog.get_logger()
 
 MAX_REPAIR_OFFSET_HOURS = 14
 FRIGATE_LOOKUP_CONCURRENCY = 8
+TIMEZONE_REPAIR_SCAN_LIMIT = 1000
+LEGACY_TIMEZONE_REPAIR_STARTED_AT = datetime(2026, 3, 31, 0, 0, 0)
 STATUS_SORT_ORDER = {
     "repair_candidate": 0,
     "missing_frigate_event": 1,
@@ -43,20 +45,15 @@ class TimezoneRepairService:
         self._frigate_client = frigate or frigate_client
 
     async def preview(self) -> dict:
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            rows = await repo.list_timezone_repair_rows()
-        return await self._build_preview(rows)
+        rows, total_rows = await self._load_candidate_rows()
+        return await self._build_preview(rows, total_rows=total_rows)
 
     async def apply(self, *, confirm: bool) -> dict:
         if not confirm:
             raise ValueError("Timezone repair apply requires explicit confirmation.")
 
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            rows = await repo.list_timezone_repair_rows()
-
-        preview = await self._build_preview(rows)
+        rows, total_rows = await self._load_candidate_rows()
+        preview = await self._build_preview(rows, total_rows=total_rows)
 
         async with get_db() as db:
             repo = DetectionRepository(db)
@@ -78,7 +75,19 @@ class TimezoneRepairService:
         log.info("Timezone repair apply completed", repaired_count=repaired_count, skipped_count=skipped_count)
         return result
 
-    async def _build_preview(self, rows: list[TimezoneRepairRow]) -> dict:
+    async def _load_candidate_rows(self) -> tuple[list[TimezoneRepairRow], int]:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            total_rows = await repo.count_timezone_repair_rows(
+                detected_after=LEGACY_TIMEZONE_REPAIR_STARTED_AT,
+            )
+            rows = await repo.list_timezone_repair_rows(
+                detected_after=LEGACY_TIMEZONE_REPAIR_STARTED_AT,
+                limit=TIMEZONE_REPAIR_SCAN_LIMIT,
+            )
+        return rows, total_rows
+
+    async def _build_preview(self, rows: list[TimezoneRepairRow], *, total_rows: int) -> dict:
         semaphore = asyncio.Semaphore(FRIGATE_LOOKUP_CONCURRENCY)
 
         async def classify(row: TimezoneRepairRow) -> TimezoneRepairCandidate:
@@ -95,6 +104,9 @@ class TimezoneRepairService:
             "missing_frigate_event_count": sum(1 for c in candidates if c.status == "missing_frigate_event"),
             "lookup_error_count": sum(1 for c in candidates if c.status == "lookup_error"),
             "unsupported_delta_count": sum(1 for c in candidates if c.status == "unsupported_delta"),
+            "total_rows_in_scope": int(total_rows),
+            "scan_limit": TIMEZONE_REPAIR_SCAN_LIMIT,
+            "scan_truncated": bool(total_rows > len(candidates)),
         }
         return {
             "summary": summary,
