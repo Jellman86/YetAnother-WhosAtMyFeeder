@@ -340,6 +340,12 @@ class ClassificationSettings(BaseModel):
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
     cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
+    max_concurrent: int = Field(
+        default=1,
+        ge=1,
+        le=8,
+        description="Maximum concurrent maintenance workflows. Best practice is 1.",
+    )
     auto_delete_missing_clips: bool = Field(
         default=False,
         description="Auto-delete detections when the Frigate event/clip is missing"

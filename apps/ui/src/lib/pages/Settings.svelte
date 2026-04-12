@@ -151,6 +151,7 @@
     let videoCircuitFailures = $state(0);
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
+    let maintenanceMaxConcurrent = $state(1);
     let autoPurgeMissingClips = $state(false);
     let autoPurgeMissingSnapshots = $state(false);
     let autoAnalyzeUnknowns = $state(false);
@@ -1669,6 +1670,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
+            { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
             { key: 'autoPurgeMissingClips', val: autoPurgeMissingClips, store: s.auto_purge_missing_clips ?? false },
             { key: 'autoPurgeMissingSnapshots', val: autoPurgeMissingSnapshots, store: s.auto_purge_missing_snapshots ?? false },
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
@@ -2600,6 +2602,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
+            maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
             autoPurgeMissingClips = settings.auto_purge_missing_clips ?? false;
             autoPurgeMissingSnapshots = settings.auto_purge_missing_snapshots ?? false;
             autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
@@ -2917,6 +2920,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 inference_provider: inferenceProvider,
                 cameras: selectedCameras,
                 retention_days: retentionDays,
+                maintenance_max_concurrent: maintenanceMaxConcurrent,
                 auto_purge_missing_clips: autoPurgeMissingClips,
                 auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
                 auto_analyze_unknowns: autoAnalyzeUnknowns,
@@ -3513,6 +3517,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'data'}
                 <DataSettings
                     bind:retentionDays
+                    bind:maintenanceMaxConcurrent
                     bind:autoPurgeMissingClips
                     bind:autoPurgeMissingSnapshots
                     bind:autoAnalyzeUnknowns

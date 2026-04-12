@@ -80,9 +80,13 @@ def _build_video_classifier_focus(
 async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
     from app.main import health_check
     from app.routers.classifier import classifier_service
+    from app.routers.settings import canonical_identity_repair_service
+    from app.services.maintenance_coordinator import maintenance_coordinator
 
     health = await health_check()
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
+    taxonomy_repair = canonical_identity_repair_service.get_status()
+    maintenance_status = await maintenance_coordinator.get_status()
     return {
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
         "backend_diagnostics": backend_diagnostics,
@@ -91,6 +95,8 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
         },
         "health": health,
         "classifier": classifier_service.get_status(),
+        "taxonomy_repair": taxonomy_repair,
+        "maintenance_coordinator": maintenance_status,
         "startup_warnings": health.get("startup_warnings") or [],
     }
 
@@ -103,6 +109,10 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
     backend_diagnostics = backend_diagnostics if isinstance(backend_diagnostics, dict) else {}
     classifier = workspace.get("classifier") if isinstance(workspace, dict) else {}
     classifier = classifier if isinstance(classifier, dict) else {}
+    taxonomy_repair = workspace.get("taxonomy_repair") if isinstance(workspace, dict) else {}
+    taxonomy_repair = taxonomy_repair if isinstance(taxonomy_repair, dict) else {}
+    maintenance_status = workspace.get("maintenance_coordinator") if isinstance(workspace, dict) else {}
+    maintenance_status = maintenance_status if isinstance(maintenance_status, dict) else {}
     startup_warnings = workspace.get("startup_warnings") if isinstance(workspace, dict) else []
     startup_warnings = startup_warnings if isinstance(startup_warnings, list) else []
 
@@ -122,6 +132,8 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
         "workspace": workspace,
         "health": health,
         "classifier": classifier,
+        "taxonomy_repair": taxonomy_repair,
+        "maintenance_coordinator": maintenance_status,
         "startup_warnings": startup_warnings,
         "backend_diagnostics": backend_diagnostics,
         "focused_diagnostics": workspace.get("focused_diagnostics") or {},

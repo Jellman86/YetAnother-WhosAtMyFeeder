@@ -102,6 +102,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     maintenance_data = {
         'retention_days': int(os.environ.get('MAINTENANCE__RETENTION_DAYS', '0')),
         'cleanup_enabled': os.environ.get('MAINTENANCE__CLEANUP_ENABLED', 'true').lower() == 'true',
+        'max_concurrent': int(os.environ.get('MAINTENANCE__MAX_CONCURRENT', '1')),
         'auto_delete_missing_clips': os.environ.get('MAINTENANCE__AUTO_DELETE_MISSING_CLIPS', 'false').lower() == 'true',
     }
     

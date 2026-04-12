@@ -53,6 +53,14 @@ def test_notification_cooldown_env_override(monkeypatch):
     assert loaded.notifications.notification_cooldown_minutes == 13
 
 
+def test_maintenance_max_concurrent_env_override(monkeypatch):
+    monkeypatch.setenv("MAINTENANCE__MAX_CONCURRENT", "3")
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.max_concurrent == 3
+
+
 def test_classification_env_overrides_file_values(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(

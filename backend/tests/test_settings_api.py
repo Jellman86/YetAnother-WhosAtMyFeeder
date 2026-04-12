@@ -24,10 +24,12 @@ def reset_auth_config():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
     original_video_classification_max_concurrent = settings.classification.video_classification_max_concurrent
+    original_maintenance_max_concurrent = settings.maintenance.max_concurrent
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
     settings.classification.video_classification_max_concurrent = original_video_classification_max_concurrent
+    settings.maintenance.max_concurrent = original_maintenance_max_concurrent
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -347,7 +349,8 @@ async def test_backfill_async_rejects_when_global_maintenance_slot_is_occupied(
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 1
+    settings.classification.video_classification_max_concurrent = 2
+    settings.maintenance.max_concurrent = 1
     backfill_router._JOB_STORE.clear()
     backfill_router._LATEST_JOB_BY_KIND.clear()
     backfill_router._JOB_TASKS.clear()
@@ -381,7 +384,8 @@ async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupi
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 1
+    settings.classification.video_classification_max_concurrent = 2
+    settings.maintenance.max_concurrent = 1
 
     async def _unexpected_run():
         raise AssertionError("analyze unknowns should have been coalesced")
@@ -406,7 +410,8 @@ async def test_timezone_repair_preview_rejects_when_global_maintenance_slot_is_o
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 1
+    settings.classification.video_classification_max_concurrent = 2
+    settings.maintenance.max_concurrent = 1
 
     acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
     assert acquired is True
@@ -424,7 +429,8 @@ async def test_timezone_repair_apply_rejects_when_global_maintenance_slot_is_occ
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 1
+    settings.classification.video_classification_max_concurrent = 2
+    settings.maintenance.max_concurrent = 1
 
     acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
     assert acquired is True
@@ -445,6 +451,42 @@ async def test_maintenance_coordinator_rejects_duplicate_holder_acquire():
         assert acquired_again is False
     finally:
         await maintenance_coordinator.release("dup-holder")
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_maintenance_max_concurrent(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "maintenance_max_concurrent" in before_payload
+    original_limit = before_payload["maintenance_max_concurrent"]
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "maintenance_max_concurrent": 2,
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["maintenance_max_concurrent"] == 2
+
+    restore_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "maintenance_max_concurrent": original_limit,
+    }
+    restore_resp = await client.post("/api/settings", json=restore_payload)
+    assert restore_resp.status_code == 200, restore_resp.text
 
 
 @pytest.mark.asyncio

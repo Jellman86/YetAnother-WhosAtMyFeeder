@@ -26,6 +26,7 @@ export interface Settings {
     classification_min_confidence: number;
     cameras: string[];
     retention_days: number;
+    maintenance_max_concurrent?: number;
     auto_purge_missing_clips: boolean;
     auto_purge_missing_snapshots: boolean;
     auto_analyze_unknowns: boolean;

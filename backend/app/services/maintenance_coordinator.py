@@ -10,7 +10,7 @@ class MaintenanceCoordinator:
         self._holders: dict[str, str] = {}
 
     def _capacity(self) -> int:
-        return max(1, int(getattr(settings.classification, "video_classification_max_concurrent", 1) or 1))
+        return max(1, int(getattr(settings.maintenance, "max_concurrent", 1) or 1))
 
     async def try_acquire(self, holder_id: str, *, kind: str) -> bool:
         normalized_id = str(holder_id or "").strip()

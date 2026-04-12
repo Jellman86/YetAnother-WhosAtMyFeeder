@@ -352,6 +352,7 @@ class SettingsUpdate(BaseModel):
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
+    maintenance_max_concurrent: Optional[int] = Field(1, ge=1, le=8, description="Maximum concurrent maintenance workflows")
     auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
     auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
     auto_purge_missing_snapshots: bool = Field(False, description="Purge detections without snapshots during scheduled cleanup")
@@ -664,6 +665,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "classification_min_confidence": settings.classification.min_confidence,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
+        "maintenance_max_concurrent": settings.maintenance.max_concurrent,
         "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
         "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
@@ -899,6 +901,8 @@ async def update_settings(
         settings.classification.min_confidence = update.classification_min_confidence
     if "retention_days" in fields_set:
         settings.maintenance.retention_days = update.retention_days
+    if "maintenance_max_concurrent" in fields_set and update.maintenance_max_concurrent is not None:
+        settings.maintenance.max_concurrent = update.maintenance_max_concurrent
     if "auto_delete_missing_clips" in fields_set:
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     if "auto_purge_missing_clips" in fields_set:

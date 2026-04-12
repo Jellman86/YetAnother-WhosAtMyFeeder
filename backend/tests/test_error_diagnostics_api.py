@@ -6,6 +6,7 @@ from app.main import app
 from app.config import settings
 from app.services.error_diagnostics import error_diagnostics_history
 from app.routers import classifier as classifier_router
+from app.routers import settings as settings_router
 
 
 @pytest_asyncio.fixture
@@ -262,6 +263,38 @@ async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
         assert isinstance(payload["focused_diagnostics"], dict)
     finally:
         classifier_router.classifier_service.get_status = original_get_status
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_bundle_includes_taxonomy_and_maintenance_status(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    original_get_status = classifier_router.classifier_service.get_status
+    original_taxonomy_status = settings_router.canonical_identity_repair_service.get_status
+    try:
+        classifier_router.classifier_service.get_status = lambda: {"active_provider": "intel_cpu"}
+        settings_router.canonical_identity_repair_service.get_status = lambda: {
+            "is_running": False,
+            "processed": 48,
+            "total": 120,
+            "current_item": "Blue Tit",
+            "error": "taxonomy_lookup_failed",
+            "progress_state": "failed",
+            "message": "taxonomy_lookup_failed",
+        }
+
+        response = await client.get("/api/diagnostics/bundle")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+
+        assert payload["taxonomy_repair"]["error"] == "taxonomy_lookup_failed"
+        assert payload["workspace"]["taxonomy_repair"]["progress_state"] == "failed"
+        assert payload["maintenance_coordinator"]["capacity"] >= 1
+        assert payload["workspace"]["maintenance_coordinator"]["capacity"] >= 1
+    finally:
+        classifier_router.classifier_service.get_status = original_get_status
+        settings_router.canonical_identity_repair_service.get_status = original_taxonomy_status
 
 
 @pytest.mark.asyncio

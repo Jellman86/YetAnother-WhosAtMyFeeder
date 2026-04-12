@@ -414,14 +414,14 @@
                                 />
                             </div>
                             <div>
-                                <label for="video-max-concurrent" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_max_concurrent', { default: 'Max Concurrent Maintenance' })}</label>
+                                <label for="video-max-concurrent" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.detection.video_max_concurrent', { default: 'Video Concurrency' })}</label>
                                 <input
                                     id="video-max-concurrent"
                                     type="number"
                                     bind:value={videoClassificationMaxConcurrent}
                                     min="1"
                                     max="20"
-                                    aria-label={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Maintenance Jobs' })}
+                                    aria-label={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Video Jobs' })}
                                     class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                                 />
                             </div>
@@ -439,6 +439,13 @@
                             </div>
                         </div>
                         <p class="text-[9px] text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                            {#if imageExecutionMode === 'in_process'}
+                                {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
+                            {:else}
+                                {$_('settings.detection.video_concurrency_best_practice_subprocess', { default: 'Subprocess mode isolates classifier workers more strongly, but raising video concurrency still increases CPU, RAM, and GPU pressure.' })}
+                            {/if}
+                        </p>
                     {/if}
                 </div>
             </div>
