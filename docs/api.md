@@ -1,16 +1,27 @@
 # YA-WAMF API Documentation
 
 This document is a practical map of the YA-WAMF API surface.
-For exact request/response schemas, use the runtime OpenAPI docs:
 
-- Swagger UI: `http://localhost:8946/docs`
-- OpenAPI JSON: `http://localhost:8946/openapi.json`
+## Swagger / OpenAPI docs
 
-If you run the backend directly (without Docker compose frontend/proxy), use port `8000`.
+Swagger UI (`/docs`) is served directly by the FastAPI process. How you access it depends on your deployment:
+
+| Deployment | Swagger URL |
+|---|---|
+| **Monolithic container** (recommended) | Not proxied through nginx — access via `docker exec` or a temporary port-forward. From inside the container: `http://127.0.0.1:8000/docs` |
+| **Split deployment (legacy)** | `http://localhost:8946/docs` (backend bound to localhost by default) |
+| **Direct backend process** | `http://localhost:8000/docs` |
+
+To inspect the schema from a monolith install without modifying docker-compose:
+
+```bash
+docker exec yawamf-monalithic curl -s http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -40
+```
 
 ## Base URLs
 
-- Docker compose default backend: `http://localhost:8946` (bound to localhost by default)
+- Monolithic container (via nginx): `http://localhost:9852` (maps to internal port 8080)
+- Split deployment backend: `http://localhost:8946` (bound to localhost by default)
 - Direct backend process: `http://<host>:8000`
 
 All application endpoints are under `/api` except:
@@ -43,7 +54,10 @@ Content-Type: application/json
 2. Use token:
 
 ```bash
-curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
+# Monolithic deployment (host port 9852):
+curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
+# Legacy split deployment (backend exposed on 8946):
+# curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
 
 ### Auth status

@@ -55,7 +55,7 @@ The following is a set of guidelines for contributing to Yet Another WhosAtMyFee
 
 ## 📐 Coding Standards
 
-*   **Python:** I use [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Please run `ruff check .` and `ruff format .` before committing.
+*   **Python:** This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Please run `ruff check .` and `ruff format .` before committing.
 *   **TypeScript/Svelte:** Use standard Prettier formatting.
 *   **Commits:** Please write clear, concise commit messages.
 
@@ -72,7 +72,7 @@ The following is a set of guidelines for contributing to Yet Another WhosAtMyFee
 Bugs are tracked as GitHub issues. When filing an issue, please include:
 *   A clear title and description.
 *   Steps to reproduce.
-*   Logs from the backend (`docker compose logs yawamf-backend`).
+*   Logs from the backend (`docker compose -f docker-compose.monolith.yml logs yawamf`, or `docker compose logs yawamf-backend` for the legacy split deployment).
 *   Browser console errors (if UI related).
 
 ## 🔐 Security Issues

@@ -79,17 +79,19 @@ python3 backend/scripts/download_test_fixtures.py
 
 Alternatively, pass `--auto_download` and the script will fetch them automatically if not already present.
 
+The `--base_url` should point at your running YA-WAMF instance. Use `http://localhost:9852` for the monolithic deployment (host port 9852) or `http://localhost:8946` for the legacy split deployment.
+
 ### Run against the active model
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --username YOUR_USERNAME --password YOUR_PASSWORD
 ```
 
 If auth is disabled:
 ```bash
-python3 backend/scripts/pipeline_api_test.py --base_url http://localhost:8946
+python3 backend/scripts/pipeline_api_test.py --base_url http://localhost:9852
 ```
 
 ### Run against all installed models
@@ -98,7 +100,7 @@ This cycles through every installed model in turn, activates it, tests it, then 
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --username YOUR_USERNAME --password YOUR_PASSWORD \
   --all_models
 ```
@@ -107,7 +109,7 @@ With auto-download and preprocessing comparison (letterbox vs center-crop):
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --username YOUR_USERNAME --password YOUR_PASSWORD \
   --all_models --preprocess compare --auto_download
 ```
@@ -116,7 +118,7 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --all_models \
   --output report.json
 ```
@@ -125,7 +127,7 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --cases house_sparrow,blue_jay,european_robin
 ```
 
@@ -133,7 +135,7 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
-  --base_url http://localhost:8946 \
+  --base_url http://localhost:9852 \
   --verbose
 ```
 
@@ -177,10 +179,10 @@ These tests skip automatically if no Intel GPU is detected.
 
 #### Running inside Docker (required for GPU access)
 
-In this environment the Intel GPU is only accessible inside the running backend container, not from the host shell. Run the tests there:
+The Intel GPU is only accessible inside the running container, not from the host shell. Run the tests there (use `yawamf-backend` for the legacy split deployment):
 
 ```bash
-docker exec yawamf-backend python -m pytest tests/test_model_openvino_gpu.py -v
+docker exec yawamf-monalithic python -m pytest tests/test_model_openvino_gpu.py -v
 ```
 
 #### Diagnostic probes (no pass/fail — print a results table)
@@ -190,14 +192,14 @@ Two additional probes help investigate GPU failures. They never fail; use `-s` t
 **NaN / wrong-prediction fix probe** — tries HETERO, SDPA-off, and combined strategies on every model currently failing on GPU:
 
 ```bash
-docker exec yawamf-backend python -m pytest \
+docker exec yawamf-monalithic python -m pytest \
   tests/test_model_openvino_gpu.py::test_gpu_nan_fix_probe -v -s
 ```
 
 **ConvNeXt Large precision probe** — tries seven compilation strategies specifically for ConvNeXt's precision-degradation failure (f16, ACCURACY hint, no-Winograd, HETERO, combinations):
 
 ```bash
-docker exec yawamf-backend python -m pytest \
+docker exec yawamf-monalithic python -m pytest \
   tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
 ```
 
@@ -213,11 +215,11 @@ Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests eve
 
 #### Prerequisites
 
-The official YA-WAMF images now package the CUDA/cuDNN userspace runtime needed by `onnxruntime-gpu`. NVIDIA Container Toolkit must still be installed on the host so the GPU driver/runtime is exposed inside the container. Add GPU access to `docker-compose.yml`:
+The official YA-WAMF images now package the CUDA/cuDNN userspace runtime needed by `onnxruntime-gpu`. NVIDIA Container Toolkit must still be installed on the host so the GPU driver/runtime is exposed inside the container. Add GPU access to your compose file. For `docker-compose.monolith.yml`:
 
 ```yaml
 services:
-  yawamf-backend:
+  yawamf:
     deploy:
       resources:
         reservations:
@@ -230,7 +232,7 @@ services:
 Or for a one-off run without modifying compose:
 
 ```bash
-docker run --gpus all ghcr.io/jellman86/wamf-backend:dev \
+docker run --gpus all ghcr.io/jellman86/yawamf-monalithic:latest \
     python -m pytest tests/test_model_nvidia_gpu.py -v -s
 ```
 
@@ -239,7 +241,7 @@ docker run --gpus all ghcr.io/jellman86/wamf-backend:dev \
 Tests every installed ONNX model through CUDA/fp32, CUDA/fp32+exhaustive, TRT/fp32, TRT/fp16, and TRT/fp16+exhaust:
 
 ```bash
-docker exec yawamf-backend python -m pytest \
+docker exec yawamf-monalithic python -m pytest \
   tests/test_model_nvidia_gpu.py::test_nvidia_gpu_full_probe -v -s
 ```
 
@@ -248,7 +250,7 @@ docker exec yawamf-backend python -m pytest \
 ConvNeXt Large is broken on Intel iGPU (precision degradation, not fixable with OV 2025.4).  This probe checks whether NVIDIA GPU gives correct results and includes Intel iGPU reference data for direct comparison:
 
 ```bash
-docker exec yawamf-backend python -m pytest \
+docker exec yawamf-monalithic python -m pytest \
   tests/test_model_nvidia_gpu.py::test_convnext_nvidia_probe -v -s
 ```
 

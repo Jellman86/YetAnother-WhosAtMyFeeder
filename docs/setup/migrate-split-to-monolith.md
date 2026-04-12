@@ -35,9 +35,9 @@ What stays the same:
 
 ## Compose Shape
 
-The monolithic canary image currently uses:
+The monolithic image uses:
 
-- image: `ghcr.io/jellman86/yawamf-monalithic:dev`
+- image: `ghcr.io/jellman86/yawamf-monalithic:latest`
 - one service: `yawamf`
 - one exposed port: `9852:8080`
 
@@ -46,7 +46,7 @@ Example:
 ```yaml
 services:
   yawamf:
-    image: ghcr.io/jellman86/yawamf-monalithic:dev
+    image: ghcr.io/jellman86/yawamf-monalithic:latest
     container_name: yawamf-monalithic
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -103,10 +103,8 @@ To roll back:
 
 ## Current Status
 
-During the `v2.x` transition window:
+As of `v2.9.2+`:
 
-- split deployment remains supported
-- monolith deployment is the future direction
-- `v3.0` is planned to make the monolithic container the primary deployment model
-
-Treat this guide as the migration path to prepare for that transition.
+- The monolithic container (`yawamf-monalithic`) is the **recommended deployment** for new installs and migrations.
+- The split deployment (`wamf-backend` + `wamf-frontend`) remains functional but receives no new development effort.
+- Use `:latest` or a pinned `:vX.Y.Z` tag for stable installs. The `:dev` tag tracks the development branch and may be unstable.

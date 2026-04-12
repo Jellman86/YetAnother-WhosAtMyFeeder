@@ -94,14 +94,20 @@ Configure authentication and public access controls.
 
 ### Recommended Reverse Proxy Routing
 
-For the cleanest HTTPS detection, route API traffic directly to the backend:
+For the monolithic deployment (recommended), route all traffic through a single upstream:
 
-- `/` → `yawamf-frontend:80`
-- `/api/*` → `yawamf-backend:8000`
+- All YA-WAMF traffic → `yawamf-monalithic:8080`
 
-This avoids a multi-hop proxy chain and prevents HTTPS warnings caused by intermediate proxies.
+See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for SSE and video clip proxy requirements.
+
+> **Legacy split deployment:** If you are still running the older two-container stack, route `/api/*` to `yawamf-backend:8000` and `/` to `yawamf-frontend:80` to avoid a multi-hop proxy chain that can cause HTTPS detection warnings.
 
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history.
 - **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
+- **HQ Event Snapshots (Beta):** Replace cached snapshots with a higher-quality crop fetched from Frigate after event end. Optional bird-crop toggle and JPEG quality slider. Can be enabled independently of standard snapshot caching.
 - **Taxonomy Repair:** Manually trigger a sync to normalize all species names using iNaturalist data.
+- **Timezone Repair:** Owner-only tool to fix legacy detections affected by a UTC timestamp shift. Only visible when affected rows are detected.
+
+## Maintenance Concurrency
+- **`maintenance_max_concurrent`** (default: `1`): Controls how many maintenance jobs (backfill, taxonomy repair, timezone repair, analyze-unknowns) can run in parallel. The recommended value is `1` — this keeps maintenance serialized so it does not compete with live event processing. Raising `video_classification_max_concurrent` for clip analysis throughput will not affect maintenance concurrency unless this setting is also changed.

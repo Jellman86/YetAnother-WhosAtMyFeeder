@@ -1,12 +1,12 @@
 # Telemetry & Usage Metrics
 
-YA-WAMF includes an optional telemetry system designed to help me understand how the software is used. I follow a strict **privacy-first** philosophy.
+YA-WAMF includes an optional telemetry system designed to help the project understand how the software is used. The project follows a strict **privacy-first** philosophy.
 
 ## Default State: Disabled
 Telemetry is **disabled by default**. No data is sent unless you explicitly turn it on in the Settings.
 
 ## Philosophy
-I believe open-source software should be transparent. I only collect high-level aggregate data to help answer questions like:
+Open-source software should be transparent. Only high-level aggregate data is collected, to help answer questions like:
 - "Which identification models are most popular (EVA-02, ConvNeXt, or MobileNet)?"
 - "Is the BirdNET integration widely used?"
 - "What platforms (ARM/x86) should I prioritize for optimization?"
@@ -17,14 +17,14 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 ### The Payload
 | Field | Example | Purpose |
 |-------|---------|---------|
-| **Installation ID** | `a1b2c3d4-e5f6...` | A random UUID generated on first run. Allows me to count unique active installations without knowing *who* you are. |
-| **App Version** | `2.3.0+a0736ed` | Helps me track adoption of new releases. |
-| **Platform** | `Linux-x86_64` | Helps me decide which Docker architectures to build. |
-| **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Helps me understand which features are popular. |
+| **Installation ID** | `a1b2c3d4-e5f6...` | A random UUID generated on first run. Allows counting unique active installations without identifying *who* you are. |
+| **App Version** | `2.3.0+a0736ed` | Tracks adoption of new releases. |
+| **Platform** | `Linux-x86_64` | Informs which Docker architectures to prioritise. |
+| **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Shows which features are most popular. |
 
 ## What is NEVER Collected?
-- ❌ **Your Images or Videos:** I never see your birds or your camera feeds.
-- ❌ **Detection Data:** I don't collect species names, times, or locations.
+- ❌ **Your Images or Videos:** Bird images and camera feeds are never transmitted.
+- ❌ **Detection Data:** No species names, times, or locations.
 - ❌ **Credentials:** No passwords, tokens, or API keys.
 - ❌ **Network Info:** No local IP addresses or network topology.
 

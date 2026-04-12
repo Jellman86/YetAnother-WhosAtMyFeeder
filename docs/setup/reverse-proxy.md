@@ -3,17 +3,16 @@
 When running Yet Another WhosAtMyFeeder (YA-WAMF) behind a reverse proxy, specific configurations are required to ensure the **Live Status** (Server-Sent Events) and **Video Playback** features work correctly without disconnection or buffering issues.
 
 > [!WARNING]
-> YA-WAMF is transitioning toward a single-container deployment for `v3.0`.
-> The split `yawamf-frontend` + `yawamf-backend` examples below remain valid during the `v2.x` transition window, but new installs and migrations should plan for a single upstream such as `yawamf-monalithic:8080`.
+> The monolithic container (`yawamf-monalithic`) is the recommended deployment. New installs should use the monolithic examples on this page. The split `yawamf-frontend` + `yawamf-backend` path is legacy and kept only for existing installs that have not yet migrated.
 
 ## Deployment Modes
 
-YA-WAMF currently supports two proxy layouts:
+YA-WAMF supports two proxy layouts:
 
-- `yawamf-monalithic:8080` for the monolithic canary container
-- `yawamf-frontend:80` plus `yawamf-backend:8000` for the legacy split deployment
+- **Monolithic (recommended):** `yawamf-monalithic:8080` — one container, one upstream
+- **Legacy split:** `yawamf-frontend:80` plus `yawamf-backend:8000` — two containers
 
-Use the monolithic examples below if you are running the new canary image. Only use the split upstreams if you intentionally still run the old two-container stack.
+Use the monolithic examples below for new installs. Only use the split upstreams if you are still running the old two-container stack and have not yet migrated.
 
 ## Core Requirements
 

@@ -16,19 +16,21 @@ If detections aren't appearing, verify the MQTT connection:
 If Birds are appearing on the dashboard but never have the **"Verified"** audio badge:
 
 1.  **Check Sensor ID:** Verify that the Sensor ID in the **Recent Audio** widget matches your mapping in Settings.
-2.  **Verify Timezone (TZ):** Run `docker exec -it yawamf-backend date` and compare it to the time on your host. If they differ, audio correlation will fail because events won't align. Ensure all containers (Frigate, BirdNET, YA-WAMF) have the same `TZ` environment variable.
+2.  **Verify Timezone (TZ):** Run `docker exec -it yawamf-monalithic date` (or `yawamf-backend` for the legacy split deployment) and compare it to the time on your host. If they differ, audio correlation will fail because events won't align. Ensure all containers (Frigate, BirdNET, YA-WAMF) have the same `TZ` environment variable.
 3.  **Buffer Window:** Correlation only works for events within your configured `audio_correlation_window_seconds` (default ±300 seconds).
 
 ## 🌐 Network Connectivity
-Since YA-WAMF runs in a Docker network, it must be able to reach your other services. You can test this from inside the backend container:
+Since YA-WAMF runs in a Docker network, it must be able to reach your other services. You can test this from inside the container:
 
 ```bash
-# Test connection to Frigate
-docker exec yawamf-backend curl -s http://frigate:5000/api/version
+# Test connection to Frigate (monolithic deployment)
+docker exec yawamf-monalithic curl -s http://frigate:5000/api/version
 
-# Test connection to MQTT (if mosquitto has a healthcheck/api)
-docker exec yawamf-backend ping -c 1 mosquitto
+# Test connection to MQTT
+docker exec yawamf-monalithic ping -c 1 mosquitto
 ```
+
+Replace `yawamf-monalithic` with `yawamf-backend` if you are on the legacy split deployment.
 
 If these fail, verify that all services are on the same `DOCKER_NETWORK` in your `.env` file.
 
@@ -62,11 +64,17 @@ If you see `PermissionError` in your backend logs or the container fails to star
     ```
 5.  **Test write access from inside the running container:**
     ```bash
-    docker compose exec yawamf-backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+    # Monolithic deployment:
+    docker compose exec yawamf sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
+    # Legacy split deployment:
+    # docker compose exec yawamf-backend sh -lc 'id && ls -ld /config /data && touch /data/.perm_test && rm -f /data/.perm_test'
     ```
 6.  **Check logs for remaining denials:**
     ```bash
-    docker compose logs yawamf-backend | rg -n "Permission denied|EACCES"
+    # Monolithic deployment:
+    docker compose -f docker-compose.monolith.yml logs yawamf | grep -n "Permission denied\|EACCES"
+    # Legacy split deployment:
+    # docker compose logs yawamf-backend | grep -n "Permission denied\|EACCES"
     ```
 
 If step 5 fails, the most common cause is editing one path but mounting a different host path in Portainer. Fix ownership on the actual mounted source path shown in the stack volume mapping.
@@ -96,6 +104,20 @@ This usually tells you whether the problem is:
 
 ### Quick API check
 
+From the host (monolithic deployment):
+
+```bash
+curl -sS http://localhost:9852/api/classifier/status
+```
+
+From inside the Docker network or within the container (monolithic):
+
+```bash
+docker exec yawamf-monalithic curl -sS http://127.0.0.1:8000/api/classifier/status
+```
+
+Legacy split deployment (from the Docker network):
+
 ```bash
 curl -sS http://yawamf-backend:8000/api/classifier/status
 ```
@@ -115,13 +137,15 @@ Key fields:
 
 ### Intel iGPU (OpenVINO) checklist
 
+Replace `yawamf-monalithic` below with `yawamf-backend` if you are on the legacy split deployment.
+
 1. **Confirm `/dev/dri` is mounted**
    ```bash
-   docker exec yawamf-backend sh -lc 'ls -l /dev/dri'
+   docker exec yawamf-monalithic sh -lc 'ls -l /dev/dri'
    ```
 2. **Confirm container user/group can access the device nodes**
    ```bash
-   docker exec yawamf-backend sh -lc 'id && ls -ln /dev/dri'
+   docker exec yawamf-monalithic sh -lc 'id && ls -ln /dev/dri'
    ```
    The backend user/group list must include the numeric GIDs shown on `/dev/dri/card0` and `/dev/dri/renderD128` (often `video`/`render`, but IDs vary by host).
 3. **Check OpenVINO GPU plugin errors**
@@ -143,8 +167,10 @@ cd backend
 python3 scripts/patch_convnext_openvino_model.py \
   --model /data/models/convnext_large_inat21/model.onnx \
   --replace
-docker restart yawamf-backend
+docker restart yawamf-monalithic
 ```
+
+(Use `docker restart yawamf-backend` if you are on the legacy split deployment.)
 
 The script creates a timestamped backup of the original model before replacement.
 
@@ -197,7 +223,10 @@ If the Backfill tool is skipping events you expected to see, check the **Skipped
 ## Logs
 For deep inspection, view the container logs:
 ```bash
-docker compose logs yawamf-backend -f
+# Monolithic deployment:
+docker compose -f docker-compose.monolith.yml logs yawamf -f
+# Legacy split deployment:
+# docker compose logs yawamf-backend -f
 ```
 Look for lines like:
 - `Processing MQTT event`: Backend saw a bird event.

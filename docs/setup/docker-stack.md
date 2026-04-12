@@ -1,13 +1,13 @@
 # Full Docker Stack Example
 
-This page still shows the **legacy split deployment** for reference. If you are validating the monolithic canary image, use [`docker-compose.monolith.yml`](../../docker-compose.monolith.yml) instead and point your reverse proxy at `yawamf-monalithic:8080`.
+This page shows the **monolithic deployment** (recommended) followed by the **legacy split deployment** for reference. For the monolithic image, use [`docker-compose.monolith.yml`](../../docker-compose.monolith.yml) and point your reverse proxy at `yawamf-monalithic:8080`.
 
 ## Monolithic Canary Quick Example
 
 ```yaml
 services:
   yawamf:
-    image: ghcr.io/jellman86/yawamf-monalithic:dev
+    image: ghcr.io/jellman86/yawamf-monalithic:latest
     container_name: yawamf-monalithic
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -189,7 +189,13 @@ Model choice still strongly affects RAM/CPU requirements:
 To update to the latest version, run the following commands in your `ya-wamf` directory:
 
 ```bash
-docker compose pull
-docker compose up -d
+# Monolithic deployment (recommended):
+docker compose -f docker-compose.monolith.yml pull
+docker compose -f docker-compose.monolith.yml up -d
+
+# Legacy split deployment:
+# docker compose pull
+# docker compose up -d
 ```
+
 Your settings and history will be preserved because they are stored in the persistent volumes (`/config` and `/data`).

@@ -2,7 +2,7 @@
 
 This guide will walk you through the basic installation of YA-WAMF using Docker Compose.
 
-The recommended canary path now uses one container, `ghcr.io/jellman86/yawamf-monalithic`. The older split deployment still exists, but it is now a legacy path for setup guidance.
+The recommended deployment uses one container, `ghcr.io/jellman86/yawamf-monalithic`. The older split deployment (`wamf-backend` + `wamf-frontend`) is a legacy path kept for existing installs.
 
 ## Prerequisites
 - **Docker & Docker Compose** installed on your host.
@@ -147,6 +147,6 @@ YA-WAMF uses two volumes for data:
 - `/config`: Stores `config.json` (your settings).
 - `/data`: Stores the SQLite database and downloaded ML models.
 
-Ensure these are mapped to persistent storage in your `docker-compose.yml` to avoid data loss during updates.
+Ensure these are mapped to persistent storage in your compose file to avoid data loss during updates.
 
 > 🔒 **Permissions Note:** From v2.5.0+, containers run as non-root. Always set `PUID`/`PGID` and fix host ownership before first boot. See [MIGRATION.md](../../MIGRATION.md) for background context.

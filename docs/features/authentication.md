@@ -85,7 +85,7 @@ When Public Access is enabled, guests can see:
 
 - **Guests see nothing:** Make sure "Enable Public Access" is on and your history window isn’t set to 0.
 - **Guests see settings:** Authentication may be disabled. Enable it and set a password.
-- **HTTPS warning appears:** Configure split routing and trusted proxy hosts (see below).
+- **HTTPS warning appears:** Ensure your reverse proxy passes `X-Forwarded-Proto` correctly and set Trusted Proxy Hosts (see below).
 
 ## Reverse Proxy & Trusted Hosts
 
@@ -97,46 +97,44 @@ If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), yo
 - Hostnames are resolved to IPs at startup. If your proxy IPs change, prefer a stable container name.
 - For Cloudflare DNS proxy (no tunnel), use Cloudflare IP ranges and keep them updated.
 
-## Recommended Proxy Topology (Split Routing)
+## Recommended Proxy Topology
 
-To avoid HTTPS warnings and simplify proxy trust, use a **single reverse proxy** (Nginx Proxy Manager, Caddy, Traefik, Cloudflare Tunnel, etc.) and **route API calls directly to the backend**:
+To avoid HTTPS warnings and simplify proxy trust, use a **single reverse proxy** (Nginx Proxy Manager, Caddy, Traefik, Cloudflare Tunnel, etc.) pointing at a single upstream.
 
-- `/` → `yawamf-frontend:80`
-- `/api/*` → `yawamf-backend:8000`
+### Monolithic deployment (recommended)
 
-This removes the extra proxy hop (frontend → backend) so YA-WAMF can trust only the actual reverse proxy.
+Route all YA-WAMF traffic to one upstream:
 
-### Nginx Proxy Manager example
+- All traffic → `yawamf-monalithic:8080`
 
-Create a single proxy host (e.g. `yawamf.yourdomain`) and add **custom locations**:
+See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for full Nginx Proxy Manager, Caddy, and Cloudflare Tunnel config examples including SSE and video clip tuning.
 
-```
-/              -> yawamf-frontend:80
-/api/          -> yawamf-backend:8000
-/api/sse       -> yawamf-backend:8000
-/api/frigate/* -> yawamf-backend:8000
-```
+For correct HTTPS detection, always pass these headers:
 
-Advanced config (recommended for SSE and correct HTTPS detection):
-
-```
+```nginx
 proxy_set_header X-Real-IP $remote_addr;
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Host $host;
 proxy_set_header X-Forwarded-Proto $scheme;
-
-# SSE
-proxy_buffering off;
-proxy_cache off;
-proxy_read_timeout 86400s;
-proxy_send_timeout 86400s;
 ```
 
-If you keep a multi-hop proxy (NPM → frontend → backend), you must also trust the frontend proxy in YA-WAMF.
+### Cloudflare Tunnel (monolithic)
 
-### Nginx (standalone) example
+Point the tunnel service at `http://yawamf-monalithic:8080`. Add the tunnel container name (e.g., `cloudflared` or `cloudflare-tunnel`) to **Trusted Proxy Hosts** in Settings > Security.
 
-```
+### Legacy split deployment
+
+> [!WARNING]
+> The split `yawamf-frontend` + `yawamf-backend` stack is a legacy path. New installs should use the monolithic container. The examples below are kept for users who have not yet migrated.
+
+For the split stack, route API calls directly to the backend to avoid a multi-hop proxy chain:
+
+- `/` → `yawamf-frontend:80`
+- `/api/*` → `yawamf-backend:8000`
+
+Nginx (standalone) example:
+
+```nginx
 server {
     listen 443 ssl;
     server_name yawamf.example.com;
@@ -164,11 +162,9 @@ server {
 }
 ```
 
-### Cloudflare Tunnel example
+Cloudflare Tunnel ingress for split routing:
 
-`cloudflared` ingress with split routing:
-
-```
+```yaml
 ingress:
   - hostname: yawamf.example.com
     path: /api/*
@@ -177,10 +173,6 @@ ingress:
     service: http://yawamf-frontend:80
   - service: http_status:404
 ```
-
-Trusted Proxy Hosts:
-- If using the tunnel container, add its service name (e.g., `cloudflared` or `cloudflare-tunnel`).
-- If using Cloudflare DNS proxy without a tunnel, add Cloudflare IP ranges instead.
 
 ## Technical Details
 
