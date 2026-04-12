@@ -375,6 +375,13 @@
                                     cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots;
                                     if (!cacheHighQualityEventSnapshots) cacheHighQualityEventSnapshotBirdCrop = false;
                                 }}
+                                onkeydown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots;
+                                        if (!cacheHighQualityEventSnapshots) cacheHighQualityEventSnapshotBirdCrop = false;
+                                    }
+                                }}
                                 class="relative flex-shrink-0 inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {cacheHighQualityEventSnapshots ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
                             >
                                 <span class="sr-only">{$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}</span>
