@@ -62,7 +62,7 @@ function applyFontTheme(fontTheme: FontTheme) {
 class ThemeStore {
     currentTheme = $state<Theme>('system');
     currentFontTheme = $state<FontTheme>('classic');
-    currentColorTheme = $state<ColorTheme>('default');
+    currentColorTheme = $state<ColorTheme>('bluetit');
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {

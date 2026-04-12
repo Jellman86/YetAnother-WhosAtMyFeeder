@@ -597,7 +597,7 @@ class AppearanceSettings(BaseModel):
         description="UI font theme: default, clean, studio, classic, compact"
     )
     color_theme: str = Field(
-        default="default",
+        default="bluetit",
         description="UI color theme: default, bluetit"
     )
 

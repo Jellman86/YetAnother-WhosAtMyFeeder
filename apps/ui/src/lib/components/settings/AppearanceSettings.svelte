@@ -195,8 +195,8 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {#each [
-                { value: 'default', label: $_('theme.color_default'), desc: $_('theme.color_default_desc'), gradient: 'from-teal-500 to-emerald-500' },
-                { value: 'bluetit', label: $_('theme.color_bluetit'), desc: $_('theme.color_bluetit_desc'), gradient: 'from-blue-500 to-amber-400' }
+                { value: 'default', label: $_('theme.color_default'), desc: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
+                { value: 'bluetit', label: $_('theme.color_bluetit'), desc: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
             ] as opt}
                 <button
                     onclick={() => setColorTheme(opt.value as ColorTheme)}
@@ -206,7 +206,7 @@
                             ? 'border-slate-900 dark:border-white bg-slate-900/5 dark:bg-white/5 shadow-lg'
                             : 'border-slate-100 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600'}"
                 >
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br {opt.gradient} shrink-0"></div>
+                    <div class="w-10 h-10 rounded-xl {opt.swatch} shrink-0"></div>
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{opt.label}</div>
                         <div class="text-[10px] font-medium mt-1 text-slate-400 truncate">{opt.desc}</div>
