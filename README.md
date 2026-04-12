@@ -26,11 +26,11 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
   <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
 </p>
 
-> [!NOTE]
-> **Single-Container Deployment**
+> [!WARNING]
+> **Legacy Split Deployment — End of Updates in v3.0**
 > YA-WAMF now recommends the **monolithic container** (`yawamf-monalithic`) as the primary deployment.
-> The older split `wamf-frontend + wamf-backend` layout still functions but is a legacy path — no new development effort is directed at it.
-> If you are migrating an existing split install, read [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md) before changing your stack.
+> The older split `wamf-frontend + wamf-backend` layout still functions on `v2.x`, but **starting with v3.0 it will receive no further updates** — no bug fixes, no new features, and no guarantee of compatibility.
+> Migrate before upgrading to v3.0. See [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md).
 
 ## Features at a Glance
 
