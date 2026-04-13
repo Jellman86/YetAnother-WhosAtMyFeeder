@@ -283,9 +283,7 @@ Notifications (Discord, Telegram, Pushover) support per-platform filters:
 
 ## Known Issues & Technical Debt
 
-See `DEVELOPER.md` section "Known Issues & Technical Debt" for comprehensive list. Active items:
-
-1. **EventProcessor refactoring needed** - `_process_event_payload()` in `event_processor.py` is ~168 lines; decomposition into smaller methods would improve readability and testability.
+No active known issues. See `DEVELOPER.md` for historical context.
 
 ## File Locations
 
