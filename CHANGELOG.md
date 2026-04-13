@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
-## [Unreleased]
+## [2.9.5] - 2026-04-13
 
 ### Fixed
 - Detection and events modals now force-probe full-visit clip availability when opened, clearing stale `unavailable` cache from a previous check.
