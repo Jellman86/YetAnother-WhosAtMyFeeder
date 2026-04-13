@@ -11,6 +11,8 @@ import {
     resolveWeatherUnitSystem,
     type WeatherUnitSystem
 } from '../utils/weather-units';
+import { StaleTracker } from '../utils/stale_tracker';
+import { refreshCoordinator } from './refresh_coordinator.svelte';
 
 class AuthStore {
     authRequired = $state(false);
@@ -43,6 +45,8 @@ class AuthStore {
     locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
+    private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
+    private readonly unregister: () => void;
 
     // Owner-only UI must stay locked until auth status has loaded successfully.
     hasOwnerAccess = $derived(this.statusLoaded && this.statusHealthy && (this.isAuthenticated || !this.authRequired));
@@ -53,6 +57,7 @@ class AuthStore {
 
     constructor() {
         // Status is loaded via loadStatus()
+        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
     }
 
     requestLogin() {
@@ -96,6 +101,7 @@ class AuthStore {
             this.locationTemperatureUnit = getTemperatureUnitForSystem(this.locationWeatherUnitSystem);
             this.dateFormat = status.date_format ?? "locale";
             this.statusHealthy = true;
+            this.staleTracker.touch();
         } catch (err) {
             console.error('Failed to load auth status', err);
             // Fail closed on auth-status errors so owner-only UI never leaks.
@@ -112,6 +118,11 @@ class AuthStore {
         }
     }
 
+    async refreshIfStale(): Promise<void> {
+        if (!this.staleTracker.isStale()) return;
+        await this.loadStatus();
+    }
+
     async login(username: string, password: string) {
         await apiLogin(username, password);
         this.token = getAuthToken();
@@ -120,6 +131,7 @@ class AuthStore {
 
     async logout() {
         await apiLogout();
+        this.staleTracker.reset();
         this.token = null;
         await this.loadStatus();
     }
