@@ -78,7 +78,7 @@ class DetectionsStore {
     }
 
     async refreshIfStale(): Promise<void> {
-        if (!this.staleTracker.isStale()) return;
+        if (this.isLoading || !this.staleTracker.isStale()) return;
         await this.loadInitial();
     }
 
