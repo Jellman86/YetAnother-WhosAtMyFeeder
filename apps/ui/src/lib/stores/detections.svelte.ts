@@ -2,6 +2,8 @@ import { type Detection, fetchEvents, fetchEventsCount } from '../api';
 import { logger } from '../utils/logger';
 import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
 import { toLocalYMD } from '../utils/date-only';
+import { StaleTracker } from '../utils/stale_tracker';
+import { refreshCoordinator } from './refresh_coordinator.svelte';
 
 export interface FrameResult {
     score: number;
@@ -41,6 +43,13 @@ class DetectionsStore {
     private MAX_RECLASSIFICATION_FRAMES = 240;
     private MAX_PATCH_ITEMS = 2000;
 
+    private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
+    private readonly unregister: () => void;
+
+    constructor() {
+        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+    }
+
     private markMutated() {
         this.mutationVersion += 1;
     }
@@ -68,6 +77,11 @@ class DetectionsStore {
         this.markMutated();
     }
 
+    async refreshIfStale(): Promise<void> {
+        if (!this.staleTracker.isStale()) return;
+        await this.loadInitial();
+    }
+
     async loadInitial() {
         this.isLoading = true;
         try {
@@ -89,6 +103,7 @@ class DetectionsStore {
             this.detections = recent;
             this.totalToday = countResult.count;
             this.markMutated();
+            this.staleTracker.touch();
         } catch (e) {
             if (isTransientRequestError(e)) {
                 logger.warn('Initial detections fetch failed (transient)', {
