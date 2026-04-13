@@ -104,6 +104,11 @@ class MQTTService:
                 in_flight_by_topic[kind] += 1
         frigate_topic = f"{settings.frigate.main_topic}/events"
         birdnet_topic = settings.frigate.audio_topic
+        # Half the Frigate stale threshold: BirdNET traffic must be this fresh to
+        # trigger the higher-confidence BirdNET-assisted stall check.  On low-traffic
+        # feeders (long inter-visit gaps) this threshold will normally not be met, so
+        # the independent watchdog path (_should_reconnect_independent) becomes the
+        # primary stall-detection path.  That is expected and fine.
         birdnet_active_age_threshold = max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0)
         backlog_wait_started = self._backlog_wait_started_monotonic
         backlog_wait_seconds = (
