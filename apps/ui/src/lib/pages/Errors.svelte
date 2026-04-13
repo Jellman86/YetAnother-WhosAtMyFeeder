@@ -196,18 +196,20 @@
 
     function eventPipelineStatus(): string {
         const pipeline = health?.event_pipeline ?? {};
-        const criticalFailures = asNumber(pipeline.critical_failures);
+        const criticalFailureActive = pipeline.critical_failure_active === true;
         const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailures > 0) return 'critical';
+        if (criticalFailureActive) return 'critical';
         if (dropped > 0) return 'degraded';
         return asText(pipeline.status, overallStatusLabel());
     }
 
     function eventPipelineSummary(): string {
         const pipeline = health?.event_pipeline ?? {};
+        const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
         const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailures > 0) return `${criticalFailures.toLocaleString()} critical failures recorded.`;
+        if (criticalFailureActive) return `${criticalFailures.toLocaleString()} critical failure${criticalFailures === 1 ? '' : 's'} recorded.`;
+        if (criticalFailures > 0) return `${criticalFailures.toLocaleString()} historical failure${criticalFailures === 1 ? '' : 's'} recorded; pipeline has since recovered.`;
         if (dropped > 0) return `${dropped.toLocaleString()} events have been dropped.`;
         return 'The ingest pipeline is processing detections normally.';
     }
