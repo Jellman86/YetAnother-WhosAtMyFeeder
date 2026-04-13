@@ -45,6 +45,7 @@
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
+  import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -87,6 +88,7 @@
       currentRoute = targetPath;
       if (opts.replace) window.history.replaceState(null, '', targetPath);
       else window.history.pushState(null, '', targetPath);
+      refreshCoordinator.onNavigate();
   }
 
   // Route guard: settings page should only be accessible when authenticated
@@ -326,6 +328,7 @@
               if (!document.hidden) {
                   void reclassifyRecovery.reconcile();
                   void liveUpdates.syncAnalysisQueueStatus();
+                  refreshCoordinator.onVisibilityChange();
               }
           };
           document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -456,6 +459,7 @@
           evtSource.onopen = () => {
               logger.sseEvent("connection_opened");
               notificationCenter.remove('system:sse-disconnected');
+              refreshCoordinator.onSseReconnect();
           };
 
           evtSource.onmessage = (event) => {
