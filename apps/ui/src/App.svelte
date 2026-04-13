@@ -240,6 +240,7 @@
 
           const handlePopState = () => {
               currentRoute = normalizeRouteForCurrentAccess(window.location.pathname);
+              refreshCoordinator.onNavigate();
           };
           window.addEventListener('popstate', handlePopState);
 
