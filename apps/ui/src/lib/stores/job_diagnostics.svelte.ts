@@ -180,6 +180,7 @@ function createHealthSignature(health: any): string {
     const videoClassifier = health?.video_classifier ?? {};
 
     const eventCritical = Math.max(0, Math.floor(asFiniteNumber(eventPipeline?.critical_failures)));
+    const eventCriticalActive = eventPipeline?.critical_failure_active === true;
     const stageTimeoutTotal = sumCounterMap(eventPipeline?.stage_timeouts);
     const stageFailureTotal = sumCounterMap(eventPipeline?.stage_failures);
     const lastTimeout = eventPipeline?.last_stage_timeout ?? {};
@@ -205,6 +206,7 @@ function createHealthSignature(health: any): string {
         status,
         startupInstanceId,
         eventCritical,
+        eventCriticalActive,
         stageTimeoutTotal,
         stageFailureTotal,
         normalizeString(lastTimeout?.stage, '-'),
@@ -273,6 +275,7 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
             dropped_events: Math.floor(asFiniteNumber(eventPipeline?.dropped_events)),
             incomplete_events: Math.floor(asFiniteNumber(eventPipeline?.incomplete_events)),
             critical_failures: Math.floor(asFiniteNumber(eventPipeline?.critical_failures)),
+            critical_failure_active: eventPipeline?.critical_failure_active === true,
             stage_timeouts: eventPipeline?.stage_timeouts ?? {},
             stage_failures: eventPipeline?.stage_failures ?? {},
             stage_fallbacks: eventPipeline?.stage_fallbacks ?? {},
@@ -485,7 +488,8 @@ class JobDiagnosticsStore {
 
         const eventPipeline = health?.event_pipeline ?? {};
         const criticalFailures = Math.max(0, Math.floor(asFiniteNumber(eventPipeline?.critical_failures)));
-        if (criticalFailures > 0) {
+        const criticalFailureActive = eventPipeline?.critical_failure_active === true;
+        if (criticalFailureActive && criticalFailures > 0) {
             this.recordError({
                 source: 'health',
                 component: 'event_pipeline',

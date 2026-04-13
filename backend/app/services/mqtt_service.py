@@ -24,7 +24,7 @@ MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS = 10.0
 MQTT_PRESSURE_ELEVATED_RATIO = 0.50
 MQTT_PRESSURE_HIGH_RATIO = 0.70
 MQTT_PRESSURE_CRITICAL_RATIO = 0.90
-MQTT_FRIGATE_TOPIC_STALE_SECONDS = max(30.0, float(os.getenv("MQTT_FRIGATE_TOPIC_STALE_SECONDS", "300")))
+MQTT_FRIGATE_TOPIC_STALE_SECONDS = max(30.0, float(os.getenv("MQTT_FRIGATE_TOPIC_STALE_SECONDS", "1800")))
 MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES = max(1, int(os.getenv("MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", "20")))
 MQTT_TOPIC_STALL_GRACE_SECONDS = max(10.0, float(os.getenv("MQTT_TOPIC_STALL_GRACE_SECONDS", "60")))
 MQTT_WATCHDOG_INTERVAL_SECONDS = max(10.0, float(os.getenv("MQTT_WATCHDOG_INTERVAL_SECONDS", "30")))
@@ -104,6 +104,11 @@ class MQTTService:
                 in_flight_by_topic[kind] += 1
         frigate_topic = f"{settings.frigate.main_topic}/events"
         birdnet_topic = settings.frigate.audio_topic
+        # Half the Frigate stale threshold: BirdNET traffic must be this fresh to
+        # trigger the higher-confidence BirdNET-assisted stall check.  On low-traffic
+        # feeders (long inter-visit gaps) this threshold will normally not be met, so
+        # the independent watchdog path (_should_reconnect_independent) becomes the
+        # primary stall-detection path.  That is expected and fine.
         birdnet_active_age_threshold = max(10.0, MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2.0)
         backlog_wait_started = self._backlog_wait_started_monotonic
         backlog_wait_seconds = (
