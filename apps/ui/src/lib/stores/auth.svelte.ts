@@ -47,6 +47,7 @@ class AuthStore {
     dateFormat = $state("locale");
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
     private readonly unregister: () => void;
+    private _isRefreshing = false;
 
     // Owner-only UI must stay locked until auth status has loaded successfully.
     hasOwnerAccess = $derived(this.statusLoaded && this.statusHealthy && (this.isAuthenticated || !this.authRequired));
@@ -119,8 +120,13 @@ class AuthStore {
     }
 
     async refreshIfStale(): Promise<void> {
-        if (!this.staleTracker.isStale()) return;
-        await this.loadStatus();
+        if (this._isRefreshing || !this.staleTracker.isStale()) return;
+        this._isRefreshing = true;
+        try {
+            await this.loadStatus();
+        } finally {
+            this._isRefreshing = false;
+        }
     }
 
     async login(username: string, password: string) {
