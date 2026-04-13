@@ -32,6 +32,8 @@
     } from '../utils/weather-units';
     import { logger } from '../utils/logger';
     import { _, locale } from 'svelte-i18n';
+    import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
+    import { StaleTracker } from '../utils/stale_tracker';
 
     type LeaderboardRow = {
         species: string;
@@ -145,9 +147,20 @@
         return bTime - aTime;
     })[0]);
 
+    const leaderboardStale = new StaleTracker(120_000); // 2 minutes
+
     $effect(() => {
         const _deps = [span];
         void loadLeaderboard();
+    });
+
+    // Re-fetch leaderboard when tab regains focus or user navigates here,
+    // but only if the data is older than the stale threshold.
+    $effect(() => {
+        return refreshCoordinator.register(async () => {
+            if (loading || !leaderboardStale.isStale()) return;
+            await loadLeaderboard();
+        });
     });
 
     $effect(() => {
@@ -254,6 +267,7 @@
             }
         }
 
+        if (!error) leaderboardStale.touch();
         loading = false;
     }
 

@@ -64,6 +64,7 @@
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let pendingEventId = $state<string | null>(null);
+    let lastModalEventId = $state<string | null>(null);
     let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
@@ -667,8 +668,21 @@
     });
 
     $effect(() => {
-        if (!recordingClipFetchEnabled || !selectedEvent) return;
-        void fullVisitStore.ensureAvailability(selectedEvent.frigate_event);
+        if (!recordingClipFetchEnabled || !selectedEvent) {
+            return;
+        }
+        const eventId = selectedEvent.frigate_event;
+        const isNewOpen = eventId !== lastModalEventId;
+        if (isNewOpen) {
+            lastModalEventId = eventId;
+            // Force fresh probe: a cached 'unavailable' from a previous check may
+            // now be wrong if the clip was fetched in another session or tab.
+            void fullVisitStore.ensureAvailability(eventId, { refresh: true });
+        } else {
+            // Same event still open (SSE update to selectedEvent while modal is open).
+            // Non-refresh probe respects the current cache — no redundant round-trips.
+            void fullVisitStore.ensureAvailability(eventId);
+        }
     });
 
     $effect(() => {

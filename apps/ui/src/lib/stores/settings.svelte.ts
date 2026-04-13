@@ -1,5 +1,7 @@
 import { fetchSettings, type Settings } from '../api';
 import { authStore } from './auth.svelte';
+import { StaleTracker } from '../utils/stale_tracker';
+import { refreshCoordinator } from './refresh_coordinator.svelte';
 
 // Svelte 5 shared state for settings
 class SettingsStore {
@@ -7,6 +9,12 @@ class SettingsStore {
     isLoading = $state(false);
     error = $state<string | null>(null);
     private _loadPromise: Promise<void> | null = null;
+    private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
+    private readonly unregister: () => void;
+
+    constructor() {
+        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+    }
 
     async load() {
         if (this._loadPromise) return this._loadPromise;
@@ -16,6 +24,7 @@ class SettingsStore {
             this.error = null;
             try {
                 this.settings = await fetchSettings();
+                this.staleTracker.touch();
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : 'Failed to load settings';
                 const isAuthExpected =
@@ -37,6 +46,11 @@ class SettingsStore {
         })();
 
         return this._loadPromise;
+    }
+
+    async refreshIfStale(): Promise<void> {
+        if (this._loadPromise !== null || !this.staleTracker.isStale()) return;
+        await this.load();
     }
 
     update(newSettings: Settings) {
