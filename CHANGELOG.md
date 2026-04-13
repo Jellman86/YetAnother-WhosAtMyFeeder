@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- Detection and events modals now force-probe full-visit clip availability when opened, clearing stale `unavailable` cache from a previous check.
+- Detections list, settings, and auth feature flags now refresh automatically after tab regains focus or after SSE reconnects, catching events missed during connection gaps.
+
 ## [2.9.4] - 2026-04-13
 
 - **Fixed:** The Errors page pipeline card no longer shows `CRITICAL` status for historical stage failures that have already resolved. The card now reflects `critical_failure_active` (which expires 300 seconds after the last failure) so the status clears automatically once the pipeline recovers, and the summary line distinguishes an active critical failure from a resolved historical one. The incident-synthesis path in the diagnostics store also now guards on the active flag, so a resolved historical failure no longer continues to produce new critical incident records on each health poll. (Issue #18 diagnostics follow-up)
