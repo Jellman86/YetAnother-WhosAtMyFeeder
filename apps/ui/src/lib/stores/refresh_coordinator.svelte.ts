@@ -36,8 +36,8 @@ class RefreshCoordinator {
     }
 
     private sweep(): void {
-        // Debounce: navigation + visibilitychange can fire together; one sweep is enough.
-        if (this.debounceTimer !== null) return;
+        // Clear-and-reset debounce: always runs 150ms after the *last* trigger.
+        if (this.debounceTimer !== null) clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = null;
             for (const cb of this.callbacks) {
