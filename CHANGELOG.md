@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.4] - 2026-04-13
+
 - **Fixed:** The Errors page pipeline card no longer shows `CRITICAL` status for historical stage failures that have already resolved. The card now reflects `critical_failure_active` (which expires 300 seconds after the last failure) so the status clears automatically once the pipeline recovers, and the summary line distinguishes an active critical failure from a resolved historical one. The incident-synthesis path in the diagnostics store also now guards on the active flag, so a resolved historical failure no longer continues to produce new critical incident records on each health poll. (Issue #18 diagnostics follow-up)
 - **Changed:** The MQTT Frigate-topic stall watchdog threshold (`MQTT_FRIGATE_TOPIC_STALE_SECONDS`) now defaults to 1800 seconds instead of 300. The previous 5-minute threshold caused the watchdog to fire continuously between bird visits on low-traffic feeders, producing repeated unnecessary reconnects and a small per-reconnect window where live Frigate events could be missed. The new default matches the real intent of the watchdog — detecting a genuinely stalled MQTT broker — while avoiding false-positive reconnects during normal feeder quiet periods. Note: the BirdNET-assisted stall check threshold (`MQTT_FRIGATE_TOPIC_STALE_SECONDS / 2`) moves to 900 s accordingly; on low-traffic feeders the independent 1800 s watchdog path becomes the primary stall detection path, which is the intended behavior. The env-var override remains available for operators who need a tighter threshold. (Issue #18)
 
