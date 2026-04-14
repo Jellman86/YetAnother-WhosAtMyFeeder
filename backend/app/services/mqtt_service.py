@@ -67,6 +67,8 @@ class MQTTService:
         self._backlog_wait_started_monotonic: float | None = None
         self._handler_slot_wait_exhaustions = 0
         self._last_handler_slot_wait_exhausted_monotonic: float | None = None
+        self._frigate_availability: str | None = None          # "online", "offline", or None (never seen)
+        self._frigate_availability_monotonic: float | None = None  # monotonic time of last payload
         # Simplified Client ID: yawamf-{git_hash}
         # version format is usually "2.0.0+abc1234"
         git_hash = version.split('+')[-1] if '+' in version else "unknown"

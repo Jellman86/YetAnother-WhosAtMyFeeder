@@ -800,3 +800,9 @@ async def test_start_clears_intentional_reconnect_on_mqtt_error_path(monkeypatch
     assert service._intentional_reconnect is False
     # Backoff should not have been applied (reconnect_delay stays at initial).
     assert service.reconnect_delay == mqtt_module.INITIAL_BACKOFF
+
+
+def test_availability_fields_initialised_to_none():
+    service = MQTTService("test+abc123")
+    assert service._frigate_availability is None
+    assert service._frigate_availability_monotonic is None
