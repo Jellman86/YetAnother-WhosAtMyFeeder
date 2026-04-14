@@ -882,6 +882,18 @@ def test_handle_frigate_availability_online_when_already_online_does_not_record(
     service._handle_frigate_availability(b"online")
     assert len(recorded) == 0
 
+def test_handle_frigate_availability_offline_when_already_offline_does_not_record(monkeypatch):
+    """Repeated 'offline' (e.g. retained re-delivery) must not spam diagnostics."""
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "offline"
+    recorded: list[dict] = []
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
+                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 507.0)
+    service._handle_frigate_availability(b"offline")
+    assert len(recorded) == 0
+
+
 def test_handle_frigate_availability_strips_whitespace(monkeypatch):
     service = MQTTService("test+abc123")
     monkeypatch.setattr(service, "_now_monotonic", lambda: 506.0)

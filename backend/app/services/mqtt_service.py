@@ -282,14 +282,15 @@ class MQTTService:
                 )
         elif value == "offline":
             log.warning("Frigate reported offline via frigate/available")
-            error_diagnostics_history.record(
-                source="mqtt",
-                component="mqtt_service",
-                reason_code="frigate_went_offline",
-                message="Frigate has gone offline (frigate/available: offline). No new detections until Frigate restarts.",
-                severity="warning",
-                context={"previous": previous},
-            )
+            if previous != "offline":
+                error_diagnostics_history.record(
+                    source="mqtt",
+                    component="mqtt_service",
+                    reason_code="frigate_went_offline",
+                    message="Frigate has gone offline (frigate/available: offline). No new detections until Frigate restarts.",
+                    severity="warning",
+                    context={"previous": previous},
+                )
         else:
             log.debug("Unknown frigate/available payload", value=value)
 
