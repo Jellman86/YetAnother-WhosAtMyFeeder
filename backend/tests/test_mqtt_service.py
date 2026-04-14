@@ -1041,3 +1041,19 @@ def test_stall_recovery_warning_suppressed_when_frigate_confirmed_online(monkeyp
     monkeypatch.setattr(service, "_now_monotonic", lambda: 250.0)
     status = service.get_status()
     assert status["stall_recovery_warning_active"] is False
+
+
+def test_connection_watchdog_suppressed_when_frigate_confirmed_online(monkeypatch):
+    """_connection_watchdog must not fire when Frigate is confirmed online via frigate/available."""
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = "online"
+    service._connection_started_monotonic = 0.0
+    # Frigate events topic has been silent for 3000s — well past the 300s stale threshold
+    service._topic_last_message_monotonic = {"frigate/events": 0.0}
+    service._topic_message_counts = {"frigate/events": 5}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    # The watchdog delegates to _should_reconnect_independent; verify it returns False
+    assert service._should_reconnect_independent("frigate/events", now=3000.0) is False

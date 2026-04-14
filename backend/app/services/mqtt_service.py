@@ -704,6 +704,8 @@ class MQTTService:
         while self.running:
             await asyncio.sleep(MQTT_WATCHDOG_INTERVAL_SECONDS)
             now = self._now_monotonic()
+            # _should_reconnect_independent returns False when Frigate is confirmed
+            # online via frigate/available — no explicit guard needed here.
             if self._should_reconnect_independent(frigate_topic, now):
                 self._note_stall_reconnect(
                     reason="frigate_topic_stalled_watchdog",
@@ -816,10 +818,10 @@ class MQTTService:
                                 break  # This breaks the 'async for', causing a reconnection with new settings
 
                             topic = message.topic.value
-                            self._record_topic_message(topic)
                             if topic == availability_topic:
                                 self._handle_frigate_availability(message.payload)
                                 continue
+                            self._record_topic_message(topic)
                             if topic == frigate_topic:
                                 log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
                                 meta = self._parse_frigate_payload_meta(message.payload)
