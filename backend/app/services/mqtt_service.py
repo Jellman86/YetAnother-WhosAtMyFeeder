@@ -765,6 +765,10 @@ class MQTTService:
                     birdnet_topic = settings.frigate.audio_topic
                     await client.subscribe(birdnet_topic)
 
+                    # Frigate Availability Topic (liveness heartbeat — retained, online/offline)
+                    availability_topic = f"{settings.frigate.main_topic}/available"
+                    await client.subscribe(availability_topic)
+
                     self._connection_started_monotonic = self._now_monotonic()
                     self._topic_last_message_monotonic = {}
                     self._topic_message_counts = {
@@ -775,8 +779,10 @@ class MQTTService:
                     self._audio_active_task = None
                     self._audio_pending_payload = None
                     self._audio_pending_task = None
+                    self._frigate_availability = None
+                    self._frigate_availability_monotonic = None
 
-                    log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic])
+                    log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic, availability_topic])
 
                     # Reset backoff on successful connection
                     self._reset_backoff()
@@ -801,6 +807,9 @@ class MQTTService:
 
                             topic = message.topic.value
                             self._record_topic_message(topic)
+                            if topic == availability_topic:
+                                self._handle_frigate_availability(message.payload)
+                                continue
                             if topic == frigate_topic:
                                 log.info("Received MQTT message on frigate topic", payload_len=len(message.payload))
                                 meta = self._parse_frigate_payload_meta(message.payload)
@@ -930,6 +939,8 @@ class MQTTService:
         self._topic_message_counts_lifetime = {}
         self._stall_recovery_consecutive_no_frigate_reconnects = 0
         self._backlog_wait_started_monotonic = None
+        self._frigate_availability = None
+        self._frigate_availability_monotonic = None
 
     def pause(self):
         self.paused = True

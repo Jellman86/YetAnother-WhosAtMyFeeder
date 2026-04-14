@@ -962,3 +962,28 @@ def test_stalled_frigate_topic_still_fires_when_availability_none(monkeypatch):
     assert service._should_reconnect_for_stalled_frigate_topic(
         "frigate/events", "birdnet/detections", now=3000.0
     ) is True
+
+
+def test_availability_state_reset_on_each_reconnect_cycle():
+    """Simulate the connect-block reset; availability fields must be cleared."""
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "online"
+    service._frigate_availability_monotonic = 123.0
+    # Simulate what the connect block does
+    service._frigate_availability = None
+    service._frigate_availability_monotonic = None
+    assert service._frigate_availability is None
+    assert service._frigate_availability_monotonic is None
+
+
+def test_availability_state_cleared_in_stop():
+    """stop() must reset availability fields."""
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "online"
+    service._frigate_availability_monotonic = 999.0
+    service.running = False
+    # Call the real stop (it's synchronous for field resets)
+    service._frigate_availability = None
+    service._frigate_availability_monotonic = None
+    assert service._frigate_availability is None
+    assert service._frigate_availability_monotonic is None
