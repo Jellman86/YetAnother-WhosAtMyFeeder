@@ -987,3 +987,45 @@ def test_availability_state_cleared_in_stop():
     service._frigate_availability_monotonic = None
     assert service._frigate_availability is None
     assert service._frigate_availability_monotonic is None
+
+
+# --- get_status frigate_availability tests ---
+
+def test_get_status_includes_frigate_availability_unknown(monkeypatch):
+    service = MQTTService("test+abc123")
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    status = service.get_status()
+    assert "frigate_availability" in status
+    assert status["frigate_availability"]["status"] == "unknown"
+    assert status["frigate_availability"]["last_seen_age_seconds"] is None
+
+
+def test_get_status_includes_frigate_availability_online(monkeypatch):
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "online"
+    service._frigate_availability_monotonic = 100.0
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 250.0)
+    status = service.get_status()
+    assert status["frigate_availability"]["status"] == "online"
+    assert status["frigate_availability"]["last_seen_age_seconds"] == 150.0
+
+
+def test_stall_recovery_warning_suppressed_when_frigate_confirmed_online(monkeypatch):
+    """Health must not show stall_recovery_warning_active=True when Frigate is confirmed online."""
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = "online"
+    service._frigate_availability_monotonic = 100.0
+    service._stall_recovery_consecutive_no_frigate_reconnects = 3
+    service._connection_started_monotonic = 0.0
+    service._topic_last_message_monotonic = {"birdnet/detections": 200.0}
+    service._topic_message_counts = {"frigate/events": 0, "birdnet/detections": 50}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 250.0)
+    status = service.get_status()
+    assert status["stall_recovery_warning_active"] is False

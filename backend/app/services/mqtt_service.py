@@ -133,7 +133,8 @@ class MQTTService:
             birdnet_topic: self._topic_age_seconds(birdnet_topic, now),
         }
         stall_recovery_warning_active = bool(
-            self._stall_recovery_consecutive_no_frigate_reconnects > 0
+            not self._frigate_confirmed_online()
+            and self._stall_recovery_consecutive_no_frigate_reconnects > 0
             and topic_ages[birdnet_topic] is not None
             and topic_ages[birdnet_topic] <= birdnet_active_age_threshold
         )
@@ -181,6 +182,14 @@ class MQTTService:
             "stall_recovery_warning_active": stall_recovery_warning_active,
             "stall_recovery_warning_age_threshold_seconds": birdnet_active_age_threshold,
             "intentional_reconnect_pending": self._intentional_reconnect,
+            "frigate_availability": {
+                "status": self._frigate_availability if self._frigate_availability is not None else "unknown",
+                "last_seen_age_seconds": (
+                    round(max(0.0, now - self._frigate_availability_monotonic), 1)
+                    if self._frigate_availability_monotonic is not None
+                    else None
+                ),
+            },
         }
 
     def is_under_pressure(self, min_level: str = "high") -> bool:
