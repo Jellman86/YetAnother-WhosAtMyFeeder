@@ -242,6 +242,10 @@ class MQTTService:
     def _topic_count_lifetime(self, topic: str) -> int:
         return int(self._topic_message_counts_lifetime.get(topic, 0) or 0)
 
+    def _frigate_confirmed_online(self) -> bool:
+        """True if Frigate has explicitly confirmed it is online via frigate/available."""
+        return self._frigate_availability == "online"
+
     def _note_stall_reconnect(
         self,
         *,

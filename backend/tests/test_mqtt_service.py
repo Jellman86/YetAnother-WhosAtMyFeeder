@@ -805,4 +805,21 @@ async def test_start_clears_intentional_reconnect_on_mqtt_error_path(monkeypatch
 def test_availability_fields_initialised_to_none():
     service = MQTTService("test+abc123")
     assert service._frigate_availability is None
+
+
+def test_frigate_confirmed_online_none():
+    service = MQTTService("test+abc123")
+    assert service._frigate_confirmed_online() is False
+
+
+def test_frigate_confirmed_online_offline():
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "offline"
+    assert service._frigate_confirmed_online() is False
+
+
+def test_frigate_confirmed_online_online():
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "online"
+    assert service._frigate_confirmed_online() is True
     assert service._frigate_availability_monotonic is None
