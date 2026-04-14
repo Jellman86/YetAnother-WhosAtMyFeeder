@@ -362,6 +362,11 @@ class MQTTService:
         if not self.running or self.paused:
             return False
 
+        # If Frigate has explicitly confirmed it is online, the feeder is simply
+        # quiet — do not treat silence as a stall.
+        if self._frigate_confirmed_online():
+            return False
+
         ts = now if now is not None else self._now_monotonic()
         if self._connection_started_monotonic is None:
             return False
@@ -386,6 +391,10 @@ class MQTTService:
     ) -> bool:
         """BirdNET-assisted stall check (higher confidence; used in the message loop)."""
         if not self.running or self.paused:
+            return False
+
+        # Availability-gated: if Frigate says it's online, silence = quiet feeder.
+        if self._frigate_confirmed_online():
             return False
 
         ts = now if now is not None else self._now_monotonic()

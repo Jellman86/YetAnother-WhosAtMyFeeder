@@ -887,3 +887,78 @@ def test_handle_frigate_availability_strips_whitespace(monkeypatch):
     monkeypatch.setattr(service, "_now_monotonic", lambda: 506.0)
     service._handle_frigate_availability(b"online\n")
     assert service._frigate_availability == "online"
+
+
+def test_should_reconnect_independent_suppressed_when_frigate_confirmed_online(monkeypatch):
+    """stall watchdog must not fire when frigate/available says online."""
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = "online"
+    service._connection_started_monotonic = 0.0
+    service._topic_last_message_monotonic = {"frigate/events": 0.0}
+    service._topic_message_counts = {"frigate/events": 5}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    assert service._should_reconnect_independent("frigate/events", now=3000.0) is False
+
+def test_should_reconnect_independent_still_fires_when_availability_none(monkeypatch):
+    """Fallback: no availability seen → existing stall logic unchanged."""
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = None
+    service._connection_started_monotonic = 0.0
+    service._topic_last_message_monotonic = {"frigate/events": 0.0}
+    service._topic_message_counts = {"frigate/events": 5}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    assert service._should_reconnect_independent("frigate/events", now=3000.0) is True
+
+def test_should_reconnect_independent_still_fires_when_availability_offline(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = "offline"
+    service._connection_started_monotonic = 0.0
+    service._topic_last_message_monotonic = {"frigate/events": 0.0}
+    service._topic_message_counts = {"frigate/events": 5}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    assert service._should_reconnect_independent("frigate/events", now=3000.0) is True
+
+def test_stalled_frigate_topic_suppressed_when_frigate_confirmed_online(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = "online"
+    service._connection_started_monotonic = 0.0
+    service._last_reconnect_reason = "frigate_topic_stalled"
+    service._topic_last_message_monotonic = {"birdnet/detections": 2990.0}
+    service._topic_message_counts = {"frigate/events": 0, "birdnet/detections": 50}
+    service._topic_message_counts_lifetime = {"frigate/events": 12, "birdnet/detections": 120}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 20, raising=False)
+    assert service._should_reconnect_for_stalled_frigate_topic(
+        "frigate/events", "birdnet/detections", now=3000.0
+    ) is False
+
+def test_stalled_frigate_topic_still_fires_when_availability_none(monkeypatch):
+    service = MQTTService("test+abc123")
+    service.running = True
+    service._frigate_availability = None
+    service._connection_started_monotonic = 0.0
+    service._last_reconnect_reason = "frigate_topic_stalled"
+    service._topic_last_message_monotonic = {"birdnet/detections": 2990.0}
+    service._topic_message_counts = {"frigate/events": 0, "birdnet/detections": 50}
+    service._topic_message_counts_lifetime = {"frigate/events": 12, "birdnet/detections": 120}
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
+    monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 20, raising=False)
+    assert service._should_reconnect_for_stalled_frigate_topic(
+        "frigate/events", "birdnet/detections", now=3000.0
+    ) is True
