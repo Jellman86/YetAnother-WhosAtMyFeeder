@@ -823,3 +823,67 @@ def test_frigate_confirmed_online_online():
     service._frigate_availability = "online"
     assert service._frigate_confirmed_online() is True
     assert service._frigate_availability_monotonic is None
+
+
+def test_handle_frigate_availability_online_sets_state(monkeypatch):
+    service = MQTTService("test+abc123")
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 500.0)
+    service._handle_frigate_availability(b"online")
+    assert service._frigate_availability == "online"
+    assert service._frigate_availability_monotonic == 500.0
+
+def test_handle_frigate_availability_offline_sets_state(monkeypatch):
+    service = MQTTService("test+abc123")
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 501.0)
+    service._handle_frigate_availability(b"offline")
+    assert service._frigate_availability == "offline"
+    assert service._frigate_availability_monotonic == 501.0
+
+def test_handle_frigate_availability_online_clears_stall_counter(monkeypatch):
+    service = MQTTService("test+abc123")
+    service._stall_recovery_consecutive_no_frigate_reconnects = 3
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 502.0)
+    service._handle_frigate_availability(b"online")
+    assert service._stall_recovery_consecutive_no_frigate_reconnects == 0
+
+def test_handle_frigate_availability_offline_records_diagnostic(monkeypatch):
+    import app.services.mqtt_service as mqtt_module
+    service = MQTTService("test+abc123")
+    recorded: list[dict] = []
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
+                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 503.0)
+    service._handle_frigate_availability(b"offline")
+    assert len(recorded) == 1
+    assert recorded[0]["reason_code"] == "frigate_went_offline"
+    assert recorded[0]["severity"] == "warning"
+
+def test_handle_frigate_availability_online_after_offline_records_came_online(monkeypatch):
+    import app.services.mqtt_service as mqtt_module
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "offline"
+    recorded: list[dict] = []
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
+                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 504.0)
+    service._handle_frigate_availability(b"online")
+    assert len(recorded) == 1
+    assert recorded[0]["reason_code"] == "frigate_came_online"
+    assert recorded[0]["severity"] == "info"
+
+def test_handle_frigate_availability_online_when_already_online_does_not_record(monkeypatch):
+    import app.services.mqtt_service as mqtt_module
+    service = MQTTService("test+abc123")
+    service._frigate_availability = "online"
+    recorded: list[dict] = []
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
+                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 505.0)
+    service._handle_frigate_availability(b"online")
+    assert len(recorded) == 0
+
+def test_handle_frigate_availability_strips_whitespace(monkeypatch):
+    service = MQTTService("test+abc123")
+    monkeypatch.setattr(service, "_now_monotonic", lambda: 506.0)
+    service._handle_frigate_availability(b"online\n")
+    assert service._frigate_availability == "online"

@@ -246,6 +246,44 @@ class MQTTService:
         """True if Frigate has explicitly confirmed it is online via frigate/available."""
         return self._frigate_availability == "online"
 
+    def _handle_frigate_availability(self, payload: bytes) -> None:
+        """Process a message from the frigate/available topic."""
+        value = payload.decode("utf-8", errors="replace").strip()
+        now = self._now_monotonic()
+        previous = self._frigate_availability
+        self._frigate_availability = value
+        self._frigate_availability_monotonic = now
+
+        if value == "online":
+            if self._stall_recovery_consecutive_no_frigate_reconnects > 0:
+                log.info(
+                    "Frigate reported online; clearing stall-recovery counter",
+                    consecutive_reconnects_cleared=self._stall_recovery_consecutive_no_frigate_reconnects,
+                )
+                self._stall_recovery_consecutive_no_frigate_reconnects = 0
+            if previous == "offline":
+                log.info("Frigate availability restored: online")
+                error_diagnostics_history.record(
+                    source="mqtt",
+                    component="mqtt_service",
+                    reason_code="frigate_came_online",
+                    message="Frigate has come back online (frigate/available: online).",
+                    severity="info",
+                    context={"previous": previous},
+                )
+        elif value == "offline":
+            log.warning("Frigate reported offline via frigate/available")
+            error_diagnostics_history.record(
+                source="mqtt",
+                component="mqtt_service",
+                reason_code="frigate_went_offline",
+                message="Frigate has gone offline (frigate/available: offline). No new detections until Frigate restarts.",
+                severity="warning",
+                context={"previous": previous},
+            )
+        else:
+            log.debug("Unknown frigate/available payload", value=value)
+
     def _note_stall_reconnect(
         self,
         *,
