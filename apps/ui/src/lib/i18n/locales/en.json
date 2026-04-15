@@ -201,6 +201,7 @@
       "taxonomy_title": "Taxonomy Repair",
       "taxonomy_desc": "Connect scientific and common names",
       "taxonomy_syncing": "Syncing",
+      "taxonomy_failed": "Taxonomy repair failed",
       "taxonomy_repairing": "Repairing Database",
       "taxonomy_run_button": "Run Full Taxonomy Repair",
       "timezone_repair_title": "Timezone Repair",

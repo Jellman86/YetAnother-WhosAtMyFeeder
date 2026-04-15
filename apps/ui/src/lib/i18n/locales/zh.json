@@ -607,6 +607,7 @@
       "taxonomy_title": "分类学修复",
       "taxonomy_desc": "关联学名与常用名",
       "taxonomy_syncing": "同步中...",
+      "taxonomy_failed": "分类学修复失败",
       "taxonomy_repairing": "正在修复数据库",
       "taxonomy_run_button": "运行完整分类学修复",
       "timezone_repair_title": "时区修复",

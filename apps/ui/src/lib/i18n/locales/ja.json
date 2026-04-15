@@ -607,6 +607,7 @@
       "taxonomy_title": "タクソノミー修復",
       "taxonomy_desc": "学名と一般名を関連付ける",
       "taxonomy_syncing": "同期中...",
+      "taxonomy_failed": "タクソノミー修復が失敗しました",
       "taxonomy_repairing": "データベースを修復中",
       "taxonomy_run_button": "完全なタクソノミー修復を実行",
       "timezone_repair_title": "タイムゾーン修復",

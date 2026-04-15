@@ -2010,6 +2010,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     total: taxonomyStatus.total,
                     source: 'poll'
                 });
+            } else if (taxonomyStatus.progress_state === 'failed') {
+                jobProgressStore.markFailed({
+                    id: 'taxonomy:sync',
+                    kind: 'taxonomy_sync',
+                    title: $_('settings.data.taxonomy_title'),
+                    message: taxonomyStatus.error || taxonomyStatus.message || $_('settings.data.taxonomy_failed'),
+                    current: taxonomyStatus.processed,
+                    total: taxonomyStatus.total,
+                    source: 'poll'
+                });
             } else if (taxonomyStatus.progress_state === 'completed' && taxonomyStatus.processed > 0) {
                 jobProgressStore.markCompleted({
                     id: 'taxonomy:sync',

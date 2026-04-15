@@ -615,6 +615,7 @@
       "taxonomy_title": "Riparazione tassonomica",
       "taxonomy_desc": "Collega nomi scientifici e comuni",
       "taxonomy_syncing": "Sincronizzazione...",
+      "taxonomy_failed": "Riparazione tassonomica fallita",
       "taxonomy_repairing": "Riparazione database",
       "taxonomy_run_button": "Esegui riparazione tassonomica completa",
       "timezone_repair_title": "Riparazione fuso orario",

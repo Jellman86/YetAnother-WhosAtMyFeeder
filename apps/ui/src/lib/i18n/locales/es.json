@@ -636,6 +636,7 @@
       "taxonomy_title": "Reparación taxonómica",
       "taxonomy_desc": "Conectar nombres científicos y comunes",
       "taxonomy_syncing": "Sincronizando...",
+      "taxonomy_failed": "Error en la reparación taxonómica",
       "taxonomy_repairing": "Reparando base de datos",
       "taxonomy_run_button": "Ejecutar reparación taxonómica completa",
       "timezone_repair_title": "Reparación de zona horaria",

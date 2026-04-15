@@ -186,6 +186,7 @@
       "taxonomy_title": "Taxonomie-Reparatur",
       "taxonomy_desc": "Wissenschaftliche und gebräuchliche Namen verknüpfen",
       "taxonomy_syncing": "Synchronisierung...",
+      "taxonomy_failed": "Taxonomie-Reparatur fehlgeschlagen",
       "taxonomy_repairing": "Datenbank wird repariert",
       "taxonomy_run_button": "Vollständige Taxonomie-Reparatur ausführen",
       "timezone_repair_title": "Zeitzonen-Reparatur",

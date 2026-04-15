@@ -615,6 +615,7 @@
       "taxonomy_title": "Исправление таксономии",
       "taxonomy_desc": "Связать научные и общие названия",
       "taxonomy_syncing": "Синхронизация...",
+      "taxonomy_failed": "Исправление таксономии не удалось",
       "taxonomy_repairing": "Исправление базы данных",
       "taxonomy_run_button": "Запустить полное исправление таксономии",
       "timezone_repair_title": "Исправление часового пояса",
