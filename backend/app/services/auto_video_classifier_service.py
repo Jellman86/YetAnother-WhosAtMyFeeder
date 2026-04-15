@@ -1023,6 +1023,7 @@ class AutoVideoClassifierService:
                     )
 
             # 3. Save to temp file for processing
+            tmp_path = None
             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
                 tmp.write(clip_bytes)
                 tmp_path = tmp.name
@@ -1173,6 +1174,11 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
+            # Clean up temp file if cancellation occurred before the inner finally ran.
+            if tmp_path is not None:
+                with contextlib.suppress(OSError):
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
             self._record_diagnostic(
                 frigate_event,
                 reason_code="video_cancelled",

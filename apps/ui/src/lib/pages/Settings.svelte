@@ -163,7 +163,7 @@
     // Taxonomy Sync State
     let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
     let syncingTaxonomy = $state(false);
-    let taxonomyPollInterval: any;
+    let taxonomyPollInterval: ReturnType<typeof setInterval> | undefined;
 
     // Location Settings
     let locationLat = $state<number | null>(null);

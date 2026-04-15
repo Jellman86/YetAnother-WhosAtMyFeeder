@@ -100,10 +100,6 @@ async def start_taxonomy_sync(
     auth: AuthContext = Depends(require_owner)
 ):
     """Start the background process to normalize all detection names. Owner only."""
-    status = canonical_identity_repair_service.get_status()
-    if status["is_running"]:
-        return {"status": "already_running"}
-
     guard = _maintenance_guardrail_status()
     if bool(guard.get("reject_new_work")):
         raise HTTPException(status_code=409, detail=_maintenance_busy_message(guard))
@@ -111,6 +107,7 @@ async def start_taxonomy_sync(
     holder_id = "taxonomy_sync"
     acquired = await maintenance_coordinator.try_acquire(holder_id, kind="taxonomy_sync")
     if not acquired:
+        # Coordinator rejected — either already running or maintenance lane is busy.
         raise HTTPException(status_code=409, detail=_maintenance_busy_message(guard))
 
     async def _run_with_slot() -> None:
@@ -991,11 +988,7 @@ async def update_settings(
         settings.location.automatic = update.location_automatic
     if "location_weather_unit_system" in fields_set and update.location_weather_unit_system is not None:
         settings.location.weather_unit_system = update.location_weather_unit_system
-    if (
-        "location_temperature_unit" in fields_set
-        and "location_weather_unit_system" not in fields_set
-        and update.location_temperature_unit is not None
-    ):
+    if "location_temperature_unit" in fields_set and update.location_temperature_unit is not None:
         settings.location.temperature_unit = update.location_temperature_unit
 
     # BirdWeather settings

@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi import HTTPException
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from starlette.requests import Request
 
 from app.auth import (
@@ -96,8 +96,8 @@ def test_token_contains_expiry():
     token = create_access_token("testuser", AuthLevel.OWNER)
     token_data = verify_token(token)
 
-    assert token_data.exp > datetime.utcnow()
-    assert token_data.exp < datetime.utcnow() + timedelta(hours=169)  # 7 days + buffer
+    assert token_data.exp > datetime.now(timezone.utc)
+    assert token_data.exp < datetime.now(timezone.utc) + timedelta(hours=169)  # 7 days + buffer
 
 
 def _build_request(path: str = "/api/test", query: str = "") -> Request:

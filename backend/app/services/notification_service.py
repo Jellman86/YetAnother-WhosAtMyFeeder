@@ -217,15 +217,14 @@ class NotificationService:
             resp.raise_for_status()
             return True
         except httpx.HTTPStatusError as e:
-            # Log the response body for debugging
+            # Avoid logging str(e) directly — it can include the webhook URL from the request URL.
             log.error("Discord notification failed",
-                     error=str(e),
+                     error=type(e).__name__,
                      status_code=e.response.status_code,
-                     response_body=e.response.text,
-                     payload=payload)
+                     response_body=e.response.text[:500])
             return False
         except Exception as e:
-            log.error("Discord notification failed", error=str(e), payload=payload)
+            log.error("Discord notification failed", error=type(e).__name__, detail=str(e)[:200])
             return False
 
     async def _send_pushover(

@@ -808,12 +808,12 @@ async def sse_endpoint(
 
 @app.get("/api/version")
 async def get_version():
-    """Return the application version info."""
+    """Return the application version info. Git hash and branch are omitted from
+    the unauthenticated response to reduce reconnaissance surface; they are
+    available in the authenticated /api/health endpoint."""
     return {
         "version": APP_VERSION,
         "base_version": BASE_VERSION,
-        "git_hash": GIT_HASH,
-        "branch": APP_BRANCH
     }
 
 

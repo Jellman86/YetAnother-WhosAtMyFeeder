@@ -44,12 +44,14 @@ async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, 
     conf = redact(conf)
     return conf
 
+_DEBUG_STATS_TABLES = ("detections", "taxonomy_cache")
+
 @router.get("/debug/db/stats")
 async def debug_db_stats(auth: AuthContext = Depends(require_owner)):
     """Get row counts for key tables. Owner only."""
     stats = {}
     async with get_db() as db:
-        for table in ["detections", "taxonomy_cache"]:
+        for table in _DEBUG_STATS_TABLES:
             try:
                 async with db.execute(f"SELECT COUNT(*) FROM {table}") as cursor:
                     row = await cursor.fetchone()

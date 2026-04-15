@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import hashlib
+import weakref
 import secrets
 import io
 from pathlib import Path as FilePath
@@ -46,9 +47,11 @@ router = APIRouter()
 
 # Shared HTTP client for better connection pooling
 _http_client: httpx.AsyncClient | None = None
-_preview_locks: dict[str, asyncio.Lock] = {}
-_recording_clip_fetch_locks: dict[str, asyncio.Lock] = {}
-_snapshot_generation_locks: dict[str, asyncio.Lock] = {}
+# WeakValueDictionary: entries are automatically removed once no coroutine holds
+# a reference to the lock, preventing unbounded growth with unique event IDs.
+_preview_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+_recording_clip_fetch_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+_snapshot_generation_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 
 VIDEO_PREVIEW_REQUESTS = Counter(
     "video_preview_requests_total",

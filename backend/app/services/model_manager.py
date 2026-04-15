@@ -1,4 +1,5 @@
 import errno
+import hashlib
 import json
 import os
 import shutil
@@ -1168,6 +1169,24 @@ class ModelManager:
         os.makedirs(staged_dir, exist_ok=False)
         return staged_dir
 
+    @staticmethod
+    def _verify_checksum(file_path: str, expected_sha256: str) -> None:
+        """Verify a file's SHA-256 digest matches the expected value.
+
+        Raises RuntimeError on mismatch. Uses 64 KB chunks to avoid loading
+        large model files fully into memory.
+        """
+        h = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        actual = h.hexdigest()
+        if actual != expected_sha256.lower():
+            raise RuntimeError(
+                f"Checksum mismatch for {os.path.basename(file_path)}: "
+                f"expected {expected_sha256.lower()}, got {actual}"
+            )
+
     def _validate_download_payload(self, model_meta: dict, staged_dir: str, model_filename: str) -> None:
         required_files = [model_filename, "labels.txt"]
         if model_meta.get("runtime") == "onnx" and model_meta.get("weights_url"):
@@ -1179,6 +1198,29 @@ class ModelManager:
         if missing:
             missing_csv = ", ".join(missing)
             raise RuntimeError(f"Downloaded model payload is missing required files: {missing_csv}")
+
+        # Verify SHA-256 checksums for files where the registry provides them.
+        # Registry entries without a sha256 field are accepted with a warning —
+        # add sha256 values to the registry to enforce integrity for each model.
+        checksum_map = {
+            model_filename: model_meta.get("sha256"),
+            "labels.txt": model_meta.get("labels_sha256"),
+            f"{model_filename}.data": model_meta.get("weights_sha256"),
+        }
+        for filename, expected in checksum_map.items():
+            file_path = os.path.join(staged_dir, filename)
+            if not os.path.exists(file_path):
+                continue
+            if expected:
+                log.info("Verifying checksum", filename=filename)
+                self._verify_checksum(file_path, expected)
+                log.info("Checksum verified", filename=filename)
+            else:
+                log.warning(
+                    "No checksum configured for downloaded file — integrity not verified",
+                    filename=filename,
+                    model_id=model_meta.get("id"),
+                )
 
     @staticmethod
     def _rename_or_move(src: str, dst: str) -> None:

@@ -389,7 +389,18 @@ class DetectionRepository:
         self._table_exists_cache[table_name] = exists
         return exists
 
+    _ALLOWED_PRAGMA_TABLES: frozenset[str] = frozenset({
+        "detections",
+        "taxonomy_cache",
+        "species_daily_rollup",
+        "species_info_cache",
+        "classification_feedback",
+        "oauth_tokens",
+    })
+
     async def _table_columns(self, table_name: str) -> set[str]:
+        if table_name not in self._ALLOWED_PRAGMA_TABLES:
+            raise ValueError(f"Unexpected table name passed to _table_columns: {table_name!r}")
         if not await self._table_exists(table_name):
             return set()
         async with self.db.execute(f"PRAGMA table_info({table_name})") as cursor:
@@ -744,11 +755,20 @@ class DetectionRepository:
 
     async def create(self, detection: Detection):
         sub_label = normalize_sub_label(detection.sub_label)
-        await self.db.execute("""
-            INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
-        await self.db.commit()
+        try:
+            await self.db.execute("""
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
+            await self.db.commit()
+        except aiosqlite.IntegrityError as e:
+            if "UNIQUE constraint failed: detections.frigate_event" in str(e):
+                log.debug(
+                    "Duplicate frigate_event insert skipped (idempotent)",
+                    frigate_event=detection.frigate_event,
+                )
+            else:
+                raise
 
     async def update(self, detection: Detection):
         sub_label = normalize_sub_label(detection.sub_label)

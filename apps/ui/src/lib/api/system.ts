@@ -3,8 +3,8 @@ import { API_BASE, apiFetch, handleResponse } from './core';
 export interface VersionInfo {
     version: string;
     base_version: string;
-    git_hash: string;
-    branch: string;
+    git_hash: string;   // resolved from build-time constant; not returned by the API
+    branch: string;     // resolved from build-time constant; not returned by the API
 }
 
 export interface HealthStatus {
@@ -32,21 +32,25 @@ export interface RecordingClipCapability {
 }
 
 export async function fetchVersion(): Promise<VersionInfo> {
+    const gitHash = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';
+    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
     try {
         const response = await apiFetch(`${API_BASE}/version`);
         if (response.ok) {
-            return await response.json();
+            const data = await response.json();
+            // git_hash and branch are no longer returned by the API (reconnaissance
+            // surface reduction) — fill them from build-time constants instead.
+            return { ...data, git_hash: gitHash, branch: appBranch };
         }
     } catch {
         // Ignore errors and return fallback below.
     }
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
-    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
     return {
         version: appVersion,
         base_version: appVersionBase,
-        git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+        git_hash: gitHash,
         branch: appBranch
     };
 }
