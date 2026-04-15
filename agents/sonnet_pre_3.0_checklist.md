@@ -2,7 +2,7 @@
 **Source:** `sonnet_codereview_2026-04-15.md`  
 **Date:** 2026-04-15  
 **Total items:** 27 across 12 domains  
-**Last updated:** 2026-04-15 — 14 items fixed in v2.9.7  
+**Last updated:** 2026-04-15 — 17 items fixed (14 in v2.9.7, 3 in v2.9.8)  
 **Format:** Work top-to-bottom. Check off each item when merged to dev.
 
 ---
@@ -38,7 +38,7 @@
 2. Update the three `_*_lock(event_id)` helpers to store the lock in a strong local variable before returning it (so the caller's reference keeps the lock alive while it's held, but it is GC'd once no coroutine holds it).
 3. Verify no other module holds long-lived references to these locks by name.
 
-### [ ] 4. MQTT in-flight task dicts may accumulate stale entries *(pending — needs audit of all cleanup paths + periodic sweep)*
+### [x] 4. MQTT in-flight task dicts may accumulate stale entries — **DONE v2.9.8** (_sweep_stale_event_task_entries() added; called from _connection_watchdog)
 **File:** `backend/app/services/mqtt_service.py:46–49`  
 **Problem:** `_event_task_tails`, `_event_tail_depths`, `_event_pending_tasks`, `_event_pending_payloads` are all keyed by Frigate event UUID. If a task completion path is missed (e.g. unexpected exception before the `del` call), entries persist for the lifetime of the service.  
 **Action:**
@@ -56,7 +56,7 @@
 
 ## P2 — Fix this sprint
 
-### [ ] 6. SSE token not revalidated after expiry mid-session
+### [x] 6. SSE token not revalidated after expiry mid-session — **DONE v2.9.8** (expiry checked every 60 heartbeats; session_expired event sent then stream closed)
 **File:** `backend/app/main.py:779–806` (SSE `event_generator` loop)  
 **Problem:** Token is validated once at connection time. A user whose token expires or is revoked can keep receiving SSE events indefinitely until they disconnect.  
 **Action:**
@@ -88,7 +88,7 @@
 2. Keep them in the authenticated `/api/health` response (already there).
 3. The frontend version display only needs `version` and `base_version` — confirm no UI breakage.
 
-### [ ] 10. Notification test endpoints return HTTP 200 for errors
+### [x] 10. Notification test endpoints return HTTP 200 for errors — **DONE v2.9.8** (502 for external failures, 400 for config errors; JSONResponse used throughout)
 **File:** `backend/app/routers/settings.py:162–275`  
 **Problem:** Notification send-test endpoints return `{"status": "error", "message": "..."}` with HTTP 200, which makes monitoring tooling unable to detect failures by status code.  
 **Action:**

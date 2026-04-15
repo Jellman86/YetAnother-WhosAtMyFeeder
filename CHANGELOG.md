@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.9.8] - 2026-04-15
+
+### Fixed
+- **Fixed:** MQTT event task dictionaries (`_event_task_tails`, `_event_tail_depths`, `_event_pending_tasks`, `_event_pending_payloads`) now have orphaned entries swept out periodically. Followup tasks created inside `_run_pending` did not register done-callbacks, so if a task completed while no new MQTT activity arrived for that event the corresponding tail entries could accumulate indefinitely. The connection watchdog now calls `_sweep_stale_event_task_entries()` on each iteration to remove entries whose tasks are done and have no pending work.
+- **Fixed:** SSE stream connections authenticated with a JWT token are now terminated gracefully when the token expires during a long-lived session. The event generator checks token expiry every 60 heartbeats (~20 minutes) and sends a `session_expired` event before closing the stream, instead of the previous behaviour of keeping stale sessions alive indefinitely.
+- **Fixed:** Notification and service-test endpoints (`/settings/mqtt/test-publish`, `/settings/notifications/test`, `/settings/birdweather/test`, `/settings/llm/test`) now return proper HTTP status codes for error cases. External service failures (unreachable broker, failed webhook, bad token) return `502`; configuration/validation errors (missing token, disabled service, unknown platform) return `400`. Previously all error paths returned `200` with a `"status": "error"` body, which masked failures from any HTTP-aware caller.
+
 ## [2.9.7] - 2026-04-15
 
 ### Security
