@@ -1290,7 +1290,7 @@
             </div>
 
             <div class="space-y-3">
-                <div class="card-base rounded-2xl p-4 relative overflow-hidden border-l-3 border-l-emerald-500">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-emerald-50/50 dark:bg-emerald-950/25">
                     {#if heroInfo?.thumbnail_url}
                         <div
                             class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
@@ -1315,7 +1315,7 @@
                     </div>
                 </div>
                 {#if span !== 'all'}
-                    <div class="card-base rounded-2xl p-4 relative overflow-hidden border-l-3 border-l-amber-500">
+                    <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-amber-50/50 dark:bg-amber-950/25">
                         {#if risingInfo?.thumbnail_url}
                             <div
                                 class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
@@ -1340,7 +1340,7 @@
                         </div>
                     </div>
                 {/if}
-                <div class="card-base rounded-2xl p-4 relative overflow-hidden border-l-3 border-l-sky-500">
+                <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-sky-50/50 dark:bg-sky-950/25">
                     {#if recentInfo?.thumbnail_url}
                         <div
                             class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
@@ -1693,9 +1693,9 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
                 {@const podiumColors = [
-                    'border-t-amber-400 dark:border-t-amber-500',
-                    'border-t-slate-400 dark:border-t-slate-400',
-                    'border-t-amber-700 dark:border-t-amber-600'
+                    'from-amber-400/70 via-amber-300/40',
+                    'from-slate-400/60 via-slate-300/30',
+                    'from-amber-700/60 via-amber-600/30'
                 ]}
                 {@const rankGradients = [
                     'from-amber-400 to-amber-600',
@@ -1706,9 +1706,11 @@
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base card-interactive text-left rounded-3xl p-5 pt-10 transition-all duration-300 relative group/card border-t-3 {podiumColors[index]}"
+                    class="card-base card-interactive text-left rounded-3xl p-5 pt-10 transition-all duration-300 relative group/card"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
+                    <!-- Medal gradient strip — fades left-to-right, no hard edges -->
+                    <div class="absolute top-0 left-0 right-0 h-[3px] rounded-t-3xl bg-gradient-to-r {podiumColors[index]} to-transparent"></div>
                     <!-- Overlapping Thumbnail -->
                     <div class="absolute -top-6 left-6 w-16 h-16 rounded-2xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl group-hover/card:-translate-y-1 transition-transform duration-300">
                         {#if getCachedSpeciesInfo(topSpecies.species)?.thumbnail_url}

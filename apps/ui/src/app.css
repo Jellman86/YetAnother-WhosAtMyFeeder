@@ -324,10 +324,7 @@ html.theme-bluetit.dark {
 
 /* ── 3. Component Class Overrides ── */
 
-/* Sidebar background tint */
-.theme-bluetit:not(.dark) aside {
-  background-color: rgba(239, 246, 255, 0.95); /* blue-50 tint — ties sidebar to theme */
-}
+/* Sidebar — bluetit uses the same white as default light mode; border-r provides the separation */
 
 /* Card surfaces */
 .theme-bluetit:not(.dark) .card-base {
