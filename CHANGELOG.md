@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.9.7] - 2026-04-15
+
+### Security
+- **Fixed:** Rate-limit IP spoofing via `X-Forwarded-For` — the login brute-force protection now uses `request.client.host` (already normalised by `ProxyHeadersMiddleware`) instead of reading raw proxy headers directly. Previously, any client could set `X-Forwarded-For: 1.2.3.4` and bypass the 5-per-minute login limit entirely.
+- **Fixed:** Git hash and branch name are no longer returned in the unauthenticated `/api/version` response, reducing reconnaissance surface. Both fields remain available in the authenticated `/api/health` endpoint.
+- **Fixed:** JWT expiry `datetime` is now kept timezone-aware throughout token validation instead of stripping timezone info after decode, preventing potential naive/aware comparison bugs in downstream code.
+- **Fixed:** Discord notification errors no longer risk logging the webhook URL — `httpx` exception strings could include the request URL; the error log now records only the exception type and response status.
+
+### Fixed
+- **Fixed:** Model downloads now include SHA-256 checksum verification infrastructure. When a `sha256`, `labels_sha256`, or `weights_sha256` field is present in the model registry entry, the downloaded file is verified before activation. Entries without checksums log a warning. This closes the path where a truncated or tampered download could be silently activated as the live ML model.
+- **Fixed:** The three per-event lock dictionaries in the Frigate media proxy (`_preview_locks`, `_recording_clip_fetch_locks`, `_snapshot_generation_locks`) are now `WeakValueDictionary` instances. Entries are automatically removed once no coroutine holds a reference, preventing unbounded memory growth over long-running deployments with thousands of unique event IDs.
+- **Fixed:** Partial video download temp files are now guaranteed to be cleaned up when an auto-video classification task is cancelled mid-download, preventing leaked `.mp4` files accumulating in the OS temp directory.
+- **Fixed:** `location_temperature_unit` is no longer silently dropped when submitted alongside `location_weather_unit_system` in a settings save. Both fields are now applied independently.
+- **Fixed:** Duplicate MQTT event inserts (same `frigate_event` ID, possible after service restart) are now treated as idempotent and logged at debug level instead of being recorded as pipeline stage failures.
+- **Fixed:** `_table_columns()` in `DetectionRepository` now validates the table name against an explicit whitelist before executing the `PRAGMA table_info()` query. The same pattern is applied to the `GET /api/debug/db/stats` endpoint.
+- **Fixed:** The taxonomy repair endpoint no longer uses a redundant `is_running` pre-check before acquiring the maintenance coordinator lock. The coordinator's `try_acquire()` is the authoritative serialiser and the pre-check was a TOCTOU race.
+- **Fixed:** Taxonomy repair job progress bar now correctly shows `failed` (red) when the repair errors out. Previously `progress_state === 'failed'` fell through to `closeActiveByPrefix('stale')`, making a failed repair visually indistinguishable from a job that never ran.
+
 ## [2.9.6] - 2026-04-15
 
 ### Fixed

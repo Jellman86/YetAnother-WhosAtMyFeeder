@@ -2,13 +2,14 @@
 **Source:** `sonnet_codereview_2026-04-15.md`  
 **Date:** 2026-04-15  
 **Total items:** 27 across 12 domains  
+**Last updated:** 2026-04-15 — 14 items fixed in v2.9.7  
 **Format:** Work top-to-bottom. Check off each item when merged to dev.
 
 ---
 
 ## P0 — Fix before release
 
-### [ ] 1. Model downloads have no checksum verification
+### [x] 1. Model downloads have no checksum verification — **DONE v2.9.7** (verification infrastructure added; warns when sha256 absent, enforces when present)
 **File:** `backend/app/services/model_manager.py:1171–1181`  
 **Problem:** `_validate_download_payload()` only checks file existence. A truncated, corrupt, or MitM-substituted download is silently activated as the live ML model.  
 **Action:**
@@ -21,7 +22,7 @@
 
 ## P1 — Fix soon
 
-### [ ] 2. Rate-limit IP spoofing via X-Forwarded-For
+### [x] 2. Rate-limit IP spoofing via X-Forwarded-For — **DONE v2.9.7**
 **File:** `backend/app/ratelimit.py:14–37`  
 **Problem:** `get_real_client_ip()` reads `X-Forwarded-For` directly from raw headers before `ProxyHeadersMiddleware` has processed them. Any direct client can spoof `X-Forwarded-For: 1.2.3.4` and bypass the 5-per-minute login rate limit entirely.  
 **Action:**
@@ -29,7 +30,7 @@
 2. Replace all call sites with `request.client.host` — this is the IP that ProxyHeadersMiddleware has already validated and normalised.
 3. If the deployment is behind a trusted reverse proxy and the real client IP is needed, use slowapi's `get_remote_address(request)` which correctly uses the post-middleware `client.host`.
 
-### [ ] 3. Unbounded lock dictionaries in proxy.py — memory leak
+### [x] 3. Unbounded lock dictionaries in proxy.py — memory leak — **DONE v2.9.7**
 **File:** `backend/app/routers/proxy.py:49–51, 150–171`  
 **Problem:** `_preview_locks`, `_recording_clip_fetch_locks`, and `_snapshot_generation_locks` are module-level `dict[str, asyncio.Lock]`. A new entry is inserted per unique `event_id` and never removed. On a busy feeder with thousands of daily detections, these grow forever.  
 **Action:**
@@ -37,14 +38,14 @@
 2. Update the three `_*_lock(event_id)` helpers to store the lock in a strong local variable before returning it (so the caller's reference keeps the lock alive while it's held, but it is GC'd once no coroutine holds it).
 3. Verify no other module holds long-lived references to these locks by name.
 
-### [ ] 4. MQTT in-flight task dicts may accumulate stale entries
+### [ ] 4. MQTT in-flight task dicts may accumulate stale entries *(pending — needs audit of all cleanup paths + periodic sweep)*
 **File:** `backend/app/services/mqtt_service.py:46–49`  
 **Problem:** `_event_task_tails`, `_event_tail_depths`, `_event_pending_tasks`, `_event_pending_payloads` are all keyed by Frigate event UUID. If a task completion path is missed (e.g. unexpected exception before the `del` call), entries persist for the lifetime of the service.  
 **Action:**
 1. Audit all code paths that insert into these dicts and confirm a corresponding `del` or `.pop()` exists in every exit path (including exception paths).
 2. Add a periodic sweep (e.g. in `_connection_watchdog`) that removes entries whose task has `.done()` and whose depth is 0 and which are older than `LIVE_EVENT_STALE_SECONDS`.
 
-### [ ] 5. Partial video download not cleaned up on task cancellation
+### [x] 5. Partial video download not cleaned up on task cancellation — **DONE v2.9.7**
 **File:** `backend/app/services/auto_video_classifier_service.py:152–175`  
 **Problem:** When `stop()` cancels in-flight tasks, a task mid-download may leave a partial temp file in the OS temp directory because `CancelledError` can interrupt async context managers before `__aexit__` runs.  
 **Action:**
@@ -63,7 +64,7 @@
 2. If expired, `break` out of the loop — the client's SSE connection will close and it will re-authenticate on reconnect.
 3. Only check every 60 iterations (not every message) to avoid per-message overhead.
 
-### [ ] 7. `location_temperature_unit` silently dropped in settings PUT
+### [x] 7. `location_temperature_unit` silently dropped in settings PUT — **DONE v2.9.7**
 **File:** `backend/app/routers/settings.py:994–999`  
 **Problem:** The condition `"location_weather_unit_system" not in fields_set` causes `location_temperature_unit` to be silently ignored when both fields are submitted together (which `saveSettings()` always does). The UI then shows the value as unsaved.  
 **Action:**
@@ -79,7 +80,7 @@
 2. Add `response_model=SettingsResponse` to the `@router.get("/settings")` decorator.
 3. This is a large model — can be done incrementally with a permissive base model that explicitly lists all current keys.
 
-### [ ] 9. `GET /api/version` exposes git hash and branch without auth
+### [x] 9. `GET /api/version` exposes git hash and branch without auth — **DONE v2.9.7**
 **File:** `backend/app/main.py:809–817`  
 **Problem:** `git_hash` and `branch` are useful attacker reconnaissance (identify exact commit, find known CVEs). They are returned to unauthenticated callers.  
 **Action:**
@@ -95,7 +96,7 @@
 2. For bad-request errors (missing config), return `400`.
 3. Update any frontend callers that check `response.status === "error"` to also handle non-200 HTTP status codes.
 
-### [ ] 11. `PRAGMA table_info()` uses unsafe f-string interpolation
+### [x] 11. `PRAGMA table_info()` uses unsafe f-string interpolation — **DONE v2.9.7**
 **File:** `backend/app/repositories/detection_repository.py:395`  
 **Problem:** `f"PRAGMA table_info({table_name})"` — PRAGMA does not support bind parameters. Currently only called with hardcoded literals, but the function signature accepts any string.  
 **Action:**
@@ -152,7 +153,7 @@
 
 ## P3 — Fix when touching the file
 
-### [ ] 16. JWT timezone strip is unnecessary
+### [x] 16. JWT timezone strip is unnecessary — **DONE v2.9.7**
 **File:** `backend/app/auth.py:121–123`  
 **Problem:** `token_data.exp.replace(tzinfo=None)` deliberately strips timezone after PyJWT has already enforced expiry. Unnecessary and could hide bugs if validation logic changes.  
 **Action:** Remove the timezone strip. Keep `exp` as timezone-aware (`datetime` with `UTC`). Confirm no downstream comparison uses naive `datetime.now()`.
@@ -187,14 +188,14 @@
 1. Document the current global-cooldown behaviour explicitly in settings and the notification UI so users understand it.
 2. As a follow-up enhancement, replace with a `dict[str, datetime]` per-species cooldown. This is a behaviour change and should be opt-in or defaulted to match current behaviour.
 
-### [ ] 21. Discord error log may include webhook URL
+### [x] 21. Discord error log may include webhook URL — **DONE v2.9.7**
 **File:** `backend/app/services/notification_service.py:220–228`  
 **Problem:** `log.error(..., error=str(e))` — if `httpx.HTTPStatusError.__str__()` includes the request URL, the Discord webhook URL appears in logs.  
 **Action:**
 1. Replace `error=str(e)` with `error=type(e).__name__, status_code=e.response.status_code, response_body=e.response.text[:200]`.
 2. Never pass the full exception string where a URL could be embedded.
 
-### [ ] 22. `taxonomyPollInterval` typed as `any`
+### [x] 22. `taxonomyPollInterval` typed as `any` — **DONE v2.9.7**
 **File:** `apps/ui/src/lib/pages/Settings.svelte:166`  
 **Problem:** `let taxonomyPollInterval: any` — weak typing, potential timer leak if not cleared.  
 **Action:**
@@ -211,7 +212,7 @@
    const errorContext = { message: ..., ...(isDev ? { stack: ... } : {}) };
    ```
 
-### [ ] 24. `GET /api/debug/db/stats` uses f-string table names
+### [x] 24. `GET /api/debug/db/stats` uses f-string table names — **DONE v2.9.7**
 **File:** `backend/app/routers/debug.py:51–58`  
 **Problem:** Pattern mirrors the PRAGMA issue — hardcoded now but unsafe if extended.  
 **Action:** Apply same whitelist guard pattern as item 11.
@@ -219,14 +220,14 @@
 ### [ ] 25. SSE token mid-session validation (P2 listed here for reference)
 Already listed as item 6 above.
 
-### [ ] 26. UNIQUE constraint on `frigate_event` not cleanly handled
+### [x] 26. UNIQUE constraint on `frigate_event` not cleanly handled — **DONE v2.9.7**
 **File:** `backend/app/repositories/detection_repository.py` (upsert path)  
 **Problem:** Duplicate MQTT event IDs (rare but possible after restart) hit the UNIQUE constraint and are recorded as critical failures instead of benign duplicates.  
 **Action:**
 1. In the upsert/insert path, catch `aiosqlite.IntegrityError` before the generic `except Exception`.
 2. On `IntegrityError` for `frigate_event`, log at `DEBUG` and return the existing detection row instead of recording a stage failure.
 
-### [ ] 27. Taxonomy sync redundant is_running pre-check
+### [x] 27. Taxonomy sync redundant is_running pre-check — **DONE v2.9.7**
 **File:** `backend/app/routers/settings.py:97–127`  
 **Problem:** The `is_running` pre-check before `maintenance_coordinator.try_acquire()` is redundant and could give a misleading result if two requests are in-flight simultaneously.  
 **Action:**
@@ -246,7 +247,7 @@ Already listed as item 6 above.
 
 ## Progress tracker
 
-- [ ] P0 complete
-- [ ] P1 complete
-- [ ] P2 complete
-- [ ] P3 complete
+- [x] P0 complete (v2.9.7 — checksum infrastructure in place)
+- [ ] P1 complete (3/4 done — #4 MQTT task dict audit pending)
+- [ ] P2 complete (#6 SSE re-validation, #8 SettingsResponse model, #10 notification 200→5xx, #13 date range cap, #14 coverage gate, #15 pip/npm audit pending)
+- [ ] P3 complete (#17 OAuth encryption, #18 OAuth logout cleanup, #19 taxonomy cache TTL, #20 per-species cooldown, #23 console stack traces pending)
