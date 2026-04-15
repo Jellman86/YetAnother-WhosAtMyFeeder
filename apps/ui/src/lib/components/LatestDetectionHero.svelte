@@ -2,7 +2,8 @@
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
-    import { fetchSpeciesInfo } from '../api/species';
+    import { fetchWithAbort, API_BASE } from '../api/core';
+    import type { SpeciesInfo } from '../api/species';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -27,15 +28,19 @@
 
     let speciesThumbnailUrl = $state<string | null>(null);
 
+    // Only fetch when scientific_name is present — display_name may be a common name or
+    // classifier label that produces incorrect iNaturalist lookups.
+    // fetchWithAbort auto-cancels any in-flight request for the same key when detection changes.
     $effect(() => {
-        const speciesName = detection.scientific_name || detection.display_name;
-        if (!speciesName) return;
-        let cancelled = false;
+        const speciesName = detection.scientific_name;
+        if (!speciesName) { speciesThumbnailUrl = null; return; }
         speciesThumbnailUrl = null;
-        fetchSpeciesInfo(speciesName)
-            .then((info) => { if (!cancelled) speciesThumbnailUrl = info.thumbnail_url; })
-            .catch(() => { if (!cancelled) speciesThumbnailUrl = null; });
-        return () => { cancelled = true; };
+        fetchWithAbort<SpeciesInfo>(
+            'hero-species-thumbnail',
+            `${API_BASE}/species/${encodeURIComponent(speciesName)}/info`
+        )
+            .then((info) => { speciesThumbnailUrl = info.thumbnail_url; })
+            .catch(() => { speciesThumbnailUrl = null; });
     });
 
     // Check if this detection is being reclassified
@@ -63,13 +68,16 @@
         )
     ));
 
-    // True when detection is less than 5 minutes old
+    // True when detection was less than 5 minutes old at render time.
+    // Re-evaluates only when the detection prop changes, not on a live timer —
+    // intentional: the pulse extinguishes naturally when the next detection arrives.
     let isFresh = $derived(
         Date.now() - new Date(detection.detection_time).getTime() < 5 * 60 * 1000
     );
 
-    // Confidence level for color-coded pill
-    let confidencePct = $derived(Math.round((detection.score || 0) * 100));
+    // Confidence level for color-coded pill. Only shown when score is present.
+    let hasScore = $derived(detection.score != null);
+    let confidencePct = $derived(hasScore ? Math.round(detection.score! * 100) : 0);
     let confidencePillClass = $derived(
         confidencePct >= 80
             ? 'bg-emerald-500/90 text-white'
@@ -144,7 +152,7 @@
                 </span>
 
                 <!-- Confidence pill -->
-                {#if currentClassificationSource !== 'manual'}
+                {#if currentClassificationSource !== 'manual' && hasScore}
                     <span class="px-2 py-0.5 {confidencePillClass} text-[10px] font-bold uppercase tracking-widest rounded-md">
                         {confidencePct}% {$_('dashboard.hero.conf')}
                     </span>

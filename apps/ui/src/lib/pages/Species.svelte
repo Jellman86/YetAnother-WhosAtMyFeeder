@@ -791,9 +791,11 @@
         };
     });
 
-    const comparePalette = themeStore.colorTheme === 'bluetit'
-        ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
-        : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316'];
+    let comparePalette = $derived(
+        themeStore.colorTheme === 'bluetit'
+            ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
+            : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
+    );
     const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
     function weekdayLabel(dayOfWeek: number): string {
@@ -810,94 +812,8 @@
         return `${String(Math.max(0, Math.min(23, hour))).padStart(2, '0')}:00`;
     }
 
-    let compareSeries = $derived(() => {
-        if (!timeline?.compare_series?.length) return [];
-        const points = timelinePoints();
-        if (!points.length) return [];
-        const displayNames = new Map(processedSpecies().map((item) => [item.species, item.displayName] as const));
-        return timeline.compare_series
-            .map((entry, index) => {
-                const valuesByBucket = new Map(
-                    (entry.points || []).map((point) => [point.bucket_start, Math.max(0, Number(point.count ?? 0))] as const)
-                );
-                const data = points
-                    .map((point) => {
-                        const x = Date.parse(point.bucket_start);
-                        if (!Number.isFinite(x)) return null;
-                        return {
-                            x,
-                            y: valuesByBucket.get(point.bucket_start) ?? 0
-                        };
-                    })
-                    .filter((point): point is { x: number; y: number } => !!point);
 
-                if (!data.length) return null;
-                return {
-                    name: displayNames.get(entry.species) ?? entry.species,
-                    type: 'line',
-                    color: comparePalette[index % comparePalette.length],
-                    data
-                };
-            })
-            .filter((series): series is { name: string; type: 'line'; color: string; data: Array<{ x: number; y: number }> } => !!series);
-    });
-
-    let compareHasData = $derived(() => compareSeries().some((series) => series.data.some((point) => point.y > 0)));
-    let comparePeak = $derived(() => compareSeries().reduce((peak, series) => {
-        const seriesPeak = series.data.reduce((max, point) => Math.max(max, point.y), 0);
-        return Math.max(peak, seriesPeak);
-    }, 0));
-    let compareChartOptions = $derived(() => ({
-        chart: {
-            type: 'line',
-            height: 220,
-            width: '100%',
-            toolbar: { show: false },
-            zoom: { enabled: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 450 }
-        },
-        series: compareSeries(),
-        dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 0, hover: { size: 4 } },
-        grid: {
-            borderColor: 'rgba(148,163,184,0.18)',
-            strokeDashArray: 3,
-            padding: { left: 8, right: 8, top: 8, bottom: 2 }
-        },
-        xaxis: {
-            type: 'datetime',
-            tickAmount: Math.min(6, timelinePoints().length || 0),
-            labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
-        },
-        yaxis: {
-            min: 0,
-            forceNiceScale: true,
-            labels: {
-                style: { fontSize: '10px', colors: '#94a3b8' },
-                formatter: (value: number) => formatMetricValue(value)
-            }
-        },
-        tooltip: {
-            theme: isDark() ? 'dark' : 'light',
-            x: {
-                format: timeline?.bucket === 'hour'
-                    ? 'MMM dd HH:mm'
-                    : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
-            },
-            y: {
-                formatter: (value: number) => formatMetricValue(value)
-            }
-        },
-        legend: {
-            show: compareSeries().length > 0,
-            position: 'top',
-            horizontalAlign: 'right',
-            fontSize: '10px',
-            labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
-        }
-    }));
-
+    // Keep in sync with the .slice(0, 7) in selectCompareSpecies and the >= 8 cap in stats.py
     const DONUT_MAX_SLICES = 7;
     let donutSeries = $derived(() => {
         const sorted = sortedSpecies();
@@ -1571,7 +1487,7 @@
 
                 <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${showTemperature}-${showWind}-${showPrecip}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
                         {/key}
                     {:else}
@@ -1733,7 +1649,7 @@
 
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
-                            {#key `${span}-${totalDetections}-${isDark()}`}
+                            {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
                                 <div use:chart={donutChartOptions() as any} class="w-full h-[260px]"></div>
                             {/key}
                         {:else}
