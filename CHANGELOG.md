@@ -6,13 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [2.9.8] - 2026-04-15
 
+### Added
+- **UI:** Leaderboard species page gains a hero card at the top of the detail panel: shows the most recent detection thumbnail for the selected species, a live pulse indicator when a detection occurred in the last 60 minutes, and a colour-coded confidence badge (green/amber/red by threshold tier).
+- **UI:** Species comparison chart is redesigned — the previous line chart is replaced with a donut breakdown (detection share by species) and a stacked bar timeline, giving a clearer at-a-glance picture of species proportions and activity patterns over the selected period.
+- **Backend:** Model download integrity verification now reads `sha256`, `labels_sha256`, and `weights_sha256` fields from the downloaded `model_config.json` sidecar, in addition to any values in the Python registry. Config-file values take precedence, so model refreshes on the GitHub Release page are verified without requiring a code deploy. All shipped model config files on the release have been updated with verified checksums sourced from the live production container.
+
 ### Changed
+- **UI:** Leaderboard weather overlay legend entries (Temperature, Wind Speed) are no longer shown as coloured label boxes — the Y-axis scale alone communicates the range. Both axes remain visible when overlays are active; only the redundant legend items are suppressed.
 - **UI:** Sidebar active navigation item now has a 3px left-edge accent bar in the theme's primary colour (teal in default, blue in bluetit) so the current route is immediately legible at a glance instead of relying on the faint background tint alone.
 - **UI:** Inactive sidebar navigation text is slightly brighter in dark mode (`slate-300` instead of `slate-400`) for better readability against the near-black background.
 - **UI:** Bluetit theme sidebar now has a subtle blue-50 background tint so it feels cohesive with the rest of the blue theme rather than matching plain light mode.
 - **UI:** Bluetit light-mode detection cards now have a stronger blue-tinted box-shadow and a more opaque border so cards are clearly distinct from the `#eef3fb` page background.
 
 ### Fixed
+- **Fixed:** Leaderboard chart no longer compresses the plot area when weather overlays (temperature or wind) are active. The right-side weather axes now use `tickAmount: 4` and a capped label width so they occupy a predictable, compact column regardless of value range.
+- **Fixed:** Featured "last N days" stat card on the leaderboard now uses an emerald-tinted background accent instead of a straight top border, which clashed visually with the card's rounded corners.
+- **Fixed:** Heading hierarchy on Dashboard and Species pages corrected from h1→h3 jumps to h1→h2, fixing a WCAG sequential-heading-order violation flagged by Lighthouse.
+- **Fixed:** Detection card overlay badges (favourite star, verified tick, audio-confirmed mic) now carry `role="img"` so screen readers do not encounter `aria-label` on an element with no accessible role.
+- **Fixed:** "Last 3 days" pill text on the Dashboard discovery feed now uses `text-slate-600` instead of `text-slate-500`, bringing the contrast ratio from ~3.4:1 to ~4.7:1 and passing WCAG AA for small text.
+- **Fixed:** Detection card image overlay badges now use a slightly more opaque backdrop (`bg-black/60`) so count and status labels remain legible over bright image backgrounds.
 - **Fixed:** MQTT event task dictionaries (`_event_task_tails`, `_event_tail_depths`, `_event_pending_tasks`, `_event_pending_payloads`) now have orphaned entries swept out periodically. Followup tasks created inside `_run_pending` did not register done-callbacks, so if a task completed while no new MQTT activity arrived for that event the corresponding tail entries could accumulate indefinitely. The connection watchdog now calls `_sweep_stale_event_task_entries()` on each iteration to remove entries whose tasks are done and have no pending work.
 - **Fixed:** SSE stream connections authenticated with a JWT token are now terminated gracefully when the token expires during a long-lived session. The event generator checks token expiry every 60 heartbeats (~20 minutes) and sends a `session_expired` event before closing the stream, instead of the previous behaviour of keeping stale sessions alive indefinitely.
 - **Fixed:** Notification and service-test endpoints (`/settings/mqtt/test-publish`, `/settings/notifications/test`, `/settings/birdweather/test`, `/settings/llm/test`) now return proper HTTP status codes for error cases. External service failures (unreachable broker, failed webhook, bad token) return `502`; configuration/validation errors (missing token, disabled service, unknown platform) return `400`. Previously all error paths returned `200` with a `"status": "error"` body, which masked failures from any HTTP-aware caller.
