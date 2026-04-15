@@ -30,8 +30,21 @@ function normalizeSeriesPoint(point: any): any {
 
 function normalizeOptions(options: ApexOptions): ApexOptions {
     const next: any = { ...(options as any) };
-    const series = Array.isArray((options as any)?.series)
-        ? (options as any).series
+    const rawSeries = (options as any)?.series;
+
+    // Donut/pie charts use a flat number array as series rather than the
+    // [{name, type, data[]}] format used by line/bar charts.  Spreading a number
+    // with the object path below destroys the values, so detect and pass through.
+    const isNumericSeries =
+        Array.isArray(rawSeries) &&
+        rawSeries.length > 0 &&
+        rawSeries.every((v: any) => typeof v === 'number');
+    if (isNumericSeries) {
+        return next as ApexOptions;
+    }
+
+    const series = Array.isArray(rawSeries)
+        ? rawSeries
             .filter(Boolean)
             .map((entry: any) => ({
                 ...entry,

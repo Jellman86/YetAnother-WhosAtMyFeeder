@@ -449,6 +449,8 @@
         if (chartViewMode === 'bar') return true;
         return span === 'week' || span === 'month';
     });
+    // Exposed at component scope so the template can adapt container height
+    let isStackedChart = $derived(() => detectionUsesBars() && (timeline?.compare_series?.length ?? 0) > 0);
     let chartModeLabel = $derived(() => {
         if (chartViewMode === 'line') return $_('leaderboard.chart_line', { default: 'Line' });
         if (chartViewMode === 'bar') return $_('leaderboard.chart_bar', { default: 'Histogram' });
@@ -703,7 +705,7 @@
             chart: {
                 type: detectionUsesBars() ? 'bar' : 'line',
                 stacked: isStacked,
-                height: 260,
+                height: isStacked ? 320 : 260,
                 width: '100%',
                 toolbar: { show: false },
                 zoom: { enabled: false },
@@ -771,9 +773,10 @@
             },
             legend: {
                 show: series.length > 1,
-                position: 'top',
-                horizontalAlign: 'right',
+                position: isStacked ? 'bottom' : 'top',
+                horizontalAlign: isStacked ? 'left' : 'right',
                 fontSize: '10px',
+                itemMargin: { horizontal: 6, vertical: 2 },
                 markers: { fillColors: seriesColors },
                 labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
             },
@@ -1468,7 +1471,6 @@
                         <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
                             {#each [
                                 { value: 'auto', label: $_('leaderboard.chart_auto', { default: 'Auto' }) },
-                                { value: 'line', label: $_('leaderboard.chart_line', { default: 'Line' }) },
                                 { value: 'bar', label: $_('leaderboard.chart_bar', { default: 'Histogram' }) }
                             ] as opt}
                                 <button
@@ -1485,10 +1487,10 @@
 
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[140px] max-h-[240px]">
+                <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 320 : 260}px">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
-                            <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full h-[240px]"></div>
+                            <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 320 : 260}px"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
@@ -1729,25 +1731,20 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
-                {@const podiumColors = [
-                    'from-amber-400/70 via-amber-300/40',
-                    'from-slate-400/60 via-slate-300/30',
-                    'from-amber-700/60 via-amber-600/30'
+                {@const cardRings = [
+                    'ring-2 ring-amber-400/65 dark:ring-amber-400/40',
+                    'ring-2 ring-slate-300/80 dark:ring-slate-500/45',
+                    'ring-2 ring-amber-700/65 dark:ring-amber-700/45'
                 ]}
-                {@const rankGradients = [
-                    'from-amber-400 to-amber-600',
-                    'from-slate-300 to-slate-500',
-                    'from-amber-600 to-amber-800'
-                ]}
+                {@const rosetteOuter = ['#f59e0b', '#cbd5e1', '#b45309']}
+                {@const rosetteInner = ['#d97706', '#94a3b8', '#78350f']}
                 {@const countPct = maxCount > 0 ? Math.round((topSpecies.count / maxCount) * 100) : 0}
                 <button
                     type="button"
                     onclick={() => selectedSpecies = topSpecies.species}
-                    class="card-base card-interactive text-left rounded-3xl p-5 pt-10 transition-all duration-300 relative group/card"
+                    class="card-base card-interactive text-left rounded-3xl p-5 pt-10 transition-all duration-300 relative group/card {cardRings[index]}"
                     title={topSpecies.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                 >
-                    <!-- Medal gradient strip — fades left-to-right, no hard edges -->
-                    <div class="absolute top-0 left-0 right-0 h-[3px] rounded-t-3xl bg-gradient-to-r {podiumColors[index]} to-transparent"></div>
                     <!-- Overlapping Thumbnail -->
                     <div class="absolute -top-6 left-6 w-16 h-16 rounded-2xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl group-hover/card:-translate-y-1 transition-transform duration-300">
                         {#if getCachedSpeciesInfo(topSpecies.species)?.thumbnail_url}
@@ -1761,9 +1758,13 @@
                         {/if}
                     </div>
 
-                    <!-- Rank badge -->
-                    <div class="absolute -top-3 right-5 w-8 h-8 rounded-full bg-gradient-to-br {rankGradients[index]} text-white flex items-center justify-center text-sm font-black shadow-lg">
-                        {index + 1}
+                    <!-- Rosette rank badge -->
+                    <div class="absolute -top-4 right-4 w-9 h-9 flex items-center justify-center drop-shadow-md">
+                        <svg viewBox="0 0 24 24" class="absolute inset-0 w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M12,0 L14.67,5.53 L20.49,3.51 L18.47,9.33 L24,12 L18.47,14.67 L20.49,20.49 L14.67,18.47 L12,24 L9.33,18.47 L3.51,20.49 L5.53,14.67 L0,12 L5.53,9.33 L3.51,3.51 L9.33,5.53 Z" fill="{rosetteOuter[index]}"/>
+                            <circle cx="12" cy="12" r="6.5" fill="{rosetteInner[index]}"/>
+                        </svg>
+                        <span class="relative text-white text-xs font-black z-10 leading-none">{index + 1}</span>
                     </div>
 
                     {#if topSpecies.species === "Unknown Bird"}
