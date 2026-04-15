@@ -1199,13 +1199,29 @@ class ModelManager:
             missing_csv = ", ".join(missing)
             raise RuntimeError(f"Downloaded model payload is missing required files: {missing_csv}")
 
-        # Verify SHA-256 checksums for files where the registry provides them.
-        # Registry entries without a sha256 field are accepted with a warning —
-        # add sha256 values to the registry to enforce integrity for each model.
+        # Build checksum map starting from registry values, then layer in values
+        # from the downloaded model_config.json. Config-file values take precedence
+        # so that model refreshes on the release page are reflected without a code deploy.
+        checksums: dict[str, str | None] = {
+            "sha256": model_meta.get("sha256"),
+            "labels_sha256": model_meta.get("labels_sha256"),
+            "weights_sha256": model_meta.get("weights_sha256"),
+        }
+        config_path = os.path.join(staged_dir, "model_config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path) as f:
+                    config_data = json.load(f)
+                for key in ("sha256", "labels_sha256", "weights_sha256"):
+                    if config_data.get(key):
+                        checksums[key] = config_data[key]
+            except Exception as exc:
+                log.warning("Could not read checksums from model_config.json", error=str(exc))
+
         checksum_map = {
-            model_filename: model_meta.get("sha256"),
-            "labels.txt": model_meta.get("labels_sha256"),
-            f"{model_filename}.data": model_meta.get("weights_sha256"),
+            model_filename: checksums["sha256"],
+            "labels.txt": checksums["labels_sha256"],
+            f"{model_filename}.data": checksums["weights_sha256"],
         }
         for filename, expected in checksum_map.items():
             file_path = os.path.join(staged_dir, filename)

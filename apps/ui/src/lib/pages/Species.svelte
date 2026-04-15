@@ -691,17 +691,12 @@
             });
         }
         if (hasWindSeries) {
-            // When both weather axes are shown, suppress wind labels to prevent double
-            // right-side axes from squashing the chart area. Wind values still appear
-            // in the tooltip; the axis itself provides the correct y-scale.
-            const showWindLabels = !hasTemperatureSeries;
             yAxes.push({
                 // Apex handles dynamic remapping more reliably when seriesName is array form.
                 seriesName: [windName],
                 opposite: true,
                 tickAmount: 4,
                 labels: {
-                    show: showWindLabels,
                     maxWidth: 52,
                     style: { fontSize: '10px', colors: '#0ea5e9' },
                     formatter: (value: number) => `${Math.round(value)} ${windUnitLabel}`
@@ -787,11 +782,12 @@
                 itemMargin: { horizontal: 6, vertical: 2 },
                 markers: { fillColors: seriesColors },
                 labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
-                // Wind is identified by its Y-axis scale alone — no legend entry needed.
-                // customLegendItems controls which series appear; wind is always the
-                // last series added so omitting it leaves the remaining entries intact.
-                ...(hasWindSeries ? {
-                    customLegendItems: series.map(s => s.name).filter(n => n !== windName)
+                // Weather overlays are identified by their Y-axis scales — no legend entries needed.
+                // customLegendItems filters out all weather series so the legend shows only
+                // detection-count series. Temperature is always added before wind, so filtering
+                // both by name keeps the remaining colour mapping intact.
+                ...(hasTemperatureSeries || hasWindSeries ? {
+                    customLegendItems: series.map(s => s.name).filter(n => n !== temperatureName && n !== windName)
                 } : {})
             },
             subtitle: {
