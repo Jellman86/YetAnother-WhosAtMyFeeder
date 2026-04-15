@@ -786,7 +786,13 @@
                 fontSize: '10px',
                 itemMargin: { horizontal: 6, vertical: 2 },
                 markers: { fillColors: seriesColors },
-                labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
+                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
+                // Wind is identified by its Y-axis scale alone — no legend entry needed.
+                // customLegendItems controls which series appear; wind is always the
+                // last series added so omitting it leaves the remaining entries intact.
+                ...(hasWindSeries ? {
+                    customLegendItems: series.map(s => s.name).filter(n => n !== windName)
+                } : {})
             },
             subtitle: {
                 text: chartSubtitle() ?? '',
