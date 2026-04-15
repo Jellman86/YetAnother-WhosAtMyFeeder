@@ -594,7 +594,7 @@ async def get_detection_timeline_span(
                 if not name or name in sanitized_compare:
                     continue
                 sanitized_compare.append(name)
-                if len(sanitized_compare) >= 3:
+                if len(sanitized_compare) >= 8:
                     break
 
             if sanitized_compare:

@@ -211,7 +211,7 @@
             .sort((a, b) => (b.count || 0) - (a.count || 0))
             .map((item) => item.scientific_name || item.species)
             .filter(Boolean)
-            .slice(0, 3);
+            .slice(0, 7);
     }
 
     async function loadLeaderboard() {
@@ -586,17 +586,50 @@
 
         const hasTemperatureSeries = hasWeather() && showTemperature && temperatureData.some((p) => p.y !== null);
         const hasWindSeries = hasWeather() && showWind && windData.some((p) => p.y !== null);
+        const isStacked = detectionUsesBars() && (timeline?.compare_series?.length ?? 0) > 0;
 
         if (showRawSeries) {
-            series.push({
-                name: primaryName,
-                type: detectionUsesBars() ? 'bar' : 'area',
-                color: primaryColor,
-                data: rawData
-            });
+            if (isStacked && timeline?.compare_series?.length) {
+                const displayNames = new Map(processedSpecies().map((item) => [item.species, item.displayName] as const));
+                const compareEntries = timeline.compare_series;
+                const compareMaps = compareEntries.map((entry) =>
+                    new Map((entry.points || []).map((p: any) => [p.bucket_start, Math.max(0, Number(p.count ?? 0))] as const))
+                );
+                compareEntries.forEach((entry: any, idx: number) => {
+                    series.push({
+                        name: displayNames.get(entry.species) ?? entry.species,
+                        type: 'bar',
+                        color: comparePalette[idx % comparePalette.length],
+                        data: indexedPoints.map(({ point, x }) => ({
+                            x,
+                            y: compareMaps[idx].get(point.bucket_start) ?? 0
+                        }))
+                    });
+                });
+                const otherData = indexedPoints.map(({ point, x }) => {
+                    const total = metricValueFromPoint(point);
+                    const compareSum = compareMaps.reduce((sum, m) => sum + (m.get(point.bucket_start) ?? 0), 0);
+                    return { x, y: Math.max(0, total - compareSum) };
+                });
+                if (otherData.some((p) => p.y > 0)) {
+                    series.push({
+                        name: $_('leaderboard.other_species', { default: 'Other' }),
+                        type: 'bar',
+                        color: isDark() ? 'rgba(148,163,184,0.5)' : 'rgba(148,163,184,0.65)',
+                        data: otherData
+                    });
+                }
+            } else {
+                series.push({
+                    name: primaryName,
+                    type: detectionUsesBars() ? 'bar' : 'area',
+                    color: primaryColor,
+                    data: rawData
+                });
+            }
         }
 
-        if (showSmoothSeries) {
+        if (showSmoothSeries && !isStacked) {
             series.push({
                 name: smoothName,
                 type: 'line',
@@ -669,6 +702,7 @@
         return {
             chart: {
                 type: detectionUsesBars() ? 'bar' : 'line',
+                stacked: isStacked,
                 height: 260,
                 width: '100%',
                 toolbar: { show: false },
@@ -701,7 +735,8 @@
             },
             plotOptions: {
                 bar: {
-                    borderRadius: 5,
+                    borderRadius: isStacked ? 3 : 5,
+                    ...(isStacked ? { borderRadiusApplication: 'end' } : {}),
                     columnWidth: timeline?.bucket === 'day' ? '62%' : '56%'
                 }
             },
@@ -757,8 +792,8 @@
     });
 
     const comparePalette = themeStore.colorTheme === 'bluetit'
-        ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b']
-        : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b'];
+        ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
+        : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316'];
     const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
     function weekdayLabel(dayOfWeek: number): string {
@@ -862,6 +897,96 @@
             labels: { colors: isDark() ? '#94a3b8' : '#64748b' }
         }
     }));
+
+    const DONUT_MAX_SLICES = 7;
+    let donutSeries = $derived(() => {
+        const sorted = sortedSpecies();
+        if (!sorted.length) return { labels: [] as string[], series: [] as number[] };
+        const top = sorted.slice(0, DONUT_MAX_SLICES);
+        const rest = sorted.slice(DONUT_MAX_SLICES);
+        const labels = top.map((s) => s.displayName);
+        const values = top.map((s) => s.count || 0);
+        if (rest.length > 0) {
+            const otherCount = rest.reduce((sum, s) => sum + (s.count || 0), 0);
+            if (otherCount > 0) {
+                labels.push($_('leaderboard.other_species', { default: 'Other' }));
+                values.push(otherCount);
+            }
+        }
+        return { labels, series: values };
+    });
+    let donutHasData = $derived(() => donutSeries().series.some((v) => v > 0));
+    let donutChartOptions = $derived(() => {
+        const { labels, series } = donutSeries();
+        const donutPalette = themeStore.colorTheme === 'bluetit'
+            ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8']
+            : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'];
+        return {
+            chart: {
+                type: 'donut',
+                height: 260,
+                width: '100%',
+                toolbar: { show: false },
+                animations: { enabled: true, easing: 'easeinout', speed: 450 }
+            },
+            series,
+            labels,
+            colors: donutPalette.slice(0, labels.length),
+            dataLabels: {
+                enabled: true,
+                formatter: (val: number) => (val >= 5 ? `${Math.round(val)}%` : ''),
+                style: { fontSize: '10px', fontWeight: 600, colors: ['#fff'] },
+                dropShadow: { enabled: false }
+            },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '62%',
+                        labels: {
+                            show: true,
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: $_('leaderboard.metric_detections', { default: 'Detections' }),
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: isDark() ? '#94a3b8' : '#64748b',
+                                formatter: () => totalDetections.toLocaleString()
+                            },
+                            value: {
+                                show: true,
+                                fontSize: '15px',
+                                fontWeight: 700,
+                                color: isDark() ? '#e2e8f0' : '#1e293b',
+                                formatter: (val: string) => Number(val).toLocaleString()
+                            },
+                            name: {
+                                show: true,
+                                fontSize: '10px',
+                                color: isDark() ? '#94a3b8' : '#64748b'
+                            }
+                        }
+                    }
+                }
+            },
+            stroke: { width: 1.5, colors: [isDark() ? '#1e293b' : '#ffffff'] },
+            legend: {
+                show: true,
+                position: 'bottom',
+                fontSize: '10px',
+                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
+                markers: { width: 8, height: 8, radius: 2 }
+            },
+            tooltip: {
+                theme: isDark() ? 'dark' : 'light',
+                y: {
+                    formatter: (val: number) =>
+                        `${val.toLocaleString()} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`
+                }
+            },
+            noData: { text: $_('dashboard.no_detections') }
+        };
+    });
 
     let heatmapCellMap = $derived(() => {
         const map = new Map<string, number>();
@@ -1563,29 +1688,31 @@
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <div class="card-base rounded-3xl p-6 md:p-7 relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-br from-sky-50 via-transparent to-indigo-50 dark:from-sky-950/25 dark:to-indigo-900/15 pointer-events-none"></div>
+                <div class="absolute inset-0 bg-gradient-to-br from-violet-50 via-transparent to-pink-50 dark:from-violet-950/25 dark:to-pink-900/15 pointer-events-none"></div>
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-sky-200/80 dark:border-sky-700/60 bg-sky-100/80 dark:bg-sky-900/30 flex items-center justify-center text-sky-700 dark:text-sky-300">
+                            <div class="h-8 w-8 rounded-xl border border-violet-200/80 dark:border-violet-700/60 bg-violet-100/80 dark:bg-violet-900/30 flex items-center justify-center text-violet-700 dark:text-violet-300">
                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M3 14l4-4 3 2 7-8"></path>
+                                    <circle cx="10" cy="10" r="7"></circle>
+                                    <circle cx="10" cy="10" r="3"></circle>
+                                    <path d="M10 3v4M10 13v4M3 10h4M13 10h4" stroke-width="1.4"></path>
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-[10px] uppercase tracking-[0.26em] font-black text-sky-600 dark:text-sky-300">
-                                    {$_('leaderboard.species_compare_title', { default: 'Species Compare' })}
+                                <p class="text-[10px] uppercase tracking-[0.26em] font-black text-violet-600 dark:text-violet-300">
+                                    {$_('leaderboard.detection_breakdown_title', { default: 'Detection Breakdown' })}
                                 </p>
                                 <h4 class="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1">
-                                    {$_('leaderboard.species_compare_subtitle', { default: 'Top species over time' })}
+                                    {$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
                                 </h4>
                             </div>
                         </div>
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M3 14l4-4 3 2 7-8"></path>
+                                <path d="M3 6h14M3 10h14M3 14h7"></path>
                             </svg>
-                            {compareSeries().length}
+                            {donutSeries().labels.length}
                         </span>
                     </div>
 
@@ -1594,33 +1721,27 @@
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M4 10h12M4 6h12M4 14h7"></path>
                             </svg>
-                            {bucketLabel(timeline?.bucket)}
+                            {selectedCountLabel()}
                         </span>
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 14l4-4 3 2 5-6"></path>
+                                <path d="M10 4v8l4 2"></path><circle cx="10" cy="10" r="7"></circle>
                             </svg>
-                            {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(comparePeak())}
+                            {totalDetections.toLocaleString()} {$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}
                         </span>
                     </div>
 
-                    <div class="mt-4 min-h-[220px]">
-                        {#if compareSeries().length}
-                            {#key `${span}-${timeline?.bucket}-${timeline?.total_count}-${compareSeries().length}-${isDark()}`}
-                                <div use:chart={compareChartOptions() as any} class="w-full h-[220px]"></div>
+                    <div class="mt-4 min-h-[260px]">
+                        {#if donutHasData()}
+                            {#key `${span}-${totalDetections}-${isDark()}`}
+                                <div use:chart={donutChartOptions() as any} class="w-full h-[260px]"></div>
                             {/key}
                         {:else}
-                            <div class="h-[220px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
                                 {$_('leaderboard.no_compare_data', { default: 'Not enough data for comparison yet.' })}
                             </div>
                         {/if}
                     </div>
-
-                    {#if compareSeries().length && !compareHasData()}
-                        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                            {$_('leaderboard.compare_zero_activity', { default: 'Compared species are selected, but activity in this window is currently zero.' })}
-                        </p>
-                    {/if}
                 </div>
             </div>
 
