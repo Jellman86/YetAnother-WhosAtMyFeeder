@@ -34,9 +34,14 @@ def reset_auth_config():
 def enable_rate_limiting():
     """Enable rate limiting for specific tests."""
     from app.ratelimit import limiter
+    # Reset in-memory counters so prior tests don't bleed rate-limit state
+    if hasattr(limiter, "_storage") and hasattr(limiter._storage, "reset"):
+        limiter._storage.reset()
     limiter.enabled = True
     yield
     limiter.enabled = False
+    if hasattr(limiter, "_storage") and hasattr(limiter._storage, "reset"):
+        limiter._storage.reset()
 
 
 @pytest.mark.usefixtures("enable_rate_limiting")
