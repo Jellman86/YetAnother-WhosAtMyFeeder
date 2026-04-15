@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [2.9.8] - 2026-04-15
 
+### Changed
+- **UI:** Sidebar active navigation item now has a 3px left-edge accent bar in the theme's primary colour (teal in default, blue in bluetit) so the current route is immediately legible at a glance instead of relying on the faint background tint alone.
+- **UI:** Inactive sidebar navigation text is slightly brighter in dark mode (`slate-300` instead of `slate-400`) for better readability against the near-black background.
+- **UI:** Bluetit theme sidebar now has a subtle blue-50 background tint so it feels cohesive with the rest of the blue theme rather than matching plain light mode.
+- **UI:** Bluetit light-mode detection cards now have a stronger blue-tinted box-shadow and a more opaque border so cards are clearly distinct from the `#eef3fb` page background.
+
 ### Fixed
 - **Fixed:** MQTT event task dictionaries (`_event_task_tails`, `_event_tail_depths`, `_event_pending_tasks`, `_event_pending_payloads`) now have orphaned entries swept out periodically. Followup tasks created inside `_run_pending` did not register done-callbacks, so if a task completed while no new MQTT activity arrived for that event the corresponding tail entries could accumulate indefinitely. The connection watchdog now calls `_sweep_stale_event_task_entries()` on each iteration to remove entries whose tasks are done and have no pending work.
 - **Fixed:** SSE stream connections authenticated with a JWT token are now terminated gracefully when the token expires during a long-lived session. The event generator checks token expiry every 60 heartbeats (~20 minutes) and sends a `session_expired` event before closing the stream, instead of the previous behaviour of keeping stale sessions alive indefinitely.
