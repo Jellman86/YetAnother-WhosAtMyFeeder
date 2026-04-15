@@ -2,6 +2,7 @@
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
+    import { fetchSpeciesInfo } from '../api/species';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -23,6 +24,19 @@
     }
 
     let { detection, onclick, hideProgress = false }: Props = $props();
+
+    let speciesThumbnailUrl = $state<string | null>(null);
+
+    $effect(() => {
+        const speciesName = detection.scientific_name || detection.display_name;
+        if (!speciesName) return;
+        let cancelled = false;
+        speciesThumbnailUrl = null;
+        fetchSpeciesInfo(speciesName)
+            .then((info) => { if (!cancelled) speciesThumbnailUrl = info.thumbnail_url; })
+            .catch(() => { if (!cancelled) speciesThumbnailUrl = null; });
+        return () => { cancelled = true; };
+    });
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -49,6 +63,21 @@
         )
     ));
 
+    // True when detection is less than 5 minutes old
+    let isFresh = $derived(
+        Date.now() - new Date(detection.detection_time).getTime() < 5 * 60 * 1000
+    );
+
+    // Confidence level for color-coded pill
+    let confidencePct = $derived(Math.round((detection.score || 0) * 100));
+    let confidencePillClass = $derived(
+        confidencePct >= 80
+            ? 'bg-emerald-500/90 text-white'
+            : confidencePct >= 60
+                ? 'bg-amber-500/90 text-white'
+                : 'bg-red-500/90 text-white'
+    );
+
     function getRelativeTime(dateString: string, t: any): string {
         try {
             const date = new Date(dateString);
@@ -58,7 +87,7 @@
             if (diffInSeconds < 3600) { // Less than 1 hour
                 return t('dashboard.hero.just_discovered');
             }
-            
+
             const hours = Math.floor(diffInSeconds / 3600);
             if (hours < 24) {
                 if (hours === 1) return t('dashboard.hero.one_hour_ago');
@@ -75,7 +104,7 @@
 
 </script>
 
-<div 
+<div
     role="button"
     tabindex="0"
     onclick={onclick}
@@ -88,22 +117,40 @@
     {/if}
 
     <!-- Background Image -->
-    <img 
-        src={getThumbnailUrl(detection.frigate_event)} 
+    <img
+        src={getThumbnailUrl(detection.frigate_event)}
         alt={detection.display_name}
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
     />
 
-    <!-- Gradient Overlay -->
-    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+    <!-- Gradient Overlay — frosted bottom band -->
+    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
+    <div class="absolute bottom-0 left-0 right-0 h-2/3 backdrop-blur-[1px] [mask-image:linear-gradient(to_top,black_30%,transparent)]"></div>
 
     <!-- Content Overlay -->
     <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-2">
-                <span class="px-2 py-0.5 bg-teal-700 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
+            <!-- Badge row: time, confidence, audio -->
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <!-- Time badge with optional live pulse -->
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-700 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
+                    {#if isFresh}
+                        <span class="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-300 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-200"></span>
+                        </span>
+                    {/if}
                     {getRelativeTime(detection.detection_time, $_)}
                 </span>
+
+                <!-- Confidence pill -->
+                {#if currentClassificationSource !== 'manual'}
+                    <span class="px-2 py-0.5 {confidencePillClass} text-[10px] font-bold uppercase tracking-widest rounded-md">
+                        {confidencePct}% {$_('dashboard.hero.conf')}
+                    </span>
+                {/if}
+
+                <!-- Audio badge -->
                 {#if hasAudioSignal}
                     <span class="px-2 py-0.5 {detection.audio_confirmed ? 'bg-blue-500' : 'bg-slate-500'} text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,13 +164,13 @@
             <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
                 {primaryName}
             </h2>
-            
+
             {#if subName}
                 <p class="text-lg italic text-white/70 drop-shadow mt-1 truncate">
                     {subName}
                 </p>
             {/if}
-            
+
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-white/80 text-xs sm:text-sm font-medium">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-teal-400"></span>
@@ -151,11 +198,18 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3 self-start sm:self-auto shrink-0">
-            {#if currentClassificationSource !== 'manual'}
-                <div class="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-slate-900/60 border border-white/20 text-white shadow-lg">
-                    <span class="text-lg font-black">{((detection.score || 0) * 100).toFixed(0)}</span>
-                    <span class="text-[8px] font-bold uppercase opacity-60">{$_('dashboard.hero.conf')}</span>
+        <!-- Right side: species thumbnail + view details button -->
+        <div class="flex flex-col items-end gap-2 self-end sm:self-auto shrink-0">
+            {#if speciesThumbnailUrl}
+                <div
+                    class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg shadow-black/40 ring-1 ring-black/10 flex-shrink-0"
+                    title={primaryName}
+                >
+                    <img
+                        src={speciesThumbnailUrl}
+                        alt={primaryName}
+                        class="w-full h-full object-cover"
+                    />
                 </div>
             {/if}
             <div class="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
