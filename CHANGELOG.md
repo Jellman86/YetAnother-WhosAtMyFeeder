@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.9.6] - 2026-04-15
+
+### Fixed
+- **Fixed:** The MQTT stall watchdog no longer fires false-positive reconnects when the feeder is genuinely quiet. YA-WAMF now subscribes to the `frigate/available` retained MQTT topic (published by every Frigate instance since v0.9.0) and uses it as an availability gate: when Frigate explicitly reports `"online"`, all stall-reconnect paths are suppressed regardless of how long `frigate/events` has been silent. When `"offline"` is received, a focused `frigate_went_offline` diagnostic is recorded immediately instead of waiting 30 minutes. When the topic has never been seen, all existing stall-check behaviour is preserved unchanged as a fallback. The `/health` endpoint now exposes a `frigate_availability` dict with `status` and `last_seen_age_seconds`, and the `stall_recovery_warning_active` flag is suppressed while Frigate is confirmed online so the system no longer reports a degraded status during normal feeder quiet periods. (Issue #18 / #33 false-positive follow-up)
+- **Fixed:** The taxonomy repair job progress bar now shows as completed instead of stale after the repair finishes. The Settings page was unconditionally calling `closeActiveByPrefix('taxonomy:', 'stale')` whenever `is_running` was false, which marked a just-finished job as stale on every subsequent poll. The handler now checks the backend-provided `progress_state` field and calls `markCompleted` when the job has finished, mirroring the pattern used by the batch analysis handler. (Issue #33)
+
 ## [2.9.5] - 2026-04-13
 
 ### Fixed
