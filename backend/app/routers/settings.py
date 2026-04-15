@@ -354,11 +354,11 @@ async def test_llm(
         )
 
     service = AIService()
-    ok, message = await service.test_connection(provider, model, api_key)
+    ok, message, status_hint = await service.test_connection(provider, model, api_key)
     if ok:
         return {"status": "ok", "message": message}
     return JSONResponse(
-        status_code=502,
+        status_code=status_hint,
         content={"status": "error", "message": message}
     )
 

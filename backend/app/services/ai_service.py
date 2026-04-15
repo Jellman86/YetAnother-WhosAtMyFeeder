@@ -35,10 +35,16 @@ class AIService:
 
         return template.format_map(_SafeDict(context))
 
-    async def test_connection(self, provider: str, model: str, api_key: str) -> tuple[bool, str]:
-        """Test LLM connectivity with a lightweight text prompt."""
+    async def test_connection(self, provider: str, model: str, api_key: str) -> tuple[bool, str, int]:
+        """Test LLM connectivity with a lightweight text prompt.
+
+        Returns (ok, message, http_status_hint) where http_status_hint is:
+        - 200 on success
+        - 400 for client/config errors (bad key, unsupported provider, missing params)
+        - 502 for upstream/network failures
+        """
         if not provider or not model or not api_key:
-            return False, "AI provider, model, or API key is missing."
+            return False, "AI provider, model, or API key is missing.", 400
 
         prompt = "Reply with the single word OK."
         provider = provider.lower()
@@ -58,8 +64,8 @@ class AIService:
                         content = candidates[0].get("content", {})
                         parts = content.get("parts", [])
                         if parts and parts[0].get("text"):
-                            return True, "AI test succeeded."
-                return False, "AI returned an empty response."
+                            return True, "AI test succeeded.", 200
+                return False, "AI returned an empty response.", 502
 
             if provider == "openai":
                 url = "https://api.openai.com/v1/chat/completions"
@@ -72,8 +78,8 @@ class AIService:
                     if choices:
                         content = choices[0].get("message", {}).get("content")
                         if content:
-                            return True, "AI test succeeded."
-                return False, "AI returned an empty response."
+                            return True, "AI test succeeded.", 200
+                return False, "AI returned an empty response.", 502
 
             if provider == "claude":
                 url = "https://api.anthropic.com/v1/messages"
@@ -92,8 +98,8 @@ class AIService:
                     resp.raise_for_status()
                     content = resp.json().get("content", [])
                     if content and content[0].get("text"):
-                        return True, "AI test succeeded."
-                return False, "AI returned an empty response."
+                        return True, "AI test succeeded.", 200
+                return False, "AI returned an empty response.", 502
 
             if provider == "openrouter":
                 url = "https://openrouter.ai/api/v1/chat/completions"
@@ -111,17 +117,20 @@ class AIService:
                     if choices:
                         content = choices[0].get("message", {}).get("content")
                         if content:
-                            return True, "AI test succeeded."
-                return False, "AI returned an empty response."
+                            return True, "AI test succeeded.", 200
+                return False, "AI returned an empty response.", 502
 
-            return False, "Unsupported AI provider."
+            return False, "Unsupported AI provider.", 400
         except httpx.HTTPStatusError as e:
             detail = e.response.text if e.response is not None else str(e)
-            log.error("LLM test failed", status=e.response.status_code if e.response else None, error=detail)
-            return False, f"AI test failed: {detail}"
+            status = e.response.status_code if e.response is not None else 502
+            log.error("LLM test failed", status=status, error=detail)
+            # 4xx from the AI provider means a client/config error (bad key, wrong model)
+            hint = 400 if 400 <= status < 500 else 502
+            return False, f"AI test failed: {detail}", hint
         except Exception as e:
             log.error("LLM test failed", error=str(e))
-            return False, f"AI test failed: {str(e)}"
+            return False, f"AI test failed: {str(e)}", 502
 
     async def analyze_detection(
         self,

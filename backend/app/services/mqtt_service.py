@@ -703,6 +703,10 @@ class MQTTService:
         handle the normal case. This sweep is a safety net for the edge case where
         a followup task created inside _run_pending completes but _run_pending
         itself was cancelled before it could clean up the tail entry.
+
+        _event_pending_payloads is also swept: if _run_pending is cancelled before
+        it pops the payload (e.g. cancelled while awaiting the active task), the
+        payload is never consumed and the primary cleanup path leaves it behind.
         """
         stale_keys = [
             eid for eid, task in list(self._event_task_tails.items())
@@ -711,6 +715,7 @@ class MQTTService:
         for eid in stale_keys:
             self._event_task_tails.pop(eid, None)
             self._event_tail_depths.pop(eid, None)
+            self._event_pending_payloads.pop(eid, None)
 
     async def _connection_watchdog(self, client, frigate_topic: str) -> None:
         """Periodic watchdog that forces reconnection when the Frigate topic stalls.

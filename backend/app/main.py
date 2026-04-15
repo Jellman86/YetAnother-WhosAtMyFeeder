@@ -779,7 +779,10 @@ async def sse_endpoint(
 
     async def event_generator():
         queue = await broadcaster.subscribe()
-        heartbeat_count = 0
+        message_count = 0
+        # Check token expiry every 60 events or heartbeats (~20 minutes idle, or
+        # every 60 messages under active traffic — whichever comes first).
+        _EXPIRY_CHECK_INTERVAL = 60
         try:
             # Send initial connection message with auth level
             yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected', 'auth_level': auth.auth_level})}\n\n"
@@ -803,12 +806,13 @@ async def sse_endpoint(
                 except asyncio.TimeoutError:
                     # Send a heartbeat comment (ignored by clients but keeps connection alive)
                     yield ": heartbeat\n\n"
-                    heartbeat_count += 1
-                    # Re-validate token expiry every 60 heartbeats (~20 minutes)
-                    if token_data is not None and heartbeat_count % 60 == 0:
-                        if datetime.now(timezone.utc) >= token_data.exp:
-                            yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session token has expired'})}\n\n"
-                            return
+
+                message_count += 1
+                # Re-validate token expiry periodically (active traffic and idle both covered)
+                if token_data is not None and message_count % _EXPIRY_CHECK_INTERVAL == 0:
+                    if datetime.now(timezone.utc) >= token_data.exp:
+                        yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session token has expired'})}\n\n"
+                        return
         finally:
             await broadcaster.unsubscribe(queue)
 

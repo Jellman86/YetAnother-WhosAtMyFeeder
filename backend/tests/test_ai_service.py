@@ -370,7 +370,7 @@ async def test_test_connection_openrouter_success(ai_service):
         mock_instance.post = AsyncMock(return_value=mock_response)
         mock_client.return_value = mock_instance
 
-        ok, msg = await ai_service.test_connection(
+        ok, msg, hint = await ai_service.test_connection(
             provider="openrouter",
             model="google/gemini-2.5-flash",
             api_key="sk-or-test"
@@ -396,7 +396,7 @@ async def test_test_connection_openrouter_empty_response(ai_service):
         mock_instance.post = AsyncMock(return_value=mock_response)
         mock_client.return_value = mock_instance
 
-        ok, msg = await ai_service.test_connection(
+        ok, msg, hint = await ai_service.test_connection(
             provider="openrouter",
             model="google/gemini-2.5-flash",
             api_key="sk-or-test"

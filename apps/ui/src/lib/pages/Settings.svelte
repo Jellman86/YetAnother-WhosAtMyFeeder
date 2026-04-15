@@ -2011,6 +2011,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'failed') {
+                stopTaxonomyPolling();
                 jobProgressStore.markFailed({
                     id: 'taxonomy:sync',
                     kind: 'taxonomy_sync',
@@ -2021,6 +2022,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'completed' && taxonomyStatus.processed > 0) {
+                stopTaxonomyPolling();
                 jobProgressStore.markCompleted({
                     id: 'taxonomy:sync',
                     kind: 'taxonomy_sync',

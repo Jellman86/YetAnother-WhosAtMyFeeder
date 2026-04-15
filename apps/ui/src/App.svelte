@@ -474,6 +474,16 @@
                      return;
                  }
 
+                 // Server signals the JWT has expired — log out cleanly instead of
+                 // reconnecting with a dead token and entering a reconnect loop.
+                 if (payload.type === 'session_expired') {
+                     logger.warn("SSE session expired, logging out");
+                     evtSource?.close();
+                     evtSource = null;
+                     void authStore.logout();
+                     return;
+                 }
+
                  liveUpdates.handlePayload(payload);
               } catch (e) {
                   console.error("SSE Unexpected error in message handler:", e, "Event:", event);
