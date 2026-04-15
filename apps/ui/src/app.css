@@ -22,9 +22,10 @@ html[data-theme='dark'] {
   --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }
 
-html.dark .nav-button-active,
-html[data-theme='dark'] .nav-button-active {
-  box-shadow: inset 3px 0 0 #2dd4bf; /* teal-400 for dark mode */
+/* Active icon adopts the primary accent colour in dark mode */
+html.dark .nav-button-active svg,
+html[data-theme='dark'] .nav-button-active svg {
+  color: #2dd4bf; /* teal-400 */
 }
 
 @layer base {
@@ -214,8 +215,12 @@ html[data-theme='dark'] {
   }
 
   .nav-button-active {
-    @apply bg-brand-100/70 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200 ring-1 ring-brand-200/70 dark:ring-brand-700/40;
-    box-shadow: inset 3px 0 0 #14b8a6; /* teal-500 accent on left edge */
+    @apply bg-brand-100/80 dark:bg-brand-900/50 text-slate-800 dark:text-slate-100 shadow-sm;
+  }
+
+  /* Active icon takes the primary accent colour — the visual cue, no bars needed */
+  .nav-button-active svg {
+    color: #14b8a6; /* teal-500 */
   }
 
   .nav-button-inactive {
@@ -427,16 +432,20 @@ html.theme-bluetit.dark {
 
 /* Navigation */
 .theme-bluetit:not(.dark) .nav-button-active {
-  background-color: rgba(219, 234, 254, 0.7);
-  color: #1e40af;
-  --tw-ring-color: rgba(191, 219, 254, 0.7);
-  box-shadow: inset 3px 0 0 #2563eb; /* blue-600 accent */
+  background-color: rgba(219, 234, 254, 0.75);
+  color: #1e3a8a;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+}
+.theme-bluetit:not(.dark) .nav-button-active svg {
+  color: #2563eb; /* blue-600 */
 }
 .theme-bluetit.dark .nav-button-active {
-  background-color: rgba(30, 58, 138, 0.4);
-  color: #bfdbfe;
-  --tw-ring-color: rgba(29, 78, 216, 0.4);
-  box-shadow: inset 3px 0 0 #60a5fa; /* blue-400 accent */
+  background-color: rgba(30, 58, 138, 0.45);
+  color: #e0eaff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.theme-bluetit.dark .nav-button-active svg {
+  color: #60a5fa; /* blue-400 */
 }
 .theme-bluetit:not(.dark) .nav-button-inactive:hover {
   background-color: rgba(219, 234, 254, 0.5);
