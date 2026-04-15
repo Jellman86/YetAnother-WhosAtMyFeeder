@@ -5,6 +5,7 @@ from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 import structlog
 
@@ -159,10 +160,16 @@ async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
         if success:
             return {"status": "ok", "message": "Test message published to 'yawamf/test'"}
         else:
-            return {"status": "error", "message": "Failed to publish MQTT message. Check logs."}
+            return JSONResponse(
+                status_code=502,
+                content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
+            )
     except Exception as e:
         log.error("MQTT Test Publish Failed", error=str(e))
-        return {"status": "error", "message": str(e)}
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "message": str(e)}
+        )
 
 class NotificationTestRequest(BaseModel):
     platform: str = Field(..., max_length=32)  # discord, pushover, telegram
@@ -264,12 +271,18 @@ async def test_notification(
                     settings.notifications.telegram.chat_id = orig_chat
         
         else:
-            return {"status": "error", "message": f"Unknown platform: {request.platform}"}
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "message": f"Unknown platform: {request.platform}"}
+            )
 
         return {"status": "ok", "message": f"Test notification sent to {request.platform}"}
     except Exception as e:
         log.error("Notification test failed", error=str(e))
-        return {"status": "error", "message": str(e)}
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "message": str(e)}
+        )
 
 
 class BirdWeatherTestRequest(BaseModel):
@@ -284,9 +297,15 @@ async def test_birdweather(
     """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
-        return {"status": "error", "message": "Missing BirdWeather station token"}
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "Missing BirdWeather station token"}
+        )
     if token is None and not settings.birdweather.enabled:
-        return {"status": "error", "message": "BirdWeather is disabled"}
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "BirdWeather is disabled"}
+        )
 
     success = await birdweather_service.report_detection(
         scientific_name="Cyanistes caeruleus",
@@ -298,7 +317,10 @@ async def test_birdweather(
 
     if success:
         return {"status": "ok", "message": "BirdWeather test succeeded"}
-    return {"status": "error", "message": "BirdWeather test failed. Check token and station permissions."}
+    return JSONResponse(
+        status_code=502,
+        content={"status": "error", "message": "BirdWeather test failed. Check token and station permissions."}
+    )
 
 class LlmTestRequest(BaseModel):
     llm_enabled: Optional[bool] = None
@@ -314,7 +336,10 @@ async def test_llm(
     """Test LLM connectivity with optional overrides. Owner only."""
     enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
     if not enabled:
-        return {"status": "error", "message": "AI insights are disabled."}
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "AI insights are disabled."}
+        )
 
     provider = request.llm_provider or settings.llm.provider
     model = request.llm_model or settings.llm.model
@@ -323,11 +348,19 @@ async def test_llm(
         api_key = settings.llm.api_key
 
     if not api_key:
-        return {"status": "error", "message": "AI API key is missing."}
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "AI API key is missing."}
+        )
 
     service = AIService()
     ok, message = await service.test_connection(provider, model, api_key)
-    return {"status": "ok" if ok else "error", "message": message}
+    if ok:
+        return {"status": "ok", "message": message}
+    return JSONResponse(
+        status_code=502,
+        content={"status": "error", "message": message}
+    )
 
 class SettingsUpdate(BaseModel):
     frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")

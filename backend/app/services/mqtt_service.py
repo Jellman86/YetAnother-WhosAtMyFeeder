@@ -695,6 +695,23 @@ class MQTTService:
         self._track_handler_task(task, "birdnet")
         return task
 
+    def _sweep_stale_event_task_entries(self) -> None:
+        """Remove entries from the in-flight event task dicts whose tasks have
+        completed and have no associated pending task.
+
+        The primary cleanup paths (done callbacks and _run_pending finally blocks)
+        handle the normal case. This sweep is a safety net for the edge case where
+        a followup task created inside _run_pending completes but _run_pending
+        itself was cancelled before it could clean up the tail entry.
+        """
+        stale_keys = [
+            eid for eid, task in list(self._event_task_tails.items())
+            if task.done() and eid not in self._event_pending_tasks
+        ]
+        for eid in stale_keys:
+            self._event_task_tails.pop(eid, None)
+            self._event_tail_depths.pop(eid, None)
+
     async def _connection_watchdog(self, client, frigate_topic: str) -> None:
         """Periodic watchdog that forces reconnection when the Frigate topic stalls.
 
@@ -703,6 +720,7 @@ class MQTTService:
         """
         while self.running:
             await asyncio.sleep(MQTT_WATCHDOG_INTERVAL_SECONDS)
+            self._sweep_stale_event_task_entries()
             now = self._now_monotonic()
             # _should_reconnect_independent returns False when Frigate is confirmed
             # online via frigate/available — no explicit guard needed here.
