@@ -1994,7 +1994,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     function stopTaxonomyPolling() {
         if (!taxonomyPollInterval) return;
         clearInterval(taxonomyPollInterval);
-        taxonomyPollInterval = null;
+        taxonomyPollInterval = undefined;
     }
 
     async function loadTaxonomyStatus() {
