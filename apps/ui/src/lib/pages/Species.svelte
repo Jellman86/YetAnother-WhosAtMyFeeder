@@ -1321,7 +1321,7 @@
                     </div>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 border-t-2 border-t-emerald-500 p-3">
+                        <div class="rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/60 dark:border-emerald-700/40 p-3">
                             <p class="text-[10px] uppercase tracking-widest text-slate-400">{selectedCountLabel()}</p>
                             <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400">
                                 {topByCount?.count?.toLocaleString() || '—'}
