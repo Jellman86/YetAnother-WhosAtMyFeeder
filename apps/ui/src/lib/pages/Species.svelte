@@ -72,8 +72,8 @@
     let showTemperature = $state(false);
     let showWind = $state(false);
     let showPrecip = $state(false);
-    let chartViewMode = $state<'auto' | 'line' | 'bar'>(defaultLeaderboardChartPreferences.chartViewMode);
-    let trendMode = $state<TrendMode>(defaultLeaderboardChartPreferences.trendMode);
+    let chartViewMode = $state<'auto' | 'line' | 'bar'>('bar');
+    let trendMode = $state<TrendMode>('off');
     const speciesInfoLocale = $derived((($locale || 'en') as string).split(/[-_]/)[0].toLowerCase());
 
     function getSpeciesInfoCacheKey(speciesName: string, language: string): string {
@@ -537,7 +537,6 @@
         return [
             metricLabel(),
             bucketLabel(timeline.bucket),
-            chartModeLabel(),
             leaderboardAnalysisSubtitle
         ].filter(Boolean).join(' • ');
     });
@@ -1448,48 +1447,11 @@
                             {/if}
                         </div>
                     </div>
-
-                    <!-- Consolidated chart controls — single row -->
-                    <div class="flex flex-wrap items-center gap-2 text-[10px]">
-                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
-                            {#each [
-                                { value: 'off', label: $_('leaderboard.trend_off', { default: 'Raw' }) },
-                                { value: 'smooth', label: $_('leaderboard.trend_smooth', { default: 'Smooth' }) },
-                                { value: 'both', label: $_('leaderboard.trend_both', { default: 'Both' }) }
-                            ] as opt}
-                                <button
-                                    type="button"
-                                    class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {trendMode === opt.value ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                    aria-pressed={trendMode === opt.value}
-                                    onclick={() => trendMode = opt.value as TrendMode}
-                                >
-                                    {opt.label}
-                                </button>
-                            {/each}
-                        </div>
-                        <span class="text-slate-300 dark:text-slate-600">|</span>
-                        <div class="inline-flex items-center rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 p-1">
-                            {#each [
-                                { value: 'auto', label: $_('leaderboard.chart_auto', { default: 'Auto' }) },
-                                { value: 'bar', label: $_('leaderboard.chart_bar', { default: 'Histogram' }) }
-                            ] as opt}
-                                <button
-                                    type="button"
-                                    class="px-2 py-1 font-black uppercase tracking-widest rounded-full transition-colors {chartViewMode === opt.value ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                                    aria-pressed={chartViewMode === opt.value}
-                                    onclick={() => chartViewMode = opt.value as 'auto' | 'line' | 'bar'}
-                                >
-                                    {opt.label}
-                                </button>
-                            {/each}
-                        </div>
-                    </div>
-
                 </div>
 
                 <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 320 : 260}px">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${trendMode}-${chartViewMode}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 320 : 260}px"></div>
                         {/key}
                     {:else}
