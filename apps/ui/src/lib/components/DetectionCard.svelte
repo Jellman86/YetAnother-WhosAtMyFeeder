@@ -242,6 +242,7 @@
             <div class="absolute top-3 left-3 flex items-center gap-1.5">
                 {#if detection.is_favorite}
                     <div
+                        role="img"
                         class="w-7 h-7 rounded-full bg-amber-500/90 text-white flex items-center justify-center shadow-lg shadow-amber-500/30"
                         title={$_('detection.favorite', { default: 'Favorite' })}
                         aria-label={$_('detection.favorite', { default: 'Favorite' })}
@@ -253,6 +254,7 @@
                 {/if}
                 {#if isVerified}
                     <div
+                        role="img"
                         class="w-7 h-7 rounded-full bg-emerald-500/90 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40"
                         title={$_('detection.verified')}
                         aria-label={$_('detection.verified')}
@@ -264,6 +266,7 @@
                 {/if}
                 {#if hasAudioConfirmed && !isVerified}
                     <div
+                        role="img"
                         class="w-7 h-7 rounded-full bg-teal-500/90 text-white flex items-center justify-center shadow-lg shadow-teal-500/30"
                         title={$_('detection.audio_match')}
                         aria-label={$_('detection.audio_match')}
@@ -285,7 +288,7 @@
 
             <!-- Bottom-left: time + play inline -->
             <div class="absolute bottom-3 left-3 z-20 flex items-center gap-2">
-                <div class="px-2.5 py-1.5 rounded-xl bg-black/40 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+                <div class="px-2.5 py-1.5 rounded-xl bg-black/60 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
                     <svg class="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>

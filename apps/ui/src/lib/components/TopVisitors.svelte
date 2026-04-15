@@ -33,9 +33,9 @@
 
 <div class="space-y-4">
     <div class="flex items-center gap-3">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {$_('dashboard.top_visitors_title', { default: 'Top Visitors' })}
-        </h3>
+        </h2>
         <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
             {$_('dashboard.histogram.last_24h')}
         </span>

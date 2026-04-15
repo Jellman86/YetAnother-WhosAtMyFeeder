@@ -415,8 +415,8 @@
     <div class="space-y-6">
         <div class="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/50 pb-3">
             <div class="flex items-center gap-3">
-                <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{$_('dashboard.discovery_feed')}</h3>
-                <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-2.5 py-0.5 rounded-full border border-slate-200/60 dark:border-slate-700/50">{$_('dashboard.showing_last_3_days')}</span>
+                <h2 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{$_('dashboard.discovery_feed')}</h2>
+                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-2.5 py-0.5 rounded-full border border-slate-200/60 dark:border-slate-700/50">{$_('dashboard.showing_last_3_days')}</span>
             </div>
             <button onclick={() => onnavigate?.('/events')} class="text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">{$_('dashboard.see_full_history')}</button>
         </div>
