@@ -682,18 +682,27 @@
                 // Apex handles dynamic remapping more reliably when seriesName is array form.
                 seriesName: [temperatureName],
                 opposite: true,
+                tickAmount: 4,
                 labels: {
+                    maxWidth: 52,
                     style: { fontSize: '10px', colors: '#f59e0b' },
                     formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
                 }
             });
         }
         if (hasWindSeries) {
+            // When both weather axes are shown, suppress wind labels to prevent double
+            // right-side axes from squashing the chart area. Wind values still appear
+            // in the tooltip; the axis itself provides the correct y-scale.
+            const showWindLabels = !hasTemperatureSeries;
             yAxes.push({
                 // Apex handles dynamic remapping more reliably when seriesName is array form.
                 seriesName: [windName],
                 opposite: true,
+                tickAmount: 4,
                 labels: {
+                    show: showWindLabels,
+                    maxWidth: 52,
                     style: { fontSize: '10px', colors: '#0ea5e9' },
                     formatter: (value: number) => `${Math.round(value)} ${windUnitLabel}`
                 }
@@ -704,7 +713,7 @@
             chart: {
                 type: detectionUsesBars() ? 'bar' : 'line',
                 stacked: isStacked,
-                height: isStacked ? 320 : 260,
+                height: isStacked ? 380 : 260,
                 width: '100%',
                 toolbar: { show: false },
                 zoom: { enabled: false },
@@ -772,8 +781,8 @@
             },
             legend: {
                 show: series.length > 1,
-                position: isStacked ? 'bottom' : 'top',
-                horizontalAlign: isStacked ? 'left' : 'right',
+                position: 'top',
+                horizontalAlign: 'left',
                 fontSize: '10px',
                 itemMargin: { horizontal: 6, vertical: 2 },
                 markers: { fillColors: seriesColors },
@@ -1449,10 +1458,10 @@
                     </div>
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 320 : 260}px">
+                <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
-                            <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 320 : 260}px"></div>
+                            <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 380 : 260}px"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
