@@ -767,22 +767,7 @@
                     }
                 }
             },
-            legend: {
-                show: series.length > 1,
-                position: 'top',
-                horizontalAlign: 'left',
-                fontSize: '10px',
-                itemMargin: { horizontal: 6, vertical: 2 },
-                markers: { fillColors: seriesColors },
-                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
-                // Weather overlays are identified by their Y-axis scales — no legend entries needed.
-                // customLegendItems filters out all weather series so the legend shows only
-                // detection-count series. Temperature is always added before wind, so filtering
-                // both by name keeps the remaining colour mapping intact.
-                ...(hasTemperatureSeries || hasWindSeries ? {
-                    customLegendItems: series.map(s => s.name).filter(n => n !== temperatureName && n !== windName)
-                } : {})
-            },
+            legend: { show: false },
             subtitle: {
                 text: chartSubtitle() ?? '',
                 align: 'left',
@@ -892,7 +877,13 @@
                 }
             },
             stroke: { width: 1.5, colors: [isDark() ? '#1e293b' : '#ffffff'] },
-            legend: { show: false },
+            legend: {
+                show: true,
+                position: 'bottom',
+                fontSize: '10px',
+                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
+                markers: { width: 8, height: 8, radius: 2 }
+            },
             tooltip: {
                 theme: isDark() ? 'dark' : 'light',
                 y: {

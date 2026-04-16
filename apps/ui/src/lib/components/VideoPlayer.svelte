@@ -1,12 +1,9 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
-    import Plyr from 'plyr';
     import { _ } from 'svelte-i18n';
-    import 'plyr/dist/plyr.css';
     import {
         createVideoShareLink,
         fetchVideoShareInfo,
-        getClipPreviewTrackUrl,
         getClipUrl,
         getRecordingClipUrl,
         listVideoShareLinks,
@@ -30,14 +27,11 @@
         status: number | null;
         expiresAt: number;
     };
-    type PreviewState = 'checking' | 'enabled' | 'disabled' | 'unavailable' | 'deferred';
-    type PreviewAttachTrigger = 'probe' | 'ready' | 'pause' | 'ended' | 'autoplay_settled';
     type PlaybackState = 'idle' | 'playing' | 'paused' | 'buffering' | 'ended';
 
     const HEAD_CACHE_TTL_MS = 5 * 60 * 1000;
     const PROBE_TIMEOUT_MS = 5000;
     const clipHeadCache = new Map<string, ProbeCache>();
-    const previewHeadCache = new Map<string, ProbeCache>();
 
     let {
         frigateEvent,
@@ -52,15 +46,10 @@
     let closeButton = $state<HTMLButtonElement | null>(null);
     let restoreFocusElement = $state<HTMLElement | null>(null);
 
-    let player = $state<Plyr | null>(null);
     let initializing = $state(false);
     let videoError = $state(false);
     let videoForbidden = $state(false);
     let retryCount = $state(0);
-    let thumbnailTrackUrl = $state<string | null>(null);
-    let deferredPreviewSrc = $state<string | null>(null);
-    let deferredPreviewToken = $state(0);
-    let previewState = $state<PreviewState>('checking');
     let playbackState = $state<PlaybackState>('idle');
     let fullVisitPromoted = $state(false);
 
@@ -100,14 +89,6 @@
     let managerExpiresMinutes = $state(24 * 60);
     let linkWatermarkDraft = $state<Record<number, string>>({});
     let linkExpiresMinutesDraft = $state<Record<number, number>>({});
-    let previewStatusLabel = $derived.by(() => {
-        if (useNativeControls) return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
-        if (previewState === 'enabled') return $_('video_player.previews_enabled', { default: 'Timeline previews enabled' });
-        if (previewState === 'disabled') return $_('video_player.previews_disabled', { default: 'Timeline previews disabled (media cache off)' });
-        if (previewState === 'checking') return $_('video_player.previews_generating', { default: 'Generating timeline previews...' });
-        if (previewState === 'deferred') return $_('video_player.previews_deferred', { default: 'Timeline previews deferred while video is playing' });
-        return $_('video_player.previews_unavailable', { default: 'Timeline previews unavailable for this clip' });
-    });
     let playbackLabel = $derived.by(() => {
         if (initializing) return $_('video_player.preparing', { default: 'Preparing player...' });
         if (playbackState === 'playing') return $_('video_player.playing', { default: 'Playing' });
@@ -121,12 +102,7 @@
     let configureToken = 0;
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
     let lastConfiguredKey = '';
-    let useNativeControls = $state(false);
-    let isCoarsePointer = $state(false);
     let autoplayMuted = $state(false);
-    let autoplayInFlight = $state(false);
-    let autoStartPending = $state(false);
-    let coarsePointerMql: MediaQueryList | null = null;
 
     $effect(() => {
         if (!authStore.username) return;
@@ -134,7 +110,6 @@
             managerWatermark = authStore.username;
         }
     });
-    let coarsePointerListener: ((event: MediaQueryListEvent) => void) | null = null;
     let activeMediaElement: HTMLVideoElement | null = null;
     let detachMediaListeners: (() => void) | null = null;
     let previousBodyPosition = '';
@@ -417,16 +392,8 @@
         }
     }
 
-    function destroyPlayer() {
-        if (player) {
-            player.destroy();
-            player = null;
-        }
-    }
-
     function getCurrentMediaElement(): HTMLVideoElement | null {
-        const plyrMedia = (player as unknown as { media?: HTMLVideoElement } | null)?.media ?? null;
-        return plyrMedia ?? activeMediaElement ?? videoElement;
+        return activeMediaElement ?? videoElement;
     }
 
     function bindMediaListeners(element: HTMLVideoElement | null): void {
@@ -468,21 +435,7 @@
         };
     }
 
-    function switchToNativeFallback(reason: string): void {
-        logger.warn('video_player_native_fallback', { frigateEvent, reason, clipUrl: sanitizedUrl(clipUrl) });
-        destroyPlayer();
-        bindMediaListeners(videoElement);
-        deferredPreviewSrc = null;
-        deferredPreviewToken = 0;
-        useNativeControls = true;
-        previewState = 'unavailable';
-        initializing = false;
-        autoStartPending = false;
-        playbackState = 'paused';
-    }
-
     function handleVideoPlay() {
-        autoStartPending = false;
         if (playbackState !== 'buffering') {
             playbackState = 'playing';
         }
@@ -497,7 +450,6 @@
         if (playbackState !== 'buffering') {
             playbackState = 'paused';
         }
-        void attachDeferredPreviewIfReady('pause');
     }
 
     function handleVideoWaiting() {
@@ -510,10 +462,6 @@
     function handleVideoCanPlay() {
         const media = getCurrentMediaElement();
         if (!media) return;
-
-        if (autoStartPending && media.paused && !autoplayInFlight) {
-            void ensureAutoplay(player, { preferUnmuted: playIntent === 'user' });
-        }
         if (media.ended) {
             playbackState = 'ended';
         } else if (media.paused) {
@@ -525,57 +473,29 @@
 
     function handleVideoEnded() {
         playbackState = 'ended';
-        void attachDeferredPreviewIfReady('ended');
     }
 
-    async function ensureAutoplay(
-        playerInstance: Plyr | null,
-        options: { preferUnmuted?: boolean } = {}
-    ): Promise<void> {
-        const preferUnmuted = options.preferUnmuted ?? false;
-        autoplayInFlight = true;
+    function handleVideoError() {
+        videoError = true;
+        initializing = false;
+        logger.error('video_player_native_error', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
+    }
 
-        const media = getCurrentMediaElement();
-        if (!media) {
-            autoplayInFlight = false;
-            return;
-        }
-
+    async function attemptAutoplay(media: HTMLVideoElement): Promise<void> {
         try {
-            if (!preferUnmuted) {
+            if (playIntent !== 'user') {
                 autoplayMuted = true;
                 media.muted = true;
             }
-            const playResult = playerInstance?.play();
-            if (playResult && typeof (playResult as Promise<void>).then === 'function') {
-                await playResult;
-            }
-            if (!preferUnmuted) {
-                logger.info('video_player_autoplay_muted_start_success', { frigateEvent });
-            }
-        } catch (error) {
-            logger.info('video_player_autoplay_blocked', { frigateEvent, error, preferUnmuted });
-            if (!preferUnmuted) {
-                return;
-            }
-
+            await media.play();
+        } catch {
             try {
                 autoplayMuted = true;
                 media.muted = true;
-                const mutedResult = playerInstance?.play();
-                if (mutedResult && typeof (mutedResult as Promise<void>).then === 'function') {
-                    await mutedResult;
-                }
-                logger.info('video_player_autoplay_muted_fallback_success', { frigateEvent });
+                await media.play();
             } catch (mutedError) {
-                logger.warn('video_player_autoplay_muted_fallback_failed', { frigateEvent, error: mutedError });
+                logger.warn('video_player_autoplay_failed', { frigateEvent, error: mutedError });
             }
-        } finally {
-            autoplayInFlight = false;
-            if (!getCurrentMediaElement()?.paused) {
-                autoStartPending = false;
-            }
-            void attachDeferredPreviewIfReady('pause');
         }
     }
 
@@ -623,33 +543,6 @@
         }
     }
 
-    async function resolveThumbnailTrackUrl(eventId: string): Promise<string | null> {
-        if (fullVisitPromoted) {
-            thumbnailTrackUrl = null;
-            previewState = 'unavailable';
-            return null;
-        }
-        previewState = 'checking';
-        const baseTrackUrl = getClipPreviewTrackUrl(eventId);
-        const trackUrl = shareToken ? appendQueryParam(baseTrackUrl, 'share', shareToken) : baseTrackUrl;
-        // Use GET directly for preview track probes to avoid noisy HEAD 405 logs.
-        const status = await probeUrl(trackUrl, previewHeadCache, 'GET');
-        if (status && status >= 200 && status < 300) {
-            thumbnailTrackUrl = trackUrl;
-            previewState = 'enabled';
-            logger.info('video_player_preview_state', { frigateEvent: eventId, previewState, status });
-            return trackUrl;
-        }
-        if (status === 503) {
-            previewState = 'disabled';
-        } else {
-            previewState = 'unavailable';
-        }
-        thumbnailTrackUrl = null;
-        logger.info('video_player_preview_state', { frigateEvent: eventId, previewState, status });
-        return null;
-    }
-
     async function probeFullVisitPromotion(): Promise<void> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
@@ -679,160 +572,6 @@
         }
     }
 
-    function createPlyr(previewSrc: string | null, options: { autoplay?: boolean } = {}): boolean {
-        if (!videoElement) return false;
-
-        destroyPlayer();
-        logger.info('video_player_create_plyr', {
-            frigateEvent,
-            clipUrl: sanitizedUrl(clipUrl),
-            previewEnabled: !!previewSrc
-        });
-        try {
-            player = new Plyr(videoElement, {
-                autoplay: options.autoplay ?? true,
-                clickToPlay: true,
-                hideControls: false,
-                iconUrl: '/plyr.svg',
-                blankVideo: '/plyr-blank.mp4',
-                loadSprite: true,
-                keyboard: { focused: true, global: false },
-                seekTime: 5,
-                controls: [
-                    'play-large',
-                    'play',
-                    'progress',
-                    'current-time',
-                    'duration',
-                    'mute',
-                    'volume',
-                    'settings',
-                    'pip',
-                    'airplay',
-                    'fullscreen'
-                ],
-                settings: ['speed', 'loop'],
-                speed: {
-                    selected: 1,
-                    options: [0.5, 0.75, 1, 1.25, 1.5, 2]
-                },
-                tooltips: {
-                    controls: true,
-                    seek: true
-                },
-                previewThumbnails: previewSrc
-                    ? {
-                        enabled: true,
-                        src: previewSrc
-                    }
-                    : { enabled: false }
-            } as any);
-
-            const media = getCurrentMediaElement();
-            bindMediaListeners(media ?? videoElement);
-            player.on('play', () => handleVideoPlay());
-            player.on('playing', () => handleVideoPlay());
-            player.on('pause', () => handleVideoPause());
-            player.on('waiting', () => handleVideoWaiting());
-            player.on('canplay', () => handleVideoCanPlay());
-            player.on('ended', () => handleVideoEnded());
-
-            player.on('ready', () => {
-                bindMediaListeners(getCurrentMediaElement());
-                initializing = false;
-                const activeMedia = getCurrentMediaElement();
-                playbackState = activeMedia?.ended ? 'ended' : activeMedia?.paused ? 'paused' : 'playing';
-                logger.info('video_player_ready', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
-                if ((options.autoplay ?? true) && autoStartPending && !autoplayInFlight) {
-                    void ensureAutoplay(player, { preferUnmuted: playIntent === 'user' });
-                }
-                void attachDeferredPreviewIfReady('ready');
-            });
-
-            player.on('error', (event: unknown) => {
-                logger.error('video_player_runtime_error', event, { frigateEvent, clipUrl });
-                videoError = true;
-                initializing = false;
-            });
-
-            player.source = {
-                type: 'video',
-                title: fullVisitPromoted
-                    ? $_('video_player.full_visit_title', { default: 'Full visit clip' })
-                    : $_('video_player.detection_clip_title', { default: 'Detection clip' }),
-                sources: [{ src: clipUrl, type: 'video/mp4' }]
-            };
-            return true;
-        } catch (error) {
-            logger.error('video_player_create_failed', error, { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
-            player = null;
-            return false;
-        }
-    }
-
-    async function applyPreviewWhenAvailable(token: number): Promise<void> {
-        if (useNativeControls) return;
-        const previewSrc = await resolveThumbnailTrackUrl(frigateEvent);
-        if (token !== configureToken || videoError || useNativeControls) return;
-        if (previewSrc) {
-            // Always defer preview attachment until startup settles to avoid
-            // interrupting active play() promises during modal open.
-            previewState = 'deferred';
-            deferredPreviewSrc = previewSrc;
-            deferredPreviewToken = token;
-            logger.info('video_player_preview_deferred_until_settled', {
-                frigateEvent,
-                autoplayInFlight,
-                initializing,
-                paused: getCurrentMediaElement()?.paused ?? null,
-            });
-            void attachDeferredPreviewIfReady('probe');
-        }
-    }
-
-    function attachPreviewThumbnails(previewSrc: string): boolean {
-        if (!player || useNativeControls || videoError) return false;
-        try {
-            player.setPreviewThumbnails({
-                enabled: true,
-                src: previewSrc
-            });
-            return true;
-        } catch (error) {
-            logger.warn('video_player_preview_attach_failed', {
-                frigateEvent,
-                error,
-                previewSrc: sanitizedUrl(previewSrc)
-            });
-            return false;
-        }
-    }
-
-    async function attachDeferredPreviewIfReady(trigger: PreviewAttachTrigger): Promise<void> {
-        if (!deferredPreviewSrc || deferredPreviewToken !== configureToken) {
-            if (deferredPreviewToken !== configureToken) {
-                deferredPreviewSrc = null;
-                deferredPreviewToken = 0;
-            }
-            return;
-        }
-        const media = getCurrentMediaElement();
-        if (useNativeControls || videoError || initializing || autoplayInFlight || !media || !player) return;
-
-        const previewSrc = deferredPreviewSrc;
-        deferredPreviewSrc = null;
-        deferredPreviewToken = 0;
-        logger.info('video_player_attach_deferred_preview', { frigateEvent, trigger });
-        const previewAttached = attachPreviewThumbnails(previewSrc);
-        if (!previewAttached) {
-            previewState = 'unavailable';
-            return;
-        }
-        previewState = 'enabled';
-        const activeMedia = getCurrentMediaElement();
-        playbackState = activeMedia?.ended ? 'ended' : activeMedia?.paused ? 'paused' : 'playing';
-    }
-
     async function configurePlayer() {
         if (!mounted || !videoElement || !clipUrl) return;
 
@@ -841,10 +580,8 @@
         initializing = true;
         playbackState = 'idle';
         autoplayMuted = false;
-        autoStartPending = true;
         videoError = false;
         videoForbidden = false;
-        useNativeControls = false;
         logger.info('video_player_configure_start', {
             frigateEvent,
             token,
@@ -853,16 +590,9 @@
             clipUrl: sanitizedUrl(clipUrl)
         });
 
-        destroyPlayer();
-
         const clipStatus = await probeUrl(clipUrl, clipHeadCache);
         if (token !== configureToken) return;
-        logger.info('video_player_clip_probe', {
-            frigateEvent,
-            token,
-            clipKind: fullVisitPromoted ? 'full_visit' : 'event_clip',
-            clipStatus
-        });
+
         if (clipStatus === 403) {
             videoForbidden = true;
             videoError = true;
@@ -871,20 +601,19 @@
             return;
         }
 
-        // Do not block player UI on preview probing; render controls immediately.
-        const initialized = createPlyr(null);
-        if (!initialized) {
-            switchToNativeFallback('initial_plyr_create_failed');
-            return;
-        }
+        // Set src directly so the browser picks up the change even when <source> doesn't reload.
+        videoElement.src = clipUrl;
+        videoElement.load();
+        bindMediaListeners(videoElement);
+        initializing = false;
 
-        void applyPreviewWhenAvailable(token);
         logger.info('video_player_configure_complete', {
             frigateEvent,
             token,
-            duration_ms: Number((performance.now() - started).toFixed(2)),
-            previewState
+            duration_ms: Number((performance.now() - started).toFixed(2))
         });
+
+        void attemptAutoplay(videoElement);
     }
 
     function retryLoad() {
@@ -893,14 +622,7 @@
             videoError = false;
             videoForbidden = false;
             initializing = true;
-            useNativeControls = false;
-            previewState = 'checking';
-            deferredPreviewSrc = null;
-            deferredPreviewToken = 0;
             clipHeadCache.delete(clipUrl);
-            if (thumbnailTrackUrl) {
-                previewHeadCache.delete(thumbnailTrackUrl);
-            }
         }
     }
 
@@ -921,12 +643,6 @@
                 });
         }
         restoreFocusElement = (document.activeElement as HTMLElement | null) ?? null;
-        coarsePointerMql = window.matchMedia('(pointer: coarse)');
-        isCoarsePointer = coarsePointerMql.matches;
-        coarsePointerListener = (event: MediaQueryListEvent) => {
-            isCoarsePointer = event.matches;
-        };
-        coarsePointerMql.addEventListener('change', coarsePointerListener);
         queueMicrotask(() => {
             closeButton?.focus();
         });
@@ -934,9 +650,7 @@
 
     $effect(() => {
         if (!mounted || !videoElement) return;
-        if (!player || useNativeControls) {
-            bindMediaListeners(videoElement);
-        }
+        bindMediaListeners(videoElement);
     });
 
     $effect(() => {
@@ -956,34 +670,18 @@
         void probeFullVisitPromotion();
     });
 
-    $effect(() => {
-        if (!mounted || !fullVisitPromoted) return;
-        thumbnailTrackUrl = null;
-        deferredPreviewSrc = null;
-        deferredPreviewToken = 0;
-        previewState = 'unavailable';
-    });
-
     onDestroy(() => {
         configureToken += 1;
         lastConfiguredKey = '';
-        deferredPreviewSrc = null;
-        deferredPreviewToken = 0;
         if (initWatchdogTimer) {
             clearTimeout(initWatchdogTimer);
             initWatchdogTimer = null;
         }
-        if (coarsePointerMql && coarsePointerListener) {
-            coarsePointerMql.removeEventListener('change', coarsePointerListener);
-        }
-        coarsePointerMql = null;
-        coarsePointerListener = null;
         if (detachMediaListeners) {
             detachMediaListeners();
             detachMediaListeners = null;
         }
         activeMediaElement = null;
-        destroyPlayer();
         unlockDocumentScroll();
         logger.info('video_player_modal_close', { frigateEvent });
         restoreFocusElement?.focus?.();
@@ -998,13 +696,13 @@
             initWatchdogTimer = setTimeout(() => {
                 logger.warn('video_player_initialization_still_pending', {
                     frigateEvent,
-                    previewState,
                     retryCount,
                     clipUrl: sanitizedUrl(clipUrl)
                 });
                 // Fail fast to avoid long-running UI lockups if player initialization deadlocks.
                 if (initializing) {
-                    switchToNativeFallback('initialization_watchdog_timeout');
+                    videoError = true;
+                    initializing = false;
                 }
             }, 15000);
         }
@@ -1093,10 +791,8 @@
                         playsinline
                         preload="auto"
                         class="w-full h-full"
-                    >
-                        <source src={clipUrl} type="video/mp4" />
-                        {$_('video_player.no_video_support', { default: 'Your browser does not support video playback.' })}
-                    </video>
+                        onerror={handleVideoError}
+                    ></video>
 
                     {#if initializing}
                         <div class="absolute inset-0 grid place-items-center bg-black/45 text-slate-200 text-sm">
@@ -1125,37 +821,6 @@
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
                 </p>
                 <div class="order-1 flex flex-wrap items-center justify-end gap-2 sm:order-2 sm:ml-auto">
-                    <span
-                        class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border bg-slate-800/80 px-3 text-slate-100
-                            {(useNativeControls || previewState === 'disabled' || previewState === 'unavailable')
-                                ? 'border-slate-700/70 text-slate-300'
-                                : previewState === 'checking'
-                                    ? 'border-amber-400/40 text-amber-200'
-                                    : previewState === 'deferred'
-                                        ? 'border-cyan-400/35 text-cyan-200'
-                                        : 'border-emerald-400/35 text-emerald-200'}"
-                        aria-label={previewStatusLabel}
-                        title={previewStatusLabel}
-                    >
-                        {#if previewState === 'checking'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12a7.5 7.5 0 0 1 11.78-6.15m3.22 6.15a7.5 7.5 0 0 1-11.78 6.15M16.5 3.75v2.1m3.75 3.75h-2.1M7.5 20.25v-2.1m-3.75-3.75h2.1" />
-                            </svg>
-                        {:else if previewState === 'enabled'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9" />
-                            </svg>
-                        {:else if previewState === 'deferred'}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l3.5 2M21 12a9 9 0 1 1-9-9" />
-                            </svg>
-                        {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7.5h18M3 16.5h18M5.25 7.5v9m4.5-9v9m4.5-9v9m4.5-9v9M4 4l16 16" />
-                            </svg>
-                        {/if}
-                        <span class="font-semibold">{$_('video_player.preview_notification_title', { default: 'Previews' })}</span>
-                    </span>
                     {#if canShareClip}
                         <button
                             type="button"
@@ -1203,19 +868,6 @@
             {#if playbackState === 'buffering'}
                 <div class="mt-1 text-[11px] text-amber-200/90 px-1">
                     {$_('video_player.buffering_hint', { default: 'Buffering video stream...' })}
-                </div>
-            {/if}
-            {#if previewState === 'checking' && !useNativeControls}
-                <div
-                    class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70"
-                    aria-label={$_('video_player.previews_generating', { default: 'Generating timeline previews...' })}
-                >
-                    <div class="h-full w-1/3 bg-emerald-400/90 animate-[previewLoad_1.15s_ease-in-out_infinite]"></div>
-                </div>
-            {/if}
-            {#if isCoarsePointer && previewState === 'enabled' && !useNativeControls}
-                <div class="mt-1 px-1 text-[11px] text-slate-300 sm:hidden">
-                    {$_('video_player.previews_touch_hint', { default: 'Timeline previews are available. Drag or tap along the seek bar to inspect frames.' })}
                 </div>
             {/if}
 
@@ -1329,49 +981,3 @@
     </div>
 </div>
 
-<style>
-    :global(.plyr) {
-        --plyr-color-main: #14b8a6;
-        --plyr-control-radius: 10px;
-        --plyr-control-icon-size: 16px;
-        --plyr-tooltip-background: rgba(15, 23, 42, 0.95);
-        --plyr-tooltip-color: #f8fafc;
-        --plyr-video-control-color: #e2e8f0;
-        --plyr-video-controls-background: linear-gradient(to top, rgba(2, 6, 23, 0.9), rgba(2, 6, 23, 0.35));
-    }
-
-    :global(.plyr--video .plyr__controls) {
-        padding: 8px;
-        gap: 4px;
-    }
-
-    :global(.plyr--video .plyr__control) {
-        min-width: 36px;
-        min-height: 36px;
-    }
-
-    @media (max-width: 640px) {
-        :global(.plyr) {
-            --plyr-control-icon-size: 18px;
-        }
-
-        :global(.plyr--video .plyr__controls) {
-            padding: 10px 8px;
-            gap: 6px;
-        }
-
-        :global(.plyr--video .plyr__control) {
-            min-width: 40px;
-            min-height: 40px;
-        }
-    }
-
-    :global(.plyr--full-ui input[type='range']) {
-        color: #14b8a6;
-    }
-
-    @keyframes previewLoad {
-        0% { transform: translateX(-130%); }
-        100% { transform: translateX(330%); }
-    }
-</style>
