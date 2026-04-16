@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.12] - 2026-04-16
+
+### Fixed
+- **UI:** High-confidence audio-confirmed detections on detection cards now correctly show the musical note badge instead of a tick. The tick was shown when `audio_confirmed` was true and score exceeded 0.7; it now uses the same musical note icon as lower-confidence audio matches.
+
 ## [2.9.11] - 2026-04-16
 
 ### Changed
