@@ -85,6 +85,7 @@ Use the full docs hub for setup, integrations, and troubleshooting:
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [🔄 Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
+- [🔌 MQTT Broker Setup](docs/setup/mqtt-broker.md)
 - [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md)
 - [🔌 API Reference](docs/api.md)
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)

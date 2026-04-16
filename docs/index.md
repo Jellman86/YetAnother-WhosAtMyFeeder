@@ -13,6 +13,7 @@ Everything you need to get the containers running and configured correctly.
 - **[📦 Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
 - **[🔄 Split-to-Monolith Migration](setup/migrate-split-to-monolith.md)** - Transition guidance for existing two-container installs.
 - **[📷 Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
+- **[🔌 MQTT Broker Setup](setup/mqtt-broker.md)** - Running Mosquitto alongside Frigate and connecting all three containers.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 - **[⚡ GPU Acceleration Setup & Diagnostics](troubleshooting/diagnostics.md)** - CUDA/OpenVINO requirements, provider badges, and troubleshooting.
