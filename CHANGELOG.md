@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.9.9] - 2026-04-16
+
+### Changed
+- **UI:** Species leaderboard bar chart (detections over time) no longer shows a legend. The series composition is already visible on hover; the legend was redundant visual noise alongside the chart itself.
+- **UI:** Species leaderboard Rising and Most Recent highlight cards are redesigned. The blurred detection-image background is replaced with a clean icon badge (trending-up arrow for Rising, clock for Most Recent) against a tinted card background, improving legibility across all images.
+- **UI:** Full Rankings table in the species leaderboard now uses the same rosette SVG badges (gold / silver / bronze) as the Top Performers section. The previous medal emoji approach was visually inconsistent between the two tables.
+- **UI:** Video player now uses the browser's native `<video controls>` element directly. Plyr has been removed. All existing UI state — the playing/paused/buffering/ended status pill, the Preparing overlay, share link buttons, download button, and share manager — continues to work via native `HTMLVideoElement` events. Autoplay with muted fallback is handled programmatically; the `autoplay` HTML attribute is not used to avoid browser autoplay-policy races.
+
+### Fixed
+- **UI:** Detection modal bottom overlay (species name, sub-name, play button) no longer bleeds over the detail panel on mobile. `overflow-hidden` is applied to the media panel so the `absolute`-positioned overlay is clipped to the video area. Long species names are also truncated to keep the play button on-screen at all times.
+- **UI:** Full-visit clip availability now self-corrects shortly after a detection is created. When a probe returns `available=true` but `fetched=false` (the clip exists in Frigate but the local cache has not caught up yet), the store schedules a single re-probe after 8 seconds so the UI reflects auto-caching completing without requiring any user interaction.
+
 ## [2.9.8] - 2026-04-15
 
 ### Added
