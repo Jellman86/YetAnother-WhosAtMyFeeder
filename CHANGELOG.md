@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.11] - 2026-04-16
+
 ### Changed
 - **UI:** Audio match badge on detection cards and the audio section icon in detection details now use a musical note icon instead of a microphone.
 
