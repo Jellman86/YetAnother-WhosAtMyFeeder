@@ -693,6 +693,16 @@ class JobDiagnosticsStore {
         }
     }
 
+    /**
+     * Count of groups that represent genuinely actionable problems.
+     * Excludes groups whose latestContext marks them as background/hidden events
+     * (e.g. SSE disconnects that fired while the browser tab was not visible),
+     * which are transient and self-healing and should not light up the error badge.
+     */
+    get actionableGroupCount(): number {
+        return this.groups.filter((g) => g.latestContext?.hidden !== true).length;
+    }
+
     clear(): void {
         this.groups = [];
         this.healthSnapshots = [];

@@ -1322,26 +1322,29 @@
             </div>
 
             <div class="space-y-3">
-                <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-emerald-50/50 dark:bg-emerald-950/25">
-                    {#if heroInfo?.thumbnail_url}
-                        <div
-                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
-                            style={`background-image: url('${heroInfo.thumbnail_url}');`}
-                        ></div>
-                    {/if}
-                    <p class="text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-black">{$_('leaderboard.most_active')}</p>
-                    <div class="flex items-center gap-3 mt-2">
+                <div class="card-base rounded-2xl p-4 bg-emerald-50/50 dark:bg-emerald-950/25">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/15 dark:bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                <rect x="3" y="12" width="4" height="9" rx="1"></rect>
+                                <rect x="10" y="7" width="4" height="14" rx="1"></rect>
+                                <rect x="17" y="3" width="4" height="18" rx="1"></rect>
+                            </svg>
+                        </div>
+                        <p class="text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-black">{$_('leaderboard.most_active')}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
                         {#if heroInfo?.thumbnail_url}
                             <img
                                 src={heroInfo.thumbnail_url}
                                 alt={topByCount?.displayName || 'Species'}
-                                class="w-12 h-12 rounded-2xl object-cover shadow-md border border-white/70"
+                                class="w-12 h-12 rounded-2xl object-cover shadow-md border border-emerald-200/60 dark:border-emerald-700/40 flex-shrink-0"
                             />
                         {:else}
-                            <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-lg flex-shrink-0">🐦</div>
                         {/if}
-                        <div class="relative">
-                            <p class="text-lg font-black text-slate-900 dark:text-white">{topByCount?.displayName || '—'}</p>
+                        <div class="min-w-0">
+                            <p class="text-base font-black text-slate-900 dark:text-white truncate">{topByCount?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{spanLabel()}: <span class="font-bold text-emerald-600 dark:text-emerald-400">{(topByCount?.count || 0).toLocaleString()}</span></p>
                         </div>
                     </div>
@@ -1691,8 +1694,6 @@
                     'ring-2 ring-slate-300/80 dark:ring-slate-500/45',
                     'ring-2 ring-amber-700/65 dark:ring-amber-700/45'
                 ]}
-                {@const rosetteOuter = ['#f59e0b', '#cbd5e1', '#b45309']}
-                {@const rosetteInner = ['#d97706', '#94a3b8', '#78350f']}
                 {@const countPct = maxCount > 0 ? Math.round((topSpecies.count / maxCount) * 100) : 0}
                 <button
                     type="button"
@@ -1713,13 +1714,9 @@
                         {/if}
                     </div>
 
-                    <!-- Rosette rank badge -->
-                    <div class="absolute -top-4 right-4 w-9 h-9 flex items-center justify-center drop-shadow-md">
-                        <svg viewBox="0 0 24 24" class="absolute inset-0 w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M12,0 L14.67,5.53 L20.49,3.51 L18.47,9.33 L24,12 L18.47,14.67 L20.49,20.49 L14.67,18.47 L12,24 L9.33,18.47 L3.51,20.49 L5.53,14.67 L0,12 L5.53,9.33 L3.51,3.51 L9.33,5.53 Z" fill="{rosetteOuter[index]}"/>
-                            <circle cx="12" cy="12" r="6.5" fill="{rosetteInner[index]}"/>
-                        </svg>
-                        <span class="relative text-white text-xs font-black z-10 leading-none">{index + 1}</span>
+                    <!-- Medal badge -->
+                    <div class="absolute -top-4 right-4 text-2xl drop-shadow-md leading-none" aria-hidden="true">
+                        {['🥇', '🥈', '🥉'][index]}
                     </div>
 
                     {#if topSpecies.species === "Unknown Bird"}
@@ -1805,15 +1802,7 @@
                             >
                                 <td class="px-5 py-3.5 font-black text-slate-400 dark:text-slate-500 text-center">
                                     {#if index < 3}
-                                        {@const rankOuter = ['#f59e0b','#cbd5e1','#b45309'][index]}
-                                        {@const rankInner = ['#d97706','#94a3b8','#78350f'][index]}
-                                        <div class="inline-flex w-7 h-7 items-center justify-center drop-shadow-sm mx-auto">
-                                            <svg viewBox="0 0 24 24" class="absolute w-7 h-7" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                <path d="M12,0 L14.67,5.53 L20.49,3.51 L18.47,9.33 L24,12 L18.47,14.67 L20.49,20.49 L14.67,18.47 L12,24 L9.33,18.47 L3.51,20.49 L5.53,14.67 L0,12 L5.53,9.33 L3.51,3.51 L9.33,5.53 Z" fill="{rankOuter}"/>
-                                                <circle cx="12" cy="12" r="6.5" fill="{rankInner}"/>
-                                            </svg>
-                                            <span class="relative text-white text-[10px] font-black z-10 leading-none">{index + 1}</span>
-                                        </div>
+                                        <span class="text-xl leading-none" aria-hidden="true">{['🥇', '🥈', '🥉'][index]}</span>
                                     {:else}
                                         #{index + 1}
                                     {/if}

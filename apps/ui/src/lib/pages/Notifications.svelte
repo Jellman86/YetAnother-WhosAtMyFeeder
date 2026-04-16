@@ -24,7 +24,7 @@
     let ongoingItems = $derived(items.filter((item) => item.type === 'process' && !item.read));
     let historyItems = $derived(items.filter((item) => !(item.type === 'process' && !item.read)));
     let activeJobs = $derived(jobProgressStore.activeJobs);
-    let errorGroupCount = $derived(Math.max(jobDiagnosticsStore.groups.length, incidentWorkspaceStore.currentIssues.length));
+    let errorGroupCount = $derived(Math.max(jobDiagnosticsStore.actionableGroupCount, incidentWorkspaceStore.currentIssues.length));
     let canAccessOwnerTabs = $derived(authStore.showSettings);
     let activeTab = $derived.by(() => {
         const tab = getNotificationsTabFromPath(currentRoute);
