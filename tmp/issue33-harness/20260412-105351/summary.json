@@ -1,0 +1,162 @@
+{
+  "issue": 33,
+  "status": "fail",
+  "run_started_at": "2026-04-12T10:53:51.473295+00:00",
+  "run_finished_at": "2026-04-12T11:08:51.884703+00:00",
+  "duration_seconds": 900.4,
+  "config": {
+    "backend_url": "http://172.19.0.13:8080",
+    "scenario": "mqtt-no-frigate-resume",
+    "health_path": "/health",
+    "analysis_path": "/api/maintenance/analyze-unknowns",
+    "diagnostics_workspace_path": "/api/diagnostics/workspace",
+    "login_path": "/api/auth/login",
+    "duration_seconds": 900,
+    "poll_interval_seconds": 2.0,
+    "trigger_analysis_interval_seconds": 0.0,
+    "induce_frigate_stall_after_seconds": 90.0,
+    "frigate_stall_duration_seconds": 420.0,
+    "mqtt_host": "mosquitto",
+    "mqtt_port": 1883,
+    "mqtt_publish_container": "mosquitto",
+    "frigate_api_url": "http://frigate:5000",
+    "frigate_load_source": "replay",
+    "replay_frigate_event_id": [],
+    "replay_frigate_seed_count": 30,
+    "replay_frigate_source_limit": 200,
+    "frigate_topic": "frigate/events",
+    "frigate_camera": "BirdCam",
+    "birdnet_topic": "birdnet",
+    "disable_frigate_publisher": false,
+    "disable_birdnet_publisher": false,
+    "frigate_event_type": "new",
+    "frigate_false_positive": false,
+    "frigate_publish_interval_seconds": 0.75,
+    "birdnet_publish_interval_seconds": 0.5,
+    "frigate_publisher_replicas": 1,
+    "birdnet_publisher_replicas": 1,
+    "analysis_trigger_burst_count": 1,
+    "analysis_trigger_burst_spacing_seconds": 0.0,
+    "stress_profile": "issue33-stall-probe",
+    "username": "jellman86",
+    "used_auth_token": true,
+    "thresholds": {
+      "min_samples": 45,
+      "min_frigate_messages_delta": 0,
+      "min_birdnet_messages_delta": 10,
+      "max_degraded_ratio": 0.35,
+      "max_pressure_level": "high",
+      "frigate_stall_age_seconds": 120.0,
+      "max_birdnet_active_age_seconds": 20.0,
+      "min_stall_duration_seconds": 30.0,
+      "max_health_fetch_failures": 3,
+      "min_topic_liveness_reconnects_delta": 1,
+      "max_video_pending": 25,
+      "allow_video_circuit_open": false,
+      "max_video_failure_count_delta": 0
+    }
+  },
+  "publishers": {
+    "frigate": {
+      "published": 568,
+      "publish_failures": 0,
+      "connect_failures": 0,
+      "last_error": null
+    },
+    "birdnet": {
+      "published": 1506,
+      "publish_failures": 0,
+      "connect_failures": 0,
+      "last_error": null
+    }
+  },
+  "analysis_triggers": [],
+  "induced_frigate_stall_at": "2026-04-12T10:55:21.511455+00:00",
+  "resumed_frigate_at": "2026-04-12T11:02:21.541386+00:00",
+  "replay": {
+    "seed_count": 30,
+    "seed_event_ids": [
+      "1775984677.914681-0pugd7",
+      "1775925399.440088-8lfmvw",
+      "1775889494.860064-sbfm9t",
+      "1775889492.77596-5krmdt",
+      "1775884508.547236-mzdewy",
+      "1775844659.056058-sjy5rc",
+      "1775844657.154735-ckcqd8",
+      "1775841322.79465-p5xudw",
+      "1775836562.553771-onoyoo",
+      "1775818575.919676-rpfe91",
+      "1775816107.321615-06gi6z",
+      "1775816078.427216-td16v3",
+      "1775807505.743818-g6051q",
+      "1775801373.374595-vfc87l",
+      "1775801107.677124-d8bn4f",
+      "1775800492.676282-btzt9m",
+      "1775735671.571359-wcjs3k",
+      "1775735668.94932-hhes2e",
+      "1775731882.836484-v146i6",
+      "1775721513.680555-e958ty",
+      "1775718004.701753-r1eob0",
+      "1775717996.98577-w7wnqi",
+      "1775713814.300828-alp0bj",
+      "1775673480.183454-br98bg",
+      "1775639287.556142-pkm7h4",
+      "1775634545.002578-n42s3t",
+      "1775631846.123693-fyeq7c",
+      "1775625931.719335-8utzre",
+      "1775578037.20712-7gfonc",
+      "1775550688.749764-kwiwnk"
+    ],
+    "seed_cameras": [
+      "BirdCam"
+    ]
+  },
+  "evaluation": {
+    "passed": false,
+    "failure_reasons": [
+      "Video-classifier pending depth exceeded threshold (29 > 25).",
+      "Live Frigate traffic remained active during the induced stall window. The synthetic stall was masked, so MQTT stall-recovery was not actually exercised."
+    ],
+    "sample_count": 450,
+    "health_fetch_failures": 0,
+    "degraded_count": 0,
+    "degraded_ratio": 0.0,
+    "max_pressure_level": "normal",
+    "frigate_delta": 1383,
+    "birdnet_delta": 1526,
+    "topic_liveness_reconnects_delta": 0,
+    "event_started_delta": 566,
+    "event_completed_delta": 565,
+    "event_dropped_delta": 0,
+    "event_critical_failures_delta": 0,
+    "live_image_admission_timeouts_delta": 0,
+    "video_failure_count_delta": 0,
+    "max_video_pending_seen": 29,
+    "video_circuit_open_observed": false,
+    "stall_incidents": [],
+    "birdnet_publisher_ok": true,
+    "birdnet_stall_window_samples": 211,
+    "birdnet_stayed_fresh_during_stall": true,
+    "frigate_stall_effective": false,
+    "frigate_stall_window_samples": 211
+  },
+  "tracks": {
+    "maintenance_video_timeout": {
+      "checked": false,
+      "failed": false,
+      "reason": null,
+      "evidence": null
+    },
+    "mqtt_no_frigate_resume": {
+      "checked": true,
+      "failed": false,
+      "reason": null,
+      "evidence": null
+    }
+  },
+  "artifacts": {
+    "samples_ndjson": "/config/workspace/YA-WAMF/tmp/issue33-harness/20260412-105351/samples.ndjson",
+    "summary_json": "/config/workspace/YA-WAMF/tmp/issue33-harness/20260412-105351/summary.json"
+  },
+  "note": "Harness collects validation evidence only. It does not close GitHub issues."
+}

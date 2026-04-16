@@ -103,7 +103,7 @@ To roll back:
 
 ## Current Status
 
-As of `v2.9.3`:
+As of `v2.9.9`:
 
 - The monolithic container (`yawamf-monalithic`) is the **recommended deployment** for new installs and migrations.
 - The split deployment (`wamf-backend` + `wamf-frontend`) remains functional on `v2.x` but **will receive no further updates starting with v3.0** — no bug fixes, no new features, and no compatibility guarantee.

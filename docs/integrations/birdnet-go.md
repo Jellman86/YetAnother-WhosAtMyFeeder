@@ -1,6 +1,6 @@
 # BirdNET-Go Integration
 
-YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tbeceele/birdnet-go) for audio-visual correlation. This allows the system to cross-reference what it sees with what it hears.
+YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/birdnet-go) for audio-visual correlation. This allows the system to cross-reference what it sees with what it hears.
 
 ## How it works
 1. **BirdNET-Go** identifies a bird song and publishes the detection to MQTT.

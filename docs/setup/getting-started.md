@@ -23,7 +23,8 @@ curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/ma
 curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
 ```
 
-> Note: This guide assumes `docker-compose.monolith.yml`. If you intentionally want the older split deployment, use `docker-compose.yml`, `docker-compose.dev.yml`, or `docker-compose.prod.yml` instead.
+> [!WARNING]
+> This guide uses `docker-compose.monolith.yml` — the **recommended deployment**. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is a legacy path that will receive no further updates starting with v3.0. New installs should use the monolithic container.
 
 ### 2. Configure Environment
 Copy the example environment file and edit it with your details:

@@ -96,7 +96,7 @@ services:
   # Audio Analysis (Optional)
   # Uncomment to run a local BirdNET-Go instance
   # birdnet-go:
-  #   image: ghcr.io/tphacyj/birdnet-go:latest
+  #   image: ghcr.io/tphakala/birdnet-go:latest
   #   container_name: birdnet-go
   #   restart: unless-stopped
   #   networks:

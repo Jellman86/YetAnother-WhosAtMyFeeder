@@ -1,0 +1,2466 @@
+{
+  "issue": 33,
+  "status": "fail",
+  "run_started_at": "2026-04-12T11:09:39.273901+00:00",
+  "run_finished_at": "2026-04-12T11:19:39.618350+00:00",
+  "duration_seconds": 600.3,
+  "config": {
+    "backend_url": "http://172.19.0.13:8080",
+    "scenario": "combined",
+    "health_path": "/health",
+    "analysis_path": "/api/maintenance/analyze-unknowns",
+    "diagnostics_workspace_path": "/api/diagnostics/workspace",
+    "login_path": "/api/auth/login",
+    "duration_seconds": 600,
+    "poll_interval_seconds": 2.0,
+    "trigger_analysis_interval_seconds": 15.0,
+    "induce_frigate_stall_after_seconds": 120.0,
+    "frigate_stall_duration_seconds": 420.0,
+    "mqtt_host": "mosquitto",
+    "mqtt_port": 1883,
+    "mqtt_publish_container": "mosquitto",
+    "frigate_api_url": "http://frigate:5000",
+    "frigate_load_source": "replay",
+    "replay_frigate_event_id": [],
+    "replay_frigate_seed_count": 30,
+    "replay_frigate_source_limit": 200,
+    "frigate_topic": "frigate/events",
+    "frigate_camera": "BirdCam",
+    "birdnet_topic": "birdnet",
+    "disable_frigate_publisher": false,
+    "disable_birdnet_publisher": false,
+    "frigate_event_type": "new",
+    "frigate_false_positive": false,
+    "frigate_publish_interval_seconds": 0.2,
+    "birdnet_publish_interval_seconds": 0.25,
+    "frigate_publisher_replicas": 4,
+    "birdnet_publisher_replicas": 3,
+    "analysis_trigger_burst_count": 4,
+    "analysis_trigger_burst_spacing_seconds": 0.75,
+    "stress_profile": "issue33-live",
+    "username": "jellman86",
+    "used_auth_token": true,
+    "thresholds": {
+      "min_samples": 60,
+      "min_frigate_messages_delta": 0,
+      "min_birdnet_messages_delta": 10,
+      "max_degraded_ratio": 0.5,
+      "max_pressure_level": "critical",
+      "frigate_stall_age_seconds": 120.0,
+      "max_birdnet_active_age_seconds": 20.0,
+      "min_stall_duration_seconds": 30.0,
+      "max_health_fetch_failures": 3,
+      "min_topic_liveness_reconnects_delta": 1,
+      "max_video_pending": 25,
+      "allow_video_circuit_open": false,
+      "max_video_failure_count_delta": 0
+    }
+  },
+  "publishers": {
+    "frigate": {
+      "published": 2420,
+      "publish_failures": 0,
+      "connect_failures": 0,
+      "last_error": null
+    },
+    "birdnet": {
+      "published": 5007,
+      "publish_failures": 0,
+      "connect_failures": 0,
+      "last_error": null
+    }
+  },
+  "analysis_triggers": [
+    {
+      "observed_at": "2026-04-12T11:09:55.477114+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:09:56.312512+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:09:57.099093+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:09:57.896335+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:14.005696+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:14.849262+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:15.644942+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:16.439532+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:32.530627+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:33.360065+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:34.177313+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:35.004310+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:51.243223+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:52.086174+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:52.911355+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:10:53.697692+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:09.789940+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:10.626187+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:11.437307+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:12.259068+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:28.506035+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:29.350223+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:30.166433+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:30.965079+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:47.686338+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:48.532624+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 7,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 7,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 7. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:49.322056+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:11:50.143795+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:06.208027+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:07.008799+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:07.791930+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:08.583804+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:24.653453+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:25.463136+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:26.241823+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:27.026083+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:43.114339+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:43.918425+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:44.702989+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:12:45.498546+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:01.551434+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:02.356703+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:03.127910+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:03.910538+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:19.958629+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:20.737434+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:21.523214+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:22.306506+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:38.350818+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:39.131235+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:39.918966+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:40.700977+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:56.819624+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:57.612291+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:58.390723+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 6,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 6,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 6. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:13:59.296247+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:15.337250+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:16.141458+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:16.939799+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:17.728526+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:33.771867+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:34.563606+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:35.342429+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:36.122372+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:52.167195+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:52.947132+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:53.722842+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:14:54.501183+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:10.565279+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:11.368676+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:12.147389+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:12.933281+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:29.011382+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:29.837667+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:30.617475+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:31.386788+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:47.441946+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:48.225997+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:49.004733+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:15:49.780720+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:05.830373+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:06.634064+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:07.410602+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:08.186370+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:24.250025+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:25.063131+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:25.858078+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:26.637771+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:42.704395+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:43.503232+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:44.268190+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:16:45.049913+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:01.098921+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:01.923792+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:02.702416+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:03.472538+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:19.519499+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:20.307962+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:21.094307+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:21.876236+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:37.928184+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:38.716700+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:39.502995+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:40.286272+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:56.355354+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:57.129520+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:57.899203+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:17:58.677888+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:14.729974+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:15.533960+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:16.305632+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:17.092136+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:33.131563+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:33.906472+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:34.677894+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:35.458963+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:51.656734+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:52.501442+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:53.289433+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:18:54.076580+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:10.282073+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:11.133381+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:11.919559+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:12.696173+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:28.901570+00:00",
+      "ok": true,
+      "burst_index": 0,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:29.745551+00:00",
+      "ok": true,
+      "burst_index": 1,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:30.524160+00:00",
+      "ok": true,
+      "burst_index": 2,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    },
+    {
+      "observed_at": "2026-04-12T11:19:31.306099+00:00",
+      "ok": true,
+      "burst_index": 3,
+      "response": {
+        "status": "queued",
+        "count": 0,
+        "accepted": 0,
+        "skipped_duplicate": 5,
+        "dropped_full": 0,
+        "skipped_no_clip": 0,
+        "skipped_missing_event": 0,
+        "skipped_outside_retention": 0,
+        "precheck_errors": 0,
+        "total_candidates": 5,
+        "message": "Queued 0 unknown detections for video analysis. Skipped duplicates: 5. Queue full drops: 0. Skipped no clip: 0. Skipped missing event: 0. Skipped outside retention: 0. Precheck errors queued: 0."
+      }
+    }
+  ],
+  "induced_frigate_stall_at": "2026-04-12T11:11:41.024319+00:00",
+  "resumed_frigate_at": "2026-04-12T11:18:39.494396+00:00",
+  "replay": {
+    "seed_count": 30,
+    "seed_event_ids": [
+      "1775984677.914681-0pugd7",
+      "1775925399.440088-8lfmvw",
+      "1775889494.860064-sbfm9t",
+      "1775889492.77596-5krmdt",
+      "1775884508.547236-mzdewy",
+      "1775844659.056058-sjy5rc",
+      "1775844657.154735-ckcqd8",
+      "1775841322.79465-p5xudw",
+      "1775836562.553771-onoyoo",
+      "1775818575.919676-rpfe91",
+      "1775816107.321615-06gi6z",
+      "1775816078.427216-td16v3",
+      "1775807505.743818-g6051q",
+      "1775801373.374595-vfc87l",
+      "1775801107.677124-d8bn4f",
+      "1775800492.676282-btzt9m",
+      "1775735671.571359-wcjs3k",
+      "1775735668.94932-hhes2e",
+      "1775731882.836484-v146i6",
+      "1775721513.680555-e958ty",
+      "1775718004.701753-r1eob0",
+      "1775717996.98577-w7wnqi",
+      "1775713814.300828-alp0bj",
+      "1775673480.183454-br98bg",
+      "1775639287.556142-pkm7h4",
+      "1775634545.002578-n42s3t",
+      "1775631846.123693-fyeq7c",
+      "1775625931.719335-8utzre",
+      "1775578037.20712-7gfonc",
+      "1775550688.749764-kwiwnk"
+    ],
+    "seed_cameras": [
+      "BirdCam"
+    ]
+  },
+  "evaluation": {
+    "passed": false,
+    "failure_reasons": [
+      "Live Frigate traffic remained active during the induced stall window. The synthetic stall was masked, so MQTT stall-recovery was not actually exercised."
+    ],
+    "sample_count": 292,
+    "health_fetch_failures": 0,
+    "degraded_count": 0,
+    "degraded_ratio": 0.0,
+    "max_pressure_level": "normal",
+    "frigate_delta": 2933,
+    "birdnet_delta": 5003,
+    "topic_liveness_reconnects_delta": 0,
+    "event_started_delta": 871,
+    "event_completed_delta": 867,
+    "event_dropped_delta": 0,
+    "event_critical_failures_delta": 0,
+    "live_image_admission_timeouts_delta": 0,
+    "video_failure_count_delta": 0,
+    "max_video_pending_seen": 22,
+    "video_circuit_open_observed": false,
+    "stall_incidents": [],
+    "birdnet_publisher_ok": true,
+    "birdnet_stall_window_samples": 205,
+    "birdnet_stayed_fresh_during_stall": true,
+    "frigate_stall_effective": false,
+    "frigate_stall_window_samples": 205
+  },
+  "tracks": {
+    "maintenance_video_timeout": {
+      "checked": true,
+      "failed": false,
+      "reason": null,
+      "evidence": null
+    },
+    "mqtt_no_frigate_resume": {
+      "checked": true,
+      "failed": false,
+      "reason": null,
+      "evidence": null
+    }
+  },
+  "artifacts": {
+    "samples_ndjson": "/config/workspace/YA-WAMF/tmp/issue33-harness/20260412-110939/samples.ndjson",
+    "summary_json": "/config/workspace/YA-WAMF/tmp/issue33-harness/20260412-110939/summary.json"
+  },
+  "note": "Harness collects validation evidence only. It does not close GitHub issues."
+}

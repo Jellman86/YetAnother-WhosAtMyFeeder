@@ -27,9 +27,12 @@ services:
 
 ## Legacy Split Example
 
-This is a complete, "batteries-included" Docker Compose example. It includes everything you need to run a professional-grade bird identification station.
+> [!WARNING]
+> The split deployment (`wamf-backend` + `wamf-frontend`) is a **legacy path** kept for existing installs only. It will receive no further updates starting with v3.0 — no bug fixes, no new features, and no compatibility guarantee. New installs should use the monolithic example above. See the [Split-to-Monolith Migration](migrate-split-to-monolith.md) guide.
 
-## Example `docker-compose.yml`
+The example below shows the legacy two-container layout for reference.
+
+## Example `docker-compose.yml` (legacy split)
 
 ```yaml
 services:
@@ -115,7 +118,7 @@ services:
 
   # --- The Ears: BirdNET-Go (Optional) ---
   birdnet-go:
-    image: ghcr.io/tphacyj/birdnet-go:latest
+    image: ghcr.io/tphakala/birdnet-go:latest
     container_name: birdnet-go
     restart: unless-stopped
     networks:

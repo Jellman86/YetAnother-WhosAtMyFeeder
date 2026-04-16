@@ -115,7 +115,7 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
 }
 
-# 3. Root / Main App
+# 3. API Routes
 location /api/ {
     proxy_pass http://$app_upstream:8080;
     proxy_set_header Host $host;
