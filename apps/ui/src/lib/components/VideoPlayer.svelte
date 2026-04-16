@@ -514,8 +514,8 @@
         const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
         try {
             let response = await fetch(url, { method, signal: controller.signal });
-            // Some proxy endpoints only expose GET and return 405 for HEAD.
-            // Fallback to GET to trigger preview generation and report real availability.
+            // Some proxy endpoints only expose GET and return 405 for HEAD — fall back
+            // to GET so we get a real availability status rather than a method error.
             if (response.status === 405 || response.status === 501) {
                 logger.warn('video_player_probe_method_not_allowed', {
                     frigateEvent,
@@ -601,7 +601,6 @@
             return;
         }
 
-        // Set src directly so the browser picks up the change even when <source> doesn't reload.
         videoElement.src = clipUrl;
         videoElement.load();
         bindMediaListeners(videoElement);
@@ -786,7 +785,6 @@
                     <video
                         bind:this={videoElement}
                         controls
-                        autoplay
                         muted={autoplayMuted}
                         playsinline
                         preload="auto"
