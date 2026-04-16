@@ -170,7 +170,7 @@ In YA-WAMF, go to **Settings → Connections** and use the **Test MQTT** button.
 | `Not authorised` in logs | Auth mismatch | Check `MQTT_USERNAME`/`MQTT_PASSWORD` in `.env` match the credentials in the passwd file; confirm `MQTT_AUTH=true` is set |
 | YA-WAMF connects but receives no events | Frigate not publishing | Check `docker logs frigate` for MQTT errors; confirm `topic_prefix: frigate` in Frigate's config |
 | `Connection refused` from Frigate | Frigate on a different network | All three containers must be on the same Docker network — check `docker network ls` and the `networks:` section in your compose file |
-| Password file errors at Mosquitto startup | Wrong file permissions | Run `sudo chmod 0700 mosquitto/config/passwd` on the host |
+| Password file errors at Mosquitto startup | Wrong ownership or permissions | Run `sudo chown 1883:1883 mosquitto/config/passwd && sudo chmod 0600 mosquitto/config/passwd` — 1883 is the mosquitto UID inside the container |
 
 ### Checking which network containers are on
 
