@@ -1659,7 +1659,7 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60 overflow-hidden">
+	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video shrink-0 lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60 overflow-hidden">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">

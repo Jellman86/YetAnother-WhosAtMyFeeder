@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.13] - 2026-04-16
+
+### Fixed
+- **UI:** Detection detail modal media panel no longer collapses to a thin strip on mobile. The `aspect-video` panel had no `flex-shrink: 0` constraint, so the flex algorithm compressed it when the detail panel's content was tall. Added `shrink-0` to prevent this; the image/video area now correctly fills its 16:9 height on all mobile viewports.
+
 ## [2.9.12] - 2026-04-16
 
 ### Fixed
