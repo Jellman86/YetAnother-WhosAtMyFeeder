@@ -804,6 +804,28 @@ Optimize system performance for large installations.
 - ✅ Startup/readiness smoke checks in CI
 - ⚠️ Playwright E2E coverage is improving but still targeted; broader end-to-end regression coverage remains a priority
 
+### 5.4 Raspberry Pi 4/5 (ARM64) Support 🍓
+**Priority:** P2 | **Effort:** S (4–6 hours) | **Status:** Assessment complete — not started
+
+Full assessment: [`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md)
+
+ARM64 support is achievable with four small changes. The inference layer already degrades gracefully to CPU-only; the entire web stack, MQTT, SQLite, and Nginx work on ARM64 without modification.
+
+**What needs changing:**
+
+1. `backend/requirements.txt` — make `onnxruntime-gpu` conditional on `platform_machine != 'aarch64'`; install CPU-only `onnxruntime` on ARM64 instead. *(Critical: the GPU package fails to install on ARM64.)*
+2. `backend/Dockerfile` — wrap Intel GPU APT repo setup in a `uname -m` arch check so it is skipped on ARM64.
+3. Root `Dockerfile` (monolith) — same arch guard.
+4. `.github/workflows/build-and-push.yml` — add QEMU + Buildx actions; add `platforms: linux/amd64,linux/arm64` to the three build jobs (version-tag builds only, to avoid slow QEMU builds on every dev push).
+
+**RPi runtime characteristics:**
+- MobileNetV2 TFLite: ~150–200 ms/frame — suitable for event-based detection
+- Small ONNX (CPU provider): ~500–800 ms/frame — marginal but workable
+- ConvNeXt large: >1000 ms/frame — not viable
+- Recommended config: `CLASSIFICATION_IMAGE_MAX_CONCURRENT=1`, 16 GB SSD preferred over microSD
+
+**Not available on RPi:** CUDA, Intel iGPU/OpenVINO, VideoCore GPU inference.
+
 ---
 
 ## Technical Debt & Maintenance
