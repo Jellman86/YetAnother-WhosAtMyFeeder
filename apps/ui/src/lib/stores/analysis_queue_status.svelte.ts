@@ -1,4 +1,5 @@
 import { fetchAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
+import { isTransientGatewayError } from '../api/error-message';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
 import { authStore } from './auth.svelte';
 import { jobDiagnosticsStore } from './job_diagnostics.svelte';
@@ -175,15 +176,18 @@ export class AnalysisQueueStatusStore {
                 }
             };
         } catch (error) {
-            this.recordError?.({
-                source: 'job',
-                component: 'reclassify_queue',
-                stage: 'poll',
-                reasonCode: 'status_fetch_failed',
-                message: toErrorMessage(error, 'Failed to fetch reclassification queue status'),
-                severity: 'warning',
-                context: { route: '/api/maintenance/analysis/status' }
-            });
+            // Transient gateway errors (502/503/504) are startup/infra noise — self-heal on next tick.
+            if (!isTransientGatewayError(error)) {
+                this.recordError?.({
+                    source: 'job',
+                    component: 'reclassify_queue',
+                    stage: 'poll',
+                    reasonCode: 'status_fetch_failed',
+                    message: toErrorMessage(error, 'Failed to fetch reclassification queue status'),
+                    severity: 'warning',
+                    context: { route: '/api/maintenance/analysis/status' }
+                });
+            }
             if (!this.queueByKind.reclassify) {
                 this.queueByKind = {
                     ...this.queueByKind,

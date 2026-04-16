@@ -90,6 +90,21 @@ export async function readApiErrorMessage(response: Response, fallback: string):
         return extractApiErrorMessage(payload, fallback);
     }
 
+    // HTML responses are gateway/proxy error pages (e.g. Cloudflare 502, nginx error page).
+    // The raw HTML is never a useful error message — return the fallback instead.
+    if (contentType.includes('text/html')) {
+        return fallback;
+    }
+
     const text = await response.text().catch(() => '');
     return extractApiErrorMessage(text, fallback);
+}
+
+/**
+ * Returns true when an error is a transient gateway/infrastructure error (HTTP 502/503/504)
+ * that will self-heal on the next poll tick and is never user-actionable.
+ */
+export function isTransientGatewayError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    return /^HTTP 50[234]/.test(error.message);
 }

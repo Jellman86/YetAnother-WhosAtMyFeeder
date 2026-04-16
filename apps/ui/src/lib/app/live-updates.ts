@@ -1,5 +1,6 @@
 import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
+import { isTransientGatewayError } from '../api/error-message';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { notificationPolicy } from '../notifications/policy';
 
@@ -218,14 +219,16 @@ export class LiveUpdateCoordinator {
             }
         } catch (error) {
             this.deps.logger.warn('health_check_failed', { error });
-            this.deps.diagnostics?.recordError({
-                source: 'health',
-                component: 'health_check',
-                reasonCode: 'request_failed',
-                message: this.toErrorMessage(error, 'Health check request failed'),
-                severity: 'warning',
-                context: { scope: 'runOwnerSystemChecks' }
-            });
+            if (!isTransientGatewayError(error)) {
+                this.deps.diagnostics?.recordError({
+                    source: 'health',
+                    component: 'health_check',
+                    reasonCode: 'request_failed',
+                    message: this.toErrorMessage(error, 'Health check request failed'),
+                    severity: 'warning',
+                    context: { scope: 'runOwnerSystemChecks' }
+                });
+            }
         }
 
         try {
@@ -247,14 +250,16 @@ export class LiveUpdateCoordinator {
             }
         } catch (error) {
             this.deps.logger.warn('cache_stats_check_failed', { error });
-            this.deps.diagnostics?.recordError({
-                source: 'health',
-                component: 'cache_stats',
-                reasonCode: 'request_failed',
-                message: this.toErrorMessage(error, 'Cache stats request failed'),
-                severity: 'warning',
-                context: { scope: 'runOwnerSystemChecks' }
-            });
+            if (!isTransientGatewayError(error)) {
+                this.deps.diagnostics?.recordError({
+                    source: 'health',
+                    component: 'cache_stats',
+                    reasonCode: 'request_failed',
+                    message: this.toErrorMessage(error, 'Cache stats request failed'),
+                    severity: 'warning',
+                    context: { scope: 'runOwnerSystemChecks' }
+                });
+            }
         }
 
         if (this.deps.syncDiagnosticsWorkspace) {
@@ -262,14 +267,16 @@ export class LiveUpdateCoordinator {
                 await this.deps.syncDiagnosticsWorkspace();
             } catch (error) {
                 this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
-                this.deps.diagnostics?.recordError({
-                    source: 'health',
-                    component: 'diagnostics_workspace',
-                    reasonCode: 'request_failed',
-                    message: this.toErrorMessage(error, 'Diagnostics workspace refresh failed'),
-                    severity: 'warning',
-                    context: { scope: 'runOwnerSystemChecks' }
-                });
+                if (!isTransientGatewayError(error)) {
+                    this.deps.diagnostics?.recordError({
+                        source: 'health',
+                        component: 'diagnostics_workspace',
+                        reasonCode: 'request_failed',
+                        message: this.toErrorMessage(error, 'Diagnostics workspace refresh failed'),
+                        severity: 'warning',
+                        context: { scope: 'runOwnerSystemChecks' }
+                    });
+                }
             }
         }
     }
@@ -283,15 +290,17 @@ export class LiveUpdateCoordinator {
             this.reconcileAnalysisQueueStatus(status);
         } catch (error) {
             this.deps.logger.warn('analysis_status_check_failed', { error });
-            this.deps.diagnostics?.recordError({
-                source: 'job',
-                component: 'analysis_status',
-                stage: 'poll',
-                reasonCode: 'status_fetch_failed',
-                message: this.toErrorMessage(error, 'Failed to load analysis status'),
-                severity: 'warning',
-                context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
-            });
+            if (!isTransientGatewayError(error)) {
+                this.deps.diagnostics?.recordError({
+                    source: 'job',
+                    component: 'analysis_status',
+                    stage: 'poll',
+                    reasonCode: 'status_fetch_failed',
+                    message: this.toErrorMessage(error, 'Failed to load analysis status'),
+                    severity: 'warning',
+                    context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
+                });
+            }
         }
     }
 
