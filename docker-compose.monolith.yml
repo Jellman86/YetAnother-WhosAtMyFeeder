@@ -10,6 +10,7 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #   docker compose -f docker-compose.monolith.yml up -d
 #
 # Optional overrides:
+#   YAWAMF_MONALITHIC_IMAGE - Full image repository/name override (default: ghcr.io/jellman86/yawamf-monalithic)
 #   YAWAMF_MONALITHIC_TAG  - Image tag for the canary line (default: dev)
 #   APP_BIND_IP            - Host bind IP for the published app port
 #   APP_PORT               - Host app port (default: 9852)
@@ -25,7 +26,7 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #-----------------------------------------------
 services:
   yawamf:
-    image: ghcr.io/jellman86/yawamf-monalithic:${YAWAMF_MONALITHIC_TAG:-dev}
+    image: ${YAWAMF_MONALITHIC_IMAGE:-ghcr.io/jellman86/yawamf-monalithic}:${YAWAMF_MONALITHIC_TAG:-dev}
     container_name: yawamf-monalithic
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

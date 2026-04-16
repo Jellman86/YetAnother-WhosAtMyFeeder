@@ -4,6 +4,8 @@ This guide will walk you through the basic installation of YA-WAMF using Docker 
 
 The recommended deployment uses one container, `ghcr.io/jellman86/yawamf-monalithic`. The older split deployment (`wamf-backend` + `wamf-frontend`) is a legacy path kept for existing installs.
 
+If you are installing on a Raspberry Pi 4/5, use the dedicated ARM64 image flow in [Raspberry Pi Setup](raspberry-pi.md) instead of the default x86-64 image.
+
 ## Prerequisites
 - **Docker & Docker Compose** installed on your host.
 - **Frigate NVR** already running and accessible.

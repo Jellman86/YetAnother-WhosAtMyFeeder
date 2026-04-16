@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Deployment:** Added a dedicated `ghcr.io/<owner>/yawamf-monalithic-rpi` ARM64 image line for Raspberry Pi 4/5 monolith installs, plus a new Raspberry Pi setup guide covering image overrides, hardware expectations, and current support limits.
+
+### Changed
+- **Deployment:** `docker-compose.monolith.yml` now supports `YAWAMF_MONALITHIC_IMAGE` as an optional full image-name override, making it easier to switch between the standard monolith image and the Raspberry Pi image without editing the compose file.
+- **Backend:** ARM64 installs now use CPU `onnxruntime` while x86-64 keeps `onnxruntime-gpu[cuda,cudnn]`. Intel GPU runtime setup in both Dockerfiles is now skipped automatically on non-`amd64` builds.
+
 ## [2.9.13] - 2026-04-16
 
 ### Fixed

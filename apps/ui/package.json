@@ -1,7 +1,7 @@
 {
     "name": "wamf-ui",
     "private": true,
-    "version": "2.9.2",
+    "version": "2.9.13",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -30,7 +30,6 @@
         "flatpickr": "^4.6.13",
         "leaflet": "^1.9.4",
         "markdown-it": "^14.1.0",
-        "plyr": "^3.8.4",
         "svelte-i18n": "^4.0.1"
     }
 }

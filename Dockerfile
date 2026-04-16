@@ -38,6 +38,7 @@ WORKDIR /app
 ARG GIT_HASH=unknown
 ARG APP_VERSION_BASE=2.2.0
 ARG APP_BRANCH=unknown
+ARG TARGETARCH
 ARG INTEL_GPU_APT_CHANNEL=noble/lts
 ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
@@ -54,17 +55,19 @@ RUN set -eux; \
         nginx \
         sqlite3 \
         tini; \
-    install -d -m 0755 /etc/apt/keyrings; \
-    curl -fsSL --retry 5 --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
-        | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg; \
-    echo "deb [signed-by=/etc/apt/keyrings/intel-graphics.gpg arch=amd64] https://repositories.intel.com/gpu/ubuntu ${INTEL_GPU_APT_CHANNEL} unified" \
-        > /etc/apt/sources.list.d/intel-gpu.list; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        intel-opencl-icd \
-        libze-intel-gpu1 \
-        libze1 \
-        ocl-icd-libopencl1; \
+    if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
+        install -d -m 0755 /etc/apt/keyrings; \
+        curl -fsSL --retry 5 --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
+            | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg; \
+        echo "deb [signed-by=/etc/apt/keyrings/intel-graphics.gpg arch=amd64] https://repositories.intel.com/gpu/ubuntu ${INTEL_GPU_APT_CHANNEL} unified" \
+            > /etc/apt/sources.list.d/intel-gpu.list; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+            intel-opencl-icd \
+            libze-intel-gpu1 \
+            libze1 \
+            ocl-icd-libopencl1; \
+    fi; \
     rm -rf /var/lib/apt/lists/*
 
 # CUDA/cuDNN userspace for ONNX Runtime is installed via backend/requirements.txt.

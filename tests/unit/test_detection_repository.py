@@ -1,28 +1,70 @@
 import pytest
-import aiosqlite
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 # Note: This file contains unit tests for the DetectionRepository
 # These tests use mocked database connections to test business logic
 
 
+class MockCursor:
+    def __init__(self, *, fetchone_result=None, fetchall_result=None, rowcount=0, lastrowid=None):
+        self._fetchone_result = fetchone_result
+        self._fetchall_result = fetchall_result if fetchall_result is not None else []
+        self.rowcount = rowcount
+        self.lastrowid = lastrowid
+
+    async def fetchone(self):
+        return self._fetchone_result
+
+    async def fetchall(self):
+        return self._fetchall_result
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class MockExecuteCall:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __await__(self):
+        async def _inner():
+            return self._cursor
+
+        return _inner().__await__()
+
+    async def __aenter__(self):
+        return self._cursor
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class MockDB:
+    def __init__(self):
+        self.execute_calls = []
+        self.commit = AsyncMock()
+        self._cursors = []
+
+    def queue_cursor(self, cursor):
+        self._cursors.append(cursor)
+
+    def execute(self, *args, **kwargs):
+        self.execute_calls.append((args, kwargs))
+        if self._cursors:
+            cursor = self._cursors.pop(0)
+        else:
+            cursor = MockCursor()
+        return MockExecuteCall(cursor)
+
+
 @pytest.fixture
-async def mock_db():
+def mock_db():
     """Create a mock database connection."""
-    db = AsyncMock(spec=aiosqlite.Connection)
-    db.execute = AsyncMock()
-    db.commit = AsyncMock()
-    db.fetchall = AsyncMock(return_value=[])
-    db.fetchone = AsyncMock(return_value=None)
-
-    # Mock cursor
-    cursor = AsyncMock()
-    cursor.fetchall = AsyncMock(return_value=[])
-    cursor.fetchone = AsyncMock(return_value=None)
-    db.execute.return_value = cursor
-
-    return db
+    return MockDB()
 
 
 @pytest.fixture
@@ -62,27 +104,23 @@ class TestDetectionRepository:
     @pytest.mark.asyncio
     async def test_create_detection(self, mock_db):
         """Test creating a new detection."""
-        from app.repositories.detection_repository import DetectionRepository
+        from app.repositories.detection_repository import DetectionRepository, Detection
 
         repo = DetectionRepository(mock_db)
+        detection = Detection(
+            detection_time=datetime.now(),
+            detection_index=0,
+            score=0.95,
+            display_name="Turdus merula",
+            category_name="bird",
+            frigate_event="test-event-123",
+            camera_name="BirdCam",
+        )
 
-        detection_data = {
-            "detection_time": datetime.now(),
-            "detection_index": 0,
-            "score": 0.95,
-            "display_name": "Turdus merula",
-            "category_name": "bird",
-            "frigate_event": "test-event-123",
-            "camera_name": "BirdCam",
-        }
+        await repo.create(detection)
 
-        mock_db.execute.return_value.lastrowid = 1
-
-        detection_id = await repo.create(**detection_data)
-
-        assert detection_id == 1
-        assert mock_db.execute.called
-        assert mock_db.commit.called
+        assert len(mock_db.execute_calls) == 1
+        assert mock_db.commit.await_count == 1
 
     @pytest.mark.asyncio
     async def test_get_by_frigate_event(self, mock_db, sample_detection_row):
@@ -90,9 +128,7 @@ class TestDetectionRepository:
         from app.repositories.detection_repository import DetectionRepository
 
         repo = DetectionRepository(mock_db)
-        cursor = AsyncMock()
-        cursor.fetchone = AsyncMock(return_value=sample_detection_row)
-        mock_db.execute.return_value = cursor
+        mock_db.queue_cursor(MockCursor(fetchone_result=sample_detection_row))
 
         detection = await repo.get_by_frigate_event("test-event-123")
 
@@ -116,11 +152,10 @@ class TestDetectionRepository:
             status="completed"
         )
 
-        assert mock_db.execute.called
-        assert mock_db.commit.called
+        assert len(mock_db.execute_calls) == 1
+        assert mock_db.commit.await_count == 1
 
-        # Verify the UPDATE query was called with correct parameters
-        call_args = mock_db.execute.call_args[0]
+        call_args = mock_db.execute_calls[0][0]
         assert "UPDATE detections" in call_args[0]
         assert "video_classification" in call_args[0]
 
@@ -133,8 +168,8 @@ class TestDetectionRepository:
 
         await repo.update_video_status("test-event-123", "processing")
 
-        assert mock_db.execute.called
-        assert mock_db.commit.called
+        assert len(mock_db.execute_calls) == 1
+        assert mock_db.commit.await_count == 1
 
     @pytest.mark.asyncio
     async def test_delete_older_than(self, mock_db):
@@ -142,16 +177,15 @@ class TestDetectionRepository:
         from app.repositories.detection_repository import DetectionRepository
 
         repo = DetectionRepository(mock_db)
-        cursor = AsyncMock()
-        cursor.rowcount = 42
-        mock_db.execute.return_value = cursor
+        mock_db.queue_cursor(MockCursor(rowcount=42))
+        mock_db.queue_cursor(MockCursor(rowcount=0))
 
         cutoff = datetime.now() - timedelta(days=90)
         deleted_count = await repo.delete_older_than(cutoff)
 
         assert deleted_count == 42
-        assert mock_db.execute.called
-        assert mock_db.commit.called
+        assert len(mock_db.execute_calls) == 2
+        assert mock_db.commit.await_count == 1
 
     @pytest.mark.asyncio
     async def test_get_species_counts(self, mock_db):
@@ -159,18 +193,17 @@ class TestDetectionRepository:
         from app.repositories.detection_repository import DetectionRepository
 
         repo = DetectionRepository(mock_db)
-        cursor = AsyncMock()
-        cursor.fetchall = AsyncMock(return_value=[
-            ("Turdus merula", 10),
-            ("Cyanistes caeruleus", 5),
-        ])
-        mock_db.execute.return_value = cursor
+        mock_db.queue_cursor(MockCursor(fetchall_result=[
+            ("turdus merula", 10, "Turdus merula", "Eurasian Blackbird", "Turdus merula", 12345),
+            ("cyanistes caeruleus", 5, "Cyanistes caeruleus", "Blue Tit", "Cyanistes caeruleus", 67890),
+        ]))
 
         counts = await repo.get_species_counts()
 
         assert len(counts) == 2
-        assert counts[0] == ("Turdus merula", 10)
-        assert counts[1] == ("Cyanistes caeruleus", 5)
+        assert counts[0]["species"] == "Turdus merula"
+        assert counts[0]["count"] == 10
+        assert counts[1]["common_name"] == "Blue Tit"
 
 
 if __name__ == "__main__":

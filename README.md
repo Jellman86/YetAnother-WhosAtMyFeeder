@@ -82,6 +82,7 @@ Detailed feature behavior, edge cases, and integration notes are documented in t
 Use the full docs hub for setup, integrations, and troubleshooting:
 - [📚 Full Documentation Suite](docs/index.md)
 - [🚀 Getting Started](docs/setup/getting-started.md)
+- [🍓 Raspberry Pi Setup](docs/setup/raspberry-pi.md)
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [🔄 Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
@@ -156,6 +157,8 @@ cp .env.example .env
 ```
 
 > This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
+>
+> Installing on Raspberry Pi 4/5? Use the dedicated ARM64 image notes in [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md).
 
 **2. Configure your environment:**
 

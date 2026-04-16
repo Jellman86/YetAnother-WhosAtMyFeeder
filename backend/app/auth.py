@@ -221,7 +221,7 @@ async def verify_api_key_legacy(
             "Using deprecated API key authentication",
             notice=(
                 "Migrate to password-based auth in Settings. "
-                "API key support will be removed in v2.9.0"
+                "API key support will be removed in v3.0"
             ),
         )
         return True

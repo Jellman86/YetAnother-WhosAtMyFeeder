@@ -770,9 +770,6 @@ html.theme-bluetit.dark {
 
 /* ── 12. Special Overrides ── */
 
-/* Video player controls */
-.theme-bluetit { --plyr-color-main: #2563eb; }
-
 /* Login button gradient (uses inline teal→emerald) */
 .theme-bluetit .from-teal-500.to-emerald-600 {
   --tw-gradient-from: #2563eb var(--tw-gradient-from-position);
@@ -802,63 +799,6 @@ html.theme-bluetit.dark {
   --tw-gradient-from: rgb(37 99 235 / 0.2) var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(245 158 11 / 0.2) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-}
-
-/* ── 13. Video Player (Plyr) ──
- * VideoPlayer.svelte globalises `.plyr` via its scoped `<style>` block, so we can
- * target these classes directly from plain CSS here (no `:global()` wrapper).
- */
-
-html.theme-bluetit .plyr {
-  --plyr-color-main: #2563eb;
-  --plyr-video-control-color-hover: #ffffff;
-  --plyr-range-fill-background: #2563eb;
-  --plyr-audio-control-color-hover: #2563eb;
-  --plyr-video-progress-buffered-background: rgba(37, 99, 235, 0.25);
-}
-html.theme-bluetit.dark .plyr {
-  --plyr-color-main: #60a5fa;
-  --plyr-range-fill-background: #60a5fa;
-  --plyr-audio-control-color-hover: #60a5fa;
-  --plyr-video-progress-buffered-background: rgba(96, 165, 250, 0.28);
-}
-
-/* Range/progress sliders */
-html.theme-bluetit .plyr--full-ui input[type='range'] { color: #2563eb; }
-html.theme-bluetit.dark .plyr--full-ui input[type='range'] { color: #60a5fa; }
-
-/* Progress bar buffered fill */
-html.theme-bluetit .plyr__progress__buffer { color: rgba(37, 99, 235, 0.35); }
-html.theme-bluetit.dark .plyr__progress__buffer { color: rgba(96, 165, 250, 0.38); }
-
-/* Hovered/active controls (play, volume, settings, etc.) */
-html.theme-bluetit .plyr__control:hover,
-html.theme-bluetit .plyr__control[aria-expanded='true'],
-html.theme-bluetit .plyr__control.plyr__tab-focus {
-  background: #2563eb !important;
-  color: #ffffff !important;
-}
-html.theme-bluetit.dark .plyr__control:hover,
-html.theme-bluetit.dark .plyr__control[aria-expanded='true'],
-html.theme-bluetit.dark .plyr__control.plyr__tab-focus {
-  background: #60a5fa !important;
-  color: #0b1220 !important;
-}
-
-/* Overlaid big play button */
-html.theme-bluetit .plyr__control--overlaid {
-  background: rgba(37, 99, 235, 0.9) !important;
-}
-html.theme-bluetit.dark .plyr__control--overlaid {
-  background: rgba(96, 165, 250, 0.9) !important;
-}
-
-/* Menu item highlight */
-html.theme-bluetit .plyr__menu__container .plyr__control[role='menuitemradio'][aria-checked='true']::before {
-  background: #2563eb;
-}
-html.theme-bluetit.dark .plyr__menu__container .plyr__control[role='menuitemradio'][aria-checked='true']::before {
-  background: #60a5fa;
 }
 
 /* ── 14. AI Analysis Surface & Markdown ──

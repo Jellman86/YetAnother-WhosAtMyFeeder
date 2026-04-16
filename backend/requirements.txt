@@ -11,14 +11,18 @@ python-multipart==0.0.9
 Pillow>=10.2.0
 numpy<2.0.0
 # Machine Learning
-# Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or tf-cpu might be needed.
-# Starting with tflite-runtime if available or large tf-cpu.
-# For now, let's try tflite-support and see if it installs, or use a specific known compatible version.
+# Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or
+# a full TensorFlow package may be needed. `tflite-runtime` does not currently resolve
+# for the ARM64/Python 3.12 container build we use, so ARM64 falls back to
+# `tensorflow-aarch64` while x86-64 keeps `tensorflow-cpu`.
 # tflite-support==0.4.4
-tensorflow-cpu; python_version >= '3.12'
-# ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace runtime.
+tensorflow-cpu; python_version >= '3.12' and platform_machine != "aarch64" and platform_machine != "arm64"
+tensorflow-aarch64==2.16.1; python_version >= '3.12' and (platform_machine == "aarch64" or platform_machine == "arm64")
+# ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace runtime on x86-64.
+# ARM64 builds use the CPU package instead.
 # The host still needs NVIDIA Container Toolkit (or equivalent) to expose the driver/GPU.
-onnxruntime-gpu[cuda,cudnn]>=1.24.0
+onnxruntime-gpu[cuda,cudnn]>=1.24.0 ; platform_machine != "aarch64" and platform_machine != "arm64"
+onnxruntime>=1.24.0 ; platform_machine == "aarch64" or platform_machine == "arm64"
 # OpenVINO runtime for Intel CPU/iGPU acceleration.
 # Pinned to 2025.4.x: 2025.4 introduced a LayerNorm scale/bias reshape fix
 # (confirmed in Intel release notes) that is required for correct ViT-based
