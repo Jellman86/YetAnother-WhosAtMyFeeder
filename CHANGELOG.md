@@ -22,6 +22,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **UI:** Species leaderboard Most Active highlight card now has the same icon-badge treatment as Rising and Most Recent: a bar-chart icon in an emerald-tinted pill replaces the old blurred background image.
 - **UI:** Rank medals in both Top Performers cards and the Full Rankings table now use 🥇🥈🥉 emoji instead of custom SVG rosette badges, keeping the two sections visually consistent with each other.
 - **Docs:** Comprehensive documentation review — BirdNET-Go GitHub/Docker URLs corrected, legacy split deployment marked with warnings throughout, new MQTT Broker Setup guide, expanded Frigate integration and Deep Video Analysis pages, internal dev plans folder removed.
+
 ### Fixed
 - **UI:** The Errors tab badge in the notification drawer no longer increments for SSE disconnections that happened while the browser tab was in the background. These events are transient, self-healing, and not user-actionable. All events remain preserved in the full diagnostics export; only the nav-badge count is filtered.
 - **UI:** Cloudflare/nginx gateway errors (HTTP 502/503/504) during container startup no longer appear in the Errors diagnostics tab. These are transient infrastructure events that self-heal on the next poll tick. The raw HTML error page body is no longer stored as the error message; the logger still records them for traceability.
