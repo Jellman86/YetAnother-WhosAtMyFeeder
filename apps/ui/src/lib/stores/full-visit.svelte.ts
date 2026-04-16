@@ -9,6 +9,7 @@ export class FullVisitStore {
 
     private probePromises = new Map<string, Promise<boolean>>();
     private fetchPromises = new Map<string, Promise<boolean>>();
+    private reprobeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     private markFetched(eventId: string): void {
         this.fetchState = { ...this.fetchState, [eventId]: 'ready' };
@@ -36,6 +37,23 @@ export class FullVisitStore {
         return this.getFetchState(eventId) === 'ready';
     }
 
+    private scheduleReprobe(eventId: string): void {
+        if (this.reprobeTimers.has(eventId)) return;
+        const timer = setTimeout(() => {
+            this.reprobeTimers.delete(eventId);
+            void this.ensureAvailability(eventId, { refresh: true });
+        }, 8000);
+        this.reprobeTimers.set(eventId, timer);
+    }
+
+    private cancelReprobe(eventId: string): void {
+        const timer = this.reprobeTimers.get(eventId);
+        if (timer !== undefined) {
+            clearTimeout(timer);
+            this.reprobeTimers.delete(eventId);
+        }
+    }
+
     async ensureAvailability(eventId: string, options: { refresh?: boolean } = {}): Promise<boolean> {
         const refresh = options.refresh === true;
         const current = this.getAvailability(eventId);
@@ -58,8 +76,15 @@ export class FullVisitStore {
                 };
                 if (available && fetched) {
                     this.markFetched(eventId);
+                    this.cancelReprobe(eventId);
                 } else if (!available) {
                     this.clearFetched(eventId);
+                    this.cancelReprobe(eventId);
+                } else {
+                    // Available in Frigate but not yet cached locally.
+                    // The backend may be in the middle of auto-caching — schedule
+                    // a single re-probe so the UI corrects itself shortly after.
+                    this.scheduleReprobe(eventId);
                 }
                 return available;
             } catch {
@@ -86,6 +111,7 @@ export class FullVisitStore {
             try {
                 await fetchRecordingClip(eventId);
                 this.markFetched(eventId);
+                this.cancelReprobe(eventId);
                 return true;
             } catch (error) {
                 const message = error instanceof Error ? error.message : '';

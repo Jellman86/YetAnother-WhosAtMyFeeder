@@ -1659,7 +1659,7 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60 overflow-hidden">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -1753,10 +1753,10 @@
                                 {/if}
                             </button>
                         {/if}
-    	                <div class="absolute bottom-0 left-0 right-0 p-6">
-    	                    <h3 class="text-2xl font-black text-white drop-shadow-lg leading-tight">{primaryName}</h3>
+    	                <div class="absolute bottom-0 left-0 right-0 p-5">
+    	                    <h3 class="text-xl font-black text-white drop-shadow-lg leading-tight truncate">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
-    	                        <p class="text-white/70 text-sm italic drop-shadow -mt-1 mb-1">{subName}</p>
+    	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
     	                    {/if}
                         <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
                             {formatDateTime(detection.detection_time)}

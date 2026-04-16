@@ -329,13 +329,6 @@
         return colors[index % colors.length];
     }
 
-    function getMedal(index: number): string {
-        if (index === 0) return '🥇';
-        if (index === 1) return '🥈';
-        if (index === 2) return '🥉';
-        return '';
-    }
-
     function formatDate(value?: string | null): string {
         if (!value) return '—';
         return formatDateTime(value);
@@ -899,13 +892,7 @@
                 }
             },
             stroke: { width: 1.5, colors: [isDark() ? '#1e293b' : '#ffffff'] },
-            legend: {
-                show: true,
-                position: 'bottom',
-                fontSize: '10px',
-                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
-                markers: { width: 8, height: 8, radius: 2 }
-            },
+            legend: { show: false },
             tooltip: {
                 theme: isDark() ? 'dark' : 'light',
                 y: {
@@ -1369,51 +1356,55 @@
                     </div>
                 </div>
                 {#if span !== 'all'}
-                    <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-amber-50/50 dark:bg-amber-950/25">
-                        {#if risingInfo?.thumbnail_url}
-                            <div
-                                class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
-                                style={`background-image: url('${risingInfo.thumbnail_url}');`}
-                            ></div>
-                        {/if}
-                        <p class="text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400 font-black">{$_('leaderboard.rising')}</p>
-                        <div class="flex items-center gap-3 mt-2">
+                    <div class="card-base rounded-2xl p-4 bg-amber-50/50 dark:bg-amber-950/25">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-400/10 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                    <polyline points="17 6 23 6 23 12"></polyline>
+                                </svg>
+                            </div>
+                            <p class="text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400 font-black">{$_('leaderboard.rising')}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
                             {#if risingInfo?.thumbnail_url}
                                 <img
                                     src={risingInfo.thumbnail_url}
                                     alt={topByTrend?.displayName || 'Species'}
-                                    class="w-12 h-12 rounded-2xl object-cover shadow-md border border-white/70"
+                                    class="w-12 h-12 rounded-2xl object-cover shadow-md border border-amber-200/60 dark:border-amber-700/40 flex-shrink-0"
                                 />
                             {:else}
-                                <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                                <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-lg flex-shrink-0">🐦</div>
                             {/if}
-                            <div class="relative">
-                                <p class="text-lg font-black text-slate-900 dark:text-white">{topByTrend?.displayName || '—'}</p>
+                            <div class="min-w-0">
+                                <p class="text-base font-black text-slate-900 dark:text-white truncate">{topByTrend?.displayName || '—'}</p>
                                 <p class="text-xs text-slate-500">{$_('leaderboard.trend')}: <span class="font-bold text-amber-600 dark:text-amber-400">{formatTrend(topByTrend?.delta, topByTrend?.percent)}</span></p>
                             </div>
                         </div>
                     </div>
                 {/if}
-                <div class="card-base rounded-2xl p-4 relative overflow-hidden bg-sky-50/50 dark:bg-sky-950/25">
-                    {#if recentInfo?.thumbnail_url}
-                        <div
-                            class="absolute inset-0 bg-center bg-cover blur-lg scale-105 opacity-25 dark:opacity-20"
-                            style={`background-image: url('${recentInfo.thumbnail_url}');`}
-                        ></div>
-                    {/if}
-                    <p class="text-[10px] uppercase tracking-widest text-sky-600 dark:text-sky-400 font-black">{$_('leaderboard.most_recent')}</p>
-                    <div class="flex items-center gap-3 mt-2">
+                <div class="card-base rounded-2xl p-4 bg-sky-50/50 dark:bg-sky-950/25">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 rounded-lg bg-sky-500/15 dark:bg-sky-400/10 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-sky-600 dark:text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <p class="text-[10px] uppercase tracking-widest text-sky-600 dark:text-sky-400 font-black">{$_('leaderboard.most_recent')}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
                         {#if recentInfo?.thumbnail_url}
                             <img
                                 src={recentInfo.thumbnail_url}
                                 alt={mostRecent?.displayName || 'Species'}
-                                class="w-12 h-12 rounded-2xl object-cover shadow-md border border-white/70"
+                                class="w-12 h-12 rounded-2xl object-cover shadow-md border border-sky-200/60 dark:border-sky-700/40 flex-shrink-0"
                             />
                         {:else}
-                            <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">🐦</div>
+                            <div class="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center text-lg flex-shrink-0">🐦</div>
                         {/if}
-                        <div class="relative">
-                            <p class="text-lg font-black text-slate-900 dark:text-white">{mostRecent?.displayName || '—'}</p>
+                        <div class="min-w-0">
+                            <p class="text-base font-black text-slate-900 dark:text-white truncate">{mostRecent?.displayName || '—'}</p>
                             <p class="text-xs text-slate-500">{formatDate(mostRecent?.last_seen)}</p>
                         </div>
                     </div>
@@ -1823,7 +1814,15 @@
                             >
                                 <td class="px-5 py-3.5 font-black text-slate-400 dark:text-slate-500 text-center">
                                     {#if index < 3}
-                                        <span class="text-lg">{getMedal(index)}</span>
+                                        {@const rankOuter = ['#f59e0b','#cbd5e1','#b45309'][index]}
+                                        {@const rankInner = ['#d97706','#94a3b8','#78350f'][index]}
+                                        <div class="inline-flex w-7 h-7 items-center justify-center drop-shadow-sm mx-auto">
+                                            <svg viewBox="0 0 24 24" class="absolute w-7 h-7" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <path d="M12,0 L14.67,5.53 L20.49,3.51 L18.47,9.33 L24,12 L18.47,14.67 L20.49,20.49 L14.67,18.47 L12,24 L9.33,18.47 L3.51,20.49 L5.53,14.67 L0,12 L5.53,9.33 L3.51,3.51 L9.33,5.53 Z" fill="{rankOuter}"/>
+                                                <circle cx="12" cy="12" r="6.5" fill="{rankInner}"/>
+                                            </svg>
+                                            <span class="relative text-white text-[10px] font-black z-10 leading-none">{index + 1}</span>
+                                        </div>
                                     {:else}
                                         #{index + 1}
                                     {/if}
