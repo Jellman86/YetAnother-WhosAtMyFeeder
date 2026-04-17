@@ -20,6 +20,9 @@ log = structlog.get_logger()
 class BirdCropService:
     """Fail-soft helper for producing a tighter bird crop."""
 
+    ACCURATE_TIER_CONFIDENCE_FLOOR = 0.05
+    ACCURATE_TIER_MIN_CROP_SIZE = 64
+
     def __init__(
         self,
         *,
@@ -109,6 +112,26 @@ class BirdCropService:
 
     def _model_id_for_tier(self, tier: str) -> str:
         return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else self.model_id
+
+    def _normalize_detector_tier(self, detector_tier: str | None = None) -> str:
+        normalized = str(detector_tier or "").strip().lower()
+        if normalized in {"fast", "accurate"}:
+            return normalized
+        return self._requested_detector_tier()
+
+    def get_effective_crop_policy(self, detector_tier: str | None = None) -> dict[str, float | int | str]:
+        normalized_tier = self._normalize_detector_tier(detector_tier)
+        confidence_threshold = self.confidence_threshold
+        min_crop_size = self.min_crop_size
+        if normalized_tier == "accurate":
+            confidence_threshold = min(confidence_threshold, self.ACCURATE_TIER_CONFIDENCE_FLOOR)
+            min_crop_size = min(min_crop_size, self.ACCURATE_TIER_MIN_CROP_SIZE)
+        return {
+            "detector_tier": normalized_tier,
+            "confidence_threshold": float(confidence_threshold),
+            "min_crop_size": max(1, int(min_crop_size)),
+            "expand_ratio": max(0.0, float(self.expand_ratio)),
+        }
 
     def _ensure_model_for_tier(self, tier: str) -> Any | None:
         normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
@@ -902,6 +925,9 @@ class BirdCropService:
         detector_tier: str | None,
         fallback_reason: str | None,
     ) -> dict[str, Any]:
+        crop_policy = self.get_effective_crop_policy(detector_tier)
+        confidence_threshold = float(crop_policy["confidence_threshold"])
+        min_crop_size = int(crop_policy["min_crop_size"])
         normalized: list[dict[str, Any]] = []
         for candidate in candidates or []:
             if isinstance(candidate, dict):
@@ -917,7 +943,7 @@ class BirdCropService:
                 continue
             if highest_confidence is None:
                 highest_confidence = confidence
-            if confidence < self.confidence_threshold:
+            if confidence < confidence_threshold:
                 break
 
             raw_box = self._extract_box(candidate)
@@ -935,7 +961,7 @@ class BirdCropService:
                 continue
 
             left, top, right, bottom = box
-            if (right - left) < self.min_crop_size or (bottom - top) < self.min_crop_size:
+            if (right - left) < min_crop_size or (bottom - top) < min_crop_size:
                 if failure_reason is None:
                     failure_reason = "too_small"
                     failure_confidence = confidence
@@ -955,7 +981,7 @@ class BirdCropService:
                     failure_reason = "invalid_box"
                     failure_confidence = confidence
                 continue
-            if crop_width < self.min_crop_size or crop_height < self.min_crop_size:
+            if crop_width < min_crop_size or crop_height < min_crop_size:
                 if failure_reason is None:
                     failure_reason = "too_small"
                     failure_confidence = confidence
@@ -971,7 +997,7 @@ class BirdCropService:
                 "fallback_reason": fallback_reason,
             }
 
-        if highest_confidence is not None and highest_confidence < self.confidence_threshold:
+        if highest_confidence is not None and highest_confidence < confidence_threshold:
             return self._empty_result(
                 "below_threshold",
                 confidence=highest_confidence,

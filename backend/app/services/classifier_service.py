@@ -3520,11 +3520,21 @@ class ClassifierService:
         crop_service = self._bird_crop_service
         if crop_service is not None:
             try:
-                expand_ratio = max(0.0, float(getattr(crop_service, "expand_ratio", expand_ratio)))
+                crop_policy = crop_service.get_effective_crop_policy()
+            except Exception:
+                crop_policy = None
+            try:
+                if isinstance(crop_policy, dict):
+                    expand_ratio = max(0.0, float(crop_policy.get("expand_ratio", expand_ratio)))
+                else:
+                    expand_ratio = max(0.0, float(getattr(crop_service, "expand_ratio", expand_ratio)))
             except Exception:
                 expand_ratio = 0.12
             try:
-                min_crop_size = max(1, int(getattr(crop_service, "min_crop_size", min_crop_size)))
+                if isinstance(crop_policy, dict):
+                    min_crop_size = max(1, int(crop_policy.get("min_crop_size", min_crop_size)))
+                else:
+                    min_crop_size = max(1, int(getattr(crop_service, "min_crop_size", min_crop_size)))
             except Exception:
                 min_crop_size = 96
         pad_x = int(round(width * expand_ratio))

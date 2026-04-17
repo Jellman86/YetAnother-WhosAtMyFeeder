@@ -80,3 +80,58 @@ def test_generate_crop_returns_fail_soft_when_no_detector_tier_is_available(monk
     assert result["reason"] == "load_failed"
     assert result["detector_tier"] is None
     assert result["fallback_reason"] == "no_detector_available"
+
+
+def test_generate_crop_accurate_tier_accepts_medium_confidence_candidate(monkeypatch):
+    service = BirdCropService(detector_tier="accurate")
+
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, image: [{"box": (16, 16, 88, 88), "confidence": 0.22, "tier": model["tier"]}],
+    )
+
+    result = service.generate_crop(_img())
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "accurate"
+    assert result["confidence"] == 0.22
+
+
+def test_generate_crop_accurate_tier_accepts_smaller_valid_box(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, image: [{"box": (20, 20, 84, 84), "confidence": 0.48, "tier": model["tier"]}],
+    )
+
+    result = service.generate_crop(_img())
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "accurate"
+    assert result["box"] == (20, 20, 84, 84)
+
+
+def test_generate_crop_fast_tier_keeps_legacy_threshold_and_size(monkeypatch):
+    service = BirdCropService(detector_tier="fast", expand_ratio=0.0)
+
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, image: [
+            {"box": (20, 20, 84, 84), "confidence": 0.48, "tier": model["tier"]},
+            {"box": (16, 16, 88, 88), "confidence": 0.22, "tier": model["tier"]},
+        ],
+    )
+
+    result = service.generate_crop(_img())
+
+    assert result["crop_image"] is None
+    assert result["detector_tier"] == "fast"
+    assert result["reason"] == "too_small"
+    assert result["confidence"] == 0.48

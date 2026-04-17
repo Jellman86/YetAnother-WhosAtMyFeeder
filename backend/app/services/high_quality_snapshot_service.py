@@ -634,6 +634,10 @@ class HighQualitySnapshotService:
         expand_ratio = HQ_HINT_CROP_EXPAND_RATIO
         min_crop_size = 96
         try:
+            crop_policy = bird_crop_service.get_effective_crop_policy()
+        except Exception:
+            crop_policy = None
+        try:
             raw_expand_ratio = getattr(bird_crop_service, "hint_expand_ratio", None)
             if isinstance(raw_expand_ratio, bool):
                 raw_expand_ratio = None
@@ -642,7 +646,10 @@ class HighQualitySnapshotService:
         except Exception:
             expand_ratio = HQ_HINT_CROP_EXPAND_RATIO
         try:
-            min_crop_size = max(1, int(getattr(bird_crop_service, "min_crop_size", min_crop_size)))
+            if isinstance(crop_policy, dict):
+                min_crop_size = max(1, int(crop_policy.get("min_crop_size", min_crop_size)))
+            else:
+                min_crop_size = max(1, int(getattr(bird_crop_service, "min_crop_size", min_crop_size)))
         except Exception:
             min_crop_size = 96
 
