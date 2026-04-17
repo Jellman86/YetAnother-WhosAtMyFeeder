@@ -43,7 +43,7 @@ REMOTE_REGISTRY = [
             "interpolation": "bilinear",
             "normalization": "uint8"
         },
-        "tier": "dependency",
+        "tier": "fast",
         "taxonomy_scope": "system",
         "recommended_for": "Required dependency for crop-enabled bird classification.",
         "estimated_ram_mb": 256,
@@ -51,6 +51,44 @@ REMOTE_REGISTRY = [
         "sort_order": 5,
         "status": "stable",
         "notes": "Install this once to enable crop-assisted classification for models that opt into bird cropping."
+    },
+    {
+        "id": "bird_crop_detector_accurate_yolox_tiny",
+        "name": "Bird Crop Detector Accurate (YOLOX-Tiny)",
+        "description": "Experimental higher-accuracy bird-localization detector tier for tighter crop proposals.",
+        "architecture": "YOLOX-Tiny",
+        "artifact_kind": "crop_detector",
+        "file_size_mb": 19.3,
+        "accuracy_tier": "Higher",
+        "inference_speed": "Medium",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_model_config.json",
+        "sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+        "labels_sha256": "bd17f1ee35d5f3c862a4894605855abbb9dda4b0621fdb0ac4c2c8c7bb7e730a",
+        "input_size": 416,
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "letterbox",
+            "interpolation": "bilinear",
+            "normalization": "float32"
+        },
+        "detector": {
+            "parser": "yolox",
+            "box_format": "cxcywh",
+            "target_class_id": 14,
+            "confidence_mode": "object_times_class",
+        },
+        "tier": "accurate",
+        "taxonomy_scope": "system",
+        "recommended_for": "Optional higher-accuracy crop proposals when CPU budget allows.",
+        "estimated_ram_mb": 512,
+        "advanced_only": True,
+        "sort_order": 6,
+        "status": "experimental",
+        "notes": "Experimental accurate crop-detector tier. Falls back to the fast SSD detector when unavailable."
     },
     {
         "id": "mobilenet_v2_birds",
@@ -582,29 +620,66 @@ class ModelManager:
     def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
 
-    def get_crop_detector_meta(self) -> Optional[dict[str, Any]]:
-        return self._get_registry_model_meta("bird_crop_detector")
+    def _crop_detector_id_for_tier(self, tier: Optional[str] = None) -> str:
+        normalized = str(
+            tier
+            or getattr(settings.classification, "bird_crop_detector_tier", "fast")
+            or "fast"
+        ).strip().lower()
+        return "bird_crop_detector_accurate_yolox_tiny" if normalized == "accurate" else "bird_crop_detector"
 
-    def get_crop_detector_spec(self) -> dict[str, Any]:
-        meta = dict(self.get_crop_detector_meta() or {})
-        model_dir = os.path.join(MODELS_DIR, "bird_crop_detector")
+    def get_crop_detector_meta(self, tier: Optional[str] = None) -> Optional[dict[str, Any]]:
+        return self._get_registry_model_meta(self._crop_detector_id_for_tier(tier))
+
+    def _build_crop_detector_spec(self, model_id: str, *, selected_tier: str, resolved_tier: str, reason_override: Optional[str] = None) -> dict[str, Any]:
+        meta = dict(self._get_registry_model_meta(model_id) or {})
+        model_dir = os.path.join(MODELS_DIR, model_id)
         model_path = os.path.join(model_dir, "model.onnx")
         labels_path = os.path.join(model_dir, "labels.txt")
         config_path = os.path.join(model_dir, "model_config.json")
         installed = os.path.exists(model_path)
         healthy = installed and os.path.exists(config_path)
         return {
-            "model_id": "bird_crop_detector",
+            "model_id": model_id,
             "artifact_kind": str(meta.get("artifact_kind") or "crop_detector"),
+            "selected_tier": selected_tier,
+            "resolved_tier": resolved_tier,
             "installed": installed,
             "healthy": healthy,
             "enabled_for_runtime": healthy,
-            "reason": "ready" if healthy else ("config_missing" if installed else "not_installed"),
+            "reason": reason_override or ("ready" if healthy else ("config_missing" if installed else "not_installed")),
             "model_path": model_path,
             "labels_path": labels_path,
             "model_config_path": config_path,
             "metadata": meta,
         }
+
+    def get_crop_detector_spec(self, selected_tier: Optional[str] = None) -> dict[str, Any]:
+        normalized_selected_tier = str(
+            selected_tier
+            or getattr(settings.classification, "bird_crop_detector_tier", "fast")
+            or "fast"
+        ).strip().lower()
+        if normalized_selected_tier not in {"fast", "accurate"}:
+            normalized_selected_tier = "fast"
+
+        requested_model_id = self._crop_detector_id_for_tier(normalized_selected_tier)
+        requested_spec = self._build_crop_detector_spec(
+            requested_model_id,
+            selected_tier=normalized_selected_tier,
+            resolved_tier=normalized_selected_tier,
+        )
+        if normalized_selected_tier != "accurate" or requested_spec["healthy"]:
+            return requested_spec
+
+        fallback_spec = self._build_crop_detector_spec(
+            "bird_crop_detector",
+            selected_tier="accurate",
+            resolved_tier="fast",
+            reason_override="fallback_fast",
+        )
+        fallback_spec["enabled_for_runtime"] = bool(fallback_spec["healthy"])
+        return fallback_spec
 
     def _is_family_model(self, model_meta: Optional[dict[str, Any]]) -> bool:
         return bool((model_meta or {}).get("region_variants"))
@@ -736,6 +811,13 @@ class ModelManager:
             "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
             "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
         }
+        for checksum_key in ("sha256", "labels_sha256", "weights_sha256"):
+            checksum_value = str(model_meta.get(checksum_key) or "").strip()
+            if checksum_value:
+                payload[checksum_key] = checksum_value
+        detector = model_meta.get("detector")
+        if isinstance(detector, dict) and detector:
+            payload["detector"] = dict(detector)
         region_scope = str(model_meta.get("region_scope") or "").strip()
         if region_scope:
             payload["region_scope"] = region_scope

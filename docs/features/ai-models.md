@@ -8,7 +8,7 @@ You can manage models directly from the **Settings > Detection > Model Manager**
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models for cleaner feeder-focused confidence
 - A legacy TFLite fallback for very constrained CPU-only systems
-- A separately managed bird-crop detector dependency used by crop-enabled models
+- Separately managed bird-crop detector tiers used by crop-enabled models
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
@@ -86,9 +86,12 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **Speed:** ~13ms
 - Hidden by default in the UI. Use only for very constrained hardware.
 
-#### Bird Crop Detector
-- Separate downloadable dependency managed in the same Model Manager.
-- Required for crop-enabled classifier models that use the shared bird-localization stage.
+#### Bird Crop Detector Tiers
+- Managed in the same Model Manager as classifier models.
+- `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
+- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and automatically falls back to `Fast` if the accurate artifact is missing or unhealthy.
+- Crop-enabled classifier models require at least one installed crop detector.
+- The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.

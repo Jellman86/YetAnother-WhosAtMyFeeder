@@ -214,6 +214,10 @@ class ClassificationSettings(BaseModel):
     model: str = "rope_vit_b14_inat21"
     threshold: float = 0.7
     min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
+    bird_crop_detector_tier: Literal["fast", "accurate"] = Field(
+        default="fast",
+        description="Bird crop detector tier: fast|accurate",
+    )
     blocked_labels: list[str] = Field(
         default=[],
         description="Labels to filter out completely (won't be saved)"

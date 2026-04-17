@@ -272,8 +272,8 @@
         return installedModels.some(m => m.id === modelId && m.is_active);
     }
 
-    function isCropDetectorInstalled(): boolean {
-        return installedModels.some((model) => model.id === 'bird_crop_detector');
+    function isCropDetectorInstalled(modelId: string): boolean {
+        return installedModels.some((model) => model.id === modelId);
     }
 
     function getProviderSupport(model: ModelMetadata): string[] {
@@ -480,78 +480,84 @@
             {error}
         </div>
     {:else}
-        {@const cropDetectorModel = availableModels.find((model) => model.id === 'bird_crop_detector')}
+        {@const cropDetectorModels = availableModels
+            .filter((model) => (model.artifact_kind || 'classifier') === 'crop_detector')
+            .sort((a, b) => a.sort_order - b.sort_order)}
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
-        {@const cropDetectorDownload = cropDetectorModel ? downloadStatuses[cropDetectorModel.id] : undefined}
-        {@const cropDetectorInstalled = isCropDetectorInstalled()}
-        {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorInstalled)}
+        {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorModels.some((model) => isCropDetectorInstalled(model.id)))}
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
-            {#if cropDetectorModel}
-                <div class="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                    <div class="p-5">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Bird Crop Detector</h3>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    Shared detector dependency for crop-enabled bird models. Download it once to unlock crop-assisted classification.
-                                </p>
-                            </div>
-                            <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${cropDetectorReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'}`}>
-                                {cropDetectorReady ? 'Installed' : 'Not installed'}
-                            </span>
-                        </div>
-
-                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</p>
-                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                    {cropDetectorStatus?.reason || (cropDetectorInstalled ? 'installed' : 'not_installed')}
-                                </p>
-                            </div>
-                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</p>
-                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                    {cropDetectorStatus?.healthy ? 'Healthy' : 'Unavailable'}
-                                </p>
-                            </div>
-                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Artifact</p>
-                                <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                    {cropDetectorModel.file_size_mb} MB
-                                </p>
-                            </div>
-                        </div>
-
-                        {#if cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
-                            <div class="mt-4">
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-teal-600 dark:text-teal-400 font-medium">Downloading detector...</span>
-                                    <span class="text-slate-500">{cropDetectorDownload.progress.toFixed(0)}%</span>
+            {#if cropDetectorModels.length > 0}
+                {#each cropDetectorModels as cropDetectorModel}
+                    {@const cropDetectorDownload = downloadStatuses[cropDetectorModel.id]}
+                    {@const cropDetectorInstalled = isCropDetectorInstalled(cropDetectorModel.id)}
+                    {@const runtimeSelected = cropDetectorStatus?.model_id === cropDetectorModel.id}
+                    {@const cropDetectorCardReady = Boolean((runtimeSelected && cropDetectorStatus?.enabled_for_runtime) || cropDetectorInstalled)}
+                    <div class="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        <div class="p-5">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">{cropDetectorModel.name}</h3>
+                                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                        {cropDetectorModel.description}
+                                    </p>
                                 </div>
-                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                                    <div class="bg-teal-500 h-full transition-all duration-300" style="width: {cropDetectorDownload.progress}%"></div>
+                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${cropDetectorCardReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'}`}>
+                                    {cropDetectorCardReady ? 'Installed' : 'Not installed'}
+                                </span>
+                            </div>
+
+                            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</p>
+                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                        {runtimeSelected ? (cropDetectorStatus?.reason || 'installed') : (cropDetectorInstalled ? 'installed' : 'not_installed')}
+                                    </p>
+                                </div>
+                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</p>
+                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                        {runtimeSelected ? (cropDetectorStatus?.healthy ? 'Healthy' : 'Unavailable') : (cropDetectorInstalled ? 'Installed' : 'Unavailable')}
+                                    </p>
+                                </div>
+                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Artifact</p>
+                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                        {cropDetectorModel.file_size_mb} MB
+                                    </p>
                                 </div>
                             </div>
-                        {/if}
 
-                        <div class="mt-4 flex flex-wrap gap-3">
-                            <button
-                                onclick={() => handleDownload(cropDetectorModel)}
-                                disabled={cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
-                                class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                {cropDetectorInstalled ? 'Re-download detector' : 'Download detector'}
-                            </button>
-                            {#if !cropDetectorReady}
-                                <p class="text-sm text-slate-500 dark:text-slate-400">
-                                    Crop-enabled models require the bird crop detector before crop generation can be used.
-                                </p>
+                            {#if cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
+                                <div class="mt-4">
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-teal-600 dark:text-teal-400 font-medium">Downloading detector...</span>
+                                        <span class="text-slate-500">{cropDetectorDownload.progress.toFixed(0)}%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-teal-500 h-full transition-all duration-300" style="width: {cropDetectorDownload.progress}%"></div>
+                                    </div>
+                                </div>
                             {/if}
+
+                            <div class="mt-4 flex flex-wrap gap-3">
+                                <button
+                                    onclick={() => handleDownload(cropDetectorModel)}
+                                    disabled={cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
+                                    class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {cropDetectorInstalled ? 'Re-download detector' : 'Download detector'}
+                                </button>
+                                {#if !cropDetectorReady}
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                                        Crop-enabled models require at least one installed bird crop detector before crop generation can be used.
+                                    </p>
+                                {/if}
+                            </div>
                         </div>
                     </div>
-                </div>
+                {/each}
             {/if}
 
             <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">

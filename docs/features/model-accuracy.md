@@ -24,7 +24,8 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **EU FocalNet-B** | medium | birds_only (EU) | 41.7% | 36.7% | 53.3% | 48.3% | 266ms | intel_gpu |
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
 | **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
-| **Bird Crop Detector** | dependency | system | n/a | n/a | n/a | n/a | 5ms | cpu |
+| **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
+| **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | pending | cpu |
 
 > **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
@@ -37,6 +38,8 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
+- **Bird Crop Detector (Fast)** remains the default crop-localization path because it is small, fast, and already validated for fail-soft CPU use.
+- **Bird Crop Detector Accurate (YOLOX-Tiny)** is now wired as an optional experimental tier. It is intended to improve crop quality in harder feeder scenes and falls back to the fast detector automatically when unavailable. Benchmarks are still pending artifact publication and fixture evaluation.
 
 > **Note on score changes from previous run (15 March 2026):** Accuracy is 5–7% lower than the March 15 results. This is due to iNaturalist serving different photos on re-download — the fixture set is the same 15 species but the 4 images per species changed. Scores will vary slightly between runs for this reason.
 

@@ -42,6 +42,7 @@ export interface Settings {
     video_classification_max_retries: number;
     video_classification_max_concurrent: number;
     video_classification_frames: number;
+    bird_crop_detector_tier?: 'fast' | 'accurate' | string;
     bird_model_region_override?: BirdModelRegionOverride;
     crop_model_overrides?: Record<string, CropModelOverride>;
     crop_source_overrides?: Record<string, CropSourceOverride>;

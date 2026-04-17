@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import math
 import os
 import threading
@@ -10,6 +11,8 @@ from typing import Any, Callable
 import numpy as np
 import structlog
 from PIL import Image
+
+from app.config import settings
 
 log = structlog.get_logger()
 
@@ -21,6 +24,8 @@ class BirdCropService:
         self,
         *,
         model_id: str = "bird_crop",
+        detector_tier: str | None = None,
+        accurate_model_id: str = "bird_crop_detector_accurate_yolox_tiny",
         confidence_threshold: float = 0.35,
         expand_ratio: float = 0.12,
         min_crop_size: int = 96,
@@ -28,56 +33,112 @@ class BirdCropService:
         model_loader: Callable[[], Any] | None = None,
     ):
         self.model_id = str(model_id or "bird_crop")
+        normalized_detector_tier = str(detector_tier or "").strip().lower()
+        self.detector_tier = normalized_detector_tier if normalized_detector_tier in {"fast", "accurate"} else None
+        self.accurate_model_id = str(accurate_model_id or "bird_crop_detector_accurate_yolox_tiny")
         self.confidence_threshold = float(confidence_threshold)
         self.expand_ratio = max(0.0, float(expand_ratio))
         self.min_crop_size = max(1, int(min_crop_size))
         self.fallback_to_original = bool(fallback_to_original)
         self._model_loader = model_loader
         self._model_lock = threading.Lock()
-        self._model: Any | None = None
-        self._model_loaded = False
+        self._models: dict[str, Any | None] = {}
+        self._models_loaded: dict[str, bool] = {}
         self._model_error: str | None = None
+        self._model_errors: dict[str, str | None] = {}
 
     def generate_crop(self, image: Image.Image) -> dict[str, Any]:
         """Return the best crop candidate or a fail-soft empty result."""
         if not isinstance(image, Image.Image):
             return self._empty_result("invalid_image")
 
+        requested_tier = self._requested_detector_tier()
+        resolved_tier = requested_tier
+        fallback_reason: str | None = None
         try:
-            model = self._ensure_model()
+            model = self._ensure_model_for_tier(requested_tier)
         except Exception as exc:  # pragma: no cover - defensive guard
             self._model_error = str(exc)
-            log.warning("Bird crop model load failed", model_id=self.model_id, error=str(exc))
-            return self._empty_result("load_failed")
+            self._model_errors[requested_tier] = str(exc)
+            log.warning("Bird crop model load failed", detector_tier=requested_tier, error=str(exc))
+            model = None
+
+        if model is None and requested_tier == "accurate":
+            fallback_reason = "accurate_unavailable"
+            resolved_tier = "fast"
+            try:
+                model = self._ensure_model_for_tier("fast")
+            except Exception as exc:  # pragma: no cover - defensive guard
+                self._model_error = str(exc)
+                self._model_errors["fast"] = str(exc)
+                log.warning("Bird crop fallback model load failed", detector_tier="fast", error=str(exc))
+                model = None
 
         if model is None:
-            return self._empty_result("load_failed")
+            return self._empty_result(
+                "load_failed",
+                detector_tier=None,
+                fallback_reason="no_detector_available",
+            )
 
         try:
             candidates = self._infer_candidates(model, image)
         except Exception as exc:
-            log.warning("Bird crop inference failed", model_id=self.model_id, error=str(exc))
-            return self._empty_result("inference_failed")
+            log.warning("Bird crop inference failed", detector_tier=resolved_tier, error=str(exc))
+            return self._empty_result(
+                "inference_failed",
+                detector_tier=resolved_tier,
+                fallback_reason=fallback_reason,
+            )
 
-        return self._select_best_valid_candidate(image, candidates)
+        return self._select_best_valid_candidate(
+            image,
+            candidates,
+            detector_tier=resolved_tier,
+            fallback_reason=fallback_reason,
+        )
 
     def _ensure_model(self) -> Any | None:
-        if self._model_loaded:
-            return self._model
+        return self._ensure_model_for_tier("fast")
+
+    def _requested_detector_tier(self) -> str:
+        if self.detector_tier in {"fast", "accurate"}:
+            return self.detector_tier
+        configured = str(getattr(settings.classification, "bird_crop_detector_tier", "fast") or "fast").strip().lower()
+        return configured if configured in {"fast", "accurate"} else "fast"
+
+    def _model_id_for_tier(self, tier: str) -> str:
+        return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else self.model_id
+
+    def _ensure_model_for_tier(self, tier: str) -> Any | None:
+        normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
+        if self._models_loaded.get(normalized_tier):
+            return self._models.get(normalized_tier)
 
         with self._model_lock:
-            if self._model_loaded:
-                return self._model
-            self._model = self._load_model()
-            self._model_loaded = self._model is not None
-            return self._model
+            if self._models_loaded.get(normalized_tier):
+                return self._models.get(normalized_tier)
+            model = self._load_model_for_tier(normalized_tier)
+            self._models[normalized_tier] = model
+            self._models_loaded[normalized_tier] = model is not None
+            return model
 
     def _load_model(self) -> Any | None:
+        return self._load_model_impl("fast")
+
+    def _load_model_for_tier(self, tier: str) -> Any | None:
+        normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
+        if normalized_tier == "fast":
+            return self._load_model()
+        return self._load_model_impl(normalized_tier)
+
+    def _load_model_impl(self, tier: str) -> Any | None:
         if self._model_loader is not None:
             return self._model_loader()
-        model_path = self._resolve_model_path()
+        model_path = self._resolve_model_path(tier)
         if model_path is None:
             return None
+        detector_config = self._load_detector_config(model_path)
         ort = self._import_onnxruntime()
         sess_options = ort.SessionOptions()
         session = ort.InferenceSession(
@@ -104,18 +165,37 @@ class BirdCropService:
                 str(getattr(output, "name", "") or "")
                 for output in (session_outputs or [])
             ],
+            "detector_tier": "accurate" if str(tier or "").strip().lower() == "accurate" else "fast",
+            "detector_config": detector_config,
             "model_path": str(model_path),
         }
 
-    def _resolve_model_path(self) -> Path | None:
-        for candidate in self._candidate_model_paths():
+    def _load_detector_config(self, model_path: Path) -> dict[str, Any]:
+        config_path = model_path.with_name("model_config.json")
+        if not config_path.exists():
+            return {}
+        try:
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        detector = payload.get("detector") if isinstance(payload, dict) else None
+        return dict(detector) if isinstance(detector, dict) else {}
+
+    def _resolve_model_path(self, tier: str = "fast") -> Path | None:
+        try:
+            candidates = self._candidate_model_paths(tier)
+        except TypeError:
+            candidates = self._candidate_model_paths()
+        for candidate in candidates:
             normalized = Path(str(candidate or "")).expanduser()
             if normalized.is_file():
                 return normalized
         return None
 
-    def _candidate_model_paths(self) -> list[str]:
-        env_path = str(os.getenv("BIRD_CROP_MODEL_PATH") or "").strip()
+    def _candidate_model_paths(self, tier: str = "fast") -> list[str]:
+        normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
+        env_var = "BIRD_CROP_MODEL_PATH_ACCURATE" if normalized_tier == "accurate" else "BIRD_CROP_MODEL_PATH"
+        env_path = str(os.getenv(env_var) or "").strip()
         candidates: list[str] = []
         if env_path:
             candidates.append(env_path)
@@ -123,13 +203,17 @@ class BirdCropService:
         try:
             from app.services.model_manager import model_manager
 
-            detector_spec = model_manager.get_crop_detector_spec()
+            try:
+                detector_spec = model_manager.get_crop_detector_spec(normalized_tier)
+            except TypeError:
+                detector_spec = model_manager.get_crop_detector_spec()
             managed_model_path = str(detector_spec.get("model_path") or "").strip()
             if managed_model_path:
                 candidates.append(managed_model_path)
         except Exception:
             pass
 
+        model_id = self._model_id_for_tier(normalized_tier)
         base_dirs = [
             "/data/models",
             str((Path(__file__).resolve().parent / "../../data/models").resolve()),
@@ -142,24 +226,32 @@ class BirdCropService:
             seen.add(normalized_base)
             candidates.extend(
                 [
-                    os.path.join(normalized_base, self.model_id, "model.onnx"),
-                    os.path.join(normalized_base, f"{self.model_id}.onnx"),
-                    os.path.join(normalized_base, self.model_id, f"{self.model_id}.onnx"),
+                    os.path.join(normalized_base, model_id, "model.onnx"),
+                    os.path.join(normalized_base, f"{model_id}.onnx"),
+                    os.path.join(normalized_base, model_id, f"{model_id}.onnx"),
                 ]
             )
         return candidates
 
     def get_status(self) -> dict[str, Any]:
-        model_path = self._resolve_model_path()
-        return {
-            "model_id": self.model_id,
-            "installed": model_path is not None,
-            "healthy": model_path is not None,
-            "enabled_for_runtime": model_path is not None,
-            "reason": "ready" if model_path is not None else "not_installed",
-            "model_path": str(model_path) if model_path is not None else None,
-            "load_error": self._model_error,
-        }
+        try:
+            from app.services.model_manager import model_manager
+
+            status = dict(model_manager.get_crop_detector_spec(self._requested_detector_tier()) or {})
+        except Exception:
+            model_path = self._resolve_model_path(self._requested_detector_tier())
+            status = {
+                "model_id": self._model_id_for_tier(self._requested_detector_tier()),
+                "selected_tier": self._requested_detector_tier(),
+                "resolved_tier": self._requested_detector_tier(),
+                "installed": model_path is not None,
+                "healthy": model_path is not None,
+                "enabled_for_runtime": model_path is not None,
+                "reason": "ready" if model_path is not None else "not_installed",
+                "model_path": str(model_path) if model_path is not None else None,
+            }
+        status["load_error"] = self._model_error
+        return status
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)
@@ -176,6 +268,7 @@ class BirdCropService:
         input_type = str(model.get("input_type") or "tensor(float)").strip().lower()
         dynamic_input_hw = bool(model.get("dynamic_input_hw", False))
         output_names = [str(name or "") for name in (model.get("output_names") or [])]
+        detector_config = dict(model.get("detector_config") or {})
         if session is None:
             return []
         input_tensor, transform = self._prepare_detector_input(
@@ -192,6 +285,8 @@ class BirdCropService:
             transform=transform,
             image_size=image.size,
             output_names=output_names,
+            detector_tier=str(model.get("detector_tier") or self._requested_detector_tier()),
+            detector_config=detector_config,
         )
  
     def _import_onnxruntime(self):
@@ -301,22 +396,47 @@ class BirdCropService:
         transform: dict[str, float],
         image_size: tuple[int, int],
         output_names: list[str] | None = None,
+        detector_tier: str | None = None,
+        detector_config: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         if not isinstance(outputs, (list, tuple)) or not outputs:
             return []
+        normalized_detector_tier = str(detector_tier or "").strip().lower()
+        detector_config = dict(detector_config or {})
+        parser = str(detector_config.get("parser") or "").strip().lower()
+        if parser == "yolox" or normalized_detector_tier == "accurate":
+            parsed = self._parse_yolox_detection_outputs(
+                outputs[0],
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
+            if parsed or self._looks_like_yolox_tensor(outputs[0]):
+                return parsed
         parsed, matched_named_route = self._parse_named_detection_outputs(
             outputs,
             transform=transform,
             image_size=image_size,
             output_names=output_names or [],
+            detector_config=detector_config,
         )
         if matched_named_route:
             return parsed
-        parsed = self._parse_single_tensor_detections(outputs[0], transform=transform, image_size=image_size)
+        parsed = self._parse_single_tensor_detections(
+            outputs[0],
+            transform=transform,
+            image_size=image_size,
+            detector_config=detector_config,
+        )
         if parsed:
             return parsed
         if len(outputs) >= 2:
-            parsed = self._parse_split_tensor_detections(outputs, transform=transform, image_size=image_size)
+            parsed = self._parse_split_tensor_detections(
+                outputs,
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
             if parsed:
                 return parsed
         return []
@@ -328,6 +448,7 @@ class BirdCropService:
         transform: dict[str, float],
         image_size: tuple[int, int],
         output_names: list[str],
+        detector_config: dict[str, Any] | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         normalized_names = [name.strip().lower() for name in output_names]
         if not normalized_names:
@@ -341,6 +462,7 @@ class BirdCropService:
                 count_output=by_name.get("num_detections"),
                 transform=transform,
                 image_size=image_size,
+                detector_config=detector_config,
             ), True
         return [], False
 
@@ -353,6 +475,7 @@ class BirdCropService:
         count_output: Any,
         transform: dict[str, float],
         image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         try:
             boxes = np.asarray(boxes_output).reshape(-1, 4)
@@ -369,7 +492,7 @@ class BirdCropService:
             except Exception:
                 pass
         candidates: list[dict[str, Any]] = []
-        target_class_id = self._resolve_target_class_id()
+        target_class_id = self._resolve_target_class_id(detector_config)
         for idx in range(count):
             class_id = self._finite_float(classes[idx])
             confidence = self._finite_float(scores[idx])
@@ -384,13 +507,187 @@ class BirdCropService:
                     "normalized_yxyx": True,
                 },
                 image_size=image_size,
+                detector_config=detector_config,
             )
             if box is None:
                 continue
             candidates.append({"box": box, "confidence": confidence})
         return candidates
 
-    def _resolve_target_class_id(self) -> int:
+    def _looks_like_yolox_tensor(self, output: Any) -> bool:
+        try:
+            arr = np.asarray(output)
+        except Exception:
+            return False
+        if arr.size == 0 or arr.ndim < 2:
+            return False
+        return int(arr.shape[-1]) in {6, 7, 85} or int(arr.shape[-2]) in {6, 7, 85}
+
+    def _parse_yolox_detection_outputs(
+        self,
+        output: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        try:
+            arr = np.asarray(output)
+        except Exception:
+            return []
+        if arr.size == 0:
+            return []
+        if arr.ndim >= 2 and arr.shape[-1] not in {6, 7} and arr.shape[-2] in {6, 7}:
+            arr = np.swapaxes(arr, -1, -2)
+        if arr.shape[-1] > 7:
+            return self._parse_yolox_raw_grid_outputs(
+                arr,
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
+        if arr.shape[-1] not in {6, 7}:
+            return []
+        rows = arr.reshape(-1, arr.shape[-1])
+        candidates: list[dict[str, Any]] = []
+        target_class_id = self._resolve_target_class_id(detector_config)
+        confidence_mode = str((detector_config or {}).get("confidence_mode") or "object_times_class").strip().lower()
+        for row in rows:
+            if row.shape[0] == 6:
+                confidence = self._finite_float(row[4])
+                class_id = self._finite_float(row[5])
+            elif row.shape[0] == 7:
+                object_confidence = self._finite_float(row[4])
+                class_confidence = self._finite_float(row[5])
+                class_id = self._finite_float(row[6])
+                if object_confidence is None or class_confidence is None:
+                    continue
+                if confidence_mode == "score":
+                    confidence = float(class_confidence)
+                elif confidence_mode == "object":
+                    confidence = float(object_confidence)
+                else:
+                    confidence = float(object_confidence * class_confidence)
+            else:
+                continue
+            if confidence is None or class_id is None:
+                continue
+            if int(round(class_id)) != target_class_id:
+                continue
+            box = self._restore_box_to_image(
+                row[:4],
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
+            if box is None:
+                continue
+            candidates.append({"box": box, "confidence": confidence})
+        return candidates
+
+    def _parse_yolox_raw_grid_outputs(
+        self,
+        output: np.ndarray,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        arr = np.asarray(output, dtype=np.float32)
+        if arr.ndim == 3:
+            arr = arr[0]
+        if arr.ndim != 2 or arr.shape[-1] <= 5:
+            return []
+
+        num_predictions = int(arr.shape[0])
+        img_h = int(round(float(transform.get("scale_y") or transform.get("scale") or 1.0) * float(image_size[1]) + float(transform.get("pad_y") or 0.0) * 2.0))
+        img_w = int(round(float(transform.get("scale_x") or transform.get("scale") or 1.0) * float(image_size[0]) + float(transform.get("pad_x") or 0.0) * 2.0))
+        decoded = self._decode_yolox_predictions(arr.copy(), input_size=(img_h, img_w))
+        if decoded is None:
+            return []
+
+        target_class_id = self._resolve_target_class_id(detector_config)
+        scores = decoded[:, 4] * decoded[:, 5 + target_class_id]
+        valid_mask = np.isfinite(scores) & (scores > 0.0)
+        if not np.any(valid_mask):
+            return []
+
+        decoded = decoded[valid_mask]
+        scores = scores[valid_mask]
+        keep = self._single_class_nms_cxcywh(decoded[:, :4], scores, iou_threshold=0.45)
+        candidates: list[dict[str, Any]] = []
+        cxcywh_config = {**dict(detector_config or {}), "box_format": "cxcywh"}
+        for idx in keep:
+            confidence = self._finite_float(scores[idx])
+            if confidence is None:
+                continue
+            box = self._restore_box_to_image(
+                decoded[idx, :4],
+                transform=transform,
+                image_size=image_size,
+                detector_config=cxcywh_config,
+            )
+            if box is None:
+                continue
+            candidates.append({"box": box, "confidence": confidence})
+        return candidates
+
+    def _decode_yolox_predictions(self, predictions: np.ndarray, *, input_size: tuple[int, int]) -> np.ndarray | None:
+        strides = [8, 16, 32]
+        grids: list[np.ndarray] = []
+        expanded_strides: list[np.ndarray] = []
+        hsize_total = 0
+        expected_predictions = 0
+        for stride in strides:
+            hsize = input_size[0] // stride
+            wsize = input_size[1] // stride
+            yv, xv = np.meshgrid(np.arange(hsize), np.arange(wsize), indexing="ij")
+            grid = np.stack((xv, yv), axis=2).reshape(-1, 2)
+            grids.append(grid)
+            expanded_strides.append(np.full((grid.shape[0], 1), stride, dtype=np.float32))
+            expected_predictions += grid.shape[0]
+            hsize_total += hsize * wsize
+        if predictions.shape[0] != expected_predictions:
+            return None
+        grid = np.concatenate(grids, axis=0).astype(np.float32)
+        stride = np.concatenate(expanded_strides, axis=0).astype(np.float32)
+        predictions[:, :2] = (predictions[:, :2] + grid) * stride
+        predictions[:, 2:4] = np.exp(predictions[:, 2:4]) * stride
+        return predictions
+
+    def _single_class_nms_cxcywh(self, boxes: np.ndarray, scores: np.ndarray, *, iou_threshold: float) -> list[int]:
+        if boxes.size == 0 or scores.size == 0:
+            return []
+        x1 = boxes[:, 0] - (boxes[:, 2] / 2.0)
+        y1 = boxes[:, 1] - (boxes[:, 3] / 2.0)
+        x2 = boxes[:, 0] + (boxes[:, 2] / 2.0)
+        y2 = boxes[:, 1] + (boxes[:, 3] / 2.0)
+        areas = np.maximum(0.0, x2 - x1 + 1.0) * np.maximum(0.0, y2 - y1 + 1.0)
+        order = scores.argsort()[::-1]
+        keep: list[int] = []
+        while order.size > 0:
+            i = int(order[0])
+            keep.append(i)
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+            w = np.maximum(0.0, xx2 - xx1 + 1.0)
+            h = np.maximum(0.0, yy2 - yy1 + 1.0)
+            inter = w * h
+            union = areas[i] + areas[order[1:]] - inter
+            iou = np.divide(inter, union, out=np.zeros_like(inter), where=union > 0.0)
+            inds = np.where(iou <= iou_threshold)[0]
+            order = order[inds + 1]
+        return keep
+
+    def _resolve_target_class_id(self, detector_config: dict[str, Any] | None = None) -> int:
+        config_class_id = (detector_config or {}).get("target_class_id")
+        try:
+            if config_class_id is not None:
+                return int(config_class_id)
+        except (TypeError, ValueError):
+            pass
         raw = os.getenv("BIRD_CROP_CLASS_ID")
         try:
             return int(raw) if raw is not None else 16
@@ -403,6 +700,7 @@ class BirdCropService:
         *,
         transform: dict[str, float],
         image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         try:
             arr = np.asarray(output)
@@ -422,7 +720,12 @@ class BirdCropService:
             confidence = self._finite_float(row[4])
             if confidence is None:
                 continue
-            box = self._restore_box_to_image(row[:4], transform=transform, image_size=image_size)
+            box = self._restore_box_to_image(
+                row[:4],
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
             if box is None:
                 continue
             candidates.append({"box": box, "confidence": confidence})
@@ -434,6 +737,7 @@ class BirdCropService:
         *,
         transform: dict[str, float],
         image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         try:
             boxes = np.asarray(outputs[0]).reshape(-1, 4)
@@ -446,7 +750,12 @@ class BirdCropService:
             confidence = self._finite_float(scores[idx])
             if confidence is None:
                 continue
-            box = self._restore_box_to_image(boxes[idx], transform=transform, image_size=image_size)
+            box = self._restore_box_to_image(
+                boxes[idx],
+                transform=transform,
+                image_size=image_size,
+                detector_config=detector_config,
+            )
             if box is None:
                 continue
             candidates.append({"box": box, "confidence": confidence})
@@ -458,12 +767,13 @@ class BirdCropService:
         *,
         transform: dict[str, float],
         image_size: tuple[int, int],
+        detector_config: dict[str, Any] | None = None,
     ) -> tuple[float, float, float, float] | None:
         try:
             left, top, right, bottom = [float(value) for value in box[:4]]
         except Exception:
             return None
-        box_format = str(os.getenv("BIRD_CROP_BOX_FORMAT") or "xyxy").strip().lower()
+        box_format = str((detector_config or {}).get("box_format") or os.getenv("BIRD_CROP_BOX_FORMAT") or "xyxy").strip().lower()
         if box_format == "cxcywh":
             center_x, center_y, width, height = left, top, right, bottom
             left = center_x - (width / 2.0)
@@ -532,7 +842,14 @@ class BirdCropService:
         normalized.sort(key=lambda candidate: self._coerce_confidence(candidate) or float("-inf"), reverse=True)
         return normalized[0] if normalized else None
 
-    def _select_best_valid_candidate(self, image: Image.Image, candidates: Any) -> dict[str, Any]:
+    def _select_best_valid_candidate(
+        self,
+        image: Image.Image,
+        candidates: Any,
+        *,
+        detector_tier: str | None,
+        fallback_reason: str | None,
+    ) -> dict[str, Any]:
         normalized: list[dict[str, Any]] = []
         for candidate in candidates or []:
             if isinstance(candidate, dict):
@@ -598,13 +915,29 @@ class BirdCropService:
                 "box": expanded,
                 "confidence": confidence,
                 "reason": "selected",
+                "detector_tier": detector_tier,
+                "fallback_reason": fallback_reason,
             }
 
         if highest_confidence is not None and highest_confidence < self.confidence_threshold:
-            return self._empty_result("below_threshold", confidence=highest_confidence)
+            return self._empty_result(
+                "below_threshold",
+                confidence=highest_confidence,
+                detector_tier=detector_tier,
+                fallback_reason=fallback_reason,
+            )
         if failure_reason is not None:
-            return self._empty_result(failure_reason, confidence=failure_confidence)
-        return self._empty_result("no_candidate")
+            return self._empty_result(
+                failure_reason,
+                confidence=failure_confidence,
+                detector_tier=detector_tier,
+                fallback_reason=fallback_reason,
+            )
+        return self._empty_result(
+            "no_candidate",
+            detector_tier=detector_tier,
+            fallback_reason=fallback_reason,
+        )
 
     def _coerce_confidence(self, candidate: Any) -> float | None:
         if not isinstance(candidate, dict):
@@ -670,7 +1003,14 @@ class BirdCropService:
             return None
         return expanded_left, expanded_top, expanded_right, expanded_bottom
 
-    def _empty_result(self, reason: str, *, confidence: float | None = None) -> dict[str, Any]:
+    def _empty_result(
+        self,
+        reason: str,
+        *,
+        confidence: float | None = None,
+        detector_tier: str | None = None,
+        fallback_reason: str | None = None,
+    ) -> dict[str, Any]:
         if not self.fallback_to_original:
             reason = f"{reason}_no_fallback"
         return {
@@ -678,6 +1018,8 @@ class BirdCropService:
             "box": None,
             "confidence": confidence if confidence is not None and math.isfinite(confidence) else None,
             "reason": reason,
+            "detector_tier": detector_tier,
+            "fallback_reason": fallback_reason,
         }
 
 

@@ -42,6 +42,8 @@ export interface ClassifierStatus {
     personalization_active_camera_models?: number;
     crop_detector?: {
         model_id: string;
+        selected_tier?: string;
+        resolved_tier?: string;
         installed: boolean;
         healthy: boolean;
         enabled_for_runtime: boolean;

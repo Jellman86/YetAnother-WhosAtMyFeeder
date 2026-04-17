@@ -27,6 +27,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
+        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
         cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
@@ -49,6 +50,7 @@
         videoClassificationMaxRetries: number;
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
+        birdCropDetectorTier: 'fast' | 'accurate' | string;
         birdModelRegionOverride: BirdModelRegionOverride;
         cropModelOverrides: Record<string, CropModelOverride>;
         cropSourceOverrides: Record<string, CropSourceOverride>;
@@ -194,6 +196,22 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </div>
             <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.detection.classification_engine')}</h3>
+        </div>
+        <div class="mb-6 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200">
+            <label for="bird-crop-detector-tier" class="block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Bird crop detector tier
+            </label>
+            <p class="mt-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.
+            </p>
+            <select
+                id="bird-crop-detector-tier"
+                bind:value={birdCropDetectorTier}
+                class="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
+            >
+                <option value="fast">Fast (SSD-MobileNet)</option>
+                <option value="accurate">Accurate (YOLOX-Tiny, experimental)</option>
+            </select>
         </div>
         <div class="mb-6 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200">
             <label for="bird-model-region-override" class="block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">

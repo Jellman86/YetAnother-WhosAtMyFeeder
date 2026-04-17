@@ -141,6 +141,7 @@
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
+    let birdCropDetectorTier = $state<'fast' | 'accurate'>('fast');
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let cropModelOverrides = $state<Record<string, CropModelOverride>>({});
     let cropSourceOverrides = $state<Record<string, CropSourceOverride>>({});
@@ -1655,6 +1656,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
+            { key: 'birdCropDetectorTier', val: birdCropDetectorTier, store: ((s.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast') as any) },
             {
                 key: 'cropModelOverrides',
                 val: JSON.stringify(cropModelOverrides),
@@ -2610,6 +2612,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
+            birdCropDetectorTier = settings.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast';
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             ({ cropModelOverrides, cropSourceOverrides } = resolveCropOverridesFromSettings(
                 settings.crop_model_overrides,
@@ -2934,6 +2937,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
+                bird_crop_detector_tier: birdCropDetectorTier,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 ...buildCropOverrideSettings(cropModelOverrides, cropSourceOverrides),
                 image_execution_mode: imageExecutionMode,
@@ -3331,6 +3335,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
+                    bind:birdCropDetectorTier
                     bind:birdModelRegionOverride
                     bind:cropModelOverrides
                     bind:cropSourceOverrides
