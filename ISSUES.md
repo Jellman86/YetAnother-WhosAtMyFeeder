@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **March 26, 2026**.
+Last reviewed against the GitHub issue tracker on **April 17, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,16 +12,13 @@ Last reviewed against the GitHub issue tracker on **March 26, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- None currently tracked. There are no open GitHub issues at the time of this review.
+- **BirdNET-Go source-name drift / `Unknown sensor` fallback:** Some newer BirdNET-Go MQTT payloads appear to omit the stable source-name fields (`nm` / `Source.displayName`) and only publish `sourceId`/`src`. `dev` now falls back to those ID-style fields so Recent Audio and the source picker no longer show `Unknown sensor`, but stable long-term camera mapping still depends on BirdNET-Go exposing a stable published source/display name again. Upstream feature request: `tphakala/birdnet-go#2799`.
 
 ## Recently Closed (Context)
 
 - **#21** OpenVINO load fails for ConvNeXt - closed after the patched artifact / redownload remediation path shipped.
-- **#16** No audio detection mapped - closed after BirdNET source-name mapping and correlation fixes landed.
 - **#19** Incorrect filter application / stale Explorer state - follow-up fixes merged and issue closed on **February 27, 2026**.
-- **#20** Weather conditions panel text alignment - reporter confirmed fix; closed on **February 26, 2026**.
-- **#17** Batch reclassify issue - remaining symptom moved to `#19`; closed on **February 26, 2026**.
-- **#13** Wrong Wikipedia reference (RU localization) - closed on **February 19, 2026** after validation.
+- **#16** No audio detection mapped - original stable-name mapping fix landed and the issue was closed, but newer BirdNET-Go payload drift is now tracked above under Pending Verification.
 
 ## P1: Untested Integrations (Need Community Testing)
 
@@ -74,8 +71,4 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.
 - Open GitHub issues are the source of truth for active bug state; this file is a maintainer triage summary.
-- Resolved on February 12, 2026: video player modal stall/hang regression in `Events` flow.
-- Resolved on February 12, 2026: video playback-state badge now tracks active playback correctly and no longer sticks on `Paused`.
-- Resolved on February 12, 2026: timeline preview VTT cues now use path-based sprite URLs for reverse-proxy compatibility.
-- Resolved on February 12, 2026: owner share-link lifecycle tooling now supports in-app list/update/revoke management, create-rate limiting, and scheduled stale-link cleanup.
 - Verification evidence: `tests/e2e/test_video_player.py` passes in the current dev workspace.
