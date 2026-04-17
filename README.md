@@ -96,6 +96,12 @@ Use the full docs hub for setup, integrations, and troubleshooting:
 - [🧪 Known Issues / Testing Gaps](ISSUES.md)
 - [✅ Integration Testing Requests](INTEGRATION_TESTING.md)
 
+> [!IMPORTANT]
+> **Raspberry Pi support is currently best-effort.**
+> The dedicated ARM64 monolith image exists for Raspberry Pi 4/5 users, but it is **not hardware-validated by the maintainer yet** because I do not currently have Raspberry Pi hardware available to test on.
+> The current Pi image should be treated as **CPU-only for now**. Intel OpenVINO and NVIDIA CUDA acceleration are not part of the Raspberry Pi path today.
+> If you try it, please treat the setup as experimental and report results, logs, and performance notes so support can be tightened up over time.
+
 ## How It Works
 
 Here's the flow from bird to identification:
@@ -158,7 +164,7 @@ cp .env.example .env
 
 > This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
 >
-> Installing on Raspberry Pi 4/5? Use the dedicated ARM64 image notes in [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md).
+> Installing on Raspberry Pi 4/5? Use the dedicated ARM64 image notes in [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) and start from [.env.rpi.example](.env.rpi.example).
 
 **2. Configure your environment:**
 

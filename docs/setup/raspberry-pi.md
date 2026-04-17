@@ -34,7 +34,13 @@ Practical guidance:
 
 ## Install
 
-Follow the normal monolith setup from [Getting Started](getting-started.md), but set the image override in your `.env` before launching:
+Follow the normal monolith setup from [Getting Started](getting-started.md), but start from the Raspberry Pi example env file:
+
+```bash
+cp .env.rpi.example .env
+```
+
+That example already includes the ARM64 image override and conservative Pi tuning. If you prefer to edit your existing `.env` instead, set:
 
 ```env
 YAWAMF_MONALITHIC_IMAGE=ghcr.io/jellman86/yawamf-monalithic-rpi
