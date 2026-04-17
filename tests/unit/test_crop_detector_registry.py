@@ -15,6 +15,9 @@ async def test_available_models_expose_fast_and_accurate_crop_detectors():
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].artifact_kind == "crop_detector"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].tier == "accurate"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].runtime == "onnx"
+    assert by_id["bird_crop_detector_accurate_yolox_tiny"].preprocessing["color_space"] == "BGR"
+    assert by_id["bird_crop_detector_accurate_yolox_tiny"].preprocessing["normalization"] == "none"
+    assert by_id["bird_crop_detector_accurate_yolox_tiny"].preprocessing["pad_alignment"] == "top_left"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].labels_url
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].model_config_url
 

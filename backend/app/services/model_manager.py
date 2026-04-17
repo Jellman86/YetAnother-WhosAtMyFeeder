@@ -70,10 +70,11 @@ REMOTE_REGISTRY = [
         "labels_sha256": "bd17f1ee35d5f3c862a4894605855abbb9dda4b0621fdb0ac4c2c8c7bb7e730a",
         "input_size": 416,
         "preprocessing": {
-            "color_space": "RGB",
+            "color_space": "BGR",
             "resize_mode": "letterbox",
             "interpolation": "bilinear",
-            "normalization": "float32"
+            "normalization": "none",
+            "pad_alignment": "top_left",
         },
         "detector": {
             "parser": "yolox",

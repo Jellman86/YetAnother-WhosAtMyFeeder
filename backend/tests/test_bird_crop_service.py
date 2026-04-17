@@ -465,6 +465,39 @@ def test_prepare_detector_input_resizes_dynamic_nhwc_uint8_models_when_preferred
     assert transform["scale_y"] == pytest.approx(300.0 / 160.0)
 
 
+def test_prepare_detector_input_supports_yolox_bgr_raw_topleft_letterbox():
+    service = BirdCropService()
+    image = Image.new("RGB", (320, 160), color=(10, 20, 30))
+
+    tensor, transform = service._prepare_detector_input(
+        image,
+        input_width=416,
+        input_height=416,
+        input_layout="nchw",
+        input_type="tensor(float)",
+        dynamic_input_hw=False,
+        preprocessing={
+            "resize_mode": "letterbox",
+            "color_space": "BGR",
+            "normalization": "none",
+            "pad_alignment": "top_left",
+        },
+    )
+
+    assert tensor.dtype == np.float32
+    assert tensor.shape == (1, 3, 416, 416)
+    assert transform["resize_mode"] == "letterbox"
+    assert transform["pad_alignment"] == "top_left"
+    assert transform["input_width"] == 416
+    assert transform["input_height"] == 416
+    # Original RGB(10,20,30) should become BGR(30,20,10) without /255 normalization.
+    assert tensor[0, 0, 0, 0] == pytest.approx(30.0)
+    assert tensor[0, 1, 0, 0] == pytest.approx(20.0)
+    assert tensor[0, 2, 0, 0] == pytest.approx(10.0)
+    # Bottom padding remains the YOLOX 114 fill value.
+    assert tensor[0, 0, -1, -1] == pytest.approx(114.0)
+
+
 def test_infer_candidates_returns_empty_when_named_ssd_outputs_have_no_bird_class():
     class _FakeSession:
         def run(self, _output_names, feeds):

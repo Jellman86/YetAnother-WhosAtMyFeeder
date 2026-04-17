@@ -284,6 +284,7 @@ class BirdCropService:
         preferred_input_width = int(model.get("preferred_input_width") or 0)
         output_names = [str(name or "") for name in (model.get("output_names") or [])]
         detector_config = dict(model.get("detector_config") or {})
+        preprocessing = dict(model.get("preprocessing") or {})
         if session is None:
             return []
         input_tensor, transform = self._prepare_detector_input(
@@ -295,6 +296,7 @@ class BirdCropService:
             dynamic_input_hw=dynamic_input_hw,
             preferred_input_width=preferred_input_width,
             preferred_input_height=preferred_input_height,
+            preprocessing=preprocessing,
         )
         outputs = session.run(None, {input_name: input_tensor})
         return self._parse_detector_outputs(
@@ -363,7 +365,9 @@ class BirdCropService:
         dynamic_input_hw: bool = False,
         preferred_input_width: int = 0,
         preferred_input_height: int = 0,
+        preprocessing: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, float]]:
+        preprocessing = dict(preprocessing or {})
         rgb = image.convert("RGB")
         src_w, src_h = rgb.size
         if input_layout == "nhwc" and input_type == "tensor(uint8)":
@@ -391,17 +395,35 @@ class BirdCropService:
                 "pad_y": 0.0,
                 "normalized_yxyx": False,
                 "resize_mode": resize_mode,
+                "input_width": float(prepared.size[0]),
+                "input_height": float(prepared.size[1]),
+                "pad_alignment": "center",
             }
+        resize_mode = str(preprocessing.get("resize_mode") or "letterbox").strip().lower()
+        color_space = str(preprocessing.get("color_space") or "RGB").strip().upper()
+        normalization = str(preprocessing.get("normalization") or "float32_0_1").strip().lower()
+        pad_alignment = str(preprocessing.get("pad_alignment") or "center").strip().lower()
         scale = min(float(input_width) / float(src_w), float(input_height) / float(src_h))
         resized_w = max(1, int(round(src_w * scale)))
         resized_h = max(1, int(round(src_h * scale)))
         resized = rgb.resize((resized_w, resized_h), Image.Resampling.BILINEAR)
         canvas = Image.new("RGB", (input_width, input_height), color=(114, 114, 114))
-        pad_x = int(round((input_width - resized_w) / 2.0))
-        pad_y = int(round((input_height - resized_h) / 2.0))
+        if resize_mode == "direct_resize":
+            pad_x = 0
+            pad_y = 0
+        elif pad_alignment == "top_left":
+            pad_x = 0
+            pad_y = 0
+        else:
+            pad_x = int(round((input_width - resized_w) / 2.0))
+            pad_y = int(round((input_height - resized_h) / 2.0))
         canvas.paste(resized, (pad_x, pad_y))
 
-        arr = np.asarray(canvas, dtype=np.float32) / 255.0
+        arr = np.asarray(canvas, dtype=np.float32)
+        if color_space == "BGR":
+            arr = arr[:, :, ::-1]
+        if normalization in {"float32", "float32_0_1", "0_1"}:
+            arr /= 255.0
         arr = np.transpose(arr, (2, 0, 1))[None, ...]
         return arr, {
             "scale": float(scale),
@@ -410,7 +432,10 @@ class BirdCropService:
             "pad_x": float(pad_x),
             "pad_y": float(pad_y),
             "normalized_yxyx": False,
-            "resize_mode": "letterbox",
+            "resize_mode": resize_mode,
+            "input_width": float(input_width),
+            "input_height": float(input_height),
+            "pad_alignment": pad_alignment,
         }
 
     def _parse_detector_outputs(
@@ -624,8 +649,11 @@ class BirdCropService:
             return []
 
         num_predictions = int(arr.shape[0])
-        img_h = int(round(float(transform.get("scale_y") or transform.get("scale") or 1.0) * float(image_size[1]) + float(transform.get("pad_y") or 0.0) * 2.0))
-        img_w = int(round(float(transform.get("scale_x") or transform.get("scale") or 1.0) * float(image_size[0]) + float(transform.get("pad_x") or 0.0) * 2.0))
+        img_h = int(round(float(transform.get("input_height") or 0.0)))
+        img_w = int(round(float(transform.get("input_width") or 0.0)))
+        if img_h <= 0 or img_w <= 0:
+            img_h = int(round(float(transform.get("scale_y") or transform.get("scale") or 1.0) * float(image_size[1]) + float(transform.get("pad_y") or 0.0) * 2.0))
+            img_w = int(round(float(transform.get("scale_x") or transform.get("scale") or 1.0) * float(image_size[0]) + float(transform.get("pad_x") or 0.0) * 2.0))
         decoded = self._decode_yolox_predictions(arr.copy(), input_size=(img_h, img_w))
         if decoded is None:
             return []
