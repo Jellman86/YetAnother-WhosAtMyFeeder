@@ -28,8 +28,10 @@ The standard `ghcr.io/jellman86/yawamf-monalithic` image remains the recommended
 Practical guidance:
 
 - MobileNetV2 / TFLite is the safest choice on Pi hardware
+- RoPE ViT-B14 may work on Raspberry Pi CPU, especially on a Pi 5, but it is not yet validated on physical Pi hardware in this project and should be treated as an experimental step up from MobileNetV2
 - Smaller ONNX CPU models can work, but they will be slower than x86-64
 - Large ONNX models such as ConvNeXt are not recommended
+- EVA-02 is not recommended on Raspberry Pi CPU
 - NVIDIA CUDA and Intel OpenVINO acceleration are not available on Raspberry Pi
 
 ## Install
@@ -67,6 +69,15 @@ These are conservative defaults for lower-powered ARM systems:
 CLASSIFICATION_IMAGE_MAX_CONCURRENT=1
 CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS=1.0
 ```
+
+Recommended starting point:
+
+- Provider: `CPU`
+- First model to try: `MobileNet V2`
+- Next step on Raspberry Pi 5 only: `RoPE ViT-B14` if you want better wildlife-wide accuracy and can tolerate slower inference
+- Avoid initially: `ConvNeXt Large`, `EVA-02 Large`, and other heavier video-centric workflows
+- If Frigate already classifies well, enable `Trust Frigate Sublabels` to save Pi CPU time
+- Leave Deep Video Analysis off initially, then enable it later only if the system stays responsive
 
 Optional trade-off if you want to reduce disk and CPU pressure:
 
