@@ -95,6 +95,39 @@ async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.
 
 
 @pytest.mark.asyncio
+async def test_audio_sources_falls_back_to_source_id_when_name_missing(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc)
+    row = (
+        now.isoformat(sep=" "),
+        "House Sparrow",
+        0.91,
+        None,
+        json.dumps({"sourceId": "rtsp_livepayload", "CommonName": "House Sparrow"}),
+        "Passer domesticus",
+    )
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            row,
+        )
+        await db.commit()
+
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert len(payload) == 1
+    assert payload[0]["source_name"] == "rtsp_livepayload"
+    assert payload[0]["sample_source_id"] == "rtsp_livepayload"
+
+
+@pytest.mark.asyncio
 async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

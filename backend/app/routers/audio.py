@@ -49,6 +49,9 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
     if not source_name and isinstance(stored_sensor_id, str) and stored_sensor_id.strip():
         source_name = stored_sensor_id.strip()
 
+    if not source_name and sample_source_id:
+        source_name = sample_source_id
+
     return source_name, sample_source_id
 
 @router.get("/recent")

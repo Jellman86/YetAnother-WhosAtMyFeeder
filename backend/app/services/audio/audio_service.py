@@ -46,6 +46,8 @@ class AudioService:
         candidates = (
             data.get("nm"),
             source.get("displayName"),
+            data.get("sourceId"),
+            data.get("src"),
             data.get("id"),
             data.get("sensor_id"),
             source.get("id"),

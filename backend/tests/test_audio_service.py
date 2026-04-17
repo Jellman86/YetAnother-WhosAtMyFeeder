@@ -104,6 +104,23 @@ async def test_add_detection_falls_back_to_id_when_name_fields_missing(audio_ser
     det = audio_service._buffer[0]
     assert det.sensor_id == "rtsp_fallbackid"
 
+
+@pytest.mark.asyncio
+async def test_add_detection_falls_back_to_source_id_when_name_fields_missing(audio_service):
+    now = datetime.now(timezone.utc)
+    ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+    data = {
+        "sourceId": "rtsp_livepayload",
+        "CommonName": "House Sparrow",
+        "Confidence": 0.91,
+        "BeginTime": ts,
+    }
+    await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.sensor_id == "rtsp_livepayload"
+
 @pytest.mark.asyncio
 async def test_cleanup_buffer(audio_service):
     # Set buffer to 1 minute for test
