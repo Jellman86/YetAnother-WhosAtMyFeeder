@@ -36,10 +36,10 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_ssd_mobilenet_v1_12_int8.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_model_config.json",
-        "input_size": 320,
+        "input_size": 300,
         "preprocessing": {
             "color_space": "RGB",
-            "resize_mode": "letterbox",
+            "resize_mode": "direct_resize",
             "interpolation": "bilinear",
             "normalization": "uint8"
         },

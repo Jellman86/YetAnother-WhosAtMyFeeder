@@ -10,6 +10,8 @@ async def test_available_models_expose_fast_and_accurate_crop_detectors():
 
     assert by_id["bird_crop_detector"].artifact_kind == "crop_detector"
     assert by_id["bird_crop_detector"].tier == "fast"
+    assert by_id["bird_crop_detector"].input_size == 300
+    assert by_id["bird_crop_detector"].preprocessing["resize_mode"] == "direct_resize"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].artifact_kind == "crop_detector"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].tier == "accurate"
     assert by_id["bird_crop_detector_accurate_yolox_tiny"].runtime == "onnx"

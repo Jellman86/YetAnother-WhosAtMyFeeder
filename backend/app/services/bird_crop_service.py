@@ -138,7 +138,10 @@ class BirdCropService:
         model_path = self._resolve_model_path(tier)
         if model_path is None:
             return None
-        detector_config = self._load_detector_config(model_path)
+        model_config = self._load_model_config(model_path)
+        detector_config = dict(model_config.get("detector") or {})
+        preprocessing = dict(model_config.get("preprocessing") or {})
+        preferred_input_size = self._resolve_config_input_size(model_config)
         ort = self._import_onnxruntime()
         sess_options = ort.SessionOptions()
         session = ort.InferenceSession(
@@ -161,6 +164,9 @@ class BirdCropService:
             "input_layout": input_layout,
             "input_type": str(getattr(model_input, "type", "") or ""),
             "dynamic_input_hw": dynamic_input_hw,
+            "preferred_input_height": preferred_input_size,
+            "preferred_input_width": preferred_input_size,
+            "preprocessing": preprocessing,
             "output_names": [
                 str(getattr(output, "name", "") or "")
                 for output in (session_outputs or [])
@@ -170,7 +176,7 @@ class BirdCropService:
             "model_path": str(model_path),
         }
 
-    def _load_detector_config(self, model_path: Path) -> dict[str, Any]:
+    def _load_model_config(self, model_path: Path) -> dict[str, Any]:
         config_path = model_path.with_name("model_config.json")
         if not config_path.exists():
             return {}
@@ -178,8 +184,15 @@ class BirdCropService:
             payload = json.loads(config_path.read_text(encoding="utf-8"))
         except Exception:
             return {}
-        detector = payload.get("detector") if isinstance(payload, dict) else None
-        return dict(detector) if isinstance(detector, dict) else {}
+        return dict(payload) if isinstance(payload, dict) else {}
+
+    def _resolve_config_input_size(self, model_config: dict[str, Any] | None = None) -> int | None:
+        raw = (model_config or {}).get("input_size")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
 
     def _resolve_model_path(self, tier: str = "fast") -> Path | None:
         try:
@@ -267,6 +280,8 @@ class BirdCropService:
         input_layout = str(model.get("input_layout") or "nchw").strip().lower()
         input_type = str(model.get("input_type") or "tensor(float)").strip().lower()
         dynamic_input_hw = bool(model.get("dynamic_input_hw", False))
+        preferred_input_height = int(model.get("preferred_input_height") or 0)
+        preferred_input_width = int(model.get("preferred_input_width") or 0)
         output_names = [str(name or "") for name in (model.get("output_names") or [])]
         detector_config = dict(model.get("detector_config") or {})
         if session is None:
@@ -278,6 +293,8 @@ class BirdCropService:
             input_layout=input_layout,
             input_type=input_type,
             dynamic_input_hw=dynamic_input_hw,
+            preferred_input_width=preferred_input_width,
+            preferred_input_height=preferred_input_height,
         )
         outputs = session.run(None, {input_name: input_tensor})
         return self._parse_detector_outputs(
@@ -344,11 +361,18 @@ class BirdCropService:
         input_layout: str = "nchw",
         input_type: str = "tensor(float)",
         dynamic_input_hw: bool = False,
+        preferred_input_width: int = 0,
+        preferred_input_height: int = 0,
     ) -> tuple[np.ndarray, dict[str, float]]:
         rgb = image.convert("RGB")
         src_w, src_h = rgb.size
         if input_layout == "nhwc" and input_type == "tensor(uint8)":
-            if dynamic_input_hw:
+            if dynamic_input_hw and preferred_input_width > 0 and preferred_input_height > 0:
+                prepared = rgb.resize((preferred_input_width, preferred_input_height), Image.Resampling.BILINEAR)
+                scale_x = float(preferred_input_width) / float(src_w)
+                scale_y = float(preferred_input_height) / float(src_h)
+                resize_mode = "direct_resize"
+            elif dynamic_input_hw:
                 prepared = rgb
                 scale_x = 1.0
                 scale_y = 1.0

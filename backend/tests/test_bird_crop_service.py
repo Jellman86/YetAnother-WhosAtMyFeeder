@@ -341,6 +341,10 @@ def test_infer_candidates_rejects_unsupported_multiclass_row_layout():
 def test_load_model_captures_nhwc_uint8_detector_metadata(monkeypatch, tmp_path):
     model_path = tmp_path / "bird_crop.onnx"
     model_path.write_bytes(b"fake")
+    (tmp_path / "model_config.json").write_text(
+        '{"input_size": 300, "preprocessing": {"resize_mode": "direct_resize"}}',
+        encoding="utf-8",
+    )
 
     class _FakeSession:
         def get_inputs(self):
@@ -371,6 +375,9 @@ def test_load_model_captures_nhwc_uint8_detector_metadata(monkeypatch, tmp_path)
     assert loaded["input_layout"] == "nhwc"
     assert loaded["input_type"] == "tensor(uint8)"
     assert loaded["dynamic_input_hw"] is True
+    assert loaded["preferred_input_height"] == 300
+    assert loaded["preferred_input_width"] == 300
+    assert loaded["preprocessing"]["resize_mode"] == "direct_resize"
     assert loaded["output_names"] == [
         "detection_boxes",
         "detection_classes",
@@ -434,6 +441,28 @@ def test_prepare_detector_input_resizes_fixed_nhwc_uint8_models():
     assert transform["scale"] == pytest.approx(1.0)
     assert transform["scale_x"] == pytest.approx(224.0 / 320.0)
     assert transform["scale_y"] == pytest.approx(224.0 / 160.0)
+
+
+def test_prepare_detector_input_resizes_dynamic_nhwc_uint8_models_when_preferred_size_is_known():
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+
+    tensor, transform = service._prepare_detector_input(
+        image,
+        input_width=640,
+        input_height=640,
+        input_layout="nhwc",
+        input_type="tensor(uint8)",
+        dynamic_input_hw=True,
+        preferred_input_width=300,
+        preferred_input_height=300,
+    )
+
+    assert tensor.dtype == np.uint8
+    assert tensor.shape == (1, 300, 300, 3)
+    assert transform["resize_mode"] == "direct_resize"
+    assert transform["scale_x"] == pytest.approx(300.0 / 320.0)
+    assert transform["scale_y"] == pytest.approx(300.0 / 160.0)
 
 
 def test_infer_candidates_returns_empty_when_named_ssd_outputs_have_no_bird_class():
