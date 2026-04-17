@@ -25,6 +25,11 @@ from google.auth.transport.requests import Request as GoogleRequest
 import httpx
 
 from app.database import get_db
+from app.services.oauth_token_crypto import (
+    decrypt_oauth_token,
+    encrypt_oauth_token,
+    is_encrypted_token,
+)
 
 log = structlog.get_logger()
 
@@ -412,11 +417,33 @@ class SMTPService:
                 if not row:
                     return None
 
+                access_token = decrypt_oauth_token(row[2])
+                refresh_token = decrypt_oauth_token(row[3])
+                needs_upgrade = (
+                    bool(row[2]) and not is_encrypted_token(row[2])
+                ) or (
+                    bool(row[3]) and not is_encrypted_token(row[3])
+                )
+
+                if needs_upgrade:
+                    await db.execute(
+                        """UPDATE oauth_tokens
+                           SET access_token = ?, refresh_token = ?, updated_at = ?
+                           WHERE provider = ?""",
+                        (
+                            encrypt_oauth_token(access_token),
+                            encrypt_oauth_token(refresh_token),
+                            datetime.utcnow(),
+                            provider,
+                        ),
+                    )
+                    await db.commit()
+
                 return {
                     "provider": row[0],
                     "email": row[1],
-                    "access_token": row[2],
-                    "refresh_token": row[3],
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
                     "expires_at": row[4],
                     "scope": row[5],
                     "created_at": row[6],
@@ -505,7 +532,7 @@ class SMTPService:
                 await db.execute(
                     """UPDATE oauth_tokens SET access_token = ?, expires_at = ?, updated_at = ?
                        WHERE provider = ?""",
-                    (creds.token, new_expires_at, datetime.utcnow(), "gmail")
+                    (encrypt_oauth_token(creds.token), new_expires_at, datetime.utcnow(), "gmail")
                 )
                 await db.commit()
 
@@ -564,7 +591,7 @@ class SMTPService:
                 await db.execute(
                     """UPDATE oauth_tokens SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = ?
                        WHERE provider = ?""",
-                    (access_token, new_refresh,
+                    (encrypt_oauth_token(access_token), encrypt_oauth_token(new_refresh),
                      new_expires_at, datetime.utcnow(), "outlook")
                 )
                 await db.commit()
@@ -605,7 +632,15 @@ class SMTPService:
                         """UPDATE oauth_tokens SET email = ?, access_token = ?, refresh_token = ?,
                            token_type = 'Bearer', expires_at = ?, scope = ?, updated_at = ?
                            WHERE provider = ?""",
-                        (email, access_token, refresh_token, expires_at, scope, datetime.utcnow(), provider)
+                        (
+                            email,
+                            encrypt_oauth_token(access_token),
+                            encrypt_oauth_token(refresh_token),
+                            expires_at,
+                            scope,
+                            datetime.utcnow(),
+                            provider,
+                        )
                     )
                 else:
                     # Insert new token
@@ -613,8 +648,16 @@ class SMTPService:
                         """INSERT INTO oauth_tokens (provider, email, access_token, refresh_token, token_type,
                            expires_at, scope, created_at, updated_at)
                            VALUES (?, ?, ?, ?, 'Bearer', ?, ?, ?, ?)""",
-                        (provider, email, access_token, refresh_token, expires_at, scope,
-                         datetime.utcnow(), datetime.utcnow())
+                        (
+                            provider,
+                            email,
+                            encrypt_oauth_token(access_token),
+                            encrypt_oauth_token(refresh_token),
+                            expires_at,
+                            scope,
+                            datetime.utcnow(),
+                            datetime.utcnow(),
+                        )
                     )
                 await db.commit()
             self.logger.info("oauth_token_stored", provider=provider, email=email)

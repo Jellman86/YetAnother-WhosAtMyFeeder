@@ -1,6 +1,7 @@
 """Authentication endpoints for YA-WAMF."""
 
-from fastapi import APIRouter, HTTPException, status, Request
+import aiosqlite
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
@@ -13,10 +14,13 @@ from app.auth import (
     verify_password,
     create_access_token,
     hash_password,
+    AuthContext,
     AuthLevel,
-    verify_token
+    verify_token,
+    require_owner,
 )
 from app.config import settings
+from app.database import get_db
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.ratelimit import login_rate_limit
 
@@ -323,10 +327,16 @@ async def set_initial_password(request: InitialPasswordRequest):
 
 
 @router.post("/auth/logout")
-async def logout():
+async def logout(auth: AuthContext = Depends(require_owner)):
     """Logout endpoint (client-side token deletion).
 
     Note: JWT tokens cannot be invalidated server-side without a blacklist.
     Client should delete token from storage.
     """
+    try:
+        async with get_db() as db:
+            await db.execute("DELETE FROM oauth_tokens")
+            await db.commit()
+    except aiosqlite.OperationalError:
+        pass
     return {"message": "Logged out successfully. Please clear your token."}

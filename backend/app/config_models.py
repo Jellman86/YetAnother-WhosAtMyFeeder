@@ -630,6 +630,10 @@ class AuthSettings(BaseModel):
         default_factory=lambda: secrets_lib.token_urlsafe(32),
         description="Secret key for JWT tokens (auto-generated)"
     )
+    oauth_token_secret: Optional[str] = Field(
+        default=None,
+        description="Secret key for encrypting persisted OAuth tokens; falls back to session_secret if unset"
+    )
     session_expiry_hours: int = Field(
         default=168,  # 7 days
         ge=1,

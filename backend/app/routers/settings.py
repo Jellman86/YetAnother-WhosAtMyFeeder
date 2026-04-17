@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, create_model, field_validator
 import structlog
 
 from app.config import settings
@@ -25,6 +25,7 @@ from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.ai_service import AIService
+from app.services.smtp_service import smtp_service
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
     BlockedSpeciesEntry,
@@ -653,14 +654,40 @@ class SettingsUpdate(BaseModel):
             raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
         return normalized
 
-@router.get("/settings")
+_settings_response_fields = {
+    name: (
+        field.annotation,
+        field.default if not field.is_required() else ...,
+    )
+    for name, field in SettingsUpdate.model_fields.items()
+    if name != "auth_password"
+}
+_settings_response_fields.update(
+    {
+        "video_classification_circuit_open": (bool, False),
+        "video_classification_circuit_until": (Optional[str], None),
+        "video_classification_circuit_failures": (int, 0),
+        "video_classification_maintenance_circuit_open": (bool, False),
+        "video_classification_maintenance_circuit_until": (Optional[str], None),
+        "video_classification_maintenance_circuit_failures": (int, 0),
+        "inaturalist_connected_user": (Optional[str], None),
+        "llm_ready": (bool, False),
+        "telemetry_installation_id": (Optional[str], None),
+        "telemetry_platform": (Optional[str], None),
+        "notifications_email_connected_email": (Optional[str], None),
+        "auth_has_password": (bool, False),
+        "debug_ui_enabled": (bool, False),
+    }
+)
+SettingsResponse = create_model("SettingsResponse", **_settings_response_fields)
+
+
+@router.get("/settings", response_model=SettingsResponse)
 async def get_settings(auth: AuthContext = Depends(require_owner)):
     """
     Get application settings with secrets redacted. Owner only.
     Secrets are never returned via API for security reasons.
     """
-    from app.services.smtp_service import smtp_service
-
     oauth_status = await smtp_service.get_oauth_status(settings.notifications.email.oauth_provider)
     if not oauth_status:
         oauth_status = await smtp_service.get_oauth_status()
@@ -712,6 +739,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
         "video_classification_max_concurrent": settings.classification.video_classification_max_concurrent,
         "video_classification_frames": settings.classification.video_classification_frames,
+        "image_execution_mode": settings.classification.image_execution_mode,
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
         "bird_model_region_override": settings.classification.bird_model_region_override,

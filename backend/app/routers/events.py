@@ -68,6 +68,17 @@ LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
 UNKNOWN_BIRD_FILTER_ALIAS = "alias:unknown_bird"
 UNKNOWN_BIRD_DISPLAY_LABEL = CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL
+MAX_FILTER_DATE_RANGE_DAYS = 365
+
+
+def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]) -> None:
+    if start_date is None or end_date is None:
+        return
+    if (end_date - start_date).days > MAX_FILTER_DATE_RANGE_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Date range must not exceed {MAX_FILTER_DATE_RANGE_DAYS} days",
+        )
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -465,6 +476,8 @@ async def get_events(
         if hide_camera_names:
             camera = None
 
+    _enforce_max_date_range(start_date, end_date)
+
     async with get_db() as db:
         repo = DetectionRepository(db)
 
@@ -668,6 +681,8 @@ async def get_events_count(
         include_hidden = False
         if hide_camera_names:
             camera = None
+
+    _enforce_max_date_range(start_date, end_date)
 
     async with get_db() as db:
         repo = DetectionRepository(db)

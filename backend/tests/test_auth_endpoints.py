@@ -196,8 +196,30 @@ async def test_initial_setup_skip_auth(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_logout(client: httpx.AsyncClient):
+async def test_logout_requires_auth(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.auth.username = "admin"
+    settings.auth.password_hash = hash_password("testpass123")
+
     response = await client.post("/api/auth/logout")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_with_valid_token(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.auth.username = "admin"
+    settings.auth.password_hash = hash_password("testpass123")
+
+    login_response = await client.post("/api/auth/login", json={
+        "username": "admin",
+        "password": "testpass123"
+    })
+    token = login_response.json()["access_token"]
+
+    response = await client.post("/api/auth/logout", headers={
+        "Authorization": f"Bearer {token}"
+    })
     assert response.status_code == 200
     assert "message" in response.json()
 

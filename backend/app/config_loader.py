@@ -37,6 +37,33 @@ from .config_models import (
 log = structlog.get_logger()
 
 
+def _persist_generated_auth_secret(config_path: Path, secret_key: str, secret_value: str) -> bool:
+    try:
+        data: dict[str, Any] = {}
+        if config_path.exists():
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                data = {}
+
+        auth = data.get("auth")
+        if not isinstance(auth, dict):
+            auth = {}
+        if auth.get(secret_key):
+            return True
+
+        auth[secret_key] = secret_value
+        data["auth"] = auth
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp_path.replace(config_path)
+        return True
+    except Exception as e:
+        log.warning("Failed to persist generated auth secret", path=str(config_path), key=secret_key, error=str(e))
+        return False
+
+
 CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
     "write_frigate_sublabel": ("CLASSIFICATION__WRITE_FRIGATE_SUBLABEL",),
     "personalized_rerank_enabled": ("CLASSIFICATION__PERSONALIZED_RERANK_ENABLED",),
@@ -307,6 +334,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'username': os.environ.get('AUTH__USERNAME', 'admin'),
         'password_hash': os.environ.get('AUTH__PASSWORD_HASH', None),
         'session_secret': os.environ.get('AUTH__SESSION_SECRET', secrets_lib.token_urlsafe(32)),
+        'oauth_token_secret': os.environ.get('AUTH__OAUTH_TOKEN_SECRET', None),
         'session_expiry_hours': int(os.environ.get('AUTH__SESSION_EXPIRY_HOURS', '168')),
     }
     
@@ -566,6 +594,16 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             log.info("Loaded config from file", path=str(config_path))
         except Exception as e:
             log.warning("Failed to load config from file", path=str(config_path), error=str(e))
+
+    if not auth_data.get('oauth_token_secret'):
+        generated_oauth_secret = secrets_lib.token_urlsafe(32)
+        if 'AUTH__OAUTH_TOKEN_SECRET' in os.environ:
+            auth_data['oauth_token_secret'] = os.environ['AUTH__OAUTH_TOKEN_SECRET']
+        elif _persist_generated_auth_secret(config_path, 'oauth_token_secret', generated_oauth_secret):
+            auth_data['oauth_token_secret'] = generated_oauth_secret
+        else:
+            # Preserve decryptability if the generated secret could not be persisted.
+            auth_data['oauth_token_secret'] = auth_data['session_secret']
     
     log.info("MQTT config", server=frigate_data['mqtt_server'], port=frigate_data['mqtt_port'], auth=frigate_data['mqtt_auth'])
     log.info("Maintenance config", retention_days=maintenance_data['retention_days'])

@@ -6,6 +6,11 @@ from typing import Optional
 from app.database import get_db
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
+from app.services.oauth_token_crypto import (
+    decrypt_oauth_token,
+    encrypt_oauth_token,
+    is_encrypted_token,
+)
 
 log = structlog.get_logger()
 
@@ -45,15 +50,33 @@ class InaturalistService:
                         expires_at = ?, scope = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE provider = ?
                     """,
-                    (email, access_token, refresh_token, token_type, expires_at, scope, "inaturalist")
+                    (
+                        email,
+                        encrypt_oauth_token(access_token),
+                        encrypt_oauth_token(refresh_token),
+                        token_type,
+                        expires_at,
+                        scope,
+                        "inaturalist",
+                    )
                 )
             else:
                 await db.execute(
                     """
-                    INSERT INTO oauth_tokens (provider, email, access_token, refresh_token, token_type, expires_at, scope)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO oauth_tokens (
+                        provider, email, access_token, refresh_token, token_type, expires_at, scope, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """,
-                    ("inaturalist", email, access_token, refresh_token, token_type, expires_at, scope)
+                    (
+                        "inaturalist",
+                        email,
+                        encrypt_oauth_token(access_token),
+                        encrypt_oauth_token(refresh_token),
+                        token_type,
+                        expires_at,
+                        scope,
+                    )
                 )
             await db.commit()
             self._connected_user = email
@@ -70,10 +93,31 @@ class InaturalistService:
             row = await cursor.fetchone()
             if not row:
                 return None
+            access_token = decrypt_oauth_token(row[1])
+            refresh_token = decrypt_oauth_token(row[2])
+            needs_upgrade = (
+                bool(row[1]) and not is_encrypted_token(row[1])
+            ) or (
+                bool(row[2]) and not is_encrypted_token(row[2])
+            )
+            if needs_upgrade:
+                await db.execute(
+                    """
+                    UPDATE oauth_tokens
+                    SET access_token = ?, refresh_token = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE provider = ?
+                    """,
+                    (
+                        encrypt_oauth_token(access_token),
+                        encrypt_oauth_token(refresh_token),
+                        "inaturalist",
+                    ),
+                )
+                await db.commit()
             return {
                 "email": row[0],
-                "access_token": row[1],
-                "refresh_token": row[2],
+                "access_token": access_token,
+                "refresh_token": refresh_token,
                 "token_type": row[3],
                 "expires_at": row[4],
                 "scope": row[5]
