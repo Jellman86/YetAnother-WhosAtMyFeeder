@@ -4299,6 +4299,7 @@ class ClassifierService:
                 # Seek to frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
                 ret, frame = cap.read()
+                frame_offset_sec = float(idx) / fps if fps > 0 else None
                 if not ret:
                     if progress_callback:
                         try:
@@ -4310,7 +4311,8 @@ class ClassifierService:
                                 frame_thumb=last_frame_thumb,
                                 frame_index=int(idx) + 1,
                                 clip_total=int(total_frames),
-                                model_name=model_name
+                                model_name=model_name,
+                                frame_offset_seconds=frame_offset_sec,
                             )
                         except Exception:
                             pass
@@ -4335,7 +4337,7 @@ class ClassifierService:
                     top_idx = int(np.argmax(scores))
                     last_top_score = float(scores[top_idx])
                     last_top_label = normalize_classifier_label(bird_model.labels[top_idx]) if top_idx < len(bird_model.labels) else f"Class {top_idx}"
-                    
+
                     try:
                         from io import BytesIO
                         import base64
@@ -4358,7 +4360,8 @@ class ClassifierService:
                             frame_thumb=last_frame_thumb,
                             frame_index=int(idx) + 1,
                             clip_total=int(total_frames),
-                            model_name=model_name
+                            model_name=model_name,
+                            frame_offset_seconds=frame_offset_sec,
                         )
                     except Exception as exc:
                         log.warning(
@@ -4485,7 +4488,8 @@ class ClassifierService:
                     frame_thumb=None,
                     frame_index=None,
                     clip_total=None,
-                    model_name=None
+                    model_name=None,
+                    frame_offset_seconds=None,
                 ):
                     try:
                         future = asyncio.run_coroutine_threadsafe(
@@ -4497,7 +4501,8 @@ class ClassifierService:
                                 frame_thumb,
                                 frame_index,
                                 clip_total,
-                                model_name
+                                model_name,
+                                frame_offset_seconds,
                             ),
                             loop
                         )

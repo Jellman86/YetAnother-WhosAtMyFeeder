@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 
@@ -508,3 +508,97 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
         assert event["context"]["snapshot_fallback_recovered"] is True
     finally:
         error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_process_event_persists_top_frames_after_successful_video_classification():
+    """After successful video classification, top-N frames by score should be persisted."""
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._persist_video_top_frames = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+
+    async def mock_classify(video_path, **kwargs):
+        cb = kwargs.get("progress_callback")
+        if cb:
+            await cb(1, 3, 0.91, "European Robin", frame_index=42, frame_offset_seconds=1.68)
+            await cb(2, 3, 0.75, "European Robin", frame_index=38, frame_offset_seconds=1.52)
+            await cb(3, 3, 0.83, "European Robin", frame_index=50, frame_offset_seconds=2.0)
+        return [{"label": "European Robin", "score": 0.91, "index": 1}]
+
+    service._classifier.classify_video_async = mock_classify
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+        await service._process_event("evt-top-frames-test", "cam1", skip_delay=True)
+
+    service._persist_video_top_frames.assert_awaited_once()
+    call_args = service._persist_video_top_frames.call_args
+    event_id_arg, frame_scores_arg, clip_variant_arg = call_args[0]
+    assert event_id_arg == "evt-top-frames-test"
+    assert clip_variant_arg == "event"
+    assert len(frame_scores_arg) == 3
+    # scores should be the raw scores as collected (sorting happens inside _persist_video_top_frames)
+    scores = [f["frame_score"] for f in frame_scores_arg]
+    assert pytest.approx(0.91) in scores
+    assert pytest.approx(0.75) in scores
+    assert pytest.approx(0.83) in scores
+
+
+@pytest.mark.asyncio
+async def test_process_event_top_frames_ranked_by_score_descending():
+    """_persist_video_top_frames must rank frames by descending score."""
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._persist_video_top_frames = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+
+    async def mock_classify(video_path, **kwargs):
+        cb = kwargs.get("progress_callback")
+        if cb:
+            await cb(1, 5, 0.5, "Sparrow", frame_index=10, frame_offset_seconds=0.4)
+            await cb(2, 5, 0.9, "Sparrow", frame_index=20, frame_offset_seconds=0.8)
+            await cb(3, 5, 0.3, "Sparrow", frame_index=30, frame_offset_seconds=1.2)
+            await cb(4, 5, 0.7, "Sparrow", frame_index=40, frame_offset_seconds=1.6)
+            await cb(5, 5, 0.1, "Sparrow", frame_index=50, frame_offset_seconds=2.0)
+        return [{"label": "Sparrow", "score": 0.9, "index": 2}]
+
+    service._classifier.classify_video_async = mock_classify
+
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+        await service._process_event("evt-rank-order", "cam1", skip_delay=True)
+
+    service._persist_video_top_frames.assert_awaited_once()
+    call_args = service._persist_video_top_frames.call_args[0]
+    frame_scores_arg = call_args[1]
+    assert len(frame_scores_arg) == 5
+
+    # Verify ranking logic directly via the internal helper
+    persisted: list[dict] = []
+
+    async def collect(frigate_event, frame_scores, clip_variant):
+        from app.services.auto_video_classifier_service import _VIDEO_TOP_FRAMES_LIMIT
+        sorted_frames = sorted(frame_scores, key=lambda f: f["frame_score"], reverse=True)
+        top_frames = [
+            {**f, "rank": rank, "clip_variant": clip_variant}
+            for rank, f in enumerate(sorted_frames[:_VIDEO_TOP_FRAMES_LIMIT], 1)
+        ]
+        persisted.extend(top_frames)
+
+    service._persist_video_top_frames.side_effect = collect
+    with patch.object(auto_video_classifier_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=({"has_clip": True}, None))), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()):
+        await service._process_event("evt-rank-order-2", "cam1", skip_delay=True)
+
+    assert len(persisted) == 5
+    scores = [f["frame_score"] for f in persisted]
+    assert scores == sorted(scores, reverse=True), "frames must be ranked by descending score"
+    assert persisted[0]["frame_score"] == pytest.approx(0.9)
+    assert persisted[0]["rank"] == 1

@@ -1331,7 +1331,17 @@ async def reclassify_event(
                                 await broadcast_reclassification_started("video")
 
                                 # Define progress callback to broadcast real-time progress via SSE
-                                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+                                _video_frame_scores: list[dict] = []
+
+                                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None, frame_offset_seconds=None):
+                                    if frame_index is not None and frame_score is not None:
+                                        _video_frame_scores.append({
+                                            "frame_index": int(frame_index) - 1,
+                                            "frame_offset_seconds": frame_offset_seconds,
+                                            "frame_score": float(frame_score),
+                                            "top_label": top_label,
+                                            "top_score": float(frame_score),
+                                        })
                                     await broadcaster.broadcast({
                                         "type": "reclassification_progress",
                                         "data": {
@@ -1383,6 +1393,18 @@ async def reclassify_event(
                                 model_id=top_result.get("model_id"),
                             )
                             await broadcast_video_status("completed", None)
+
+                            # Persist top video-analysis frames for HQ snapshot reuse
+                            if _video_frame_scores:
+                                try:
+                                    sorted_frames = sorted(_video_frame_scores, key=lambda f: f["frame_score"], reverse=True)
+                                    top_frames = [
+                                        {**f, "rank": rank, "clip_variant": clip_variant}
+                                        for rank, f in enumerate(sorted_frames[:8], 1)
+                                    ]
+                                    await repo.replace_video_top_frames(event_id, top_frames)
+                                except Exception as e:
+                                    log.warning("Failed to persist video top frames", event_id=event_id, error=str(e))
 
             # Snapshot strategy (Default or Fallback)
             if effective_strategy == "snapshot":

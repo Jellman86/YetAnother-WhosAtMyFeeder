@@ -78,6 +78,7 @@ _FRIGATE_CONNECTIVITY_ERROR_PREFIXES: tuple[str, ...] = (
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
 SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
+_VIDEO_TOP_FRAMES_LIMIT = 8
 BackgroundImageClassificationUnavailableError = getattr(
     classifier_service_module,
     "BackgroundImageClassificationUnavailableError",
@@ -1036,8 +1037,19 @@ class AutoVideoClassifierService:
             try:
                 # 4. Run classification
                 await self._update_status(frigate_event, 'processing', error=None, broadcast=False)
-                
-                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None):
+
+                _video_frame_scores: list[dict] = []
+
+                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None, frame_offset_seconds=None):
+                    # Accumulate per-frame score data for top-frame persistence
+                    if frame_index is not None and frame_score is not None:
+                        _video_frame_scores.append({
+                            "frame_index": int(frame_index) - 1,
+                            "frame_offset_seconds": frame_offset_seconds,
+                            "frame_score": float(frame_score),
+                            "top_label": top_label,
+                            "top_score": float(frame_score),
+                        })
                     # Broadcast progress via SSE
                     await broadcaster.broadcast({
                         "type": "reclassification_progress",
@@ -1142,6 +1154,10 @@ class AutoVideoClassifierService:
                     # 5. Save results to DB
                     await self._save_results(frigate_event, top)
                     self._record_success(frigate_event, source=source)
+
+                    # Persist top video-analysis frames for HQ snapshot reuse
+                    if _video_frame_scores:
+                        await self._persist_video_top_frames(frigate_event, _video_frame_scores, clip_variant)
                     
                     # Broadcast completion
                     await broadcaster.broadcast({
@@ -1467,6 +1483,24 @@ class AutoVideoClassifierService:
                             "video_classification_timestamp": serialize_api_datetime(det.video_classification_timestamp)
                         }
                     })
+
+    async def _persist_video_top_frames(
+        self,
+        frigate_event: str,
+        frame_scores: list[dict],
+        clip_variant: str,
+    ) -> None:
+        """Persist top-N video-analysis frames for HQ snapshot reuse."""
+        try:
+            sorted_frames = sorted(frame_scores, key=lambda f: f["frame_score"], reverse=True)
+            top_frames = [
+                {**f, "rank": rank, "clip_variant": clip_variant}
+                for rank, f in enumerate(sorted_frames[:_VIDEO_TOP_FRAMES_LIMIT], 1)
+            ]
+            async with get_db() as db:
+                await DetectionRepository(db).replace_video_top_frames(frigate_event, top_frames)
+        except Exception as e:
+            log.warning("Failed to persist video top frames", event_id=frigate_event, error=str(e))
 
     async def _save_results(self, frigate_event: str, result: dict):
         """Save final results via DetectionService to handle intelligent overrides."""
