@@ -59,6 +59,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain("Full snapshot");
         expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
+        expect(detectionModalSource).toContain('</div>\n        </div>\n\n        {#if snapshotRepairOpen}');
     });
 
     it('persists generated AI analysis back into the current detection state', () => {

@@ -1972,120 +1972,6 @@
                         {/if}
                         </div>
                     </div>
-                    {#if snapshotRepairOpen}
-                        <div class="absolute inset-0 z-35 flex flex-col bg-slate-950/95 text-white backdrop-blur-md">
-                            <div class="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                        {$_('detection.snapshot_change', { default: 'Change snapshot' })}
-                                    </p>
-                                    <p class="text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onclick={() => {
-                                            snapshotRepairOpen = false;
-                                            resetSnapshotPickerSelection();
-                                        }}
-                                        class="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white/80 transition-colors hover:border-white/30 hover:text-white"
-                                    >
-                                        {$_('common.cancel', { default: 'Cancel' })}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={handleSaveSnapshotSelection}
-                                        disabled={!canSaveSnapshotSelection}
-                                        class="inline-flex items-center rounded-full bg-teal-500 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {$_('detection.snapshot_save', { default: 'Save snapshot' })}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="flex-1 overflow-y-auto p-4">
-                                <div class="space-y-4">
-                                    <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                                        <img src={selectedSnapshotPreviewUrl} alt={selectedSnapshotPickerLabel} class="aspect-video w-full object-cover" />
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                            {$_('detection.snapshot_picker_sources', { default: 'Frame picker' })}
-                                        </p>
-                                        <div class="grid grid-cols-3 gap-2">
-                                            <button
-                                                type="button"
-                                                onclick={() => stageSnapshotCandidate(fullFrameSnapshotCandidate?.candidate_id ?? null)}
-                                                disabled={!fullFrameSnapshotCandidate}
-                                                class="rounded-2xl border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === fullFrameSnapshotCandidate?.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
-                                            >
-                                                {#if fullFrameSnapshotCandidate?.thumbnail_url}
-                                                    <img src={fullFrameSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_full_frame', { default: 'Full snapshot' })} class="aspect-video w-full rounded-xl object-cover" />
-                                                {/if}
-                                                <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_full_frame', { default: 'Full snapshot' })}</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onclick={() => stageSnapshotCandidate(frigateHintSnapshotCandidate?.candidate_id ?? null)}
-                                                disabled={!frigateHintSnapshotCandidate}
-                                                class="rounded-2xl border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === frigateHintSnapshotCandidate?.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
-                                            >
-                                                {#if frigateHintSnapshotCandidate?.thumbnail_url}
-                                                    <img src={frigateHintSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' })} class="aspect-video w-full rounded-xl object-cover" />
-                                                {/if}
-                                                <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' })}</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onclick={stageOriginalFrigateSnapshot}
-                                                class="rounded-2xl border p-2 text-left transition-colors {pendingSnapshotMode === 'revert_original' ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
-                                            >
-                                                <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })} class="aspect-video w-full rounded-xl object-cover" />
-                                                <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                            {$_('detection.snapshot_model_candidates', { default: 'Model candidates' })}
-                                        </p>
-                                        {#if snapshotCandidatesLoading}
-                                            <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
-                                                {$_('detection.snapshot_candidates_loading', { default: 'Loading candidate frames…' })}
-                                            </div>
-                                        {:else if modelSnapshotCandidates.length === 0}
-                                            <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
-                                                {$_('detection.snapshot_candidates_empty', { default: 'No saved candidate frames yet.' })}
-                                            </div>
-                                        {:else}
-                                            <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-                                                {#each modelSnapshotCandidates as candidate}
-                                                    <button
-                                                        type="button"
-                                                        onclick={() => stageSnapshotCandidate(candidate.candidate_id)}
-                                                        class="rounded-2xl border p-2 text-left transition-colors {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === candidate.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
-                                                    >
-                                                        {#if candidate.thumbnail_url}
-                                                            <img src={candidate.thumbnail_url} alt={candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })} class="aspect-video w-full rounded-xl object-cover" />
-                                                        {/if}
-                                                        <span class="mt-2 block text-[11px] font-semibold">{candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })}</span>
-                                                        <span class="block text-[10px] text-white/60">
-                                                            {formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
-                                                            {#if typeof candidate.classifier_score === 'number'}
-                                                                · {(candidate.classifier_score * 100).toFixed(1)}%
-                                                            {/if}
-                                                        </span>
-                                                    </button>
-                                                {/each}
-                                            </div>
-                                        {/if}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {/if}
                     {/if}
 
                     {#if frigateIssueBadgeVisible}
@@ -2978,6 +2864,121 @@
             </div>
             </div>
         </div>
+
+        {#if snapshotRepairOpen}
+            <div class="absolute inset-0 z-35 flex flex-col bg-slate-950/95 text-white backdrop-blur-md">
+                <div class="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                            {$_('detection.snapshot_change', { default: 'Change snapshot' })}
+                        </p>
+                        <p class="text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onclick={() => {
+                                snapshotRepairOpen = false;
+                                resetSnapshotPickerSelection();
+                            }}
+                            class="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white/80 transition-colors hover:border-white/30 hover:text-white"
+                        >
+                            {$_('common.cancel', { default: 'Cancel' })}
+                        </button>
+                        <button
+                            type="button"
+                            onclick={handleSaveSnapshotSelection}
+                            disabled={!canSaveSnapshotSelection}
+                            class="inline-flex items-center rounded-full bg-teal-500 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {$_('detection.snapshot_save', { default: 'Save snapshot' })}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div class="space-y-4">
+                        <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                            <img src={selectedSnapshotPreviewUrl} alt={selectedSnapshotPickerLabel} class="aspect-video w-full object-cover" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                                {$_('detection.snapshot_picker_sources', { default: 'Frame picker' })}
+                            </p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onclick={() => stageSnapshotCandidate(fullFrameSnapshotCandidate?.candidate_id ?? null)}
+                                    disabled={!fullFrameSnapshotCandidate}
+                                    class="rounded-2xl border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === fullFrameSnapshotCandidate?.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
+                                >
+                                    {#if fullFrameSnapshotCandidate?.thumbnail_url}
+                                        <img src={fullFrameSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_full_frame', { default: 'Full snapshot' })} class="aspect-video w-full rounded-xl object-cover" />
+                                    {/if}
+                                    <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_full_frame', { default: 'Full snapshot' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => stageSnapshotCandidate(frigateHintSnapshotCandidate?.candidate_id ?? null)}
+                                    disabled={!frigateHintSnapshotCandidate}
+                                    class="rounded-2xl border p-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === frigateHintSnapshotCandidate?.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
+                                >
+                                    {#if frigateHintSnapshotCandidate?.thumbnail_url}
+                                        <img src={frigateHintSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' })} class="aspect-video w-full rounded-xl object-cover" />
+                                    {/if}
+                                    <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={stageOriginalFrigateSnapshot}
+                                    class="rounded-2xl border p-2 text-left transition-colors {pendingSnapshotMode === 'revert_original' ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
+                                >
+                                    <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })} class="aspect-video w-full rounded-xl object-cover" />
+                                    <span class="mt-2 block text-[11px] font-semibold">{$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                                {$_('detection.snapshot_model_candidates', { default: 'Model candidates' })}
+                            </p>
+                            {#if snapshotCandidatesLoading}
+                                <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
+                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading candidate frames…' })}
+                                </div>
+                            {:else if modelSnapshotCandidates.length === 0}
+                                <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
+                                    {$_('detection.snapshot_candidates_empty', { default: 'No saved candidate frames yet.' })}
+                                </div>
+                            {:else}
+                                <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+                                    {#each modelSnapshotCandidates as candidate}
+                                        <button
+                                            type="button"
+                                            onclick={() => stageSnapshotCandidate(candidate.candidate_id)}
+                                            class="rounded-2xl border p-2 text-left transition-colors {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === candidate.candidate_id ? 'border-teal-400 bg-teal-400/15' : 'border-white/10 bg-white/5 hover:border-white/30'}"
+                                        >
+                                            {#if candidate.thumbnail_url}
+                                                <img src={candidate.thumbnail_url} alt={candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })} class="aspect-video w-full rounded-xl object-cover" />
+                                            {/if}
+                                            <span class="mt-2 block text-[11px] font-semibold">{candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })}</span>
+                                            <span class="block text-[10px] text-white/60">
+                                                {formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
+                                                {#if typeof candidate.classifier_score === 'number'}
+                                                    · {(candidate.classifier_score * 100).toFixed(1)}%
+                                                {/if}
+                                            </span>
+                                        </button>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {/if}
 
         {#if hasOwnerDetectionActions && showTagDropdown}
             <div
