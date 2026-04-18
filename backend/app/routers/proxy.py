@@ -254,10 +254,21 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
             if str(candidate.get("snapshot_source") or "") == current_source:
                 current_candidate_id = str(candidate.get("candidate_id") or "")
                 break
+    has_model_crop = any(str(c.get("source_mode") or "") == "model_crop" for c in candidates)
+    model_crop_miss_reason: str | None = None
+    if not has_model_crop:
+        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+            model_crop_miss_reason = "crop_model_disabled"
+        elif not high_quality_snapshot_service._bird_crop_model_available():
+            model_crop_miss_reason = "crop_model_unavailable"
+        elif candidates:
+            model_crop_miss_reason = "no_model_crop_candidates"
+
     return SnapshotCandidateListResponse(
         event_id=event_id,
         current_source=current_source,
         current_candidate_id=current_candidate_id,
+        model_crop_miss_reason=model_crop_miss_reason,
         candidates=[
             SnapshotCandidateResponse(
                 candidate_id=str(candidate.get("candidate_id") or ""),
@@ -451,10 +462,13 @@ class SnapshotCandidateResponse(BaseModel):
 
 
 class SnapshotCandidateListResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     event_id: str
     current_source: str | None = None
     current_candidate_id: str | None = None
     candidates: list[SnapshotCandidateResponse]
+    model_crop_miss_reason: str | None = None
 
 
 class SnapshotApplyRequest(BaseModel):

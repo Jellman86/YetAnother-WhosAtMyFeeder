@@ -1642,3 +1642,87 @@ async def test_video_share_revoke_link_success(client: httpx.AsyncClient):
         body = response.json()
         assert body["status"] == "revoked"
         assert body["link_id"] == 9
+
+
+@pytest.mark.asyncio
+async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when_no_model_crop(client: httpx.AsyncClient):
+    """When no model_crop candidates are persisted, the response includes a miss reason."""
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
+         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        mock_get_snapshot.return_value = b"snapshot"
+        mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-ff",
+                    "frame_index": 5,
+                    "frame_offset_seconds": 0.2,
+                    "source_mode": "full_frame",
+                    "clip_variant": "event",
+                    "crop_box": None,
+                    "crop_confidence": None,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.55,
+                    "ranking_score": 0.55,
+                    "selected": True,
+                    "thumbnail_ref": "evt__cand-ff__thumb",
+                    "image_ref": "evt__cand-ff__image",
+                    "snapshot_source": "hq_candidate_full_frame",
+                }
+            ]
+        )
+        original_bird_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+        settings.media_cache.high_quality_event_snapshot_bird_crop = True
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot/candidates")
+        finally:
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_bird_crop
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "model_crop_miss_reason" in body
+    assert body["model_crop_miss_reason"] is not None
+
+
+@pytest.mark.asyncio
+async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model_crop_present(client: httpx.AsyncClient):
+    """When model_crop candidates exist, model_crop_miss_reason is None."""
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
+         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        mock_get_snapshot.return_value = b"snapshot"
+        mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-mc",
+                    "frame_index": 10,
+                    "frame_offset_seconds": 0.4,
+                    "source_mode": "model_crop",
+                    "clip_variant": "event",
+                    "crop_box": [4, 4, 32, 32],
+                    "crop_confidence": 0.9,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.88,
+                    "ranking_score": 0.94,
+                    "selected": True,
+                    "thumbnail_ref": "evt__cand-mc__thumb",
+                    "image_ref": "evt__cand-mc__image",
+                    "snapshot_source": "hq_candidate_model_crop",
+                }
+            ]
+        )
+        response = await client.get("/api/frigate/test_event_id/snapshot/candidates")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body.get("model_crop_miss_reason") is None
