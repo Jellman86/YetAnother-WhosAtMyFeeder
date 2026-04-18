@@ -1018,6 +1018,7 @@ class AutoVideoClassifierService:
                         frigate_event,
                         clip_bytes,
                         event_data=event_data,
+                        clip_variant=clip_variant,
                     )
                 except Exception as e:
                     log.warning(

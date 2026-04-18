@@ -91,7 +91,7 @@ async def _cached_snapshot_allowed_for_current_settings(media_cache, event_id: s
     source = str((metadata or {}).get("source") or "").strip()
     # Legacy cached snapshots have no metadata. When HQ snapshots are disabled,
     # refresh them once so old full-frame HQ replacements do not keep winning.
-    if not source or source in HIGH_QUALITY_SNAPSHOT_SOURCES:
+    if not source or source in HIGH_QUALITY_SNAPSHOT_SOURCES or source.startswith("hq_candidate_"):
         await media_cache.delete_snapshot(event_id)
         await media_cache.delete_thumbnail(event_id)
         return False
@@ -230,6 +230,96 @@ async def _build_snapshot_status(event_id: str):
     )
 
 
+async def _list_snapshot_candidates(event_id: str) -> list[dict]:
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        return await repo.list_snapshot_candidates(event_id)
+
+
+def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str) -> str:
+    return request.url_for(
+        "get_snapshot_candidate_thumbnail",
+        event_id=event_id,
+        candidate_id=candidate_id,
+    ).path
+
+
+async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
+    status = await _build_snapshot_status(event_id)
+    candidates = await _list_snapshot_candidates(event_id)
+    current_source = status.source
+    current_candidate_id = None
+    if current_source and current_source.startswith("hq_candidate_"):
+        for candidate in candidates:
+            if str(candidate.get("snapshot_source") or "") == current_source:
+                current_candidate_id = str(candidate.get("candidate_id") or "")
+                break
+    return SnapshotCandidateListResponse(
+        event_id=event_id,
+        current_source=current_source,
+        current_candidate_id=current_candidate_id,
+        candidates=[
+            SnapshotCandidateResponse(
+                candidate_id=str(candidate.get("candidate_id") or ""),
+                frame_index=int(candidate.get("frame_index") or 0),
+                frame_offset_seconds=(
+                    float(candidate["frame_offset_seconds"])
+                    if candidate.get("frame_offset_seconds") is not None
+                    else None
+                ),
+                source_mode=str(candidate.get("source_mode") or "full_frame"),
+                clip_variant=str(candidate.get("clip_variant") or "event"),
+                crop_box=[float(value) for value in (candidate.get("crop_box") or [])] or None,
+                crop_confidence=(
+                    float(candidate["crop_confidence"])
+                    if candidate.get("crop_confidence") is not None
+                    else None
+                ),
+                classifier_label=(
+                    str(candidate.get("classifier_label"))
+                    if candidate.get("classifier_label") is not None
+                    else None
+                ),
+                classifier_score=(
+                    float(candidate["classifier_score"])
+                    if candidate.get("classifier_score") is not None
+                    else None
+                ),
+                ranking_score=float(candidate.get("ranking_score") or 0.0),
+                selected=bool(candidate.get("selected")),
+                snapshot_source=(
+                    str(candidate.get("snapshot_source"))
+                    if candidate.get("snapshot_source") is not None
+                    else None
+                ),
+                thumbnail_url=_candidate_thumbnail_url(
+                    request,
+                    event_id,
+                    str(candidate.get("candidate_id") or ""),
+                ),
+            )
+            for candidate in candidates
+        ],
+    )
+
+
+def _pick_snapshot_candidate(candidates: list[dict], request: "SnapshotApplyRequest") -> dict | None:
+    if request.mode == "candidate":
+        target_id = str(request.candidate_id or "").strip()
+        return next((item for item in candidates if str(item.get("candidate_id") or "") == target_id), None)
+    if request.mode == "auto_best":
+        return next((item for item in candidates if bool(item.get("selected"))), candidates[0] if candidates else None)
+    mode_to_source = {
+        "full_frame": "full_frame",
+        "frigate_hint_crop": "frigate_hint_crop",
+        "model_crop": "model_crop",
+    }
+    target_source = mode_to_source.get(request.mode)
+    if not target_source:
+        return None
+    return next((item for item in candidates if str(item.get("source_mode") or "") == target_source), None)
+
+
 def _format_vtt_timestamp(seconds: float) -> str:
     whole_ms = max(0, int(round(seconds * 1000)))
     hours = whole_ms // 3_600_000
@@ -342,6 +432,47 @@ class SnapshotStatusResponse(BaseModel):
 class SnapshotGenerateResponse(SnapshotStatusResponse):
     status: Literal["already_hq_bird_crop", "generated_hq_bird_crop", "generated_hq_snapshot"]
     result: str
+
+
+class SnapshotCandidateResponse(BaseModel):
+    candidate_id: str
+    frame_index: int
+    frame_offset_seconds: float | None = None
+    source_mode: str
+    clip_variant: str
+    crop_box: list[float] | None = None
+    crop_confidence: float | None = None
+    classifier_label: str | None = None
+    classifier_score: float | None = None
+    ranking_score: float
+    selected: bool
+    snapshot_source: str | None = None
+    thumbnail_url: str | None = None
+
+
+class SnapshotCandidateListResponse(BaseModel):
+    event_id: str
+    current_source: str | None = None
+    current_candidate_id: str | None = None
+    candidates: list[SnapshotCandidateResponse]
+
+
+class SnapshotApplyRequest(BaseModel):
+    mode: Literal[
+        "candidate",
+        "auto_best",
+        "full_frame",
+        "frigate_hint_crop",
+        "model_crop",
+        "revert_original",
+    ] = "candidate"
+    candidate_id: str | None = None
+
+
+class SnapshotApplyResponse(SnapshotStatusResponse):
+    status: Literal["applied"]
+    applied_mode: str
+    applied_candidate_id: str | None = None
 
 
 def _iso_or_now(value: datetime | None) -> str:
@@ -1388,6 +1519,93 @@ async def generate_hq_bird_crop_snapshot(
             status=status,
             result=result,
         )
+
+
+@router.get("/frigate/{event_id}/snapshot/candidates", response_model=SnapshotCandidateListResponse)
+async def get_snapshot_candidates(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    return await _build_snapshot_candidates_response(request, event_id)
+
+
+@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg")
+async def get_snapshot_candidate_thumbnail(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Path(..., min_length=1, max_length=160),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    candidates = await _list_snapshot_candidates(event_id)
+    candidate = next((item for item in candidates if str(item.get("candidate_id") or "") == candidate_id), None)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Snapshot candidate not found")
+    from app.services.media_cache import media_cache
+
+    thumbnail_ref = str(candidate.get("thumbnail_ref") or "").strip()
+    if not thumbnail_ref:
+        raise HTTPException(status_code=404, detail="Snapshot candidate thumbnail unavailable")
+    thumbnail_bytes = await media_cache.get_thumbnail(thumbnail_ref)
+    if not thumbnail_bytes:
+        raise HTTPException(status_code=404, detail="Snapshot candidate thumbnail unavailable")
+    return Response(content=thumbnail_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+
+@router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)
+async def apply_snapshot_candidate(
+    request_body: SnapshotApplyRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+
+    from app.services.media_cache import media_cache
+
+    if request_body.mode == "revert_original":
+        snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+        if not snapshot_bytes:
+            raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
+        replaced = await media_cache.replace_snapshot(event_id, snapshot_bytes, source="frigate_snapshot")
+        if not replaced:
+            raise HTTPException(status_code=409, detail="Snapshot apply failed")
+        after = await _build_snapshot_status(event_id)
+        return SnapshotApplyResponse(
+            **after.model_dump(),
+            status="applied",
+            applied_mode=request_body.mode,
+            applied_candidate_id=None,
+        )
+
+    candidates = await _list_snapshot_candidates(event_id)
+    candidate = _pick_snapshot_candidate(candidates, request_body)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Snapshot candidate unavailable")
+
+    image_ref = str(candidate.get("image_ref") or "").strip()
+    if not image_ref:
+        raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    image_bytes = await media_cache.get_snapshot(image_ref)
+    if not image_bytes:
+        raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
+    replaced = await media_cache.replace_snapshot(event_id, image_bytes, source=snapshot_source)
+    if not replaced:
+        raise HTTPException(status_code=409, detail="Snapshot apply failed")
+    after = await _build_snapshot_status(event_id)
+    return SnapshotApplyResponse(
+        **after.model_dump(),
+        status="applied",
+        applied_mode=request_body.mode,
+        applied_candidate_id=str(candidate.get("candidate_id") or ""),
+    )
 
 @router.get("/frigate/{event_id}/snapshot.jpg")
 @guest_rate_limit()

@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     checkRecordingClipAvailable,
     fetchSnapshotStatus,
-    generateHighQualityBirdCropSnapshot
+    generateHighQualityBirdCropSnapshot,
+    fetchSnapshotCandidates,
+    applySnapshotCandidate
 } from './media';
 
 describe('checkRecordingClipAvailable', () => {
@@ -82,6 +84,69 @@ describe('snapshot HQ crop helpers', () => {
             expect.objectContaining({
                 method: 'POST',
                 headers: expect.any(Object)
+            })
+        );
+    });
+
+    it('fetches snapshot candidates and auth-wraps thumbnail URLs', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            Response.json({
+                event_id: 'evt-9',
+                current_source: 'hq_candidate_model_crop',
+                current_candidate_id: 'cand-1',
+                candidates: [
+                    {
+                        candidate_id: 'cand-1',
+                        frame_index: 12,
+                        source_mode: 'model_crop',
+                        clip_variant: 'recording',
+                        ranking_score: 0.92,
+                        selected: true,
+                        thumbnail_url: '/api/frigate/evt-9/snapshot/candidates/cand-1/thumbnail.jpg'
+                    }
+                ]
+            })
+        );
+
+        await expect(fetchSnapshotCandidates('evt-9')).resolves.toMatchObject({
+            event_id: 'evt-9',
+            current_candidate_id: 'cand-1',
+            candidates: [
+                expect.objectContaining({
+                    candidate_id: 'cand-1',
+                    thumbnail_url: expect.stringContaining('/api/frigate/evt-9/snapshot/candidates/cand-1/thumbnail.jpg')
+                })
+            ]
+        });
+    });
+
+    it('posts snapshot apply requests', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            Response.json({
+                event_id: 'evt-10',
+                status: 'applied',
+                applied_mode: 'candidate',
+                applied_candidate_id: 'cand-2',
+                cached: true,
+                source: 'hq_candidate_model_crop',
+                high_quality_event_snapshots_enabled: true,
+                high_quality_bird_crop_enabled: true,
+                already_hq_bird_crop: false,
+                can_generate_hq_bird_crop: true
+            })
+        );
+
+        await expect(applySnapshotCandidate('evt-10', { mode: 'candidate', candidate_id: 'cand-2' })).resolves.toMatchObject({
+            event_id: 'evt-10',
+            applied_candidate_id: 'cand-2',
+            source: 'hq_candidate_model_crop'
+        });
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            '/api/frigate/evt-10/snapshot/apply',
+            expect.objectContaining({
+                method: 'POST',
+                headers: expect.any(Object),
+                body: JSON.stringify({ mode: 'candidate', candidate_id: 'cand-2' })
             })
         );
     });

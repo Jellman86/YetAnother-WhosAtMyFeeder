@@ -43,6 +43,7 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
         "evt-auto-video-upgrade",
         b"clip-bytes",
         event_data={"has_clip": True},
+        clip_variant="event",
     )
     service._save_results.assert_awaited_once()
 
@@ -69,6 +70,7 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
         "evt-auto-video-upgrade-failure",
         b"clip-bytes",
         event_data={"has_clip": True},
+        clip_variant="event",
     )
     service._save_results.assert_awaited_once()
 

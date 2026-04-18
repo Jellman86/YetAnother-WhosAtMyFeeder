@@ -149,6 +149,7 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
                     "region": [0.1, 0.2, 0.8, 0.9],
                 },
             },
+            clip_variant="event",
         )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"] == {
@@ -203,6 +204,7 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
             event_id,
             b"\x00\x00\x00\x18ftypisomevent",
             event_data={"has_clip": True},
+            clip_variant="event",
         )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
@@ -249,6 +251,7 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
             event_id,
             b"\x00\x00\x00\x18ftypisomevent",
             event_data={"has_clip": True},
+            clip_variant="event",
         )
         classifier.classify_video_async.assert_awaited_once()
         assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
@@ -294,6 +297,7 @@ async def test_reclassify_video_prefers_cached_recording_clip_when_available(cli
             event_id,
             recording_bytes,
             event_data={"has_clip": True},
+            clip_variant="recording",
         )
         mock_frigate.get_clip_with_error.assert_not_awaited()
         classifier.classify_video_async.assert_awaited_once()

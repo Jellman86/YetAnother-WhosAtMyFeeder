@@ -230,6 +230,123 @@ class DetectionRepository:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
 
+    async def replace_snapshot_candidates(
+        self,
+        frigate_event: str,
+        candidates: list[dict],
+    ) -> None:
+        if not await self._table_exists("snapshot_candidates"):
+            return
+        await self.db.execute(
+            "DELETE FROM snapshot_candidates WHERE frigate_event = ?",
+            (frigate_event,),
+        )
+        for candidate in candidates:
+            crop_box = candidate.get("crop_box")
+            crop_box_json = json.dumps(crop_box) if crop_box is not None else None
+            await self.db.execute(
+                """
+                INSERT INTO snapshot_candidates (
+                    frigate_event,
+                    candidate_id,
+                    frame_index,
+                    frame_offset_seconds,
+                    source_mode,
+                    clip_variant,
+                    crop_box_json,
+                    crop_confidence,
+                    classifier_label,
+                    classifier_score,
+                    ranking_score,
+                    selected,
+                    thumbnail_ref,
+                    image_ref,
+                    snapshot_source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    frigate_event,
+                    str(candidate.get("candidate_id") or ""),
+                    int(candidate.get("frame_index") or 0),
+                    candidate.get("frame_offset_seconds"),
+                    str(candidate.get("source_mode") or "full_frame"),
+                    str(candidate.get("clip_variant") or "event"),
+                    crop_box_json,
+                    candidate.get("crop_confidence"),
+                    candidate.get("classifier_label"),
+                    candidate.get("classifier_score"),
+                    float(candidate.get("ranking_score") or 0.0),
+                    1 if bool(candidate.get("selected")) else 0,
+                    candidate.get("thumbnail_ref"),
+                    candidate.get("image_ref"),
+                    candidate.get("snapshot_source"),
+                ),
+            )
+        await self.db.commit()
+
+    async def list_snapshot_candidates(self, frigate_event: str) -> list[dict]:
+        if not await self._table_exists("snapshot_candidates"):
+            return []
+        async with self.db.execute(
+            """
+            SELECT
+                candidate_id,
+                frame_index,
+                frame_offset_seconds,
+                source_mode,
+                clip_variant,
+                crop_box_json,
+                crop_confidence,
+                classifier_label,
+                classifier_score,
+                ranking_score,
+                selected,
+                thumbnail_ref,
+                image_ref,
+                snapshot_source
+            FROM snapshot_candidates
+            WHERE frigate_event = ?
+            ORDER BY ranking_score DESC, frame_index ASC, candidate_id ASC
+            """,
+            (frigate_event,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        result: list[dict] = []
+        for row in rows:
+            crop_box = None
+            if row[5]:
+                try:
+                    crop_box = json.loads(row[5])
+                except Exception:
+                    crop_box = None
+            result.append(
+                {
+                    "candidate_id": row[0],
+                    "frame_index": row[1],
+                    "frame_offset_seconds": row[2],
+                    "source_mode": row[3],
+                    "clip_variant": row[4],
+                    "crop_box": crop_box,
+                    "crop_confidence": row[6],
+                    "classifier_label": row[7],
+                    "classifier_score": row[8],
+                    "ranking_score": row[9],
+                    "selected": bool(row[10]),
+                    "thumbnail_ref": row[11],
+                    "image_ref": row[12],
+                    "snapshot_source": row[13],
+                }
+            )
+        return result
+
+    async def get_selected_snapshot_candidate(self, frigate_event: str) -> Optional[dict]:
+        candidates = await self.list_snapshot_candidates(frigate_event)
+        for candidate in candidates:
+            if candidate.get("selected"):
+                return candidate
+        return candidates[0] if candidates else None
+
     @staticmethod
     def _canonical_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
         return (
@@ -396,6 +513,7 @@ class DetectionRepository:
         "species_info_cache",
         "classification_feedback",
         "oauth_tokens",
+        "snapshot_candidates",
     })
 
     async def _table_columns(self, table_name: str) -> set[str]:

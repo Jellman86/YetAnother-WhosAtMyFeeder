@@ -9,16 +9,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Added
 - **Deployment:** Added a dedicated `ghcr.io/<owner>/yawamf-monalithic-rpi` ARM64 image line for Raspberry Pi 4/5 monolith installs, plus a new Raspberry Pi setup guide covering image overrides, hardware expectations, and current support limits.
 - **AI Models:** Added an experimental `accurate` bird-crop detector tier wired for YOLOX-Tiny alongside the existing default `fast` detector. Settings now expose crop-detector tier selection, the model manager lists both managed crop-detector artifacts, and the backend falls back from `accurate` to `fast` automatically if the accurate detector is unavailable.
+- **UI:** Detection details now include a snapshot repair workflow for owners. YA-WAMF persists a bounded set of HQ snapshot candidates per detection, exposes quick source-switch actions (`Auto best`, `Full frame`, `Frigate hint crop`, `Model crop`, `Revert original`), and provides a frame-picker thumbnail grid for manually promoting a better saved candidate.
 
 ### Changed
 - **Deployment:** `docker-compose.monolith.yml` now supports `YAWAMF_MONALITHIC_IMAGE` as an optional full image-name override, making it easier to switch between the standard monolith image and the Raspberry Pi image without editing the compose file.
 - **Backend:** ARM64 installs now use CPU `onnxruntime` while x86-64 keeps `onnxruntime-gpu[cuda,cudnn]`. Intel GPU runtime setup in both Dockerfiles is now skipped automatically on non-`amd64` builds.
 - **Classification:** Snapshot and high-quality snapshot cropping now share a global `bird_crop_source_priority` setting. The default remains `frigate_hints_first`, but owners can now choose `crop_model_first`, `crop_model_only`, or `frigate_hints_only` while still respecting the configured crop-detector tier whenever the model path is used.
 - **Classification:** Automatic video classification now prefers a cached recording/full-visit clip when one is already available, matching the manual reclassify path more closely. If the cached recording clip is invalid, YA-WAMF now falls back to the normal Frigate event clip instead of failing the auto-video run.
+- **Classification:** High-quality snapshot generation now scores and persists multiple candidate frames per detection instead of committing only a single derived frame path. Candidate metadata includes source mode, clip variant, classifier score, and crop confidence, and stale candidate cache artifacts are cleaned up when a detection’s candidate set is replaced.
 
 ### Fixed
 - **Classification:** Auto video classification no longer promotes `Unknown Bird` to a species on very weak scores. Unknown-label upgrades now respect the configured classifier floor, so low-confidence video guesses stay `Unknown Bird` instead of auto-overriding to an implausible species.
 - **Classification:** Auto video promotion is now less brittle for low-confidence primary detections. When the current primary label never cleared the main threshold, a stronger video result can now replace it without needing to clear the full primary threshold, while the existing Frigate sublabel disagreement guard remains in place.
+- **Classification:** HQ snapshot candidate metadata now records the actual clip variant used (`event` vs `recording`) instead of inferring it from global settings, and recording-clip fallback can reuse an already-cached full-visit clip without depending on DB-backed helper state.
 
 ## [2.9.13] - 2026-04-16
 

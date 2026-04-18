@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import os
 import sys
 import tempfile
+import hashlib
 from io import BytesIO
 from collections import Counter, deque
 from pathlib import Path
@@ -20,6 +22,8 @@ from app.config import settings
 from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -27,6 +31,7 @@ log = structlog.get_logger()
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
+HQ_MAX_PERSISTED_CANDIDATES = 8
 
 
 class HighQualitySnapshotService:
@@ -91,41 +96,73 @@ class HighQualitySnapshotService:
             return self._record_outcome(event_id, "disabled")
 
         event_data = self._pop_crop_event_hints(event_id)
+        clip_variant = "event"
         clip_bytes, clip_error = await self._wait_for_clip(event_id)
         if not clip_bytes:
             clip_bytes = await self._load_recording_clip_bytes(event_id)
+            clip_variant = "recording"
         if not clip_bytes:
             return self._record_outcome(event_id, clip_error or "clip_unavailable")
 
         if event_data is None:
             event_data = await self._load_event_data_for_crop(event_id)
+        selected_candidate = None
         try:
-            image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, event_data)
+            candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
+                event_id,
+                clip_bytes,
+                event_data=event_data,
+                clip_variant=clip_variant,
+            )
+            if candidate_bundle:
+                await self._persist_snapshot_candidates(event_id, candidate_bundle.get("candidates") or [])
+                selected_candidate = candidate_bundle.get("selected_candidate")
         except Exception as e:
-            log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
-            return self._record_outcome(event_id, "frame_extract_failed")
-        image_bytes, crop_applied = await asyncio.to_thread(
-            self._maybe_crop_snapshot_bytes,
-            event_id,
-            image_bytes,
-            event_data,
-        )
+            log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
+
+        if isinstance(selected_candidate, dict) and selected_candidate.get("image_bytes"):
+            image_bytes = selected_candidate["image_bytes"]
+            crop_applied = str(selected_candidate.get("source_mode") or "full_frame") != "full_frame"
+            snapshot_source = str(
+                selected_candidate.get("snapshot_source")
+                or ("high_quality_bird_crop" if crop_applied else "high_quality_snapshot")
+            )
+        else:
+            try:
+                image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, event_data)
+            except Exception as e:
+                log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
+                return self._record_outcome(event_id, "frame_extract_failed")
+            image_bytes, crop_applied = await asyncio.to_thread(
+                self._maybe_crop_snapshot_bytes,
+                event_id,
+                image_bytes,
+                event_data,
+            )
+            snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
         replaced = await media_cache.replace_snapshot(
             event_id,
             image_bytes,
-            source="high_quality_bird_crop" if crop_applied else "high_quality_snapshot",
+            source=snapshot_source,
         )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
 
-        log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes))
+        log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes), source=snapshot_source)
         return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
 
     async def _load_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         """Fall back to the full-visit recording clip when the event clip is unavailable."""
         if not settings.frigate.recording_clip_enabled:
             return None
+
+        cached_path = media_cache.get_recording_clip_path(event_id)
+        if cached_path and cached_path.exists():
+            try:
+                return await asyncio.to_thread(cached_path.read_bytes)
+            except Exception as e:
+                log.warning("Failed to read cached recording clip for HQ snapshot fallback", event_id=event_id, error=str(e))
 
         try:
             from app.routers.proxy import _fetch_recording_clip_ready, _get_valid_cached_recording_clip_path
@@ -156,6 +193,8 @@ class HighQualitySnapshotService:
         event_id: str,
         clip_bytes: bytes,
         event_data: Optional[dict[str, Any]] = None,
+        *,
+        clip_variant: str = "event",
     ) -> str:
         """Best-effort replacement using clip bytes already fetched by another workflow."""
         if not self.enabled():
@@ -169,23 +208,46 @@ class HighQualitySnapshotService:
 
         self._active_ids.add(event_id)
         try:
+            crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
+            selected_candidate = None
             try:
-                crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
-                image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, crop_event_data)
+                candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
+                    event_id,
+                    clip_bytes,
+                    event_data=crop_event_data,
+                    clip_variant=clip_variant,
+                )
+                if candidate_bundle:
+                    await self._persist_snapshot_candidates(event_id, candidate_bundle.get("candidates") or [])
+                    selected_candidate = candidate_bundle.get("selected_candidate")
             except Exception as e:
-                log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
-                return self._record_outcome(event_id, "frame_extract_failed")
-            image_bytes, crop_applied = await asyncio.to_thread(
-                self._maybe_crop_snapshot_bytes,
-                event_id,
-                image_bytes,
-                crop_event_data,
-            )
+                log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
+
+            if isinstance(selected_candidate, dict) and selected_candidate.get("image_bytes"):
+                image_bytes = selected_candidate["image_bytes"]
+                crop_applied = str(selected_candidate.get("source_mode") or "full_frame") != "full_frame"
+                snapshot_source = str(
+                    selected_candidate.get("snapshot_source")
+                    or ("high_quality_bird_crop" if crop_applied else "high_quality_snapshot")
+                )
+            else:
+                try:
+                    image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, crop_event_data)
+                except Exception as e:
+                    log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
+                    return self._record_outcome(event_id, "frame_extract_failed")
+                image_bytes, crop_applied = await asyncio.to_thread(
+                    self._maybe_crop_snapshot_bytes,
+                    event_id,
+                    image_bytes,
+                    crop_event_data,
+                )
+                snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
             replaced = await media_cache.replace_snapshot(
                 event_id,
                 image_bytes,
-                source="high_quality_bird_crop" if crop_applied else "high_quality_snapshot",
+                source=snapshot_source,
             )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -193,11 +255,255 @@ class HighQualitySnapshotService:
             if event_id in self._queued_ids or event_id in self._deferred_ids:
                 self._completed_ids.add(event_id)
 
-            log.info("High-quality snapshot replaced from clip bytes", event_id=event_id, size=len(image_bytes))
+            log.info(
+                "High-quality snapshot replaced from clip bytes",
+                event_id=event_id,
+                size=len(image_bytes),
+                source=snapshot_source,
+            )
             return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
         finally:
             self._active_ids.discard(event_id)
             self._promote_deferred_events()
+
+    async def generate_snapshot_candidates_from_clip_bytes(
+        self,
+        event_id: str,
+        clip_bytes: bytes,
+        *,
+        event_data: Optional[dict[str, Any]] = None,
+        clip_variant: str = "event",
+    ) -> dict[str, Any]:
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            tmp.write(clip_bytes)
+            tmp_path = Path(tmp.name)
+        try:
+            raw_candidates = await asyncio.to_thread(
+                self._extract_snapshot_candidate_payloads_from_clip_path,
+                tmp_path,
+                event_id=event_id,
+                event_data=event_data,
+                clip_variant=clip_variant,
+            )
+        finally:
+            with contextlib.suppress(Exception):
+                tmp_path.unlink(missing_ok=True)
+
+        scored: list[dict[str, Any]] = []
+        for candidate in raw_candidates:
+            enriched = await self._score_snapshot_candidate(candidate)
+            if enriched is not None:
+                scored.append(enriched)
+
+        if not scored:
+            return {"selected_candidate": None, "candidates": []}
+
+        scored.sort(key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
+        persisted = scored[:HQ_MAX_PERSISTED_CANDIDATES]
+        for index, candidate in enumerate(persisted):
+            candidate["selected"] = index == 0
+        return {
+            "selected_candidate": persisted[0],
+            "candidates": persisted,
+        }
+
+    def _extract_snapshot_candidate_payloads_from_clip_path(
+        self,
+        clip_path: Path,
+        *,
+        event_id: str,
+        event_data: Optional[dict[str, Any]] = None,
+        clip_variant: str = "event",
+    ) -> list[dict[str, Any]]:
+        cap = cv2.VideoCapture(str(clip_path))
+        if not cap.isOpened():
+            raise ValueError(f"Unable to open clip for snapshot extraction: {clip_path}")
+
+        try:
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+            candidate_indices = self._candidate_frame_indices(
+                frame_count=frame_count,
+                fps=fps,
+                event_data=event_data,
+            )[:HQ_MAX_CROP_SCORING_FRAMES]
+            seen: set[str] = set()
+            results: list[dict[str, Any]] = []
+            for frame_index in candidate_indices:
+                if frame_count > 0:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+                ok, frame = cap.read()
+                if not ok or frame is None:
+                    continue
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                base_image = Image.fromarray(rgb_frame).convert("RGB")
+                frame_offset_seconds = (float(frame_index) / fps) if fps > 0 else None
+                for source_mode, candidate_image, crop_result in self._candidate_images_for_frame(
+                    base_image,
+                    event_data=event_data,
+                    event_id=event_id,
+                ):
+                    image_bytes = self._encode_pil_to_jpeg_bytes(candidate_image)
+                    candidate_id = self._build_snapshot_candidate_id(
+                        event_id,
+                        frame_index=frame_index,
+                        source_mode=source_mode,
+                    )
+                    if candidate_id in seen:
+                        continue
+                    seen.add(candidate_id)
+                    thumbnail_ref = f"{candidate_id}__thumb"
+                    image_ref = f"{candidate_id}__image"
+                    results.append(
+                        {
+                            "candidate_id": candidate_id,
+                            "frame_index": int(frame_index),
+                            "frame_offset_seconds": frame_offset_seconds,
+                            "source_mode": source_mode,
+                            "clip_variant": clip_variant,
+                            "crop_box": (crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
+                            "crop_confidence": (crop_result or {}).get("confidence") if isinstance(crop_result, dict) else None,
+                            "thumbnail_ref": thumbnail_ref,
+                            "image_ref": image_ref,
+                            "snapshot_source": f"hq_candidate_{source_mode}",
+                            "image_bytes": image_bytes,
+                            "thumbnail_bytes": self._thumbnail_bytes_for_candidate(candidate_image),
+                        }
+                    )
+            return results
+        finally:
+            cap.release()
+
+    def _candidate_images_for_frame(
+        self,
+        image: Image.Image,
+        *,
+        event_data: Optional[dict[str, Any]],
+        event_id: str,
+    ) -> list[tuple[str, Image.Image, Optional[dict[str, Any]]]]:
+        candidates: list[tuple[str, Image.Image, Optional[dict[str, Any]]]] = [("full_frame", image, None)]
+        hint_result = self._crop_from_event_hints(image, event_data)
+        hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
+        if isinstance(hint_image, Image.Image):
+            candidates.append(("frigate_hint_crop", hint_image, hint_result))
+        if bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)) and self._bird_crop_model_available():
+            model_result = self._crop_from_bird_model(image, event_id=event_id)
+            model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
+            if isinstance(model_image, Image.Image):
+                candidates.append(("model_crop", model_image, model_result))
+        return candidates
+
+    async def _score_snapshot_candidate(self, candidate: dict[str, Any]) -> Optional[dict[str, Any]]:
+        image_bytes = candidate.get("image_bytes")
+        if not isinstance(image_bytes, (bytes, bytearray)) or not image_bytes:
+            return None
+        try:
+            image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        except Exception:
+            return None
+
+        classifier_score = 0.0
+        classifier_label = None
+        try:
+            classifier_module = sys.modules.get("app.services.classifier_service")
+            classifier = getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
+            if classifier is not None:
+                results = classifier.classify(
+                    image,
+                    input_context={"is_cropped": candidate.get("source_mode") != "full_frame"},
+                )
+                if results:
+                    classifier_label = results[0].get("label")
+                    classifier_score = float(results[0].get("score") or 0.0)
+        except Exception as e:
+            log.debug("Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e))
+
+        crop_confidence = float(candidate.get("crop_confidence") or 0.0)
+        source_mode = str(candidate.get("source_mode") or "full_frame")
+        source_bonus = 0.0
+        if source_mode == "model_crop":
+            source_bonus = 0.06
+        elif source_mode == "frigate_hint_crop":
+            source_bonus = 0.03
+        ranking_score = classifier_score + source_bonus + (crop_confidence * 0.12)
+
+        enriched = dict(candidate)
+        enriched["classifier_label"] = classifier_label
+        enriched["classifier_score"] = classifier_score
+        enriched["ranking_score"] = ranking_score
+        return enriched
+
+    async def _persist_snapshot_candidates(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
+        stale_image_refs: list[str] = []
+        stale_thumbnail_refs: list[str] = []
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            existing = await repo.list_snapshot_candidates(event_id)
+            existing_image_refs = {
+                str(item.get("image_ref") or "").strip()
+                for item in existing
+                if str(item.get("image_ref") or "").strip()
+            }
+            existing_thumbnail_refs = {
+                str(item.get("thumbnail_ref") or "").strip()
+                for item in existing
+                if str(item.get("thumbnail_ref") or "").strip()
+            }
+            new_image_refs = {
+                str(item.get("image_ref") or "").strip()
+                for item in candidates
+                if str(item.get("image_ref") or "").strip()
+            }
+            new_thumbnail_refs = {
+                str(item.get("thumbnail_ref") or "").strip()
+                for item in candidates
+                if str(item.get("thumbnail_ref") or "").strip()
+            }
+            stale_image_refs = sorted(existing_image_refs - new_image_refs)
+            stale_thumbnail_refs = sorted(existing_thumbnail_refs - new_thumbnail_refs)
+
+        for candidate in candidates:
+            image_ref = str(candidate.get("image_ref") or "")
+            thumbnail_ref = str(candidate.get("thumbnail_ref") or "")
+            image_bytes = candidate.get("image_bytes")
+            thumbnail_bytes = candidate.get("thumbnail_bytes")
+            if image_ref and isinstance(image_bytes, (bytes, bytearray)):
+                await media_cache.cache_snapshot(image_ref, bytes(image_bytes), source="snapshot_candidate")
+            if thumbnail_ref and isinstance(thumbnail_bytes, (bytes, bytearray)):
+                await media_cache.cache_thumbnail(thumbnail_ref, bytes(thumbnail_bytes), source="snapshot_candidate")
+
+        persisted_rows: list[dict[str, Any]] = []
+        for candidate in candidates:
+            row = dict(candidate)
+            row.pop("image_bytes", None)
+            row.pop("thumbnail_bytes", None)
+            persisted_rows.append(row)
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            await repo.replace_snapshot_candidates(event_id, persisted_rows)
+        for image_ref in stale_image_refs:
+            await media_cache.delete_snapshot(image_ref)
+        for thumbnail_ref in stale_thumbnail_refs:
+            await media_cache.delete_thumbnail(thumbnail_ref)
+
+    def _thumbnail_bytes_for_candidate(self, image: Image.Image, *, max_size: int = 240) -> bytes:
+        thumb = image.copy()
+        thumb.thumbnail((max_size, max_size))
+        return self._encode_pil_to_jpeg_bytes(thumb, quality=82)
+
+    def _encode_pil_to_jpeg_bytes(self, image: Image.Image, *, quality: Optional[int] = None) -> bytes:
+        buffer = BytesIO()
+        image.convert("RGB").save(
+            buffer,
+            format="JPEG",
+            quality=int(quality or settings.media_cache.high_quality_event_snapshot_jpeg_quality),
+            optimize=True,
+        )
+        return buffer.getvalue()
+
+    def _build_snapshot_candidate_id(self, event_id: str, *, frame_index: int, source_mode: str) -> str:
+        digest = hashlib.sha1(f"{event_id}:{frame_index}:{source_mode}".encode("utf-8")).hexdigest()[:10]
+        return f"{event_id}__{source_mode}__f{frame_index}__{digest}"
 
     async def wait_for_idle(self) -> None:
         """Wait for all scheduled replacement tasks to complete."""

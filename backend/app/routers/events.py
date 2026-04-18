@@ -1318,6 +1318,7 @@ async def reclassify_event(
                                             event_id,
                                             clip_data,
                                             event_data=event_data,
+                                            clip_variant=clip_variant,
                                         )
                                     except Exception as e:
                                         log.warning(

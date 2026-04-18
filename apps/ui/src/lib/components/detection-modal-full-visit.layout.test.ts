@@ -48,10 +48,17 @@ describe('detection modal full-visit fetch wiring', () => {
 
     it('wires an owner-only HQ crop action into the snapshot hero', () => {
         expect(detectionModalSource).toContain('fetchSnapshotStatus');
+        expect(detectionModalSource).toContain('fetchSnapshotCandidates');
+        expect(detectionModalSource).toContain('applySnapshotCandidate');
         expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
         expect(detectionModalSource).toContain('showManualHqBirdCropAction');
+        expect(detectionModalSource).toContain('showSnapshotRepairAction');
+        expect(detectionModalSource).toContain("Snapshot repair");
+        expect(detectionModalSource).toContain("Frame picker");
+        expect(detectionModalSource).toContain("Revert original");
         expect(detectionModalSource).toContain('manualHqBirdCropPending');
         expect(detectionModalSource).toContain('handleManualHqBirdCrop');
+        expect(detectionModalSource).toContain('handleApplySnapshot');
         expect(detectionModalSource).toContain("manual_hq_bird_crop', { default: 'Generate HQ bird crop' }");
         expect(detectionModalSource).toContain("manual_hq_bird_crop_unavailable', { default: 'HQ bird crop unavailable; kept full HQ snapshot' }");
     });

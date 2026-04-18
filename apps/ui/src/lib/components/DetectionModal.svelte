@@ -3,6 +3,8 @@
     import {
         getSnapshotUrl,
         fetchSnapshotStatus,
+        fetchSnapshotCandidates,
+        applySnapshotCandidate,
         generateHighQualityBirdCropSnapshot,
         analyzeDetection,
         updateDetectionSpecies,
@@ -27,7 +29,8 @@
         type EbirdNearbyResult,
         type EbirdNotableResult,
         type ConversationTurn,
-        type SnapshotStatusResponse
+        type SnapshotStatusResponse,
+        type SnapshotCandidate
     } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
@@ -174,6 +177,33 @@
         return `${url}${separator}v=${token}`;
     }
 
+    async function refreshSnapshotControls(eventId: string) {
+        snapshotStatusLoading = true;
+        snapshotCandidatesLoading = true;
+        try {
+            const [status, candidateList] = await Promise.all([
+                fetchSnapshotStatus(eventId),
+                fetchSnapshotCandidates(eventId)
+            ]);
+            if (detection.frigate_event !== eventId) return;
+            snapshotStatus = status;
+            snapshotCandidates = candidateList.candidates ?? [];
+            currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
+            currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
+        } catch {
+            if (detection.frigate_event !== eventId) return;
+            snapshotStatus = null;
+            snapshotCandidates = [];
+            currentSnapshotCandidateId = null;
+            currentSnapshotSource = null;
+        } finally {
+            if (detection.frigate_event === eventId) {
+                snapshotStatusLoading = false;
+                snapshotCandidatesLoading = false;
+            }
+        }
+    }
+
     const syncDarkMode = () => {
         if (typeof document === 'undefined') return;
         isDarkMode = document.documentElement.classList.contains('dark');
@@ -209,32 +239,25 @@
         if (!eventId || !hasOwnerDetectionActions) {
             snapshotStatus = null;
             snapshotStatusLoading = false;
+            snapshotCandidates = [];
+            snapshotCandidatesLoading = false;
+            snapshotRepairOpen = false;
+            currentSnapshotCandidateId = null;
+            currentSnapshotSource = null;
             return;
         }
 
-        let cancelled = false;
         snapshotStatusLoading = true;
+        snapshotCandidatesLoading = true;
 
         void (async () => {
             try {
-                const status = await fetchSnapshotStatus(eventId);
-                if (!cancelled && detection.frigate_event === eventId) {
-                    snapshotStatus = status;
-                }
+                await refreshSnapshotControls(eventId);
             } catch {
-                if (!cancelled) {
-                    snapshotStatus = null;
-                }
-            } finally {
-                if (!cancelled) {
-                    snapshotStatusLoading = false;
-                }
+                // refreshSnapshotControls already set conservative state
             }
         })();
 
-        return () => {
-            cancelled = true;
-        };
     });
 
     const hasMarkdownHeadings = (value: string | null) => {
@@ -385,6 +408,12 @@
     let manualHqBirdCropPending = $state(false);
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotStatusLoading = $state(false);
+    let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    let snapshotCandidatesLoading = $state(false);
+    let snapshotRepairOpen = $state(false);
+    let snapshotApplyPending = $state(false);
+    let currentSnapshotCandidateId = $state<string | null>(null);
+    let currentSnapshotSource = $state<string | null>(null);
     let snapshotRefreshToken = $state(Date.now());
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
@@ -513,6 +542,16 @@
         && !reclassifyProgress
         && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
     );
+    const showSnapshotRepairAction = $derived(
+        hasOwnerDetectionActions
+        && !showMediaSlotVideoAnalysis
+        && !reclassifyProgress
+    );
+    const hasSnapshotCandidates = $derived(snapshotCandidates.length > 0);
+    const canApplySnapshotCandidates = $derived(hasSnapshotCandidates && !snapshotCandidatesLoading && !snapshotApplyPending);
+    const hasFullFrameSnapshotCandidate = $derived(snapshotCandidates.some((candidate) => candidate.source_mode === 'full_frame'));
+    const hasFrigateHintSnapshotCandidate = $derived(snapshotCandidates.some((candidate) => candidate.source_mode === 'frigate_hint_crop'));
+    const hasModelSnapshotCandidate = $derived(snapshotCandidates.some((candidate) => candidate.source_mode === 'model_crop'));
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
@@ -1046,11 +1085,61 @@
             manualHqBirdCropPending = false;
             if (authStore.hasOwnerAccess && !readOnly) {
                 try {
-                    snapshotStatus = await fetchSnapshotStatus(detection.frigate_event);
+                    await refreshSnapshotControls(detection.frigate_event);
+                    snapshotRefreshToken = Date.now();
                 } catch {
                     // Keep the last known status if the refresh probe fails.
                 }
             }
+        }
+    }
+
+    function snapshotSourceLabel(source: string | null | undefined) {
+        switch (String(source || '').trim()) {
+            case 'full_frame':
+            case 'hq_candidate_full_frame':
+                return $_('detection.snapshot_source_full_frame', { default: 'Full frame' });
+            case 'frigate_hint_crop':
+            case 'hq_candidate_frigate_hint_crop':
+                return $_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' });
+            case 'model_crop':
+            case 'hq_candidate_model_crop':
+            case 'high_quality_bird_crop':
+                return $_('detection.snapshot_source_model_crop', { default: 'Model crop' });
+            case 'frigate_snapshot':
+                return $_('detection.snapshot_source_original', { default: 'Original Frigate snapshot' });
+            case 'high_quality_snapshot':
+                return $_('detection.snapshot_source_auto_best', { default: 'Auto best snapshot' });
+            default:
+                return source || $_('detection.snapshot_source_unknown', { default: 'Unknown source' });
+        }
+    }
+
+    function formatSnapshotFrameOffset(offset?: number | null) {
+        if (typeof offset !== 'number' || Number.isNaN(offset)) return null;
+        return `${offset.toFixed(2)}s`;
+    }
+
+    async function handleApplySnapshot(
+        mode: 'candidate' | 'auto_best' | 'full_frame' | 'frigate_hint_crop' | 'model_crop' | 'revert_original',
+        candidateId?: string | null
+    ) {
+        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
+        snapshotApplyPending = true;
+        try {
+            const result = await applySnapshotCandidate(detection.frigate_event, {
+                mode,
+                candidate_id: candidateId ?? null
+            });
+            snapshotStatus = result;
+            snapshotRefreshToken = Date.now();
+            snapshotRepairOpen = mode === 'candidate' ? snapshotRepairOpen : false;
+            toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
+            await refreshSnapshotControls(detection.frigate_event);
+        } catch (e: any) {
+            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            snapshotApplyPending = false;
         }
     }
 
@@ -1879,6 +1968,152 @@
                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
                 <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
             </div>
+            {#if showSnapshotRepairAction}
+                <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/50">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                                {$_('detection.snapshot_repair_title', { default: 'Snapshot repair' })}
+                            </p>
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
+                                {snapshotSourceLabel(currentSnapshotSource ?? snapshotStatus?.source ?? null)}
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                {#if snapshotCandidatesLoading}
+                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading candidate frames…' })}
+                                {:else if hasSnapshotCandidates}
+                                    {$_('detection.snapshot_candidates_count', { default: `${snapshotCandidates.length} candidate frames ready` })}
+                                {:else}
+                                    {$_('detection.snapshot_candidates_empty', { default: 'No saved candidate frames yet. Regenerate an HQ snapshot first.' })}
+                                {/if}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={() => (snapshotRepairOpen = !snapshotRepairOpen)}
+                            class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-700 transition-colors hover:border-teal-300 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-teal-500 dark:hover:text-teal-300"
+                        >
+                            <span>{snapshotRepairOpen ? $_('common.hide', { default: 'Hide' }) : $_('common.manage', { default: 'Manage' })}</span>
+                        </button>
+                    </div>
+
+                    {#if snapshotRepairOpen}
+                        <div class="mt-4 space-y-4">
+                            <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+                                <button
+                                    type="button"
+                                    onclick={() => handleApplySnapshot('auto_best')}
+                                    disabled={!canApplySnapshotCandidates}
+                                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                                >
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('detection.snapshot_action_auto_best', { default: 'Auto best' })}</span>
+                                    <span class="mt-1 block">{$_('detection.snapshot_action_auto_best_desc', { default: 'Use the highest-ranked saved candidate' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => handleApplySnapshot('full_frame')}
+                                    disabled={!canApplySnapshotCandidates || !hasFullFrameSnapshotCandidate}
+                                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                                >
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('detection.snapshot_action_full_frame', { default: 'Full frame' })}</span>
+                                    <span class="mt-1 block">{$_('detection.snapshot_action_full_frame_desc', { default: 'Use the uncropped saved frame' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => handleApplySnapshot('frigate_hint_crop')}
+                                    disabled={!canApplySnapshotCandidates || !hasFrigateHintSnapshotCandidate}
+                                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                                >
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('detection.snapshot_action_frigate_hint', { default: 'Frigate hint crop' })}</span>
+                                    <span class="mt-1 block">{$_('detection.snapshot_action_frigate_hint_desc', { default: 'Use the best crop built from Frigate event hints' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => handleApplySnapshot('model_crop')}
+                                    disabled={!canApplySnapshotCandidates || !hasModelSnapshotCandidate}
+                                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                                >
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('detection.snapshot_action_model_crop', { default: 'Model crop' })}</span>
+                                    <span class="mt-1 block">{$_('detection.snapshot_action_model_crop_desc', { default: 'Use the best crop built from the configured crop detector' })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => handleApplySnapshot('revert_original')}
+                                    disabled={snapshotApplyPending}
+                                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200"
+                                >
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('detection.snapshot_action_revert', { default: 'Revert original' })}</span>
+                                    <span class="mt-1 block">{$_('detection.snapshot_action_revert_desc', { default: 'Go back to the original Frigate snapshot' })}</span>
+                                </button>
+                            </div>
+
+                            {#if snapshotApplyPending}
+                                <div class="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-medium text-teal-700 dark:border-teal-500/30 dark:bg-teal-500/10 dark:text-teal-200">
+                                    {$_('detection.snapshot_apply_pending', { default: 'Applying snapshot selection…' })}
+                                </div>
+                            {/if}
+
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                                        {$_('detection.snapshot_frame_picker', { default: 'Frame picker' })}
+                                    </p>
+                                    {#if currentSnapshotCandidateId}
+                                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                            {$_('detection.snapshot_current_candidate', { default: 'Current saved frame' })}
+                                        </p>
+                                    {/if}
+                                </div>
+                                {#if snapshotCandidatesLoading}
+                                    <div class="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                        {$_('detection.snapshot_candidates_loading', { default: 'Loading candidate frames…' })}
+                                    </div>
+                                {:else if !hasSnapshotCandidates}
+                                    <div class="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                        {$_('detection.snapshot_candidates_empty', { default: 'No saved candidate frames yet. Regenerate an HQ snapshot first.' })}
+                                    </div>
+                                {:else}
+                                    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+                                        {#each snapshotCandidates as candidate}
+                                            <button
+                                                type="button"
+                                                onclick={() => handleApplySnapshot('candidate', candidate.candidate_id)}
+                                                disabled={snapshotApplyPending}
+                                                class="overflow-hidden rounded-2xl border text-left transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 {currentSnapshotCandidateId === candidate.candidate_id ? 'border-teal-400 bg-teal-50 shadow-lg shadow-teal-500/10 dark:border-teal-400/80 dark:bg-teal-500/10' : 'border-slate-200 bg-white hover:border-teal-300 dark:border-slate-700 dark:bg-slate-900/70'}"
+                                            >
+                                                {#if candidate.thumbnail_url}
+                                                    <img src={candidate.thumbnail_url} alt={candidate.classifier_label || candidate.source_mode} class="aspect-video w-full object-cover" />
+                                                {/if}
+                                                <div class="space-y-1 p-3">
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                            {snapshotSourceLabel(candidate.source_mode)}
+                                                        </span>
+                                                        {#if candidate.selected}
+                                                            <span class="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white dark:bg-teal-400 dark:text-slate-950">
+                                                                {$_('detection.snapshot_best_badge', { default: 'Best' })}
+                                                            </span>
+                                                        {/if}
+                                                    </div>
+                                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">
+                                                        {candidate.classifier_label || $_('detection.snapshot_unscored', { default: 'Unscored candidate' })}
+                                                    </p>
+                                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                                        {formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
+                                                        {#if typeof candidate.classifier_score === 'number'}
+                                                            · {(candidate.classifier_score * 100).toFixed(1)}%
+                                                        {/if}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>

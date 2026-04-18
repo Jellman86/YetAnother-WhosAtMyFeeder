@@ -1099,6 +1099,110 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
 
 
 @pytest.mark.asyncio
+async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
+         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        mock_get_snapshot.return_value = b"snapshot"
+        mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-1",
+                    "frame_index": 8,
+                    "frame_offset_seconds": 0.32,
+                    "source_mode": "model_crop",
+                    "clip_variant": "recording",
+                    "crop_box": [4, 4, 32, 32],
+                    "crop_confidence": 0.93,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.91,
+                    "ranking_score": 0.97,
+                    "selected": True,
+                    "thumbnail_ref": "evt__cand-1__thumb",
+                    "image_ref": "evt__cand-1__image",
+                    "snapshot_source": "hq_candidate_model_crop",
+                }
+            ]
+        )
+
+        try:
+            response = await client.get("/api/frigate/test_event_id/snapshot/candidates")
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["event_id"] == "test_event_id"
+    assert body["current_source"] == "hq_candidate_model_crop"
+    assert body["candidates"][0]["candidate_id"] == "cand-1"
+    assert body["candidates"][0]["thumbnail_url"].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg")
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(client: httpx.AsyncClient):
+    with patch("app.routers.proxy.get_db") as mock_get_db, \
+         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
+         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.services.media_cache.media_cache.replace_snapshot", new_callable=AsyncMock) as mock_replace_snapshot:
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        async def fake_get_snapshot(key):
+            return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
+
+        mock_get_snapshot.side_effect = fake_get_snapshot
+        mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
+        mock_replace_snapshot.return_value = Path("/tmp/test_event_id.jpg")
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-1",
+                    "frame_index": 8,
+                    "frame_offset_seconds": 0.32,
+                    "source_mode": "model_crop",
+                    "clip_variant": "recording",
+                    "crop_box": [4, 4, 32, 32],
+                    "crop_confidence": 0.93,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.91,
+                    "ranking_score": 0.97,
+                    "selected": True,
+                    "thumbnail_ref": "evt__cand-1__thumb",
+                    "image_ref": "evt__cand-1__image",
+                    "snapshot_source": "hq_candidate_model_crop",
+                }
+            ]
+        )
+
+        response = await client.post(
+            "/api/frigate/test_event_id/snapshot/apply",
+            json={"mode": "candidate", "candidate_id": "cand-1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["event_id"] == "test_event_id"
+    assert body["status"] == "applied"
+    assert body["applied_candidate_id"] == "cand-1"
+    mock_replace_snapshot.assert_awaited_once_with(
+        "test_event_id",
+        b"candidate-image",
+        source="hq_candidate_model_crop",
+    )
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
     """Sprite endpoint should serve generated sprite file."""
     original_setting = settings.frigate.clips_enabled

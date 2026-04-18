@@ -127,3 +127,46 @@ def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_pat
         assert "idx_species_rollup_canonical" in index_names
     finally:
         conn.close()
+
+
+def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(tmp_path):
+    db_path = tmp_path / "schema_snapshot_candidates.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(snapshot_candidates);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert col_names == [
+            "id",
+            "frigate_event",
+            "candidate_id",
+            "frame_index",
+            "frame_offset_seconds",
+            "source_mode",
+            "clip_variant",
+            "crop_box_json",
+            "crop_confidence",
+            "classifier_label",
+            "classifier_score",
+            "ranking_score",
+            "selected",
+            "thumbnail_ref",
+            "image_ref",
+            "snapshot_source",
+            "created_at",
+            "updated_at",
+        ]
+
+        indexes = conn.execute("PRAGMA index_list(snapshot_candidates);").fetchall()
+        index_names = {row[1] for row in indexes}
+        assert "ix_snapshot_candidates_event" in index_names
+        assert "ix_snapshot_candidates_event_selected" in index_names
+        assert any(row[2] for row in indexes), "Expected UNIQUE index for (frigate_event, candidate_id)"
+
+        fk_rows = conn.execute("PRAGMA foreign_key_check;").fetchall()
+        integrity_row = conn.execute("PRAGMA integrity_check;").fetchone()
+        assert fk_rows == []
+        assert integrity_row == ("ok",)
+    finally:
+        conn.close()

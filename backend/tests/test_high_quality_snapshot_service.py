@@ -39,6 +39,87 @@ def _make_cache_service(tmp_path, monkeypatch):
     return service
 
 
+@pytest.mark.asyncio
+async def test_replace_from_clip_bytes_persists_and_selects_ranked_snapshot_candidates(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_candidates", b"frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+
+    async def fake_generate(event_id, clip_bytes, event_data=None, clip_variant="event"):
+        assert event_id == "evt_candidates"
+        assert clip_bytes == b"clip-bytes"
+        assert clip_variant == "event"
+        return {
+            "selected_candidate": {
+                "candidate_id": "cand-best",
+                "image_bytes": _jpeg_bytes("green", size=(40, 40)),
+                "source_mode": "model_crop",
+                "snapshot_source": "hq_candidate_model_crop",
+            },
+            "candidates": [
+                {
+                    "candidate_id": "cand-best",
+                    "frame_index": 8,
+                    "frame_offset_seconds": 0.32,
+                    "source_mode": "model_crop",
+                    "clip_variant": "recording",
+                    "crop_box": [4, 4, 32, 32],
+                    "crop_confidence": 0.93,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.91,
+                    "ranking_score": 0.97,
+                    "selected": True,
+                    "thumbnail_ref": "evt_candidates__cand-best__thumb",
+                    "image_ref": "evt_candidates__cand-best__image",
+                    "snapshot_source": "hq_candidate_model_crop",
+                },
+                {
+                    "candidate_id": "cand-fallback",
+                    "frame_index": 2,
+                    "frame_offset_seconds": 0.08,
+                    "source_mode": "full_frame",
+                    "clip_variant": "event",
+                    "crop_box": None,
+                    "crop_confidence": None,
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.44,
+                    "ranking_score": 0.44,
+                    "selected": False,
+                    "thumbnail_ref": "evt_candidates__cand-fallback__thumb",
+                    "image_ref": "evt_candidates__cand-fallback__image",
+                    "snapshot_source": "hq_candidate_full_frame",
+                },
+            ],
+        }
+
+    persisted = {}
+
+    async def fake_persist(event_id, candidates):
+        persisted["event_id"] = event_id
+        persisted["candidates"] = candidates
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "generate_snapshot_candidates_from_clip_bytes",
+        fake_generate,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_persist_snapshot_candidates",
+        fake_persist,
+        raising=False,
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_candidates", b"clip-bytes")
+
+    assert result == "bird_crop_replaced"
+    assert persisted["event_id"] == "evt_candidates"
+    assert persisted["candidates"][0]["candidate_id"] == "cand-best"
+    cached = await cache_service.get_snapshot("evt_candidates")
+    assert cached is not None
+
+
 def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
     service = hq_module.HighQualitySnapshotService()
 

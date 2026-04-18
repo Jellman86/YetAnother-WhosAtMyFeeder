@@ -45,6 +45,35 @@ export interface SnapshotGenerateResponse extends SnapshotStatusResponse {
     result: string;
 }
 
+export interface SnapshotCandidate {
+    candidate_id: string;
+    frame_index: number;
+    frame_offset_seconds?: number | null;
+    source_mode: string;
+    clip_variant: string;
+    crop_box?: number[] | null;
+    crop_confidence?: number | null;
+    classifier_label?: string | null;
+    classifier_score?: number | null;
+    ranking_score: number;
+    selected: boolean;
+    snapshot_source?: string | null;
+    thumbnail_url?: string | null;
+}
+
+export interface SnapshotCandidateListResponse {
+    event_id: string;
+    current_source?: string | null;
+    current_candidate_id?: string | null;
+    candidates: SnapshotCandidate[];
+}
+
+export interface SnapshotApplyResponse extends SnapshotStatusResponse {
+    status: 'applied';
+    applied_mode: string;
+    applied_candidate_id?: string | null;
+}
+
 export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
@@ -179,4 +208,31 @@ export async function generateHighQualityBirdCropSnapshot(frigateEvent: string):
         method: 'POST',
     });
     return handleResponse<SnapshotGenerateResponse>(response);
+}
+
+export async function fetchSnapshotCandidates(frigateEvent: string): Promise<SnapshotCandidateListResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/candidates`);
+    const body = await handleResponse<SnapshotCandidateListResponse>(response);
+    return {
+        ...body,
+        candidates: (body.candidates || []).map((candidate) => ({
+            ...candidate,
+            thumbnail_url: candidate.thumbnail_url ? withAuthParams(candidate.thumbnail_url) : candidate.thumbnail_url
+        }))
+    };
+}
+
+export async function applySnapshotCandidate(
+    frigateEvent: string,
+    input: {
+        mode: 'candidate' | 'auto_best' | 'full_frame' | 'frigate_hint_crop' | 'model_crop' | 'revert_original';
+        candidate_id?: string | null;
+    }
+): Promise<SnapshotApplyResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+    });
+    return handleResponse<SnapshotApplyResponse>(response);
 }
