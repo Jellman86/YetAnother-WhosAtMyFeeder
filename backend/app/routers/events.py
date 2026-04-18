@@ -1312,21 +1312,6 @@ async def reclassify_event(
 
                         if effective_strategy != "snapshot" and valid_clip:
                             try:
-                                if settings.media_cache.high_quality_event_snapshots:
-                                    try:
-                                        await high_quality_snapshot_service.replace_from_clip_bytes(
-                                            event_id,
-                                            clip_data,
-                                            event_data=event_data,
-                                            clip_variant=clip_variant,
-                                        )
-                                    except Exception as e:
-                                        log.warning(
-                                            "High-quality snapshot upgrade failed during manual video reclassification",
-                                            event_id=event_id,
-                                            error=str(e),
-                                        )
-
                                 # Broadcast start of video reclassification
                                 await broadcast_reclassification_started("video")
 
@@ -1405,6 +1390,23 @@ async def reclassify_event(
                                     await repo.replace_video_top_frames(event_id, top_frames)
                                 except Exception as e:
                                     log.warning("Failed to persist video top frames", event_id=event_id, error=str(e))
+
+                            # Generate HQ snapshot after top frames are persisted so the
+                            # crop model works on the best-scored frames from this run.
+                            if settings.media_cache.high_quality_event_snapshots:
+                                try:
+                                    await high_quality_snapshot_service.replace_from_clip_bytes(
+                                        event_id,
+                                        clip_data,
+                                        event_data=event_data,
+                                        clip_variant=clip_variant,
+                                    )
+                                except Exception as e:
+                                    log.warning(
+                                        "High-quality snapshot upgrade failed during manual video reclassification",
+                                        event_id=event_id,
+                                        error=str(e),
+                                    )
 
             # Snapshot strategy (Default or Fallback)
             if effective_strategy == "snapshot":

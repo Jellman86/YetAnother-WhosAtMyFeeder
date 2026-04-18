@@ -1013,21 +1013,6 @@ class AutoVideoClassifierService:
                 })
                 return
 
-            if settings.media_cache.high_quality_event_snapshots:
-                try:
-                    await high_quality_snapshot_service.replace_from_clip_bytes(
-                        frigate_event,
-                        clip_bytes,
-                        event_data=event_data,
-                        clip_variant=clip_variant,
-                    )
-                except Exception as e:
-                    log.warning(
-                        "High-quality snapshot upgrade failed during auto video classification",
-                        event_id=frigate_event,
-                        error=str(e),
-                    )
-
             # 3. Save to temp file for processing
             tmp_path = None
             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
@@ -1158,7 +1143,24 @@ class AutoVideoClassifierService:
                     # Persist top video-analysis frames for HQ snapshot reuse
                     if _video_frame_scores:
                         await self._persist_video_top_frames(frigate_event, _video_frame_scores, clip_variant)
-                    
+
+                    # Generate HQ snapshot after top frames are persisted so the
+                    # crop model works on the best-scored frames from this run.
+                    if settings.media_cache.high_quality_event_snapshots:
+                        try:
+                            await high_quality_snapshot_service.replace_from_clip_bytes(
+                                frigate_event,
+                                clip_bytes,
+                                event_data=event_data,
+                                clip_variant=clip_variant,
+                            )
+                        except Exception as e:
+                            log.warning(
+                                "High-quality snapshot upgrade failed during auto video classification",
+                                event_id=frigate_event,
+                                error=str(e),
+                            )
+
                     # Broadcast completion
                     await broadcaster.broadcast({
                         "type": "reclassification_completed",
