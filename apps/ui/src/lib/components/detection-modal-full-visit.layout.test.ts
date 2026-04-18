@@ -52,6 +52,9 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('applySnapshotCandidate');
         expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
         expect(detectionModalSource).toContain('showSnapshotRepairAction');
+        expect(detectionModalSource).toContain('hasSnapshotRepairCandidates');
+        expect(detectionModalSource).toContain('hasSnapshotRepairWork');
+        expect(detectionModalSource).toContain("currentSnapshotSource?.startsWith('hq_candidate_')");
         expect(detectionModalSource).toContain('handleSnapshotRepairToggle');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
         expect(detectionModalSource).toContain("Change snapshot");

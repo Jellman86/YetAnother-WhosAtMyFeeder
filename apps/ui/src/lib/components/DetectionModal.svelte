@@ -543,10 +543,21 @@
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
+    const hasSnapshotRepairCandidates = $derived(snapshotCandidates.length > 0);
+    const hasSnapshotRepairWork = $derived(
+        hasSnapshotRepairCandidates
+        || Boolean(snapshotStatus?.can_generate_hq_bird_crop)
+        || Boolean(
+            currentSnapshotSource === 'high_quality_snapshot'
+            || currentSnapshotSource === 'high_quality_bird_crop'
+            || currentSnapshotSource?.startsWith('hq_candidate_')
+        )
+    );
     const showSnapshotRepairAction = $derived(
         hasOwnerDetectionActions
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
+        && hasSnapshotRepairWork
     );
     const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
