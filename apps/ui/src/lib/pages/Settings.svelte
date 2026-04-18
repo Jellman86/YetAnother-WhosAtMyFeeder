@@ -142,6 +142,7 @@
     let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
     let birdCropDetectorTier = $state<'fast' | 'accurate'>('fast');
+    let birdCropSourcePriority = $state<'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only'>('frigate_hints_first');
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let cropModelOverrides = $state<Record<string, CropModelOverride>>({});
     let cropSourceOverrides = $state<Record<string, CropSourceOverride>>({});
@@ -1658,6 +1659,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'birdCropDetectorTier', val: birdCropDetectorTier, store: ((s.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast') as any) },
             {
+                key: 'birdCropSourcePriority',
+                val: birdCropSourcePriority,
+                store: ((s.bird_crop_source_priority === 'crop_model_first'
+                    || s.bird_crop_source_priority === 'crop_model_only'
+                    || s.bird_crop_source_priority === 'frigate_hints_only'
+                    ? s.bird_crop_source_priority
+                    : 'frigate_hints_first') as any)
+            },
+            {
                 key: 'cropModelOverrides',
                 val: JSON.stringify(cropModelOverrides),
                 store: JSON.stringify(resolveCropOverridesFromSettings(s.crop_model_overrides, s.crop_source_overrides).cropModelOverrides),
@@ -2613,6 +2623,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdCropDetectorTier = settings.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast';
+            birdCropSourcePriority = settings.bird_crop_source_priority === 'crop_model_first'
+                || settings.bird_crop_source_priority === 'crop_model_only'
+                || settings.bird_crop_source_priority === 'frigate_hints_only'
+                ? settings.bird_crop_source_priority
+                : 'frigate_hints_first';
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             ({ cropModelOverrides, cropSourceOverrides } = resolveCropOverridesFromSettings(
                 settings.crop_model_overrides,
@@ -2938,6 +2953,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
                 bird_crop_detector_tier: birdCropDetectorTier,
+                bird_crop_source_priority: birdCropSourcePriority,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 ...buildCropOverrideSettings(cropModelOverrides, cropSourceOverrides),
                 image_execution_mode: imageExecutionMode,
@@ -3336,6 +3352,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
                     bind:birdCropDetectorTier
+                    bind:birdCropSourcePriority
                     bind:birdModelRegionOverride
                     bind:cropModelOverrides
                     bind:cropSourceOverrides

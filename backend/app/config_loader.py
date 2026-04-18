@@ -187,6 +187,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'live_event_coalescing_enabled': os.environ.get('CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED', 'true').lower() == 'true',
         'ai_pricing_json': os.environ.get('CLASSIFICATION__AI_PRICING_JSON', '[]'),
         'max_classification_results': int(os.environ.get('CLASSIFICATION__MAX_CLASSIFICATION_RESULTS', '5')),
+        'bird_crop_source_priority': os.environ.get('CLASSIFICATION__BIRD_CROP_SOURCE_PRIORITY', 'frigate_hints_first'),
     }
     
     # Media cache settings

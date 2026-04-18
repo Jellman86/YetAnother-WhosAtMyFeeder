@@ -28,6 +28,7 @@
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
+        birdCropSourcePriority = $bindable<'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string>('frigate_hints_first'),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
         cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
@@ -51,6 +52,7 @@
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         birdCropDetectorTier: 'fast' | 'accurate' | string;
+        birdCropSourcePriority: 'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string;
         birdModelRegionOverride: BirdModelRegionOverride;
         cropModelOverrides: Record<string, CropModelOverride>;
         cropSourceOverrides: Record<string, CropSourceOverride>;
@@ -204,14 +206,42 @@
             <p class="mt-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
                 Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.
             </p>
-            <select
-                id="bird-crop-detector-tier"
-                bind:value={birdCropDetectorTier}
-                class="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
-            >
-                <option value="fast">Fast (SSD-MobileNet)</option>
-                <option value="accurate">Accurate (YOLOX-Tiny, experimental)</option>
-            </select>
+            <div class="mt-4 relative">
+                <select
+                    id="bird-crop-detector-tier"
+                    bind:value={birdCropDetectorTier}
+                    class="w-full appearance-none rounded-xl border-2 border-slate-200 bg-white pl-4 pr-10 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition-colors focus:border-teal-500 focus:ring-0 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
+                >
+                    <option value="fast">Fast (SSD-MobileNet)</option>
+                    <option value="accurate">Accurate (YOLOX-Tiny, experimental)</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </div>
+            </div>
+        </div>
+        <div class="mb-6 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200">
+            <label for="bird-crop-source-priority" class="block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Crop source priority
+            </label>
+            <p class="mt-2 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                Choose whether Frigate hints or the configured crop model are tried first. The selected crop detector tier is always respected whenever the model path is used.
+            </p>
+            <div class="mt-4 relative">
+                <select
+                    id="bird-crop-source-priority"
+                    bind:value={birdCropSourcePriority}
+                    class="w-full appearance-none rounded-xl border-2 border-slate-200 bg-white pl-4 pr-10 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition-colors focus:border-teal-500 focus:ring-0 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
+                >
+                    <option value="frigate_hints_first">Frigate hints first</option>
+                    <option value="crop_model_first">Crop model first</option>
+                    <option value="crop_model_only">Crop model only</option>
+                    <option value="frigate_hints_only">Frigate hints only</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </div>
+            </div>
         </div>
         <div class="mb-6 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-5 text-slate-700 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/30 dark:text-slate-200">
             <label for="bird-model-region-override" class="block text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">

@@ -468,10 +468,7 @@ class HighQualitySnapshotService:
             log.warning("High-quality bird crop source decode failed", event_id=event_id, error=str(e))
             return image_bytes, False
 
-        crop_result = self._crop_from_event_hints(source_image, event_data)
-        if not self._has_crop_image(crop_result):
-            model_available = self._bird_crop_model_available()
-            crop_result = self._crop_from_bird_model(source_image, event_id=event_id) if model_available else None
+        crop_result = self._crop_snapshot_by_priority(source_image, event_data=event_data, event_id=event_id)
 
         crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
         if not isinstance(crop_image, Image.Image):
@@ -500,6 +497,41 @@ class HighQualitySnapshotService:
         except Exception as e:
             log.warning("High-quality bird crop encode failed", event_id=event_id, error=str(e))
             return image_bytes, False
+
+    def _bird_crop_source_priority(self) -> str:
+        configured = str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "").strip().lower()
+        if configured in {
+            "frigate_hints_first",
+            "crop_model_first",
+            "crop_model_only",
+            "frigate_hints_only",
+        }:
+            return configured
+        return "frigate_hints_first"
+
+    def _crop_snapshot_by_priority(
+        self,
+        image: Image.Image,
+        *,
+        event_data: Optional[dict[str, Any]],
+        event_id: str,
+    ) -> Optional[dict[str, Any]]:
+        priority = self._bird_crop_source_priority()
+        if priority == "crop_model_only":
+            return self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+        if priority == "frigate_hints_only":
+            return self._crop_from_event_hints(image, event_data)
+        if priority == "crop_model_first":
+            crop_result = self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+            if self._has_crop_image(crop_result):
+                return crop_result
+            hint_result = self._crop_from_event_hints(image, event_data)
+            return hint_result or crop_result
+        hint_result = self._crop_from_event_hints(image, event_data)
+        if self._has_crop_image(hint_result):
+            return hint_result
+        crop_result = self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+        return crop_result or hint_result
 
     def _crop_from_bird_model(self, image: Image.Image, *, event_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         try:

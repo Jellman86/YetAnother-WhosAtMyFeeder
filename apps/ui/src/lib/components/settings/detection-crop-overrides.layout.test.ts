@@ -8,6 +8,9 @@ describe('detection crop override wiring', () => {
         expect(settingsPageSource).toContain('birdCropDetectorTier');
         expect(settingsPageSource).toContain('bird_crop_detector_tier');
         expect(settingsPageSource).toContain('bind:birdCropDetectorTier');
+        expect(settingsPageSource).toContain('birdCropSourcePriority');
+        expect(settingsPageSource).toContain('bird_crop_source_priority');
+        expect(settingsPageSource).toContain('bind:birdCropSourcePriority');
         expect(settingsPageSource).toContain('cropModelOverrides');
         expect(settingsPageSource).toContain('cropSourceOverrides');
         expect(settingsPageSource).toContain('bind:cropModelOverrides');
@@ -17,6 +20,10 @@ describe('detection crop override wiring', () => {
         expect(detectionSettingsSource).toContain('bird-crop-detector-tier');
         expect(detectionSettingsSource).toContain('Accurate (YOLOX-Tiny, experimental)');
         expect(detectionSettingsSource).toContain('bind:value={birdCropDetectorTier}');
+        expect(detectionSettingsSource).toContain('bird-crop-source-priority');
+        expect(detectionSettingsSource).toContain('bind:value={birdCropSourcePriority}');
+        expect(detectionSettingsSource).toContain('Frigate hints first');
+        expect(detectionSettingsSource).toContain('appearance-none');
         expect(detectionSettingsSource).toContain('bind:cropModelOverrides');
         expect(detectionSettingsSource).toContain('bind:cropSourceOverrides');
     });

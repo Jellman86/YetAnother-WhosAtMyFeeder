@@ -3463,6 +3463,50 @@ class ClassifierService:
             }
         return None
 
+    def _bird_crop_source_priority(self) -> str:
+        configured = str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "").strip().lower()
+        if configured in {
+            "frigate_hints_first",
+            "crop_model_first",
+            "crop_model_only",
+            "frigate_hints_only",
+        }:
+            return configured
+        return "frigate_hints_first"
+
+    def _resolve_model_crop(
+        self,
+        image: Image.Image,
+    ) -> dict[str, Any] | None:
+        try:
+            return self._bird_crop_service.generate_crop(image) if self._bird_crop_service is not None else None
+        except Exception as exc:
+            raise exc
+
+    def _resolve_crop_by_priority(
+        self,
+        crop_source_image: Image.Image,
+        *,
+        input_context: ClassificationInputContext,
+    ) -> dict[str, Any] | None:
+        priority = self._bird_crop_source_priority()
+        if priority == "crop_model_only":
+            return self._resolve_model_crop(crop_source_image)
+        if priority == "frigate_hints_only":
+            return self._resolve_frigate_hint_crop(crop_source_image, input_context=input_context)
+        if priority == "crop_model_first":
+            crop_result = self._resolve_model_crop(crop_source_image)
+            crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
+            if isinstance(crop_image, Image.Image):
+                return crop_result
+            hint_crop = self._resolve_frigate_hint_crop(crop_source_image, input_context=input_context)
+            return hint_crop or crop_result
+        hint_crop = self._resolve_frigate_hint_crop(crop_source_image, input_context=input_context)
+        if isinstance(hint_crop, dict) and isinstance(hint_crop.get("crop_image"), Image.Image):
+            return hint_crop
+        crop_result = self._resolve_model_crop(crop_source_image)
+        return crop_result or hint_crop
+
     def _restore_frigate_hint_box(
         self,
         raw_hint: Any,
@@ -3624,26 +3668,11 @@ class ClassifierService:
                 )
                 crop_source_image = image
 
-        hint_crop = self._resolve_frigate_hint_crop(
-            crop_source_image,
-            input_context=normalized_input_context,
-        )
-        if isinstance(hint_crop, dict) and isinstance(hint_crop.get("crop_image"), Image.Image):
-            diagnostics["crop_applied"] = True
-            diagnostics["crop_reason"] = str(hint_crop.get("reason") or "frigate_hint")
-            log.debug(
-                "Bird crop applied",
-                crop_attempted=True,
-                crop_applied=True,
-                crop_reason=diagnostics["crop_reason"],
-                source_reason=diagnostics.get("source_reason"),
-                crop_box=hint_crop.get("box"),
-            )
-            return hint_crop["crop_image"], diagnostics
-
-        crop_result: dict[str, Any] | None = None
         try:
-            crop_result = self._bird_crop_service.generate_crop(crop_source_image) if self._bird_crop_service is not None else None
+            crop_result = self._resolve_crop_by_priority(
+                crop_source_image,
+                input_context=normalized_input_context,
+            )
         except Exception as exc:
             diagnostics["crop_reason"] = "crop_service_error"
             log.warning(

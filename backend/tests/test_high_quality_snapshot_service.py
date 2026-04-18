@@ -653,6 +653,53 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
 
 
 @pytest.mark.asyncio
+async def test_process_event_can_prefer_crop_model_before_frigate_hint(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_model_first", b"frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_first", raising=False)
+
+    frame_bytes = _jpeg_bytes("blue", size=(100, 80))
+    fake_crop_service = MagicMock()
+    fake_crop_service.expand_ratio = 0.0
+    fake_crop_service.min_crop_size = 1
+    fake_crop_service.get_status.return_value = {"installed": True}
+    fake_crop_service.generate_crop.return_value = {
+        "crop_image": Image.new("RGB", (18, 20), color="green"),
+        "box": (2, 3, 20, 23),
+        "reason": "model_selected",
+    }
+    monkeypatch.setattr(hq_module, "bird_crop_service", fake_crop_service)
+
+    monkeypatch.setattr(
+        hq_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=({"data": {"box": [20, 10, 30, 20]}}, None)),
+    )
+
+    async def fake_wait_for_clip(event_id: str):
+        assert event_id == "evt_model_first"
+        return b"clip-bytes", None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", fake_wait_for_clip)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda clip_bytes, *_args: frame_bytes,
+    )
+
+    result = await hq_module.high_quality_snapshot_service.process_event("evt_model_first")
+
+    assert result == "bird_crop_replaced"
+    fake_crop_service.generate_crop.assert_called_once()
+    cached = await cache_service.get_snapshot("evt_model_first")
+    assert cached is not None
+    with Image.open(BytesIO(cached)) as img:
+        assert img.size == (23, 27)
+
+
+@pytest.mark.asyncio
 async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_enabled(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_crop", b"frigate-bytes")

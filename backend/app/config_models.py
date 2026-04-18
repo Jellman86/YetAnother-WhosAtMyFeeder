@@ -218,6 +218,15 @@ class ClassificationSettings(BaseModel):
         default="fast",
         description="Bird crop detector tier: fast|accurate",
     )
+    bird_crop_source_priority: Literal[
+        "frigate_hints_first",
+        "crop_model_first",
+        "crop_model_only",
+        "frigate_hints_only",
+    ] = Field(
+        default="frigate_hints_first",
+        description="Bird crop source priority: frigate_hints_first|crop_model_first|crop_model_only|frigate_hints_only",
+    )
     blocked_labels: list[str] = Field(
         default=[],
         description="Labels to filter out completely (won't be saved)"

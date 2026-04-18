@@ -14,11 +14,32 @@ def test_classification_settings_accepts_supported_bird_crop_detector_tiers():
     assert accurate.bird_crop_detector_tier == "accurate"
 
 
+def test_classification_settings_accepts_supported_bird_crop_source_priorities():
+    from app.config_models import ClassificationSettings
+
+    hints_first = ClassificationSettings(bird_crop_source_priority="frigate_hints_first")
+    model_first = ClassificationSettings(bird_crop_source_priority="crop_model_first")
+    model_only = ClassificationSettings(bird_crop_source_priority="crop_model_only")
+    hints_only = ClassificationSettings(bird_crop_source_priority="frigate_hints_only")
+
+    assert hints_first.bird_crop_source_priority == "frigate_hints_first"
+    assert model_first.bird_crop_source_priority == "crop_model_first"
+    assert model_only.bird_crop_source_priority == "crop_model_only"
+    assert hints_only.bird_crop_source_priority == "frigate_hints_only"
+
+
 def test_classification_settings_rejects_unknown_bird_crop_detector_tier():
     from app.config_models import ClassificationSettings
 
     with pytest.raises(ValidationError):
         ClassificationSettings(bird_crop_detector_tier="unknown")
+
+
+def test_classification_settings_rejects_unknown_bird_crop_source_priority():
+    from app.config_models import ClassificationSettings
+
+    with pytest.raises(ValidationError):
+        ClassificationSettings(bird_crop_source_priority="unknown")
 
 
 @pytest.mark.asyncio
@@ -40,4 +61,9 @@ async def test_settings_route_exposes_bird_crop_detector_tier(monkeypatch):
 
     validated = settings_router.SettingsResponse.model_validate(payload)
     assert validated.bird_crop_detector_tier in {"fast", "accurate"}
-
+    assert validated.bird_crop_source_priority in {
+        "frigate_hints_first",
+        "crop_model_first",
+        "crop_model_only",
+        "frigate_hints_only",
+    }

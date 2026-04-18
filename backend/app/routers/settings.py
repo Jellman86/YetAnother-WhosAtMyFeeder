@@ -414,6 +414,12 @@ class SettingsUpdate(BaseModel):
         "fast",
         description="Bird crop detector tier: fast|accurate",
     )
+    bird_crop_source_priority: Optional[
+        Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]
+    ] = Field(
+        "frigate_hints_first",
+        description="Bird crop source priority",
+    )
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
     crop_model_overrides: dict[str, str] = Field(default_factory=dict, description="Crop enablement overrides keyed by model or variant")
     crop_source_overrides: dict[str, str] = Field(default_factory=dict, description="Crop source overrides keyed by model or variant")
@@ -747,6 +753,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
         "bird_crop_detector_tier": settings.classification.bird_crop_detector_tier,
+        "bird_crop_source_priority": settings.classification.bird_crop_source_priority,
         "bird_model_region_override": settings.classification.bird_model_region_override,
         "crop_model_overrides": settings.classification.crop_model_overrides,
         "crop_source_overrides": settings.classification.crop_source_overrides,
@@ -1014,6 +1021,8 @@ async def update_settings(
         inference_provider_changed = previous_provider != update.inference_provider
     if "bird_crop_detector_tier" in fields_set and update.bird_crop_detector_tier is not None:
         settings.classification.bird_crop_detector_tier = update.bird_crop_detector_tier
+    if "bird_crop_source_priority" in fields_set and update.bird_crop_source_priority is not None:
+        settings.classification.bird_crop_source_priority = update.bird_crop_source_priority
     if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:
         settings.classification.bird_model_region_override = normalize_bird_model_region(update.bird_model_region_override)
     if "crop_model_overrides" in fields_set:
