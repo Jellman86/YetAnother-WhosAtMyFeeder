@@ -176,16 +176,16 @@ async def test_apply_video_result_does_not_override_known_species_with_lower_sco
 
 
 @pytest.mark.asyncio
-async def test_apply_video_result_does_not_override_when_below_threshold(mock_deps):
+async def test_apply_video_result_does_not_override_when_video_stays_below_floor(mock_deps):
     classifier = MagicMock()
     service = DetectionService(classifier)
 
     existing = MagicMock(spec=Detection)
-    existing.score = 0.55
+    existing.score = 0.35
     existing.display_name = "Great Tit"
     existing.category_name = "Parus major"
     existing.sub_label = None
-    existing.frigate_score = 0.8
+    existing.frigate_score = 0.6
     existing.detection_time = datetime.now()
     existing.camera_name = "cam1"
     existing.is_hidden = False
@@ -198,13 +198,88 @@ async def test_apply_video_result_does_not_override_when_below_threshold(mock_de
 
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
 
-    # Current score is lower, but still below the primary threshold (0.7 by default)
-    await service.apply_video_result("event1", "Blue Jay", 0.60, 2)
+    # Even for a low-confidence primary label, auto video should not promote a
+    # candidate that never clears the classifier floor.
+    await service.apply_video_result("event1", "Blue Jay", 0.39, 2)
 
     mock_deps["repo"].update_video_classification.assert_called_once()
     primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     assert primary_updates == []
     mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_overrides_low_confidence_primary_when_video_clears_floor(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.43
+    existing.display_name = "Anna's Hummingbird"
+    existing.category_name = "Calypte anna"
+    existing.scientific_name = "Calypte anna"
+    existing.common_name = "Anna's Hummingbird"
+    existing.sub_label = None
+    existing.frigate_score = 0.55
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    existing.frigate_event = "event1"
+    existing.manual_tagged = False
+    existing.is_favorite = False
+    existing.video_classification_provider = None
+    existing.video_classification_backend = None
+    existing.video_classification_model_id = None
+    existing.video_classification_timestamp = None
+
+    updated = MagicMock(spec=Detection)
+    updated.frigate_event = "event1"
+    updated.display_name = "Ruby-throated Hummingbird"
+    updated.category_name = "Archilochus colubris"
+    updated.scientific_name = "Archilochus colubris"
+    updated.common_name = "Ruby-throated Hummingbird"
+    updated.taxa_id = 111
+    updated.score = 0.434
+    updated.detection_time = existing.detection_time
+    updated.camera_name = existing.camera_name
+    updated.is_hidden = False
+    updated.is_favorite = False
+    updated.manual_tagged = False
+    updated.audio_confirmed = False
+    updated.audio_species = None
+    updated.audio_score = None
+    updated.video_classification_label = "Archilochus colubris"
+    updated.video_classification_score = 0.434
+    updated.video_classification_status = "completed"
+    updated.video_classification_provider = "cuda"
+    updated.video_classification_backend = "onnxruntime"
+    updated.video_classification_model_id = "rope_vit_b14_inat21"
+    updated.video_classification_timestamp = datetime.now()
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, updated])
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={
+            "scientific_name": "Archilochus colubris",
+            "common_name": "Ruby-throated Hummingbird",
+            "taxa_id": 111,
+        }
+    )
+
+    await service.apply_video_result("event1", "Archilochus colubris", 0.434, 2)
+
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert len(primary_updates) == 1
+    params = primary_updates[0].args[1]
+    assert params[0] == "Ruby-throated Hummingbird"
+    assert params[1] == "Archilochus colubris"
+    assert params[2] == 0.434
+    mock_deps["broadcaster"].broadcast.assert_awaited()
 
 
 @pytest.mark.asyncio

@@ -418,7 +418,13 @@ class DetectionService:
             )
             current_score = float(existing.score or 0.0)
             threshold = float(settings.classification.threshold or 0.0)
-            base_required_score = max(current_score, threshold)
+            min_confidence = float(getattr(settings.classification, "min_confidence", 0.0) or 0.0)
+            effective_floor = min(min_confidence, threshold)
+            # Allow auto video to rescue low-confidence primary IDs without
+            # requiring the full promotion threshold when the existing label
+            # never cleared that threshold in the first place.
+            baseline_gate = threshold if current_score >= threshold else effective_floor
+            base_required_score = max(current_score, baseline_gate)
 
             normalized_video_label = str(normalized_video_label or "").strip().casefold()
             normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
