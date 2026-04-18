@@ -170,3 +170,38 @@ def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(tmp_path):
         assert integrity_row == ("ok",)
     finally:
         conn.close()
+
+
+def test_video_classification_top_frames_schema_exists(tmp_path):
+    db_path = tmp_path / "schema_video_top_frames.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(video_classification_top_frames);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert col_names == [
+            "id",
+            "frigate_event",
+            "clip_variant",
+            "frame_index",
+            "frame_offset_seconds",
+            "frame_score",
+            "top_label",
+            "top_score",
+            "rank",
+            "created_at",
+            "updated_at",
+        ]
+
+        indexes = conn.execute("PRAGMA index_list(video_classification_top_frames);").fetchall()
+        index_names = {row[1] for row in indexes}
+        assert "ix_video_top_frames_event_rank" in index_names
+        assert "ix_video_top_frames_event_created" in index_names
+
+        fk_rows = conn.execute("PRAGMA foreign_key_check;").fetchall()
+        integrity_row = conn.execute("PRAGMA integrity_check;").fetchone()
+        assert fk_rows == []
+        assert integrity_row == ("ok",)
+    finally:
+        conn.close()
