@@ -1857,7 +1857,7 @@
                     {:else}
                         <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-cover" />
     	                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-    	                {#if authStore.canModify && !readOnly}
+    	                {#if authStore.canModify && !readOnly && !snapshotRepairOpen}
     	                    <button
     	                        type="button"
     	                        onclick={handleFavoriteToggle}
@@ -1875,7 +1875,7 @@
     	                        {/if}
     	                    </button>
     	                {/if}
-                        {#if showSnapshotRepairAction}
+                        {#if showSnapshotRepairAction && !snapshotRepairOpen}
                             <button
                                 type="button"
                                 onclick={handleSnapshotRepairToggle}
@@ -1900,11 +1900,11 @@
                             {formatDateTime(detection.detection_time)}
                         </p>
                         <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
-                        {#if canPlayVideo}
+                        {#if canPlayVideo && !snapshotRepairOpen}
                             <div class="flex items-center gap-2">
                                 {#if fullVisitFetched}
                                     <div
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
+                                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
                                         title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                                         aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                                     >
@@ -1974,10 +1974,10 @@
                     </div>
                     {/if}
 
-                    {#if frigateIssueBadgeVisible}
+                    {#if frigateIssueBadgeVisible && !snapshotRepairOpen}
                         <div class="absolute top-4 right-4 z-30">
                             <div
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
                                 title={videoFailureInsight.summary}
                                 aria-label={videoFailureInsight.summary}
                             >
@@ -1986,25 +1986,27 @@
                         </div>
                     {/if}
 
-        <button
-            onclick={onClose}
-            class="absolute top-4 right-4 z-40 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-            aria-label={$_('common.close')}
-        >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
+        {#if !snapshotRepairOpen}
+            <button
+                onclick={onClose}
+                class="absolute top-4 right-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                aria-label={$_('common.close')}
+            >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        {/if}
 
-        {#if debugUiEnabled && aiDiagnosticsEnabled}
+        {#if debugUiEnabled && aiDiagnosticsEnabled && !snapshotRepairOpen}
             <button
                 type="button"
                 onclick={copyAiFullBundle}
-                class="absolute top-4 right-14 z-40 w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-100 flex items-center justify-center hover:bg-emerald-500/35 transition-colors"
+                class="absolute top-4 right-16 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-500/20 text-emerald-100 shadow-lg backdrop-blur-sm transition-all hover:bg-emerald-500/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
                 title={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
                 aria-label={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
             >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
                 </svg>
             </button>

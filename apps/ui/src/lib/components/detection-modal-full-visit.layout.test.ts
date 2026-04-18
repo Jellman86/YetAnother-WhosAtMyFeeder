@@ -13,16 +13,16 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('Full visit');
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
         expect(detectionModalSource).toContain("title={$_('video_player.full_visit_ready'");
-        expect(detectionModalSource).toContain('inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/95');
+        expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/95');
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
-        expect(detectionModalSource).toContain('{#if canPlayVideo}\n                            <div class="flex items-center gap-2">');
+        expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}\n                            <div class="flex items-center gap-2">');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55');
         expect(detectionModalSource).toContain('M7 3H5a2 2 0 00-2 2v2');
         expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
         expect(detectionModalSource).toContain("title={videoFailureInsight.summary}");
-        expect(detectionModalSource).toContain('inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92');
+        expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92');
         expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
         expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
@@ -60,6 +60,17 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
         expect(detectionModalSource).toContain('</div>\n        </div>\n\n        {#if snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if authStore.canModify && !readOnly && !snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if showSnapshotRepairAction && !snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if frigateIssueBadgeVisible && !snapshotRepairOpen}');
+    });
+
+    it('normalizes media overlay circular controls to a consistent size', () => {
+        expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/95');
+        expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full');
+        expect(detectionModalSource).toContain('class="absolute top-4 right-16 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full');
+        expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/85');
     });
 
     it('persists generated AI analysis back into the current detection state', () => {
