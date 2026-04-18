@@ -6,6 +6,7 @@
         fetchSnapshotStatus,
         fetchSnapshotCandidates,
         applySnapshotCandidate,
+        generateHighQualityBirdCropSnapshot,
         analyzeDetection,
         updateDetectionSpecies,
         hideDetection,
@@ -177,8 +178,10 @@
         return `${url}${separator}v=${token}`;
     }
 
-    async function refreshSnapshotControls(eventId: string) {
-        snapshotRepairOpen = false;
+    async function refreshSnapshotControls(eventId: string, options: { closeOverlay?: boolean } = {}) {
+        if (options.closeOverlay !== false) {
+            snapshotRepairOpen = false;
+        }
         snapshotStatusLoading = true;
         snapshotCandidatesLoading = true;
         try {
@@ -412,6 +415,7 @@
     let snapshotCandidatesLoading = $state(false);
     let snapshotRepairOpen = $state(false);
     let snapshotApplyPending = $state(false);
+    let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
     let currentSnapshotSource = $state<string | null>(null);
     let pendingSnapshotMode = $state<'candidate' | 'revert_original' | null>(null);
@@ -579,7 +583,13 @@
     });
     const canSaveSnapshotSelection = $derived(
         !snapshotApplyPending
+        && !snapshotGeneratePending
         && (pendingSnapshotMode === 'revert_original' || Boolean(selectedSnapshotPickerCandidate))
+    );
+    const canGenerateSnapshotCandidates = $derived(
+        !snapshotApplyPending
+        && !snapshotGeneratePending
+        && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
     );
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
@@ -1184,6 +1194,23 @@
             toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
         } finally {
             snapshotApplyPending = false;
+        }
+    }
+
+    async function handleGenerateSnapshotCandidates() {
+        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
+        snapshotGeneratePending = true;
+        try {
+            const result = await generateHighQualityBirdCropSnapshot(detection.frigate_event);
+            snapshotStatus = result;
+            snapshotRefreshToken = Date.now();
+            await refreshSnapshotControls(detection.frigate_event, { closeOverlay: false });
+            resetSnapshotPickerSelection();
+            toastStore.success($_('detection.snapshot_generate_success', { default: 'HQ snapshot generated' }));
+        } catch (e: any) {
+            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            snapshotGeneratePending = false;
         }
     }
 
@@ -2877,6 +2904,20 @@
                         <p class="text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
                     </div>
                     <div class="flex items-center gap-2">
+                        {#if canGenerateSnapshotCandidates}
+                            <button
+                                type="button"
+                                onclick={handleGenerateSnapshotCandidates}
+                                disabled={snapshotGeneratePending}
+                                class="inline-flex items-center rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {#if snapshotGeneratePending}
+                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                {:else}
+                                    {$_('detection.snapshot_generate', { default: 'Generate HQ snapshot' })}
+                                {/if}
+                            </button>
+                        {/if}
                         <button
                             type="button"
                             onclick={() => {
