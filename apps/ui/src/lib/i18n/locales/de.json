@@ -1199,7 +1199,20 @@
     "favorite_add": "Favorit hinzufügen",
     "favorite_added": "Zu Favoriten hinzugefügt",
     "favorite_remove": "Favorit entfernen",
-    "favorite_removed": "Aus Favoriten entfernt"
+    "favorite_removed": "Aus Favoriten entfernt",
+    "snapshot_change": "Schnappschuss ändern",
+    "snapshot_generate": "HQ-Schnappschuss erzeugen",
+    "snapshot_save": "Schnappschuss speichern",
+    "snapshot_picker_sources": "Frame-Auswahl",
+    "snapshot_source_full_frame": "Voller Schnappschuss",
+    "snapshot_source_frigate_hint_crop": "Frigate-Hinweis-Zuschnitt",
+    "snapshot_source_original": "Originaler Frigate-Zuschnitt",
+    "snapshot_source_auto_best": "Automatisch bester Schnappschuss",
+    "snapshot_model_candidates": "Modellkandidaten",
+    "snapshot_apply_success": "Schnappschuss aktualisiert",
+    "snapshot_generate_success": "HQ-Schnappschuss erzeugt",
+    "snapshot_candidates_loading": "Kandidaten-Frames werden geladen…",
+    "snapshot_candidates_empty": "Noch keine gespeicherten Kandidaten-Frames."
   },
   "events": {
     "title": "Ereignisse",

@@ -1207,7 +1207,20 @@
     "favorite_add": "Aggiungi ai preferiti",
     "favorite_added": "Aggiunto ai preferiti",
     "favorite_remove": "Rimuovi dai preferiti",
-    "favorite_removed": "Rimosso dai preferiti"
+    "favorite_removed": "Rimosso dai preferiti",
+    "snapshot_change": "Cambia istantanea",
+    "snapshot_generate": "Genera istantanea HQ",
+    "snapshot_save": "Salva istantanea",
+    "snapshot_picker_sources": "Selettore fotogrammi",
+    "snapshot_source_full_frame": "Istantanea completa",
+    "snapshot_source_frigate_hint_crop": "Ritaglio suggerito da Frigate",
+    "snapshot_source_original": "Ritaglio originale di Frigate",
+    "snapshot_source_auto_best": "Migliore istantanea automatica",
+    "snapshot_model_candidates": "Candidati del modello",
+    "snapshot_apply_success": "Istantanea aggiornata",
+    "snapshot_generate_success": "Istantanea HQ generata",
+    "snapshot_candidates_loading": "Caricamento dei fotogrammi candidati…",
+    "snapshot_candidates_empty": "Nessun fotogramma candidato salvato."
   },
   "events": {
     "title": "Eventi",

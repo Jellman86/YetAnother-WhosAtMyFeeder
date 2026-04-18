@@ -22,6 +22,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Classification:** Auto video classification no longer promotes `Unknown Bird` to a species on very weak scores. Unknown-label upgrades now respect the configured classifier floor, so low-confidence video guesses stay `Unknown Bird` instead of auto-overriding to an implausible species.
 - **Classification:** Auto video promotion is now less brittle for low-confidence primary detections. When the current primary label never cleared the main threshold, a stronger video result can now replace it without needing to clear the full primary threshold, while the existing Frigate sublabel disagreement guard remains in place.
 - **Classification:** HQ snapshot candidate metadata now records the actual clip variant used (`event` vs `recording`) instead of inferring it from global settings, and recording-clip fallback can reuse an already-cached full-visit clip without depending on DB-backed helper state.
+- **UI:** Snapshot picker strings are now defined in the locale bundles instead of relying on inline English defaults, and the picker once again exposes `Generate HQ snapshot` with an in-place refresh of the saved candidate list after generation.
 
 ## [2.9.13] - 2026-04-16
 

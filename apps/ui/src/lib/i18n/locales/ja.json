@@ -1199,7 +1199,20 @@
     "favorite_add": "お気に入りに追加",
     "favorite_added": "お気に入りに追加しました",
     "favorite_remove": "お気に入りから削除",
-    "favorite_removed": "お気に入りから削除しました"
+    "favorite_removed": "お気に入りから削除しました",
+    "snapshot_change": "スナップショットを変更",
+    "snapshot_generate": "HQスナップショットを生成",
+    "snapshot_save": "スナップショットを保存",
+    "snapshot_picker_sources": "フレームピッカー",
+    "snapshot_source_full_frame": "フルスナップショット",
+    "snapshot_source_frigate_hint_crop": "Frigateヒント切り抜き",
+    "snapshot_source_original": "元のFrigate切り抜き",
+    "snapshot_source_auto_best": "自動ベストスナップショット",
+    "snapshot_model_candidates": "モデル候補",
+    "snapshot_apply_success": "スナップショットを更新しました",
+    "snapshot_generate_success": "HQスナップショットを生成しました",
+    "snapshot_candidates_loading": "候補フレームを読み込み中…",
+    "snapshot_candidates_empty": "保存済みの候補フレームはまだありません。"
   },
   "events": {
     "title": "イベント",

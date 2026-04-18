@@ -1207,7 +1207,20 @@
     "favorite_add": "Adicionar aos favoritos",
     "favorite_added": "Adicionado aos favoritos",
     "favorite_remove": "Remover dos favoritos",
-    "favorite_removed": "Removido dos favoritos"
+    "favorite_removed": "Removido dos favoritos",
+    "snapshot_change": "Alterar captura",
+    "snapshot_generate": "Gerar captura HQ",
+    "snapshot_save": "Salvar captura",
+    "snapshot_picker_sources": "Seletor de quadros",
+    "snapshot_source_full_frame": "Captura completa",
+    "snapshot_source_frigate_hint_crop": "Recorte sugerido pelo Frigate",
+    "snapshot_source_original": "Recorte original do Frigate",
+    "snapshot_source_auto_best": "Melhor captura automática",
+    "snapshot_model_candidates": "Candidatos do modelo",
+    "snapshot_apply_success": "Captura atualizada",
+    "snapshot_generate_success": "Captura HQ gerada",
+    "snapshot_candidates_loading": "Carregando quadros candidatos…",
+    "snapshot_candidates_empty": "Ainda não há quadros candidatos salvos."
   },
   "events": {
     "title": "Eventos",

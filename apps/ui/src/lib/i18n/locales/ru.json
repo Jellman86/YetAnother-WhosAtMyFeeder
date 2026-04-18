@@ -1207,7 +1207,20 @@
     "favorite_add": "Добавить в избранное",
     "favorite_added": "Добавлено в избранное",
     "favorite_remove": "Убрать из избранного",
-    "favorite_removed": "Удалено из избранного"
+    "favorite_removed": "Удалено из избранного",
+    "snapshot_change": "Изменить снимок",
+    "snapshot_generate": "Создать HQ-снимок",
+    "snapshot_save": "Сохранить снимок",
+    "snapshot_picker_sources": "Выбор кадра",
+    "snapshot_source_full_frame": "Полный снимок",
+    "snapshot_source_frigate_hint_crop": "Кадрирование по подсказке Frigate",
+    "snapshot_source_original": "Исходное кадрирование Frigate",
+    "snapshot_source_auto_best": "Лучший снимок автоматически",
+    "snapshot_model_candidates": "Кандидаты модели",
+    "snapshot_apply_success": "Снимок обновлён",
+    "snapshot_generate_success": "HQ-снимок создан",
+    "snapshot_candidates_loading": "Загрузка кадров-кандидатов…",
+    "snapshot_candidates_empty": "Сохранённых кадров-кандидатов пока нет."
   },
   "events": {
     "title": "События",

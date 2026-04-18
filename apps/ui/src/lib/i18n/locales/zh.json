@@ -1199,7 +1199,20 @@
     "favorite_add": "加入收藏",
     "favorite_added": "已加入收藏",
     "favorite_remove": "取消收藏",
-    "favorite_removed": "已取消收藏"
+    "favorite_removed": "已取消收藏",
+    "snapshot_change": "更改快照",
+    "snapshot_generate": "生成 HQ 快照",
+    "snapshot_save": "保存快照",
+    "snapshot_picker_sources": "帧选择器",
+    "snapshot_source_full_frame": "完整快照",
+    "snapshot_source_frigate_hint_crop": "Frigate 提示裁剪",
+    "snapshot_source_original": "原始 Frigate 裁剪",
+    "snapshot_source_auto_best": "自动最佳快照",
+    "snapshot_model_candidates": "模型候选",
+    "snapshot_apply_success": "快照已更新",
+    "snapshot_generate_success": "HQ 快照已生成",
+    "snapshot_candidates_loading": "正在加载候选帧…",
+    "snapshot_candidates_empty": "尚无已保存的候选帧。"
   },
   "events": {
     "title": "事件",
