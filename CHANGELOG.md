@@ -13,6 +13,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Changed
 - **Deployment:** `docker-compose.monolith.yml` now supports `YAWAMF_MONALITHIC_IMAGE` as an optional full image-name override, making it easier to switch between the standard monolith image and the Raspberry Pi image without editing the compose file.
 - **Backend:** ARM64 installs now use CPU `onnxruntime` while x86-64 keeps `onnxruntime-gpu[cuda,cudnn]`. Intel GPU runtime setup in both Dockerfiles is now skipped automatically on non-`amd64` builds.
+- **Classification:** Snapshot and high-quality snapshot cropping now share a global `bird_crop_source_priority` setting. The default remains `frigate_hints_first`, but owners can now choose `crop_model_first`, `crop_model_only`, or `frigate_hints_only` while still respecting the configured crop-detector tier whenever the model path is used.
+- **Classification:** Automatic video classification now prefers a cached recording/full-visit clip when one is already available, matching the manual reclassify path more closely. If the cached recording clip is invalid, YA-WAMF now falls back to the normal Frigate event clip instead of failing the auto-video run.
+
+### Fixed
+- **Classification:** Auto video classification no longer promotes `Unknown Bird` to a species on very weak scores. Unknown-label upgrades now respect the configured classifier floor, so low-confidence video guesses stay `Unknown Bird` instead of auto-overriding to an implausible species.
+- **Classification:** Auto video promotion is now less brittle for low-confidence primary detections. When the current primary label never cleared the main threshold, a stronger video result can now replace it without needing to clear the full primary threshold, while the existing Frigate sublabel disagreement guard remains in place.
 
 ## [2.9.13] - 2026-04-16
 

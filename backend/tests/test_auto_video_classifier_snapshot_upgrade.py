@@ -252,7 +252,7 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None, "event"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None))  # type: ignore[method-assign]
 
     with patch.object(
         auto_video_classifier_module.frigate_client,
@@ -263,7 +263,7 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
          patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=("/tmp/fake-recording.mp4", "cam1", 1, 2))), \
          patch.object(auto_video_classifier_module, "open", create=True) as mock_open, \
          patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)):
-        mock_open.return_value.__enter__.return_value.read.return_value = b"recording-clip-bytes"
+        mock_open.return_value.__enter__.return_value.read.return_value = b"\x00\x00\x00\x18ftyprecording-clip-bytes"
 
         await service._process_event("evt-recording-preferred", "cam1", skip_delay=True)
 
@@ -273,6 +273,37 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
         "is_cropped": False,
         "event_id": "evt-recording-preferred",
         "clip_variant": "recording",
+    }
+
+
+@pytest.mark.asyncio
+async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_invalid():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 1}])
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None))  # type: ignore[method-assign]
+
+    with patch.object(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        new=AsyncMock(return_value=({"has_clip": True, "data": {}}, None)),
+    ), \
+         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+         patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=("/tmp/fake-recording.mp4", "cam1", 1, 2))), \
+         patch.object(auto_video_classifier_module, "open", create=True) as mock_open, \
+         patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=False)):
+        mock_open.return_value.__enter__.return_value.read.return_value = b"not-a-valid-clip"
+
+        await service._process_event("evt-recording-invalid", "cam1", skip_delay=True)
+
+    service._wait_for_clip.assert_awaited_once()
+    assert service._classifier.classify_video_async.await_args.kwargs["input_context"] == {
+        "is_cropped": False,
+        "event_id": "evt-recording-invalid",
+        "clip_variant": "event",
     }
 
 

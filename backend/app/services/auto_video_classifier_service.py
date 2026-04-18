@@ -1330,7 +1330,16 @@ class AutoVideoClassifierService:
             if recording_cached_path:
                 log.info("Using cached recording clip for auto video classification", event_id=frigate_event)
                 with open(recording_cached_path, "rb") as handle:
-                    return handle.read(), None, "recording"
+                    clip_bytes = handle.read()
+                if clip_bytes and (
+                    clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]
+                ) and await self._clip_decodes(clip_bytes):
+                    return clip_bytes, None, "recording"
+                log.warning(
+                    "Cached recording clip was invalid; falling back to Frigate event clip",
+                    event_id=frigate_event,
+                    cached_path=str(recording_cached_path),
+                )
         except Exception as exc:
             log.debug(
                 "Failed to resolve cached recording clip for auto video classification",
