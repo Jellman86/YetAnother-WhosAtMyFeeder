@@ -194,12 +194,14 @@
             snapshotCandidates = candidateList.candidates ?? [];
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
+            modelCropMissReason = candidateList.model_crop_miss_reason ?? null;
         } catch {
             if (detection.frigate_event !== eventId) return;
             snapshotStatus = null;
             snapshotCandidates = [];
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
+            modelCropMissReason = null;
         } finally {
             if (detection.frigate_event === eventId) {
                 snapshotStatusLoading = false;
@@ -413,6 +415,7 @@
     let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
     let snapshotCandidatesLoading = $state(false);
+    let modelCropMissReason = $state<string | null>(null);
     let snapshotRepairOpen = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
@@ -3010,7 +3013,13 @@
                             {:else}
                                 {#if modelSnapshotCandidates.length === 0}
                                     <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/70">
-                                        {$_('detection.snapshot_model_candidates_empty', { default: 'No model-crop frames were found for this detection. The generated full-frame and Frigate-hint candidates are still available above and below.' })}
+                                        {#if modelCropMissReason === 'crop_model_disabled'}
+                                            {$_('detection.snapshot_model_crop_disabled', { default: 'Model-crop is disabled in settings. Enable "High-quality bird crop" to get tighter crops.' })}
+                                        {:else if modelCropMissReason === 'crop_model_unavailable'}
+                                            {$_('detection.snapshot_model_crop_unavailable', { default: 'The crop model is not loaded. Check the model manager to download it.' })}
+                                        {:else}
+                                            {$_('detection.snapshot_model_candidates_empty', { default: 'No model-crop frames were found for this detection. The generated full-frame and Frigate-hint candidates are still available above and below.' })}
+                                        {/if}
                                     </div>
                                 {/if}
                                 <div class="grid grid-cols-2 gap-2 md:grid-cols-3">

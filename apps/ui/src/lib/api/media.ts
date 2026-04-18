@@ -70,6 +70,7 @@ export interface SnapshotCandidateListResponse {
     current_source?: string | null;
     current_candidate_id?: string | null;
     candidates: SnapshotCandidate[];
+    model_crop_miss_reason?: string | null;
 }
 
 export interface SnapshotApplyResponse extends SnapshotStatusResponse {
