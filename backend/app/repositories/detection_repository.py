@@ -347,6 +347,77 @@ class DetectionRepository:
                 return candidate
         return candidates[0] if candidates else None
 
+    async def replace_video_top_frames(
+        self,
+        frigate_event: str,
+        frames: list[dict],
+    ) -> None:
+        if not await self._table_exists("video_classification_top_frames"):
+            return
+        await self.db.execute(
+            "DELETE FROM video_classification_top_frames WHERE frigate_event = ?",
+            (frigate_event,),
+        )
+        for frame in frames:
+            await self.db.execute(
+                """
+                INSERT INTO video_classification_top_frames (
+                    frigate_event,
+                    clip_variant,
+                    frame_index,
+                    frame_offset_seconds,
+                    frame_score,
+                    top_label,
+                    top_score,
+                    rank
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    frigate_event,
+                    str(frame.get("clip_variant") or "event"),
+                    int(frame.get("frame_index") or 0),
+                    frame.get("frame_offset_seconds"),
+                    float(frame.get("frame_score") or 0.0),
+                    frame.get("top_label"),
+                    frame.get("top_score"),
+                    int(frame.get("rank") or 0),
+                ),
+            )
+        await self.db.commit()
+
+    async def list_video_top_frames(self, frigate_event: str) -> list[dict]:
+        if not await self._table_exists("video_classification_top_frames"):
+            return []
+        async with self.db.execute(
+            """
+            SELECT
+                clip_variant,
+                frame_index,
+                frame_offset_seconds,
+                frame_score,
+                top_label,
+                top_score,
+                rank
+            FROM video_classification_top_frames
+            WHERE frigate_event = ?
+            ORDER BY rank ASC, frame_index ASC
+            """,
+            (frigate_event,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "clip_variant": row[0],
+                "frame_index": row[1],
+                "frame_offset_seconds": row[2],
+                "frame_score": row[3],
+                "top_label": row[4],
+                "top_score": row[5],
+                "rank": row[6],
+            }
+            for row in rows
+        ]
+
     @staticmethod
     def _canonical_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
         return (
@@ -514,6 +585,7 @@ class DetectionRepository:
         "classification_feedback",
         "oauth_tokens",
         "snapshot_candidates",
+        "video_classification_top_frames",
     })
 
     async def _table_columns(self, table_name: str) -> set[str]:
