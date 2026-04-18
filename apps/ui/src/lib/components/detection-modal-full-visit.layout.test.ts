@@ -50,17 +50,15 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fetchSnapshotStatus');
         expect(detectionModalSource).toContain('fetchSnapshotCandidates');
         expect(detectionModalSource).toContain('applySnapshotCandidate');
-        expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
-        expect(detectionModalSource).toContain('showManualHqBirdCropAction');
         expect(detectionModalSource).toContain('showSnapshotRepairAction');
-        expect(detectionModalSource).toContain("Snapshot repair");
+        expect(detectionModalSource).toContain('handleSnapshotRepairToggle');
+        expect(detectionModalSource).toContain("Change snapshot");
+        expect(detectionModalSource).toContain("Save snapshot");
         expect(detectionModalSource).toContain("Frame picker");
-        expect(detectionModalSource).toContain("Revert original");
-        expect(detectionModalSource).toContain('manualHqBirdCropPending');
-        expect(detectionModalSource).toContain('handleManualHqBirdCrop');
+        expect(detectionModalSource).toContain("Original Frigate crop");
+        expect(detectionModalSource).toContain("Full snapshot");
+        expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
-        expect(detectionModalSource).toContain("manual_hq_bird_crop', { default: 'Generate HQ bird crop' }");
-        expect(detectionModalSource).toContain("manual_hq_bird_crop_unavailable', { default: 'HQ bird crop unavailable; kept full HQ snapshot' }");
     });
 
     it('persists generated AI analysis back into the current detection state', () => {

@@ -5,7 +5,8 @@ import {
     fetchSnapshotStatus,
     generateHighQualityBirdCropSnapshot,
     fetchSnapshotCandidates,
-    applySnapshotCandidate
+    applySnapshotCandidate,
+    getOriginalFrigateSnapshotUrl
 } from './media';
 
 describe('checkRecordingClipAvailable', () => {
@@ -149,5 +150,9 @@ describe('snapshot HQ crop helpers', () => {
                 body: JSON.stringify({ mode: 'candidate', candidate_id: 'cand-2' })
             })
         );
+    });
+
+    it('builds an original Frigate snapshot URL through auth params', () => {
+        expect(getOriginalFrigateSnapshotUrl('evt-11')).toContain('/api/frigate/evt-11/snapshot/original.jpg');
     });
 });

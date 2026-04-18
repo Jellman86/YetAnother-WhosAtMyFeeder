@@ -1607,6 +1607,20 @@ async def apply_snapshot_candidate(
         applied_candidate_id=str(candidate.get("candidate_id") or ""),
     )
 
+
+@router.get("/frigate/{event_id}/snapshot/original.jpg")
+async def proxy_original_snapshot(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+):
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+    if not snapshot_bytes:
+        raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
+    return Response(content=snapshot_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
 @router.get("/frigate/{event_id}/snapshot.jpg")
 @guest_rate_limit()
 async def proxy_snapshot(

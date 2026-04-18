@@ -4,6 +4,10 @@ export function getSnapshotUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`);
 }
 
+export function getOriginalFrigateSnapshotUrl(frigateEvent: string): string {
+    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot/original.jpg`);
+}
+
 export function getThumbnailUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
 }

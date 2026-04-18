@@ -1203,6 +1203,16 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
 
 
 @pytest.mark.asyncio
+async def test_proxy_original_snapshot_returns_frigate_snapshot_bytes(client: httpx.AsyncClient):
+    with patch("app.routers.proxy.frigate_client.get_snapshot", new=AsyncMock(return_value=b"orig-snapshot")):
+        response = await client.get("/api/frigate/test_event_id/snapshot/original.jpg")
+
+    assert response.status_code == 200
+    assert response.content == b"orig-snapshot"
+    assert response.headers["content-type"] == "image/jpeg"
+
+
+@pytest.mark.asyncio
 async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
     """Sprite endpoint should serve generated sprite file."""
     original_setting = settings.frigate.clips_enabled
