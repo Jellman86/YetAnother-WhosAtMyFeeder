@@ -60,9 +60,11 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain("Change snapshot");
         expect(detectionModalSource).toContain("Save snapshot");
         expect(detectionModalSource).toContain("Generate HQ snapshot");
-        expect(detectionModalSource).toContain("Frame picker");
+        expect(detectionModalSource).toContain("Snapshot sources");
+        expect(detectionModalSource).toContain("Candidate frames");
         expect(detectionModalSource).toContain("Original Frigate crop");
         expect(detectionModalSource).toContain("Full snapshot");
+        expect(detectionModalSource).toContain("No model-crop frames were found for this detection.");
         expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
         expect(detectionModalSource).toContain('</div>\n        </div>\n\n        {#if snapshotRepairOpen}');

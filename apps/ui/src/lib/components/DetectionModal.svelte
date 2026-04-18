@@ -562,6 +562,7 @@
     const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
+    const allSnapshotFrameCandidates = $derived(snapshotCandidates);
     const selectedSnapshotPickerCandidate = $derived.by(() => {
         if (pendingSnapshotMode === 'revert_original') {
             return null;
@@ -2958,7 +2959,7 @@
 
                         <div class="space-y-2">
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                {$_('detection.snapshot_picker_sources', { default: 'Frame picker' })}
+                                {$_('detection.snapshot_picker_sources', { default: 'Snapshot sources' })}
                             </p>
                             <div class="grid grid-cols-3 gap-2">
                                 <button
@@ -2996,19 +2997,24 @@
 
                         <div class="space-y-2">
                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                {$_('detection.snapshot_model_candidates', { default: 'Model candidates' })}
+                                {$_('detection.snapshot_candidate_frames', { default: 'Candidate frames' })}
                             </p>
                             {#if snapshotCandidatesLoading}
                                 <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
                                     {$_('detection.snapshot_candidates_loading', { default: 'Loading candidate frames…' })}
                                 </div>
-                            {:else if modelSnapshotCandidates.length === 0}
+                            {:else if allSnapshotFrameCandidates.length === 0}
                                 <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/70">
                                     {$_('detection.snapshot_candidates_empty', { default: 'No saved candidate frames yet.' })}
                                 </div>
                             {:else}
+                                {#if modelSnapshotCandidates.length === 0}
+                                    <div class="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/70">
+                                        {$_('detection.snapshot_model_candidates_empty', { default: 'No model-crop frames were found for this detection. The generated full-frame and Frigate-hint candidates are still available above and below.' })}
+                                    </div>
+                                {/if}
                                 <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-                                    {#each modelSnapshotCandidates as candidate}
+                                    {#each allSnapshotFrameCandidates as candidate}
                                         <button
                                             type="button"
                                             onclick={() => stageSnapshotCandidate(candidate.candidate_id)}
@@ -3017,8 +3023,10 @@
                                             {#if candidate.thumbnail_url}
                                                 <img src={candidate.thumbnail_url} alt={candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })} class="aspect-video w-full rounded-xl object-cover" />
                                             {/if}
-                                            <span class="mt-2 block text-[11px] font-semibold">{candidate.classifier_label || $_('detection.snapshot_source_model_crop', { default: 'Model crop' })}</span>
+                                            <span class="mt-2 block text-[11px] font-semibold">{candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)}</span>
                                             <span class="block text-[10px] text-white/60">
+                                                {snapshotSourceLabel(candidate.source_mode)}
+                                                ·
                                                 {formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
                                                 {#if typeof candidate.classifier_score === 'number'}
                                                     · {(candidate.classifier_score * 100).toFixed(1)}%

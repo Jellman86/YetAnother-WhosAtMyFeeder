@@ -9,7 +9,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Added
 - **Deployment:** Added a dedicated `ghcr.io/<owner>/yawamf-monalithic-rpi` ARM64 image line for Raspberry Pi 4/5 monolith installs, plus a new Raspberry Pi setup guide covering image overrides, hardware expectations, and current support limits.
 - **AI Models:** Added an experimental `accurate` bird-crop detector tier wired for YOLOX-Tiny alongside the existing default `fast` detector. Settings now expose crop-detector tier selection, the model manager lists both managed crop-detector artifacts, and the backend falls back from `accurate` to `fast` automatically if the accurate detector is unavailable.
-- **UI:** Detection details now include an owner-only snapshot repair overlay launched from the existing camera icon on the media panel. YA-WAMF persists a bounded set of HQ snapshot candidates per detection, shows a staged picker for `Full snapshot`, `Frigate hint crop`, `Original Frigate crop`, and saved model-crop frame candidates, and applies the selected candidate only when the user presses `Save snapshot`.
+- **UI:** Detection details now include an owner-only snapshot repair overlay launched from the existing camera icon on the media panel. YA-WAMF persists a bounded set of HQ snapshot candidates per detection, shows a staged picker for `Full snapshot`, `Frigate hint crop`, `Original Frigate crop`, and a full candidate-frame grid sourced from every generated candidate, and applies the selected candidate only when the user presses `Save snapshot`.
 
 ### Changed
 - **Deployment:** `docker-compose.monolith.yml` now supports `YAWAMF_MONALITHIC_IMAGE` as an optional full image-name override, making it easier to switch between the standard monolith image and the Raspberry Pi image without editing the compose file.
@@ -23,6 +23,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Classification:** Auto video promotion is now less brittle for low-confidence primary detections. When the current primary label never cleared the main threshold, a stronger video result can now replace it without needing to clear the full primary threshold, while the existing Frigate sublabel disagreement guard remains in place.
 - **Classification:** HQ snapshot candidate metadata now records the actual clip variant used (`event` vs `recording`) instead of inferring it from global settings, and recording-clip fallback can reuse an already-cached full-visit clip without depending on DB-backed helper state.
 - **UI:** Snapshot picker strings are now defined in the locale bundles instead of relying on inline English defaults, and the picker once again exposes `Generate HQ snapshot` with an in-place refresh of the saved candidate list after generation.
+- **UI:** Snapshot generation no longer looks like a no-op when a detection produces only full-frame and Frigate-hint candidates. The picker now shows all generated candidate frames and explicitly explains when no model-crop frames were found for that detection.
 
 ## [2.9.13] - 2026-04-16
 
