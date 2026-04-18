@@ -266,6 +266,24 @@ class HighQualitySnapshotService:
             self._active_ids.discard(event_id)
             self._promote_deferred_events()
 
+    async def _load_preferred_frame_indices(
+        self,
+        event_id: str,
+        *,
+        clip_variant: str,
+    ) -> Optional[list[int]]:
+        """Return stored top-frame indices for this event, or None to use default sampling."""
+        try:
+            async with get_db() as db:
+                frames = await DetectionRepository(db).list_video_top_frames(event_id)
+        except Exception:
+            return None
+        if not frames:
+            return None
+        matching = [f for f in frames if f.get("clip_variant") == clip_variant]
+        source = matching if matching else frames
+        return [int(f["frame_index"]) for f in source]
+
     async def generate_snapshot_candidates_from_clip_bytes(
         self,
         event_id: str,
@@ -274,6 +292,8 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
     ) -> dict[str, Any]:
+        preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
+
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             tmp.write(clip_bytes)
             tmp_path = Path(tmp.name)
@@ -284,6 +304,7 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 event_data=event_data,
                 clip_variant=clip_variant,
+                override_frame_indices=preferred_indices,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -314,6 +335,7 @@ class HighQualitySnapshotService:
         event_id: str,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        override_frame_indices: Optional[list[int]] = None,
     ) -> list[dict[str, Any]]:
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
@@ -322,11 +344,22 @@ class HighQualitySnapshotService:
         try:
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
             fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-            candidate_indices = self._candidate_frame_indices(
-                frame_count=frame_count,
-                fps=fps,
-                event_data=event_data,
-            )[:HQ_MAX_CROP_SCORING_FRAMES]
+            if override_frame_indices is not None:
+                safe_count = max(frame_count, 1)
+                raw_overrides = override_frame_indices[:HQ_MAX_CROP_SCORING_FRAMES]
+                seen_ov: set[int] = set()
+                candidate_indices: list[int] = []
+                for idx in raw_overrides:
+                    clamped = max(0, min(safe_count - 1, int(idx)))
+                    if clamped not in seen_ov:
+                        seen_ov.add(clamped)
+                        candidate_indices.append(clamped)
+            else:
+                candidate_indices = self._candidate_frame_indices(
+                    frame_count=frame_count,
+                    fps=fps,
+                    event_data=event_data,
+                )[:HQ_MAX_CROP_SCORING_FRAMES]
             seen: set[str] = set()
             results: list[dict[str, Any]] = []
             for frame_index in candidate_indices:

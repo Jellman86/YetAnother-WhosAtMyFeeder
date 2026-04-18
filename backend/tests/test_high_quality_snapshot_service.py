@@ -1250,3 +1250,75 @@ async def test_worker_loop_tracks_task_done_against_original_queue_when_service_
     assert original_queue._unfinished_tasks == 0
     assert replacement_queue.qsize() == 0
     assert replacement_queue._unfinished_tasks == 0
+
+
+# ---------------------------------------------------------------------------
+# Top-frame preference tests (Task 4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path, monkeypatch):
+    """When persisted top frames exist for an event, those frame indices must be used."""
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+
+    stored_frames = [
+        {"frame_index": 42, "frame_offset_seconds": 1.68, "frame_score": 0.91, "top_label": "Robin", "top_score": 0.91, "rank": 1, "clip_variant": "event"},
+        {"frame_index": 38, "frame_offset_seconds": 1.52, "frame_score": 0.83, "top_label": "Robin", "top_score": 0.83, "rank": 2, "clip_variant": "event"},
+    ]
+
+    async def fake_load_preferred(event_id, *, clip_variant):
+        return [f["frame_index"] for f in stored_frames]
+
+    monkeypatch.setattr(service, "_load_preferred_frame_indices", fake_load_preferred)
+
+    used_indices: list[int] = []
+
+    original_extract = service._extract_snapshot_candidate_payloads_from_clip_path
+
+    def fake_extract(clip_path, *, event_id, event_data=None, clip_variant="event", override_frame_indices=None):
+        if override_frame_indices is not None:
+            used_indices.extend(override_frame_indices)
+        return []
+
+    monkeypatch.setattr(service, "_extract_snapshot_candidate_payloads_from_clip_path", fake_extract)
+
+    clip_bytes = _jpeg_bytes("blue")  # not a real clip but enough for the temp file write
+    await service.generate_snapshot_candidates_from_clip_bytes(
+        "evt-top-frame-use",
+        clip_bytes,
+        clip_variant="event",
+    )
+
+    assert 42 in used_indices
+    assert 38 in used_indices
+
+
+@pytest.mark.asyncio
+async def test_generate_candidates_falls_back_when_no_stored_top_frames(tmp_path, monkeypatch):
+    """When no stored top frames exist, _candidate_frame_indices fallback is used."""
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+
+    async def fake_load_preferred(event_id, *, clip_variant):
+        return None  # no stored frames
+
+    monkeypatch.setattr(service, "_load_preferred_frame_indices", fake_load_preferred)
+
+    used_override: list = []
+
+    def fake_extract(clip_path, *, event_id, event_data=None, clip_variant="event", override_frame_indices=None):
+        used_override.append(override_frame_indices)
+        return []
+
+    monkeypatch.setattr(service, "_extract_snapshot_candidate_payloads_from_clip_path", fake_extract)
+
+    clip_bytes = _jpeg_bytes("red")
+    await service.generate_snapshot_candidates_from_clip_bytes(
+        "evt-no-top-frames",
+        clip_bytes,
+        clip_variant="event",
+    )
+
+    assert len(used_override) == 1
+    assert used_override[0] is None  # fallback: no override, use default logic
