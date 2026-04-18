@@ -460,7 +460,8 @@ class DetectionService:
                 should_override = True
                 override_reason = "manual_tagged"
             elif existing_is_unknown:
-                should_override = video_score >= _UNKNOWN_UPGRADE_MIN_SCORE
+                required_score = max(_UNKNOWN_UPGRADE_MIN_SCORE, effective_floor)
+                should_override = video_score >= required_score
                 override_reason = "existing_unknown"
             else:
                 should_override = bool(video_score >= required_score)

@@ -23,6 +23,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.routers.proxy import _get_valid_cached_recording_clip_path
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import user_facing_species_fields
@@ -971,8 +972,11 @@ class AutoVideoClassifierService:
                 })
                 return
 
-            # 2. Wait for clip availability
-            clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
+            # 2. Prefer a cached recording/full-visit clip when available.
+            clip_bytes, clip_error, clip_variant = await self._load_preferred_clip(
+                frigate_event,
+                skip_delay=skip_delay,
+            )
             if not clip_bytes:
                 if clip_error == "clip_not_retained" and fallback_to_snapshot:
                     log.info(
@@ -1056,7 +1060,7 @@ class AutoVideoClassifierService:
                         event_id=frigate_event,
                         event_data=event_data,
                         is_cropped=False,
-                        clip_variant="event",
+                        clip_variant=clip_variant,
                     )
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
@@ -1310,6 +1314,32 @@ class AutoVideoClassifierService:
                 await asyncio.sleep(wait_time)
 
         return None, last_error
+
+    async def _load_preferred_clip(
+        self,
+        frigate_event: str,
+        *,
+        skip_delay: bool = False,
+    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"]]:
+        """Prefer a cached recording/full-visit clip when available, otherwise poll the event clip."""
+        try:
+            recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+                frigate_event,
+                "en",
+            )
+            if recording_cached_path:
+                log.info("Using cached recording clip for auto video classification", event_id=frigate_event)
+                with open(recording_cached_path, "rb") as handle:
+                    return handle.read(), None, "recording"
+        except Exception as exc:
+            log.debug(
+                "Failed to resolve cached recording clip for auto video classification",
+                event_id=frigate_event,
+                error=str(exc),
+            )
+
+        clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
+        return clip_bytes, clip_error, "event"
 
     async def _clip_decodes(self, clip_bytes: bytes) -> bool:
         """Ensure clip bytes decode into at least one frame."""
