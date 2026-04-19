@@ -332,3 +332,146 @@ def test_maintenance_guardrail_status_counts_external_maintenance_slots(monkeypa
     assert status["active_maintenance"] == 1
     assert status["coalesce_analyze_unknowns"] is True
     assert status["maintenance_state"] == "running"
+
+
+# ---------------------------------------------------------------------------
+# Stuck-task (coordinator slot leak) detection -- aligned with Milirey issue #33
+# bundle data: maintenance_coordinator={capacity:1, available:0} with
+# seconds_since_progress=919, active_maintenance=1.
+# ---------------------------------------------------------------------------
+
+def test_cancel_stuck_tasks_cancels_task_past_age_limit(monkeypatch):
+    """A task held longer than _MAX_JOB_AGE_SECONDS is cancelled to release the coordinator."""
+    service = _build_service(monkeypatch)
+    module = importlib.import_module("app.services.auto_video_classifier_service")
+
+    cancelled = []
+
+    class StuckTask:
+        def done(self):
+            return False
+
+        def cancel(self):
+            cancelled.append("evt-stuck")
+
+    service._active_tasks = {"evt-stuck": StuckTask()}
+    service._active_metadata = {
+        "evt-stuck": {
+            "source": "maintenance",
+            "started_at": 0.0,
+            "maintenance_holder_id": "maintenance:evt-stuck",
+        }
+    }
+
+    max_age = module._MAX_JOB_AGE_SECONDS
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=max_age + 1):
+        count = service._cancel_stuck_tasks()
+
+    assert count == 1
+    assert "evt-stuck" in cancelled
+
+
+def test_cancel_stuck_tasks_ignores_tasks_within_age_limit(monkeypatch):
+    """Tasks running within the age limit are left untouched."""
+    service = _build_service(monkeypatch)
+
+    cancelled = []
+
+    class RunningTask:
+        def done(self):
+            return False
+
+        def cancel(self):
+            cancelled.append("evt-running")
+
+    service._active_tasks = {"evt-running": RunningTask()}
+    service._active_metadata = {
+        "evt-running": {
+            "source": "maintenance",
+            "started_at": 0.0,
+        }
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=100.0):
+        count = service._cancel_stuck_tasks()
+
+    assert count == 0
+    assert not cancelled
+
+
+def test_cancel_stuck_tasks_skips_already_done_tasks(monkeypatch):
+    """Tasks that are already done are never cancelled, even if they look old."""
+    service = _build_service(monkeypatch)
+
+    cancelled = []
+
+    class DoneTask:
+        def done(self):
+            return True
+
+        def cancel(self):
+            cancelled.append("evt-done")
+
+    service._active_tasks = {"evt-done": DoneTask()}
+    service._active_metadata = {
+        "evt-done": {"source": "maintenance", "started_at": 0.0}
+    }
+
+    module = importlib.import_module("app.services.auto_video_classifier_service")
+    max_age = module._MAX_JOB_AGE_SECONDS
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=max_age + 60):
+        count = service._cancel_stuck_tasks()
+
+    assert count == 0
+    assert not cancelled
+
+
+def test_coordinator_slot_available_after_stuck_task_cancelled(monkeypatch):
+    """Simulates Milirey's bundle: coordinator.available=0, job running for 920s.
+
+    After _cancel_stuck_tasks() is called the task is cancelled.  In production
+    the done-callback releases the coordinator; here we verify the task.cancel()
+    path is taken so the done-callback would fire.
+    """
+    service = _build_service(monkeypatch)
+    module = importlib.import_module("app.services.auto_video_classifier_service")
+
+    cancel_calls = []
+
+    class HungClassificationTask:
+        """Mimics a task stuck in replace_from_clip_bytes after frame scoring."""
+
+        def done(self):
+            return False
+
+        def cancel(self):
+            cancel_calls.append(True)
+
+    # Replicate the exact state from the diagnostic bundle:
+    # - one maintenance job active for ~920 seconds
+    # - no pending queue (coordinator is the bottleneck)
+    service._active_tasks = {"evt-1234abcd": HungClassificationTask()}
+    service._active_metadata = {
+        "evt-1234abcd": {
+            "source": "maintenance",
+            "started_at": 0.0,
+            "maintenance_holder_id": "maintenance:evt-1234abcd",
+        }
+    }
+    service._maintenance_last_progress_at = 0.0
+
+    # Simulate monotonic time at 920 seconds (matching bundle's seconds_since_progress)
+    bundle_age = 920.0
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=bundle_age):
+        # At 920s the task is NOT yet past the 1800s limit — still within tolerance.
+        count_at_920 = service._cancel_stuck_tasks()
+
+    assert count_at_920 == 0, "Job at 920s should not yet be cancelled"
+
+    # Simulate hitting the limit
+    max_age = module._MAX_JOB_AGE_SECONDS
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=float(max_age) + 60.0):
+        count_at_limit = service._cancel_stuck_tasks()
+
+    assert count_at_limit == 1
+    assert cancel_calls, "task.cancel() must be called to trigger the done-callback"

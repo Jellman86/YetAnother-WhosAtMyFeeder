@@ -37,6 +37,10 @@ MAINTENANCE_STALLED_AGE_SECONDS = 90.0
 MAINTENANCE_REJECT_NEW_WORK_PENDING_THRESHOLD = 25
 MAINTENANCE_REJECT_NEW_WORK_AGE_SECONDS = 45.0
 MAINTENANCE_STATUS_DIAGNOSTIC_COOLDOWN_SECONDS = 60.0
+# A job that outlives this threshold is considered stuck (e.g. hung in post-classification
+# HQ snapshot generation) and will be forcibly cancelled by the stale watchdog so that the
+# maintenance coordinator slot it holds is released.
+_MAX_JOB_AGE_SECONDS = 1800  # 30 minutes
 
 # ---------------------------------------------------------------------------
 # Circuit-breaker failure classification
@@ -403,8 +407,42 @@ class AutoVideoClassifierService:
             "oldest_maintenance_pending_age_seconds": oldest_maintenance_pending_age,
         }
 
+    def _cancel_stuck_tasks(self) -> int:
+        """Cancel active tasks that have been running longer than _MAX_JOB_AGE_SECONDS.
+
+        A hung task (e.g. blocked inside HQ snapshot generation after a successful
+        classification run) will never fire its done-callback, so the maintenance
+        coordinator slot it holds is never released.  Forcibly cancelling it lets
+        the CancelledError propagate through _process_event, which triggers
+        _cleanup_task via the done-callback and releases the coordinator.
+
+        Returns the number of tasks cancelled.
+        """
+        now = time.monotonic()
+        cancelled = 0
+        for event_id, task in list(self._active_tasks.items()):
+            if task.done():
+                continue
+            metadata = self._active_metadata.get(event_id) or {}
+            started_at = metadata.get("started_at")
+            if not isinstance(started_at, (int, float)):
+                continue
+            job_age = now - float(started_at)
+            if job_age > _MAX_JOB_AGE_SECONDS:
+                log.warning(
+                    "Cancelling stuck video classification task",
+                    event_id=event_id,
+                    job_age_seconds=round(job_age, 1),
+                    max_age_seconds=_MAX_JOB_AGE_SECONDS,
+                    source=metadata.get("source"),
+                )
+                task.cancel()
+                cancelled += 1
+        return cancelled
+
     async def _stale_watchdog_loop(self):
-        """Periodically mark stale pending/processing detections as failed."""
+        """Periodically mark stale pending/processing detections as failed,
+        and cancel active tasks that have held the coordinator slot too long."""
         while self._running:
             try:
                 max_age = settings.classification.video_classification_stale_minutes
@@ -413,6 +451,9 @@ class AutoVideoClassifierService:
                     count = await repo.reset_stale_video_statuses(max_age)
                 if count:
                     log.warning("Reset stale video classifications", count=count, max_age_minutes=max_age)
+                stuck_count = self._cancel_stuck_tasks()
+                if stuck_count:
+                    log.warning("Cancelled stuck video classification tasks", count=stuck_count)
             except asyncio.CancelledError:
                 break
             except Exception as e:
