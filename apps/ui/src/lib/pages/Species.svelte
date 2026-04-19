@@ -660,6 +660,10 @@
         }
 
         const seriesColors = series.map((s) => s.color || primaryColor);
+        // Map from UTC x-value → backend-computed local label so the chart always
+        // shows server-timezone labels regardless of the browser's local timezone.
+        const xLabelMap = new Map(indexedPoints.map(({ point, x }) => [x, point.label] as const));
+
         const tickAmount = indexedPoints.length > 1 ? Math.min(6, indexedPoints.length) : undefined;
         const yAxes: any[] = [
             {
@@ -747,15 +751,17 @@
             xaxis: {
                 type: 'datetime',
                 tickAmount,
-                labels: { rotate: 0, style: { fontSize: '10px', colors: '#94a3b8' } }
+                labels: {
+                    rotate: 0,
+                    style: { fontSize: '10px', colors: '#94a3b8' },
+                    formatter: (val: string | number) => xLabelMap.get(Number(val)) ?? ''
+                }
             },
             yaxis: yAxes,
             tooltip: {
                 theme: isDark() ? 'dark' : 'light',
                 x: {
-                    format: timeline?.bucket === 'hour'
-                        ? 'MMM dd HH:mm'
-                        : (timeline?.bucket === 'month' ? 'MMM yyyy' : 'MMM dd HH:mm')
+                    formatter: (val: number) => xLabelMap.get(val) ?? ''
                 },
                 y: {
                     formatter: (value: number, opts: any) => {

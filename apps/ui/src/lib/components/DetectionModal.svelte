@@ -2127,8 +2127,8 @@
                         {/if}
                     </div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                        {detection.video_classification_label === detection.scientific_name && detection.common_name
-                            ? detection.common_name
+                        {detection.video_classification_label === detection.scientific_name
+                            ? getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}
