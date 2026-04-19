@@ -429,9 +429,10 @@ def test_cancel_stuck_tasks_skips_already_done_tasks(monkeypatch):
 def test_coordinator_slot_available_after_stuck_task_cancelled(monkeypatch):
     """Simulates Milirey's bundle: coordinator.available=0, job running for 920s.
 
-    After _cancel_stuck_tasks() is called the task is cancelled.  In production
-    the done-callback releases the coordinator; here we verify the task.cancel()
-    path is taken so the done-callback would fire.
+    The job hung in replace_from_clip_bytes (ONNX bird-crop / HQ snapshot generation)
+    after successful frame scoring.  With the 10-minute watchdog limit the job should
+    be cancelled well before 920 seconds, releasing the coordinator slot for the 719
+    queued jobs.
     """
     service = _build_service(monkeypatch)
     module = importlib.import_module("app.services.auto_video_classifier_service")
@@ -460,18 +461,18 @@ def test_coordinator_slot_available_after_stuck_task_cancelled(monkeypatch):
     }
     service._maintenance_last_progress_at = 0.0
 
-    # Simulate monotonic time at 920 seconds (matching bundle's seconds_since_progress)
-    bundle_age = 920.0
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=bundle_age):
-        # At 920s the task is NOT yet past the 1800s limit — still within tolerance.
+    max_age = module._MAX_JOB_AGE_SECONDS  # 600s (10 min)
+    assert max_age == 600, "Watchdog limit should be 10 minutes"
+
+    # At 300s a healthy job is still within normal bounds — must NOT be cancelled.
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=300.0):
+        count_at_300 = service._cancel_stuck_tasks()
+    assert count_at_300 == 0, "Job at 300s is within tolerance"
+
+    # At 920s the job is past the 600s limit — should be cancelled.
+    # (Milirey's bundle showed seconds_since_progress=919 before we had a timeout.)
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=920.0):
         count_at_920 = service._cancel_stuck_tasks()
 
-    assert count_at_920 == 0, "Job at 920s should not yet be cancelled"
-
-    # Simulate hitting the limit
-    max_age = module._MAX_JOB_AGE_SECONDS
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=float(max_age) + 60.0):
-        count_at_limit = service._cancel_stuck_tasks()
-
-    assert count_at_limit == 1
+    assert count_at_920 == 1, "Job at 920s must be cancelled (past 600s limit)"
     assert cancel_calls, "task.cancel() must be called to trigger the done-callback"

@@ -40,7 +40,8 @@ MAINTENANCE_STATUS_DIAGNOSTIC_COOLDOWN_SECONDS = 60.0
 # A job that outlives this threshold is considered stuck (e.g. hung in post-classification
 # HQ snapshot generation) and will be forcibly cancelled by the stale watchdog so that the
 # maintenance coordinator slot it holds is released.
-_MAX_JOB_AGE_SECONDS = 1800  # 30 minutes
+_MAX_JOB_AGE_SECONDS = 600   # 10 minutes — any job exceeding this is stuck
+_HQ_SNAPSHOT_TIMEOUT_SECONDS = 120.0  # generous ceiling for post-classification HQ work
 
 # ---------------------------------------------------------------------------
 # Circuit-breaker failure classification
@@ -1194,13 +1195,26 @@ class AutoVideoClassifierService:
 
                     # Generate HQ snapshot after top frames are persisted so the
                     # crop model works on the best-scored frames from this run.
+                    # Wrapped with a hard timeout: replace_from_clip_bytes runs
+                    # asyncio.to_thread CPU work (ONNX bird-crop model) and a
+                    # synchronous classifier.classify() call with no inner timeout.
+                    # A hang here holds the maintenance coordinator slot forever.
                     if settings.media_cache.high_quality_event_snapshots:
                         try:
-                            await high_quality_snapshot_service.replace_from_clip_bytes(
-                                frigate_event,
-                                clip_bytes,
-                                event_data=event_data,
-                                clip_variant=clip_variant,
+                            await asyncio.wait_for(
+                                high_quality_snapshot_service.replace_from_clip_bytes(
+                                    frigate_event,
+                                    clip_bytes,
+                                    event_data=event_data,
+                                    clip_variant=clip_variant,
+                                ),
+                                timeout=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
+                            )
+                        except asyncio.TimeoutError:
+                            log.warning(
+                                "High-quality snapshot generation timed out",
+                                event_id=frigate_event,
+                                timeout_seconds=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
                             )
                         except Exception as e:
                             log.warning(
