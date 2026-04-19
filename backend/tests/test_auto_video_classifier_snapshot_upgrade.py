@@ -1,4 +1,7 @@
 import asyncio
+import contextlib
+import os
+import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
@@ -256,18 +259,25 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None))  # type: ignore[method-assign]
 
-    with patch.object(
-        auto_video_classifier_module.frigate_client,
-        "get_event_with_error",
-        new=AsyncMock(return_value=({"has_clip": True, "data": {}}, None)),
-    ), \
-         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
-         patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=("/tmp/fake-recording.mp4", "cam1", 1, 2))), \
-         patch.object(auto_video_classifier_module, "open", create=True) as mock_open, \
-         patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)):
-        mock_open.return_value.__enter__.return_value.read.return_value = b"\x00\x00\x00\x18ftyprecording-clip-bytes"
+    # Write a real temp file so asyncio.to_thread(Path(...).read_bytes) succeeds.
+    fd, recording_path = tempfile.mkstemp(suffix=".mp4")
+    try:
+        os.write(fd, b"\x00\x00\x00\x18ftyprecording-clip-bytes")
+        os.close(fd)
 
-        await service._process_event("evt-recording-preferred", "cam1", skip_delay=True)
+        with patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True, "data": {}}, None)),
+        ), \
+             patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+             patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=(recording_path, "cam1", 1, 2))), \
+             patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)):
+
+            await service._process_event("evt-recording-preferred", "cam1", skip_delay=True)
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(recording_path)
 
     service._wait_for_clip.assert_not_awaited()
     service._classifier.classify_video_async.assert_awaited_once()
@@ -286,20 +296,26 @@ async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_i
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypevent-clip-bytes", None))  # type: ignore[method-assign]
 
-    with patch.object(
-        auto_video_classifier_module.frigate_client,
-        "get_event_with_error",
-        new=AsyncMock(return_value=({"has_clip": True, "data": {}}, None)),
-    ), \
-         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
-         patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=("/tmp/fake-recording.mp4", "cam1", 1, 2))), \
-         patch.object(auto_video_classifier_module, "open", create=True) as mock_open, \
-         patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=False)):
-        mock_open.return_value.__enter__.return_value.read.return_value = b"not-a-valid-clip"
+    fd, recording_path = tempfile.mkstemp(suffix=".mp4")
+    try:
+        os.write(fd, b"not-a-valid-clip")
+        os.close(fd)
 
-        await service._process_event("evt-recording-invalid", "cam1", skip_delay=True)
+        with patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True, "data": {}}, None)),
+        ), \
+             patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()), \
+             patch.object(auto_video_classifier_module, "_get_valid_cached_recording_clip_path", new=AsyncMock(return_value=(recording_path, "cam1", 1, 2))), \
+             patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=False)):
+
+            await service._process_event("evt-recording-invalid", "cam1", skip_delay=True)
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(recording_path)
 
     service._wait_for_clip.assert_awaited_once()
     assert service._classifier.classify_video_async.await_args.kwargs["input_context"] == {
