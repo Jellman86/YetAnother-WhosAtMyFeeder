@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import os
+from pathlib import Path
 import random
 import tempfile
 import structlog
@@ -963,7 +964,7 @@ class AutoVideoClassifierService:
             skip_delay=skip_delay,
             source=source,
         )
-        
+        tmp_path: str | None = None  # pre-declared so CancelledError handler is always safe
         try:
             # 1. Update status in DB to 'pending'
             await self._update_status(frigate_event, 'pending', error=None, broadcast=False)
@@ -1062,13 +1063,18 @@ class AutoVideoClassifierService:
                 })
                 return
 
-            # 3. Save to temp file for processing (offloaded so large clips don't block the loop)
-            tmp_path = None
-            def _write_tmp(data: bytes) -> str:
-                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as f:
-                    f.write(data)
-                    return f.name
-            tmp_path = await asyncio.to_thread(_write_tmp, clip_bytes)
+            # 3. Save to temp file for processing (write offloaded so large clips don't
+            # block the loop).  mkstemp reserves the path synchronously so tmp_path is
+            # always set before the first cancellation-risk await, avoiding a NameError
+            # in the CancelledError cleanup path if the task is cancelled mid-write.
+            _fd, tmp_path = tempfile.mkstemp(suffix='.mp4')
+            os.close(_fd)
+            try:
+                await asyncio.to_thread(Path(tmp_path).write_bytes, clip_bytes)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.remove(tmp_path)
+                raise
 
             try:
                 # 4. Run classification
@@ -1261,7 +1267,7 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
-            # Clean up temp file if cancellation occurred before the inner finally ran.
+            # tmp_path is set by mkstemp before any await, so it is always available here.
             if tmp_path is not None:
                 with contextlib.suppress(OSError):
                     if os.path.exists(tmp_path):
@@ -1413,9 +1419,7 @@ class AutoVideoClassifierService:
             )
             if recording_cached_path:
                 log.info("Using cached recording clip for auto video classification", event_id=frigate_event)
-                clip_bytes = await asyncio.to_thread(
-                    lambda p=recording_cached_path: open(p, "rb").read()  # noqa: WPS430
-                )
+                clip_bytes = await asyncio.to_thread(Path(recording_cached_path).read_bytes)
                 if clip_bytes and (
                     clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]
                 ) and await self._clip_decodes(clip_bytes):
