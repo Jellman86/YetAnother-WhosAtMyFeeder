@@ -248,10 +248,15 @@ async def get_daily_summary(
             else:
                 common_name = s.get("common_name")
                 taxa_id = s.get("taxa_id")
-                if lang != 'en' and taxa_id:
-                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
+                if taxa_id:
+                    if lang != 'en':
+                        localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                        if localized:
+                            common_name = localized
+                    else:
+                        canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                        if canonical:
+                            common_name = canonical
 
                 summary_species.append(DailySpeciesSummary(
                     species=s["species"],
@@ -277,10 +282,15 @@ async def get_daily_summary(
         if latest_raw:
             d = latest_raw[0]
             common_name = d.common_name
-            if lang != 'en' and d.taxa_id:
-                localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
-                if localized:
-                    common_name = localized
+            if d.taxa_id:
+                if lang != 'en':
+                    localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(d.taxa_id, db=db)
+                    if canonical:
+                        common_name = canonical
 
             public_species = user_facing_species_fields(
                 display_name=d.display_name,

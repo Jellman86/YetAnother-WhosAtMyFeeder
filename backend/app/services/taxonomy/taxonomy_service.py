@@ -193,6 +193,32 @@ class TaxonomyService:
             
         return None
 
+    async def get_canonical_english_name(self, taxa_id: int, db: Optional[aiosqlite.Connection] = None) -> Optional[str]:
+        """Return the canonical English common name from taxonomy_cache for a taxa_id.
+
+        This is the authoritative English name stored at classification/taxonomy time,
+        used to normalize display when the detection row may have been stored with a
+        non-English common_name (e.g. after a language switch).
+        """
+        if not taxa_id:
+            return None
+        try:
+            if db:
+                return await self._query_canonical_english(db, taxa_id)
+            async with get_db() as conn:
+                return await self._query_canonical_english(conn, taxa_id)
+        except Exception as e:
+            log.warning("Canonical English name lookup failed", taxa_id=taxa_id, error=str(e))
+        return None
+
+    async def _query_canonical_english(self, db: aiosqlite.Connection, taxa_id: int) -> Optional[str]:
+        async with db.execute(
+            "SELECT common_name FROM taxonomy_cache WHERE taxa_id = ? AND is_not_found = 0 LIMIT 1",
+            (taxa_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return row[0] if row and row[0] else None
+
     async def get_localized_common_name(self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None) -> Optional[str]:
         """
         Get the localized common name for a species.

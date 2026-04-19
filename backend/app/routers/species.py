@@ -1018,10 +1018,15 @@ async def get_species_list(request: Request):
 
             common_name = s.get("common_name")
             taxa_id = s.get("taxa_id")
-            if lang != 'en' and taxa_id:
-                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                if localized:
-                    common_name = localized
+            if taxa_id:
+                if lang != 'en':
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                    if canonical:
+                        common_name = canonical
 
             filtered_stats.append({
                 "species": _canonical_species_response_name(
@@ -1130,10 +1135,15 @@ async def get_leaderboard_species(
 
             common_name = r.get("common_name")
             taxa_id = r.get("taxa_id")
-            if lang != "en" and taxa_id:
-                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                if localized:
-                    common_name = localized
+            if taxa_id:
+                if lang != "en":
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                    if canonical:
+                        common_name = canonical
 
             delta = r["window_count"] - r["prev_count"]
             pct = 0.0
@@ -1313,10 +1323,15 @@ async def get_species_stats(
         recent_detections = []
         for d in recent:
             common_name = d.common_name
-            if lang != 'en' and d.taxa_id:
-                localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
-                if localized:
-                    common_name = localized
+            if d.taxa_id:
+                if lang != 'en':
+                    localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(d.taxa_id, db=db)
+                    if canonical:
+                        common_name = canonical
 
             public_species = user_facing_species_fields(
                 display_name=d.display_name,
@@ -1372,11 +1387,16 @@ async def get_species_stats(
         if not taxa_id and recent:
             taxa_id = recent[0].taxa_id
         
-        # Localize main common name if needed
-        if lang != 'en' and taxa_id:
-            localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-            if localized:
-                common_name = localized
+        # Normalize/localize main common name
+        if taxa_id:
+            if lang != 'en':
+                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                if localized:
+                    common_name = localized
+            else:
+                canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                if canonical:
+                    common_name = canonical
 
         return SpeciesStats(
             species_name=species_name,
