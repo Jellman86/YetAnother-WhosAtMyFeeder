@@ -9,6 +9,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitAvailable');
         expect(detectionModalSource).toContain('fullVisitFetched');
         expect(detectionModalSource).toContain('fullVisitFetchState');
+        expect(detectionModalSource).toContain("fullVisitFetchState === 'failed'");
         expect(detectionModalSource).toContain('Fetch full clip');
         expect(detectionModalSource).toContain('Full visit');
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
@@ -30,6 +31,8 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(eventsPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
         expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
         expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
+        expect(eventsPageSource).toContain("autoFetch: true");
+        expect(dashboardPageSource).toContain("autoFetch: true");
 
         expect(dashboardPageSource).toContain('fullVisitAvailable={selectedEvent ?');
         expect(dashboardPageSource).toContain('selectedEventFullVisitHandler');

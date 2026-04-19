@@ -677,11 +677,11 @@
             lastModalEventId = eventId;
             // Force fresh probe: a cached 'unavailable' from a previous check may
             // now be wrong if the clip was fetched in another session or tab.
-            void fullVisitStore.ensureAvailability(eventId, { refresh: true });
+            void fullVisitStore.ensureAvailability(eventId, { refresh: true, autoFetch: true });
         } else {
             // Same event still open (SSE update to selectedEvent while modal is open).
             // Non-refresh probe respects the current cache — no redundant round-trips.
-            void fullVisitStore.ensureAvailability(eventId);
+            void fullVisitStore.ensureAvailability(eventId, { autoFetch: true });
         }
     });
 

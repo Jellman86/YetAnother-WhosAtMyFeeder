@@ -465,7 +465,7 @@
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
     let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
-    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && !reclassifyProgress);
+    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && fullVisitFetchState === 'failed' && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
             return $_('video_player.fetching_full_visit', { default: 'Fetching...' });

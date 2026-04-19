@@ -54,16 +54,29 @@ export class FullVisitStore {
         }
     }
 
-    async ensureAvailability(eventId: string, options: { refresh?: boolean } = {}): Promise<boolean> {
+    async ensureAvailability(eventId: string, options: { refresh?: boolean; autoFetch?: boolean } = {}): Promise<boolean> {
         const refresh = options.refresh === true;
+        const autoFetch = options.autoFetch === true;
         const current = this.getAvailability(eventId);
         if (!refresh) {
-            if (current === 'available') return true;
+            if (current === 'available') {
+                if (autoFetch && !this.isFetched(eventId)) {
+                    void this.fetchFullVisit(eventId);
+                }
+                return true;
+            }
             if (current === 'unavailable') return false;
         }
 
         const inFlight = this.probePromises.get(eventId);
-        if (inFlight) return inFlight;
+        if (inFlight) {
+            if (autoFetch) {
+                void inFlight.then((available) => {
+                    if (available && !this.isFetched(eventId)) void this.fetchFullVisit(eventId);
+                });
+            }
+            return inFlight;
+        }
 
         this.availability = { ...this.availability, [eventId]: 'checking' };
 
@@ -80,6 +93,10 @@ export class FullVisitStore {
                 } else if (!available) {
                     this.clearFetched(eventId);
                     this.cancelReprobe(eventId);
+                } else if (autoFetch) {
+                    // Available in Frigate but not cached locally — auto-fetch now.
+                    this.cancelReprobe(eventId);
+                    void this.fetchFullVisit(eventId);
                 } else {
                     // Available in Frigate but not yet cached locally.
                     // The backend may be in the middle of auto-caching — schedule
