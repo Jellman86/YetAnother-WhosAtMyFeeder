@@ -59,7 +59,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
         expect(detectionModalSource).toContain("Choose Snapshot");
         expect(detectionModalSource).toContain("Save'");
-        expect(detectionModalSource).toContain("Generate HQ'");
+        expect(detectionModalSource).toContain("Regenerate HQ'");
         expect(detectionModalSource).toContain("Crop Type");
         expect(detectionModalSource).toContain("Scored Frames");
         expect(detectionModalSource).toContain("snapshot_source_original");

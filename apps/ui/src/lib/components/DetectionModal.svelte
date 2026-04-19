@@ -2962,24 +2962,6 @@
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
-                        {#if canGenerateSnapshotCandidates}
-                            <button
-                                type="button"
-                                onclick={handleGenerateSnapshotCandidates}
-                                disabled={snapshotGeneratePending}
-                                title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                class="inline-flex items-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {#if snapshotGeneratePending}
-                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                {:else}
-                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                        <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
-                                    </svg>
-                                {/if}
-                                {$_('detection.snapshot_generate', { default: 'Generate HQ' })}
-                            </button>
-                        {/if}
                         <button
                             type="button"
                             onclick={() => { snapshotRepairOpen = false; resetSnapshotPickerSelection(); }}
@@ -3101,13 +3083,33 @@
 
                         <!-- ── Scored frames ── -->
                         <div class="space-y-2">
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-                                    {$_('detection.snapshot_candidate_frames', { default: 'Scored Frames' })}
-                                </p>
-                                <p class="mt-0.5 text-[11px] text-white/40">
-                                    {$_('detection.snapshot_candidate_frames_hint', { default: 'AI-ranked frames from the video clip — tap to select' })}
-                                </p>
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                                        {$_('detection.snapshot_candidate_frames', { default: 'Scored Frames' })}
+                                    </p>
+                                    <p class="mt-0.5 text-[11px] text-white/40">
+                                        {$_('detection.snapshot_candidate_frames_hint', { default: 'AI-ranked frames from the video clip — tap to select' })}
+                                    </p>
+                                </div>
+                                {#if canGenerateSnapshotCandidates}
+                                    <button
+                                        type="button"
+                                        onclick={handleGenerateSnapshotCandidates}
+                                        disabled={snapshotGeneratePending}
+                                        title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
+                                        class="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {#if snapshotGeneratePending}
+                                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                        {:else}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
+                                            </svg>
+                                        {/if}
+                                        {$_('detection.snapshot_generate', { default: 'Regenerate HQ' })}
+                                    </button>
+                                {/if}
                             </div>
 
                             {#if snapshotCandidatesLoading}
@@ -3121,7 +3123,7 @@
                                         <circle cx="12" cy="12" r="9"/>
                                         <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
                                     </svg>
-                                    {$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet — use "Generate HQ" above to analyse this clip.' })}
+                                    {$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet — use "Regenerate HQ" to analyse this clip.' })}
                                 </div>
                             {:else}
                                 {#if modelSnapshotCandidates.length === 0}
