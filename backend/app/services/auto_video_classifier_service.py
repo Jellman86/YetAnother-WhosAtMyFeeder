@@ -741,7 +741,14 @@ class AutoVideoClassifierService:
             state = "idle"
             message = ""
         elif pending_maintenance > 0 and bool(throttle.get("throttled_for_live_pressure")):
-            if isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= MAINTENANCE_STALLED_AGE_SECONDS:
+            starvation_relief = bool(throttle.get("maintenance_starvation_relief_active"))
+            if starvation_relief and active_maintenance > 0:
+                state = "running"
+                message = "Maintenance work is running at reduced capacity while live detections are active"
+            elif starvation_relief:
+                state = "queued"
+                message = "Maintenance work is queued and will process one at a time while live detections are active"
+            elif isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= MAINTENANCE_STALLED_AGE_SECONDS:
                 state = "stalled"
                 message = "Maintenance work is stalled while waiting for maintenance classifier capacity"
             elif isinstance(oldest_pending_age, (int, float)) and oldest_pending_age >= MAINTENANCE_DEPRIORITIZED_AGE_SECONDS:

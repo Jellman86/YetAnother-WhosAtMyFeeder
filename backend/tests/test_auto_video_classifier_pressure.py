@@ -28,7 +28,8 @@ def _build_service(monkeypatch):
 
     fake_classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"queued": 0, "running": 0}})
     fake_settings = types.SimpleNamespace(
-        classification=types.SimpleNamespace(video_classification_max_concurrent=4)
+        classification=types.SimpleNamespace(video_classification_max_concurrent=4),
+        maintenance=types.SimpleNamespace(max_concurrent=1),
     )
 
     monkeypatch.setitem(sys.modules, "structlog", types.SimpleNamespace(get_logger=lambda: _Logger()))
@@ -231,6 +232,7 @@ def test_starved_maintenance_queue_stays_paused_when_mqtt_pressure_is_critical(m
 
 
 def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):
+    # Deprioritized requires critical MQTT (disables starvation relief) + live pressure + age >= 15s < 90s
     service = _build_service(monkeypatch)
     service._classifier = type(
         "FakeClassifier",
@@ -243,7 +245,7 @@ def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):
     }
 
     with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=20.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
         status = service.get_maintenance_guardrail_status()
 
     assert status["pending_maintenance"] == 2
@@ -255,6 +257,29 @@ def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):
 
 
 def test_maintenance_guardrail_status_rejects_when_queue_is_stalled(monkeypatch):
+    # Stalled state requires critical MQTT pressure (disables starvation relief) + live pressure + old queue
+    service = _build_service(monkeypatch)
+    service._classifier = type(
+        "FakeClassifier",
+        (),
+        {"get_admission_status": lambda self: {"live": {"queued": 1, "running": 1}}},
+    )()
+    service._pending_metadata = {
+        "evt-maint-starved": {"source": "maintenance", "queued_at": 0.0},
+    }
+
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0), \
+         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
+        status = service.get_maintenance_guardrail_status()
+
+    assert status["maintenance_state"] == "stalled"
+    assert status["coalesce_analyze_unknowns"] is True
+    assert status["reject_new_work"] is True
+    assert "stalled" in str(status["maintenance_status_message"]).lower()
+
+
+def test_maintenance_guardrail_status_shows_queued_during_starvation_relief(monkeypatch):
+    # Under live pressure with non-critical MQTT, starvation relief activates and state is queued/running (not stalled)
     service = _build_service(monkeypatch)
     service._classifier = type(
         "FakeClassifier",
@@ -269,10 +294,10 @@ def test_maintenance_guardrail_status_rejects_when_queue_is_stalled(monkeypatch)
          patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
         status = service.get_maintenance_guardrail_status()
 
-    assert status["maintenance_state"] == "stalled"
+    assert status["maintenance_state"] == "queued"
     assert status["coalesce_analyze_unknowns"] is True
-    assert status["reject_new_work"] is True
-    assert "stalled" in str(status["maintenance_status_message"]).lower()
+    assert status["reject_new_work"] is True  # Still reject due to oldest_age >= 45s
+    assert "stalled" not in str(status["maintenance_status_message"]).lower()
 
 
 def test_maintenance_guardrail_status_keeps_active_work_running_without_false_stall(monkeypatch):
