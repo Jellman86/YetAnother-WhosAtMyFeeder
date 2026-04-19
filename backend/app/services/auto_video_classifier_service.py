@@ -301,7 +301,7 @@ class AutoVideoClassifierService:
                     }
                     if source == "maintenance":
                         self._maintenance_last_progress_at = time.monotonic()
-                    task.add_done_callback(lambda t: self._cleanup_task(frigate_event, t))
+                    task.add_done_callback(lambda t, eid=frigate_event: self._cleanup_task(eid, t))
                     # Only clear pending dedupe marker after active registration.
                     self._pending_ids.discard(frigate_event)
                     self._pending_metadata.pop(frigate_event, None)
