@@ -51,6 +51,61 @@ _JOB_TASKS: dict[str, asyncio.Task] = {}
 _JOB_LOCK = asyncio.Lock()
 BACKFILL_DEPRIORITIZED_AGE_SECONDS = 15.0
 BACKFILL_STALLED_AGE_SECONDS = 90.0
+BACKFILL_STALE_JOB_AGE_SECONDS = 600.0
+BACKFILL_WATCHDOG_INTERVAL_SECONDS = 60.0
+_stale_job_ids_reported: set[str] = set()
+
+
+def _check_stale_backfill_jobs() -> None:
+    now = datetime.now(timezone.utc)
+    for job in _JOB_STORE.values():
+        if job.status != "running":
+            continue
+        if not job.started_at or job.id in _stale_job_ids_reported:
+            continue
+        try:
+            started_dt = datetime.fromisoformat(job.started_at)
+            age = (now - started_dt).total_seconds()
+        except (ValueError, TypeError):
+            continue
+        if age >= BACKFILL_STALE_JOB_AGE_SECONDS:
+            _stale_job_ids_reported.add(job.id)
+            log.warning(
+                "Stale backfill job detected",
+                job_id=job.id,
+                kind=job.kind,
+                processed=job.processed,
+                total=job.total,
+                age_seconds=round(age, 1),
+            )
+            error_diagnostics_history.record(
+                source="backfill",
+                component=job.kind,
+                stage="watchdog",
+                reason_code="stale_job",
+                message=f"Backfill job has been running for {int(age)}s without completing",
+                severity="warning",
+                context={
+                    "job_id": job.id,
+                    "kind": job.kind,
+                    "processed": job.processed,
+                    "total": job.total,
+                    "age_seconds": round(age, 1),
+                },
+            )
+
+
+async def _backfill_watchdog_loop() -> None:
+    while True:
+        await asyncio.sleep(BACKFILL_WATCHDOG_INTERVAL_SECONDS)
+        try:
+            _check_stale_backfill_jobs()
+        except Exception:
+            pass
+
+
+def start_watchdog() -> None:
+    create_background_task(_backfill_watchdog_loop(), name="backfill_stale_job_watchdog")
 
 
 def _maintenance_holder_id(kind: str, job_id: str) -> str:

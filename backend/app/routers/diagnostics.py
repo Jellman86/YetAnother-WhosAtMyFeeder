@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -10,6 +11,8 @@ router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
 WORKSPACE_SCHEMA_VERSION = "2026-03-12.owner-incident-workspace.v1"
 BUNDLE_SCHEMA_VERSION = "2026-04-09.owner-diagnostics-bundle.v1"
+
+_BACKFILL_STALE_JOB_SECONDS = 600.0
 
 _VIDEO_DIAGNOSTIC_COMPONENTS = {"auto_video_classifier", "video_classifier"}
 _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "circuit_open"}
@@ -77,6 +80,52 @@ def _build_video_classifier_focus(
     }
 
 
+def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
+    from app.routers.backfill import _JOB_STORE
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    now_monotonic = time.monotonic()
+
+    jobs: list[dict[str, Any]] = []
+    stale_jobs: list[dict[str, Any]] = []
+
+    for job in _JOB_STORE.values():
+        job_dict = job.model_dump()
+        started_at_str = job_dict.get("started_at")
+        age_seconds: float | None = None
+        if started_at_str and job_dict.get("status") == "running":
+            try:
+                started_dt = datetime.fromisoformat(started_at_str)
+                age_seconds = (datetime.now(timezone.utc) - started_dt).total_seconds()
+                job_dict["age_seconds"] = round(age_seconds, 1)
+            except (ValueError, TypeError):
+                pass
+        jobs.append(job_dict)
+        if job_dict.get("status") == "running" and isinstance(age_seconds, float) and age_seconds >= _BACKFILL_STALE_JOB_SECONDS:
+            stale_jobs.append(job_dict)
+
+    running_jobs = [j for j in jobs if j.get("status") == "running"]
+    failed_jobs = [j for j in jobs if j.get("status") == "failed"]
+
+    events = backend_snapshot.get("events") if isinstance(backend_snapshot, dict) else []
+    recent_errors = [
+        _copy_event(ev)
+        for ev in events
+        if isinstance(ev, dict) and str(ev.get("source") or "").lower() == "backfill"
+    ][:8]
+    recent_errors = [ev for ev in recent_errors if ev is not None]
+
+    return {
+        "jobs": jobs,
+        "running_jobs": running_jobs,
+        "failed_jobs": failed_jobs,
+        "stale_jobs": stale_jobs,
+        "has_stale_running_job": len(stale_jobs) > 0,
+        "recent_errors": recent_errors,
+        "snapshot_at": now_iso,
+    }
+
+
 async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
     from app.main import health_check
     from app.routers.classifier import classifier_service
@@ -92,6 +141,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
         "backend_diagnostics": backend_diagnostics,
         "focused_diagnostics": {
             "video_classifier": _build_video_classifier_focus(backend_diagnostics, health),
+            "backfill": _build_backfill_focus(backend_diagnostics),
         },
         "health": health,
         "classifier": classifier_service.get_status(),
@@ -116,6 +166,10 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
     startup_warnings = workspace.get("startup_warnings") if isinstance(workspace, dict) else []
     startup_warnings = startup_warnings if isinstance(startup_warnings, list) else []
 
+    focused = workspace.get("focused_diagnostics") or {}
+    backfill_focus = focused.get("backfill") if isinstance(focused, dict) else {}
+    backfill_focus = backfill_focus if isinstance(backfill_focus, dict) else {}
+
     return {
         "schema_version": BUNDLE_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -123,6 +177,9 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "health_status": health.get("status") or "unknown",
             "diagnostic_events": int(backend_diagnostics.get("returned_events") or 0),
             "startup_warning_count": len(startup_warnings),
+            "backfill_stale_jobs": len(backfill_focus.get("stale_jobs") or []),
+            "backfill_running_jobs": len(backfill_focus.get("running_jobs") or []),
+            "backfill_failed_jobs": len(backfill_focus.get("failed_jobs") or []),
         },
         "server": {
             "service": health.get("service") or "unknown",

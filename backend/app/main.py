@@ -360,6 +360,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_start", full_visit_clip_service.start, fatal=False)
         await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
+        backfill.start_watchdog()
         log.info(
             "Background cleanup scheduler started",
             interval_hours=CLEANUP_INTERVAL_HOURS,
