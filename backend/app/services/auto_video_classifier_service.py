@@ -1062,11 +1062,13 @@ class AutoVideoClassifierService:
                 })
                 return
 
-            # 3. Save to temp file for processing
+            # 3. Save to temp file for processing (offloaded so large clips don't block the loop)
             tmp_path = None
-            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
-                tmp.write(clip_bytes)
-                tmp_path = tmp.name
+            def _write_tmp(data: bytes) -> str:
+                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as f:
+                    f.write(data)
+                    return f.name
+            tmp_path = await asyncio.to_thread(_write_tmp, clip_bytes)
 
             try:
                 # 4. Run classification
@@ -1129,7 +1131,7 @@ class AutoVideoClassifierService:
                         "clip_bytes": len(clip_bytes),
                         "max_frames": settings.classification.video_classification_frames,
                     }
-                    timeout_context.update(self._clip_probe_context(tmp_path))
+                    timeout_context.update(await asyncio.to_thread(self._clip_probe_context_sync, tmp_path))
 
                     if source == "maintenance" and fallback_to_snapshot:
                         timeout_context["snapshot_fallback_attempted"] = True
@@ -1340,7 +1342,8 @@ class AutoVideoClassifierService:
             context["last_runtime_recovery"] = dict(recovery)
         return context
 
-    def _clip_probe_context(self, clip_path: str) -> dict:
+    @staticmethod
+    def _clip_probe_context_sync(clip_path: str) -> dict:
         import cv2
 
         context: dict = {}
@@ -1410,8 +1413,9 @@ class AutoVideoClassifierService:
             )
             if recording_cached_path:
                 log.info("Using cached recording clip for auto video classification", event_id=frigate_event)
-                with open(recording_cached_path, "rb") as handle:
-                    clip_bytes = handle.read()
+                clip_bytes = await asyncio.to_thread(
+                    lambda p=recording_cached_path: open(p, "rb").read()  # noqa: WPS430
+                )
                 if clip_bytes and (
                     clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]
                 ) and await self._clip_decodes(clip_bytes):
@@ -1431,8 +1435,9 @@ class AutoVideoClassifierService:
         clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
         return clip_bytes, clip_error, "event"
 
-    async def _clip_decodes(self, clip_bytes: bytes) -> bool:
-        """Ensure clip bytes decode into at least one frame."""
+    @staticmethod
+    def _clip_decodes_sync(clip_bytes: bytes) -> bool:
+        """Synchronous inner check — runs in a thread so it cannot block the event loop."""
         import cv2
 
         tmp_path = None
@@ -1450,10 +1455,25 @@ class AutoVideoClassifierService:
             return ok
         finally:
             if tmp_path and os.path.exists(tmp_path):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(tmp_path)
-                except Exception:
-                    pass
+
+    async def _clip_decodes(self, clip_bytes: bytes) -> bool:
+        """Ensure clip bytes decode into at least one frame.
+
+        cv2.VideoCapture and cap.read() are synchronous and can block
+        indefinitely on corrupt or truncated MP4s.  Running them in a
+        thread prevents the asyncio event loop from stalling (which would
+        also silently disable all other timeouts in the job).
+        """
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._clip_decodes_sync, clip_bytes),
+                timeout=30.0,
+            )
+        except asyncio.TimeoutError:
+            log.warning("Clip decode check timed out — treating clip as invalid")
+            return False
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
         """Auto-delete detection when clip/event is missing (if enabled)."""
