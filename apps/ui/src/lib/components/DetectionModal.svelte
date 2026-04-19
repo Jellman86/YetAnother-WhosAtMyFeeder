@@ -2016,7 +2016,7 @@
                                 </button>
                             </div>
                         {/if}
-                        {#if showFetchFullVisitAction}
+                        {#if showFetchFullVisitAction && !snapshotRepairOpen}
                             <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
                                 <button
                                     type="button"

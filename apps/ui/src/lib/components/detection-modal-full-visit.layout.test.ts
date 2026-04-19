@@ -71,6 +71,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('{#if authStore.canModify && !readOnly && !snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if showSnapshotRepairAction && !snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if showFetchFullVisitAction && !snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if frigateIssueBadgeVisible && !snapshotRepairOpen}');
     });
 
