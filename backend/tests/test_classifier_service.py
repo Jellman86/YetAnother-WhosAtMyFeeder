@@ -291,6 +291,33 @@ def test_onnx_preprocess_letterbox_respects_configured_padding_color():
     assert arr[2, 2, 0] == pytest.approx(1.0, abs=1e-3)
 
 
+def test_onnx_preprocess_swaps_channels_when_color_space_is_bgr():
+    # Regression guard: previously `color_space: BGR` on a classifier was
+    # silently ignored (only the crop-detector path honored it), so a
+    # BGR-trained classifier would have received RGB pixels and produced
+    # garbage predictions. The ONNX/OpenVINO preprocess paths must now honor
+    # BGR by reversing the channel axis before normalization.
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        preprocessing={
+            "color_space": "BGR",
+            "resize_mode": "direct_resize",
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+        },
+        input_size=2,
+    )
+
+    # Pure red RGB pixel should arrive on the blue plane in BGR order.
+    arr = model._preprocess(Image.new("RGB", (2, 2), color=(255, 0, 0)))
+
+    # Layout is NCHW: arr[0, 0] is the first channel.
+    assert arr[0, 0, 0, 0] == pytest.approx(0.0, abs=1e-3)  # R pixel not on channel 0
+    assert arr[0, 2, 0, 0] == pytest.approx(1.0, abs=1e-3)  # R pixel on channel 2 (B-slot in BGR)
+
+
 def test_onnx_preprocess_ignores_invalid_non_rgb_color_space():
     model = ONNXModelInstance(
         "test",

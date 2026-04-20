@@ -83,6 +83,60 @@ def test_export_birds_only_model_reports_external_data_sidecar(tmp_path):
     assert report["external_data_path"] == str(tmp_path / "model.onnx.data")
 
 
+def test_export_birds_only_model_translates_timm_squash_crop_mode(tmp_path):
+    # Regression guard: timm's `crop_mode='squash'` (EVA-02, CLIP-init ConvNeXt)
+    # must map to `resize_mode='direct_resize'`, not the default `center_crop`.
+    class SquashModel:
+        pretrained_cfg = {
+            "mean": [0.481, 0.457, 0.408],
+            "std": [0.268, 0.261, 0.275],
+            "crop_pct": 1.0,
+            "crop_mode": "squash",
+            "interpolation": "bicubic",
+        }
+
+        def eval(self):
+            return self
+
+    def fake_loader(_name: str):
+        return SquashModel()
+
+    def fake_export(_model, _dummy, path, **_kwargs):
+        Path(path).write_bytes(b"fake-onnx")
+
+    export_birds_only_model(
+        model_name="eva02_large_patch14_448.mim_m38m_ft_in22k_in1k",
+        output_dir=tmp_path,
+        input_size=448,
+        labels=["bird-a"],
+        loader=fake_loader,
+        export_fn=fake_export,
+    )
+
+    config = json.loads((tmp_path / "model_config.json").read_text(encoding="utf-8"))
+    assert config["preprocessing"]["resize_mode"] == "direct_resize"
+
+
+def test_export_birds_only_model_defaults_center_crop_when_crop_mode_missing(tmp_path):
+    def fake_loader(_name: str):
+        return FakeModel()
+
+    def fake_export(_model, _dummy, path, **_kwargs):
+        Path(path).write_bytes(b"fake-onnx")
+
+    export_birds_only_model(
+        model_name="any",
+        output_dir=tmp_path,
+        input_size=224,
+        labels=["bird-a"],
+        loader=fake_loader,
+        export_fn=fake_export,
+    )
+
+    config = json.loads((tmp_path / "model_config.json").read_text(encoding="utf-8"))
+    assert config["preprocessing"]["resize_mode"] == "center_crop"
+
+
 def test_export_birds_only_model_preserves_crop_generator_config(tmp_path):
     def fake_loader(model_name: str):
         return FakeModel()

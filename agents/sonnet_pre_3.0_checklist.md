@@ -248,6 +248,6 @@ Already listed as item 6 above.
 ## Progress tracker
 
 - [x] P0 complete (v2.9.7 — checksum infrastructure in place)
-- [ ] P1 complete (3/4 done — #4 MQTT task dict audit pending)
-- [ ] P2 complete (#6 SSE re-validation, #8 SettingsResponse model, #10 notification 200→5xx, #13 date range cap, #14 coverage gate, #15 pip/npm audit pending)
+- [x] P1 complete (v2.9.7/v2.9.8 — all 4 items done)
+- [ ] P2 complete (6/10 done — #8 SettingsResponse model, #12 $effect loop risk, #13 date range cap, #14 coverage gate, #15 pip/npm audit pending)
 - [ ] P3 complete (#17 OAuth encryption, #18 OAuth logout cleanup, #19 taxonomy cache TTL, #20 per-species cooldown, #23 console stack traces pending)

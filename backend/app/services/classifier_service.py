@@ -534,6 +534,17 @@ def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) 
     return not allowed or normalized in allowed
 
 
+def _classifier_wants_bgr(preprocessing: Optional[dict[str, Any]]) -> bool:
+    """True when a classifier model declares BGR tensor input.
+
+    PIL decoding always gives RGB, so when a model was trained on BGR tensors
+    (unusual for classifiers, but possible) we must reverse the channel axis
+    before normalization. Previously `color_space: "BGR"` was silently dropped
+    on the classifier path — only the crop-detector path honored it.
+    """
+    return str((preprocessing or {}).get("color_space") or "RGB").strip().upper() == "BGR"
+
+
 def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
     color_space = str((preprocessing or {}).get("color_space") or "RGB").strip().upper() or "RGB"
     # Only "RGB" and "L" (grayscale) are valid for classification preprocessing.
@@ -1614,6 +1625,8 @@ class ONNXModelInstance:
             # Quantized/SSD-style models expect raw uint8 NHWC input
             return np.array(processed, dtype=np.uint8)[np.newaxis, ...]
         arr = np.array(processed).astype(np.float32) / 255.0
+        if _classifier_wants_bgr(self.preprocessing):
+            arr = arr[:, :, ::-1]
         arr = (arr - self.mean) / self.std
         arr = arr.transpose(2, 0, 1)  # HWC -> CHW (ONNX expects NCHW)
         return arr[np.newaxis, ...].astype(np.float32)  # Add batch dimension
@@ -1955,6 +1968,8 @@ class OpenVINOModelInstance:
             default_padding_color=128,
         )
         arr = np.array(processed).astype(np.float32) / 255.0
+        if _classifier_wants_bgr(self.preprocessing):
+            arr = arr[:, :, ::-1]
         arr = (arr - self.mean) / self.std
         arr = arr.transpose(2, 0, 1)  # NCHW
         return arr[np.newaxis, ...].astype(np.float32)

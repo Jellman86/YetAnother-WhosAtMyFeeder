@@ -71,6 +71,20 @@ def _merge_config_dict(base: dict[str, Any], overrides: dict[str, Any] | None) -
     return merged
 
 
+_TIMM_CROP_MODE_TO_RESIZE_MODE = {
+    "squash": "direct_resize",
+    "center": "center_crop",
+    "border": "center_crop",
+}
+
+
+def _resolve_resize_mode_from_timm(pretrained_cfg: dict[str, Any]) -> str:
+    crop_mode = str(pretrained_cfg.get("crop_mode") or "").strip().lower()
+    if crop_mode in _TIMM_CROP_MODE_TO_RESIZE_MODE:
+        return _TIMM_CROP_MODE_TO_RESIZE_MODE[crop_mode]
+    return "center_crop"
+
+
 def _extract_model_config(
     model_name: str,
     model,
@@ -81,13 +95,18 @@ def _extract_model_config(
     if not isinstance(pretrained_cfg, dict):
         pretrained_cfg = {}
 
+    # Translate timm's `crop_mode` into our `resize_mode` so that models trained
+    # with `squash` (direct resize, e.g. EVA-02, CLIP-init ConvNeXt) are not
+    # silently served with a `center_crop` at inference.
+    resize_mode = _resolve_resize_mode_from_timm(pretrained_cfg)
+
     base_config = {
         "model_id": model_name,
         "runtime": "onnx",
         "input_size": int(input_size),
         "preprocessing": {
             "color_space": "RGB",
-            "resize_mode": "center_crop",
+            "resize_mode": resize_mode,
             "interpolation": str(pretrained_cfg.get("interpolation") or "bicubic"),
             "crop_pct": float(pretrained_cfg.get("crop_pct") or 1.0),
             "mean": list(pretrained_cfg.get("mean") or [0.485, 0.456, 0.406]),

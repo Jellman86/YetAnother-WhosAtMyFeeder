@@ -1,0 +1,25 @@
+{
+  "detector": {
+    "box_format": "cxcywh",
+    "confidence_mode": "object_times_class",
+    "parser": "yolox",
+    "target_class_id": 14
+  },
+  "input_size": 416,
+  "labels_sha256": "bd17f1ee35d5f3c862a4894605855abbb9dda4b0621fdb0ac4c2c8c7bb7e730a",
+  "model_id": "bird_crop_detector_accurate_yolox_tiny",
+  "preprocessing": {
+    "color_space": "BGR",
+    "interpolation": "bilinear",
+    "normalization": "none",
+    "pad_alignment": "top_left",
+    "resize_mode": "letterbox"
+  },
+  "runtime": "onnx",
+  "sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
+  "supported_inference_providers": [
+    "cpu",
+    "intel_cpu",
+    "cuda"
+  ]
+}
