@@ -592,6 +592,11 @@ class ModelManager:
         self._active_model_lock = threading.Lock()
         self.active_model_id = self._load_active_model_id()
         self.active_downloads: Dict[str, tuple[DownloadProgress, datetime]] = {}
+        # (model_dir, tuple(sorted(unsupported_providers))) → already-logged marker.
+        # get_active_model_spec runs on every inference path; without deduping,
+        # the same "unsupported inference providers" warning was emitted on
+        # every detection, spamming logs and the diagnostic bundle.
+        self._unsupported_provider_warn_cache: set[tuple[str, tuple[str, ...]]] = set()
 
     def _load_active_model_id(self) -> str:
         """Load the active model ID from a local config file."""
@@ -874,30 +879,36 @@ class ModelManager:
             return supported, []
 
         unsupported_text = ", ".join(unsupported)
+        warn_key = (model_dir, tuple(sorted(unsupported)))
+        already_warned = warn_key in self._unsupported_provider_warn_cache
+        if not already_warned:
+            self._unsupported_provider_warn_cache.add(warn_key)
         if supported:
             warning = (
                 "Installed model_config.json advertised providers no longer supported by the current "
                 f"registry and they were ignored: {unsupported_text}"
             )
-            log.warning(
-                "Installed model config advertised unsupported inference providers; ignoring extras",
-                model_dir=model_dir,
-                unsupported_providers=unsupported,
-                registry_supported_providers=allowed_registry,
-                retained_providers=supported,
-            )
+            if not already_warned:
+                log.warning(
+                    "Installed model config advertised unsupported inference providers; ignoring extras",
+                    model_dir=model_dir,
+                    unsupported_providers=unsupported,
+                    registry_supported_providers=allowed_registry,
+                    retained_providers=supported,
+                )
             return supported, [warning]
 
         warning = (
             "Installed model_config.json only advertised providers no longer supported by the current "
             f"registry: {unsupported_text}. Falling back to registry-supported providers."
         )
-        log.warning(
-            "Installed model config advertised only unsupported inference providers; falling back to registry providers",
-            model_dir=model_dir,
-            unsupported_providers=unsupported,
-            registry_supported_providers=allowed_registry,
-        )
+        if not already_warned:
+            log.warning(
+                "Installed model config advertised only unsupported inference providers; falling back to registry providers",
+                model_dir=model_dir,
+                unsupported_providers=unsupported,
+                registry_supported_providers=allowed_registry,
+            )
         return list(allowed_registry), [warning]
 
     def _apply_installed_model_config(
