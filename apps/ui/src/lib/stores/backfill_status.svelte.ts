@@ -52,15 +52,24 @@ export class BackfillStatusStore {
     }
 
     private async tick() {
-        await this.refresh();
-        if (this.refCount <= 0) return;
-        const hasActiveJob = this.isRunning(this.lastDetectionsStatus) || this.isRunning(this.lastWeatherStatus);
-        const nextInterval = hasActiveJob ? this.activePollIntervalMs : this.idlePollIntervalMs;
-        this.currentIntervalMs = nextInterval;
-        if (this.pollTimer) clearTimeout(this.pollTimer);
-        this.pollTimer = setTimeout(() => {
-            void this.tick();
-        }, nextInterval);
+        try {
+            await this.refresh();
+        } catch {
+            // refresh() itself uses Promise.allSettled, but a synchronous
+            // throw from sync helpers (e.g. a bad store state after a
+            // hot-reload) would otherwise kill the polling loop forever.
+            // Swallow and reschedule so the next tick can recover.
+        } finally {
+            if (this.refCount > 0) {
+                const hasActiveJob = this.isRunning(this.lastDetectionsStatus) || this.isRunning(this.lastWeatherStatus);
+                const nextInterval = hasActiveJob ? this.activePollIntervalMs : this.idlePollIntervalMs;
+                this.currentIntervalMs = nextInterval;
+                if (this.pollTimer) clearTimeout(this.pollTimer);
+                this.pollTimer = setTimeout(() => {
+                    void this.tick();
+                }, nextInterval);
+            }
+        }
     }
 
     private isRunning(status: BackfillJobStatus | null): boolean {

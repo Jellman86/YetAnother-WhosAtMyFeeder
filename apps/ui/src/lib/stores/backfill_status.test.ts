@@ -151,6 +151,36 @@ describe('BackfillStatusStore', () => {
         release();
     });
 
+    it('keeps polling even when refresh itself throws', async () => {
+        // Defensive guard: if refresh() throws (e.g. a sync helper blows up
+        // after a hot-reload corrupts private state), the self-scheduling
+        // setTimeout must still fire so the loop can recover next tick.
+        const store = new BackfillStatusStore({
+            fetchBackfillStatus: async () => null,
+            hasOwnerAccess: () => true,
+            activePollIntervalMs: 5000,
+            idlePollIntervalMs: 30_000
+        });
+
+        let refreshCalls = 0;
+        const originalRefresh = store.refresh.bind(store);
+        store.refresh = vi.fn(async () => {
+            refreshCalls += 1;
+            if (refreshCalls === 1) {
+                throw new Error('boom');
+            }
+            return originalRefresh();
+        });
+
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(0);
+        // First refresh threw; the loop must still schedule a next tick.
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(refreshCalls).toBeGreaterThanOrEqual(2);
+
+        release();
+    });
+
     it('continues syncing the healthy backfill kind when the other poll request fails', async () => {
         const store = new BackfillStatusStore({
             fetchBackfillStatus: async (kind) => {

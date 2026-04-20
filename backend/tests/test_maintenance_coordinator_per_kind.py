@@ -98,6 +98,56 @@ async def test_release_frees_only_that_kinds_slot(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_total_max_concurrent_caps_cross_kind_concurrency(monkeypatch):
+    # Safety-belt: even with per-kind capacity, an overall total cap prevents
+    # DB-pool/CPU saturation when many kinds would otherwise run at once.
+    from app import config as config_module
+
+    monkeypatch.setattr(
+        config_module.settings,
+        "maintenance",
+        types.SimpleNamespace(
+            max_concurrent=1,
+            per_kind_capacity={},
+            total_max_concurrent=2,
+        ),
+        raising=False,
+    )
+
+    coord = MaintenanceCoordinator()
+    assert await coord.try_acquire("a", kind="backfill") is True
+    assert await coord.try_acquire("b", kind="weather_backfill") is True
+    # Third kind hits the overall cap even though its per-kind slot is free.
+    assert await coord.try_acquire("c", kind="taxonomy_sync") is False
+
+    await coord.release("a")
+    # Releasing frees a slot under the overall cap.
+    assert await coord.try_acquire("c", kind="taxonomy_sync") is True
+
+
+@pytest.mark.asyncio
+async def test_total_max_concurrent_zero_means_unlimited(monkeypatch):
+    from app import config as config_module
+
+    monkeypatch.setattr(
+        config_module.settings,
+        "maintenance",
+        types.SimpleNamespace(
+            max_concurrent=1,
+            per_kind_capacity={},
+            total_max_concurrent=0,
+        ),
+        raising=False,
+    )
+
+    coord = MaintenanceCoordinator()
+    for i, kind in enumerate(
+        ["backfill", "weather_backfill", "taxonomy_sync", "timezone_repair", "analyze_unknowns"]
+    ):
+        assert await coord.try_acquire(f"h-{i}", kind=kind) is True
+
+
+@pytest.mark.asyncio
 async def test_status_reports_per_kind_capacity_breakdown(monkeypatch):
     from app import config as config_module
 

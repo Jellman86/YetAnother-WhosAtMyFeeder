@@ -363,6 +363,12 @@ class MaintenanceSettings(BaseModel):
         default_factory=dict,
         description="Optional per-kind capacity overrides (e.g. {\"video_classification\": 2}). Kinds not listed use max_concurrent.",
     )
+    total_max_concurrent: int = Field(
+        default=0,
+        ge=0,
+        le=32,
+        description="Optional overall cap on concurrent maintenance holders across all kinds. 0 = unlimited (rely on per-kind capacity). Acts as a safety belt to prevent DB-pool / resource saturation when many kinds would otherwise run at once.",
+    )
     auto_delete_missing_clips: bool = Field(
         default=False,
         description="Auto-delete detections when the Frigate event/clip is missing"

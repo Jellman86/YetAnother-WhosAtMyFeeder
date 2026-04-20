@@ -50,6 +50,16 @@ class MaintenanceCoordinator:
             return overrides[kind]
         return self._default_per_kind_capacity()
 
+    def _total_cap(self) -> int:
+        """Optional overall cap across all kinds. 0 = unlimited. Acts as a
+        safety belt so that, even with per-kind capacity, we can't run more
+        than N maintenance holders at once and saturate DB pool / CPU."""
+        try:
+            value = int(getattr(settings.maintenance, "total_max_concurrent", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, value)
+
     async def try_acquire(self, holder_id: str, *, kind: str) -> bool:
         normalized_id = str(holder_id or "").strip()
         normalized_kind = str(kind or "maintenance").strip() or "maintenance"
@@ -57,6 +67,9 @@ class MaintenanceCoordinator:
             raise ValueError("holder_id is required")
         async with self._lock:
             if normalized_id in self._holders:
+                return False
+            total_cap = self._total_cap()
+            if total_cap > 0 and len(self._holders) >= total_cap:
                 return False
             active_for_kind = sum(1 for k in self._holders.values() if k == normalized_kind)
             if active_for_kind >= self._capacity_for_kind(normalized_kind):
@@ -95,9 +108,11 @@ class MaintenanceCoordinator:
         capacity_by_kind = {kind: self._capacity_for_kind(kind) for kind in kinds}
         # Overall `capacity` field is retained for backwards-compat with
         # existing dashboards; it reports the per-kind default.
+        total_cap = self._total_cap()
         return {
             "capacity": default_capacity,
             "capacity_by_kind": capacity_by_kind,
+            "total_max_concurrent": total_cap,
             "active_total": active_total,
             "available": max(0, default_capacity - active_total),
             "active_by_kind": counts,
