@@ -382,7 +382,8 @@ class AudioService:
                     "timestamp": d.timestamp.isoformat(),
                     "species": d.species,
                     "confidence": d.confidence,
-                    "sensor_id": d.sensor_id
+                    "sensor_id": d.sensor_id,
+                    "scientific_name": d.scientific_name,
                 }
                 for d in sorted_detections[:limit]
             ]

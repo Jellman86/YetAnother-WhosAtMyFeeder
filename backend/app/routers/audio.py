@@ -3,13 +3,16 @@ from datetime import datetime, timezone
 import json
 import structlog
 from pydantic import BaseModel
+import aiosqlite
 from app.services.audio.audio_service import audio_service
+from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.config import settings
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.language import get_user_language
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 log = structlog.get_logger()
@@ -54,6 +57,52 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
 
     return source_name, sample_source_id
 
+async def _localize_audio_species(
+    detections: list[dict],
+    lang: str,
+    db: aiosqlite.Connection,
+) -> None:
+    """In-place: override locale-dependent `species` with the canonical English name
+    (or localized translation for non-English) resolved via `taxonomy_cache`.
+
+    BirdNET-Go publishes `comName` in whichever language it is configured for, which
+    then flows into `species`. For YA-WAMF's display locale we want the name the user
+    expects — mirroring the response-time transform already applied to species and
+    leaderboard endpoints in fix for issue #46.
+    """
+    taxa_id_cache: dict[str, int | None] = {}
+    for d in detections:
+        scientific = (d.get("scientific_name") or "").strip()
+        if not scientific:
+            continue
+
+        if scientific in taxa_id_cache:
+            taxa_id = taxa_id_cache[scientific]
+        else:
+            try:
+                taxonomy = await taxonomy_service._query_cache(db, scientific)
+                taxa_id = taxonomy.get("taxa_id") if taxonomy else None
+            except Exception as exc:
+                log.warning("Audio taxonomy cache lookup failed", scientific=scientific, error=str(exc))
+                taxa_id = None
+            taxa_id_cache[scientific] = taxa_id
+
+        if not taxa_id:
+            continue
+
+        try:
+            if lang != "en":
+                resolved = await taxonomy_service.get_localized_common_name(int(taxa_id), lang, db=db)
+            else:
+                resolved = await taxonomy_service.get_canonical_english_name(int(taxa_id), db=db)
+        except Exception as exc:
+            log.warning("Audio name localization failed", scientific=scientific, lang=lang, error=str(exc))
+            resolved = None
+
+        if resolved:
+            d["species"] = resolved
+
+
 @router.get("/recent")
 @guest_rate_limit()
 async def get_recent_audio(
@@ -63,6 +112,13 @@ async def get_recent_audio(
 ):
     """Get the most recent audio detections from the memory buffer."""
     detections = await audio_service.get_recent_detections(limit=limit)
+    lang = get_user_language(request) or "en"
+    async with get_db() as db:
+        await _localize_audio_species(detections, lang, db)
+    # Drop scientific_name from the response — it is an internal hook for localization
+    # and is not part of the public Recent Audio contract.
+    for detection in detections:
+        detection.pop("scientific_name", None)
     hide_sensor = (
         not auth.is_owner
         and settings.public_access.enabled
@@ -92,6 +148,7 @@ async def get_audio_context(
     if camera and settings.frigate.camera_audio_mapping:
         mapping_value = settings.frigate.camera_audio_mapping.get(camera)
 
+    lang = get_user_language(request) or "en"
     async with get_db() as db:
         repo = DetectionRepository(db)
         detections = await repo.get_audio_context(
@@ -100,6 +157,7 @@ async def get_audio_context(
             mapping_value=mapping_value,
             limit=limit
         )
+        await _localize_audio_species(detections, lang, db)
     hide_sensor = (
         not auth.is_owner
         and settings.public_access.enabled

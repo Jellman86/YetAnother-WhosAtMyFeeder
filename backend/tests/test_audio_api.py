@@ -186,3 +186,81 @@ async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.
     assert "Dunnock" in species
     assert "Blue Tit" in species
     assert "Woodpigeon" not in species
+
+
+@pytest.mark.asyncio
+async def test_audio_recent_replaces_locale_species_with_canonical_english(client: httpx.AsyncClient):
+    """Regression for issue #46 — Dashboard 'Recent audio' must show the user's locale,
+    not whatever language BirdNET-Go publishes in ``comName``. Mirrors the response-time
+    transform already deployed for the species/leaderboard endpoints."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    from app.services.audio.audio_service import audio_service, AudioDetection
+    from datetime import datetime, timezone
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM taxonomy_cache")
+        await db.execute(
+            """INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id, is_not_found, last_updated)
+               VALUES (?, ?, ?, 0, ?)""",
+            ("Passer domesticus", "House Sparrow", 12345, datetime.now(timezone.utc).isoformat()),
+        )
+        await db.commit()
+
+    async with audio_service._lock:
+        audio_service._buffer.clear()
+        audio_service._buffer.append(
+            AudioDetection(
+                timestamp=datetime.now(timezone.utc),
+                species="Домовый воробей",
+                confidence=0.9,
+                sensor_id="BirdCam",
+                raw_data={},
+                scientific_name="Passer domesticus",
+            )
+        )
+
+    try:
+        response = await client.get("/api/audio/recent", params={"limit": 5})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert len(payload) == 1
+        assert payload[0]["species"] == "House Sparrow"
+        assert "scientific_name" not in payload[0]
+    finally:
+        async with audio_service._lock:
+            audio_service._buffer.clear()
+
+
+@pytest.mark.asyncio
+async def test_audio_recent_falls_back_when_taxa_id_missing(client: httpx.AsyncClient):
+    """A detection with no ``scientific_name`` (or no matching taxonomy_cache row)
+    must fall back to the stored species string — graceful degradation."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    from app.services.audio.audio_service import audio_service, AudioDetection
+    from datetime import datetime, timezone
+
+    async with audio_service._lock:
+        audio_service._buffer.clear()
+        audio_service._buffer.append(
+            AudioDetection(
+                timestamp=datetime.now(timezone.utc),
+                species="Dunnock",
+                confidence=0.8,
+                sensor_id="BirdCam",
+                raw_data={},
+                scientific_name=None,
+            )
+        )
+
+    try:
+        response = await client.get("/api/audio/recent", params={"limit": 5})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload[0]["species"] == "Dunnock"
+    finally:
+        async with audio_service._lock:
+            audio_service._buffer.clear()
