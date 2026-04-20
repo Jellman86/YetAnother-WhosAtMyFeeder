@@ -5,6 +5,7 @@ import asyncio
 import time
 import aiosqlite
 import structlog
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -15,6 +16,12 @@ log = structlog.get_logger()
 DEFAULT_DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
 DEFAULT_DB_BUSY_TIMEOUT_MS = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "30000"))
 DB_POOL_SLOW_ACQUIRE_WARN_MS = float(os.environ.get("DB_POOL_SLOW_ACQUIRE_WARN_MS", "250"))
+# Window (seconds) over which `acquire_wait_max_ms` reflects recent waits.
+# A single slow acquire during a burst must not pin health status to
+# `degraded` indefinitely — it should age out of the live signal.
+DB_POOL_WAIT_WINDOW_SECONDS = float(os.environ.get("DB_POOL_WAIT_WINDOW_SECONDS", "300"))
+# Hard cap on in-memory samples to bound memory under sustained load.
+DB_POOL_WAIT_SAMPLE_CAP = int(os.environ.get("DB_POOL_WAIT_SAMPLE_CAP", "4096"))
 
 def _is_testing() -> bool:
     # PYTEST_CURRENT_TEST is only set while a test is executing (not during collection/import).
@@ -232,7 +239,11 @@ class DatabasePool:
         self._acquire_count = 0
         self._slow_acquire_count = 0
         self._acquire_wait_total_ms = 0.0
-        self._acquire_wait_max_ms = 0.0
+        self._acquire_wait_lifetime_max_ms = 0.0
+        # Rolling samples of (monotonic_ts, waited_ms). Older entries age out
+        # of the live windowed max so one slow acquire doesn't degrade health
+        # forever. Bounded by DB_POOL_WAIT_SAMPLE_CAP for memory safety.
+        self._wait_samples: deque[tuple[float, float]] = deque(maxlen=DB_POOL_WAIT_SAMPLE_CAP)
 
     async def _create_connection(self) -> aiosqlite.Connection:
         """Create a new database connection with optimal settings."""
@@ -282,8 +293,7 @@ class DatabasePool:
         waited_ms = (time.monotonic() - started) * 1000.0
         self._acquire_count += 1
         self._acquire_wait_total_ms += waited_ms
-        if waited_ms > self._acquire_wait_max_ms:
-            self._acquire_wait_max_ms = waited_ms
+        self._record_wait_sample(waited_ms)
         if waited_ms >= DB_POOL_SLOW_ACQUIRE_WARN_MS:
             self._slow_acquire_count += 1
             log.warning(
@@ -339,6 +349,32 @@ class DatabasePool:
             self._initialized = False
             log.info("Database connection pool closed")
 
+    def _record_wait_sample(self, waited_ms: float) -> None:
+        """Record a wait sample, pruning entries older than the window.
+
+        Updates both the lifetime high-water mark and the rolling buffer the
+        live `acquire_wait_max_ms` is computed from. Pruning happens on write
+        so reads stay O(1) in the common case.
+        """
+        now = time.monotonic()
+        self._wait_samples.append((now, waited_ms))
+        if waited_ms > self._acquire_wait_lifetime_max_ms:
+            self._acquire_wait_lifetime_max_ms = waited_ms
+        cutoff = now - DB_POOL_WAIT_WINDOW_SECONDS
+        samples = self._wait_samples
+        while samples and samples[0][0] < cutoff:
+            samples.popleft()
+
+    def _windowed_wait_max_ms(self) -> float:
+        """Return the largest wait within the live window, expiring old entries."""
+        cutoff = time.monotonic() - DB_POOL_WAIT_WINDOW_SECONDS
+        samples = self._wait_samples
+        while samples and samples[0][0] < cutoff:
+            samples.popleft()
+        if not samples:
+            return 0.0
+        return max(w for _, w in samples)
+
     def get_status(self) -> dict:
         avg_wait_ms = (
             (self._acquire_wait_total_ms / self._acquire_count)
@@ -352,7 +388,9 @@ class DatabasePool:
             "acquire_count": self._acquire_count,
             "slow_acquire_count": self._slow_acquire_count,
             "acquire_wait_avg_ms": round(avg_wait_ms, 2),
-            "acquire_wait_max_ms": round(self._acquire_wait_max_ms, 2),
+            "acquire_wait_max_ms": round(self._windowed_wait_max_ms(), 2),
+            "acquire_wait_lifetime_max_ms": round(self._acquire_wait_lifetime_max_ms, 2),
+            "acquire_wait_window_seconds": DB_POOL_WAIT_WINDOW_SECONDS,
             "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
         }
 
@@ -377,6 +415,8 @@ def get_db_pool_status() -> dict:
             "slow_acquire_count": 0,
             "acquire_wait_avg_ms": 0.0,
             "acquire_wait_max_ms": 0.0,
+            "acquire_wait_lifetime_max_ms": 0.0,
+            "acquire_wait_window_seconds": DB_POOL_WAIT_WINDOW_SECONDS,
             "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
         }
     return _db_pool.get_status()
