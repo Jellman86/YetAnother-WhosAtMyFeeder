@@ -364,10 +364,10 @@ class MaintenanceSettings(BaseModel):
         description="Optional per-kind capacity overrides (e.g. {\"video_classification\": 2}). Kinds not listed use max_concurrent.",
     )
     total_max_concurrent: int = Field(
-        default=0,
+        default=3,
         ge=0,
         le=32,
-        description="Optional overall cap on concurrent maintenance holders across all kinds. 0 = unlimited (rely on per-kind capacity). Acts as a safety belt to prevent DB-pool / resource saturation when many kinds would otherwise run at once.",
+        description="Overall cap on concurrent maintenance holders across all kinds (0 = unlimited). Default 3 gives ~2x headroom over steady-state load (1 continuous video_classification + occasional user-triggered kind) while preventing the 6-way pile-up that could saturate the DB pool.",
     )
     auto_delete_missing_clips: bool = Field(
         default=False,
