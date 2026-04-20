@@ -85,6 +85,72 @@ describe('BackfillStatusStore', () => {
         expect(running?.total).toBe(23);
     });
 
+    it('polls slowly when no backfill job is active and does not ramp up fetches', async () => {
+        // Regression for issue #33: a 2s polling cadence kept firing even when
+        // no backfill was running, producing ~60 GETs/min of /api/backfill
+        // noise. The store should fall back to a slow idle cadence.
+        const fetcher = vi.fn(async () => null);
+        const store = new BackfillStatusStore({
+            fetchBackfillStatus: fetcher,
+            hasOwnerAccess: () => true,
+            activePollIntervalMs: 5000,
+            idlePollIntervalMs: 30_000
+        });
+
+        const release = store.retain();
+        // initial refresh fires immediately (detections + weather)
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetcher).toHaveBeenCalledTimes(2);
+
+        // advance 10s — active interval would fire twice; idle should not
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(fetcher).toHaveBeenCalledTimes(2);
+
+        // at 30s mark, the idle tick fires once more
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(fetcher).toHaveBeenCalledTimes(4);
+
+        release();
+    });
+
+    it('ramps to the active poll cadence while a backfill job is running', async () => {
+        let callCount = 0;
+        const fetcher = vi.fn(async (kind: 'detections' | 'weather') => {
+            callCount += 1;
+            if (kind === 'detections' && callCount <= 4) {
+                return {
+                    id: 'job-active',
+                    kind: 'backfill',
+                    status: 'running',
+                    processed: callCount,
+                    total: 10,
+                    new_detections: 0,
+                    skipped: 0,
+                    errors: 0,
+                    message: 'Working'
+                } as BackfillJobStatus;
+            }
+            return null;
+        });
+
+        const store = new BackfillStatusStore({
+            fetchBackfillStatus: fetcher,
+            hasOwnerAccess: () => true,
+            activePollIntervalMs: 5000,
+            idlePollIntervalMs: 30_000
+        });
+
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(0); // initial refresh
+        expect(fetcher).toHaveBeenCalledTimes(2);
+
+        // Active — fast cadence. 5s later, expect another pair of calls.
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(fetcher).toHaveBeenCalledTimes(4);
+
+        release();
+    });
+
     it('continues syncing the healthy backfill kind when the other poll request fails', async () => {
         const store = new BackfillStatusStore({
             fetchBackfillStatus: async (kind) => {
