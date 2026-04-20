@@ -105,6 +105,51 @@ describe('jobProgressStore', () => {
         expect(byId.get('backfill:detections:fresh')?.status).toBe('running');
     });
 
+    it('applies per-kind stale threshold overrides so long-running jobs are not prematurely flagged', () => {
+        // Regression for issue #33: reclassify_batch and backfill jobs can
+        // legitimately go > 5 minutes between SSE updates. The generic 5-min
+        // idle threshold was demoting them to 'stale' even while the backend
+        // was still actively processing.
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-03-05T00:00:00.000Z'));
+        const now = Date.now();
+
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:long',
+            kind: 'backfill',
+            title: 'Long backfill',
+            current: 10,
+            total: 1000,
+            timestamp: now - 10 * 60_000 // idle 10 min
+        });
+        jobProgressStore.upsertRunning({
+            id: 'reclassify:batch:long',
+            kind: 'reclassify_batch',
+            title: 'Reclassify',
+            current: 5,
+            total: 500,
+            timestamp: now - 10 * 60_000
+        });
+        jobProgressStore.upsertRunning({
+            id: 'other:generic:idle',
+            kind: 'generic',
+            title: 'Generic',
+            current: 1,
+            total: 10,
+            timestamp: now - 6 * 60_000 // idle 6 min, over the 5-min generic threshold
+        });
+
+        jobProgressStore.markStale(5 * 60_000, {
+            backfill: 30 * 60_000,
+            reclassify_batch: 30 * 60_000
+        });
+
+        const byId = new Map(jobProgressStore.activeJobs.map((item) => [item.id, item]));
+        expect(byId.get('backfill:detections:long')?.status).toBe('running');
+        expect(byId.get('reclassify:batch:long')?.status).toBe('running');
+        expect(byId.get('other:generic:idle')?.status).toBe('stale');
+    });
+
     it('closeActiveByPrefix is idempotent when status already matches', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-03-05T00:00:00.000Z'));

@@ -130,12 +130,21 @@ class JobProgressStore {
         this.markTerminal('failed', input);
     }
 
-    markStale(maxIdleMs: number) {
-        const threshold = Number.isFinite(maxIdleMs) ? Math.max(1000, Math.floor(maxIdleMs)) : 90_000;
+    markStale(maxIdleMs: number, perKindIdleMs?: Record<string, number>) {
+        const defaultThreshold = Number.isFinite(maxIdleMs) ? Math.max(1000, Math.floor(maxIdleMs)) : 90_000;
+        const kindThresholds: Record<string, number> = {};
+        if (perKindIdleMs && typeof perKindIdleMs === 'object') {
+            for (const [kind, value] of Object.entries(perKindIdleMs)) {
+                if (typeof kind !== 'string' || !kind) continue;
+                if (!Number.isFinite(value)) continue;
+                kindThresholds[kind] = Math.max(1000, Math.floor(value as number));
+            }
+        }
         const now = Date.now();
         let changed = false;
         const next = this.items.map((item) => {
             if (item.status !== 'running') return item;
+            const threshold = kindThresholds[item.kind] ?? defaultThreshold;
             if (now - item.updatedAt <= threshold) return item;
             changed = true;
             return {

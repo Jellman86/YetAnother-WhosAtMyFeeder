@@ -9,6 +9,15 @@ const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
 const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
+// Long-running batch kinds can legitimately go several minutes between SSE
+// updates (frigate clip downloads, large backfill batch boundaries). A short
+// 5-min idle threshold was demoting them to 'stale' while still active.
+const LONG_RUNNING_JOB_IDLE_MS = 30 * 60 * 1000;
+const JOB_STALE_OVERRIDES: Record<string, number> = {
+    backfill: LONG_RUNNING_JOB_IDLE_MS,
+    weather_backfill: LONG_RUNNING_JOB_IDLE_MS,
+    reclassify_batch: LONG_RUNNING_JOB_IDLE_MS
+};
 const ANALYSIS_STATUS_POLL_ROUTE = '/api/maintenance/analysis/status';
 
 type TranslateFn = (key: string, values?: Record<string, any>) => string;
@@ -83,7 +92,7 @@ interface JobProgressLike {
         total?: number;
         source?: 'sse' | 'poll' | 'ui' | 'system';
     }): void;
-    markStale(maxIdleMs: number): void;
+    markStale(maxIdleMs: number, perKindIdleMs?: Record<string, number>): void;
     remove?(id: string): void;
 }
 
@@ -186,7 +195,7 @@ export class LiveUpdateCoordinator {
             this.deps.notificationCenter.upsert(item);
         }
         this.settleOrphanProcessNotifications();
-        this.deps.jobProgress.markStale(RECLASSIFY_STATE_MAX_IDLE_MS);
+        this.deps.jobProgress.markStale(RECLASSIFY_STATE_MAX_IDLE_MS, JOB_STALE_OVERRIDES);
         this.pruneStaleReclassifyState();
     }
 
