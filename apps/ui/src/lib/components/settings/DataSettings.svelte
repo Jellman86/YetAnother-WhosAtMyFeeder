@@ -241,7 +241,7 @@
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
                     />
                     <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                        {$_('settings.data.maintenance_max_concurrent_help', { default: 'Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.' })}
+                        {$_('settings.data.maintenance_max_concurrent_help', { default: 'Per-kind default — each maintenance kind (backfill, weather backfill, video classification, taxonomy repair, timezone repair, analyze-unknowns) gets this many slots. Different kinds already run independently; increase this only if you want multiple jobs of the same kind to overlap.' })}
                     </p>
                 </div>
                 <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 flex flex-col gap-3">

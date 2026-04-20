@@ -357,7 +357,11 @@ class MaintenanceSettings(BaseModel):
         default=1,
         ge=1,
         le=8,
-        description="Maximum concurrent maintenance workflows. Best practice is 1.",
+        description="Per-kind maintenance concurrency default. Each kind (backfill, weather_backfill, video_classification, taxonomy_sync, timezone_repair, analyze_unknowns) gets this many slots unless overridden by per_kind_capacity. Different kinds no longer contend for a single global slot.",
+    )
+    per_kind_capacity: dict[str, int] = Field(
+        default_factory=dict,
+        description="Optional per-kind capacity overrides (e.g. {\"video_classification\": 2}). Kinds not listed use max_concurrent.",
     )
     auto_delete_missing_clips: bool = Field(
         default=False,

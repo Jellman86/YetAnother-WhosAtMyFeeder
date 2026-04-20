@@ -343,10 +343,13 @@ async def test_backfill_async_rejects_when_maintenance_pressure_is_high(
 
 
 @pytest.mark.asyncio
-async def test_backfill_async_rejects_when_global_maintenance_slot_is_occupied(
+async def test_backfill_async_rejects_when_same_kind_maintenance_slot_is_occupied(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ):
+    # Issue #33: capacity is now per-kind, so only a concurrent *backfill*
+    # holder should block a new /api/backfill/async request. A holder on a
+    # different kind (e.g. taxonomy_sync) must no longer block it.
     settings.auth.enabled = False
     settings.public_access.enabled = False
     settings.classification.video_classification_max_concurrent = 2
@@ -367,7 +370,7 @@ async def test_backfill_async_rejects_when_global_maintenance_slot_is_occupied(
         },
     )
 
-    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="taxonomy_sync")
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
     assert acquired is True
     try:
         response = await client.post("/api/backfill/async", json={"date_range": "week"})
@@ -378,7 +381,49 @@ async def test_backfill_async_rejects_when_global_maintenance_slot_is_occupied(
 
 
 @pytest.mark.asyncio
-async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupied(
+async def test_backfill_async_proceeds_when_a_different_kind_is_running(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Regression for issue #33: a long-running video_classification holder
+    # used to pin the single global maintenance slot and block user-initiated
+    # backfill indefinitely. Per-kind capacity means different kinds are
+    # independent.
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.classification.video_classification_max_concurrent = 2
+    settings.maintenance.max_concurrent = 1
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+    backfill_router._JOB_TASKS.clear()
+
+    monkeypatch.setattr(
+        backfill_router.canonical_identity_repair_service,
+        "get_status",
+        lambda: {
+            "is_running": False,
+            "processed": 0,
+            "total": 0,
+            "current_item": None,
+            "error": None,
+        },
+    )
+
+    acquired = await maintenance_coordinator.try_acquire(
+        "test-video-slot", kind="video_classification"
+    )
+    assert acquired is True
+    try:
+        response = await client.post("/api/backfill/async", json={"date_range": "week"})
+        # The request should be accepted — a concurrent video_classification
+        # holder must not block a backfill kick-off.
+        assert response.status_code != 409, response.text
+    finally:
+        await maintenance_coordinator.release("test-video-slot")
+
+
+@pytest.mark.asyncio
+async def test_analyze_unknowns_coalesces_when_same_kind_slot_is_occupied(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -392,7 +437,9 @@ async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupi
 
     monkeypatch.setattr(settings_router, "_run_analyze_unknowns", _unexpected_run)
 
-    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    acquired = await maintenance_coordinator.try_acquire(
+        "test-maintenance-slot", kind="analyze_unknowns"
+    )
     assert acquired is True
     try:
         response = await client.post("/api/maintenance/analyze-unknowns")
@@ -405,7 +452,7 @@ async def test_analyze_unknowns_coalesces_when_global_maintenance_slot_is_occupi
 
 
 @pytest.mark.asyncio
-async def test_timezone_repair_preview_rejects_when_global_maintenance_slot_is_occupied(
+async def test_timezone_repair_preview_rejects_when_same_kind_slot_is_occupied(
     client: httpx.AsyncClient,
 ):
     settings.auth.enabled = False
@@ -413,7 +460,9 @@ async def test_timezone_repair_preview_rejects_when_global_maintenance_slot_is_o
     settings.classification.video_classification_max_concurrent = 2
     settings.maintenance.max_concurrent = 1
 
-    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    acquired = await maintenance_coordinator.try_acquire(
+        "test-maintenance-slot", kind="timezone_repair"
+    )
     assert acquired is True
     try:
         response = await client.get("/api/maintenance/timezone-repair/preview")
@@ -424,7 +473,7 @@ async def test_timezone_repair_preview_rejects_when_global_maintenance_slot_is_o
 
 
 @pytest.mark.asyncio
-async def test_timezone_repair_apply_rejects_when_global_maintenance_slot_is_occupied(
+async def test_timezone_repair_apply_rejects_when_same_kind_slot_is_occupied(
     client: httpx.AsyncClient,
 ):
     settings.auth.enabled = False
@@ -432,7 +481,9 @@ async def test_timezone_repair_apply_rejects_when_global_maintenance_slot_is_occ
     settings.classification.video_classification_max_concurrent = 2
     settings.maintenance.max_concurrent = 1
 
-    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="backfill")
+    acquired = await maintenance_coordinator.try_acquire(
+        "test-maintenance-slot", kind="timezone_repair"
+    )
     assert acquired is True
     try:
         response = await client.post("/api/maintenance/timezone-repair/apply", json={"confirm": True})
