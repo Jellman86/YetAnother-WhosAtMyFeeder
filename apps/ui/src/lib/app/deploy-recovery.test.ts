@@ -83,7 +83,10 @@ describe('createDeployRecovery', () => {
         expect(recovery.handleRuntimeFailure({ message: 'Cannot read properties of undefined' })).toBe('ignore');
     });
 
-    it('reloads once when backend health reports a different build version', () => {
+    it('does not reload for a dev build hash change (same semver core)', () => {
+        // Regression for issue #33: every dev rebuild produced a new git-hash
+        // build-metadata suffix, triggering deploy_refresh_required even
+        // though the release identity was unchanged.
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
@@ -99,12 +102,51 @@ describe('createDeployRecovery', () => {
             startup_instance_id: '20260331T181749.290664Z-1'
         });
 
-        expect(result).toBe('reload');
-        expect(reload).toHaveBeenCalledTimes(1);
+        expect(result).toBe('ignore');
+        expect(reload).not.toHaveBeenCalled();
         expect(warn).not.toHaveBeenCalled();
     });
 
-    it('warns instead of reloading again for the same backend/frontend version mismatch', () => {
+    it('still reloads when the semver core actually changes', () => {
+        const storage = createStorage();
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn
+        });
+
+        const result = recovery.observeHealth({
+            version: '2.9.2-dev+new',
+            startup_instance_id: 'instance-1'
+        });
+
+        expect(result).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('reloads when transitioning from dev prerelease to a release build of the same version', () => {
+        const storage = createStorage();
+        const reload = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn: vi.fn()
+        });
+
+        const result = recovery.observeHealth({
+            version: '2.9.1',
+            startup_instance_id: 'instance-1'
+        });
+
+        expect(result).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('warns instead of reloading again for the same backend/frontend semver mismatch', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
@@ -116,11 +158,11 @@ describe('createDeployRecovery', () => {
         });
 
         recovery.observeHealth({
-            version: '2.9.1-dev+new',
+            version: '2.9.2-dev+new',
             startup_instance_id: 'instance-1'
         });
         const result = recovery.observeHealth({
-            version: '2.9.1-dev+new',
+            version: '2.9.2-dev+newer',
             startup_instance_id: 'instance-2'
         });
 
@@ -129,12 +171,12 @@ describe('createDeployRecovery', () => {
         expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it('clears any mismatch marker once frontend and backend versions align again', () => {
+    it('clears any mismatch marker once frontend and backend semver align again', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
         const recovery = createDeployRecovery({
-            appVersion: '2.9.1-dev+new',
+            appVersion: '2.9.2-dev+new',
             storage,
             reload,
             warn
@@ -147,13 +189,13 @@ describe('createDeployRecovery', () => {
         expect(reload).toHaveBeenCalledTimes(1);
 
         const aligned = recovery.observeHealth({
-            version: '2.9.1-dev+new',
+            version: '2.9.2-dev+other',
             startup_instance_id: 'instance-2'
         });
 
         expect(aligned).toBe('ignore');
         const nextMismatch = recovery.observeHealth({
-            version: '2.9.1-dev+future',
+            version: '2.9.3-dev+future',
             startup_instance_id: 'instance-3'
         });
         expect(nextMismatch).toBe('reload');

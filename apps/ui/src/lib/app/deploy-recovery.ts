@@ -33,6 +33,17 @@ function normalizeString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Strip SemVer build metadata (the `+...` suffix) for comparison.
+ * Per SemVer 2.0.0 §10, build metadata MUST be ignored when determining
+ * precedence. Without this, every dev rebuild (which rewrites the git-hash
+ * suffix) triggered a false deploy_refresh_required prompt.
+ */
+function stripBuildMetadata(version: string): string {
+    const plusIdx = version.indexOf('+');
+    return plusIdx >= 0 ? version.slice(0, plusIdx) : version;
+}
+
 function collectErrorText(input: unknown): string {
     if (!input) return '';
     if (typeof input === 'string') return input;
@@ -106,7 +117,7 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
         observeHealth(health: HealthLike | null | undefined): DeployRecoveryAction {
             const backendVersion = normalizeString(health?.version);
             if (!appVersion || !backendVersion || backendVersion === 'unknown') return 'ignore';
-            if (backendVersion === appVersion) {
+            if (stripBuildMetadata(backendVersion) === stripBuildMetadata(appVersion)) {
                 if (getStoredAttempt() === attemptSignature) {
                     setStoredAttempt('');
                 }
