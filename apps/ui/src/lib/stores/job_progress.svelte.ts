@@ -66,6 +66,12 @@ class JobProgressStore {
         const now = this.normalizeTimestamp(input.timestamp);
         const idx = this.items.findIndex((item) => item.id === id);
         const existing = idx >= 0 ? this.items[idx] : null;
+        // Terminal jobs must not be demoted back to 'running' by a stale SSE
+        // update (regression guard for issue #33 — completed/failed backfill
+        // jobs reviving themselves when a late progress event arrives).
+        if (existing && (existing.status === 'completed' || existing.status === 'failed')) {
+            return;
+        }
         const currentInput = this.normalizeOptionalCount(input.current);
         const totalInput = this.normalizeOptionalCount(input.total);
         const previousCurrent = existing?.current ?? 0;

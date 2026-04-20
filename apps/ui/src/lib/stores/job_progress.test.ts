@@ -131,6 +131,89 @@ describe('jobProgressStore', () => {
         expect(second?.updatedAt).toBe(firstUpdatedAt);
     });
 
+    it('does not revive a completed job when a stale running update arrives', () => {
+        // Regression for issue #33: a backfill_progress SSE that arrives after
+        // backfill_complete must not demote the terminal job back to 'running'.
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:job-revival',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 8,
+            total: 10,
+            timestamp: 1000
+        });
+
+        jobProgressStore.markCompleted({
+            id: 'backfill:detections:job-revival',
+            kind: 'backfill',
+            title: 'Backfill done',
+            current: 10,
+            total: 10,
+            timestamp: 2000
+        });
+
+        // Stale progress event arrives after completion
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:job-revival',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 9,
+            total: 10,
+            timestamp: 3000
+        });
+
+        expect(jobProgressStore.activeJobs.find((e) => e.id === 'backfill:detections:job-revival')).toBeUndefined();
+        const historyItem = jobProgressStore.historyJobs.find((e) => e.id === 'backfill:detections:job-revival');
+        expect(historyItem?.status).toBe('completed');
+        expect(historyItem?.current).toBe(10);
+        expect(historyItem?.total).toBe(10);
+    });
+
+    it('does not revive a failed job when a stale running update arrives', () => {
+        jobProgressStore.markFailed({
+            id: 'backfill:detections:job-failed',
+            kind: 'backfill',
+            title: 'Backfill failed',
+            current: 2,
+            total: 10,
+            timestamp: 1000
+        });
+
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:job-failed',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 3,
+            total: 10,
+            timestamp: 2000
+        });
+
+        expect(jobProgressStore.activeJobs.find((e) => e.id === 'backfill:detections:job-failed')).toBeUndefined();
+        expect(jobProgressStore.historyJobs.find((e) => e.id === 'backfill:detections:job-failed')?.status).toBe('failed');
+    });
+
+    it('markCompleted can still finalize a running job (terminal guard only blocks revival)', () => {
+        jobProgressStore.upsertRunning({
+            id: 'backfill:detections:job-finalize',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 5,
+            total: 10,
+            timestamp: 1000
+        });
+
+        jobProgressStore.markCompleted({
+            id: 'backfill:detections:job-finalize',
+            kind: 'backfill',
+            title: 'Backfill',
+            current: 10,
+            total: 10,
+            timestamp: 2000
+        });
+
+        expect(jobProgressStore.historyJobs.find((e) => e.id === 'backfill:detections:job-finalize')?.status).toBe('completed');
+    });
+
     it('forces completed current to be at least total', () => {
         jobProgressStore.upsertRunning({
             id: 'backfill:detections:job-4',
