@@ -511,18 +511,23 @@ async def get_events(
 
         # Preload localized names for this page to avoid per-row network calls.
         localized_names: dict[int, str] = {}
-        if lang != 'en':
-            taxa_ids = {event.taxa_id for event in events if event.taxa_id}
-            if taxa_ids:
-                semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
+        taxa_ids = {event.taxa_id for event in events if event.taxa_id}
+        if taxa_ids:
+            semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
 
+            if lang != 'en':
                 async def lookup(taxa_id: int) -> tuple[int, str | None]:
                     async with semaphore:
                         name = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                         return taxa_id, name
+            else:
+                async def lookup(taxa_id: int) -> tuple[int, str | None]:
+                    async with semaphore:
+                        name = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                        return taxa_id, name
 
-                results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
-                localized_names = {taxa_id: name for taxa_id, name in results if name}
+            results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
+            localized_names = {taxa_id: name for taxa_id, name in results if name}
 
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
@@ -580,8 +585,8 @@ async def get_events(
             common_name = public_species["common_name"]
             scientific_name = public_species["scientific_name"]
             taxa_id = public_species["taxa_id"]
-            # Fetch localized common name if not in English and we have a taxa_id
-            if lang != 'en' and taxa_id:
+            # Replace stored name with canonical/localized name to handle BirdNET locale mismatch
+            if taxa_id:
                 localized_name = localized_names.get(taxa_id)
                 if localized_name:
                     common_name = localized_name
