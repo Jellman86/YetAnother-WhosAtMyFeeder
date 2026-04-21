@@ -13,6 +13,7 @@ from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
+from app.utils.audio_localization import localize_audio_species_name
 from app.utils.api_datetime import utc_naive_now
 from app.utils.timezone import get_user_timezone
 
@@ -301,6 +302,13 @@ async def get_daily_summary(
                 extra_unknown_labels=unknown_labels,
             )
                 
+            audio_species = d.audio_species
+            if audio_species:
+                confirmed_taxa_id = int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
+                resolved = await localize_audio_species_name(audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id)
+                if resolved:
+                    audio_species = resolved
+
             latest_detection = DetectionResponse(
                 id=d.id,
                 detection_time=d.detection_time,
@@ -316,7 +324,7 @@ async def get_daily_summary(
                 sub_label=d.sub_label,
                 manual_tagged=d.manual_tagged,
                 audio_confirmed=d.audio_confirmed,
-                audio_species=d.audio_species,
+                audio_species=audio_species,
                 audio_score=d.audio_score,
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,

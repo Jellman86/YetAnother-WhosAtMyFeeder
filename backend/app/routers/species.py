@@ -21,6 +21,7 @@ from app.utils.canonical_species import should_hide_species_label, user_facing_s
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
+from app.utils.audio_localization import localize_audio_species_name
 from app.utils.timezone import get_user_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -1342,6 +1343,13 @@ async def get_species_stats(
                 extra_unknown_labels=unknown_labels,
             )
 
+            audio_species = d.audio_species
+            if audio_species:
+                confirmed_taxa_id = int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
+                resolved = await localize_audio_species_name(audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id)
+                if resolved:
+                    audio_species = resolved
+
             recent_detections.append(Detection(
                 id=d.id,
                 detection_time=d.detection_time,
@@ -1356,7 +1364,7 @@ async def get_species_stats(
                 frigate_score=d.frigate_score,
                 sub_label=d.sub_label,
                 audio_confirmed=d.audio_confirmed,
-                audio_species=d.audio_species,
+                audio_species=audio_species,
                 audio_score=d.audio_score,
                 temperature=d.temperature,
                 weather_condition=d.weather_condition,

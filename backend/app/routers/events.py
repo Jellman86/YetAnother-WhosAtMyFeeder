@@ -23,6 +23,7 @@ from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.blocked_species import is_blocked_species
+from app.utils.audio_localization import localize_audio_detections, localize_audio_species_name
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -251,6 +252,11 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
 
 def _detection_updated_payload(detection, overrides: dict | None = None) -> dict:
+    # NOTE: common_name and audio_species here are the raw stored values (potentially a
+    # non-English locale from BirdNET-Go). Localizing them would require async taxonomy
+    # calls and per-client language awareness, which the synchronous SSE broadcast path
+    # does not support. Clients receiving SSE updates should re-fetch via GET /events
+    # for fully localized names if this matters for their use case.
     public_species = user_facing_species_fields(
         display_name=detection.display_name,
         category_name=getattr(detection, "category_name", None),
@@ -529,6 +535,19 @@ async def get_events(
             results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
             localized_names = {taxa_id: name for taxa_id, name in results if name}
 
+        # Pre-resolve unconfirmed audio_species names (batch: one lookup per unique value).
+        # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
+        unconfirmed_audio_species: set[str] = {
+            event.audio_species.strip()
+            for event in events
+            if event.audio_species and not event.audio_confirmed
+        }
+        unconfirmed_audio_canonical: dict[str, str] = {}
+        for comname in unconfirmed_audio_species:
+            resolved = await localize_audio_species_name(comname, lang, db)
+            if resolved:
+                unconfirmed_audio_canonical[comname] = resolved
+
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
             if event.audio_confirmed or not event.audio_species:
@@ -544,11 +563,13 @@ async def get_events(
                 mapping_value=mapping_value,
                 limit=8,
             )
+            await localize_audio_detections(nearby_audio, lang, db)
 
             seen_species: set[str] = set()
             ordered_species: list[str] = []
 
-            primary_heard = str(event.audio_species or "").strip()
+            raw_primary = str(event.audio_species or "").strip()
+            primary_heard = unconfirmed_audio_canonical.get(raw_primary, raw_primary)
             if primary_heard:
                 ordered_species.append(primary_heard)
                 seen_species.add(primary_heard.casefold())
@@ -591,6 +612,19 @@ async def get_events(
                 if localized_name:
                     common_name = localized_name
 
+            # Resolve audio_species: confirmed case shares taxa_id with visual detection;
+            # unconfirmed case was pre-resolved into unconfirmed_audio_canonical above.
+            raw_audio_species = event.audio_species
+            if raw_audio_species:
+                if event.audio_confirmed and taxa_id:
+                    resolved_audio = localized_names.get(taxa_id) or raw_audio_species
+                else:
+                    resolved_audio = unconfirmed_audio_canonical.get(
+                        raw_audio_species.strip(), raw_audio_species
+                    )
+            else:
+                resolved_audio = raw_audio_species
+
             response_event = DetectionResponse(
                 id=event.id,
                 detection_time=event.detection_time,
@@ -609,7 +643,7 @@ async def get_events(
                 sub_label=event.sub_label,
                 manual_tagged=event.manual_tagged,
                 audio_confirmed=event.audio_confirmed,
-                audio_species=event.audio_species,
+                audio_species=resolved_audio,
                 audio_score=event.audio_score,
                 audio_context_species=audio_context_species_by_event.get(event.frigate_event),
                 temperature=event.temperature,
