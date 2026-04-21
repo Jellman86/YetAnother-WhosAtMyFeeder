@@ -63,7 +63,7 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                    title={versionInfo.git_hash !== "unknown" ? `Git: ${versionInfo.git_hash}` : "View changelog"}
+                    title={versionInfo.git_hash !== "unknown" ? `Git: ${versionInfo.git_hash}` : $_('about.view_changelog', { default: 'View changelog' })}
                 >
                     v{version}
                 </a>

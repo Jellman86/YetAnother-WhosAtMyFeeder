@@ -3166,7 +3166,7 @@
                                             class="relative rounded-2xl border p-2 text-left transition-colors {isSelected ? 'border-teal-400 bg-teal-400/15 ring-1 ring-teal-400/30' : 'border-white/10 bg-white/5 hover:border-white/25'}"
                                         >
                                             {#if isSaved}
-                                                <span class="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow" title="Currently saved">
+                                                <span class="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 shadow" title={$_('detection.snapshot_currently_saved', { default: 'Currently saved' })}>
                                                     <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                                 </span>
                                             {/if}

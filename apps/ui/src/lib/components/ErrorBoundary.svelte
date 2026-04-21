@@ -106,7 +106,7 @@
                         </div>
                         {#if error.stack}
                             <div class="text-sm">
-                                <strong class="text-slate-700 dark:text-slate-300">Stack trace:</strong>
+                                <strong class="text-slate-700 dark:text-slate-300">{$_('errors.stack_trace', { default: 'Stack trace:' })}</strong>
                                 <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded text-xs overflow-x-auto text-slate-600 dark:text-slate-400 max-h-48">{error.stack}</pre>
                             </div>
                         {/if}

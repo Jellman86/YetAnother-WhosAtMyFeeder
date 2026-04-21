@@ -233,10 +233,10 @@
                     bind:value={birdCropSourcePriority}
                     class="w-full appearance-none rounded-xl border-2 border-slate-200 bg-white pl-4 pr-10 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition-colors focus:border-teal-500 focus:ring-0 dark:border-slate-700 dark:bg-slate-950/60 dark:text-white"
                 >
-                    <option value="frigate_hints_first">Frigate hints first</option>
-                    <option value="crop_model_first">Crop model first</option>
-                    <option value="crop_model_only">Crop model only</option>
-                    <option value="frigate_hints_only">Frigate hints only</option>
+                    <option value="frigate_hints_first">{$_('settings.detection.crop_priority_frigate_first', { default: 'Frigate hints first' })}</option>
+                    <option value="crop_model_first">{$_('settings.detection.crop_priority_crop_first', { default: 'Crop model first' })}</option>
+                    <option value="crop_model_only">{$_('settings.detection.crop_priority_crop_only', { default: 'Crop model only' })}</option>
+                    <option value="frigate_hints_only">{$_('settings.detection.crop_priority_frigate_only', { default: 'Frigate hints only' })}</option>
                 </select>
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -631,7 +631,7 @@
                             </div>
                             <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
                                 <p><span class="font-black">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
-                                <p><span class="font-black">Probe error:</span> {classifierStatus.cuda_probe_error}</p>
+                                <p><span class="font-black">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.cuda_probe_error}</p>
                             </div>
                         </div>
                     {/if}
@@ -695,13 +695,13 @@
                                     <p><span class="font-black">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
                                 {/if}
                                 {#if classifierStatus.openvino_import_error}
-                                    <p><span class="font-black">Import error:</span> {classifierStatus.openvino_import_error}</p>
+                                    <p><span class="font-black">{$_('settings.detection.import_error', { default: 'Import error:' })}</span> {classifierStatus.openvino_import_error}</p>
                                 {/if}
                                 {#if classifierStatus.openvino_probe_error}
-                                    <p><span class="font-black">Probe error:</span> {classifierStatus.openvino_probe_error}</p>
+                                    <p><span class="font-black">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.openvino_probe_error}</p>
                                 {/if}
                                 {#if classifierStatus.openvino_gpu_probe_error}
-                                    <p><span class="font-black">GPU plugin error:</span> {classifierStatus.openvino_gpu_probe_error}</p>
+                                    <p><span class="font-black">{$_('settings.detection.gpu_plugin_error', { default: 'GPU plugin error:' })}</span> {classifierStatus.openvino_gpu_probe_error}</p>
                                 {/if}
                             </div>
                         </div>

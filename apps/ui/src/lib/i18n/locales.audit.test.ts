@@ -139,7 +139,21 @@ const REQUIRED_ACTIVE_KEYS = [
     'video_player.close',
     'video_player.detection_clip_title',
     'video_player.full_visit_title',
-    'video_player.no_video_support'
+    'video_player.no_video_support',
+    'detection.snapshot_generate_hint',
+    'detection.snapshot_picker_sources_hint',
+    'detection.snapshot_source_full_frame_hint',
+    'detection.snapshot_source_frigate_hint_hint',
+    'detection.snapshot_source_model_crop',
+    'detection.snapshot_source_original_hint',
+    'detection.snapshot_source_short_model_crop',
+    'detection.snapshot_source_short_full_frame',
+    'detection.snapshot_source_short_frigate_hint',
+    'detection.snapshot_candidate_frames_hint',
+    'detection.snapshot_best',
+    'detection.snapshot_model_crop_disabled',
+    'detection.snapshot_model_crop_unavailable',
+    'detection.snapshot_model_candidates_empty'
 ];
 
 const MUST_BE_LOCALIZED = [
@@ -236,7 +250,12 @@ const MUST_BE_LOCALIZED = [
     'species_detail.copy_diagnostics_bundle',
     'video_player.detection_clip_title',
     'video_player.full_visit_title',
-    'about.feature_list.full_visit_clip.title'
+    'about.feature_list.full_visit_clip.title',
+    'detection.snapshot_generate_hint',
+    'detection.snapshot_source_full_frame_hint',
+    'detection.snapshot_model_crop_disabled',
+    'detection.snapshot_model_crop_unavailable',
+    'detection.snapshot_model_candidates_empty'
 ];
 
 describe('locale audit for active non-English UX', () => {

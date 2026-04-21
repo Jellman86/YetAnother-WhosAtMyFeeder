@@ -175,12 +175,12 @@
     function overallSummary(): string {
         const status = overallStatusLabel().toLowerCase();
         if (status === 'ok' || status === 'healthy') {
-            return 'All monitored services look healthy right now.';
+            return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
         }
         if (status === 'degraded') {
-            return 'Some subsystems are under pressure or recovering, but the app is still serving traffic.';
+            return $_('jobs.errors_summary_degraded', { default: 'Some subsystems are under pressure or recovering, but the app is still serving traffic.' });
         }
-        return 'The app is reporting active faults that need attention.';
+        return $_('jobs.errors_summary_faults', { default: 'The app is reporting active faults that need attention.' });
     }
 
     function latestHealthLine(): string {
@@ -208,10 +208,10 @@
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
         const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailureActive) return `${criticalFailures.toLocaleString()} critical failure${criticalFailures === 1 ? '' : 's'} recorded.`;
-        if (criticalFailures > 0) return `${criticalFailures.toLocaleString()} historical failure${criticalFailures === 1 ? '' : 's'} recorded; pipeline has since recovered.`;
-        if (dropped > 0) return `${dropped.toLocaleString()} events have been dropped.`;
-        return 'The ingest pipeline is processing detections normally.';
+        if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} critical failures recorded.` });
+        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} historical failures recorded; pipeline has since recovered.` });
+        if (dropped > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: dropped.toLocaleString() }, default: `${dropped.toLocaleString()} events have been dropped.` });
+        return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
     }
 
     function mqttStatus(): string {
@@ -224,12 +224,12 @@
         const inFlight = asNumber(mqtt.in_flight);
         const capacity = asNumber(mqtt.in_flight_capacity);
         if (pressure === 'critical' || pressure === 'high') {
-            return `MQTT handlers are under ${pressure} pressure at ${inFlight}/${capacity} in flight.`;
+            return $_('jobs.errors_mqtt_pressure', { values: { pressure, inFlight: inFlight.toLocaleString(), capacity: capacity.toLocaleString() }, default: `MQTT handlers are under ${pressure} pressure at ${inFlight}/${capacity} in flight.` });
         }
         const reconnects = asNumber(mqtt.topic_liveness_reconnects);
         return reconnects > 0
-            ? `MQTT recovered cleanly after ${reconnects.toLocaleString()} topic reconnects.`
-            : 'MQTT traffic is flowing normally.';
+            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects.toLocaleString() }, default: `MQTT recovered cleanly after ${reconnects.toLocaleString()} topic reconnects.` })
+            : $_('jobs.errors_mqtt_ok', { default: 'MQTT traffic is flowing normally.' });
     }
 
     function liveClassificationStatus(): string {
@@ -243,12 +243,12 @@
         const running = asNumber(live.in_flight);
         const maxConcurrent = asNumber(live.max_concurrent);
         if (live.recovery_active) {
-            return `Live classification is recovering while ${running}/${maxConcurrent} slots are active.`;
+            return $_('jobs.errors_live_class_recovering', { values: { running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `Live classification is recovering while ${running}/${maxConcurrent} slots are active.` });
         }
         if (queued > 0) {
-            return `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.`;
+            return $_('jobs.errors_live_class_queued', { values: { queued: queued.toLocaleString(), running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.` });
         }
-        return 'Live classification capacity is currently clear.';
+        return $_('jobs.errors_live_class_ok', { default: 'Live classification capacity is currently clear.' });
     }
 
     function backgroundStatus(): string {
@@ -260,9 +260,9 @@
     function backgroundSummary(): string {
         const background = health?.ml?.background_image ?? {};
         if (background.background_throttled) {
-            return `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.`;
+            return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.` });
         }
-        return `${asNumber(background.queued).toLocaleString()} queued background items, ${asNumber(background.in_flight).toLocaleString()} in flight.`;
+        return $_('jobs.errors_background_summary', { values: { queued: asNumber(background.queued).toLocaleString(), inFlight: asNumber(background.in_flight).toLocaleString() }, default: `${asNumber(background.queued).toLocaleString()} queued background items, ${asNumber(background.in_flight).toLocaleString()} in flight.` });
     }
 
     function dispatcherStatus(): string {
@@ -279,12 +279,12 @@
         const droppedJobs = asNumber(dispatcher.dropped_jobs);
         const dbWait = asNumber(dbPool.acquire_wait_max_ms);
         if (droppedJobs > 0) {
-            return `Notification dispatcher dropped ${droppedJobs.toLocaleString()} jobs.`;
+            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs.toLocaleString() }, default: `Notification dispatcher dropped ${droppedJobs.toLocaleString()} jobs.` });
         }
         if (dbWait >= 5000) {
-            return `DB acquire wait reached ${dbWait.toLocaleString()}ms.`;
+            return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `DB acquire wait reached ${dbWait.toLocaleString()}ms.` });
         }
-        return 'Notification dispatch and DB pool look healthy.';
+        return $_('jobs.errors_dispatcher_ok', { default: 'Notification dispatch and DB pool look healthy.' });
     }
 
     function startupStatus(): string {
@@ -293,19 +293,19 @@
 
     function startupSummary(): string {
         if (startupWarnings.length <= 0) {
-            return 'No startup warnings are currently recorded.';
+            return $_('jobs.errors_startup_ok', { default: 'No startup warnings are currently recorded.' });
         }
         const first = startupWarnings[0] ?? {};
         const phase = asText((first as Record<string, unknown>).phase, 'unknown phase');
-        return `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.`;
+        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
     }
 
     function refreshedAgoText(): string | null {
         if (!lastRefreshedAt) return null;
         const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
-        if (diff < 10) return 'Updated just now';
-        if (diff < 60) return `Updated ${diff}s ago`;
-        return `Updated ${Math.floor(diff / 60)}m ago`;
+        if (diff < 10) return $_('jobs.errors_updated_just_now', { default: 'Updated just now' });
+        if (diff < 60) return $_('jobs.errors_updated_seconds', { values: { count: diff }, default: `Updated ${diff}s ago` });
+        return $_('jobs.errors_updated_minutes', { values: { count: Math.floor(diff / 60) }, default: `Updated ${Math.floor(diff / 60)}m ago` });
     }
 </script>
 
@@ -316,7 +316,7 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
-                    <p class="mt-1 text-xs text-slate-500">Live system health for your bird detection setup.</p>
+                    <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_health_subtitle', { default: 'Live system health for your bird detection setup.' })}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     {#if refreshedAgoText()}
@@ -328,7 +328,7 @@
                         onclick={clearWorkspace}
                         disabled={clearing || refreshing}
                     >
-                        {clearing ? 'Clearing…' : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
+                        {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
                     </button>
                     <button
                         type="button"
@@ -346,7 +346,7 @@
                         >
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        {refreshing ? 'Refreshing…' : 'Refresh Now'}
+                        {refreshing ? $_('jobs.errors_refreshing', { default: 'Refreshing…' }) : $_('jobs.errors_refresh_now', { default: 'Refresh Now' })}
                     </button>
                 </div>
             </div>
@@ -373,7 +373,7 @@
                                 {backendEvents.length.toLocaleString()} backend events
                             </span>
                         </div>
-                        <h4 class="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">System Status</h4>
+                        <h4 class="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h4>
                         <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-200">
                             {overallSummary()}
                         </p>
@@ -381,14 +381,14 @@
                     </div>
                     <div class="grid min-w-[220px] grid-cols-2 gap-3 text-right">
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Health Snapshots</p>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">this session</p>
+                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
                         </div>
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Saved Bundles</p>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">stored locally</p>
+                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
                         </div>
                     </div>
                 </div>
@@ -412,10 +412,10 @@
                             </div>
                             <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Started</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Completed</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Dropped</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Critical</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_started', { default: 'Started' })}</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_completed', { default: 'Completed' })}</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -436,9 +436,9 @@
                             </div>
                             <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Reconnects</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
-                                <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">Last Reconnect Reason</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_reconnects', { default: 'Reconnects' })}</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
+                                <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
                             </div>
                         </div>
                     </div>
@@ -454,15 +454,15 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Live Classification</h4>
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
                                 <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{liveClassificationStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queued</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Capacity</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Abandoned</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_capacity', { default: 'Capacity' })}</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -478,15 +478,15 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Video Classification</h4>
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
                                 <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{videoClassifierCard.status}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Pending</span><span>{videoClassifierCard.pending.toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Active</span><span>{videoClassifierCard.active.toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Failures</span><span>{videoClassifierCard.failureCount.toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Open Until</span><span>{videoClassifierCard.openUntil}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_pending', { default: 'Pending' })}</span><span>{videoClassifierCard.pending.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_active', { default: 'Active' })}</span><span>{videoClassifierCard.active.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_failures', { default: 'Failures' })}</span><span>{videoClassifierCard.failureCount.toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_open_until', { default: 'Open Until' })}</span><span>{videoClassifierCard.openUntil}</span></div>
                             </div>
                         </div>
                     </div>
@@ -502,15 +502,15 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Background Maintenance</h4>
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
                                 <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{backgroundStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queued</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">In Flight</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Abandoned</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Throttled</span><span>{health?.ml?.background_image?.background_throttled ? 'Yes' : 'No'}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_throttled', { default: 'Throttled' })}</span><span>{health?.ml?.background_image?.background_throttled ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' })}</span></div>
                             </div>
                         </div>
                     </div>
@@ -526,15 +526,15 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Notifications & DB</h4>
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
                                 <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{dispatcherStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Dropped Jobs</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">Queue Size</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">DB Wait Max</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
-                                <div><span class="block text-xs uppercase tracking-wider opacity-80">DB Timeouts</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped_jobs', { default: 'Dropped Jobs' })}</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queue_size', { default: 'Queue Size' })}</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_wait_max', { default: 'DB Wait Max' })}</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_timeouts', { default: 'DB Timeouts' })}</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -550,13 +550,13 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">Startup Warnings</h4>
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
                                 <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{startupStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
                             <div class="mt-4 space-y-2 text-xs font-semibold">
                                 {#if startupWarnings.length === 0}
-                                    <p class="opacity-80">No startup warnings captured in the current workspace snapshot.</p>
+                                    <p class="opacity-80">{$_('jobs.errors_no_startup_warnings', { default: 'No startup warnings captured in the current workspace snapshot.' })}</p>
                                 {:else}
                                     {#each startupWarnings.slice(0, 2) as warning}
                                         <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
@@ -580,7 +580,7 @@
             <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
-                    <p class="mt-1 text-xs text-slate-500">Active incidents that need attention.</p>
+                    <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
             </div>
@@ -626,8 +626,8 @@
         <section class="card-base p-6">
             <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Recent Backend Diagnostics</h3>
-                    <p class="mt-1 text-xs text-slate-500">Newest warnings and errors from the backend workspace snapshot.</p>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h3>
+                    <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
             </div>
@@ -669,7 +669,7 @@
             <div>
                 <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.error_bundles_title', { default: 'Diagnostics Bundles' })}</h3>
                 <p class="text-xs text-slate-500">
-                    Download the current diagnostics snapshot or capture labeled bundles with notes for later comparison.
+                    {$_('jobs.error_bundles_subtitle', { default: 'Capture and keep multiple diagnostics bundles, then download any bundle later.' })}
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -683,14 +683,14 @@
             <div class="space-y-4">
                 <!-- Download current snapshot -->
                 <div class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-700/60 dark:bg-slate-900/40">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Download Current Snapshot</h4>
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('jobs.errors_download_snapshot_title', { default: 'Download Current Snapshot' })}</h4>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                        Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.
+                        {$_('jobs.errors_download_snapshot_desc', { default: 'Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.' })}
                     </p>
                     <textarea
                         class="mt-4 min-h-24 w-full rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                         bind:value={reportNotes}
-                        placeholder="Optional notes to include when you capture a saved bundle"
+                        placeholder={$_('jobs.errors_notes_placeholder', { default: 'Optional notes to include when you capture a saved bundle' })}
                     ></textarea>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={downloadCurrentJson}>
@@ -714,8 +714,8 @@
             <div>
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">Saved Bundles</h4>
-                        <p class="text-xs text-slate-500">Distinct snapshots stay local until you download or delete them.</p>
+                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
+                        <p class="text-xs text-slate-500">{$_('jobs.errors_bundles_local_desc', { default: 'Distinct snapshots stay local until you download or delete them.' })}</p>
                     </div>
                     <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
                         {bundles.length.toLocaleString()} saved
@@ -723,7 +723,7 @@
                 </div>
 
                 {#if bundles.length === 0}
-                    <p class="mt-3 text-xs text-slate-500">No captured bundles available yet.</p>
+                    <p class="mt-3 text-xs text-slate-500">{$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })}</p>
                 {:else}
                     <div class="mt-4 space-y-3">
                         {#each bundles as bundle, index (bundle.id)}
@@ -733,7 +733,7 @@
                                         <div class="flex flex-wrap items-center gap-2">
                                             {#if index === 0}
                                                 <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                                    Newest
+                                                    {$_('jobs.errors_newest_badge', { default: 'Newest' })}
                                                 </span>
                                             {/if}
                                             <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
@@ -750,10 +750,10 @@
                                     </div>
                                     <div class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
                                         <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => downloadBundle(bundle)}>
-                                            Download
+                                            {$_('jobs.error_bundles_download', { default: 'Download' })}
                                         </button>
                                         <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                            Delete
+                                            {$_('jobs.error_bundles_delete', { default: 'Delete' })}
                                         </button>
                                     </div>
                                 </div>

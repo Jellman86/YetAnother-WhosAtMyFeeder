@@ -532,7 +532,7 @@
                             {#if cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
                                 <div class="mt-4">
                                     <div class="flex justify-between text-xs mb-1">
-                                        <span class="text-teal-600 dark:text-teal-400 font-medium">Downloading detector...</span>
+                                        <span class="text-teal-600 dark:text-teal-400 font-medium">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
                                         <span class="text-slate-500">{cropDetectorDownload.progress.toFixed(0)}%</span>
                                     </div>
                                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
@@ -807,8 +807,8 @@
                                                             </p>
                                                         </div>
                                                         <div class="text-left sm:text-right text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded shadow-sm border border-slate-100 dark:border-slate-700">
-                                                            <div>Default crop: <span class="text-slate-700 dark:text-slate-300">{cropDefaultEnabledLabel(variantMeta?.crop_generator)}</span></div>
-                                                            <div>Default source: <span class="text-slate-700 dark:text-slate-300">{cropDefaultSourceLabel(variantMeta?.crop_generator)}</span></div>
+                                                            <div>{$_('settings.detection.model_manager_default_crop', { default: 'Default crop:' })} <span class="text-slate-700 dark:text-slate-300">{cropDefaultEnabledLabel(variantMeta?.crop_generator)}</span></div>
+                                                            <div>{$_('settings.detection.model_manager_default_source', { default: 'Default source:' })} <span class="text-slate-700 dark:text-slate-300">{cropDefaultSourceLabel(variantMeta?.crop_generator)}</span></div>
                                                         </div>
                                                     </div>
                                                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">

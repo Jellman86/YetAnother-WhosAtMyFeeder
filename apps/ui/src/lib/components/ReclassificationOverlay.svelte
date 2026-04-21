@@ -168,7 +168,7 @@
                                     <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                                 </span>
                                 {#if progress.ramUsage}
-                                    <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title="System RAM Usage">
+                                    <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM Usage' })}>
                                         <svg class="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
                                             <path d="M6 22v-4"/>
@@ -286,7 +286,7 @@
                                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                             </span>
                             {#if progress.ramUsage}
-                                <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title="System RAM Usage">
+                                <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM Usage' })}>
                                     <svg class="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
                                         <path d="M6 22v-4"/>

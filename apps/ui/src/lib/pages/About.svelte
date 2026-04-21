@@ -306,11 +306,11 @@
                 target="_blank"
                 rel="noopener noreferrer"
                 class="inline-flex items-center gap-1.5 rounded-md border border-amber-400/80 bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-950 shadow-sm transition-colors hover:border-amber-500 hover:bg-amber-200 dark:border-amber-300/70 dark:bg-amber-200 dark:text-amber-950 dark:hover:bg-amber-100"
-                aria-label="Star YA-WAMF on GitHub"
-                title="Star YA-WAMF on GitHub"
+                aria-label={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
+                title={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
             >
                 <span aria-hidden="true">⭐</span>
-                <span>Star on GitHub</span>
+                <span>{$_('about.star_github', { default: 'Star on GitHub' })}</span>
             </a>
         </div>
     </header>
