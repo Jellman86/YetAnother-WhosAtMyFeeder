@@ -391,10 +391,15 @@ async def get_event_filters(
                 sci_name = scientific_name or taxonomy.get("scientific_name") or display_name
                 com_name = common_name or taxonomy.get("common_name")
                 t_id = taxa_id or taxonomy.get("taxa_id")
-                if lang != "en" and t_id:
-                    localized = await taxonomy_service.get_localized_common_name(t_id, lang, db=db)
-                    if localized:
-                        com_name = localized
+                if t_id:
+                    if lang != "en":
+                        localized = await taxonomy_service.get_localized_common_name(t_id, lang, db=db)
+                        if localized:
+                            com_name = localized
+                    else:
+                        canonical = await taxonomy_service.get_canonical_english_name(t_id, db=db)
+                        if canonical:
+                            com_name = canonical
                 value = f"taxa:{t_id}" if t_id else display_name
                 return EventFilterSpecies(
                     value=value,
@@ -521,21 +526,19 @@ async def get_events(
         if taxa_ids:
             semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
 
-            if lang != 'en':
-                async def lookup(taxa_id: int) -> tuple[int, str | None]:
-                    async with semaphore:
-                        name = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                        return taxa_id, name
-            else:
-                async def lookup(taxa_id: int) -> tuple[int, str | None]:
-                    async with semaphore:
-                        name = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
-                        return taxa_id, name
+            async def lookup(taxa_id: int) -> tuple[int, str | None]:
+                async with semaphore:
+                    name = (
+                        await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                        if lang != "en"
+                        else await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                    )
+                    return taxa_id, name
 
             results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
             localized_names = {taxa_id: name for taxa_id, name in results if name}
 
-        # Pre-resolve unconfirmed audio_species names (batch: one lookup per unique value).
+        # Pre-resolve unconfirmed audio_species names concurrently.
         # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
         unconfirmed_audio_species: set[str] = {
             event.audio_species.strip()
@@ -543,10 +546,12 @@ async def get_events(
             if event.audio_species and not event.audio_confirmed
         }
         unconfirmed_audio_canonical: dict[str, str] = {}
-        for comname in unconfirmed_audio_species:
-            resolved = await localize_audio_species_name(comname, lang, db)
-            if resolved:
-                unconfirmed_audio_canonical[comname] = resolved
+        if unconfirmed_audio_species:
+            async def resolve_unconfirmed(comname: str) -> tuple[str, str | None]:
+                return comname, await localize_audio_species_name(comname, lang, db)
+
+            audio_pairs = await asyncio.gather(*(resolve_unconfirmed(n) for n in unconfirmed_audio_species))
+            unconfirmed_audio_canonical = {k: v for k, v in audio_pairs if v}
 
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
@@ -613,11 +618,15 @@ async def get_events(
                     common_name = localized_name
 
             # Resolve audio_species: confirmed case shares taxa_id with visual detection;
-            # unconfirmed case was pre-resolved into unconfirmed_audio_canonical above.
+            # unconfirmed (or confirmed-but-no-taxa_id) was pre-resolved above.
             raw_audio_species = event.audio_species
             if raw_audio_species:
                 if event.audio_confirmed and taxa_id:
+                    # Same species as visual — canonical name already in localized_names
                     resolved_audio = localized_names.get(taxa_id) or raw_audio_species
+                elif event.audio_confirmed:
+                    # Confirmed but taxonomy not enriched yet — nothing to resolve
+                    resolved_audio = raw_audio_species
                 else:
                     resolved_audio = unconfirmed_audio_canonical.get(
                         raw_audio_species.strip(), raw_audio_species

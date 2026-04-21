@@ -295,7 +295,10 @@ class DetectionService:
                     common_name=common_name,
                     taxa_id=taxa_id,
                 )
-                # Broadcast event only when actually saved/updated
+                # NOTE: audio_species and common_name in this SSE payload are raw stored values
+                # (potentially non-English from BirdNET-Go). Per-client localization is not
+                # possible here — the broadcast is language-agnostic. Clients should re-fetch
+                # via GET /events for localized names.
                 await self.broadcaster.broadcast({
                     "type": "detection",
                     "data": {
@@ -557,6 +560,7 @@ class DetectionService:
                 # Broadcast the update
                 updated = await repo.get_by_frigate_event(frigate_event)
                 if updated:
+                    # NOTE: same SSE raw-name limitation as the detection broadcast above.
                     public_species = user_facing_species_fields(
                         display_name=updated.display_name,
                         category_name=updated.category_name,
