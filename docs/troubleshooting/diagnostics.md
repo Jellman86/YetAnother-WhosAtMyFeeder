@@ -207,6 +207,12 @@ If the dashboard is blank or buttons don't work:
 1.  **Logs:** Check for 404 or 500 errors in the frontend console (`F12` in your browser).
 1.  **PWA/Service Worker:** If you installed the PWA, stale cached assets can survive refreshes. Try a hard refresh, or clear site data for the domain.
 
+## Frigate "Event Not Found" Detections
+
+If a detection shows `video_classification_error: event_not_found` or the **Errors** page shows diagnostic entries with `reason_code: event_not_found` or `reason_code: precheck_cache_bypass`, see the dedicated explanation:
+
+→ [Frigate "Event Not Found" Explained](frigate-event-not-found.md)
+
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
 

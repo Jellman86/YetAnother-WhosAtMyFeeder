@@ -59,7 +59,10 @@ _HQ_SNAPSHOT_TIMEOUT_SECONDS = 120.0  # generous ceiling for post-classification
 # Fixed error codes that must never increment the circuit-breaker counter.
 _FRIGATE_CONNECTIVITY_ERRORS: frozenset[str] = frozenset({
     # --- Event precheck errors (frigate_client.get_event_with_error) ---
-    "event_not_found",      # Frigate 404 race: MQTT end fired before the event was committed to DB
+    "event_not_found",      # Frigate 404: either an MQTT/DB race (event not yet committed) or the bird
+                            # did not accumulate enough frames to pass Frigate's min_initialized/threshold
+                            # gates — so Frigate published MQTT but never wrote the event to its DB.
+                            # See docs/troubleshooting/frigate-event-not-found.md for full details.
     "event_timeout",        # Frigate API request timed out
     "event_request_error",  # Network error reaching Frigate
     "event_unknown_error",  # Unexpected error during event fetch
@@ -1003,8 +1006,11 @@ class AutoVideoClassifierService:
             if event_error:
                 # When the Frigate event API returns event_not_found but we already
                 # have the clip cached locally, skip the abort and proceed with the
-                # cache.  This handles cases where Frigate's event metadata was
-                # transiently 404ing or rotated out while the clip file still exists.
+                # cache.  Two known causes: transient MQTT/DB race where Frigate has
+                # not yet committed the event, or the bird did not accumulate enough
+                # frames to pass Frigate's min_initialized/threshold gates so Frigate
+                # sent MQTT but never wrote the event to its DB.
+                # See docs/troubleshooting/frigate-event-not-found.md
                 if event_error == "event_not_found" and media_cache.has_clip(frigate_event):
                     log.info(
                         "Frigate event not found but cached clip exists; proceeding with cached clip",
@@ -1014,7 +1020,10 @@ class AutoVideoClassifierService:
                     self._record_diagnostic(
                         frigate_event,
                         reason_code="precheck_cache_bypass",
-                        message="Frigate event not found but cached clip present; classification will use local cache",
+                        message=(
+                            "Frigate event not found but cached clip present; classification will use local cache. "
+                            "This is normal for brief detections — see docs/troubleshooting/frigate-event-not-found.md"
+                        ),
                         severity="info",
                         context={"precheck_error": event_error, "attempts": _precheck_attempts},
                     )
@@ -1029,7 +1038,13 @@ class AutoVideoClassifierService:
                     self._record_diagnostic(
                         frigate_event,
                         reason_code=event_error,
-                        message="Frigate event precheck failed during video classification",
+                        message=(
+                            "Frigate event precheck failed during video classification and no cached clip was found. "
+                            "If this is event_not_found, the detection may have been too brief for Frigate to confirm — "
+                            "see docs/troubleshooting/frigate-event-not-found.md"
+                            if event_error == "event_not_found"
+                            else "Frigate event precheck failed during video classification"
+                        ),
                         severity="warning",
                         context={"error": event_error, "attempts": _precheck_attempts},
                     )
