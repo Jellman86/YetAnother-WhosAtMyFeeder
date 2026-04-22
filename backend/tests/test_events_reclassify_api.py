@@ -532,6 +532,99 @@ async def test_classifier_wildlife_test_endpoint_passes_full_frame_input_context
 
 
 @pytest.mark.asyncio
+async def test_reclassify_snapshot_uses_cached_snapshot_when_frigate_event_not_found(client: httpx.AsyncClient):
+    """Snapshot reclassify must succeed using a locally cached snapshot when Frigate returns event_not_found."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-cached"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="green").save(image_buffer, format="JPEG")
+    cached_snapshot_bytes = image_buffer.getvalue()
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=cached_snapshot_bytes)):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["status"] == "success"
+        mock_frigate.get_snapshot.assert_not_awaited()
+        classifier.classify_async.assert_awaited_once()
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_snapshot_falls_back_to_cached_snapshot_when_frigate_fetch_fails(client: httpx.AsyncClient):
+    """Snapshot reclassify must use cached snapshot as fallback when Frigate fetch returns None."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-frigate-empty"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="blue").save(image_buffer, format="JPEG")
+    cached_snapshot_bytes = image_buffer.getvalue()
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
+
+    try:
+        with patch("app.routers.events.get_classifier", return_value=classifier), \
+             patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=cached_snapshot_bytes)):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["status"] == "success"
+        classifier.classify_async.assert_awaited_once()
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_snapshot_returns_502_when_both_frigate_and_cache_empty(client: httpx.AsyncClient):
+    """Snapshot reclassify must return 502 when neither Frigate nor the cache can provide a snapshot."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-no-source"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    try:
+        with patch("app.routers.events.frigate_client") as mock_frigate, \
+             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
+             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=None)):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
+
+            response = await client.post(f"/api/events/{event_id}/reclassify")
+
+        assert response.status_code == 502, response.text
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
 async def test_events_classify_wildlife_passes_cropped_input_context(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

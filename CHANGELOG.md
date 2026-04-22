@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- **Classification (#47):** Auto video classification no longer aborts with `event_not_found` when the Frigate event API is transiently unavailable but the clip is already cached locally. The precheck now checks `media_cache` first and proceeds with the cached clip when one is present, so detections that would have stayed `Unknown Bird` can still be promoted by video analysis.
+- **Classification (#47):** Manual reclassify (snapshot strategy) now checks the local snapshot cache before fetching from Frigate. Previously, if the Frigate event was not reachable at reclassify time, the endpoint returned 502 "Failed to fetch snapshot from Frigate" even when a cached snapshot was available in YA-WAMF. The fix resolves both the auto-classify and manual-reclassify failure modes reported in the issue.
+
 ### Added
 - **i18n:** Comprehensive translation pass covering ~300 previously English-only strings across all 8 non-English locales (de, es, fr, it, ja, pt, ru, zh). New keys cover the Errors/diagnostics page (subsystem cards, metric labels, summary prose, bundle management), LLM settings, eBird export labels, location fields, security warnings, and miscellaneous UI strings. All summary functions in `Errors.svelte` (`overallSummary`, `eventPipelineSummary`, `mqttSummary`, `liveClassificationSummary`, `backgroundSummary`, `dispatcherSummary`, `startupSummary`, `refreshedAgoText`) now resolve through the i18n store at runtime. Hardcoded English strings replaced in `Errors.svelte`, `DetectionSettings.svelte`, `ModelManager.svelte`, `About.svelte`, `Footer.svelte`, `DetectionModal.svelte`, `ErrorBoundary.svelte`, and `ReclassificationOverlay.svelte`.
 

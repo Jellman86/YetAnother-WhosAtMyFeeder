@@ -1001,27 +1001,39 @@ class AutoVideoClassifierService:
                     await asyncio.sleep(_PRECHECK_RETRY_DELAY)
 
             if event_error:
-                log.warning(
-                    "Frigate event precheck failed",
-                    event_id=frigate_event,
-                    error=event_error,
-                    attempts=_precheck_attempts,
-                )
-                self._record_diagnostic(
-                    frigate_event,
-                    reason_code=event_error,
-                    message="Frigate event precheck failed during video classification",
-                    severity="warning",
-                    context={"error": event_error, "attempts": _precheck_attempts},
-                )
-                await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
-                self._record_failure(frigate_event, event_error, source=source)
-                await self._auto_delete_if_missing(frigate_event, event_error)
-                await broadcaster.broadcast({
-                    "type": "reclassification_completed",
-                    "data": { "event_id": frigate_event, "results": [] }
-                })
-                return
+                # When the Frigate event API returns event_not_found but we already
+                # have the clip cached locally, skip the abort and proceed with the
+                # cache.  This handles cases where Frigate's event metadata was
+                # transiently 404ing or rotated out while the clip file still exists.
+                if event_error == "event_not_found" and media_cache.has_clip(frigate_event):
+                    log.info(
+                        "Frigate event not found but cached clip exists; proceeding with cached clip",
+                        event_id=frigate_event,
+                        attempts=_precheck_attempts,
+                    )
+                    event_data = None  # box/region hints unavailable; _build_classification_input_context handles None safely
+                else:
+                    log.warning(
+                        "Frigate event precheck failed",
+                        event_id=frigate_event,
+                        error=event_error,
+                        attempts=_precheck_attempts,
+                    )
+                    self._record_diagnostic(
+                        frigate_event,
+                        reason_code=event_error,
+                        message="Frigate event precheck failed during video classification",
+                        severity="warning",
+                        context={"error": event_error, "attempts": _precheck_attempts},
+                    )
+                    await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
+                    self._record_failure(frigate_event, event_error, source=source)
+                    await self._auto_delete_if_missing(frigate_event, event_error)
+                    await broadcaster.broadcast({
+                        "type": "reclassification_completed",
+                        "data": { "event_id": frigate_event, "results": [] }
+                    })
+                    return
 
             # 2. Prefer a cached recording/full-visit clip when available.
             clip_bytes, clip_error, clip_variant = await self._load_preferred_clip(

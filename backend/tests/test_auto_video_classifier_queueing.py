@@ -1,6 +1,6 @@
 import asyncio
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -448,3 +448,67 @@ async def test_get_status_reports_timeout_counters_per_source():
     assert status["last_live_timeout"]["camera"] == "cam-live"
     assert status["last_maintenance_timeout"]["event_id"] == "evt-maint-timeout"
     assert status["last_maintenance_timeout"]["clip_bytes"] == 5678
+
+
+@pytest.mark.asyncio
+async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_found(monkeypatch):
+    """When Frigate precheck returns event_not_found but a clip is locally cached,
+    _process_event must call _load_preferred_clip instead of aborting at the precheck."""
+    import asyncio as _asyncio
+    service = AutoVideoClassifierService()
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_not_found")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "has_clip",
+        lambda event_id: True,
+    )
+    # _load_preferred_clip returns no clip — this causes a graceful early exit after
+    # the precheck bypass without needing to mock the entire classification pipeline.
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event"))
+    monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
+    monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
+
+    await service._process_event("evt-cached-clip", "cam1", skip_delay=True)
+
+    # Key assertion: precheck bypass occurred — _load_preferred_clip was called.
+    load_clip_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_event_still_fails_when_precheck_returns_event_not_found_and_no_cached_clip(monkeypatch):
+    """When Frigate precheck returns event_not_found and there is no cached clip,
+    _process_event must record the failure as before (no regression)."""
+    service = AutoVideoClassifierService()
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_not_found")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    import asyncio as _asyncio
+    monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "has_clip",
+        lambda event_id: False,
+    )
+
+    await service._process_event("evt-no-cache", "cam1", skip_delay=True)
+
+    # No cached clip → must NOT proceed to classification.
+    assert service.get_status()["failure_count"] == 0  # event_not_found excluded from circuit

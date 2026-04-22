@@ -1265,7 +1265,6 @@ async def reclassify_event(
             if effective_strategy == "video":
                 await broadcast_video_status("processing", None)
                 # Fetch clip - check cache first
-                from app.services.media_cache import media_cache
                 import os
 
                 async def _load_reclassification_clip(
@@ -1460,7 +1459,7 @@ async def reclassify_event(
             if effective_strategy == "snapshot":
                 await broadcast_reclassification_started("snapshot")
 
-                snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+                snapshot_data = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(event_id, crop=True, quality=95)
                 if not snapshot_data:
                     # Still broadcast completion if it failed so UI can stop spinner
                     await broadcast_reclassification_completed([])
