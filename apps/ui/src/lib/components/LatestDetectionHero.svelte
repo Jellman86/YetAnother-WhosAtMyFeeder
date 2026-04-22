@@ -117,17 +117,18 @@
     tabindex="0"
     onclick={onclick}
     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
-    class="relative w-full aspect-video sm:aspect-auto h-full min-h-[320px] rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
+    class="relative w-full min-h-[360px] sm:min-h-0 sm:h-full sm:aspect-auto rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
 >
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
         <ReclassificationOverlay progress={reclassifyProgress} small={true} />
     {/if}
 
-    <!-- Background Image -->
+    <!-- Background Image — eager so the card isn't blank on first paint -->
     <img
         src={getThumbnailUrl(detection.frigate_event)}
         alt={detection.display_name}
+        loading="eager"
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
     />
 
@@ -206,20 +207,21 @@
             </div>
         </div>
 
-        <!-- Right side: species thumbnail + view details button -->
+        <!-- Right side: species thumbnail + view details button.
+             The thumbnail container is always rendered at fixed size so the overlay
+             height doesn't change when the async image URL resolves. -->
         <div class="flex flex-col items-end gap-2 self-end sm:self-auto shrink-0">
-            {#if speciesThumbnailUrl}
-                <div
-                    class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-white/30 shadow-lg shadow-black/40 ring-1 ring-black/10 flex-shrink-0"
-                    title={primaryName}
-                >
-                    <img
-                        src={speciesThumbnailUrl}
-                        alt={primaryName}
-                        class="w-full h-full object-cover"
-                    />
-                </div>
-            {/if}
+            <div class="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-2xl" title={primaryName}>
+                {#if speciesThumbnailUrl}
+                    <div class="w-full h-full overflow-hidden rounded-2xl border-2 border-white/30 shadow-lg shadow-black/40 ring-1 ring-black/10">
+                        <img
+                            src={speciesThumbnailUrl}
+                            alt={primaryName}
+                            class="w-full h-full object-cover"
+                        />
+                    </div>
+                {/if}
+            </div>
             <div class="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
                 {$_('dashboard.hero.view_details')}
             </div>
