@@ -117,7 +117,7 @@
     tabindex="0"
     onclick={onclick}
     onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
-    class="relative w-full min-h-[360px] sm:min-h-0 sm:h-full sm:aspect-auto rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
+    class="relative w-full h-[360px] sm:h-full rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
 >
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
