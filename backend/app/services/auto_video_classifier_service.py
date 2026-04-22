@@ -1011,6 +1011,13 @@ class AutoVideoClassifierService:
                         event_id=frigate_event,
                         attempts=_precheck_attempts,
                     )
+                    self._record_diagnostic(
+                        frigate_event,
+                        reason_code="precheck_cache_bypass",
+                        message="Frigate event not found but cached clip present; classification will use local cache",
+                        severity="info",
+                        context={"precheck_error": event_error, "attempts": _precheck_attempts},
+                    )
                     event_data = None  # box/region hints unavailable; _build_classification_input_context handles None safely
                 else:
                     log.warning(
@@ -1447,6 +1454,32 @@ class AutoVideoClassifierService:
                 event_id=frigate_event,
                 error=str(exc),
             )
+
+        # Check the event clip cache before polling Frigate live.  This covers the
+        # case where the precheck bypass fired (Frigate API 404 but clip cached) — if
+        # we skip straight to _wait_for_clip, it will call Frigate again, fail for the
+        # same reason, and potentially trigger _auto_delete_if_missing against media
+        # we just confirmed is present.
+        cached_clip_path = media_cache.get_clip_path(frigate_event)
+        if cached_clip_path:
+            try:
+                clip_bytes = await asyncio.to_thread(Path(cached_clip_path).read_bytes)
+                if clip_bytes and (
+                    clip_bytes.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_bytes[:32]
+                ) and await self._clip_decodes(clip_bytes):
+                    log.info("Using cached event clip for auto video classification", event_id=frigate_event)
+                    return clip_bytes, None, "event"
+                log.warning(
+                    "Cached event clip was invalid; falling back to Frigate fetch",
+                    event_id=frigate_event,
+                    cached_path=str(cached_clip_path),
+                )
+            except Exception as exc:
+                log.debug(
+                    "Failed to read cached event clip for auto video classification",
+                    event_id=frigate_event,
+                    error=str(exc),
+                )
 
         clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
         return clip_bytes, clip_error, "event"

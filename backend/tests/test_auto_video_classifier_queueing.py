@@ -510,5 +510,60 @@ async def test_process_event_still_fails_when_precheck_returns_event_not_found_a
 
     await service._process_event("evt-no-cache", "cam1", skip_delay=True)
 
-    # No cached clip → must NOT proceed to classification.
+    # No cached clip → abort path taken: _update_status called with "failed"
     assert service.get_status()["failure_count"] == 0  # event_not_found excluded from circuit
+    service._update_status.assert_any_await("evt-no-cache", "failed", error="event_not_found", broadcast=True)
+
+
+@pytest.mark.asyncio
+async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate(monkeypatch):
+    """_load_preferred_clip must serve the cached event clip (media_cache) instead of
+    calling _wait_for_clip when a valid event clip is locally cached.
+
+    This prevents the scenario where the precheck bypass fires (has_clip=True) but
+    _wait_for_clip still goes to Frigate, fails, and triggers _auto_delete_if_missing
+    — which would delete the cached media we just confirmed was present."""
+    import asyncio as _asyncio
+    service = AutoVideoClassifierService()
+
+    valid_clip = b"\x00\x00\x00\x18ftypisomcachedclip"
+    fake_path = MagicMock()
+    fake_path.read_bytes = MagicMock(return_value=valid_clip)
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "get_clip_path",
+        lambda event_id: fake_path,
+    )
+    monkeypatch.setattr(
+        service,
+        "_clip_decodes",
+        AsyncMock(return_value=True),
+    )
+
+    import pathlib
+    monkeypatch.setattr(
+        auto_video_classifier_module,
+        "Path",
+        lambda p: fake_path,
+    )
+    monkeypatch.setattr(_asyncio, "to_thread", AsyncMock(return_value=valid_clip))
+
+    wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
+    monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
+
+    # No recording clip cached.
+    monkeypatch.setattr(
+        auto_video_classifier_module,
+        "_get_valid_cached_recording_clip_path",
+        AsyncMock(return_value=(None, None, None, None)),
+    )
+
+    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip(
+        "evt-cached-event-clip", skip_delay=True
+    )
+
+    assert clip_bytes == valid_clip
+    assert clip_error is None
+    assert clip_variant == "event"
+    wait_for_clip_mock.assert_not_awaited()  # must NOT have gone to Frigate

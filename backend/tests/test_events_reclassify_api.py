@@ -551,9 +551,10 @@ async def test_reclassify_snapshot_uses_cached_snapshot_when_frigate_event_not_f
              patch("app.routers.events.frigate_client") as mock_frigate, \
              patch("app.services.detection_service.DetectionService") as mock_detection_service, \
              patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=cached_snapshot_bytes)):
+             patch("app.routers.events.media_cache") as mock_cache:
             mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_cache.get_snapshot = AsyncMock(return_value=cached_snapshot_bytes)
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
             response = await client.post(f"/api/events/{event_id}/reclassify")
@@ -587,9 +588,10 @@ async def test_reclassify_snapshot_falls_back_to_cached_snapshot_when_frigate_fe
              patch("app.routers.events.frigate_client") as mock_frigate, \
              patch("app.services.detection_service.DetectionService") as mock_detection_service, \
              patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=cached_snapshot_bytes)):
+             patch("app.routers.events.media_cache") as mock_cache:
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_cache.get_snapshot = AsyncMock(return_value=cached_snapshot_bytes)
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
             response = await client.post(f"/api/events/{event_id}/reclassify")
@@ -613,9 +615,10 @@ async def test_reclassify_snapshot_returns_502_when_both_frigate_and_cache_empty
     try:
         with patch("app.routers.events.frigate_client") as mock_frigate, \
              patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=None)):
+             patch("app.routers.events.media_cache") as mock_cache:
             mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_cache.get_snapshot = AsyncMock(return_value=None)
 
             response = await client.post(f"/api/events/{event_id}/reclassify")
 
