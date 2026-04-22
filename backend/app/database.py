@@ -109,6 +109,10 @@ REQUIRED_COLUMNS = {
         "weather_precipitation",
         "weather_rain",
         "weather_snowfall",
+        "frigate_status",
+        "frigate_missing_since",
+        "frigate_last_checked_at",
+        "frigate_last_error",
     },
     "taxonomy_cache": {
         "thumbnail_url",

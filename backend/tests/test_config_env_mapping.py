@@ -61,6 +61,31 @@ def test_maintenance_max_concurrent_env_override(monkeypatch):
     assert loaded.maintenance.max_concurrent == 3
 
 
+def test_maintenance_missing_behavior_defaults_to_mark_missing(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MAINTENANCE__FRIGATE_MISSING_BEHAVIOR", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.frigate_missing_behavior == "mark_missing"
+
+
+def test_maintenance_legacy_auto_delete_missing_clips_migrates_to_delete(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"maintenance": {"auto_delete_missing_clips": True}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MAINTENANCE__FRIGATE_MISSING_BEHAVIOR", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.frigate_missing_behavior == "delete"
+
+
 def test_classification_env_overrides_file_values(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(

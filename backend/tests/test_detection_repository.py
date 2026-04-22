@@ -45,7 +45,11 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_result_blocked BOOLEAN DEFAULT 0,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
-            notified_at TIMESTAMP
+            notified_at TIMESTAMP,
+            frigate_status TEXT DEFAULT 'present',
+            frigate_missing_since TIMESTAMP,
+            frigate_last_checked_at TIMESTAMP,
+            frigate_last_error TEXT
         )
     """)
     await db.execute("""
@@ -113,6 +117,50 @@ async def test_detection_repository():
         
         fetched_updated = await repo.get_by_frigate_event("evt_1")
         assert fetched_updated.score == 0.95
+        assert fetched_updated.frigate_status == "present"
+
+
+@pytest.mark.asyncio
+async def test_mark_and_clear_frigate_missing_state():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        detection = Detection(
+            detection_time=datetime(2023, 1, 1, 12, 0, 0),
+            detection_index=1,
+            score=0.9,
+            display_name="Bird",
+            category_name="Bird",
+            frigate_event="evt_missing_state",
+            camera_name="cam_1",
+        )
+        await repo.create(detection)
+
+        checked_at = datetime(2026, 4, 22, 18, 0, 0)
+        await repo.mark_frigate_missing(
+            "evt_missing_state",
+            error="event_not_found",
+            checked_at=checked_at,
+        )
+
+        marked = await repo.get_by_frigate_event("evt_missing_state")
+        assert marked is not None
+        assert marked.frigate_status == "missing"
+        assert marked.frigate_last_error == "event_not_found"
+        assert marked.frigate_missing_since == checked_at
+        assert marked.frigate_last_checked_at == checked_at
+
+        restored_at = datetime(2026, 4, 22, 19, 0, 0)
+        await repo.mark_frigate_present("evt_missing_state", checked_at=restored_at)
+
+        restored = await repo.get_by_frigate_event("evt_missing_state")
+        assert restored is not None
+        assert restored.frigate_status == "present"
+        assert restored.frigate_missing_since is None
+        assert restored.frigate_last_error is None
+        assert restored.frigate_last_checked_at == restored_at
 
 
 @pytest.mark.asyncio

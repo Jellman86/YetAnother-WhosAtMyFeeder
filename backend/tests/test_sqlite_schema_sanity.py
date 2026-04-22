@@ -109,6 +109,22 @@ def test_detections_schema_includes_video_result_blocked(tmp_path):
         conn.close()
 
 
+def test_detections_schema_includes_frigate_missing_tracking_columns(tmp_path):
+    db_path = tmp_path / "schema_frigate_missing_tracking.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(detections);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert "frigate_status" in col_names
+        assert "frigate_missing_since" in col_names
+        assert "frigate_last_checked_at" in col_names
+        assert "frigate_last_error" in col_names
+    finally:
+        conn.close()
+
+
 def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_path):
     db_path = tmp_path / "schema_species_rollup.db"
     _upgrade_db(db_path)

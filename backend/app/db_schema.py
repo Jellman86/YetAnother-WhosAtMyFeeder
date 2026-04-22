@@ -44,6 +44,10 @@ detections = Table(
     Column("video_classification_backend", String),
     Column("video_classification_model_id", String),
     Column("video_result_blocked", Boolean, default=False),
+    Column("frigate_status", String, server_default="present"),
+    Column("frigate_missing_since", TIMESTAMP),
+    Column("frigate_last_checked_at", TIMESTAMP),
+    Column("frigate_last_error", String),
     # AI naturalist analysis
     Column("ai_analysis", String),
     Column("ai_analysis_timestamp", TIMESTAMP),
@@ -61,6 +65,7 @@ Index("idx_detections_taxa_id", detections.c.taxa_id)
 Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
+Index("idx_detections_frigate_status", detections.c.frigate_status)
 
 audio_detections = Table(
     "audio_detections",

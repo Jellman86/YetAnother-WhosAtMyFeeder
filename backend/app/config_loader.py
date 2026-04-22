@@ -132,6 +132,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'max_concurrent': int(os.environ.get('MAINTENANCE__MAX_CONCURRENT', '1')),
         'auto_delete_missing_clips': os.environ.get('MAINTENANCE__AUTO_DELETE_MISSING_CLIPS', 'false').lower() == 'true',
     }
+    if 'MAINTENANCE__FRIGATE_MISSING_BEHAVIOR' in os.environ:
+        maintenance_data['frigate_missing_behavior'] = os.environ['MAINTENANCE__FRIGATE_MISSING_BEHAVIOR']
     
     # Classification settings (loaded from file and selected env vars)
     legacy_use_cuda_env = os.environ.get('CLASSIFICATION__USE_CUDA')

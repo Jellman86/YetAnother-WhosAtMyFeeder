@@ -8,6 +8,8 @@ class APIModel(BaseModel):
         "detection_time",
         "video_classification_timestamp",
         "ai_analysis_timestamp",
+        "frigate_missing_since",
+        "frigate_last_checked_at",
         "first_seen",
         "last_seen",
         "cached_at",
@@ -50,6 +52,10 @@ class Detection(APIModel):
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    frigate_status: str = "present"
+    frigate_missing_since: datetime | None = None
+    frigate_last_checked_at: datetime | None = None
+    frigate_last_error: str | None = None
     # Video classification fields
     video_classification_score: float | None = None
     video_classification_label: str | None = None

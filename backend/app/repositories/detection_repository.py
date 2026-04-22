@@ -17,6 +17,17 @@ from app.utils.api_datetime import utc_naive_now
 
 log = structlog.get_logger()
 
+DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
+                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
+                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
+                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
+                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
+                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
+                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
+                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
+                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
+                      d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error"""
+
 @dataclass
 class Detection:
     detection_time: datetime
@@ -50,6 +61,10 @@ class Detection:
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
     notified_at: Optional[datetime] = None
+    frigate_status: str = "present"
+    frigate_missing_since: Optional[datetime] = None
+    frigate_last_checked_at: Optional[datetime] = None
+    frigate_last_error: Optional[str] = None
     # Video classification fields
     video_classification_score: Optional[float] = None
     video_classification_label: Optional[str] = None
@@ -221,6 +236,15 @@ def _row_to_detection(row) -> Detection:
 
     if len(row) > 39:
         d.video_result_blocked = bool(row[39])
+
+    if len(row) > 40:
+        d.frigate_status = row[40] or "present"
+    if len(row) > 41:
+        d.frigate_missing_since = _parse_datetime(row[41]) if row[41] else None
+    if len(row) > 42:
+        d.frigate_last_checked_at = _parse_datetime(row[42]) if row[42] else None
+    if len(row) > 43:
+        d.frigate_last_error = row[43]
 
     return d
 
@@ -599,15 +623,7 @@ class DetectionRepository:
 
     async def get_by_frigate_event(self, frigate_event: str) -> Optional[Detection]:
         async with self.db.execute(
-            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
-                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
-                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
-                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
-                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
-                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            f"""SELECT {DETECTION_SELECT_COLUMNS}
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event = ?""",
@@ -620,15 +636,7 @@ class DetectionRepository:
 
     async def get_by_id(self, detection_id: int) -> Optional[Detection]:
         async with self.db.execute(
-            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
-                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
-                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
-                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
-                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
-                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            f"""SELECT {DETECTION_SELECT_COLUMNS}
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.id = ?""",
@@ -704,15 +712,7 @@ class DetectionRepository:
         limit: int = 100,
     ) -> list[Detection]:
         async with self.db.execute(
-            """SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
-                      d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
-                      d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                      d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
-                      d.video_classification_score, d.video_classification_label, d.video_classification_index,
-                      d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
-                      d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                      CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                      d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            f"""SELECT {DETECTION_SELECT_COLUMNS}
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event IS NOT NULL
@@ -945,11 +945,12 @@ class DetectionRepository:
 
     async def create(self, detection: Detection):
         sub_label = normalize_sub_label(detection.sub_label)
+        checked_at = utc_naive_now()
         try:
             await self.db.execute("""
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0))
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, "present", None, checked_at, None))
             await self.db.commit()
         except aiosqlite.IntegrityError as e:
             if "UNIQUE constraint failed: detections.frigate_event" in str(e):
@@ -962,11 +963,12 @@ class DetectionRepository:
 
     async def update(self, detection: Detection):
         sub_label = normalize_sub_label(detection.sub_label)
+        checked_at = utc_naive_now()
         await self.db.execute("""
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, detection.frigate_event))
+        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, checked_at, detection.frigate_event))
         await self.db.commit()
 
     async def list_for_weather_backfill(self, start: str, end: str, only_missing: bool = True) -> list[dict]:
@@ -1052,6 +1054,7 @@ class DetectionRepository:
             Tuple of (was_inserted, was_updated)
         """
         sub_label = normalize_sub_label(detection.sub_label)
+        checked_at = utc_naive_now()
         insert_params = (
             detection.detection_time,
             detection.detection_index,
@@ -1078,13 +1081,17 @@ class DetectionRepository:
             getattr(detection, 'common_name', None),
             getattr(detection, 'taxa_id', None),
             1 if detection.manual_tagged else 0,
+            "present",
+            None,
+            checked_at,
+            None,
         )
 
         # Attempt insert first.
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, insert_params)
         inserted = await self._last_statement_changes() > 0
         if inserted:
@@ -1115,7 +1122,11 @@ class DetectionRepository:
                 scientific_name = ?,
                 common_name = ?,
                 taxa_id = ?,
-                manual_tagged = manual_tagged
+                manual_tagged = manual_tagged,
+                frigate_status = 'present',
+                frigate_missing_since = NULL,
+                frigate_last_checked_at = ?,
+                frigate_last_error = NULL
             WHERE frigate_event = ?
               AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
         """, (
@@ -1140,6 +1151,7 @@ class DetectionRepository:
             getattr(detection, 'scientific_name', None),
             getattr(detection, 'common_name', None),
             getattr(detection, 'taxa_id', None),
+            checked_at,
             detection.frigate_event,
             detection.score,
             1 if detection.audio_confirmed else 0
@@ -1161,10 +1173,11 @@ class DetectionRepository:
             True if inserted, False if already existed
         """
         sub_label = normalize_sub_label(detection.sub_label)
+        checked_at = utc_naive_now()
         await self.db.execute("""
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             detection.detection_time,
             detection.detection_index,
@@ -1190,7 +1203,11 @@ class DetectionRepository:
             detection.scientific_name,
             detection.common_name,
             detection.taxa_id,
-            1 if detection.manual_tagged else 0
+            1 if detection.manual_tagged else 0,
+            "present",
+            None,
+            checked_at,
+            None,
         ))
         changes = await self._last_statement_changes()
         await self.db.commit()
@@ -1213,15 +1230,7 @@ class DetectionRepository:
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         query = """
-            SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
-                   d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
-                   d.temperature, d.weather_condition, d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                   d.weather_precipitation, d.weather_rain, d.weather_snowfall, d.scientific_name, d.common_name, d.taxa_id,
-                   d.video_classification_score, d.video_classification_label, d.video_classification_index,
-                   d.video_classification_timestamp, d.video_classification_status, d.video_classification_error,
-                   d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                   CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            SELECT """ + DETECTION_SELECT_COLUMNS + """
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
@@ -1505,6 +1514,56 @@ class DetectionRepository:
                 await self.db.commit()
         return total_deleted
 
+    async def mark_frigate_missing(
+        self,
+        frigate_event: str,
+        *,
+        error: str,
+        checked_at: datetime | None = None,
+    ) -> bool:
+        checked = checked_at or utc_naive_now()
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET frigate_status = 'missing',
+                frigate_missing_since = COALESCE(frigate_missing_since, ?),
+                frigate_last_checked_at = ?,
+                frigate_last_error = ?
+            WHERE frigate_event = ?
+            """,
+            (checked, checked, error, frigate_event),
+        )
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed > 0
+
+    async def mark_frigate_present(
+        self,
+        frigate_event: str,
+        *,
+        checked_at: datetime | None = None,
+    ) -> bool:
+        checked = checked_at or utc_naive_now()
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET frigate_status = 'present',
+                frigate_missing_since = NULL,
+                frigate_last_checked_at = ?,
+                frigate_last_error = NULL
+            WHERE frigate_event = ?
+              AND (
+                  COALESCE(frigate_status, 'present') != 'present'
+                  OR frigate_missing_since IS NOT NULL
+                  OR frigate_last_error IS NOT NULL
+              )
+            """,
+            (checked, frigate_event),
+        )
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed > 0
+
     async def get_taxonomy_names(self, name: str, language: str | None = None) -> dict:
         """Get scientific and common names for a species from cache.
 
@@ -1735,18 +1794,7 @@ class DetectionRepository:
             species_name="Unknown Bird",
         )
         query = f"""
-            SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name,
-                   d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
-                   d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
-                   d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                   d.weather_precipitation, d.weather_rain, d.weather_snowfall,
-                   d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score,
-                   d.video_classification_label, d.video_classification_index,
-                   d.video_classification_timestamp, d.video_classification_status,
-                   d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp,
-                   d.manual_tagged, d.notified_at,
-                   CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                   d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            SELECT {DETECTION_SELECT_COLUMNS}
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             {join_sql}
@@ -3388,16 +3436,7 @@ class DetectionRepository:
             species_name=species_name,
         )
         if include_hidden:
-            query = f"""SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
-                          d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
-                          d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
-                          d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                          d.weather_precipitation, d.weather_rain, d.weather_snowfall,
-                          d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score, d.video_classification_label,
-                          d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
-                          d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                          CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            query = f"""SELECT {DETECTION_SELECT_COLUMNS}
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}
@@ -3405,16 +3444,7 @@ class DetectionRepository:
                    ORDER BY d.detection_time DESC LIMIT ?"""
             params = [*params, limit]
         else:
-            query = f"""SELECT d.id, d.detection_time, d.detection_index, d.score, d.display_name,
-                          d.category_name, d.frigate_event, d.camera_name, d.is_hidden, d.frigate_score, d.sub_label,
-                          d.audio_confirmed, d.audio_species, d.audio_score, d.temperature, d.weather_condition,
-                          d.weather_cloud_cover, d.weather_wind_speed, d.weather_wind_direction,
-                          d.weather_precipitation, d.weather_rain, d.weather_snowfall,
-                          d.scientific_name, d.common_name, d.taxa_id, d.video_classification_score, d.video_classification_label,
-                          d.video_classification_index, d.video_classification_timestamp, d.video_classification_status,
-                          d.video_classification_error, d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
-                          CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
-                          d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked
+            query = f"""SELECT {DETECTION_SELECT_COLUMNS}
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}

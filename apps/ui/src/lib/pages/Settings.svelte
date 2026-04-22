@@ -154,6 +154,7 @@
     let selectedCameras = $state<string[]>([]);
     let retentionDays = $state(0);
     let maintenanceMaxConcurrent = $state(1);
+    let frigateMissingBehavior = $state<'mark_missing' | 'keep' | 'delete'>('mark_missing');
     let autoPurgeMissingClips = $state(false);
     let autoPurgeMissingSnapshots = $state(false);
     let autoAnalyzeUnknowns = $state(false);
@@ -1683,6 +1684,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
+            { key: 'frigateMissingBehavior', val: frigateMissingBehavior, store: (s.frigate_missing_behavior as any) ?? 'mark_missing' },
             { key: 'autoPurgeMissingClips', val: autoPurgeMissingClips, store: s.auto_purge_missing_clips ?? false },
             { key: 'autoPurgeMissingSnapshots', val: autoPurgeMissingSnapshots, store: s.auto_purge_missing_snapshots ?? false },
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
@@ -2642,6 +2644,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
+            frigateMissingBehavior = (settings.frigate_missing_behavior as any) ?? 'mark_missing';
             autoPurgeMissingClips = settings.auto_purge_missing_clips ?? false;
             autoPurgeMissingSnapshots = settings.auto_purge_missing_snapshots ?? false;
             autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
@@ -2962,6 +2965,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 maintenance_max_concurrent: maintenanceMaxConcurrent,
+                frigate_missing_behavior: frigateMissingBehavior,
                 auto_purge_missing_clips: autoPurgeMissingClips,
                 auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
                 auto_analyze_unknowns: autoAnalyzeUnknowns,
@@ -3561,6 +3565,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 <DataSettings
                     bind:retentionDays
                     bind:maintenanceMaxConcurrent
+                    bind:frigateMissingBehavior
                     bind:autoPurgeMissingClips
                     bind:autoPurgeMissingSnapshots
                     bind:autoAnalyzeUnknowns

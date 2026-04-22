@@ -25,11 +25,13 @@ from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.ai_service import AIService
+from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
     BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
+    FrigateMissingBehavior,
     normalize_blocked_species_entries,
     normalize_crop_override_map,
     normalize_crop_model_override,
@@ -37,6 +39,7 @@ from app.config_models import (
 )
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.utils.frigate_recording import get_camera_retention_days
+from app.utils.api_datetime import utc_naive_now
 
 from fastapi import BackgroundTasks
 
@@ -385,6 +388,10 @@ class SettingsUpdate(BaseModel):
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     maintenance_max_concurrent: Optional[int] = Field(1, ge=1, le=8, description="Maximum concurrent maintenance workflows")
     auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
+    frigate_missing_behavior: FrigateMissingBehavior = Field(
+        "mark_missing",
+        description="How YA-WAMF should react when Frigate no longer has the event or retained media",
+    )
     auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
     auto_purge_missing_snapshots: bool = Field(False, description="Purge detections without snapshots during scheduled cleanup")
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
@@ -734,6 +741,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "retention_days": settings.maintenance.retention_days,
         "maintenance_max_concurrent": settings.maintenance.max_concurrent,
         "auto_delete_missing_clips": settings.maintenance.auto_delete_missing_clips,
+        "frigate_missing_behavior": settings.maintenance.frigate_missing_behavior,
         "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
         "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
@@ -975,6 +983,8 @@ async def update_settings(
         settings.maintenance.max_concurrent = update.maintenance_max_concurrent
     if "auto_delete_missing_clips" in fields_set:
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
+    if "frigate_missing_behavior" in fields_set:
+        settings.maintenance.frigate_missing_behavior = update.frigate_missing_behavior
     if "auto_purge_missing_clips" in fields_set:
         settings.maintenance.auto_purge_missing_clips = update.auto_purge_missing_clips
     if "auto_purge_missing_snapshots" in fields_set:
@@ -1449,6 +1459,9 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         return {
             "status": "skipped",
             "deleted_count": 0,
+            "marked_missing_count": 0,
+            "kept_count": 0,
+            "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
             "message": "Clip fetching is disabled in settings."
@@ -1462,6 +1475,9 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         return {
             "status": "completed",
             "deleted_count": 0,
+            "marked_missing_count": 0,
+            "kept_count": 0,
+            "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
             "message": "No detections found"
@@ -1476,6 +1492,9 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         return {
             "status": "failed",
             "deleted_count": 0,
+            "marked_missing_count": 0,
+            "kept_count": 0,
+            "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
             "message": "Frigate is not reachable. Aborting purge."
@@ -1483,30 +1502,54 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool]:
+    async def check(event_id: str) -> tuple[str, bool, str | None]:
         async with semaphore:
-            event_data, _error = await frigate_client.get_event_with_error(event_id)
+            event_data, error = await frigate_client.get_event_with_error(event_id)
             if not event_data:
-                return event_id, True
+                return event_id, True, error or "event_not_found"
             if kind == "clip":
-                return event_id, not event_data.get("has_clip", False)
-            return event_id, not event_data.get("has_snapshot", True)
+                has_media = bool(event_data.get("has_clip", False))
+                return event_id, not has_media, None if has_media else "clip_unavailable"
+            has_media = bool(event_data.get("has_snapshot", True))
+            return event_id, not has_media, None if has_media else "snapshot_unavailable"
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
-    missing_ids = [event_id for event_id, missing in results if missing]
-
+    missing_count = sum(1 for _event_id, missing, _error in results if missing)
     deleted_count = 0
-    if missing_ids:
-        await asyncio.gather(*(media_cache.delete_cached_media(event_id) for event_id in missing_ids))
-        async with get_db() as db:
-            repo = DetectionRepository(db)
-            deleted_count = await repo.delete_by_frigate_events(missing_ids)
+    marked_missing_count = 0
+    kept_count = 0
+    cleared_missing_count = 0
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        for event_id, missing, error in results:
+            if missing:
+                counts = await apply_missing_policy(
+                    repo=repo,
+                    frigate_event=event_id,
+                    error=error or f"{kind}_unavailable",
+                    source="maintenance_scan",
+                    media_kind=kind,
+                )
+                deleted_count += counts["deleted_count"]
+                marked_missing_count += counts["marked_missing_count"]
+                kept_count += counts["kept_count"]
+                continue
+            if await clear_missing_state_if_present(
+                repo=repo,
+                frigate_event=event_id,
+                source="maintenance_scan",
+                media_kind=kind,
+            ):
+                cleared_missing_count += 1
 
     return {
         "status": "completed",
         "deleted_count": deleted_count,
+        "marked_missing_count": marked_missing_count,
+        "kept_count": kept_count,
+        "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
-        "missing": len(missing_ids)
+        "missing": missing_count
     }
 
 def _get_camera_retention_days(frigate_config: object, camera_name: str) -> float | None:

@@ -212,7 +212,7 @@ async def run_cleanup():
             try:
                 from app.routers.settings import _purge_missing_media
                 result = await _purge_missing_media("clip")
-                if result.get("deleted_count", 0) > 0:
+                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
                     log.info("Scheduled purge missing clips completed", **result)
             except Exception as e:
                 log.error("Scheduled purge missing clips failed", error=str(e))
@@ -222,7 +222,7 @@ async def run_cleanup():
             try:
                 from app.routers.settings import _purge_missing_media
                 result = await _purge_missing_media("snapshot")
-                if result.get("deleted_count", 0) > 0:
+                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
                     log.info("Scheduled purge missing snapshots completed", **result)
             except Exception as e:
                 log.error("Scheduled purge missing snapshots failed", error=str(e))

@@ -27,6 +27,7 @@ export interface Settings {
     cameras: string[];
     retention_days: number;
     maintenance_max_concurrent?: number;
+    frigate_missing_behavior?: 'mark_missing' | 'keep' | 'delete' | string;
     auto_purge_missing_clips: boolean;
     auto_purge_missing_snapshots: boolean;
     auto_analyze_unknowns: boolean;

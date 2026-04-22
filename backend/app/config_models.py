@@ -10,6 +10,8 @@ from app.services.bird_model_region_resolver import normalize_bird_model_region
 
 log = structlog.get_logger()
 
+FrigateMissingBehavior = Literal["mark_missing", "keep", "delete"]
+
 
 def normalize_crop_model_override(value: Any) -> str:
     normalized = str(value or "default").strip().lower()
@@ -373,6 +375,10 @@ class MaintenanceSettings(BaseModel):
         default=False,
         description="Auto-delete detections when the Frigate event/clip is missing"
     )
+    frigate_missing_behavior: FrigateMissingBehavior = Field(
+        default="mark_missing",
+        description="How YA-WAMF should react when Frigate no longer has an event or retained media",
+    )
     auto_purge_missing_clips: bool = Field(
         default=False,
         description="Purge detections without clips during scheduled cleanup"
@@ -385,6 +391,22 @@ class MaintenanceSettings(BaseModel):
         default=False,
         description="Analyze unknown detections during scheduled cleanup"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_missing_behavior(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        behavior = str(normalized.get("frigate_missing_behavior") or "").strip().lower()
+        if behavior:
+            normalized["frigate_missing_behavior"] = behavior
+            return normalized
+        if bool(normalized.get("auto_delete_missing_clips")):
+            normalized["frigate_missing_behavior"] = "delete"
+        else:
+            normalized["frigate_missing_behavior"] = "mark_missing"
+        return normalized
 
 
 class MediaCacheSettings(BaseModel):

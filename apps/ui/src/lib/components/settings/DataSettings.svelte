@@ -8,6 +8,7 @@
         maintenanceStats,
         retentionDays = $bindable(0),
         maintenanceMaxConcurrent = $bindable(1),
+        frigateMissingBehavior = $bindable<'mark_missing' | 'keep' | 'delete'>('mark_missing'),
         autoPurgeMissingClips = $bindable(false),
         autoPurgeMissingSnapshots = $bindable(false),
         autoAnalyzeUnknowns = $bindable(false),
@@ -62,6 +63,7 @@
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
         maintenanceMaxConcurrent: number;
+        frigateMissingBehavior: 'mark_missing' | 'keep' | 'delete';
         autoPurgeMissingClips: boolean;
         autoPurgeMissingSnapshots: boolean;
         autoAnalyzeUnknowns: boolean;
@@ -260,15 +262,33 @@
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">
                         {$_('settings.data.media_integrity_title', { default: 'Media Integrity Cleanup' })}
                     </p>
+                    <div>
+                        <label for="frigate-missing-behavior" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                            {$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                        </label>
+                        <select
+                            id="frigate-missing-behavior"
+                            bind:value={frigateMissingBehavior}
+                            aria-label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                        >
+                            <option value="mark_missing">{$_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' })}</option>
+                            <option value="keep">{$_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' })}</option>
+                            <option value="delete">{$_('settings.data.frigate_missing_behavior_delete', { default: 'Delete local data' })}</option>
+                        </select>
+                        <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                            {$_('settings.data.frigate_missing_behavior_note', { default: 'This policy is applied both during manual scans and scheduled checks. Use mark-missing if YA-WAMF retention should be allowed to diverge from Frigate.' })}
+                        </p>
+                    </div>
                     <button
                         onclick={handlePurgeMissingClips}
                         disabled={purgingMissingClips}
-                        aria-label={$_('settings.data.purge_missing_clips', { default: 'Remove detections without clips' })}
+                        aria-label={$_('settings.data.purge_missing_clips', { default: 'Scan detections whose clips are missing in Frigate' })}
                         class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
                     >
                         {purgingMissingClips
                             ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                            : $_('settings.data.purge_missing_clips', { default: 'Remove detections without clips' })}
+                            : $_('settings.data.purge_missing_clips', { default: 'Scan detections whose clips are missing in Frigate' })}
                     </button>
                     <div class="flex items-center justify-between px-1">
                         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}</span>
@@ -287,12 +307,12 @@
                     <button
                         onclick={handlePurgeMissingSnapshots}
                         disabled={purgingMissingSnapshots}
-                        aria-label={$_('settings.data.purge_missing_snapshots', { default: 'Remove detections without snapshots' })}
+                        aria-label={$_('settings.data.purge_missing_snapshots', { default: 'Scan detections whose snapshots are missing in Frigate' })}
                         class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
                     >
                         {purgingMissingSnapshots
                             ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                            : $_('settings.data.purge_missing_snapshots', { default: 'Remove detections without snapshots' })}
+                            : $_('settings.data.purge_missing_snapshots', { default: 'Scan detections whose snapshots are missing in Frigate' })}
                     </button>
                     <div class="flex items-center justify-between px-1">
                         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}</span>
@@ -309,7 +329,7 @@
                         </button>
                     </div>
                     <p class="text-[10px] text-slate-400 font-bold italic">
-                        {$_('settings.data.media_integrity_note', { default: 'Deletes detections when Frigate media is missing.' })}
+                        {$_('settings.data.media_integrity_note', { default: 'These scans apply the selected upstream-missing policy instead of always deleting detections.' })}
                     </p>
                 </div>
             </div>

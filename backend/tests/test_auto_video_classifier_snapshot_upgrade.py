@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 import pytest
 
 from app.config import settings
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services import auto_video_classifier_service as auto_video_classifier_module
 from app.services.classifier_service import (
     BackgroundImageClassificationUnavailableError,
@@ -20,8 +22,50 @@ AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierSer
 @pytest.fixture(autouse=True)
 def reset_settings():
     original_hq_enabled = settings.media_cache.high_quality_event_snapshots
+    original_auto_delete_missing_clips = settings.maintenance.auto_delete_missing_clips
     yield
     settings.media_cache.high_quality_event_snapshots = original_hq_enabled
+    settings.maintenance.auto_delete_missing_clips = original_auto_delete_missing_clips
+
+
+@pytest.mark.asyncio
+async def test_auto_delete_if_missing_marks_detection_when_policy_is_mark_missing():
+    service = AutoVideoClassifierService()
+    settings.maintenance.auto_delete_missing_clips = True
+    settings.maintenance.frigate_missing_behavior = "mark_missing"
+    error_diagnostics_history.clear()
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=auto_video_classifier_module.utc_naive_now(),
+                detection_index=1,
+                score=0.9,
+                display_name="Bird",
+                category_name="Bird",
+                frigate_event="evt-auto-mark-missing",
+                camera_name="cam_1",
+            )
+        )
+
+    with patch.object(auto_video_classifier_module.media_cache, "delete_cached_media", new=AsyncMock()) as delete_cached_media:
+        await service._auto_delete_if_missing("evt-auto-mark-missing", "event_not_found")
+
+    delete_cached_media.assert_not_awaited()
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event("evt-auto-mark-missing")
+
+    assert detection is not None
+    assert detection.frigate_status == "missing"
+    assert detection.frigate_last_error == "event_not_found"
+    history = error_diagnostics_history.snapshot(limit=10)
+    assert any(
+        event.get("reason_code") == "frigate_missing_marked"
+        and event.get("event_id") == "evt-auto-mark-missing"
+        for event in history["events"]
+    )
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -1540,7 +1541,7 @@ class AutoVideoClassifierService:
             return False
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
-        """Auto-delete detection when clip/event is missing (if enabled)."""
+        """Apply the configured missing-upstream policy when clip/event is missing."""
         if not settings.maintenance.auto_delete_missing_clips:
             return
 
@@ -1556,22 +1557,18 @@ class AutoVideoClassifierService:
             return
 
         try:
-            await media_cache.delete_cached_media(frigate_event)
             async with get_db() as db:
                 repo = DetectionRepository(db)
-                deleted = await repo.delete_by_frigate_event(frigate_event)
-            if deleted:
-                await broadcaster.broadcast({
-                    "type": "detection_deleted",
-                    "data": {
-                        "frigate_event": frigate_event,
-                        "timestamp": serialize_api_datetime(utc_naive_now())
-                    }
-                })
-                log.info("Auto-deleted detection due to missing clip/event",
-                         event_id=frigate_event, error=error)
+                await apply_missing_policy(
+                    repo=repo,
+                    frigate_event=frigate_event,
+                    error=error,
+                    source="auto_video_classifier",
+                    media_kind="clip",
+                    broadcast_delete=True,
+                )
         except Exception as e:
-            log.error("Failed to auto-delete missing clip detection",
+            log.error("Failed to apply missing clip policy",
                       event_id=frigate_event, error=str(e))
 
     async def _update_status(self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False):
