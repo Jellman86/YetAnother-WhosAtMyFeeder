@@ -2302,6 +2302,69 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
 
 
 @pytest.mark.asyncio
+async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_timeouts(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    """Maintenance video timeouts should trigger the same GPU fallback as live
+    lease expiries. Exercises the issue-33 path where overnight batch runs see
+    no live traffic to surface an unhealthy Intel GPU on their own."""
+    fallback_model = MagicMock(loaded=True, error=None)
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        monkeypatch.setattr(
+            classifier_service_module,
+            "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
+            2,
+            raising=False,
+        )
+        service = ClassifierService()
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+        service._image_execution_mode = "in_process"
+        service._accel_caps["intel_gpu_available"] = True
+        service._accel_caps["intel_cpu_available"] = True
+        service._load_runtime_fallback_bird_model = MagicMock(
+            return_value=(fallback_model, "openvino", "intel_cpu", "maintenance fallback")
+        )
+
+        service.register_gpu_unhealthy_signal("maintenance_video_timeout", event_id="evt-1")
+        # After first signal, threshold not yet met — no swap.
+        assert service._models.get("bird") is not fallback_model
+
+        service.register_gpu_unhealthy_signal("snapshot_fallback_lease_expired", event_id="evt-2")
+        # After second signal (threshold=2), fallback should engage.
+        assert service._models["bird"] is fallback_model
+        assert service._active_inference_provider == "intel_cpu"
+        assert service._last_runtime_recovery["reason"] == "gpu_unhealthy_fallback"
+        assert service._last_runtime_recovery["trigger_source"] == "snapshot_fallback_lease_expired"
+        service._load_runtime_fallback_bird_model.assert_called_once()
+
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    """Signals from non-OpenVINO-GPU runtimes must not trigger a model swap."""
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        monkeypatch.setattr(
+            classifier_service_module,
+            "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
+            1,
+            raising=False,
+        )
+        service = ClassifierService()
+        service._inference_backend = "onnxruntime"
+        service._active_inference_provider = "cpu"
+        service._image_execution_mode = "in_process"
+        service._load_runtime_fallback_bird_model = MagicMock()
+
+        service.register_gpu_unhealthy_signal("maintenance_video_timeout")
+        service._load_runtime_fallback_bird_model.assert_not_called()
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_onnx_cpu(
     mock_tflite, mock_os_path_exists
 ):
