@@ -19,6 +19,9 @@ def _sample(
     event_dropped: int | None = None,
     event_critical_failures: int | None = 0,
     live_image_admission_timeouts: int | None = 0,
+    live_image_abandoned: int | None = 0,
+    classify_snapshot_timeouts: int | None = 0,
+    classify_snapshot_overloaded: int | None = 0,
     video_pending: int | None = 0,
     video_active: int | None = 0,
     video_failure_count: int | None = 0,
@@ -39,6 +42,9 @@ def _sample(
         event_dropped_count=event_dropped if event_dropped is not None else 0,
         event_critical_failures=event_critical_failures,
         live_image_admission_timeouts=live_image_admission_timeouts,
+        live_image_abandoned=live_image_abandoned,
+        classify_snapshot_timeouts=classify_snapshot_timeouts,
+        classify_snapshot_overloaded=classify_snapshot_overloaded,
         video_pending_count=video_pending,
         video_active_count=video_active,
         video_failure_count=video_failure_count,
@@ -197,6 +203,58 @@ def test_evaluate_soak_run_fails_when_live_admission_timeouts_increase():
     assert result["passed"] is False
     assert result["live_image_admission_timeouts_delta"] == 5
     assert any("live image admission timeouts increased" in reason.lower() for reason in result["failure_reasons"])
+
+
+def test_evaluate_soak_run_fails_when_live_image_abandoned_increases():
+    start = datetime(2026, 4, 23, 12, 0, tzinfo=timezone.utc)
+    samples = [
+        _sample(start + timedelta(seconds=0), frigate_count=300, birdnet_count=400, frigate_age=1.0, birdnet_age=1.0, live_image_abandoned=0),
+        _sample(start + timedelta(seconds=10), frigate_count=304, birdnet_count=404, frigate_age=1.0, birdnet_age=1.1, live_image_abandoned=2),
+        _sample(start + timedelta(seconds=20), frigate_count=308, birdnet_count=408, frigate_age=1.1, birdnet_age=1.0, live_image_abandoned=5),
+    ]
+    thresholds = SoakThresholds(
+        min_samples=3,
+        min_frigate_messages_delta=2,
+        min_birdnet_messages_delta=2,
+        max_degraded_ratio=1.0,
+        max_pressure_level="critical",
+        frigate_stall_age_seconds=60.0,
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=20.0,
+    )
+
+    result = evaluate_soak_run(samples, thresholds)
+
+    assert result["passed"] is False
+    assert result["live_image_abandoned_delta"] == 5
+    assert any("live image abandoned work increased" in reason.lower() for reason in result["failure_reasons"])
+
+
+def test_evaluate_soak_run_fails_when_classify_snapshot_drop_reasons_increase():
+    start = datetime(2026, 4, 23, 12, 30, tzinfo=timezone.utc)
+    samples = [
+        _sample(start + timedelta(seconds=0), frigate_count=300, birdnet_count=400, frigate_age=1.0, birdnet_age=1.0, classify_snapshot_timeouts=0, classify_snapshot_overloaded=0),
+        _sample(start + timedelta(seconds=10), frigate_count=304, birdnet_count=404, frigate_age=1.0, birdnet_age=1.1, classify_snapshot_timeouts=2, classify_snapshot_overloaded=1),
+        _sample(start + timedelta(seconds=20), frigate_count=308, birdnet_count=408, frigate_age=1.1, birdnet_age=1.0, classify_snapshot_timeouts=5, classify_snapshot_overloaded=3),
+    ]
+    thresholds = SoakThresholds(
+        min_samples=3,
+        min_frigate_messages_delta=2,
+        min_birdnet_messages_delta=2,
+        max_degraded_ratio=1.0,
+        max_pressure_level="critical",
+        frigate_stall_age_seconds=60.0,
+        max_birdnet_active_age_seconds=20.0,
+        min_stall_duration_seconds=20.0,
+    )
+
+    result = evaluate_soak_run(samples, thresholds)
+
+    assert result["passed"] is False
+    assert result["classify_snapshot_timeout_delta"] == 5
+    assert result["classify_snapshot_overloaded_delta"] == 3
+    assert any("classify_snapshot_timeout drops increased" in reason for reason in result["failure_reasons"])
+    assert any("classify_snapshot_overloaded drops increased" in reason for reason in result["failure_reasons"])
 
 
 def test_evaluate_soak_run_fails_when_expected_stall_reconnect_does_not_happen():

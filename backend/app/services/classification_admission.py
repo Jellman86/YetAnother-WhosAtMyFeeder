@@ -31,13 +31,24 @@ class ClassificationAdmissionTimeoutError(ClassificationAdmissionError):
 class ClassificationLeaseExpiredError(ClassificationAdmissionError):
     """Raised when admitted work exceeds its lease deadline."""
 
-    def __init__(self, priority: WorkPriority, kind: str, timeout_seconds: float):
+    def __init__(
+        self,
+        priority: WorkPriority,
+        kind: str,
+        timeout_seconds: float,
+        *,
+        context: dict[str, Any] | None = None,
+    ):
         super().__init__(
             f"classification_lease_expired priority={priority} kind={kind} timeout={timeout_seconds}"
         )
         self.priority = priority
         self.kind = kind
         self.timeout_seconds = timeout_seconds
+        self.context = dict(context or {})
+        for key, value in self.context.items():
+            if key.isidentifier() and not hasattr(self, key):
+                setattr(self, key, value)
 
 
 @dataclass(slots=True)
@@ -53,6 +64,7 @@ class _WorkItem:
     result_future: asyncio.Future[Any]
     runner_accepts_work_metadata: bool = False
     on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None
+    context: dict[str, Any] | None = None
     state: WorkState = "queued"
     lease_token: int = 0
     admitted_at: float | None = None
@@ -113,6 +125,7 @@ class ClassificationAdmissionCoordinator:
         lease_timeout_seconds: float | None = None,
         runner_accepts_work_metadata: bool = False,
         on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> Any:
         if priority not in {"live", "background"}:
             raise ValueError(f"unsupported priority: {priority}")
@@ -148,6 +161,7 @@ class ClassificationAdmissionCoordinator:
             result_future=loop.create_future(),
             runner_accepts_work_metadata=bool(runner_accepts_work_metadata),
             on_lease_expired=on_lease_expired,
+            context=dict(context or {}),
         )
 
         async with self._condition:
@@ -357,13 +371,18 @@ class ClassificationAdmissionCoordinator:
             item.state = "abandoned"
             item.deadline_at = None
             self._abandoned[item.priority] += 1
-            self._record_recent_outcome_locked(item, "abandoned")
+            self._record_recent_outcome_locked(
+                item,
+                "abandoned",
+                lease_timeout_seconds=item.lease_timeout_seconds,
+            )
             if not item.result_future.done():
                 item.result_future.set_exception(
                     ClassificationLeaseExpiredError(
                         item.priority,
                         item.kind,
                         item.lease_timeout_seconds,
+                        context=item.context,
                     )
                 )
             if item.on_lease_expired is not None:
@@ -400,6 +419,8 @@ class ClassificationAdmissionCoordinator:
             "outcome": outcome,
             "timestamp": time.time(),
         }
+        if item.context:
+            payload.update(item.context)
         payload.update(extra)
         self._recent_outcomes.append(payload)
 

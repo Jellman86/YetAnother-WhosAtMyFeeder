@@ -29,6 +29,9 @@ class SoakSample:
     event_dropped_count: int | None
     event_critical_failures: int | None
     live_image_admission_timeouts: int | None
+    live_image_abandoned: int | None
+    classify_snapshot_timeouts: int | None
+    classify_snapshot_overloaded: int | None
     video_pending_count: int | None
     video_active_count: int | None
     video_failure_count: int | None
@@ -73,6 +76,8 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     topic_ages = topic_ages if isinstance(topic_ages, dict) else {}
     event_pipeline = payload.get("event_pipeline") if isinstance(payload, dict) else {}
     event_pipeline = event_pipeline if isinstance(event_pipeline, dict) else {}
+    drop_reasons = event_pipeline.get("drop_reasons")
+    drop_reasons = drop_reasons if isinstance(drop_reasons, dict) else {}
 
     return SoakSample(
         observed_at=now,
@@ -89,6 +94,9 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         event_dropped_count=_safe_int_or_none(event_pipeline.get("dropped_events")),
         event_critical_failures=_safe_int_or_none(event_pipeline.get("critical_failures")),
         live_image_admission_timeouts=_safe_int_or_none(live_image.get("admission_timeouts")),
+        live_image_abandoned=_safe_int_or_none(live_image.get("abandoned")),
+        classify_snapshot_timeouts=_safe_int_or_none(drop_reasons.get("classify_snapshot_timeout")),
+        classify_snapshot_overloaded=_safe_int_or_none(drop_reasons.get("classify_snapshot_overloaded")),
         video_pending_count=_safe_int_or_none(video_classifier.get("pending")),
         video_active_count=_safe_int_or_none(video_classifier.get("active")),
         video_failure_count=_safe_int_or_none(video_classifier.get("failure_count")),
@@ -114,6 +122,9 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
     event_dropped_delta = _count_delta(samples, lambda sample: sample.event_dropped_count)
     event_critical_failures_delta = _count_delta(samples, lambda sample: sample.event_critical_failures)
     live_image_admission_timeouts_delta = _count_delta(samples, lambda sample: sample.live_image_admission_timeouts)
+    live_image_abandoned_delta = _count_delta(samples, lambda sample: sample.live_image_abandoned)
+    classify_snapshot_timeout_delta = _count_delta(samples, lambda sample: sample.classify_snapshot_timeouts)
+    classify_snapshot_overloaded_delta = _count_delta(samples, lambda sample: sample.classify_snapshot_overloaded)
     video_failure_count_delta = _count_delta(samples, lambda sample: sample.video_failure_count)
     video_pending_values = [sample.video_pending_count for sample in samples if sample.video_pending_count is not None]
     max_video_pending_seen = max(video_pending_values) if video_pending_values else None
@@ -194,6 +205,24 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
             f"(+{live_image_admission_timeouts_delta})."
         )
 
+    if live_image_abandoned_delta is not None and live_image_abandoned_delta > 0:
+        reasons.append(
+            "Live image abandoned work increased during soak run "
+            f"(+{live_image_abandoned_delta})."
+        )
+
+    if classify_snapshot_timeout_delta is not None and classify_snapshot_timeout_delta > 0:
+        reasons.append(
+            "classify_snapshot_timeout drops increased during soak run "
+            f"(+{classify_snapshot_timeout_delta})."
+        )
+
+    if classify_snapshot_overloaded_delta is not None and classify_snapshot_overloaded_delta > 0:
+        reasons.append(
+            "classify_snapshot_overloaded drops increased during soak run "
+            f"(+{classify_snapshot_overloaded_delta})."
+        )
+
     if not thresholds.allow_video_circuit_open and video_circuit_open_observed:
         reasons.append("Video classification circuit opened during soak run.")
 
@@ -231,6 +260,9 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         "event_dropped_delta": event_dropped_delta,
         "event_critical_failures_delta": event_critical_failures_delta,
         "live_image_admission_timeouts_delta": live_image_admission_timeouts_delta,
+        "live_image_abandoned_delta": live_image_abandoned_delta,
+        "classify_snapshot_timeout_delta": classify_snapshot_timeout_delta,
+        "classify_snapshot_overloaded_delta": classify_snapshot_overloaded_delta,
         "video_failure_count_delta": video_failure_count_delta,
         "max_video_pending_seen": max_video_pending_seen,
         "video_circuit_open_observed": video_circuit_open_observed,

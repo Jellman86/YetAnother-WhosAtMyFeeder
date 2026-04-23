@@ -16,6 +16,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
@@ -156,6 +157,18 @@ CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS = max(
 CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS = max(
     0.1,
     float(os.getenv("CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS", "45")),
+)
+CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD = max(
+    1,
+    int(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD", "3")),
+)
+CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS", "600")),
+)
+CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS", "600")),
 )
 CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
     1.0,
@@ -2191,6 +2204,10 @@ class ClassifierService:
         self._runtime_gpu_restore_failures = 0
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
         self._gpu_restore_not_before_monotonic: float = 0.0
+        self._live_gpu_lease_expiry_times: deque[float] = deque(
+            maxlen=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD
+        )
+        self._live_gpu_lease_fallback_until_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._bird_model_artifact_metadata: dict[str, Any] = {}
         self._model_config_warnings: list[str] = []
@@ -2474,14 +2491,26 @@ class ClassifierService:
             if replacement is None:
                 continue
             reason = (
-                f"Runtime fallback after invalid {failed_backend}/{failed_provider} output: "
+                f"Runtime fallback after {failed_backend}/{failed_provider} failure: "
                 f"{failure_detail}; using {backend}/{provider}"
             )
             return replacement, backend, provider, reason
         return None, None, None, None
 
     def _gpu_restore_eligible(self) -> bool:
-        if self._inference_backend != "openvino" or self._active_inference_provider != "intel_cpu":
+        restoring_after_live_lease_fallback = (
+            isinstance(self._last_runtime_recovery, dict)
+            and self._last_runtime_recovery.get("reason") == "live_gpu_lease_expiry_fallback"
+            and not (
+                self._inference_backend == "openvino"
+                and self._active_inference_provider == "intel_gpu"
+            )
+        )
+        restoring_after_cpu_fallback = (
+            self._inference_backend == "openvino"
+            and self._active_inference_provider == "intel_cpu"
+        )
+        if not restoring_after_live_lease_fallback and not restoring_after_cpu_fallback:
             return False
         if time.monotonic() < self._gpu_restore_not_before_monotonic:
             return False
@@ -2501,6 +2530,77 @@ class ClassifierService:
 
     def _record_gpu_success(self) -> None:
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
+
+    def _live_gpu_lease_fallback_active(self) -> bool:
+        return time.monotonic() < self._live_gpu_lease_fallback_until_monotonic
+
+    def _record_live_lease_expiry_and_maybe_fallback(self, error: ClassificationLeaseExpiredError) -> None:
+        if error.priority != "live":
+            return
+
+        now = time.monotonic()
+        window_start = now - CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS
+        while self._live_gpu_lease_expiry_times and self._live_gpu_lease_expiry_times[0] < window_start:
+            self._live_gpu_lease_expiry_times.popleft()
+        self._live_gpu_lease_expiry_times.append(now)
+
+        if self._image_execution_mode != "in_process":
+            return
+        if self._inference_backend != "openvino" or self._active_inference_provider != "intel_gpu":
+            return
+        if len(self._live_gpu_lease_expiry_times) < CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD:
+            return
+        if self._live_gpu_lease_fallback_active():
+            return
+
+        detail = (
+            "Live OpenVINO Intel GPU inference exceeded lease repeatedly; "
+            "using a safer live-image fallback during cooldown"
+        )
+        with self._models_lock:
+            replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
+                failed_backend="openvino",
+                failed_provider="intel_gpu",
+                failure_detail=detail,
+            )
+            if replacement is None or backend is None or provider is None or reason is None:
+                self._last_runtime_recovery = {
+                    "status": "failed",
+                    "failed_backend": "openvino",
+                    "failed_provider": "intel_gpu",
+                    "detail": detail,
+                    "reason": "live_gpu_lease_expiry_fallback_unavailable",
+                    "at": time.time(),
+                }
+                return
+
+            old_model = self._models.get("bird")
+            self._models["bird"] = replacement
+            self._inference_backend = backend
+            self._active_inference_provider = provider
+            self._live_gpu_lease_fallback_until_monotonic = (
+                now + CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS
+            )
+            self._gpu_restore_not_before_monotonic = self._live_gpu_lease_fallback_until_monotonic
+            self._append_inference_fallback_reason(reason)
+            self._runtime_fallback_recoveries += 1
+            self._last_runtime_recovery = {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "intel_gpu",
+                "recovered_backend": backend,
+                "recovered_provider": provider,
+                "detail": detail,
+                "reason": "live_gpu_lease_expiry_fallback",
+                "at": time.time(),
+                "cooldown_seconds": CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
+            }
+            if old_model is not None and old_model is not replacement and hasattr(old_model, "cleanup"):
+                try:
+                    old_model.cleanup()
+                except Exception:
+                    pass
+            self._live_gpu_lease_expiry_times.clear()
 
     def _maybe_restore_gpu_provider(self) -> None:
         with self._models_lock:
@@ -2525,6 +2625,8 @@ class ClassifierService:
             self._models["bird"] = replacement
             self._inference_backend = "openvino"
             self._active_inference_provider = "intel_gpu"
+            self._live_gpu_lease_fallback_until_monotonic = 0.0
+            self._live_gpu_lease_expiry_times.clear()
             self._record_gpu_success()
             self._runtime_gpu_restore_successes += 1
             if hasattr(current, "cleanup"):
@@ -3020,9 +3122,12 @@ class ClassifierService:
         supervisor_metrics = self._get_supervisor_metrics() or {}
         live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
         worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
+        live_gpu_fallback_active = self._live_gpu_lease_fallback_active()
         recovery_reason = None
         if worker_circuit_open:
             recovery_reason = "worker_circuit_open"
+        elif live_gpu_fallback_active:
+            recovery_reason = "live_gpu_lease_expiry_fallback"
         elif recovery_active:
             recovery_reason = "stale_work_reclaim"
 
@@ -3040,7 +3145,7 @@ class ClassifierService:
             pressure_level = "critical"
 
         status = "ok"
-        if recovery_active or pressure_level == "critical" or worker_circuit_open:
+        if recovery_active or live_gpu_fallback_active or pressure_level == "critical" or worker_circuit_open:
             status = "degraded"
 
         return {
@@ -3054,10 +3159,15 @@ class ClassifierService:
             "abandoned": int(live_metrics["abandoned"]),
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
             "oldest_running_age_seconds": oldest_age,
-            "recovery_active": recovery_active or worker_circuit_open,
+            "recovery_active": recovery_active or worker_circuit_open or live_gpu_fallback_active,
             "recovery_reason": recovery_reason,
             "recent_abandoned": recent_counts["recent_live_abandoned"],
             "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
+            "gpu_fallback_active": live_gpu_fallback_active,
+            "gpu_fallback_cooldown_remaining_seconds": max(
+                0.0,
+                round(self._live_gpu_lease_fallback_until_monotonic - time.monotonic(), 3),
+            ),
         }
 
     def _describe_background_image_health(self, admission_metrics: dict) -> dict:
@@ -3230,6 +3340,7 @@ class ClassifierService:
     def get_status(self) -> dict:
         bird = self._models.get("bird")
         admission_metrics = self._classification_admission.get_metrics()
+        live_image_health = self._describe_live_image_health(admission_metrics)
         self._refresh_accel_caps()
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = (
@@ -3313,10 +3424,13 @@ class ClassifierService:
             "live_image_in_flight": admission_metrics["live"]["running"],
             "live_image_queued": admission_metrics["live"]["queued"],
             "live_image_abandoned": admission_metrics["live"]["abandoned"],
+            "live_image": live_image_health,
+            "live_image_gpu_fallback_active": live_image_health["gpu_fallback_active"],
             "background_image_in_flight": admission_metrics["background"]["running"],
             "background_image_queued": admission_metrics["background"]["queued"],
             "background_image_abandoned": admission_metrics["background"]["abandoned"],
             "late_completions_ignored": admission_metrics["late_completions_ignored"],
+            "admission_recent_outcomes": admission_metrics["recent_outcomes"],
             "background_throttled": admission_metrics["background_throttled"],
             "available_providers": [
                 p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
@@ -3844,6 +3958,7 @@ class ClassifierService:
         queue_timeout_seconds: float | None = None,
         runner_accepts_work_metadata: bool = False,
         on_lease_expired: Callable[[str, int], Awaitable[None] | None] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> list[dict]:
         if not isinstance(queue_timeout_seconds, (int, float)) or queue_timeout_seconds <= 0:
             queue_timeout_seconds = (
@@ -3871,6 +3986,7 @@ class ClassifierService:
                 lease_timeout_seconds=lease_timeout_seconds,
                 runner_accepts_work_metadata=runner_accepts_work_metadata,
                 on_lease_expired=on_lease_expired,
+                context=context,
             )
         except ClassificationAdmissionTimeoutError:
             if priority == "live":
@@ -3895,8 +4011,9 @@ class ClassifierService:
                 admission_timeouts=self._image_admission_timeouts,
             )
             raise BackgroundImageClassificationUnavailableError("background_image_overloaded") from None
-        except ClassificationLeaseExpiredError:
+        except ClassificationLeaseExpiredError as exc:
             if priority == "live":
+                self._record_live_lease_expiry_and_maybe_fallback(exc)
                 log.warning(
                     "Live image classification lease expired; reclaiming capacity",
                     timeout_seconds=lease_timeout_seconds,
@@ -3918,6 +4035,7 @@ class ClassifierService:
         fn: Callable[..., list[dict]],
         *args: Any,
         queue_timeout_seconds: float | None = None,
+        context: dict[str, Any] | None = None,
     ) -> list[dict]:
         async def _runner() -> list[dict]:
             loop = asyncio.get_running_loop()
@@ -3928,6 +4046,7 @@ class ClassifierService:
             kind,
             _runner,
             queue_timeout_seconds=queue_timeout_seconds,
+            context=context,
         )
 
     async def _abort_supervised_request_after_lease_expiry(
@@ -3964,6 +4083,7 @@ class ClassifierService:
         model_id: Optional[str],
         input_context: ClassificationInputContext | None = None,
         queue_timeout_seconds: float | None = None,
+        context: dict[str, Any] | None = None,
     ) -> list[dict]:
         async def _runner(work_id: str, lease_token: int) -> list[dict]:
             return await self._run_supervised_inference(
@@ -3990,6 +4110,7 @@ class ClassifierService:
             queue_timeout_seconds=queue_timeout_seconds,
             runner_accepts_work_metadata=True,
             on_lease_expired=_on_lease_expired,
+            context=context,
         )
 
     async def _run_image_inference(
@@ -3997,6 +4118,9 @@ class ClassifierService:
         fn: Callable[..., list[dict]],
         *args: Any,
     ) -> list[dict]:
+        context = self._classification_admission_context(
+            model_id=args[2] if len(args) > 2 else None,
+        )
         if self._image_execution_mode == "subprocess" and args:
             return await self._run_coordinated_supervised_inference(
                 "background",
@@ -4005,6 +4129,7 @@ class ClassifierService:
                 args[1] if len(args) > 1 else None,
                 args[2] if len(args) > 2 else None,
                 args[3] if len(args) > 3 else None,
+                context=context,
             )
         return await self._run_coordinated_executor_inference(
             "background",
@@ -4012,7 +4137,22 @@ class ClassifierService:
             "image_inference",
             fn,
             *args,
+            context=context,
         )
+
+    def _classification_admission_context(self, *, model_id: str | None = None) -> dict[str, Any]:
+        resolved_model_id = model_id
+        if not resolved_model_id:
+            try:
+                resolved_model_id = self._resolve_active_model_id()
+            except Exception:
+                resolved_model_id = "unknown"
+        return {
+            "backend": self._inference_backend,
+            "provider": self._active_inference_provider,
+            "model_id": resolved_model_id,
+            "execution_mode": self._image_execution_mode,
+        }
 
     async def _run_live_image_inference(
         self,
@@ -4020,6 +4160,9 @@ class ClassifierService:
         *args: Any,
         queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
+        context = self._classification_admission_context(
+            model_id=args[2] if len(args) > 2 else None,
+        )
         if self._image_execution_mode == "subprocess" and args:
             return await self._run_coordinated_supervised_inference(
                 "live",
@@ -4029,6 +4172,7 @@ class ClassifierService:
                 args[2] if len(args) > 2 else None,
                 args[3] if len(args) > 3 else None,
                 queue_timeout_seconds=queue_timeout_seconds,
+                context=context,
             )
         return await self._run_coordinated_executor_inference(
             "live",
@@ -4037,6 +4181,7 @@ class ClassifierService:
             fn,
             *args,
             queue_timeout_seconds=queue_timeout_seconds,
+            context=context,
         )
 
     async def classify_async(

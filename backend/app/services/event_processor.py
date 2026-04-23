@@ -327,6 +327,24 @@ class EventProcessor:
             if self._is_classify_snapshot_lease_expired(stage, e):
                 timeout_seconds = float(getattr(e, "timeout_seconds", EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS))
                 self._record_stage_timeout(stage, event_id, timeout_seconds)
+                error_diagnostics_history.record(
+                    source="event_pipeline",
+                    component="event_processor",
+                    stage=stage,
+                    reason_code="classify_snapshot_lease_expired",
+                    message=f"Stage {stage} classifier lease expired after {timeout_seconds}s",
+                    severity="error",
+                    event_id=event_id,
+                    context={
+                        "timeout_seconds": timeout_seconds,
+                        "priority": getattr(e, "priority", None),
+                        "kind": getattr(e, "kind", None),
+                        "backend": getattr(e, "backend", None),
+                        "provider": getattr(e, "provider", None),
+                        "model_id": getattr(e, "model_id", None),
+                        "execution_mode": getattr(e, "execution_mode", None),
+                    },
+                )
                 log.warning(
                     "MQTT event stage lease expired",
                     event_id=event_id,

@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Fixed
+- **Classification (#33):** Live snapshot classification now records provider/model context when live classifier work is abandoned, emits a distinct `classify_snapshot_lease_expired` diagnostic for classifier lease expiry, and temporarily falls back from the in-process OpenVINO Intel GPU path after repeated live lease expiries so healthy Frigate MQTT traffic is less likely to collapse into `classify_snapshot_timeout` / `classify_snapshot_overloaded` drops. The issue-33 soak summary also tracks live-image abandoned work and classify-snapshot timeout/overload deltas directly.
 - **Classification (#47):** Auto video classification no longer aborts with `event_not_found` when the Frigate event API is transiently unavailable but the clip is already cached locally. The precheck now checks `media_cache` first and proceeds with the cached clip when one is present, so detections that would have stayed `Unknown Bird` can still be promoted by video analysis.
 - **Classification (#47):** Manual reclassify (snapshot strategy) now checks the local snapshot cache before fetching from Frigate. Previously, if the Frigate event was not reachable at reclassify time, the endpoint returned 502 "Failed to fetch snapshot from Frigate" even when a cached snapshot was available in YA-WAMF. The fix resolves both the auto-classify and manual-reclassify failure modes reported in the issue.
 

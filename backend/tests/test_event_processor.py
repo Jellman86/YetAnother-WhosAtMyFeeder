@@ -540,10 +540,21 @@ async def test_process_mqtt_message_preserves_live_overload_from_classifier_serv
 async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
     classifier = MagicMock()
     classifier.classify_async_live = AsyncMock(
-        side_effect=ClassificationLeaseExpiredError("live", "snapshot_classification", 0.01)
+        side_effect=ClassificationLeaseExpiredError(
+            "live",
+            "snapshot_classification",
+            0.01,
+            context={
+                "backend": "openvino",
+                "provider": "intel_gpu",
+                "model_id": "bird-model",
+                "execution_mode": "in_process",
+            },
+        )
     )
 
     with patch("app.services.event_processor.frigate_client") as mock_frigate, \
+         patch("app.services.event_processor.error_diagnostics_history") as mock_diagnostics, \
          patch("app.services.event_processor.Image.open", return_value=MagicMock()):
         processor = EventProcessor(classifier)
         mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
@@ -554,6 +565,15 @@ async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
     status = processor.get_status()
     assert status["stage_timeouts"]["classify_snapshot"] == 1
     assert status["drop_reasons"]["classify_snapshot_timeout"] == 1
+    assert any(
+        call.kwargs.get("reason_code") == "classify_snapshot_lease_expired"
+        and call.kwargs.get("event_id") == "evt-lease-timeout"
+        and call.kwargs.get("context", {}).get("backend") == "openvino"
+        and call.kwargs.get("context", {}).get("provider") == "intel_gpu"
+        and call.kwargs.get("context", {}).get("model_id") == "bird-model"
+        and call.kwargs.get("context", {}).get("execution_mode") == "in_process"
+        for call in mock_diagnostics.record.call_args_list
+    )
 
 
 @pytest.mark.asyncio

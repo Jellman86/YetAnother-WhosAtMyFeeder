@@ -2152,6 +2152,222 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_live_abandoned_outcomes_include_runtime_context(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_MAX_CONCURRENT",
+                1,
+                raising=False,
+            )
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
+                0.01,
+                raising=False,
+            )
+            service = ClassifierService()
+            service._classification_admission._live_capacity = 1
+            service._inference_backend = "openvino"
+            service._active_inference_provider = "intel_gpu"
+            service._accel_caps["intel_gpu_available"] = True
+            service._accel_caps["intel_cpu_available"] = True
+            service._openvino_runtime_snapshot = MagicMock(return_value={})
+            img = Image.new("RGB", (100, 100))
+
+            first_task = asyncio.create_task(
+                service.classify_async_live(img, camera_name="front", model_id="eu_medium_focalnet_b")
+            )
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
+
+            with pytest.raises(ClassificationLeaseExpiredError):
+                await first_task
+
+            status = service.get_status()
+            abandoned = [
+                outcome for outcome in status["admission_recent_outcomes"]
+                if outcome.get("priority") == "live" and outcome.get("outcome") == "abandoned"
+            ]
+
+            assert abandoned
+            assert abandoned[-1]["kind"] == "live_image_inference"
+            assert abandoned[-1]["lease_timeout_seconds"] == pytest.approx(0.01)
+            assert abandoned[-1]["backend"] == "openvino"
+            assert abandoned[-1]["provider"] == "intel_gpu"
+            assert abandoned[-1]["model_id"] == "eu_medium_focalnet_b"
+            assert abandoned[-1]["execution_mode"] == "in_process"
+            assert status["active_provider"] == "intel_gpu"
+            assert status["live_image_gpu_fallback_active"] is False
+
+            release.set()
+            await service.shutdown()
+    finally:
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_intel_cpu(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    original_toggle = settings.classification.personalized_rerank_enabled
+    settings.classification.personalized_rerank_enabled = False
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocking_classify(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=1.0)
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    fallback_model = MagicMock(loaded=True, error=None)
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
+             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
+             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_IMAGE_MAX_CONCURRENT",
+                1,
+                raising=False,
+            )
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
+                0.01,
+                raising=False,
+            )
+            monkeypatch.setattr(
+                classifier_service_module,
+                "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
+                2,
+                raising=False,
+            )
+            service = ClassifierService()
+            service._classification_admission._live_capacity = 1
+            service._inference_backend = "openvino"
+            service._active_inference_provider = "intel_gpu"
+            service._accel_caps["intel_gpu_available"] = True
+            service._accel_caps["intel_cpu_available"] = True
+            service._openvino_runtime_snapshot = MagicMock(return_value={})
+            service._load_runtime_fallback_bird_model = MagicMock(
+                return_value=(
+                    fallback_model,
+                    "openvino",
+                    "intel_cpu",
+                    "Live OpenVINO Intel GPU inference exceeded lease repeatedly; using OpenVINO CPU",
+                )
+            )
+            img = Image.new("RGB", (100, 100))
+
+            for _ in range(2):
+                task = asyncio.create_task(
+                    service.classify_async_live(img, camera_name="front", model_id="eu_medium_focalnet_b")
+                )
+                await asyncio.sleep(0)
+                with pytest.raises(ClassificationLeaseExpiredError):
+                    await task
+
+            status = service.get_status()
+
+            assert service._models["bird"] is fallback_model
+            assert status["active_provider"] == "intel_cpu"
+            assert status["inference_backend"] == "openvino"
+            assert status["live_image"]["recovery_reason"] == "live_gpu_lease_expiry_fallback"
+            assert status["live_image_gpu_fallback_active"] is True
+            assert status["last_runtime_recovery"]["failed_provider"] == "intel_gpu"
+            assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+            service._load_runtime_fallback_bird_model.assert_called_once()
+
+            release.set()
+            await service.shutdown()
+    finally:
+        release.set()
+        settings.classification.personalized_rerank_enabled = original_toggle
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_onnx_cpu(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    cpu_model = _FallbackReadyModel([{"label": "CPU Bird", "score": 0.2, "index": 0}])
+    gpu_model = _FallbackReadyModel([{"label": "GPU Bird", "score": 0.9, "index": 0}])
+    service._models["bird"] = cpu_model
+    service._inference_backend = "onnxruntime"
+    service._active_inference_provider = "cpu"
+    service._gpu_restore_not_before_monotonic = 0.0
+    service._live_gpu_lease_fallback_until_monotonic = 0.0
+    service._last_runtime_recovery = {
+        "status": "recovered",
+        "failed_backend": "openvino",
+        "failed_provider": "intel_gpu",
+        "recovered_backend": "onnxruntime",
+        "recovered_provider": "cpu",
+        "detail": "Live OpenVINO Intel GPU inference exceeded lease repeatedly; using a safer live-image fallback during cooldown",
+        "reason": "live_gpu_lease_expiry_fallback",
+        "at": 123.0,
+        "cooldown_seconds": 600,
+    }
+    service._accel_caps = {
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+        "ort_available": True,
+    }
+
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "auto"
+    try:
+        with patch.object(
+            service,
+            "_build_bird_model_for_backend",
+            return_value=gpu_model,
+        ) as mock_build, patch.object(
+            service,
+            "_resolve_active_bird_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 384,
+                "preprocessing": None,
+                "runtime": "onnx",
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+            },
+        ):
+            results = service.classify(Image.new("RGB", (32, 32), color="white"))
+    finally:
+        settings.classification.inference_provider = original_provider
+
+    assert results == [{"label": "GPU Bird", "score": 0.9, "index": 0}]
+    assert service._models["bird"] is gpu_model
+    assert service._inference_backend == "openvino"
+    assert service._active_inference_provider == "intel_gpu"
+    assert service._runtime_gpu_restore_attempts == 1
+    assert service._runtime_gpu_restore_successes == 1
+    assert service._live_gpu_lease_fallback_until_monotonic == 0.0
+    mock_build.assert_called()
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_classify_async_live_passes_custom_queue_timeout(
     mock_tflite, mock_os_path_exists
 ):
