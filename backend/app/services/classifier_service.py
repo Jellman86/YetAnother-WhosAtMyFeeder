@@ -2204,7 +2204,7 @@ class ClassifierService:
         self._runtime_gpu_restore_failures = 0
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
         self._gpu_restore_not_before_monotonic: float = 0.0
-        self._live_gpu_lease_expiry_times: deque[float] = deque(
+        self._gpu_unhealthy_signal_times: deque[float] = deque(
             maxlen=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD
         )
         self._live_gpu_lease_fallback_until_monotonic: float = 0.0
@@ -2559,15 +2559,15 @@ class ClassifierService:
         """
         now = time.monotonic()
         window_start = now - CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS
-        while self._live_gpu_lease_expiry_times and self._live_gpu_lease_expiry_times[0] < window_start:
-            self._live_gpu_lease_expiry_times.popleft()
-        self._live_gpu_lease_expiry_times.append(now)
+        while self._gpu_unhealthy_signal_times and self._gpu_unhealthy_signal_times[0] < window_start:
+            self._gpu_unhealthy_signal_times.popleft()
+        self._gpu_unhealthy_signal_times.append(now)
 
         if self._image_execution_mode != "in_process":
             return
         if self._inference_backend != "openvino" or self._active_inference_provider != "intel_gpu":
             return
-        if len(self._live_gpu_lease_expiry_times) < CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD:
+        if len(self._gpu_unhealthy_signal_times) < CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD:
             return
         if self._live_gpu_lease_fallback_active():
             return
@@ -2637,7 +2637,7 @@ class ClassifierService:
                     old_model.cleanup()
                 except Exception:
                     pass
-            self._live_gpu_lease_expiry_times.clear()
+            self._gpu_unhealthy_signal_times.clear()
 
     def _maybe_restore_gpu_provider(self) -> None:
         with self._models_lock:
@@ -2663,7 +2663,7 @@ class ClassifierService:
             self._inference_backend = "openvino"
             self._active_inference_provider = "intel_gpu"
             self._live_gpu_lease_fallback_until_monotonic = 0.0
-            self._live_gpu_lease_expiry_times.clear()
+            self._gpu_unhealthy_signal_times.clear()
             self._record_gpu_success()
             self._runtime_gpu_restore_successes += 1
             if hasattr(current, "cleanup"):
