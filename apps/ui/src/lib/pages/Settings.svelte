@@ -1225,6 +1225,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     let filterWhitelist = $state<string[]>([]);
     let newWhitelistSpecies = $state('');
+    // Structured notification filter lists are accepted by the backend and
+    // persisted here so in-flight picker entries survive a settings round-trip
+    // even though no dedicated UI exposes them yet. A future change can bind
+    // these through a taxonomy picker in NotificationSettings.
+    let filterWhitelistStructured = $state<BlockedSpeciesEntry[]>([]);
+    let filterBlacklistStructured = $state<BlockedSpeciesEntry[]>([]);
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
     let notifyMode = $state<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard');
@@ -2853,6 +2859,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             emailDashboardUrl = settings.notifications_email_dashboard_url || '';
 
             filterWhitelist = settings.notifications_filter_species_whitelist || [];
+            filterWhitelistStructured = settings.notifications_filter_species_whitelist_structured || [];
+            filterBlacklistStructured = settings.notifications_filter_species_blacklist_structured || [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
             if (settings.notifications_mode) {
@@ -3063,6 +3071,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
                 notification_language: notificationLanguage,
                 notifications_filter_species_whitelist: filterWhitelist,
+                notifications_filter_species_whitelist_structured: filterWhitelistStructured,
+                notifications_filter_species_blacklist_structured: filterBlacklistStructured,
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
                 notifications_mode: notifyMode,
