@@ -1070,7 +1070,9 @@
       "description": "YA-WAMF ha conservato questo rilevamento localmente, ma Frigate non aveva l’evento o il media conservato durante l’ultimo controllo di integrità.",
       "since": "Mancante da",
       "last_checked": "Ultimo controllo",
-      "error": "Ultimo errore Frigate"
+      "error": "Ultimo errore Frigate",
+      "compact_label": "Evento Frigate mancante",
+      "learn_more": "Scopri di più"
     },
     "favorite_label": "Preferito",
     "favorite_label_active": "Nei preferiti",

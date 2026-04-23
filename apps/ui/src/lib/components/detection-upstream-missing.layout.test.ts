@@ -11,8 +11,11 @@ describe('upstream missing detection UI', () => {
 
     it('surfaces missing Frigate details in the detection modal', () => {
         expect(detectionModalSource).toContain("detection.frigate_status === 'missing'");
-        expect(detectionModalSource).toContain("$_('detection.upstream_missing.title'");
-        expect(detectionModalSource).toContain("$_('detection.upstream_missing.description'");
+        expect(detectionModalSource).toContain('FRIGATE_MISSING_DOCS_URL');
+        expect(detectionModalSource).toContain('src={FRIGATE_LOGO_URL}');
+        expect(detectionModalSource).toContain("$_('detection.upstream_missing.compact_label'");
+        expect(detectionModalSource).toContain("$_('detection.upstream_missing.learn_more'");
         expect(detectionModalSource).toContain("$_('detection.upstream_missing.last_checked'");
+        expect(detectionModalSource).not.toContain('rounded-2xl border border-orange-200 bg-orange-50/90 p-4');
     });
 });

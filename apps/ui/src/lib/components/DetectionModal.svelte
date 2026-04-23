@@ -60,6 +60,8 @@
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
 
+    const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
+
     interface Props {
         detection: Detection;
         classifierLabels: string[];
@@ -2092,49 +2094,42 @@
 
             <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
-            <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
-                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
-                <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
-            </div>
-            {#if upstreamMissing}
-                <div class="rounded-2xl border border-orange-200 bg-orange-50/90 p-4 text-orange-950 shadow-sm dark:border-orange-400/25 dark:bg-orange-500/10 dark:text-orange-100">
-                    <div class="flex items-start gap-3">
-                        <div class="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-lg shadow-orange-500/20">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                            </svg>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-300">
-                                {$_('detection.upstream_missing.title', { default: 'Missing in Frigate' })}
-                            </p>
-                            <p class="mt-1 text-sm font-semibold leading-relaxed text-orange-900 dark:text-orange-100">
-                                {$_('detection.upstream_missing.description', { default: 'YA-WAMF kept this detection locally, but Frigate did not have the event or retained media during the last integrity check.' })}
-                            </p>
-                            <div class="mt-3 grid gap-2 text-xs font-bold text-orange-900/85 dark:text-orange-100/85">
-                                {#if detection.frigate_missing_since}
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="uppercase tracking-widest text-orange-700/75 dark:text-orange-200/75">{$_('detection.upstream_missing.since', { default: 'Missing since' })}</span>
-                                        <span>{formatDateTime(detection.frigate_missing_since)}</span>
-                                    </div>
-                                {/if}
-                                {#if detection.frigate_last_checked_at}
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="uppercase tracking-widest text-orange-700/75 dark:text-orange-200/75">{$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}</span>
-                                        <span>{formatDateTime(detection.frigate_last_checked_at)}</span>
-                                    </div>
-                                {/if}
-                                {#if detection.frigate_last_error}
-                                    <div class="rounded-xl bg-orange-100/80 px-3 py-2 font-mono text-[11px] text-orange-950 dark:bg-orange-950/30 dark:text-orange-100">
-                                        <span class="font-sans font-black uppercase tracking-widest text-orange-700 dark:text-orange-300">{$_('detection.upstream_missing.error', { default: 'Last Frigate error' })}</span>
-                                        <span class="mt-1 block break-words">{detection.frigate_last_error}</span>
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
-                    </div>
+            <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 px-3 py-2">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
+                    <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
                 </div>
-            {/if}
+                {#if upstreamMissing}
+                    <div class="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-slate-200/70 pt-2 text-[10px] font-bold text-slate-500 dark:border-slate-700/60 dark:text-slate-400">
+                        <span
+                            class="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50/80 px-2 py-1 text-orange-700 dark:border-orange-400/20 dark:bg-orange-500/10 dark:text-orange-200"
+                            title={$_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media' })}
+                            aria-label={$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
+                        >
+                            <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-3.5 w-3.5 rounded-[3px] bg-white/90 p-0.5 object-contain" />
+                            {$_('detection.upstream_missing.compact_label', { default: 'Frigate event missing' })}
+                        </span>
+                        {#if detection.frigate_last_checked_at}
+                            <span class="text-slate-400 dark:text-slate-500">
+                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}: {formatDateTime(detection.frigate_last_checked_at)}
+                            </span>
+                        {/if}
+                        <a
+                            href={FRIGATE_MISSING_DOCS_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="font-black uppercase tracking-widest text-teal-600 hover:text-teal-700 hover:underline dark:text-teal-400 dark:hover:text-teal-300"
+                        >
+                            {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
+                        </a>
+                    </div>
+                    {#if detection.frigate_last_error}
+                        <p class="mt-1 text-right text-[10px] font-mono text-slate-400 dark:text-slate-500">
+                            {$_('detection.upstream_missing.error', { default: 'Last Frigate error' })}: {detection.frigate_last_error}
+                        </p>
+                    {/if}
+                {/if}
+            </div>
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>

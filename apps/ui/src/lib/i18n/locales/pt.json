@@ -1070,7 +1070,9 @@
       "description": "O YA-WAMF manteve esta deteção localmente, mas o Frigate não tinha o evento ou a mídia retida durante a última verificação de integridade.",
       "since": "Ausente desde",
       "last_checked": "Última verificação",
-      "error": "Último erro do Frigate"
+      "error": "Último erro do Frigate",
+      "compact_label": "Evento do Frigate ausente",
+      "learn_more": "Saiba mais"
     },
     "favorite_label": "Favorito",
     "favorite_label_active": "Favoritado",

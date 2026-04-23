@@ -1062,7 +1062,9 @@
       "description": "YA-WAMF はこの検出をローカルに保持しましたが、最後の整合性チェック時に Frigate にはイベントまたは保持されたメディアがありませんでした。",
       "since": "欠落開始",
       "last_checked": "最終確認",
-      "error": "最後の Frigate エラー"
+      "error": "最後の Frigate エラー",
+      "compact_label": "Frigate イベントがありません",
+      "learn_more": "詳しく見る"
     },
     "favorite_label": "お気に入り",
     "favorite_label_active": "お気に入り済み",

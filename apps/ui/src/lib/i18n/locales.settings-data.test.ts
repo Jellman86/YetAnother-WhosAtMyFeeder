@@ -54,6 +54,8 @@ const REQUIRED_KEYS = [
     'detection.upstream_missing.title',
     'detection.upstream_missing.card_label',
     'detection.upstream_missing.card_title',
+    'detection.upstream_missing.compact_label',
+    'detection.upstream_missing.learn_more',
     'detection.upstream_missing.description',
     'detection.upstream_missing.since',
     'detection.upstream_missing.last_checked',

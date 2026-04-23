@@ -1062,7 +1062,9 @@
       "description": "YA-WAMF hat diese Erkennung lokal behalten, aber Frigate hatte das Ereignis oder gespeicherte Medium bei der letzten Integritätsprüfung nicht.",
       "since": "Fehlt seit",
       "last_checked": "Zuletzt geprüft",
-      "error": "Letzter Frigate-Fehler"
+      "error": "Letzter Frigate-Fehler",
+      "compact_label": "Frigate-Ereignis fehlt",
+      "learn_more": "Mehr erfahren"
     },
     "favorite_label": "Favorit",
     "favorite_label_active": "Favorisiert",

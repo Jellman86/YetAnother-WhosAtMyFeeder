@@ -1062,7 +1062,9 @@
       "description": "YA-WAMF 已在本地保留此检测，但最后一次完整性检查时 Frigate 没有该事件或保留的媒体。",
       "since": "缺失开始",
       "last_checked": "上次检查",
-      "error": "上次 Frigate 错误"
+      "error": "上次 Frigate 错误",
+      "compact_label": "Frigate 事件缺失",
+      "learn_more": "了解更多"
     },
     "favorite_label": "收藏",
     "favorite_label_active": "已收藏",

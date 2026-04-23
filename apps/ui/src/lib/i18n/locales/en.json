@@ -1070,7 +1070,9 @@
             "description": "YA-WAMF kept this detection locally, but Frigate did not have the event or retained media during the last integrity check.",
             "since": "Missing since",
             "last_checked": "Last checked",
-            "error": "Last Frigate error"
+            "error": "Last Frigate error",
+            "compact_label": "Frigate event missing",
+            "learn_more": "Learn more"
         },
         "favorite": "Favorite",
         "favorite_add": "Add favorite",
