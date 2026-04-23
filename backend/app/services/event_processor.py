@@ -63,7 +63,7 @@ LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
     float(
         os.getenv(
             "LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS",
-            "2.0",
+            "6.0",
         )
     ),
 )

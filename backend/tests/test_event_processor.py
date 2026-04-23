@@ -57,7 +57,7 @@ async def test_process_mqtt_message_valid_bird():
             "is_cropped": True,
             "event_id": "123",
         }
-        assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(2.0)
+        assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(6.0)
         mock_det_service.save_detection.assert_called_once()
         mock_frigate.set_sublabel.assert_called_with("123", "Cardinal")
 
