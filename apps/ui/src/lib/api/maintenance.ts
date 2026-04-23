@@ -44,6 +44,9 @@ export interface CleanupResult {
 export interface PurgeMissingMediaResult {
     status: string;
     deleted_count: number;
+    marked_missing_count: number;
+    kept_count: number;
+    cleared_missing_count: number;
     checked: number;
     missing: number;
     message?: string;

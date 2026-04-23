@@ -63,6 +63,7 @@
 
     let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
     let hasAudioConfirmed = $derived(!!detection.audio_confirmed);
+    let upstreamMissing = $derived(detection.frigate_status === 'missing');
 
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
@@ -273,6 +274,18 @@
                     >
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                        </svg>
+                    </div>
+                {/if}
+                {#if upstreamMissing}
+                    <div
+                        role="img"
+                        class="w-7 h-7 rounded-full bg-orange-500/95 text-white flex items-center justify-center shadow-lg shadow-orange-500/35"
+                        title={$_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media' })}
+                        aria-label={$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                         </svg>
                     </div>
                 {/if}

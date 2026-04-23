@@ -648,6 +648,7 @@
     );
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection));
+    const upstreamMissing = $derived(detection.frigate_status === 'missing');
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
 
     function formatEbirdDate(dateStr?: string | null) {
@@ -2095,6 +2096,45 @@
                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
                 <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
             </div>
+            {#if upstreamMissing}
+                <div class="rounded-2xl border border-orange-200 bg-orange-50/90 p-4 text-orange-950 shadow-sm dark:border-orange-400/25 dark:bg-orange-500/10 dark:text-orange-100">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-300">
+                                {$_('detection.upstream_missing.title', { default: 'Missing in Frigate' })}
+                            </p>
+                            <p class="mt-1 text-sm font-semibold leading-relaxed text-orange-900 dark:text-orange-100">
+                                {$_('detection.upstream_missing.description', { default: 'YA-WAMF kept this detection locally, but Frigate did not have the event or retained media during the last integrity check.' })}
+                            </p>
+                            <div class="mt-3 grid gap-2 text-xs font-bold text-orange-900/85 dark:text-orange-100/85">
+                                {#if detection.frigate_missing_since}
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="uppercase tracking-widest text-orange-700/75 dark:text-orange-200/75">{$_('detection.upstream_missing.since', { default: 'Missing since' })}</span>
+                                        <span>{formatDateTime(detection.frigate_missing_since)}</span>
+                                    </div>
+                                {/if}
+                                {#if detection.frigate_last_checked_at}
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="uppercase tracking-widest text-orange-700/75 dark:text-orange-200/75">{$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}</span>
+                                        <span>{formatDateTime(detection.frigate_last_checked_at)}</span>
+                                    </div>
+                                {/if}
+                                {#if detection.frigate_last_error}
+                                    <div class="rounded-xl bg-orange-100/80 px-3 py-2 font-mono text-[11px] text-orange-950 dark:bg-orange-950/30 dark:text-orange-100">
+                                        <span class="font-sans font-black uppercase tracking-widest text-orange-700 dark:text-orange-300">{$_('detection.upstream_missing.error', { default: 'Last Frigate error' })}</span>
+                                        <span class="mt-1 block break-words">{detection.frigate_last_error}</span>
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {/if}
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>

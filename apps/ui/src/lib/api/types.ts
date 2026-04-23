@@ -10,6 +10,10 @@ export interface Detection {
     has_clip?: boolean;
     has_snapshot?: boolean;
     has_frigate_event?: boolean;
+    frigate_status?: 'present' | 'missing' | string;
+    frigate_missing_since?: string | null;
+    frigate_last_checked_at?: string | null;
+    frigate_last_error?: string | null;
     is_hidden?: boolean;
     is_favorite?: boolean;
     frigate_score?: number;

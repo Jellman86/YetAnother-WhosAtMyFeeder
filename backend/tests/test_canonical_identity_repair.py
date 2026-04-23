@@ -35,7 +35,11 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             weather_snowfall FLOAT,
             scientific_name TEXT,
             common_name TEXT,
-            taxa_id INTEGER
+            taxa_id INTEGER,
+            frigate_status TEXT DEFAULT 'present',
+            frigate_missing_since TIMESTAMP,
+            frigate_last_checked_at TIMESTAMP,
+            frigate_last_error TEXT
         )
     """)
 

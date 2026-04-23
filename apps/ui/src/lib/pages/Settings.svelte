@@ -59,6 +59,7 @@
         type VersionInfo,
         type AnalysisStatus,
         type AudioSourceOption,
+        type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
     import type { BlockedSpeciesEntry } from '../api/settings';
@@ -2186,7 +2187,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     async function handlePurgeMissingClips() {
         const confirmMsg = $_('settings.data.purge_missing_clips_confirm', {
-            default: 'Remove detections without clips? This cannot be undone.'
+            default: 'Scan detections whose clips are missing in Frigate and apply the configured policy?'
         });
         if (!confirm(confirmMsg)) return;
 
@@ -2194,9 +2195,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         message = null;
         try {
             const result = await purgeMissingClips();
-            const text = result.message
-                || `Removed ${result.deleted_count.toLocaleString()} detections without clips (checked ${result.checked.toLocaleString()}).`;
-            message = { type: 'success', text };
+            message = { type: 'success', text: formatMissingMediaScanResult(result) };
             await loadMaintenanceStats();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
@@ -2207,7 +2206,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     async function handlePurgeMissingSnapshots() {
         const confirmMsg = $_('settings.data.purge_missing_snapshots_confirm', {
-            default: 'Remove detections without snapshots? This cannot be undone.'
+            default: 'Scan detections whose snapshots are missing in Frigate and apply the configured policy?'
         });
         if (!confirm(confirmMsg)) return;
 
@@ -2215,15 +2214,27 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         message = null;
         try {
             const result = await purgeMissingSnapshots();
-            const text = result.message
-                || `Removed ${result.deleted_count.toLocaleString()} detections without snapshots (checked ${result.checked.toLocaleString()}).`;
-            message = { type: 'success', text };
+            message = { type: 'success', text: formatMissingMediaScanResult(result) };
             await loadMaintenanceStats();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
             purgingMissingSnapshots = false;
         }
+    }
+
+    function formatMissingMediaScanResult(result: PurgeMissingMediaResult): string {
+        return $_('settings.data.purge_missing_scan_success', {
+            values: {
+                checked: (result.checked ?? 0).toLocaleString(),
+                missing: (result.missing ?? 0).toLocaleString(),
+                deleted: (result.deleted_count ?? 0).toLocaleString(),
+                marked: (result.marked_missing_count ?? 0).toLocaleString(),
+                kept: (result.kept_count ?? 0).toLocaleString(),
+                restored: (result.cleared_missing_count ?? 0).toLocaleString()
+            },
+            default: 'Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}.'
+        });
     }
 
     async function handleResetDatabase() {
