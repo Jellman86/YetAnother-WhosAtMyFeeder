@@ -8,8 +8,13 @@ import json
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
+from app.utils.blocked_species import matches_species_filter
 
 log = structlog.get_logger()
+
+
+def _species_entry_list(value: object) -> list:
+    return list(value) if isinstance(value, list) else []
 
 def escape_html(text: str) -> str:
     """Escape text for Telegram HTML parse mode."""
@@ -25,28 +30,51 @@ class NotificationService:
         species: str,
         confidence: float,
         audio_confirmed: bool,
-        camera: str
+        camera: str,
+        scientific_name: Optional[str] = None,
+        common_name: Optional[str] = None,
+        taxa_id: Optional[int] = None,
     ) -> bool:
         """Determine if a notification should be sent based on filters."""
         filters = settings.notifications.filters
 
-        # 1. Species Whitelist
-        if filters.species_whitelist:
-            if species not in filters.species_whitelist:
+        # 1. Species Blacklist
+        if matches_species_filter(
+            labels=[],
+            species_entries=_species_entry_list(getattr(filters, "species_blacklist_structured", [])),
+            label=species,
+            scientific_name=scientific_name,
+            common_name=common_name,
+            taxa_id=taxa_id,
+        ):
+            log.debug("Notification skipped: species in blacklist", species=species)
+            return False
+
+        # 2. Species Whitelist
+        whitelist_structured = _species_entry_list(getattr(filters, "species_whitelist_structured", []))
+        if filters.species_whitelist or whitelist_structured:
+            if not matches_species_filter(
+                labels=filters.species_whitelist,
+                species_entries=whitelist_structured,
+                label=species,
+                scientific_name=scientific_name,
+                common_name=common_name,
+                taxa_id=taxa_id,
+            ):
                 log.debug("Notification skipped: species not in whitelist", species=species)
                 return False
 
-        # 2. Min Confidence
+        # 3. Min Confidence
         if confidence < filters.min_confidence:
             log.debug("Notification skipped: low confidence", confidence=confidence, min=filters.min_confidence)
             return False
 
-        # 3. Audio Confirmed Only
+        # 4. Audio Confirmed Only
         if filters.audio_confirmed_only and not audio_confirmed:
             log.debug("Notification skipped: audio confirmation required")
             return False
 
-        # 4. Per-Camera Filters (Advanced)
+        # 5. Per-Camera Filters (Advanced)
         # Assuming camera_filters is dict of {camera_name: {min_confidence: 0.8, etc}}
         if camera in filters.camera_filters:
             cam_filters = filters.camera_filters[camera]
@@ -54,7 +82,7 @@ class NotificationService:
                 return False
             # Add more per-camera logic here if needed
 
-        # 5. Global Cooldown
+        # 6. Global Cooldown
         cooldown = settings.notifications.notification_cooldown_minutes
         if cooldown > 0:
             now = datetime.now(timezone.utc)
@@ -80,12 +108,21 @@ class NotificationService:
         audio_confirmed: bool = False,
         audio_species: Optional[str] = None,
         snapshot_data: Optional[bytes] = None,
-        weather: Optional[str] = None
+        weather: Optional[str] = None,
+        taxa_id: Optional[int] = None,
     ) -> bool:
         """Send notifications to all enabled platforms."""
-        
+
         # Check filters
-        if not await self._should_notify(species, confidence, audio_confirmed, camera):
+        if not await self._should_notify(
+            species,
+            confidence,
+            audio_confirmed,
+            camera,
+            scientific_name=scientific_name,
+            common_name=common_name,
+            taxa_id=taxa_id,
+        ):
             return False
 
         lang = settings.notifications.notification_language

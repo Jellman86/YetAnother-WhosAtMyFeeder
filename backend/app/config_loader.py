@@ -309,6 +309,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         },
         'filters': {
             'species_whitelist': [],
+            'species_whitelist_structured': [],
+            'species_blacklist_structured': [],
             'min_confidence': 0.7,
             'audio_confirmed_only': False,
             'camera_filters': {}

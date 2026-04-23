@@ -610,6 +610,14 @@ class EmailSettings(BaseModel):
 
 class NotificationFilterSettings(BaseModel):
     species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
+    species_whitelist_structured: list["BlockedSpeciesEntry"] = Field(
+        default_factory=list,
+        description="Structured allow-list species entries keyed by taxonomy identity",
+    )
+    species_blacklist_structured: list["BlockedSpeciesEntry"] = Field(
+        default_factory=list,
+        description="Structured deny-list species entries keyed by taxonomy identity",
+    )
     min_confidence: float = Field(default=0.7, description="Minimum confidence to trigger notification")
     audio_confirmed_only: bool = Field(default=False, description="Only notify if audio confirmed")
     camera_filters: dict[str, dict] = Field(default={}, description="Per-camera overrides")

@@ -68,6 +68,99 @@ async def test_should_notify_species_whitelist(notification_service):
 
 
 @pytest.mark.asyncio
+async def test_should_notify_structured_whitelist_matches_taxonomy(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = [
+            {
+                "common_name": "European Robin",
+                "scientific_name": "Erithacus rubecula",
+                "taxa_id": 1234,
+            }
+        ]
+        mock_settings.notifications.filters.species_blacklist_structured = []
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        should_notify = await notification_service._should_notify(
+            species="Robin",
+            scientific_name="Erithacus rubecula",
+            common_name="European Robin",
+            taxa_id=1234,
+            confidence=0.9,
+            audio_confirmed=False,
+            camera="front",
+        )
+        assert should_notify is True
+
+
+@pytest.mark.asyncio
+async def test_should_notify_structured_blacklist_blocks_taxonomy_match(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = []
+        mock_settings.notifications.filters.species_blacklist_structured = [
+            {
+                "common_name": "House Sparrow",
+                "scientific_name": "Passer domesticus",
+                "taxa_id": 5678,
+            }
+        ]
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        should_notify = await notification_service._should_notify(
+            species="Sparrow",
+            scientific_name="Passer domesticus",
+            common_name="House Sparrow",
+            taxa_id=5678,
+            confidence=0.9,
+            audio_confirmed=False,
+            camera="front",
+        )
+        assert should_notify is False
+
+
+@pytest.mark.asyncio
+async def test_should_notify_blacklist_wins_over_whitelist(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = [
+            {
+                "common_name": "European Starling",
+                "scientific_name": "Sturnus vulgaris",
+                "taxa_id": 777,
+            }
+        ]
+        mock_settings.notifications.filters.species_blacklist_structured = [
+            {
+                "common_name": "European Starling",
+                "scientific_name": "Sturnus vulgaris",
+                "taxa_id": 777,
+            }
+        ]
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        should_notify = await notification_service._should_notify(
+            species="Starling",
+            scientific_name="Sturnus vulgaris",
+            common_name="European Starling",
+            taxa_id=777,
+            confidence=0.9,
+            audio_confirmed=False,
+            camera="front",
+        )
+        assert should_notify is False
+
+
+@pytest.mark.asyncio
 async def test_should_notify_audio_confirmed_only(notification_service):
     """Audio confirmed filter should work."""
     with patch('app.services.notification_service.settings') as mock_settings:

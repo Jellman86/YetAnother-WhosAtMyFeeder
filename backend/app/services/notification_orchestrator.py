@@ -88,11 +88,18 @@ class NotificationOrchestrator:
 
         taxonomy = await taxonomy_service.get_names(label)
 
+        taxa_id_value = taxonomy.get("taxa_id")
+        try:
+            taxa_id_int = int(taxa_id_value) if taxa_id_value is not None else None
+        except (TypeError, ValueError):
+            taxa_id_int = None
+
         return await notification_service.notify_detection(
             frigate_event=event.frigate_event,
             species=label,
             scientific_name=taxonomy.get("scientific_name"),
             common_name=taxonomy.get("common_name"),
+            taxa_id=taxa_id_int,
             confidence=score,
             camera=event.camera,
             timestamp=event.detection_dt,

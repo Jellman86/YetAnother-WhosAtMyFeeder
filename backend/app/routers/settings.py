@@ -533,6 +533,8 @@ class SettingsUpdate(BaseModel):
     notifications_email_dashboard_url: Optional[str] = None
     
     notifications_filter_species_whitelist: Optional[List[str]] = []
+    notifications_filter_species_whitelist_structured: List[BlockedSpeciesEntry] = Field(default_factory=list)
+    notifications_filter_species_blacklist_structured: List[BlockedSpeciesEntry] = Field(default_factory=list)
     notifications_filter_min_confidence: Optional[float] = 0.7
     notifications_filter_audio_confirmed_only: Optional[bool] = False
     notification_language: Optional[str] = "en"
@@ -866,6 +868,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_email_dashboard_url": settings.notifications.email.dashboard_url,
 
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
+        "notifications_filter_species_whitelist_structured": settings.notifications.filters.species_whitelist_structured,
+        "notifications_filter_species_blacklist_structured": settings.notifications.filters.species_blacklist_structured,
         "notifications_filter_min_confidence": settings.notifications.filters.min_confidence,
         "notifications_filter_audio_confirmed_only": settings.notifications.filters.audio_confirmed_only,
         "notification_language": settings.notifications.notification_language,
@@ -1293,6 +1297,14 @@ async def update_settings(
     # Notifications - Filters
     if "notifications_filter_species_whitelist" in fields_set and update.notifications_filter_species_whitelist is not None:
         settings.notifications.filters.species_whitelist = update.notifications_filter_species_whitelist
+    if "notifications_filter_species_whitelist_structured" in fields_set:
+        settings.notifications.filters.species_whitelist_structured = normalize_blocked_species_entries(
+            update.notifications_filter_species_whitelist_structured
+        )
+    if "notifications_filter_species_blacklist_structured" in fields_set:
+        settings.notifications.filters.species_blacklist_structured = normalize_blocked_species_entries(
+            update.notifications_filter_species_blacklist_structured
+        )
     if "notifications_filter_min_confidence" in fields_set and update.notifications_filter_min_confidence is not None:
         settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
     if "notifications_filter_audio_confirmed_only" in fields_set and update.notifications_filter_audio_confirmed_only is not None:
