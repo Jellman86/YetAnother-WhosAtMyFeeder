@@ -207,8 +207,17 @@ async def run_cleanup():
         if deleted_share_links > 0:
             log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
 
-        # Scheduled purge: missing clips
-        if settings.maintenance.auto_purge_missing_clips:
+        # Scheduled media-integrity scan. The UI writes the single daily toggle to
+        # both legacy booleans; preserve one-sided legacy configs as scoped scans.
+        if settings.maintenance.auto_purge_missing_clips and settings.maintenance.auto_purge_missing_snapshots:
+            try:
+                from app.routers.settings import _purge_missing_all_media
+                result = await _purge_missing_all_media()
+                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
+                    log.info("Scheduled media integrity scan completed", **result)
+            except Exception as e:
+                log.error("Scheduled media integrity scan failed", error=str(e))
+        elif settings.maintenance.auto_purge_missing_clips:
             try:
                 from app.routers.settings import _purge_missing_media
                 result = await _purge_missing_media("clip")
@@ -216,9 +225,7 @@ async def run_cleanup():
                     log.info("Scheduled purge missing clips completed", **result)
             except Exception as e:
                 log.error("Scheduled purge missing clips failed", error=str(e))
-
-        # Scheduled purge: missing snapshots
-        if settings.maintenance.auto_purge_missing_snapshots:
+        elif settings.maintenance.auto_purge_missing_snapshots:
             try:
                 from app.routers.settings import _purge_missing_media
                 result = await _purge_missing_media("snapshot")

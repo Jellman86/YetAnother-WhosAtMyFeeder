@@ -70,6 +70,8 @@ def test_maintenance_missing_behavior_defaults_to_mark_missing(monkeypatch, tmp_
     loaded = Settings.load()
 
     assert loaded.maintenance.frigate_missing_behavior == "mark_missing"
+    assert loaded.maintenance.auto_purge_missing_clips is False
+    assert loaded.maintenance.auto_purge_missing_snapshots is False
 
 
 def test_maintenance_legacy_auto_delete_missing_clips_migrates_to_delete(monkeypatch, tmp_path):

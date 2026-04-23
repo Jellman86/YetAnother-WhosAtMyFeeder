@@ -14,8 +14,7 @@
         fetchMaintenanceStats,
         runCleanup,
         clearAllFavorites,
-        purgeMissingClips,
-        purgeMissingSnapshots,
+        purgeMissingMedia,
         runBackfill,
         runWeatherBackfill,
         startBackfillJob,
@@ -1686,8 +1685,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
             { key: 'frigateMissingBehavior', val: frigateMissingBehavior, store: (s.frigate_missing_behavior as any) ?? 'mark_missing' },
-            { key: 'autoPurgeMissingClips', val: autoPurgeMissingClips, store: s.auto_purge_missing_clips ?? false },
-            { key: 'autoPurgeMissingSnapshots', val: autoPurgeMissingSnapshots, store: s.auto_purge_missing_snapshots ?? false },
+            {
+                key: 'autoMediaIntegrityScan',
+                val: autoPurgeMissingClips || autoPurgeMissingSnapshots,
+                store: (s.auto_purge_missing_clips ?? false) || (s.auto_purge_missing_snapshots ?? false)
+            },
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(blockedLabelsBaseline) },
             { key: 'blockedSpecies', val: JSON.stringify(blockedSpecies), store: JSON.stringify(blockedSpeciesBaseline) },
@@ -1828,8 +1830,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
     let clearingFavorites = $state(false);
-    let purgingMissingClips = $state(false);
-    let purgingMissingSnapshots = $state(false);
+    let purgingMissingMedia = $state(false);
     let timezoneRepairPreview = $state<TimezoneRepairPreview | null>(null);
     let previewingTimezoneRepair = $state(false);
     let applyingTimezoneRepair = $state(false);
@@ -2185,41 +2186,22 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function handlePurgeMissingClips() {
-        const confirmMsg = $_('settings.data.purge_missing_clips_confirm', {
-            default: 'Scan detections whose clips are missing in Frigate and apply the configured policy?'
+    async function handlePurgeMissingMedia() {
+        const confirmMsg = $_('settings.data.purge_missing_media_confirm', {
+            default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
         });
         if (!confirm(confirmMsg)) return;
 
-        purgingMissingClips = true;
+        purgingMissingMedia = true;
         message = null;
         try {
-            const result = await purgeMissingClips();
+            const result = await purgeMissingMedia();
             message = { type: 'success', text: formatMissingMediaScanResult(result) };
             await loadMaintenanceStats();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
         } finally {
-            purgingMissingClips = false;
-        }
-    }
-
-    async function handlePurgeMissingSnapshots() {
-        const confirmMsg = $_('settings.data.purge_missing_snapshots_confirm', {
-            default: 'Scan detections whose snapshots are missing in Frigate and apply the configured policy?'
-        });
-        if (!confirm(confirmMsg)) return;
-
-        purgingMissingSnapshots = true;
-        message = null;
-        try {
-            const result = await purgeMissingSnapshots();
-            message = { type: 'success', text: formatMissingMediaScanResult(result) };
-            await loadMaintenanceStats();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
-        } finally {
-            purgingMissingSnapshots = false;
+            purgingMissingMedia = false;
         }
     }
 
@@ -2656,8 +2638,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             retentionDays = settings.retention_days || 0;
             maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
             frigateMissingBehavior = (settings.frigate_missing_behavior as any) ?? 'mark_missing';
-            autoPurgeMissingClips = settings.auto_purge_missing_clips ?? false;
-            autoPurgeMissingSnapshots = settings.auto_purge_missing_snapshots ?? false;
+            {
+                const autoMediaIntegrityScan = (settings.auto_purge_missing_clips ?? false) || (settings.auto_purge_missing_snapshots ?? false);
+                autoPurgeMissingClips = autoMediaIntegrityScan;
+                autoPurgeMissingSnapshots = autoMediaIntegrityScan;
+            }
             autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
             const migratedBlockedLabels = await migrateLegacyBlockedLabels(
                 settings.blocked_labels || [],
@@ -3596,8 +3581,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {cacheStats}
                     {cleaningUp}
                     {clearingFavorites}
-                    {purgingMissingClips}
-                    {purgingMissingSnapshots}
+                    {purgingMissingMedia}
                     {cleaningCache}
                     {backfilling}
                     {backfillResult}
@@ -3617,8 +3601,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {analysisTotal}
                     {handleCleanup}
                     {handleClearFavorites}
-                    {handlePurgeMissingClips}
-                    {handlePurgeMissingSnapshots}
+                    {handlePurgeMissingMedia}
                     {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handlePreviewTimezoneRepair}

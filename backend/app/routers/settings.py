@@ -1552,6 +1552,98 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         "missing": missing_count
     }
 
+
+async def _purge_missing_all_media() -> dict:
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        event_ids = await repo.get_all_frigate_event_ids()
+
+    if not event_ids:
+        return {
+            "status": "completed",
+            "deleted_count": 0,
+            "marked_missing_count": 0,
+            "kept_count": 0,
+            "cleared_missing_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "No detections found",
+        }
+
+    try:
+        version = await frigate_client.get_version()
+    except Exception:
+        version = None
+    if not version:
+        return {
+            "status": "failed",
+            "deleted_count": 0,
+            "marked_missing_count": 0,
+            "kept_count": 0,
+            "cleared_missing_count": 0,
+            "checked": 0,
+            "missing": 0,
+            "message": "Frigate is not reachable. Aborting purge.",
+        }
+
+    semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
+
+    async def check(event_id: str) -> tuple[str, bool, str | None]:
+        async with semaphore:
+            event_data, error = await frigate_client.get_event_with_error(event_id)
+            if not event_data:
+                return event_id, True, error or "event_not_found"
+
+            missing_reasons: list[str] = []
+            if settings.frigate.clips_enabled and not bool(event_data.get("has_clip", False)):
+                missing_reasons.append("clip_unavailable")
+            if not bool(event_data.get("has_snapshot", True)):
+                missing_reasons.append("snapshot_unavailable")
+
+            if missing_reasons:
+                return event_id, True, ",".join(missing_reasons)
+            return event_id, False, None
+
+    results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
+    missing_count = sum(1 for _event_id, missing, _error in results if missing)
+    deleted_count = 0
+    marked_missing_count = 0
+    kept_count = 0
+    cleared_missing_count = 0
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        for event_id, missing, error in results:
+            if missing:
+                counts = await apply_missing_policy(
+                    repo=repo,
+                    frigate_event=event_id,
+                    error=error or "media_unavailable",
+                    source="maintenance_scan",
+                    media_kind="media",
+                )
+                deleted_count += counts["deleted_count"]
+                marked_missing_count += counts["marked_missing_count"]
+                kept_count += counts["kept_count"]
+                continue
+            if await clear_missing_state_if_present(
+                repo=repo,
+                frigate_event=event_id,
+                source="maintenance_scan",
+                media_kind="media",
+            ):
+                cleared_missing_count += 1
+
+    return {
+        "status": "completed",
+        "deleted_count": deleted_count,
+        "marked_missing_count": marked_missing_count,
+        "kept_count": kept_count,
+        "cleared_missing_count": cleared_missing_count,
+        "checked": len(event_ids),
+        "missing": missing_count,
+    }
+
 def _get_camera_retention_days(frigate_config: object, camera_name: str) -> float | None:
     return get_camera_retention_days(frigate_config, camera_name)
 
@@ -1561,6 +1653,14 @@ async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     """Remove detections without clips (or missing events). Owner only."""
     result = await _purge_missing_media("clip")
     log.info("Purge missing clips completed", **result)
+    return result
+
+
+@router.post("/maintenance/purge-missing-media")
+async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
+    """Apply the configured missing-media policy when any Frigate event/media is missing. Owner only."""
+    result = await _purge_missing_all_media()
+    log.info("Purge missing media completed", **result)
     return result
 
 

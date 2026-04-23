@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTimezoneRepair, fetchAnalysisStatus, fetchTimezoneRepairPreview } from './maintenance';
+import { applyTimezoneRepair, fetchAnalysisStatus, fetchTimezoneRepairPreview, purgeMissingMedia } from './maintenance';
 
 describe('fetchAnalysisStatus', () => {
     afterEach(() => {
@@ -75,5 +75,30 @@ describe('timezone repair maintenance api', () => {
         expect(firstCall[0]).toContain('/maintenance/timezone-repair/apply');
         expect(firstCall[1]).toMatchObject({ method: 'POST' });
         expect(firstCall[1]?.body).toBe(JSON.stringify({ confirm: true }));
+    });
+});
+
+describe('media integrity maintenance api', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('runs one combined missing-media scan', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            status: 'completed',
+            deleted_count: 0,
+            marked_missing_count: 1,
+            kept_count: 0,
+            cleared_missing_count: 0,
+            checked: 1,
+            missing: 1
+        })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await purgeMissingMedia();
+
+        const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
+        expect(firstCall[0]).toContain('/maintenance/purge-missing-media');
+        expect(firstCall[1]).toMatchObject({ method: 'POST' });
     });
 });

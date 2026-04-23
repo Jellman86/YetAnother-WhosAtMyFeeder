@@ -15,8 +15,7 @@
         cacheRetentionDays = $bindable(0),
         cleaningUp,
         clearingFavorites,
-        purgingMissingClips,
-        purgingMissingSnapshots,
+        purgingMissingMedia,
         cacheEnabled = $bindable(true),
         cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
@@ -48,8 +47,7 @@
         analysisTotal,
         handleCleanup,
         handleClearFavorites,
-        handlePurgeMissingClips,
-        handlePurgeMissingSnapshots,
+        handlePurgeMissingMedia,
         handleCacheCleanup,
         handleStartTaxonomySync,
         handlePreviewTimezoneRepair,
@@ -70,8 +68,7 @@
         cacheRetentionDays: number;
         cleaningUp: boolean;
         clearingFavorites: boolean;
-        purgingMissingClips: boolean;
-        purgingMissingSnapshots: boolean;
+        purgingMissingMedia: boolean;
         cacheEnabled: boolean;
         cacheSnapshots: boolean;
         cacheClips: boolean;
@@ -103,8 +100,7 @@
         analysisTotal: number;
         handleCleanup: () => Promise<void>;
         handleClearFavorites: () => Promise<void>;
-        handlePurgeMissingClips: () => Promise<void>;
-        handlePurgeMissingSnapshots: () => Promise<void>;
+        handlePurgeMissingMedia: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handlePreviewTimezoneRepair: () => Promise<void>;
@@ -188,6 +184,12 @@
     });
 
     const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
+    const autoMediaIntegrityScan = $derived(autoPurgeMissingClips || autoPurgeMissingSnapshots);
+
+    const setAutoMediaIntegrityScan = (enabled: boolean) => {
+        autoPurgeMissingClips = enabled;
+        autoPurgeMissingSnapshots = enabled;
+    };
 </script>
 
 <div class="space-y-6">
@@ -281,51 +283,27 @@
                         </p>
                     </div>
                     <button
-                        onclick={handlePurgeMissingClips}
-                        disabled={purgingMissingClips}
-                        aria-label={$_('settings.data.purge_missing_clips', { default: 'Scan detections missing clips in Frigate' })}
+                        onclick={handlePurgeMissingMedia}
+                        disabled={purgingMissingMedia}
+                        aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
                         class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
                     >
-                        {purgingMissingClips
+                        {purgingMissingMedia
                             ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                            : $_('settings.data.purge_missing_clips', { default: 'Scan detections missing clips in Frigate' })}
+                            : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
                     </button>
                     <div class="flex items-center justify-between px-1">
-                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}</span>
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}</span>
                         <button
                             role="switch"
-                            aria-checked={autoPurgeMissingClips}
-                            aria-label={$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}
-                            onclick={() => autoPurgeMissingClips = !autoPurgeMissingClips}
-                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoPurgeMissingClips = !autoPurgeMissingClips; } }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoPurgeMissingClips ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                            aria-checked={autoMediaIntegrityScan}
+                            aria-label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
+                            onclick={() => setAutoMediaIntegrityScan(!autoMediaIntegrityScan)}
+                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAutoMediaIntegrityScan(!autoMediaIntegrityScan); } }}
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoMediaIntegrityScan ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
                         >
-                            <span class="sr-only">{$_('settings.data.auto_purge_missing_clips', { default: 'Run automatically (daily)' })}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoPurgeMissingClips ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>
-                    <button
-                        onclick={handlePurgeMissingSnapshots}
-                        disabled={purgingMissingSnapshots}
-                        aria-label={$_('settings.data.purge_missing_snapshots', { default: 'Scan detections missing snapshots in Frigate' })}
-                        class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
-                    >
-                        {purgingMissingSnapshots
-                            ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                            : $_('settings.data.purge_missing_snapshots', { default: 'Scan detections missing snapshots in Frigate' })}
-                    </button>
-                    <div class="flex items-center justify-between px-1">
-                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}</span>
-                        <button
-                            role="switch"
-                            aria-checked={autoPurgeMissingSnapshots}
-                            aria-label={$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}
-                            onclick={() => autoPurgeMissingSnapshots = !autoPurgeMissingSnapshots}
-                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoPurgeMissingSnapshots = !autoPurgeMissingSnapshots; } }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoPurgeMissingSnapshots ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                        >
-                            <span class="sr-only">{$_('settings.data.auto_purge_missing_snapshots', { default: 'Run automatically (daily)' })}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoPurgeMissingSnapshots ? 'translate-x-5' : 'translate-x-0'}"></span>
+                            <span class="sr-only">{$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}</span>
+                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoMediaIntegrityScan ? 'translate-x-5' : 'translate-x-0'}"></span>
                         </button>
                     </div>
                     <p class="text-[10px] text-slate-400 font-bold italic">

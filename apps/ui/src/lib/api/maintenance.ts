@@ -176,6 +176,11 @@ export async function purgeMissingSnapshots(): Promise<PurgeMissingMediaResult> 
     return handleResponse<PurgeMissingMediaResult>(response);
 }
 
+export async function purgeMissingMedia(): Promise<PurgeMissingMediaResult> {
+    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-media`, { method: 'POST' });
+    return handleResponse<PurgeMissingMediaResult>(response);
+}
+
 export async function analyzeUnknowns(): Promise<AnalyzeUnknownsResult> {
     const response = await apiFetch(`${API_BASE}/maintenance/analyze-unknowns`, { method: 'POST' });
     return handleResponse<AnalyzeUnknownsResult>(response);

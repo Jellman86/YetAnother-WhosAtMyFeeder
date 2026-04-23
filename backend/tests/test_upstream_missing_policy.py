@@ -106,3 +106,69 @@ async def test_purge_missing_media_deletes_detection_when_behavior_is_delete():
         and event.get("event_id") == "evt-purge-delete"
         for event in history["events"]
     )
+
+
+@pytest.mark.parametrize(
+    "event_data,expected_error",
+    [
+        ({"has_clip": False, "has_snapshot": True}, "clip_unavailable"),
+        ({"has_clip": True, "has_snapshot": False}, "snapshot_unavailable"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_purge_missing_all_media_marks_if_either_clip_or_snapshot_is_missing(event_data, expected_error):
+    settings.frigate.clips_enabled = True
+    settings.maintenance.frigate_missing_behavior = "mark_missing"
+    await _insert_detection("evt-purge-all")
+
+    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
+         patch.object(
+             settings_router.frigate_client,
+             "get_event_with_error",
+             new=AsyncMock(return_value=(event_data, None)),
+         ):
+        result = await settings_router._purge_missing_all_media()
+
+    assert result["status"] == "completed"
+    assert result["checked"] == 1
+    assert result["missing"] == 1
+    assert result["marked_missing_count"] == 1
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event("evt-purge-all")
+
+    assert detection is not None
+    assert detection.frigate_status == "missing"
+    assert detection.frigate_last_error == expected_error
+
+
+@pytest.mark.asyncio
+async def test_purge_missing_all_media_clears_stale_missing_state_when_media_returns():
+    settings.frigate.clips_enabled = True
+    settings.maintenance.frigate_missing_behavior = "mark_missing"
+    await _insert_detection("evt-purge-all-restored")
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.mark_frigate_missing("evt-purge-all-restored", error="clip_unavailable")
+
+    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
+         patch.object(
+             settings_router.frigate_client,
+             "get_event_with_error",
+             new=AsyncMock(return_value=({"has_clip": True, "has_snapshot": True}, None)),
+         ):
+        result = await settings_router._purge_missing_all_media()
+
+    assert result["status"] == "completed"
+    assert result["checked"] == 1
+    assert result["missing"] == 0
+    assert result["cleared_missing_count"] == 1
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event("evt-purge-all-restored")
+
+    assert detection is not None
+    assert detection.frigate_status == "present"
+    assert detection.frigate_last_error is None
