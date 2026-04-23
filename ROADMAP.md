@@ -8,7 +8,33 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
-### 0. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
+### 0. Classifier Inference-Health Refactor 🩺
+**Priority:** P0 | **Effort:** L (1–2 weeks across 4 phased PRs) | **Status:** Proposed — next up
+
+Issue `#33` has accumulated 29 changelog entries across five overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout). Each was correct in isolation, but the cumulative surface means any new bundle produces a new mitigation layer rather than a simpler one. Before a sixth layer lands, consolidate.
+
+**Target:** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. One `/health.inference_health` field replaces scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters.
+
+**Why now:**
+- The April 23 reproducer showed OpenVINO Intel GPU running at ~12 s/frame (≈20× CPU). A startup benchmark would have caught it before the first user-visible timeout.
+- `register_gpu_unhealthy_signal` now has four call sites; the next bundle will ask for a fifth. A measured-state gate has zero.
+- A new contributor cannot currently explain the classifier failure model in one paragraph without cross-referencing four files.
+
+**Phased rollout (no flag day):**
+1. Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
+2. Switch model hot-swap trigger to `verdict == "unhealthy"`.
+3. Remove legacy mechanisms (`_gpu_unhealthy_signal_times`, snapshot-fallback retry loop, duplicate reason strings).
+4. Land pre-flight startup benchmark and `runtime_benchmarks` diagnostics field.
+
+**Success criteria:**
+- A single `/health` field tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
+- Grep count for `gpu_fallback` / `lease_expiry` / `snapshot_fallback` drops ≥50%.
+- The `#33` harness with `--force-slow-gpu` passes in under 60 s instead of 47 min.
+- The classifier failure model fits in one paragraph.
+
+See the full plan for module structure, migration phases, test strategy, risks, and out-of-scope boundaries.
+
+### 0.1. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
 **Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Completed on `dev` (2026-03-26)
 
 Follow-up shipped on `dev` (2026-03-27): YA-WAMF now auto-generates persisted full-visit clips for eligible completed detections and makes the canonical `/clip.mp4` route prefer that persisted full-visit file once ready.
