@@ -1174,6 +1174,19 @@ class AutoVideoClassifierService:
                     }
                     timeout_context.update(await asyncio.to_thread(self._clip_probe_context_sync, tmp_path))
 
+                    # Signal the classifier that a maintenance video timeout
+                    # just happened. Combined with live lease expiries this
+                    # triggers the shared OpenVINO Intel GPU -> CPU fallback
+                    # once the threshold is crossed, which matters during
+                    # overnight batch runs when there is no live traffic to
+                    # surface the unhealthy GPU on its own (issue #33).
+                    signal_fn = getattr(self._classifier, "register_gpu_unhealthy_signal", None)
+                    if callable(signal_fn):
+                        try:
+                            signal_fn(f"{source}_video_timeout", event_id=frigate_event)
+                        except Exception:
+                            pass
+
                     if source == "maintenance" and fallback_to_snapshot:
                         timeout_context["snapshot_fallback_attempted"] = True
                         snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
@@ -1712,6 +1725,19 @@ class AutoVideoClassifierService:
                 await asyncio.sleep(backoff_seconds)
 
         if last_unavailable_error is not None:
+            # A repeated "lease expired" here is another strong signal that
+            # OpenVINO Intel GPU inference is stuck — usually because the
+            # orphaned video-inference thread from the preceding video_timeout
+            # is still holding the GPU. Feed it into the shared fallback so
+            # the next batch items swap to CPU instead of stacking more
+            # orphaned work (issue #33).
+            if last_unavailable_error == "background_image_lease_expired":
+                signal_fn = getattr(self._classifier, "register_gpu_unhealthy_signal", None)
+                if callable(signal_fn):
+                    try:
+                        signal_fn("snapshot_fallback_lease_expired", event_id=frigate_event)
+                    except Exception:
+                        pass
             self._record_diagnostic(
                 frigate_event,
                 reason_code=last_unavailable_error,

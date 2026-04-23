@@ -2500,7 +2500,10 @@ class ClassifierService:
     def _gpu_restore_eligible(self) -> bool:
         restoring_after_live_lease_fallback = (
             isinstance(self._last_runtime_recovery, dict)
-            and self._last_runtime_recovery.get("reason") == "live_gpu_lease_expiry_fallback"
+            and self._last_runtime_recovery.get("reason") in {
+                "live_gpu_lease_expiry_fallback",
+                "gpu_unhealthy_fallback",
+            }
             and not (
                 self._inference_backend == "openvino"
                 and self._active_inference_provider == "intel_gpu"
@@ -2537,7 +2540,23 @@ class ClassifierService:
     def _record_live_lease_expiry_and_maybe_fallback(self, error: ClassificationLeaseExpiredError) -> None:
         if error.priority != "live":
             return
+        self.register_gpu_unhealthy_signal("live_lease_expiry")
 
+    def register_gpu_unhealthy_signal(
+        self,
+        source: str,
+        *,
+        event_id: str | None = None,
+    ) -> None:
+        """Record a signal that OpenVINO Intel GPU inference is unhealthy.
+
+        Triggers the same model hot-swap as repeated live lease expiries when
+        the signal threshold is crossed within the fallback window. Signals are
+        merged across sources so maintenance video timeouts and snapshot
+        fallback lease expiries count alongside live lease expiries — which
+        matters at night or during batch analyze runs when there is no live
+        traffic to surface the problem on its own.
+        """
         now = time.monotonic()
         window_start = now - CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS
         while self._live_gpu_lease_expiry_times and self._live_gpu_lease_expiry_times[0] < window_start:
@@ -2554,8 +2573,8 @@ class ClassifierService:
             return
 
         detail = (
-            "Live OpenVINO Intel GPU inference exceeded lease repeatedly; "
-            "using a safer live-image fallback during cooldown"
+            f"OpenVINO Intel GPU inference signalled unhealthy ({source}) repeatedly; "
+            "using a safer CPU fallback during cooldown"
         )
         with self._models_lock:
             replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
@@ -2569,7 +2588,12 @@ class ClassifierService:
                     "failed_backend": "openvino",
                     "failed_provider": "intel_gpu",
                     "detail": detail,
-                    "reason": "live_gpu_lease_expiry_fallback_unavailable",
+                    "reason": (
+                        "live_gpu_lease_expiry_fallback_unavailable"
+                        if source == "live_lease_expiry"
+                        else "gpu_unhealthy_fallback_unavailable"
+                    ),
+                    "trigger_source": source,
                     "at": time.time(),
                 }
                 return
@@ -2591,10 +2615,23 @@ class ClassifierService:
                 "recovered_backend": backend,
                 "recovered_provider": provider,
                 "detail": detail,
-                "reason": "live_gpu_lease_expiry_fallback",
+                "reason": (
+                    "live_gpu_lease_expiry_fallback"
+                    if source == "live_lease_expiry"
+                    else "gpu_unhealthy_fallback"
+                ),
+                "trigger_source": source,
                 "at": time.time(),
                 "cooldown_seconds": CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
             }
+            log.warning(
+                "OpenVINO Intel GPU fallback engaged after repeated unhealthy signals",
+                trigger_source=source,
+                event_id=event_id,
+                recovered_backend=backend,
+                recovered_provider=provider,
+                cooldown_seconds=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
+            )
             if old_model is not None and old_model is not replacement and hasattr(old_model, "cleanup"):
                 try:
                     old_model.cleanup()
