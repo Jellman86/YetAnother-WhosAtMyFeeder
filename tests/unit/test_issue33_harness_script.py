@@ -68,6 +68,27 @@ def test_build_arg_parser_accepts_issue33_stall_probe_stress_profile():
     assert args.stress_profile == "issue33-stall-probe"
 
 
+def test_build_arg_parser_accepts_issue33_fixture_replay_stress_profile():
+    parser = issue33._build_arg_parser()
+
+    args = parser.parse_args(["--stress-profile", "issue33-fixture-replay"])
+
+    assert args.stress_profile == "issue33-fixture-replay"
+
+
+def test_apply_stress_profile_uses_fixture_replay_defaults():
+    parser = issue33._build_arg_parser()
+    args = parser.parse_args(["--stress-profile", "issue33-fixture-replay"])
+
+    issue33._apply_stress_profile(args, parser=parser)
+
+    assert args.frigate_load_source == "fixture"
+    assert args.trigger_backfill is True
+    assert args.fixture_manual_tag_unknown is True
+    assert args.min_backfill_processed == 3
+    assert args.min_analysis_total_candidates == 1
+
+
 def test_apply_stress_profile_uses_aggressive_issue33_live_defaults():
     parser = issue33._build_arg_parser()
     args = parser.parse_args(["--stress-profile", "issue33-live"])
@@ -351,6 +372,106 @@ def test_resolve_frigate_api_url_prefers_live_settings_when_no_explicit_url(monk
     url = issue33._resolve_frigate_api_url(args, auth_token="jwt-token")
 
     assert url == "http://frigate:5000"
+
+
+def test_discover_fixture_images_returns_supported_files(tmp_path):
+    (tmp_path / "a.jpg").write_bytes(b"a")
+    (tmp_path / "b.jpeg").write_bytes(b"b")
+    (tmp_path / "c.png").write_bytes(b"c")
+    (tmp_path / "ignored.txt").write_text("no")
+
+    images = issue33._discover_fixture_images(tmp_path)
+
+    assert [path.name for path in images] == ["a.jpg", "b.jpeg", "c.png"]
+
+
+def test_build_fixture_events_cycles_images_and_sets_frigate_fields(tmp_path):
+    image = tmp_path / "bird.jpg"
+    image.write_bytes(b"jpeg")
+
+    events = issue33._build_fixture_events(
+        images=[image],
+        count=2,
+        camera="BirdCam",
+        run_label="20260424-test",
+        now=issue33.datetime(2026, 4, 24, 12, 0, 0, tzinfo=issue33.timezone.utc),
+    )
+
+    assert [event["id"] for event in events] == [
+        "issue33-fixture-20260424-test-0001",
+        "issue33-fixture-20260424-test-0002",
+    ]
+    assert events[0]["camera"] == "BirdCam"
+    assert events[0]["label"] == "bird"
+    assert events[0]["has_snapshot"] is True
+    assert events[0]["has_clip"] is True
+    assert events[0]["_fixture_image_path"] == str(image)
+
+
+def test_evaluate_fixture_replay_requires_backfill_and_analysis_progress():
+    result = issue33._evaluate_fixture_replay(
+        enabled=True,
+        backfill_result={"ok": True, "response": {"processed": 3, "new_detections": 3, "errors": 0}},
+        manual_tag_result={"ok": True, "response": {"updated_count": 3}},
+        analysis_triggers=[{"ok": True, "response": {"status": "queued", "total_candidates": 3, "accepted": 1}}],
+        min_backfill_processed=3,
+        min_analysis_total_candidates=1,
+        reconnect_delta=1,
+        min_reconnect_delta=1,
+        app_frigate_stale_seconds=120.0,
+        max_observed_frigate_age_seconds=140.0,
+    )
+
+    assert result["passed"] is True
+    assert result["failure_reasons"] == []
+
+
+def test_evaluate_fixture_replay_reports_missing_backfill_and_analysis():
+    result = issue33._evaluate_fixture_replay(
+        enabled=True,
+        backfill_result=None,
+        manual_tag_result=None,
+        analysis_triggers=[],
+        min_backfill_processed=3,
+        min_analysis_total_candidates=1,
+        reconnect_delta=0,
+        min_reconnect_delta=1,
+        app_frigate_stale_seconds=120.0,
+        max_observed_frigate_age_seconds=140.0,
+    )
+
+    assert result["passed"] is False
+    assert "Fixture replay backfill did not run." in result["failure_reasons"]
+    assert "Fixture replay analyze-unknowns did not observe any candidate work." in result["failure_reasons"]
+    assert "Fixture replay MQTT reconnect growth below threshold (0 < 1)." in result["failure_reasons"]
+
+
+def test_evaluate_fixture_replay_reports_short_stall_window_for_reconnect_requirement():
+    result = issue33._evaluate_fixture_replay(
+        enabled=True,
+        backfill_result={"ok": True, "response": {"processed": 3, "new_detections": 3, "errors": 0}},
+        manual_tag_result={"ok": True, "response": {"updated_count": 3}},
+        analysis_triggers=[{"ok": True, "response": {"status": "queued", "total_candidates": 3, "accepted": 1}}],
+        min_backfill_processed=3,
+        min_analysis_total_candidates=1,
+        reconnect_delta=0,
+        min_reconnect_delta=1,
+        app_frigate_stale_seconds=1800.0,
+        max_observed_frigate_age_seconds=180.4,
+    )
+
+    assert result["passed"] is False
+    assert result["failure_reasons"] == [
+        "Fixture replay did not run long enough to exercise MQTT reconnect "
+        "(max Frigate age 180.4s < app stale threshold 1800.0s)."
+    ]
+
+
+def test_extracts_mqtt_frigate_stale_seconds_from_health_payload():
+    assert issue33._mqtt_frigate_stale_seconds_from_health(
+        {"mqtt": {"frigate_topic_stale_seconds": "45.5"}}
+    ) == 45.5
+    assert issue33._mqtt_frigate_stale_seconds_from_health({"mqtt": {}}) is None
 
 
 def test_resolve_birdnet_topic_preserves_explicit_topic(monkeypatch):
@@ -956,6 +1077,57 @@ def test_evaluate_issue33_tracks_replays_apr5_mixed_runtime_shape():
 
     assert tracks["maintenance_video_timeout"]["failed"] is True
     assert tracks["mqtt_no_frigate_resume"]["failed"] is True
+
+
+def test_evaluate_issue33_tracks_allows_expected_no_resume_diagnostic_for_fixture_probe():
+    workspace = {
+        "backend_diagnostics": {
+            "events": [
+                {
+                    "timestamp": "2026-04-24T17:51:28+00:00",
+                    "reason_code": "frigate_recovery_no_frigate_resume",
+                    "context": {"consecutive_reconnects_without_frigate": 1},
+                }
+            ]
+        }
+    }
+
+    tracks = issue33._evaluate_issue33_tracks(
+        scenario="combined",
+        health_evaluation={"passed": True, "failure_reasons": []},
+        diagnostics_workspace=workspace,
+        run_started_at="2026-04-24T17:48:00+00:00",
+        allow_expected_mqtt_no_frigate_resume=True,
+    )
+
+    assert tracks["mqtt_no_frigate_resume"]["failed"] is False
+    assert tracks["mqtt_no_frigate_resume"]["reason"] is None
+    assert tracks["mqtt_no_frigate_resume"]["evidence"]["reason_code"] == "frigate_recovery_no_frigate_resume"
+
+
+def test_evaluate_issue33_tracks_fails_abandoned_recovery_even_when_no_resume_is_allowed():
+    workspace = {
+        "backend_diagnostics": {
+            "events": [
+                {
+                    "timestamp": "2026-04-24T17:51:28+00:00",
+                    "reason_code": "frigate_recovery_abandoned",
+                    "context": {"consecutive_reconnects_without_frigate": 5},
+                }
+            ]
+        }
+    }
+
+    tracks = issue33._evaluate_issue33_tracks(
+        scenario="combined",
+        health_evaluation={"passed": True, "failure_reasons": []},
+        diagnostics_workspace=workspace,
+        run_started_at="2026-04-24T17:48:00+00:00",
+        allow_expected_mqtt_no_frigate_resume=True,
+    )
+
+    assert tracks["mqtt_no_frigate_resume"]["failed"] is True
+    assert tracks["mqtt_no_frigate_resume"]["reason"] == "mqtt_no_frigate_resume_detected"
 
 
 def test_select_replay_seed_events_prefers_snapshot_and_clip_backed_birds():
