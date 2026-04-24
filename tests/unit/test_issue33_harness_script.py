@@ -305,6 +305,27 @@ def test_resolve_birdnet_topic_prefers_live_settings_when_no_explicit_topic(monk
     assert topic == "birdnet"
 
 
+def test_resolve_birdnet_topic_uses_backend_default_without_auth():
+    args = issue33._build_arg_parser().parse_args([])
+
+    topic = issue33._resolve_birdnet_topic(args, auth_token=None)
+
+    assert topic == "birdnet/text"
+
+
+def test_resolve_birdnet_topic_uses_backend_default_when_settings_fetch_fails(monkeypatch):
+    args = issue33._build_arg_parser().parse_args([])
+
+    def _raise_settings_error(**_kwargs):
+        raise OSError("settings unavailable")
+
+    monkeypatch.setattr(issue33, "_fetch_owner_settings", _raise_settings_error)
+
+    topic = issue33._resolve_birdnet_topic(args, auth_token="jwt-token")
+
+    assert topic == "birdnet/text"
+
+
 def test_resolve_frigate_camera_prefers_live_settings_when_no_explicit_camera(monkeypatch):
     args = issue33._build_arg_parser().parse_args([])
     monkeypatch.setattr(issue33, "_fetch_owner_settings", lambda **kwargs: {"cameras": ["BirdCam", "BackYard"]})

@@ -647,7 +647,7 @@ def _resolve_birdnet_topic(args: argparse.Namespace, *, auth_token: str | None) 
     if explicit_topic:
         return explicit_topic
     if not auth_token:
-        return "birdnet"
+        return "birdnet/text"
     try:
         settings_payload = _fetch_owner_settings(
             backend_url=args.backend_url,
@@ -655,9 +655,9 @@ def _resolve_birdnet_topic(args: argparse.Namespace, *, auth_token: str | None) 
             timeout_seconds=args.http_timeout_seconds,
         )
     except Exception:
-        return "birdnet"
+        return "birdnet/text"
     topic = str(settings_payload.get("audio_topic") or "").strip()
-    return topic or "birdnet"
+    return topic or "birdnet/text"
 
 
 def _resolve_frigate_camera(args: argparse.Namespace, *, auth_token: str | None) -> str:
