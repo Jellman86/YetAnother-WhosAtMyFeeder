@@ -53,6 +53,85 @@ def test_notification_cooldown_env_override(monkeypatch):
     assert loaded.notifications.notification_cooldown_minutes == 13
 
 
+def test_notification_species_mode_defaults_to_none(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "none"
+
+
+def test_notification_species_mode_infers_legacy_blacklist(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "notifications": {
+                    "filters": {
+                        "species_blacklist_structured": [
+                            {
+                                "common_name": "House Sparrow",
+                                "scientific_name": "Passer domesticus",
+                                "taxa_id": 123,
+                            }
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "blacklist"
+
+
+def test_notification_species_mode_infers_legacy_whitelist(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"notifications": {"filters": {"species_whitelist": ["Robin"]}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "whitelist"
+
+
+def test_notification_species_mode_explicit_none_wins_over_stale_lists(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "notifications": {
+                    "filters": {
+                        "species_mode": "none",
+                        "species_whitelist": ["Robin"],
+                        "species_blacklist_structured": [
+                            {
+                                "common_name": "House Sparrow",
+                                "scientific_name": "Passer domesticus",
+                                "taxa_id": 123,
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "none"
+
+
 def test_maintenance_max_concurrent_env_override(monkeypatch):
     monkeypatch.setenv("MAINTENANCE__MAX_CONCURRENT", "3")
 

@@ -1243,10 +1243,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     function inferNotificationSpeciesMode(settings: SettingsPayload): NotificationSpeciesFilterMode {
         const mode = normalizeNotificationSpeciesMode(settings.notifications_filter_species_mode);
+        if (mode) return mode;
         const blacklist = settings.notifications_filter_species_blacklist_structured || [];
         const whitelist = settings.notifications_filter_species_whitelist_structured || [];
         const legacyWhitelist = settings.notifications_filter_species_whitelist || [];
-        if (mode && mode !== 'none') return mode;
         if (blacklist.length > 0) return 'blacklist';
         if (whitelist.length > 0 || legacyWhitelist.length > 0) return 'whitelist';
         return 'none';
