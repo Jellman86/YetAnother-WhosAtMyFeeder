@@ -2365,6 +2365,50 @@ async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(
 
 
 @pytest.mark.asyncio
+async def test_classifier_status_exposes_additive_inference_health(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", _stub_init_bird_model):
+        service = ClassifierService()
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+
+        status = service.get_status()
+
+        assert status["inference_health"]["status"] == "ok"
+        assert status["inference_health"]["runtimes"] == {}
+        assert status["last_runtime_recovery"] is None
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_coordinated_inference_records_inference_health_without_changing_results(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", _stub_init_bird_model):
+        service = ClassifierService()
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+        service._models["bird"].classify.return_value = []
+        image = Image.new("RGB", (100, 100))
+
+        results = await service.classify_async_background(
+            image,
+            camera_name="front",
+            model_id="eu_medium_focalnet_b",
+        )
+        status = service.get_status()
+        runtime = status["inference_health"]["runtimes"]["openvino/intel_gpu/eu_medium_focalnet_b"]
+
+        assert results == []
+        assert runtime["verdict"] == "healthy"
+        assert runtime["samples"] == 1
+        assert runtime["last_outcome"] == "ok"
+        assert status["last_runtime_recovery"] is None
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_onnx_cpu(
     mock_tflite, mock_os_path_exists
 ):

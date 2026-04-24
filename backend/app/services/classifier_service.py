@@ -22,6 +22,8 @@ from pathlib import Path
 from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
+from app.services.inference_health import InferenceHealth, RuntimeKey
+
 # TFLite runtime
 try:
     import tflite_runtime.interpreter as tflite
@@ -2204,6 +2206,10 @@ class ClassifierService:
         self._runtime_gpu_restore_failures = 0
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
         self._gpu_restore_not_before_monotonic: float = 0.0
+        self._inference_health = InferenceHealth(
+            min_samples=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD,
+            cooldown_seconds=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
+        )
         self._gpu_unhealthy_signal_times: deque[float] = deque(
             maxlen=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD
         )
@@ -3450,6 +3456,7 @@ class ClassifierService:
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
             "strict_non_finite_output": _strict_non_finite_output_enabled(),
             "last_runtime_recovery": effective_runtime_recovery,
+            "inference_health": self._inference_health.snapshot(),
             "openvino_runtime": self._openvino_runtime_snapshot(
                 active_backend=effective_backend,
                 active_provider=effective_provider,
@@ -4013,9 +4020,11 @@ class ClassifierService:
             )
         )
         capacity = int(self._classification_admission.get_metrics()[priority]["capacity"])
+        started_at = time.monotonic()
+        runtime_key = self._inference_runtime_key_from_context(context)
 
         try:
-            return await self._classification_admission.submit(
+            result = await self._classification_admission.submit(
                 priority=priority,
                 kind=kind,
                 runner=runner,
@@ -4025,7 +4034,18 @@ class ClassifierService:
                 on_lease_expired=on_lease_expired,
                 context=context,
             )
+            self._inference_health.record(
+                runtime_key,
+                outcome="ok",
+                latency_seconds=time.monotonic() - started_at,
+            )
+            return result
         except ClassificationAdmissionTimeoutError:
+            self._inference_health.record(
+                runtime_key,
+                outcome="timeout",
+                latency_seconds=time.monotonic() - started_at,
+            )
             if priority == "live":
                 self._live_image_admission_timeouts += 1
                 log.warning(
@@ -4049,6 +4069,11 @@ class ClassifierService:
             )
             raise BackgroundImageClassificationUnavailableError("background_image_overloaded") from None
         except ClassificationLeaseExpiredError as exc:
+            self._inference_health.record(
+                runtime_key,
+                outcome="lease_expired",
+                latency_seconds=time.monotonic() - started_at,
+            )
             if priority == "live":
                 self._record_live_lease_expiry_and_maybe_fallback(exc)
                 log.warning(
@@ -4063,6 +4088,13 @@ class ClassifierService:
                 max_concurrent=capacity,
             )
             raise BackgroundImageClassificationUnavailableError("background_image_lease_expired") from None
+        except Exception:
+            self._inference_health.record(
+                runtime_key,
+                outcome="exception",
+                latency_seconds=time.monotonic() - started_at,
+            )
+            raise
 
     async def _run_coordinated_executor_inference(
         self,
@@ -4190,6 +4222,14 @@ class ClassifierService:
             "model_id": resolved_model_id,
             "execution_mode": self._image_execution_mode,
         }
+
+    def _inference_runtime_key_from_context(self, context: dict[str, Any] | None) -> RuntimeKey:
+        context = context or {}
+        return RuntimeKey.from_values(
+            context.get("backend") or self._inference_backend,
+            context.get("provider") or self._active_inference_provider,
+            context.get("model_id") or self._resolve_active_model_id(),
+        )
 
     async def _run_live_image_inference(
         self,
@@ -4320,6 +4360,7 @@ class ClassifierService:
         remains responsive under sustained load.
         """
         normalized_input_context = _normalize_classification_input_context(input_context)
+        context = self._classification_admission_context(model_id=model_id)
         if self._image_execution_mode == "subprocess":
             base_results = await self._run_coordinated_supervised_inference(
                 "background",
@@ -4329,6 +4370,7 @@ class ClassifierService:
                 model_id,
                 normalized_input_context,
                 queue_timeout_seconds=queue_timeout_seconds,
+                context=context,
             )
         else:
             base_results = await self._run_coordinated_executor_inference(
@@ -4341,6 +4383,7 @@ class ClassifierService:
                 model_id,
                 normalized_input_context,
                 queue_timeout_seconds=queue_timeout_seconds,
+                context=context,
             )
 
         if not base_results:
