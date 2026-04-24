@@ -36,6 +36,10 @@ class SoakSample:
     video_active_count: int | None
     video_failure_count: int | None
     video_circuit_open: bool | None
+    inference_health_status: str | None = None
+    inference_health_runtime_count: int | None = None
+    inference_health_unhealthy_runtime_count: int | None = None
+    inference_health_total_samples: int | None = None
 
     def to_json(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -78,6 +82,10 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     event_pipeline = event_pipeline if isinstance(event_pipeline, dict) else {}
     drop_reasons = event_pipeline.get("drop_reasons")
     drop_reasons = drop_reasons if isinstance(drop_reasons, dict) else {}
+    inference_health = ml.get("inference_health")
+    inference_health = inference_health if isinstance(inference_health, dict) else {}
+    inference_runtimes = inference_health.get("runtimes")
+    inference_runtimes = inference_runtimes if isinstance(inference_runtimes, dict) else {}
 
     return SoakSample(
         observed_at=now,
@@ -101,6 +109,26 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         video_active_count=_safe_int_or_none(video_classifier.get("active")),
         video_failure_count=_safe_int_or_none(video_classifier.get("failure_count")),
         video_circuit_open=_safe_bool_or_none(video_classifier.get("circuit_open")),
+        inference_health_status=_safe_str_or_none(inference_health.get("status")),
+        inference_health_runtime_count=len(inference_runtimes) if inference_health else None,
+        inference_health_unhealthy_runtime_count=(
+            sum(
+                1
+                for runtime in inference_runtimes.values()
+                if isinstance(runtime, dict) and str(runtime.get("verdict") or "").lower() == "unhealthy"
+            )
+            if inference_health
+            else None
+        ),
+        inference_health_total_samples=(
+            sum(
+                int(runtime.get("samples") or 0)
+                for runtime in inference_runtimes.values()
+                if isinstance(runtime, dict)
+            )
+            if inference_health
+            else None
+        ),
     )
 
 

@@ -259,6 +259,7 @@ def _normalize_issue33_evaluation(
     birdnet_publish_stats: dict[str, Any] | None = None,
     max_birdnet_active_age_seconds: float | None = None,
     min_stall_duration_seconds: float | None = None,
+    require_inference_health: bool = False,
 ) -> dict[str, Any]:
     normalized = dict(evaluation)
     filtered_reasons = list(normalized.get("failure_reasons") or [])
@@ -308,6 +309,13 @@ def _normalize_issue33_evaluation(
     if frigate_state["failure_reason"]:
         filtered_reasons.append(str(frigate_state["failure_reason"]))
 
+    inference_state = _assess_issue33_inference_health(
+        samples=samples or [],
+        required=require_inference_health,
+    )
+    if inference_state["failure_reason"]:
+        filtered_reasons.append(str(inference_state["failure_reason"]))
+
     normalized["failure_reasons"] = filtered_reasons
     normalized["passed"] = len(filtered_reasons) == 0
     normalized["birdnet_publisher_ok"] = birdnet_state["publisher_ok"]
@@ -315,7 +323,39 @@ def _normalize_issue33_evaluation(
     normalized["birdnet_stayed_fresh_during_stall"] = birdnet_state["stayed_fresh"]
     normalized["frigate_stall_effective"] = frigate_state["stall_effective"]
     normalized["frigate_stall_window_samples"] = frigate_state["stall_window_samples"]
+    normalized["inference_health_observed"] = inference_state["observed"]
+    normalized["inference_health_status"] = inference_state["status"]
+    normalized["inference_health_runtime_count"] = inference_state["runtime_count"]
+    normalized["inference_health_unhealthy_runtime_count"] = inference_state["unhealthy_runtime_count"]
+    normalized["inference_health_total_samples"] = inference_state["total_samples"]
     return normalized
+
+
+def _assess_issue33_inference_health(*, samples: list[Any], required: bool) -> dict[str, Any]:
+    observed_samples = [
+        sample
+        for sample in samples
+        if getattr(sample, "inference_health_status", None) is not None
+    ]
+    if not observed_samples:
+        return {
+            "observed": False,
+            "status": None,
+            "runtime_count": None,
+            "unhealthy_runtime_count": None,
+            "total_samples": None,
+            "failure_reason": "Inference health telemetry missing from /health samples." if required else None,
+        }
+
+    latest = observed_samples[-1]
+    return {
+        "observed": True,
+        "status": getattr(latest, "inference_health_status", None),
+        "runtime_count": getattr(latest, "inference_health_runtime_count", None),
+        "unhealthy_runtime_count": getattr(latest, "inference_health_unhealthy_runtime_count", None),
+        "total_samples": getattr(latest, "inference_health_total_samples", None),
+        "failure_reason": None,
+    }
 
 
 def _assess_issue33_birdnet_liveness(
@@ -1090,6 +1130,7 @@ def main() -> int:
         birdnet_publish_stats=asdict(birdnet_stats),
         max_birdnet_active_age_seconds=thresholds.max_birdnet_active_age_seconds,
         min_stall_duration_seconds=thresholds.min_stall_duration_seconds,
+        require_inference_health=True,
     )
     tracks = _evaluate_issue33_tracks(
         scenario=args.scenario,

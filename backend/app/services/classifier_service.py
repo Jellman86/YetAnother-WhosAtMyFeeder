@@ -3343,6 +3343,7 @@ class ClassifierService:
             "background_image": background_image_health,
             "background_throttled": background_image_health["background_throttled"],
             "runtime_recovery": runtime_recovery,
+            "inference_health": self._inference_health.snapshot(),
         }
         if supervisor_metrics is not None:
             health["worker_pools"] = supervisor_metrics

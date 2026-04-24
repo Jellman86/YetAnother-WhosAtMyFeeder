@@ -776,6 +776,58 @@ def test_evaluate_issue33_tracks_flags_maintenance_video_timeout_from_workspace(
     assert tracks["mqtt_no_frigate_resume"]["failed"] is False
 
 
+def test_normalize_issue33_evaluation_requires_inference_health_payload():
+    evaluation = {"passed": True, "failure_reasons": []}
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        scenario="combined",
+        induced_frigate_stall=False,
+        samples=[],
+        require_inference_health=True,
+    )
+
+    assert normalized["passed"] is False
+    assert "Inference health telemetry missing from /health samples." in normalized["failure_reasons"]
+
+
+def test_normalize_issue33_evaluation_summarizes_inference_health_payload():
+    evaluation = {"passed": True, "failure_reasons": []}
+    samples = [
+        issue33.sample_from_health_payload(
+            {
+                "status": "ok",
+                "mqtt": {},
+                "ml": {
+                    "inference_health": {
+                        "status": "ok",
+                        "runtimes": {
+                            "openvino/intel_gpu/eu_medium_focalnet_b": {
+                                "verdict": "healthy",
+                                "samples": 3,
+                            }
+                        },
+                    }
+                },
+            },
+            observed_at=datetime(2026, 4, 24, 12, 0, tzinfo=timezone.utc),
+        )
+    ]
+
+    normalized = issue33._normalize_issue33_evaluation(
+        evaluation,
+        scenario="combined",
+        induced_frigate_stall=False,
+        samples=samples,
+    )
+
+    assert normalized["passed"] is True
+    assert normalized["inference_health_observed"] is True
+    assert normalized["inference_health_status"] == "ok"
+    assert normalized["inference_health_runtime_count"] == 1
+    assert normalized["inference_health_total_samples"] == 3
+
+
 def test_evaluate_issue33_tracks_flags_mqtt_no_resume_from_workspace_events():
     health_evaluation = {"passed": True, "failure_reasons": []}
     workspace = {

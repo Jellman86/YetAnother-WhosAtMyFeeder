@@ -2382,6 +2382,20 @@ async def test_classifier_status_exposes_additive_inference_health(
 
 
 @pytest.mark.asyncio
+async def test_classifier_health_exposes_additive_inference_health(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", _stub_init_bird_model):
+        service = ClassifierService()
+
+        health = service.check_health()
+
+        assert health["inference_health"]["status"] == "ok"
+        assert health["inference_health"]["runtimes"] == {}
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_coordinated_inference_records_inference_health_without_changing_results(
     mock_tflite, mock_os_path_exists
 ):
