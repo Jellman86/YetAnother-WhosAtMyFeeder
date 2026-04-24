@@ -48,6 +48,12 @@ interface DetectionsStoreLike {
         ramUsage?: string | null
     ): void;
     completeReclassification(eventId: string, results: any): void;
+    markReclassificationStrategyChanged(
+        eventId: string,
+        from: string | null,
+        to: string | null,
+        reason: string | null
+    ): void;
 }
 
 interface SettingsStoreLike {
@@ -431,6 +437,20 @@ export class LiveUpdateCoordinator {
                     payload.data.ram_usage
                 );
                 this.updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
+                return;
+            }
+
+            if (payload.type === 'reclassification_strategy_changed') {
+                if (!payload.data || !payload.data.event_id) {
+                    this.deps.logger.warn('SSE invalid reclassification_strategy_changed payload', { payload });
+                    return;
+                }
+                this.deps.detectionsStore.markReclassificationStrategyChanged(
+                    payload.data.event_id,
+                    payload.data.from ?? null,
+                    payload.data.to ?? null,
+                    payload.data.reason ?? null
+                );
                 return;
             }
 

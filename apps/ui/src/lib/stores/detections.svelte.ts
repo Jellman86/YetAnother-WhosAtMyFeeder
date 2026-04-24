@@ -27,6 +27,12 @@ export interface ReclassificationProgress {
     lastUpdateAt: number;
     completedAt?: number | null;
     results?: any; // Final results from backend
+    // Set when the backend downgrades a video run to snapshot mid-flight (e.g.
+    // clip_not_retained, event_not_found with no cached clip).  The UI uses
+    // this to swap the film-reel "video analysis" framing for a "snapshot
+    // fallback" state instead of silently carrying on.
+    fallbackFrom?: string | null;
+    fallbackReason?: string | null;
 }
 
 // Svelte 5 shared state
@@ -348,6 +354,32 @@ class DetectionsStore {
             this.progressMap = newMap;
         }
         return changed;
+    }
+
+    markReclassificationStrategyChanged(
+        eventId: string,
+        from: string | null,
+        to: string | null,
+        reason: string | null
+    ) {
+        if (!eventId || typeof eventId !== 'string') return;
+        const existing = this.progressMap.get(eventId);
+        // No progress entry means the overlay is not open (e.g. manual reclassify
+        // that downgraded before it ever opened a video overlay) — silently drop.
+        if (!existing) return;
+        // Never revive a completed overlay: a late strategy_changed SSE (arriving
+        // after reclassification_completed due to out-of-order delivery) must not
+        // flip a finished result back into the "running snapshot fallback" state.
+        if (existing.status === 'completed') return;
+        const newMap = new Map(this.progressMap);
+        newMap.set(eventId, {
+            ...existing,
+            strategy: to ?? existing.strategy ?? null,
+            fallbackFrom: from ?? null,
+            fallbackReason: reason ?? null,
+            lastUpdateAt: Date.now()
+        });
+        this.progressMap = newMap;
     }
 
     dismissReclassification(eventId: string) {

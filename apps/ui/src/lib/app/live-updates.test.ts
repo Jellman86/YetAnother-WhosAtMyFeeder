@@ -20,6 +20,7 @@ function buildCoordinator(options?: {
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
         completeReclassification: [] as any[],
+        markReclassificationStrategyChanged: [] as any[],
         syncDiagnosticsWorkspace: [] as any[]
     };
 
@@ -67,7 +68,8 @@ function buildCoordinator(options?: {
             removeDetection: () => undefined,
             startReclassification: (...args: any[]) => calls.startReclassification.push(args),
             updateReclassificationProgress: (...args: any[]) => calls.updateReclassificationProgress.push(args),
-            completeReclassification: (...args: any[]) => calls.completeReclassification.push(args)
+            completeReclassification: (...args: any[]) => calls.completeReclassification.push(args),
+            markReclassificationStrategyChanged: (...args: any[]) => calls.markReclassificationStrategyChanged.push(args)
         },
         settingsStore: {
             liveAnnouncements: false
@@ -122,6 +124,28 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
 
         expect(calls.markCompleted.length).toBe(1);
         expect(calls.markCompleted[0].id).toBe('reclassify:evt-1');
+    });
+
+    it('forwards reclassification_strategy_changed payloads to the detections store', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_strategy_changed',
+            data: {
+                event_id: 'evt-1',
+                from: 'video',
+                to: 'snapshot',
+                reason: 'clip_not_retained'
+            }
+        });
+
+        expect(calls.markReclassificationStrategyChanged.length).toBe(1);
+        expect(calls.markReclassificationStrategyChanged[0]).toEqual([
+            'evt-1',
+            'video',
+            'snapshot',
+            'clip_not_retained'
+        ]);
     });
 
     it('does not create fallback terminal jobs for unrelated detection updates', () => {
@@ -198,7 +222,8 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 removeDetection: () => undefined,
                 startReclassification: () => undefined,
                 updateReclassificationProgress: () => undefined,
-                completeReclassification: () => undefined
+                completeReclassification: () => undefined,
+                markReclassificationStrategyChanged: () => undefined
             },
             settingsStore: { liveAnnouncements: false },
             announcer: { announce: () => undefined },

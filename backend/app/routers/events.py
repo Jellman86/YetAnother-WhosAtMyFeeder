@@ -1254,14 +1254,29 @@ async def reclassify_event(
 
         try:
             # Determine effective strategy
-            # If video requested but no clip, fallback to snapshot
+            # If video requested but no clip, fallback to snapshot.  A Frigate
+            # event_not_found response does not by itself mean the clip is
+            # unavailable — we may have a cached event or recording clip that
+            # _load_reclassification_clip can use.  Only fall back when neither
+            # Frigate nor the local cache has a clip.
             event_data, event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
-            has_clip = event_data.get("has_clip", False) if event_data else False
+            has_frigate_clip = event_data.get("has_clip", False) if event_data else False
+            has_cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
+            has_clip = has_frigate_clip or has_cached_clip
 
             effective_strategy = strategy
             if strategy == "video" and not has_clip:
                 log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
                 await broadcast_video_status("failed", event_error or "clip_unavailable")
+                await broadcaster.broadcast({
+                    "type": "reclassification_strategy_changed",
+                    "data": {
+                        "event_id": event_id,
+                        "from": "video",
+                        "to": "snapshot",
+                        "reason": event_error or "clip_unavailable",
+                    }
+                })
                 effective_strategy = "snapshot"
 
             results = []

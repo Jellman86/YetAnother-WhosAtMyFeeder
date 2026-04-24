@@ -486,6 +486,45 @@ async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_fo
 
 
 @pytest.mark.asyncio
+async def test_process_event_uses_cached_recording_clip_when_precheck_returns_event_not_found(monkeypatch):
+    """When Frigate precheck returns event_not_found and only a cached *recording*
+    clip (full-visit) is present (no event clip), _process_event must still bypass
+    the precheck abort and hand off to _load_preferred_clip, which prefers the
+    recording clip."""
+    import asyncio as _asyncio
+    service = AutoVideoClassifierService()
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_not_found")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "has_clip",
+        lambda event_id: False,
+    )
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "has_recording_clip",
+        lambda event_id: True,
+    )
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "recording"))
+    monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
+    monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
+
+    await service._process_event("evt-cached-recording-only", "cam1", skip_delay=True)
+
+    load_clip_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_process_event_still_fails_when_precheck_returns_event_not_found_and_no_cached_clip(monkeypatch):
     """When Frigate precheck returns event_not_found and there is no cached clip,
     _process_event must record the failure as before (no regression)."""
@@ -505,6 +544,11 @@ async def test_process_event_still_fails_when_precheck_returns_event_not_found_a
     monkeypatch.setattr(
         auto_video_classifier_module.media_cache,
         "has_clip",
+        lambda event_id: False,
+    )
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "has_recording_clip",
         lambda event_id: False,
     )
 

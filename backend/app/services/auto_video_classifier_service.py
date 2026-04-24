@@ -1011,12 +1011,19 @@ class AutoVideoClassifierService:
                 # not yet committed the event, or the bird did not accumulate enough
                 # frames to pass Frigate's min_initialized/threshold gates so Frigate
                 # sent MQTT but never wrote the event to its DB.
+                # We accept either a cached event clip or a cached recording/full-visit
+                # clip — _load_preferred_clip prefers the recording clip anyway, so a
+                # playable recording clip is enough to run video classification.
                 # See docs/troubleshooting/frigate-event-not-found.md
-                if event_error == "event_not_found" and media_cache.has_clip(frigate_event):
+                _has_event_clip = media_cache.has_clip(frigate_event)
+                _has_recording_clip = media_cache.has_recording_clip(frigate_event)
+                if event_error == "event_not_found" and (_has_event_clip or _has_recording_clip):
                     log.info(
                         "Frigate event not found but cached clip exists; proceeding with cached clip",
                         event_id=frigate_event,
                         attempts=_precheck_attempts,
+                        has_event_clip=_has_event_clip,
+                        has_recording_clip=_has_recording_clip,
                     )
                     self._record_diagnostic(
                         frigate_event,
@@ -1026,7 +1033,12 @@ class AutoVideoClassifierService:
                             "This is normal for brief detections — see docs/troubleshooting/frigate-event-not-found.md"
                         ),
                         severity="info",
-                        context={"precheck_error": event_error, "attempts": _precheck_attempts},
+                        context={
+                            "precheck_error": event_error,
+                            "attempts": _precheck_attempts,
+                            "has_event_clip": _has_event_clip,
+                            "has_recording_clip": _has_recording_clip,
+                        },
                     )
                     event_data = None  # box/region hints unavailable; _build_classification_input_context handles None safely
                 else:
@@ -1069,6 +1081,20 @@ class AutoVideoClassifierService:
                         "Falling back to snapshot classification for missing retained clip",
                         event_id=frigate_event,
                     )
+                    # Tell the UI that this job has downgraded from a video run to
+                    # a snapshot run.  Without this the in-flight film-reel overlay
+                    # keeps the "video analysis" framing while we silently classify
+                    # from a single frame — confusing for the owner and masking the
+                    # accuracy cost of the fallback.
+                    await broadcaster.broadcast({
+                        "type": "reclassification_strategy_changed",
+                        "data": {
+                            "event_id": frigate_event,
+                            "from": "video",
+                            "to": "snapshot",
+                            "reason": clip_error or "clip_unavailable",
+                        }
+                    })
                     # Small random jitter before the first snapshot admission
                     # attempt.  During bulk backfill runs many workers hit
                     # "clip not retained" simultaneously; without jitter they

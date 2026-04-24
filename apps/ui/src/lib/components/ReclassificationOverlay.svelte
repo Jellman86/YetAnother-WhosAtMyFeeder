@@ -43,6 +43,16 @@
     );
     let progressStrategy = $derived((progress.strategy || '').toLowerCase());
     let isAutoVideoReclassification = $derived(progressStrategy === 'auto_video');
+    let hasFallenBackToSnapshot = $derived(
+        (progress.fallbackFrom ?? '').toLowerCase() === 'video'
+    );
+    function formatFallbackReason(code: string | null | undefined): string {
+        if (!code) return $_('detection.reclassification.snapshot_fallback_reason_generic', { default: 'Video clip was unavailable' });
+        return $_(
+            `detection.reclassification.snapshot_fallback_reason.${code}`,
+            { default: code.replace(/_/g, ' ') }
+        );
+    }
     let autoDismissSecondsRemaining = $state<number | null>(null);
     const AUTO_DISMISS_MS = 30_000;
 
@@ -193,6 +203,23 @@
                                 {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
                             </span>
                         {/if}
+                        {#if hasFallenBackToSnapshot}
+                            <div class="w-full max-w-md px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 mb-2 flex items-start gap-2" role="status">
+                                <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <div class="flex flex-col gap-0.5 min-w-0">
+                                    <span class="text-[10px] font-black uppercase tracking-widest">
+                                        {$_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })}
+                                    </span>
+                                    <span class="text-[11px] font-semibold leading-snug">
+                                        {formatFallbackReason(progress.fallbackReason)}
+                                    </span>
+                                </div>
+                            </div>
+                        {/if}
                         {#if displayLabel}
                             <div class="flex flex-col items-center" transition:fade>
                                 {#if isComplete}
@@ -247,7 +274,19 @@
             <div class="flex items-center justify-between w-full mb-1">
                 <div class="flex items-center gap-1.5 min-w-0">
                     <div class="w-1.5 h-1.5 rounded-full bg-teal-400 {isComplete ? '' : 'animate-ping'}"></div>
-                    <span class="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-wider">{$_('detection.reclassification.ai_analysis')}</span>
+                    <span class="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-wider">
+                        {hasFallenBackToSnapshot
+                            ? $_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })
+                            : $_('detection.reclassification.ai_analysis')}
+                    </span>
+                    {#if hasFallenBackToSnapshot}
+                        <span
+                            class="px-1.5 py-0.5 rounded-md border border-amber-400/30 bg-amber-400/10 text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300"
+                            title={formatFallbackReason(progress.fallbackReason)}
+                        >
+                            {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
+                        </span>
+                    {/if}
                     {#if isAutoVideoReclassification}
                         <span
                             class="px-1.5 py-0.5 rounded-md border border-cyan-400/30 bg-cyan-400/10 text-[8px] font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-300"

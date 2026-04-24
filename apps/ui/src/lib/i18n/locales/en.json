@@ -1135,6 +1135,8 @@
             "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
             "in_progress": "Video Analysis in progress...",
             "failed_title": "Video Analysis Failed",
+            "fallback_title": "Result from snapshot",
+            "fallback_desc": "Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.",
             "errors": {
                 "clip_unavailable": "Clip not available. Using snapshot analysis instead.",
                 "clip_not_retained": "Clip no longer retained in Frigate (outside retention window).",
@@ -1208,7 +1210,18 @@
             "done": "Done",
             "auto_video_source": "Auto video analysis",
             "auto_video_source_hint": "Result refined from clip frames.",
-            "auto_close_in": "Auto closes in {seconds}s"
+            "auto_close_in": "Auto closes in {seconds}s",
+            "snapshot_fallback_title": "Classifying from snapshot",
+            "snapshot_fallback_badge": "Snapshot fallback",
+            "snapshot_fallback_reason_generic": "Video clip was unavailable",
+            "snapshot_fallback_reason": {
+                "clip_not_retained": "Frigate did not retain the video clip for this event.",
+                "clip_unavailable": "Video clip was not available in time.",
+                "clip_invalid": "Video clip was corrupt or could not be read.",
+                "clip_decode_failed": "Video clip failed to decode.",
+                "clip_fetch_failed": "Could not fetch the video clip from Frigate.",
+                "event_not_found": "Frigate no longer has this event; no cached clip was available."
+            }
         },
         "ai": {
             "insight": "AI Naturalist Insight",
