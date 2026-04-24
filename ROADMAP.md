@@ -223,18 +223,25 @@ Add a first-class way to pin standout detections so users can build a curated se
 ### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
 **Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Partially shipped on `dev` (as of 2026-03-28)
 
-Current state on `dev`: some extraction has already happened. The settings area now has a shared `components/settings` surface plus helper modules under `apps/ui/src/lib/settings` for focused concerns such as location dirty-state, blocked-species handling, crop overrides, and LLM model helpers. The remaining work is the larger architectural cleanup: pull more of the save/dirty/secret/feedback logic out of `Settings.svelte`, standardize the helper patterns, and shrink the page-level orchestration surface.
+Current state on `dev`: some extraction has already happened. The settings area now has a shared `components/settings` surface plus helper modules under `apps/ui/src/lib/settings` for focused concerns such as location dirty-state, blocked-species handling, crop overrides, LLM model helpers, and taxonomy-aware species filter entries. The remaining work is the larger architectural cleanup: pull more of the save/dirty/secret/feedback logic out of `Settings.svelte`, standardize the helper patterns, and shrink the page-level orchestration surface.
+
+Follow-up from issue `#48`: the notification species filter now has a useful taxonomy-aware mode picker, but it also makes the broader Settings page density problem more visible. Before the next push to `main`, do a pass that simplifies Settings information architecture so notification filters, delivery policy, channel credentials, and advanced controls are easier to scan.
 
 Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
 
 **Scope:**
 - Extract Settings page logic into domain-focused modules (`dirty-check`, `secret-state`, `action-feedback`).
 - Standardize async button state/feedback helpers across settings panels.
+- Split high-density settings panels into clearer groups with consistent headings, helper copy, and spacing.
+- Simplify the Notifications panel around distinct sections: delivery policy, species filter, confidence/audio filters, channel credentials, and advanced timing.
+- Reuse the taxonomy-aware species picker pattern consistently for detection blocked species and notification filters.
 - Keep current UI/behavior stable while reducing duplication.
 
 **Acceptance Criteria:**
 - No behavior regressions in save/dirty/secret indicators/feedback.
 - Reduced repeated logic in component files.
+- Notification settings can be understood without reading precedence rules or scanning unrelated channel credentials.
+- All new Settings copy remains covered by locale audit tests and translated in supported locales.
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
 ### 6. Explorer Filter: Show Audio Matches Only 🎧
