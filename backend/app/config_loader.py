@@ -308,6 +308,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             'dashboard_url': os.environ.get('NOTIFICATIONS__EMAIL__DASHBOARD_URL', None),
         },
         'filters': {
+            'species_mode': 'none',
             'species_whitelist': [],
             'species_whitelist_structured': [],
             'species_blacklist_structured': [],

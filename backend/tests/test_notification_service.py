@@ -161,6 +161,114 @@ async def test_should_notify_blacklist_wins_over_whitelist(notification_service)
 
 
 @pytest.mark.asyncio
+async def test_should_notify_none_mode_ignores_stale_structured_lists(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_mode = "none"
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = [
+            {"common_name": "Robin", "scientific_name": "Turdus migratorius", "taxa_id": 1}
+        ]
+        mock_settings.notifications.filters.species_blacklist_structured = [
+            {"common_name": "Blue Jay", "scientific_name": "Cyanocitta cristata", "taxa_id": 2}
+        ]
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        assert await notification_service._should_notify(
+            "Robin",
+            0.9,
+            False,
+            "front",
+            scientific_name="Turdus migratorius",
+            common_name="Robin",
+            taxa_id=1,
+        ) is True
+        assert await notification_service._should_notify(
+            "Blue Jay",
+            0.9,
+            False,
+            "front",
+            scientific_name="Cyanocitta cristata",
+            common_name="Blue Jay",
+            taxa_id=2,
+        ) is True
+
+
+@pytest.mark.asyncio
+async def test_should_notify_blacklist_mode_ignores_stale_whitelist(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_mode = "blacklist"
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = [
+            {"common_name": "Robin", "scientific_name": "Turdus migratorius", "taxa_id": 1}
+        ]
+        mock_settings.notifications.filters.species_blacklist_structured = [
+            {"common_name": "Blue Jay", "scientific_name": "Cyanocitta cristata", "taxa_id": 2}
+        ]
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        assert await notification_service._should_notify(
+            "Robin",
+            0.9,
+            False,
+            "front",
+            scientific_name="Turdus migratorius",
+            common_name="Robin",
+            taxa_id=1,
+        ) is True
+        assert await notification_service._should_notify(
+            "Blue Jay",
+            0.9,
+            False,
+            "front",
+            scientific_name="Cyanocitta cristata",
+            common_name="Blue Jay",
+            taxa_id=2,
+        ) is False
+
+
+@pytest.mark.asyncio
+async def test_should_notify_whitelist_mode_ignores_stale_blacklist(notification_service):
+    with patch('app.services.notification_service.settings') as mock_settings:
+        mock_settings.notifications.filters.species_mode = "whitelist"
+        mock_settings.notifications.filters.species_whitelist = []
+        mock_settings.notifications.filters.species_whitelist_structured = [
+            {"common_name": "Robin", "scientific_name": "Turdus migratorius", "taxa_id": 1}
+        ]
+        mock_settings.notifications.filters.species_blacklist_structured = [
+            {"common_name": "Blue Jay", "scientific_name": "Cyanocitta cristata", "taxa_id": 2}
+        ]
+        mock_settings.notifications.filters.min_confidence = 0.5
+        mock_settings.notifications.filters.audio_confirmed_only = False
+        mock_settings.notifications.filters.camera_filters = {}
+        mock_settings.notifications.notification_cooldown_minutes = 0
+
+        assert await notification_service._should_notify(
+            "Robin",
+            0.9,
+            False,
+            "front",
+            scientific_name="Turdus migratorius",
+            common_name="Robin",
+            taxa_id=1,
+        ) is True
+        assert await notification_service._should_notify(
+            "Blue Jay",
+            0.9,
+            False,
+            "front",
+            scientific_name="Cyanocitta cristata",
+            common_name="Blue Jay",
+            taxa_id=2,
+        ) is False
+
+
+@pytest.mark.asyncio
 async def test_should_notify_audio_confirmed_only(notification_service):
     """Audio confirmed filter should work."""
     with patch('app.services.notification_service.settings') as mock_settings:
