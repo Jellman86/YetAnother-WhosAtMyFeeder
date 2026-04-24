@@ -102,6 +102,21 @@ def _classification_overridden_by_env(key: str) -> bool:
     return any(env_key in os.environ for env_key in env_keys)
 
 
+def _infer_notification_species_mode(filters: Any) -> str:
+    if not isinstance(filters, dict):
+        return "none"
+
+    raw_mode = str(filters.get("species_mode") or "").strip().lower()
+    if raw_mode in {"none", "blacklist", "whitelist"}:
+        return raw_mode
+
+    if filters.get("species_blacklist_structured"):
+        return "blacklist"
+    if filters.get("species_whitelist_structured") or filters.get("species_whitelist"):
+        return "whitelist"
+    return "none"
+
+
 def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # API Key
     api_key = os.environ.get('YA_WAMF_API_KEY', None)
@@ -308,6 +323,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             'dashboard_url': os.environ.get('NOTIFICATIONS__EMAIL__DASHBOARD_URL', None),
         },
         'filters': {
+            'species_mode': 'none',
             'species_whitelist': [],
             'species_whitelist_structured': [],
             'species_blacklist_structured': [],
@@ -520,6 +536,9 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                 # Filters (file only)
                 if 'filters' in n_file:
                      notifications_data['filters'] = n_file['filters']
+                     notifications_data['filters']['species_mode'] = _infer_notification_species_mode(
+                         notifications_data['filters']
+                     )
                 
                 if 'notification_language' in n_file:
                     env_key = 'NOTIFICATIONS__NOTIFICATION_LANGUAGE'

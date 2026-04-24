@@ -16,6 +16,11 @@ log = structlog.get_logger()
 def _species_entry_list(value: object) -> list:
     return list(value) if isinstance(value, list) else []
 
+def _species_filter_mode(filters: object) -> str | None:
+    raw_mode = getattr(filters, "species_mode", None)
+    mode = raw_mode if raw_mode in {"none", "blacklist", "whitelist"} else None
+    return mode
+
 def escape_html(text: str) -> str:
     """Escape text for Telegram HTML parse mode."""
     return html.escape(text, quote=True)
@@ -37,9 +42,11 @@ class NotificationService:
     ) -> bool:
         """Determine if a notification should be sent based on filters."""
         filters = settings.notifications.filters
+        species_mode = _species_filter_mode(filters)
+        legacy_mode = species_mode is None
 
         # 1. Species Blacklist
-        if matches_species_filter(
+        if (legacy_mode or species_mode == "blacklist") and matches_species_filter(
             labels=[],
             species_entries=_species_entry_list(getattr(filters, "species_blacklist_structured", [])),
             label=species,
@@ -52,10 +59,13 @@ class NotificationService:
 
         # 2. Species Whitelist
         whitelist_structured = _species_entry_list(getattr(filters, "species_whitelist_structured", []))
-        if filters.species_whitelist or whitelist_structured:
+        whitelist_active = legacy_mode or species_mode == "whitelist"
+        legacy_whitelist = filters.species_whitelist if whitelist_active else []
+        active_whitelist_structured = whitelist_structured if whitelist_active else []
+        if legacy_whitelist or active_whitelist_structured:
             if not matches_species_filter(
-                labels=filters.species_whitelist,
-                species_entries=whitelist_structured,
+                labels=legacy_whitelist,
+                species_entries=active_whitelist_structured,
                 label=species,
                 scientific_name=scientific_name,
                 common_name=common_name,

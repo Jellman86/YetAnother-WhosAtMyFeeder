@@ -1,6 +1,18 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
+    import {
+        searchSpecies,
+        type SearchResult,
+        type TestEmailRequest,
+        type TestEmailResponse,
+        type OAuthAuthorizeResponse
+    } from '../../api';
+    import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode } from '../../api/settings';
+    import {
+        buildBlockedSpeciesEntry,
+        formatBlockedSpeciesLabel,
+        mergeBlockedSpeciesEntries,
+    } from '../../settings/blocked-species';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
 
     function extractErrorMessage(error: any, fallback: string) {
@@ -25,8 +37,9 @@
         // Global filters
         notifyMinConfidence = $bindable(0.7),
         notifyAudioOnly = $bindable(false),
-        notifySpeciesWhitelist = $bindable<string[]>([]),
-        newSpecies = $bindable(''),
+        filterSpeciesMode = $bindable<NotificationSpeciesFilterMode>('none'),
+        filterSpeciesEntries = $bindable<BlockedSpeciesEntry[]>([]),
+        legacySpeciesWhitelist = $bindable<string[]>([]),
         notifyMode = $bindable<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard'),
         notifyOnInsert = $bindable(true),
         notifyOnUpdate = $bindable(false),
@@ -86,8 +99,6 @@
         testingNotification = $bindable<Record<string, boolean>>({}),
 
         // Functions
-        addSpeciesToWhitelist,
-        removeSpeciesFromWhitelist,
         sendTestDiscord,
         sendTestPushover,
         sendTestTelegram,
@@ -99,8 +110,9 @@
     }: {
         notifyMinConfidence: number;
         notifyAudioOnly: boolean;
-        notifySpeciesWhitelist: string[];
-        newSpecies: string;
+        filterSpeciesMode: NotificationSpeciesFilterMode;
+        filterSpeciesEntries: BlockedSpeciesEntry[];
+        legacySpeciesWhitelist: string[];
         notifyMode: 'silent' | 'final' | 'standard' | 'realtime' | 'custom';
         notifyOnInsert: boolean;
         notifyOnUpdate: boolean;
@@ -146,8 +158,6 @@
         emailIncludeSnapshot: boolean;
         emailDashboardUrl: string;
         testingNotification: Record<string, boolean>;
-        addSpeciesToWhitelist: () => void;
-        removeSpeciesFromWhitelist: (species: string) => void;
         sendTestDiscord: () => Promise<void>;
         sendTestPushover: () => Promise<void>;
         sendTestTelegram: () => Promise<void>;
@@ -159,6 +169,10 @@
     } = $props();
 
     let showAdvanced = $state(false);
+    let speciesSearchQuery = $state('');
+    let speciesSearchResults = $state<SearchResult[]>([]);
+    let speciesSearchLoading = $state(false);
+    let speciesSearchError = $state('');
 
     const notificationsEnabled = $derived(
         notifyMode === 'custom' ? (notifyOnInsert || notifyOnUpdate) : notifyMode !== 'silent'
@@ -208,6 +222,85 @@
         notifyMode = 'custom';
         updateFn();
     }
+
+    function setSpeciesFilterMode(mode: NotificationSpeciesFilterMode) {
+        filterSpeciesMode = mode;
+        speciesSearchQuery = '';
+        speciesSearchResults = [];
+        speciesSearchError = '';
+        if (mode === 'none') {
+            filterSpeciesEntries = [];
+            legacySpeciesWhitelist = [];
+        }
+    }
+
+    function speciesEntryKey(entry: BlockedSpeciesEntry): string {
+        if (entry.taxa_id != null) return `taxa:${entry.taxa_id}`;
+        if (entry.scientific_name) return `scientific:${entry.scientific_name.toLocaleLowerCase()}`;
+        if (entry.common_name) return `common:${entry.common_name.toLocaleLowerCase()}`;
+        return 'empty';
+    }
+
+    function addSpeciesFilterResult(result: SearchResult) {
+        const entry = buildBlockedSpeciesEntry(result);
+        if (!entry) return;
+        filterSpeciesEntries = mergeBlockedSpeciesEntries([...filterSpeciesEntries, entry]);
+        speciesSearchQuery = '';
+        speciesSearchResults = [];
+        speciesSearchError = '';
+    }
+
+    function removeSpeciesFilterEntry(entry: BlockedSpeciesEntry) {
+        const key = speciesEntryKey(entry);
+        filterSpeciesEntries = filterSpeciesEntries.filter((candidate) => speciesEntryKey(candidate) !== key);
+    }
+
+    function removeLegacySpeciesWhitelist(species: string) {
+        legacySpeciesWhitelist = legacySpeciesWhitelist.filter((candidate) => candidate !== species);
+    }
+
+    function getResultNames(result: SearchResult) {
+        const common = result.common_name?.trim() || null;
+        const scientific = result.scientific_name?.trim() || null;
+        const fallback = result.display_name || result.id;
+        if (common && scientific && common !== scientific) {
+            return { primary: common, secondary: scientific };
+        }
+        return { primary: common || scientific || fallback, secondary: null };
+    }
+
+    const speciesFilterListTitle = $derived(
+        filterSpeciesMode === 'blacklist'
+            ? $_('settings.notifications.species_filter_blacklist_list')
+            : $_('settings.notifications.species_filter_whitelist_list')
+    );
+
+    $effect(() => {
+        const query = speciesSearchQuery.trim();
+        if (filterSpeciesMode === 'none' || query.length < 2) {
+            speciesSearchResults = [];
+            speciesSearchLoading = false;
+            speciesSearchError = '';
+            return;
+        }
+
+        speciesSearchLoading = true;
+        const timeout = setTimeout(async () => {
+            try {
+                speciesSearchResults = await searchSpecies(query, 20, true);
+                speciesSearchError = '';
+            } catch (error: any) {
+                speciesSearchResults = [];
+                speciesSearchError = extractErrorMessage(error, $_('settings.notifications.species_filter_search_failed'));
+            } finally {
+                speciesSearchLoading = false;
+            }
+        }, 250);
+
+        return () => {
+            clearTimeout(timeout);
+        };
+    });
 </script>
 
 <div class="space-y-6">
@@ -483,43 +576,102 @@
                 </div>
             </div>
 
-            <!-- Species Whitelist -->
+            <!-- Species Filter -->
             <div class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30">
-                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.species_whitelist')}</h4>
-                <div class="flex gap-2 mb-4">
-                    <input
-                        bind:value={newSpecies}
-                        onkeydown={(e) => e.key === 'Enter' && addSpeciesToWhitelist()}
-                        placeholder={$_('settings.notifications.species_placeholder')}
-                        aria-label={$_('settings.notifications.species_placeholder')}
-                        class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
-                    <button
-                        onclick={addSpeciesToWhitelist}
-                        disabled={!newSpecies.trim()}
-                        aria-label={$_('settings.notifications.add_species_label')}
-                        class="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all disabled:opacity-50"
-                    >
-                        {$_('common.add')}
-                    </button>
+                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.species_filter')}</h4>
+                <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'none' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
+                        <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
+                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_none_desc')}</span>
+                    </label>
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'blacklist' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
+                        <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
+                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                    </label>
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'whitelist' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
+                        <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
+                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                    </label>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    {#each notifySpeciesWhitelist as species}
-                        <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
-                            {species}
-                            <button
-                                onclick={() => removeSpeciesFromWhitelist(species)}
-                                aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
-                                class="text-slate-400 hover:text-red-500 transition-colors"
-                            >
-                                ✕
-                            </button>
-                        </span>
-                    {/each}
-                    {#if notifySpeciesWhitelist.length === 0}
-                        <p class="text-xs font-bold text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
-                    {/if}
-                </div>
+
+                {#if filterSpeciesMode !== 'none'}
+                    <div class="mt-5 rounded-2xl border border-amber-200/60 bg-white/60 p-4 dark:border-amber-700/30 dark:bg-slate-900/30">
+                        <label for="notification-species-search" class="block text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-2">{speciesFilterListTitle}</label>
+                        <input
+                            id="notification-species-search"
+                            bind:value={speciesSearchQuery}
+                            placeholder={$_('settings.notifications.species_filter_search_placeholder')}
+                            aria-label={$_('settings.notifications.species_filter_search_placeholder')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        />
+                        {#if speciesSearchLoading}
+                            <p class="mt-2 text-[11px] font-bold text-slate-400">{$_('common.loading')}</p>
+                        {:else if speciesSearchError}
+                            <p class="mt-2 text-[11px] font-bold text-red-500">{speciesSearchError}</p>
+                        {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
+                            <p class="mt-2 text-[11px] font-bold text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
+                        {/if}
+
+                        {#if speciesSearchResults.length > 0}
+                            <div class="mt-3 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950">
+                                {#each speciesSearchResults as result}
+                                    {@const names = getResultNames(result)}
+                                    <button
+                                        type="button"
+                                        onclick={() => addSpeciesFilterResult(result)}
+                                        class="block w-full px-4 py-3 text-left hover:bg-amber-50 dark:hover:bg-slate-800"
+                                    >
+                                        <span class="block text-sm font-black text-slate-900 dark:text-white">{names.primary}</span>
+                                        {#if names.secondary}
+                                            <span class="block text-[11px] font-semibold italic text-slate-500">{names.secondary}</span>
+                                        {/if}
+                                    </button>
+                                {/each}
+                            </div>
+                        {/if}
+
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            {#each filterSpeciesEntries as entry}
+                                <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    {formatBlockedSpeciesLabel(entry)}
+                                    <button
+                                        onclick={() => removeSpeciesFilterEntry(entry)}
+                                        aria-label={$_('settings.notifications.species_filter_remove_label', { values: { species: formatBlockedSpeciesLabel(entry) } })}
+                                        class="text-slate-400 hover:text-red-500 transition-colors"
+                                    >
+                                        x
+                                    </button>
+                                </span>
+                            {/each}
+                            {#if filterSpeciesEntries.length === 0 && legacySpeciesWhitelist.length === 0}
+                                <p class="text-xs font-bold text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
+                            {/if}
+                        </div>
+
+                        {#if filterSpeciesMode === 'whitelist' && legacySpeciesWhitelist.length > 0}
+                            <div class="mt-4 border-t border-amber-200/60 pt-3 dark:border-amber-700/30">
+                                <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.notifications.species_filter_legacy')}</p>
+                                <div class="flex flex-wrap gap-2">
+                                    {#each legacySpeciesWhitelist as species}
+                                        <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                                            {species}
+                                            <button
+                                                onclick={() => removeLegacySpeciesWhitelist(species)}
+                                                aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
+                                                class="text-slate-400 hover:text-red-500 transition-colors"
+                                            >
+                                                x
+                                            </button>
+                                        </span>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
     </section>

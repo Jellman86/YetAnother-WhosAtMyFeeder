@@ -609,6 +609,10 @@ class EmailSettings(BaseModel):
     dashboard_url: Optional[str] = Field(default=None, description="Dashboard URL for email links")
 
 class NotificationFilterSettings(BaseModel):
+    species_mode: Literal["none", "blacklist", "whitelist"] = Field(
+        default="none",
+        description="Species notification filter mode: none, blacklist, or whitelist",
+    )
     species_whitelist: list[str] = Field(default=[], description="Only notify for these species (empty = all)")
     species_whitelist_structured: list["BlockedSpeciesEntry"] = Field(
         default_factory=list,

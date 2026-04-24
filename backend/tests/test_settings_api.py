@@ -812,6 +812,7 @@ async def test_settings_roundtrip_notification_species_filters(client: httpx.Asy
         "frigate_url": before_payload["frigate_url"],
         "mqtt_server": before_payload["mqtt_server"],
         "classification_threshold": before_payload["classification_threshold"],
+        "notifications_filter_species_mode": "blacklist",
         "notifications_filter_species_whitelist": ["Legacy Robin"],
         "notifications_filter_species_whitelist_structured": [
             {
@@ -834,6 +835,7 @@ async def test_settings_roundtrip_notification_species_filters(client: httpx.Asy
     get_after = await client.get("/api/settings")
     assert get_after.status_code == 200, get_after.text
     after_payload = get_after.json()
+    assert after_payload["notifications_filter_species_mode"] == "blacklist"
     assert after_payload["notifications_filter_species_whitelist"] == ["Legacy Robin"]
     assert after_payload["notifications_filter_species_whitelist_structured"] == [
         {
@@ -854,6 +856,7 @@ async def test_settings_roundtrip_notification_species_filters(client: httpx.Asy
         "frigate_url": before_payload["frigate_url"],
         "mqtt_server": before_payload["mqtt_server"],
         "classification_threshold": before_payload["classification_threshold"],
+        "notifications_filter_species_mode": before_payload.get("notifications_filter_species_mode", "none"),
         "notifications_filter_species_whitelist": before_payload.get("notifications_filter_species_whitelist", []),
         "notifications_filter_species_whitelist_structured": before_payload.get("notifications_filter_species_whitelist_structured", []),
         "notifications_filter_species_blacklist_structured": before_payload.get("notifications_filter_species_blacklist_structured", []),

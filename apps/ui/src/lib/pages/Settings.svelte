@@ -61,7 +61,7 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry } from '../api/settings';
+    import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -1224,13 +1224,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let notificationLanguage = $state('en');
 
     let filterWhitelist = $state<string[]>([]);
-    let newWhitelistSpecies = $state('');
-    // Structured notification filter lists are accepted by the backend and
-    // persisted here so in-flight picker entries survive a settings round-trip
-    // even though no dedicated UI exposes them yet. A future change can bind
-    // these through a taxonomy picker in NotificationSettings.
-    let filterWhitelistStructured = $state<BlockedSpeciesEntry[]>([]);
-    let filterBlacklistStructured = $state<BlockedSpeciesEntry[]>([]);
+    let filterSpeciesMode = $state<NotificationSpeciesFilterMode>('none');
+    let filterSpeciesEntries = $state<BlockedSpeciesEntry[]>([]);
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
     let notifyMode = $state<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard');
@@ -1241,6 +1236,27 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let notifyCooldownMinutes = $state(0);
 
     let testingNotification = $state<Record<string, boolean>>({});
+
+    function normalizeNotificationSpeciesMode(value: unknown): NotificationSpeciesFilterMode | null {
+        return value === 'none' || value === 'blacklist' || value === 'whitelist' ? value : null;
+    }
+
+    function inferNotificationSpeciesMode(settings: SettingsPayload): NotificationSpeciesFilterMode {
+        const mode = normalizeNotificationSpeciesMode(settings.notifications_filter_species_mode);
+        if (mode) return mode;
+        const blacklist = settings.notifications_filter_species_blacklist_structured || [];
+        const whitelist = settings.notifications_filter_species_whitelist_structured || [];
+        const legacyWhitelist = settings.notifications_filter_species_whitelist || [];
+        if (blacklist.length > 0) return 'blacklist';
+        if (whitelist.length > 0 || legacyWhitelist.length > 0) return 'whitelist';
+        return 'none';
+    }
+
+    function notificationSpeciesEntriesForMode(settings: SettingsPayload, mode: NotificationSpeciesFilterMode): BlockedSpeciesEntry[] {
+        if (mode === 'blacklist') return settings.notifications_filter_species_blacklist_structured || [];
+        if (mode === 'whitelist') return settings.notifications_filter_species_whitelist_structured || [];
+        return [];
+    }
 
     // Accessibility
     let highContrast = $state(false);
@@ -1790,7 +1806,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             { key: 'notificationLanguage', val: notificationLanguage, store: s.notification_language ?? 'en' },
 
-            { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(s.notifications_filter_species_whitelist || []) },
+            { key: 'filterSpeciesMode', val: filterSpeciesMode, store: inferNotificationSpeciesMode(s) },
+            { key: 'filterSpeciesEntries', val: JSON.stringify(filterSpeciesEntries), store: JSON.stringify(notificationSpeciesEntriesForMode(s, inferNotificationSpeciesMode(s))) },
+            { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(inferNotificationSpeciesMode(s) === 'whitelist' ? (s.notifications_filter_species_whitelist || []) : []) },
             { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
             { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
             { key: 'notifyMode', val: notifyMode, store: s.notifications_mode ?? 'standard' },
@@ -2858,9 +2876,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             emailIncludeSnapshot = settings.notifications_email_include_snapshot ?? true;
             emailDashboardUrl = settings.notifications_email_dashboard_url || '';
 
-            filterWhitelist = settings.notifications_filter_species_whitelist || [];
-            filterWhitelistStructured = settings.notifications_filter_species_whitelist_structured || [];
-            filterBlacklistStructured = settings.notifications_filter_species_blacklist_structured || [];
+            filterSpeciesMode = inferNotificationSpeciesMode(settings);
+            filterSpeciesEntries = mergeBlockedSpeciesEntries(notificationSpeciesEntriesForMode(settings, filterSpeciesMode));
+            filterWhitelist = filterSpeciesMode === 'whitelist' ? (settings.notifications_filter_species_whitelist || []) : [];
             filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
             filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
             if (settings.notifications_mode) {
@@ -3070,9 +3088,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_email_dashboard_url: emailDashboardUrl,
 
                 notification_language: notificationLanguage,
-                notifications_filter_species_whitelist: filterWhitelist,
-                notifications_filter_species_whitelist_structured: filterWhitelistStructured,
-                notifications_filter_species_blacklist_structured: filterBlacklistStructured,
+                notifications_filter_species_mode: filterSpeciesMode,
+                notifications_filter_species_whitelist: filterSpeciesMode === 'whitelist' ? filterWhitelist : [],
+                notifications_filter_species_whitelist_structured: filterSpeciesMode === 'whitelist' ? filterSpeciesEntries : [],
+                notifications_filter_species_blacklist_structured: filterSpeciesMode === 'blacklist' ? filterSpeciesEntries : [],
                 notifications_filter_min_confidence: filterConfidence,
                 notifications_filter_audio_confirmed_only: filterAudioOnly,
                 notifications_mode: notifyMode,
@@ -3244,18 +3263,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    function addWhitelistSpecies() {
-        const species = newWhitelistSpecies.trim();
-        if (species && !filterWhitelist.includes(species)) {
-            filterWhitelist = [...filterWhitelist, species];
-            newWhitelistSpecies = '';
-        }
-    }
-
-    function removeWhitelistSpecies(species: string) {
-        filterWhitelist = filterWhitelist.filter(s => s !== species);
-    }
-
     // Wrapper functions for notification testing to match component API
     async function sendTestDiscord() {
         await handleTestNotification('discord');
@@ -3382,8 +3389,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 <NotificationSettings
                     bind:notifyMinConfidence={filterConfidence}
                     bind:notifyAudioOnly={filterAudioOnly}
-                    bind:notifySpeciesWhitelist={filterWhitelist}
-                    bind:newSpecies={newWhitelistSpecies}
+                    bind:filterSpeciesMode
+                    bind:filterSpeciesEntries
+                    bind:legacySpeciesWhitelist={filterWhitelist}
                     bind:notifyMode
                     bind:notifyOnInsert
                     bind:notifyOnUpdate
@@ -3429,8 +3437,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:emailIncludeSnapshot
                     bind:emailDashboardUrl
                     bind:testingNotification
-                    addSpeciesToWhitelist={addWhitelistSpecies}
-                    removeSpeciesFromWhitelist={removeWhitelistSpecies}
                     {sendTestDiscord}
                     {sendTestPushover}
                     {sendTestTelegram}
