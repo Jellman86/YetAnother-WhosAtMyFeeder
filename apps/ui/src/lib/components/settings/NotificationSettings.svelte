@@ -14,6 +14,7 @@
         mergeBlockedSpeciesEntries,
     } from '../../settings/blocked-species';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
 
     function extractErrorMessage(error: any, fallback: string) {
         const message = error?.message || fallback;
@@ -389,22 +390,12 @@
                                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
                                     <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
                                 </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={notifyOnInsert}
-                                    aria-labelledby="notify-insert-label"
-                                    onclick={() => setCustom(() => notifyOnInsert = !notifyOnInsert)}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            setCustom(() => notifyOnInsert = !notifyOnInsert);
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnInsert ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.notifications.notify_on_insert')}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnInsert ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
+                                <SettingsToggle
+                                    checked={notifyOnInsert}
+                                    labelledBy="notify-insert-label"
+                                    srLabel={$_('settings.notifications.notify_on_insert')}
+                                    onchange={(v) => setCustom(() => (notifyOnInsert = v))}
+                                />
                             </div>
 
                             <div class="flex items-center justify-between gap-4">
@@ -412,22 +403,12 @@
                                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
                                     <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
                                 </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={notifyOnUpdate}
-                                    aria-labelledby="notify-update-label"
-                                    onclick={() => setCustom(() => notifyOnUpdate = !notifyOnUpdate)}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            setCustom(() => notifyOnUpdate = !notifyOnUpdate);
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyOnUpdate ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.notifications.notify_on_update')}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyOnUpdate ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
+                                <SettingsToggle
+                                    checked={notifyOnUpdate}
+                                    labelledBy="notify-update-label"
+                                    srLabel={$_('settings.notifications.notify_on_update')}
+                                    onchange={(v) => setCustom(() => (notifyOnUpdate = v))}
+                                />
                             </div>
 
                             <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
@@ -435,27 +416,13 @@
                                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
                                     <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
                                 </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={notifyDelayUntilVideo}
-                                    aria-disabled={!notificationsEnabled}
-                                    aria-labelledby="notify-delay-label"
-                                    onclick={() => {
-                                        if (!notificationsEnabled) return;
-                                        setCustom(() => notifyDelayUntilVideo = !notifyDelayUntilVideo);
-                                    }}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            if (!notificationsEnabled) return;
-                                            setCustom(() => notifyDelayUntilVideo = !notifyDelayUntilVideo);
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notificationsEnabled ? 'cursor-pointer' : 'cursor-not-allowed'} {notifyDelayUntilVideo && notificationsEnabled ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.notifications.delay_until_video')}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyDelayUntilVideo ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
+                                <SettingsToggle
+                                    checked={notifyDelayUntilVideo}
+                                    labelledBy="notify-delay-label"
+                                    srLabel={$_('settings.notifications.delay_until_video')}
+                                    disabled={!notificationsEnabled}
+                                    onchange={(v) => setCustom(() => (notifyDelayUntilVideo = v))}
+                                />
                             </div>
 
                             <div class="flex items-center justify-between gap-4">
@@ -532,22 +499,12 @@
                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
                     <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.audio_only_desc')}</span>
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={notifyAudioOnly}
-                    aria-labelledby="audio-only-label"
-                    onclick={() => notifyAudioOnly = !notifyAudioOnly}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            notifyAudioOnly = !notifyAudioOnly;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {notifyAudioOnly ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.notifications.audio_only')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {notifyAudioOnly ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
+                <SettingsToggle
+                    checked={notifyAudioOnly}
+                    labelledBy="audio-only-label"
+                    srLabel={$_('settings.notifications.audio_only')}
+                    onchange={(v) => (notifyAudioOnly = v)}
+                />
             </div>
 
             <!-- Notification Language -->
@@ -686,23 +643,14 @@
                             <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.discord.title')}</h3>
+                    <h3 id="discord-channel-label" class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.discord.title')}</h3>
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={discordEnabled}
-                    onclick={() => discordEnabled = !discordEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            discordEnabled = !discordEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {discordEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.discord.title')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {discordEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
+                <SettingsToggle
+                    checked={discordEnabled}
+                    labelledBy="discord-channel-label"
+                    srLabel={$_('settings.discord.title')}
+                    onchange={(v) => (discordEnabled = v)}
+                />
             </div>
 
             <div class="space-y-4 flex-1">
@@ -751,23 +699,14 @@
                     <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
+                    <h3 id="pushover-channel-label" class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={pushoverEnabled}
-                    onclick={() => pushoverEnabled = !pushoverEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            pushoverEnabled = !pushoverEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {pushoverEnabled ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.pushover.title')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {pushoverEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
+                <SettingsToggle
+                    checked={pushoverEnabled}
+                    labelledBy="pushover-channel-label"
+                    srLabel={$_('settings.pushover.title')}
+                    onchange={(v) => (pushoverEnabled = v)}
+                />
             </div>
 
             <div class="space-y-4 flex-1">
@@ -850,23 +789,14 @@
                             <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telegram.title')}</h3>
+                    <h3 id="telegram-channel-label" class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telegram.title')}</h3>
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={telegramEnabled}
-                    onclick={() => telegramEnabled = !telegramEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            telegramEnabled = !telegramEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telegramEnabled ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.telegram.title')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telegramEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
+                <SettingsToggle
+                    checked={telegramEnabled}
+                    labelledBy="telegram-channel-label"
+                    srLabel={$_('settings.telegram.title')}
+                    onchange={(v) => (telegramEnabled = v)}
+                />
             </div>
 
             <div class="space-y-4 flex-1">
@@ -923,23 +853,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
+                    <h3 id="email-channel-label" class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={emailEnabled}
-                    onclick={() => emailEnabled = !emailEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            emailEnabled = !emailEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {emailEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.email.title')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {emailEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
+                <SettingsToggle
+                    checked={emailEnabled}
+                    labelledBy="email-channel-label"
+                    srLabel={$_('settings.email.title')}
+                    onchange={(v) => (emailEnabled = v)}
+                />
             </div>
 
             <div class="space-y-4 flex-1">

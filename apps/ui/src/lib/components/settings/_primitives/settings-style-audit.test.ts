@@ -34,7 +34,8 @@ const MIGRATED_COMPONENTS = new Set([
     'DataSettings.svelte',
     'DetectionSettings.svelte',
     'EnrichmentSettings.svelte',
-    'IntegrationSettings.svelte'
+    'IntegrationSettings.svelte',
+    'NotificationSettings.svelte'
 ]);
 
 describe('settings primitives — style audit', () => {
