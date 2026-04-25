@@ -264,3 +264,108 @@ async def test_audio_recent_falls_back_when_taxa_id_missing(client: httpx.AsyncC
     finally:
         async with audio_service._lock:
             audio_service._buffer.clear()
+
+
+@pytest.mark.asyncio
+async def test_audio_recent_resolves_via_translation_when_scientific_name_missing(client: httpx.AsyncClient):
+    """Issue #46 follow-up — when BirdNET-Go publishes a non-English ``comName`` and
+    no ``ScientificName``, the audio service stores ``scientific_name = None`` (or the
+    raw locale string with no taxa_id). The localizer must still recover the canonical
+    English name by matching the stored species text against ``taxonomy_translations``.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    from app.services.audio.audio_service import audio_service, AudioDetection
+    from datetime import datetime, timezone
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM taxonomy_cache")
+        await db.execute("DELETE FROM taxonomy_translations")
+        await db.execute(
+            """INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id, is_not_found, last_updated)
+               VALUES (?, ?, ?, 0, ?)""",
+            ("Passer domesticus", "House Sparrow", 12345, datetime.now(timezone.utc).isoformat()),
+        )
+        await db.execute(
+            """INSERT INTO taxonomy_translations (taxa_id, language_code, common_name)
+               VALUES (?, ?, ?)""",
+            (12345, "ru", "Домовый воробей"),
+        )
+        await db.commit()
+
+    async with audio_service._lock:
+        audio_service._buffer.clear()
+        audio_service._buffer.append(
+            AudioDetection(
+                timestamp=datetime.now(timezone.utc),
+                species="Домовый воробей",
+                confidence=0.9,
+                sensor_id="BirdCam",
+                raw_data={},
+                scientific_name=None,
+            )
+        )
+
+    try:
+        response = await client.get("/api/audio/recent", params={"limit": 5})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert len(payload) == 1
+        assert payload[0]["species"] == "House Sparrow"
+    finally:
+        async with audio_service._lock:
+            audio_service._buffer.clear()
+
+
+@pytest.mark.asyncio
+async def test_audio_recent_resolves_via_common_name_when_scientific_name_is_locale_text(client: httpx.AsyncClient):
+    """Issue #46 follow-up — when ``add_detection`` stored a non-Latin string as
+    ``scientific_name`` (because iNaturalist couldn't resolve the BirdNET-Go locale
+    comName), the cache row keyed by that string has ``taxa_id = NULL``. The
+    localizer must still recover by matching the species text against
+    ``taxonomy_cache.common_name`` for any row that *does* have a taxa_id.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    from app.services.audio.audio_service import audio_service, AudioDetection
+    from datetime import datetime, timezone
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM taxonomy_cache")
+        await db.execute(
+            """INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id, is_not_found, last_updated)
+               VALUES (?, ?, ?, 0, ?)""",
+            ("Passer domesticus", "House Sparrow", 12345, datetime.now(timezone.utc).isoformat()),
+        )
+        # Poisoned row: the locale comName got saved as scientific_name with no taxa_id.
+        await db.execute(
+            """INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id, is_not_found, last_updated)
+               VALUES (?, NULL, NULL, 1, ?)""",
+            ("Домовый воробей", datetime.now(timezone.utc).isoformat()),
+        )
+        await db.commit()
+
+    async with audio_service._lock:
+        audio_service._buffer.clear()
+        audio_service._buffer.append(
+            AudioDetection(
+                timestamp=datetime.now(timezone.utc),
+                species="House Sparrow",
+                confidence=0.9,
+                sensor_id="BirdCam",
+                raw_data={},
+                scientific_name="Домовый воробей",  # poisoned by ingest pre-fix
+            )
+        )
+
+    try:
+        response = await client.get("/api/audio/recent", params={"limit": 5})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert len(payload) == 1
+        assert payload[0]["species"] == "House Sparrow"
+    finally:
+        async with audio_service._lock:
+            audio_service._buffer.clear()
