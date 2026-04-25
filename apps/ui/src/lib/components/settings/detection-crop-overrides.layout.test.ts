@@ -17,13 +17,18 @@ describe('detection crop override wiring', () => {
         expect(settingsPageSource).toContain('bind:cropSourceOverrides');
         expect(settingsPageSource).toContain('buildCropOverrideSettings');
         expect(settingsPageSource).toContain('resolveCropOverridesFromSettings');
-        expect(detectionSettingsSource).toContain('bird-crop-detector-tier');
+        // The crop-detector tier and source-priority controls now flow through
+        // the SettingsSelect primitive instead of raw <select bind:value=...>,
+        // but the same prop names + label strings + ModelManager bindings must
+        // still be present so the tier/priority selection round-trips.
+        expect(detectionSettingsSource).toContain('id="bird-crop-detector-tier"');
         expect(detectionSettingsSource).toContain('Accurate (YOLOX-Tiny, experimental)');
-        expect(detectionSettingsSource).toContain('bind:value={birdCropDetectorTier}');
-        expect(detectionSettingsSource).toContain('bird-crop-source-priority');
-        expect(detectionSettingsSource).toContain('bind:value={birdCropSourcePriority}');
+        expect(detectionSettingsSource).toContain('value={birdCropDetectorTier}');
+        expect(detectionSettingsSource).toContain('birdCropDetectorTier = v');
+        expect(detectionSettingsSource).toContain('id="bird-crop-source-priority"');
+        expect(detectionSettingsSource).toContain('value={birdCropSourcePriority}');
+        expect(detectionSettingsSource).toContain('birdCropSourcePriority = v');
         expect(detectionSettingsSource).toContain('Frigate hints first');
-        expect(detectionSettingsSource).toContain('appearance-none');
         expect(detectionSettingsSource).toContain('bind:cropModelOverrides');
         expect(detectionSettingsSource).toContain('bind:cropSourceOverrides');
     });
