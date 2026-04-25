@@ -1267,6 +1267,7 @@
     "snapshot_source_frigate_hint_hint": "Région Frigate",
     "snapshot_source_model_crop": "Recadrage IA",
     "snapshot_source_original_hint": "Instantané Frigate",
+    "snapshot_source_original_unavailable_hint": "Original indisponible",
     "snapshot_source_short_model_crop": "Rec. IA",
     "snapshot_source_short_full_frame": "Complet",
     "snapshot_source_short_frigate_hint": "Intelligent",

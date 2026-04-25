@@ -1110,6 +1110,7 @@
         "snapshot_source_model_crop": "AI Crop",
         "snapshot_source_original": "Original",
         "snapshot_source_original_hint": "Frigate snapshot",
+        "snapshot_source_original_unavailable_hint": "Original unavailable",
         "snapshot_source_auto_best": "Auto best snapshot",
         "snapshot_source_short_model_crop": "AI Crop",
         "snapshot_source_short_full_frame": "Full",

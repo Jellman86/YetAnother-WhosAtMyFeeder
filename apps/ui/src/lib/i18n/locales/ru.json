@@ -1275,6 +1275,7 @@
     "snapshot_source_frigate_hint_hint": "Регион Frigate",
     "snapshot_source_model_crop": "ИИ-обрезка",
     "snapshot_source_original_hint": "Снимок Frigate",
+    "snapshot_source_original_unavailable_hint": "Оригинал недоступен",
     "snapshot_source_short_model_crop": "ИИ-обр.",
     "snapshot_source_short_full_frame": "Полный",
     "snapshot_source_short_frigate_hint": "Умный",

@@ -564,6 +564,7 @@
         && !reclassifyProgress
         && hasSnapshotRepairWork
     );
+    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
     const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
@@ -581,7 +582,10 @@
         return fullFrameSnapshotCandidate ?? frigateHintSnapshotCandidate ?? modelSnapshotCandidates[0] ?? null;
     });
     const selectedSnapshotPickerLabel = $derived.by(() => {
-        if (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot')) {
+        if (
+            originalFrigateSnapshotAvailable
+            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
+        ) {
             return $_('detection.snapshot_source_original', { default: 'Original Frigate crop' });
         }
         if (selectedSnapshotPickerCandidate) {
@@ -590,7 +594,10 @@
         return snapshotSourceLabel(currentSnapshotSource ?? snapshotStatus?.source ?? null);
     });
     const selectedSnapshotPreviewUrl = $derived.by(() => {
-        if (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot')) {
+        if (
+            originalFrigateSnapshotAvailable
+            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
+        ) {
             return originalFrigateSnapshotUrl;
         }
         if (selectedSnapshotPickerCandidate?.thumbnail_url) {
@@ -601,7 +608,10 @@
     const canSaveSnapshotSelection = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
-        && (pendingSnapshotMode === 'revert_original' || Boolean(selectedSnapshotPickerCandidate))
+        && (
+            (pendingSnapshotMode === 'revert_original' && originalFrigateSnapshotAvailable)
+            || Boolean(selectedSnapshotPickerCandidate)
+        )
     );
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
@@ -1185,12 +1195,13 @@
     }
 
     function stageOriginalFrigateSnapshot() {
+        if (!originalFrigateSnapshotAvailable) return;
         pendingSnapshotMode = 'revert_original';
         pendingSnapshotCandidateId = null;
     }
 
     function resetSnapshotPickerSelection() {
-        if (currentSnapshotSource === 'frigate_snapshot') {
+        if (currentSnapshotSource === 'frigate_snapshot' && originalFrigateSnapshotAvailable) {
             stageOriginalFrigateSnapshot();
             return;
         }
@@ -1268,6 +1279,7 @@
 
     async function handleSaveSnapshotSelection() {
         if (pendingSnapshotMode === 'revert_original') {
+            if (!originalFrigateSnapshotAvailable) return;
             await handleApplySnapshot('revert_original');
             return;
         }
@@ -3125,16 +3137,29 @@
                                 <button
                                     type="button"
                                     onclick={stageOriginalFrigateSnapshot}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors {pendingSnapshotMode === 'revert_original' ? 'border-white/40 bg-white/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
+                                    disabled={!originalFrigateSnapshotAvailable}
+                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode === 'revert_original' ? 'border-white/40 bg-white/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
                                 >
-                                    <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original' })} class="aspect-video w-full rounded-xl object-cover" />
+                                    {#if originalFrigateSnapshotAvailable}
+                                        <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original' })} class="aspect-video w-full rounded-xl object-cover" />
+                                    {:else}
+                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
+                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                <path d="M12 9v4M12 17h.01M10.3 4.3L2.8 17.1A2 2 0 004.5 20h15a2 2 0 001.7-2.9L13.7 4.3a2 2 0 00-3.4 0z" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                    {/if}
                                     <div class="mt-2 flex items-center gap-1.5">
                                         <svg class="h-3 w-3 shrink-0 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                             <path d="M9 14L4 9l5-5M4 9h11a6 6 0 010 12h-3" stroke-linecap="round" stroke-linejoin="round"/>
                                         </svg>
                                         <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_original', { default: 'Original' })}</span>
                                     </div>
-                                    <span class="block text-[10px] text-white/40">{$_('detection.snapshot_source_original_hint', { default: 'Frigate snapshot' })}</span>
+                                    <span class="block text-[10px] text-white/40">
+                                        {originalFrigateSnapshotAvailable
+                                            ? $_('detection.snapshot_source_original_hint', { default: 'Frigate snapshot' })
+                                            : $_('detection.snapshot_source_original_unavailable_hint', { default: 'Original unavailable' })}
+                                    </span>
                                 </button>
 
                             </div>

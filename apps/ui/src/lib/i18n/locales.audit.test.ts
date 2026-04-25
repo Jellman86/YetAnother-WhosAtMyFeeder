@@ -146,6 +146,7 @@ const REQUIRED_ACTIVE_KEYS = [
     'detection.snapshot_source_frigate_hint_hint',
     'detection.snapshot_source_model_crop',
     'detection.snapshot_source_original_hint',
+    'detection.snapshot_source_original_unavailable_hint',
     'detection.snapshot_source_short_model_crop',
     'detection.snapshot_source_short_full_frame',
     'detection.snapshot_source_short_frigate_hint',

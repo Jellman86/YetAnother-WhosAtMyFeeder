@@ -1275,6 +1275,7 @@
     "snapshot_source_frigate_hint_hint": "Regione Frigate",
     "snapshot_source_model_crop": "Ritaglio IA",
     "snapshot_source_original_hint": "Snapshot Frigate",
+    "snapshot_source_original_unavailable_hint": "Originale non disponibile",
     "snapshot_source_short_model_crop": "Rit. IA",
     "snapshot_source_short_full_frame": "Intero",
     "snapshot_source_short_frigate_hint": "Intelligente",

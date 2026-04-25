@@ -1267,6 +1267,7 @@
     "snapshot_source_frigate_hint_hint": "Frigateリージョン",
     "snapshot_source_model_crop": "AIトリミング",
     "snapshot_source_original_hint": "Frigateスナップショット",
+    "snapshot_source_original_unavailable_hint": "元画像は利用できません",
     "snapshot_source_short_model_crop": "AIトリム",
     "snapshot_source_short_full_frame": "全体",
     "snapshot_source_short_frigate_hint": "スマート",

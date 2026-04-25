@@ -1040,6 +1040,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
 
     with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
          patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
          patch("app.routers.proxy._bird_crop_runtime_available", return_value=True):
         mock_get_snapshot.return_value = b"cached-hq-frame"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
@@ -1053,11 +1054,30 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             assert body["source"] == "high_quality_snapshot"
             assert body["already_hq_bird_crop"] is False
             assert body["can_generate_hq_bird_crop"] is True
+            assert body["original_frigate_snapshot_available"] is True
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
             settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(client: httpx.AsyncClient):
+    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(None, "snapshot_not_found"))):
+        mock_get_snapshot.return_value = b"cached-hq-frame"
+        mock_get_metadata.return_value = {"source": "hq_candidate_full_frame"}
+
+        response = await client.get("/api/frigate/test_event_id/snapshot/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["event_id"] == "test_event_id"
+    assert body["cached"] is True
+    assert body["source"] == "hq_candidate_full_frame"
+    assert body["original_frigate_snapshot_available"] is False
 
 
 @pytest.mark.asyncio
@@ -1073,6 +1093,7 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
 
     with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
          patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
          patch("app.routers.proxy._bird_crop_runtime_available", return_value=True), \
          patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process:
         mock_get_snapshot.return_value = b"cached-hq-frame"
@@ -1144,6 +1165,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     body = response.json()
     assert body["event_id"] == "test_event_id"
     assert body["current_source"] == "hq_candidate_model_crop"
+    assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
     assert body["candidates"][0]["thumbnail_url"].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg")
 
@@ -1154,6 +1176,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
          patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
          patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
          patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
          patch("app.services.media_cache.media_cache.replace_snapshot", new_callable=AsyncMock) as mock_replace_snapshot:
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db

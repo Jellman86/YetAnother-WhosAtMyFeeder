@@ -42,6 +42,7 @@ export interface SnapshotStatusResponse {
     high_quality_bird_crop_enabled: boolean;
     already_hq_bird_crop: boolean;
     can_generate_hq_bird_crop: boolean;
+    original_frigate_snapshot_available?: boolean | null;
 }
 
 export interface SnapshotGenerateResponse extends SnapshotStatusResponse {

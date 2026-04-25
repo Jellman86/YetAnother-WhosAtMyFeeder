@@ -200,17 +200,27 @@ def _bird_crop_runtime_available() -> bool:
     return True
 
 
-async def _build_snapshot_status(event_id: str):
+async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapshot: bool = True):
     from app.services.media_cache import media_cache
 
     cached = False
     source: str | None = None
+    original_frigate_snapshot_available: bool | None = None
 
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id) is not None
         if cached:
             metadata = await media_cache.get_snapshot_metadata(event_id)
             source = str((metadata or {}).get("source") or "").strip() or None
+
+    if check_original_frigate_snapshot:
+        original_snapshot, _error = await frigate_client.get_snapshot_with_error(
+            event_id,
+            crop=True,
+            quality=95,
+            timeout=5.0,
+        )
+        original_frigate_snapshot_available = bool(original_snapshot)
 
     already_hq_bird_crop = source == "high_quality_bird_crop"
     can_generate_hq_bird_crop = bool(
@@ -227,6 +237,7 @@ async def _build_snapshot_status(event_id: str):
         high_quality_bird_crop_enabled=bool(settings.media_cache.high_quality_event_snapshot_bird_crop),
         already_hq_bird_crop=already_hq_bird_crop,
         can_generate_hq_bird_crop=can_generate_hq_bird_crop,
+        original_frigate_snapshot_available=original_frigate_snapshot_available,
     )
 
 
@@ -245,7 +256,7 @@ def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str)
 
 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
-    status = await _build_snapshot_status(event_id)
+    status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
     current_source = status.source
     current_candidate_id = None
@@ -438,6 +449,7 @@ class SnapshotStatusResponse(BaseModel):
     high_quality_bird_crop_enabled: bool
     already_hq_bird_crop: bool
     can_generate_hq_bird_crop: bool
+    original_frigate_snapshot_available: bool | None = None
 
 
 class SnapshotGenerateResponse(SnapshotStatusResponse):

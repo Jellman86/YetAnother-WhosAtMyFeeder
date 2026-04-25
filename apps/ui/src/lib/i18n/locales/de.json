@@ -1267,6 +1267,7 @@
     "snapshot_source_frigate_hint_hint": "Frigate-Region",
     "snapshot_source_model_crop": "KI-Zuschnitt",
     "snapshot_source_original_hint": "Frigate-Snapshot",
+    "snapshot_source_original_unavailable_hint": "Original nicht verfügbar",
     "snapshot_source_short_model_crop": "KI-Zusch.",
     "snapshot_source_short_full_frame": "Voll",
     "snapshot_source_short_frigate_hint": "Smart",

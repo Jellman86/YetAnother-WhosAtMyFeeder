@@ -1267,6 +1267,7 @@
     "snapshot_source_frigate_hint_hint": "Frigate区域",
     "snapshot_source_model_crop": "AI裁剪",
     "snapshot_source_original_hint": "Frigate快照",
+    "snapshot_source_original_unavailable_hint": "原始图不可用",
     "snapshot_source_short_model_crop": "AI裁剪",
     "snapshot_source_short_full_frame": "完整",
     "snapshot_source_short_frigate_hint": "智能",
