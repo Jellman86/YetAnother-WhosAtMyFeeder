@@ -221,11 +221,13 @@ Add a first-class way to pin standout detections so users can build a curated se
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
 ### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
-**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Partially shipped on `dev` (as of 2026-03-28)
+**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Largely shipped on `dev` (as of 2026-04-25); one follow-up open (route split — see 5.1)
 
-Current state on `dev`: some extraction has already happened. The settings area now has a shared `components/settings` surface plus helper modules under `apps/ui/src/lib/settings` for focused concerns such as location dirty-state, blocked-species handling, crop overrides, LLM model helpers, and taxonomy-aware species filter entries. The remaining work is the larger architectural cleanup: pull more of the save/dirty/secret/feedback logic out of `Settings.svelte`, standardize the helper patterns, and shrink the page-level orchestration surface.
+Current state on `dev`: all 10 settings tabs now route through a shared design system in `apps/ui/src/lib/components/settings/_primitives/` (SettingsCard / SettingsRow / SettingsToggle / SettingsSelect / SettingsSegmented / SettingsInput / SettingsTextarea / AdvancedSection / SettingsPage). Tab code dropped from 5,788 → 4,512 lines, 48 inline `role="switch"` copies removed, and a build-time guard (`settings-style-audit.test.ts`) prevents any tab from drifting back. Six of the tabs got a basic/advanced split behind `AdvancedSection`; the other four are flat by design (already simple). Page chrome (header, status banner, sticky save bar) is owned by `SettingsPage.svelte`. Mobile (<md) collapses the tab strip to a `<select>`.
 
-Follow-up from issue `#48`: the notification species filter now has a useful taxonomy-aware mode picker, but it also makes the broader Settings page density problem more visible. Before the next push to `main`, do a pass that simplifies Settings information architecture so notification filters, delivery policy, channel credentials, and advanced controls are easier to scan.
+Helper modules under `apps/ui/src/lib/settings/` (location dirty-state, blocked-species handling, crop overrides, LLM model helpers, taxonomy-aware species filter entries) are unchanged. A README at `_primitives/README.md` documents the design system and the basic-vs-advanced rule applied to each tab.
+
+Follow-up from issue `#48`: the notification species filter has a taxonomy-aware mode picker. Notifications-tab basic/advanced split shipped 2026-04-25 (Pushover priority+device, Email only-on-end + dashboard URL behind Advanced).
 
 Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
 
@@ -243,6 +245,32 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Notification settings can be understood without reading precedence rules or scanning unrelated channel credentials.
 - All new Settings copy remains covered by locale audit tests and translated in supported locales.
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
+
+### 5.1. Settings Route Split (`/settings/<tab>`) 🧭
+**Priority:** P2 | **Effort:** S (1 day) | **Status:** Proposed — last open item from the 2026-04-25 settings refactor
+
+Settings is still rendered as a single page with all 10 tabs hydrated together and tab state held in component memory. This means:
+
+- Deep links from issues, PRs, release notes, or external docs cannot point at a specific tab — `/settings#tab=detection` doesn't survive a hard reload because the active tab isn't in the URL.
+- The page parses every tab on first load even though the user only ever sees one at a time.
+- Hot-reload during development resets the active tab back to the first one.
+
+**Target:** real routes per tab — `/settings`, `/settings/connection`, `/settings/detection`, `/settings/notifications`, etc. — so each tab becomes a route component that mounts only when active. The shared dirty-tracking/save bar lives in a layout above the route.
+
+**Scope:**
+- Add a settings layout route that owns `SettingsPage` (header, status banner, sticky save bar) and the shared `<load>` flow.
+- Each tab becomes a child route that renders one of the existing `*Settings.svelte` panels.
+- The `<select>` mobile tab strip and the desktop pill nav both navigate via the router instead of swapping component state.
+- Audit every existing in-app link, share-link template, AI-prompt deep-link suggestion, and notification template that points at `/settings` to make sure nothing relied on the hash-based tab signal.
+- Preserve unsaved-changes guard: navigating between tabs while dirty must keep the dirty state and the save bar visible (state lifts into the layout).
+
+**Out of scope:** any further splitting of the high-density tabs themselves (already done in the 2026-04-25 refactor) and any change to the basic/advanced taxonomy.
+
+**Acceptance Criteria:**
+- Hard-reloading on `/settings/notifications` lands on the notifications tab.
+- Tabs the user hasn't visited do not parse / mount.
+- The unsaved-changes save bar still appears regardless of which sub-route the user is on, and survives tab switches.
+- `npm run check` clean and the existing `settings-style-audit` guard still passes.
 
 ### 6. Explorer Filter: Show Audio Matches Only 🎧
 **Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `dev` (2026-03-28)
