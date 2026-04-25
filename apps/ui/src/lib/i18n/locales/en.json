@@ -320,7 +320,9 @@
             "simulating": "Simulating..."
         },
         "common": {
-            "save_error": "Failed to save settings"
+            "save_error": "Failed to save settings",
+            "advanced": "Advanced",
+            "advanced_default_title": "Advanced options"
         },
         "tabs": {
             "connection": "Connection",

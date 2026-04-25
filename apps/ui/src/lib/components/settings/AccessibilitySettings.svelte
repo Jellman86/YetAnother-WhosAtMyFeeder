@@ -1,7 +1,9 @@
 <script lang="ts">
     import { _, locale } from 'svelte-i18n';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
 
-    // Props
     let {
         highContrast = $bindable(false),
         dyslexiaFont = $bindable(false),
@@ -17,163 +19,89 @@
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
-    // Only show the option for languages that use Latin script
     const latinLanguages = ['en', 'es', 'fr', 'de'];
-
-    // Safely get current locale, ensuring it's always a string
     const currentLocale = $derived(typeof $locale === 'string' ? $locale : 'en');
     const showDyslexicFont = $derived(latinLanguages.includes(currentLocale));
 
-    // Apply/remove classes when toggles change
     $effect(() => {
-        if (highContrast) document.documentElement.classList.add('high-contrast');
-        else document.documentElement.classList.remove('high-contrast');
+        document.documentElement.classList.toggle('high-contrast', highContrast);
     });
-
     $effect(() => {
-        if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
-        else document.documentElement.classList.remove('font-dyslexic');
+        document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
     });
-
     $effect(() => {
-        if (reducedMotion) document.documentElement.classList.add('reduced-motion');
-        else document.documentElement.classList.remove('reduced-motion');
+        document.documentElement.classList.toggle('reduced-motion', reducedMotion);
     });
-
     $effect(() => {
-        if (zenMode) document.documentElement.classList.add('zen-mode');
-        else document.documentElement.classList.remove('zen-mode');
+        document.documentElement.classList.toggle('zen-mode', zenMode);
     });
 </script>
 
-<section class="card-base rounded-3xl p-8 backdrop-blur-md">
-    <div class="flex items-center gap-3 mb-8">
-        <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <span class="text-xl">♿</span>
-        </div>
-        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.accessibility.title')}</h3>
-    </div>
+<SettingsCard icon="♿" title={$_('settings.accessibility.title')}>
+    <SettingsRow
+        labelId="setting-high-contrast"
+        label={$_('settings.accessibility.high_contrast')}
+        description={$_('settings.accessibility.high_contrast_desc')}
+    >
+        <SettingsToggle
+            checked={highContrast}
+            labelledBy="setting-high-contrast"
+            srLabel={$_('settings.accessibility.high_contrast')}
+            onchange={(v) => (highContrast = v)}
+        />
+    </SettingsRow>
 
-    <div class="space-y-6">
-        <!-- High Contrast -->
-        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-            <div id="high-contrast-label">
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.high_contrast')}</span>
-                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.high_contrast_desc')}</span>
-            </div>
-            <button
-                role="switch"
-                aria-checked={highContrast}
-                aria-labelledby="high-contrast-label"
-                onclick={() => highContrast = !highContrast}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        highContrast = !highContrast;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {highContrast ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-            >
-                <span class="sr-only">{$_('settings.accessibility.high_contrast')}</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {highContrast ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
+    {#if showDyslexicFont}
+        <SettingsRow
+            labelId="setting-dyslexia-font"
+            label={$_('settings.accessibility.dyslexia_font')}
+            description={$_('settings.accessibility.dyslexia_font_desc')}
+        >
+            <SettingsToggle
+                checked={dyslexiaFont}
+                labelledBy="setting-dyslexia-font"
+                srLabel={$_('settings.accessibility.dyslexia_font')}
+                onchange={(v) => (dyslexiaFont = v)}
+            />
+        </SettingsRow>
+    {/if}
 
-        <!-- Dyslexia Font (only for Latin-based languages) -->
-        {#if showDyslexicFont}
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="dyslexia-font-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.dyslexia_font')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.dyslexia_font_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={dyslexiaFont}
-                    aria-labelledby="dyslexia-font-label"
-                    onclick={() => dyslexiaFont = !dyslexiaFont}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            dyslexiaFont = !dyslexiaFont;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {dyslexiaFont ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.accessibility.dyslexia_font')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {dyslexiaFont ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
-        {/if}
+    <SettingsRow
+        labelId="setting-reduced-motion"
+        label={$_('settings.accessibility.reduced_motion')}
+        description={$_('settings.accessibility.reduced_motion_desc')}
+    >
+        <SettingsToggle
+            checked={reducedMotion}
+            labelledBy="setting-reduced-motion"
+            srLabel={$_('settings.accessibility.reduced_motion')}
+            onchange={(v) => (reducedMotion = v)}
+        />
+    </SettingsRow>
 
-        <!-- Reduced Motion -->
-        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-            <div id="reduced-motion-label">
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.reduced_motion')}</span>
-                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.reduced_motion_desc')}</span>
-            </div>
-            <button
-                role="switch"
-                aria-checked={reducedMotion}
-                aria-labelledby="reduced-motion-label"
-                onclick={() => reducedMotion = !reducedMotion}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        reducedMotion = !reducedMotion;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {reducedMotion ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-            >
-                <span class="sr-only">{$_('settings.accessibility.reduced_motion')}</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {reducedMotion ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
+    <SettingsRow
+        labelId="setting-zen-mode"
+        label={$_('settings.accessibility.zen_mode')}
+        description={$_('settings.accessibility.zen_mode_desc')}
+    >
+        <SettingsToggle
+            checked={zenMode}
+            labelledBy="setting-zen-mode"
+            srLabel={$_('settings.accessibility.zen_mode')}
+            onchange={(v) => (zenMode = v)}
+        />
+    </SettingsRow>
 
-        <!-- Zen Mode -->
-        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-            <div id="zen-mode-label">
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.zen_mode')}</span>
-                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.zen_mode_desc')}</span>
-            </div>
-            <button
-                role="switch"
-                aria-checked={zenMode}
-                aria-labelledby="zen-mode-label"
-                onclick={() => zenMode = !zenMode}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        zenMode = !zenMode;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {zenMode ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-            >
-                <span class="sr-only">{$_('settings.accessibility.zen_mode')}</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {zenMode ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
-
-        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-            <div id="live-announcements-label">
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.accessibility.live_announcements')}</span>
-                <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.accessibility.live_announcements_desc')}</span>
-            </div>
-            <button
-                role="switch"
-                aria-checked={liveAnnouncements}
-                aria-labelledby="live-announcements-label"
-                onclick={() => liveAnnouncements = !liveAnnouncements}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        liveAnnouncements = !liveAnnouncements;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {liveAnnouncements ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-            >
-                <span class="sr-only">{$_('settings.accessibility.live_announcements')}</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {liveAnnouncements ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
-    </div>
-</section>
+    <SettingsRow
+        labelId="setting-live-announcements"
+        label={$_('settings.accessibility.live_announcements')}
+        description={$_('settings.accessibility.live_announcements_desc')}
+    >
+        <SettingsToggle
+            checked={liveAnnouncements}
+            labelledBy="setting-live-announcements"
+            srLabel={$_('settings.accessibility.live_announcements')}
+            onchange={(v) => (liveAnnouncements = v)}
+        />
+    </SettingsRow>
+</SettingsCard>
