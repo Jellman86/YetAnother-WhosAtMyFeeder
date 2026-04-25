@@ -27,7 +27,8 @@ function listSettingsComponents(): string[] {
  */
 const MIGRATED_COMPONENTS = new Set([
     'AccessibilitySettings.svelte',
-    'AppearanceSettings.svelte'
+    'AppearanceSettings.svelte',
+    'EnrichmentSettings.svelte'
 ]);
 
 describe('settings primitives — style audit', () => {
