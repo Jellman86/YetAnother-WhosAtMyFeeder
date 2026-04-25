@@ -6,8 +6,12 @@
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import SettingsInput from './_primitives/SettingsInput.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
-    // Props
     let {
         frigateUrl = $bindable(''),
         mqttServer = $bindable(''),
@@ -91,17 +95,14 @@
         recordingClipEnabled || (clipsEnabled && !!recordingClipCapability?.supported)
     );
 
-    function toggleRecordingClips(): void {
-        if (recordingClipEnabled) {
+    function toggleRecordingClips(next?: boolean): void {
+        const target = next ?? !recordingClipEnabled;
+        if (recordingClipEnabled && !target) {
             recordingClipEnabled = false;
             return;
         }
         if (!clipsEnabled || !recordingClipCapability?.supported) return;
-        recordingClipEnabled = !recordingClipEnabled;
-    }
-
-    function getFrigateBase() {
-        return frigateUrl ? frigateUrl.replace(/\/+$/, '') : '';
+        recordingClipEnabled = target;
     }
 
     function startPreview(camera: string) {
@@ -184,288 +185,254 @@
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <!-- Frigate Connection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center p-1.5">
-                <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-full h-full object-contain" />
-            </div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.frigate.title')}</h3>
+    {#snippet frigateIcon()}
+        <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-6 h-6 object-contain" />
+    {/snippet}
+
+    <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
+        <SettingsRow
+            labelId="setting-frigate-url"
+            label={$_('settings.frigate.url')}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="frigate-url"
+                type="url"
+                value={frigateUrl}
+                placeholder={$_('settings.frigate.url_placeholder')}
+                ariaLabel={$_('settings.frigate.url')}
+                oninput={(v) => (frigateUrl = v)}
+            />
+        </SettingsRow>
+
+        <div class="grid grid-cols-2 gap-3">
+            <button
+                type="button"
+                onclick={testConnection}
+                disabled={testing}
+                aria-label={$_('settings.frigate.test_connection')}
+                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+            >
+                {testing ? $_('common.testing') : $_('settings.frigate.test_connection')}
+            </button>
+            <button
+                type="button"
+                onclick={loadCameras}
+                disabled={camerasLoading}
+                aria-label={$_('settings.frigate.sync_cameras')}
+                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+            >
+                {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
+            </button>
         </div>
 
-        <div class="space-y-6">
-            <div>
-                <label for="frigate-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.url')}</label>
-                <input
-                    id="frigate-url"
-                    type="url"
-                    bind:value={frigateUrl}
-                    placeholder={$_('settings.frigate.url_placeholder')}
-                    aria-label="{$_('settings.frigate.url')}"
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                />
-            </div>
+        <button
+            type="button"
+            onclick={handleTestBirdNET}
+            disabled={testingBirdNET}
+            aria-label={$_('settings.frigate.test_mqtt')}
+            class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+        >
+            {testingBirdNET ? $_('settings.connection.simulating') : $_('settings.frigate.test_mqtt')}
+        </button>
 
-            <div class="grid grid-cols-2 gap-3">
-                <button
-                    onclick={testConnection}
-                    disabled={testing}
-                    aria-label="{$_('settings.frigate.test_connection')}"
-                    class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50"
+        <SettingsRow
+            labelId="setting-mqtt-broker"
+            label={$_('settings.frigate.mqtt_broker')}
+            description={$_('settings.connection.mqtt_title')}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="mqtt-server"
+                type="text"
+                value={mqttServer}
+                placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
+                ariaLabel={$_('settings.frigate.mqtt_broker')}
+                oninput={(v) => (mqttServer = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-mqtt-auth"
+            label={$_('settings.frigate.mqtt_auth')}
+        >
+            <SettingsToggle
+                checked={mqttAuth}
+                labelledBy="setting-mqtt-auth"
+                srLabel={$_('settings.frigate.mqtt_auth')}
+                onchange={(v) => (mqttAuth = v)}
+            />
+        </SettingsRow>
+
+        {#if mqttAuth}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in zoom-in-95">
+                <SettingsRow
+                    labelId="setting-mqtt-username"
+                    label={$_('settings.frigate.mqtt_user')}
+                    layout="stacked"
                 >
-                    {testing ? $_('common.testing') : $_('settings.frigate.test_connection')}
-                </button>
-                <button
-                    onclick={loadCameras}
-                    disabled={camerasLoading}
-                    aria-label="{$_('settings.frigate.sync_cameras')}"
-                    class="flex-1 px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+                    <SettingsInput
+                        id="mqtt-username"
+                        type="text"
+                        value={mqttUsername}
+                        ariaLabel={$_('settings.frigate.mqtt_user')}
+                        oninput={(v) => (mqttUsername = v)}
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    labelId="setting-mqtt-password"
+                    label={$_('settings.frigate.mqtt_pass')}
+                    layout="stacked"
                 >
-                    {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
-                </button>
+                    <div class="space-y-2">
+                        {#if mqttPasswordSaved}
+                            <div class="flex justify-end"><SecretSavedBadge /></div>
+                        {/if}
+                        <SettingsInput
+                            id="mqtt-password"
+                            type="password"
+                            autocomplete="off"
+                            value={mqttPassword}
+                            ariaLabel={$_('settings.frigate.mqtt_pass')}
+                            oninput={(v) => (mqttPassword = v)}
+                        />
+                    </div>
+                </SettingsRow>
             </div>
+        {/if}
 
-            <button
-                onclick={handleTestBirdNET}
-                disabled={testingBirdNET}
-                aria-label={$_('settings.frigate.test_mqtt')}
-                class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition-all border border-indigo-500/20 disabled:opacity-50"
-            >
-                {testingBirdNET ? $_('settings.connection.simulating') : $_('settings.frigate.test_mqtt')}
-            </button>
+        <SettingsRow
+            labelId="setting-clips-enabled"
+            label={$_('settings.frigate.fetch_clips')}
+            description={$_('settings.frigate.fetch_clips_desc')}
+        >
+            <SettingsToggle
+                checked={clipsEnabled}
+                labelledBy="setting-clips-enabled"
+                srLabel={$_('settings.frigate.fetch_clips')}
+                onchange={(v) => (clipsEnabled = v)}
+            />
+        </SettingsRow>
 
-            <div class="pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.connection.mqtt_title')}</h4>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-3 gap-4">
-                        <div class="col-span-2">
-                            <label for="mqtt-server" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_broker')}</label>
-                            <input
-                                id="mqtt-server"
-                                type="text"
-                                bind:value={mqttServer}
-                                placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
-                                aria-label="{$_('settings.frigate.mqtt_broker')}"
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label for="mqtt-port" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_port')}</label>
-                            <input
-                                id="mqtt-port"
-                                type="number"
-                                bind:value={mqttPort}
-                                aria-label="{$_('settings.frigate.mqtt_port')}"
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                        </div>
-                    </div>
+        <SettingsRow
+            labelId="setting-recording-clips"
+            label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
+            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip window from Frigate recordings around each detection.' })}
+        >
+            <SettingsToggle
+                checked={recordingClipEnabled}
+                labelledBy="setting-recording-clips"
+                srLabel={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
+                disabled={!canToggleRecordingClips}
+                onchange={(v) => toggleRecordingClips(v)}
+            />
+        </SettingsRow>
 
-                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                        <span id="mqtt-auth-label" class="text-xs font-bold text-slate-900 dark:text-white">{$_('settings.frigate.mqtt_auth')}</span>
-                        <button
-                            role="switch"
-                            aria-checked={mqttAuth}
-                            aria-labelledby="mqtt-auth-label"
-                            onclick={() => mqttAuth = !mqttAuth}
-                            onkeydown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    mqttAuth = !mqttAuth;
-                                }
-                            }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {mqttAuth ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                        >
-                            <span class="sr-only">{$_('settings.frigate.mqtt_auth')}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {mqttAuth ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>
-
-                    {#if mqttAuth}
-                        <div class="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95">
-                            <div>
-                                <label for="mqtt-username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.frigate.mqtt_user')}</label>
-                                <input
-                                    id="mqtt-username"
-                                    type="text"
-                                    bind:value={mqttUsername}
-                                    aria-label="{$_('settings.frigate.mqtt_user')}"
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                                />
-                            </div>
-                            <div>
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label for="mqtt-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.frigate.mqtt_pass')}</label>
-                                    {#if mqttPasswordSaved}
-                                        <SecretSavedBadge />
-                                    {/if}
-                                </div>
-                                <input
-                                    id="mqtt-password"
-                                    type="password"
-                                    autocomplete="off"
-                                    bind:value={mqttPassword}
-                                    aria-label="{$_('settings.frigate.mqtt_pass')}"
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                                />
-                            </div>
-                        </div>
-                    {/if}
-                </div>
-            </div>
-
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="clips-enabled-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.frigate.fetch_clips')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.frigate.fetch_clips_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={clipsEnabled}
-                    aria-labelledby="clips-enabled-label"
-                    onclick={() => clipsEnabled = !clipsEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            clipsEnabled = !clipsEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {clipsEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.frigate.fetch_clips')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {clipsEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
-
-            <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 space-y-4">
-                <div class="flex items-start justify-between gap-4">
-                    <div class="space-y-1" id="recording-clips-label">
-                        <span class="block text-sm font-bold text-slate-900 dark:text-white">
-                            {$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
-                        </span>
-                        <span class="block text-[10px] text-slate-500 font-medium">
-                            {$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip window from Frigate recordings around each detection.' })}
-                        </span>
-                    </div>
-                    <button
-                        role="switch"
-                        aria-checked={recordingClipEnabled}
-                        aria-labelledby="recording-clips-label"
-                        disabled={!canToggleRecordingClips}
-                        onclick={toggleRecordingClips}
-                        onkeydown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                toggleRecordingClips();
-                            }
-                        }}
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {recordingClipEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                    >
-                        <span class="sr-only">{$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}</span>
-                        <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {recordingClipEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                    </button>
-                </div>
-
-                <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="font-black uppercase tracking-widest text-[10px]">
-                            {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
-                        </span>
-                        {#if recordingClipCapabilityLoading}
-                            <span class="text-[10px] font-semibold uppercase tracking-widest">
-                                {$_('common.loading', { default: 'Loading' })}
-                            </span>
-                        {:else if recordingClipCapability?.supported}
-                            <span class="text-[10px] font-semibold uppercase tracking-widest">
-                                {$_('common.enabled', { default: 'Enabled' })}
-                            </span>
-                        {:else}
-                            <span class="text-[10px] font-semibold uppercase tracking-widest">
-                                {$_('common.disabled', { default: 'Disabled' })}
-                            </span>
-                        {/if}
-                    </div>
-
-                    {#if recordingClipCapabilityLoading}
-                        <p>{$_('settings.frigate.full_visit_loading', { default: 'Checking saved Frigate recording support...' })}</p>
-                    {:else if recordingClipCapability}
-                        {#if recordingClipCapability.supported}
-                            <p>
-                                {$_('settings.frigate.full_visit_supported', {
-                                    default: 'Continuous recordings are available for {count} selected camera(s).',
-                                    values: { count: recordingClipCapability.eligible_cameras.length }
-                                })}
-                            </p>
-                        {:else}
-                            <p>{getRecordingCapabilityReason(recordingClipCapability.reason)}</p>
-                        {/if}
-
-                        {#if recordingClipCapability.eligible_cameras.length > 0}
-                            <p class="text-[11px] opacity-90">
-                                {$_('settings.frigate.full_visit_cameras', {
-                                    default: 'Eligible cameras: {cameras}',
-                                    values: { cameras: recordingClipCapability.eligible_cameras.join(', ') }
-                                })}
-                            </p>
-                        {/if}
-
-                        {#if recordingClipCapability.retention_days !== null}
-                            <p class="text-[11px] opacity-90">
-                                {$_('settings.frigate.full_visit_retention', {
-                                    default: 'Detected recording retention: {days} day(s)',
-                                    values: { days: recordingClipCapability.retention_days }
-                                })}
-                            </p>
-                        {/if}
-                    {:else}
-                        <p>{$_('settings.frigate.full_visit_unavailable', { default: 'Capability information is unavailable right now.' })}</p>
-                    {/if}
-                </div>
-
-                {#if recordingClipEnabled}
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="recording-clip-before" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                {$_('settings.frigate.full_visit_before', { default: 'Seconds before' })}
-                            </label>
-                            <input
-                                id="recording-clip-before"
-                                type="number"
-                                min="0"
-                                max="3600"
-                                bind:value={recordingClipBeforeSeconds}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label for="recording-clip-after" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                                {$_('settings.frigate.full_visit_after', { default: 'Seconds after' })}
-                            </label>
-                            <input
-                                id="recording-clip-after"
-                                type="number"
-                                min="0"
-                                max="3600"
-                                bind:value={recordingClipAfterSeconds}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                        </div>
-                    </div>
+        <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
+            <div class="flex items-center justify-between gap-3">
+                <span class="font-black uppercase tracking-widest text-[10px]">
+                    {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
+                </span>
+                {#if recordingClipCapabilityLoading}
+                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.loading', { default: 'Loading' })}</span>
+                {:else if recordingClipCapability?.supported}
+                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.enabled', { default: 'Enabled' })}</span>
+                {:else}
+                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.disabled', { default: 'Disabled' })}</span>
                 {/if}
             </div>
-        </div>
-    </section>
 
-    <!-- Camera Selection -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md h-full flex flex-col">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
-            </div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.cameras.title')}</h3>
+            {#if recordingClipCapabilityLoading}
+                <p>{$_('settings.frigate.full_visit_loading', { default: 'Checking saved Frigate recording support...' })}</p>
+            {:else if recordingClipCapability}
+                {#if recordingClipCapability.supported}
+                    <p>
+                        {$_('settings.frigate.full_visit_supported', {
+                            default: 'Continuous recordings are available for {count} selected camera(s).',
+                            values: { count: recordingClipCapability.eligible_cameras.length }
+                        })}
+                    </p>
+                {:else}
+                    <p>{getRecordingCapabilityReason(recordingClipCapability.reason)}</p>
+                {/if}
+                {#if recordingClipCapability.eligible_cameras.length > 0}
+                    <p class="text-[11px] opacity-90">
+                        {$_('settings.frigate.full_visit_cameras', {
+                            default: 'Eligible cameras: {cameras}',
+                            values: { cameras: recordingClipCapability.eligible_cameras.join(', ') }
+                        })}
+                    </p>
+                {/if}
+                {#if recordingClipCapability.retention_days !== null}
+                    <p class="text-[11px] opacity-90">
+                        {$_('settings.frigate.full_visit_retention', {
+                            default: 'Detected recording retention: {days} day(s)',
+                            values: { days: recordingClipCapability.retention_days }
+                        })}
+                    </p>
+                {/if}
+            {:else}
+                <p>{$_('settings.frigate.full_visit_unavailable', { default: 'Capability information is unavailable right now.' })}</p>
+            {/if}
         </div>
 
-        <div class="space-y-3 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+        <AdvancedSection
+            id="connection-advanced"
+            title={$_('settings.connection.advanced_title', { default: 'Tuning' })}
+        >
+            <SettingsRow
+                labelId="setting-mqtt-port"
+                label={$_('settings.frigate.mqtt_port')}
+                layout="stacked"
+            >
+                <SettingsInput
+                    id="mqtt-port"
+                    type="number"
+                    value={mqttPort}
+                    ariaLabel={$_('settings.frigate.mqtt_port')}
+                    oninput={(v) => (mqttPort = Number(v) || 0)}
+                />
+            </SettingsRow>
+
+            {#if recordingClipEnabled}
+                <div class="grid grid-cols-2 gap-3">
+                    <SettingsRow
+                        labelId="setting-recording-before"
+                        label={$_('settings.frigate.full_visit_before', { default: 'Seconds before' })}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="recording-clip-before"
+                            type="number"
+                            min={0}
+                            max={3600}
+                            value={recordingClipBeforeSeconds}
+                            ariaLabel={$_('settings.frigate.full_visit_before', { default: 'Seconds before' })}
+                            oninput={(v) => (recordingClipBeforeSeconds = Number(v) || 0)}
+                        />
+                    </SettingsRow>
+                    <SettingsRow
+                        labelId="setting-recording-after"
+                        label={$_('settings.frigate.full_visit_after', { default: 'Seconds after' })}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="recording-clip-after"
+                            type="number"
+                            min={0}
+                            max={3600}
+                            value={recordingClipAfterSeconds}
+                            ariaLabel={$_('settings.frigate.full_visit_after', { default: 'Seconds after' })}
+                            oninput={(v) => (recordingClipAfterSeconds = Number(v) || 0)}
+                        />
+                    </SettingsRow>
+                </div>
+            {/if}
+        </AdvancedSection>
+    </SettingsCard>
+
+    <SettingsCard icon="📷" title={$_('settings.cameras.title')}>
+        <div class="space-y-3 max-h-[36rem] overflow-y-auto pr-2 custom-scrollbar">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
@@ -473,12 +440,13 @@
             {:else}
                 <div class="grid grid-cols-1 gap-2">
                     {#each availableCameras as camera}
+                        {@const selected = selectedCameras.includes(camera)}
                         <div
                             role="button"
                             tabindex="0"
-                            aria-label="{selectedCameras.includes(camera) ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}"
+                            aria-label={selected ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}
                             class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group cursor-pointer
-                                   {selectedCameras.includes(camera)
+                                   {selected
                                        ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
                                        : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
                             onclick={() => toggleCamera(camera)}
@@ -495,20 +463,17 @@
                                     <button
                                         type="button"
                                         class="transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
-                                        aria-label="{$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}"
+                                        aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
                                         disabled={!frigateUrl}
-                                        onclick={(e) => {
-                                            e.stopPropagation();
-                                            togglePreview(camera);
-                                        }}
+                                        onclick={(e) => { e.stopPropagation(); togglePreview(camera); }}
                                     >
                                         <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </button>
                                 </div>
-                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selectedCameras.includes(camera) ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
-                                    {#if selectedCameras.includes(camera)}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
+                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
+                                    {#if selected}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
                                 </div>
                             </div>
                             {#if previewVisible && previewCamera === camera}
@@ -553,76 +518,47 @@
                 </div>
             {/if}
         </div>
-    </section>
+    </SettingsCard>
 
-    <!-- Telemetry -->
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md md:col-span-2">
-        <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                </div>
-                <div id="telemetry-label">
-                    <div class="flex items-center gap-2">
-                        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.telemetry.title')}</h3>
-                        <button
-                            type="button"
-                            class="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-300 transition"
-                            title={$_('settings.telemetry.appreciation_tooltip')}
-                            aria-label={$_('settings.telemetry.appreciation_tooltip')}
-                        >
-                            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-8-3a1 1 0 00-.993.883L9 8v4a1 1 0 001.993.117L11 12V8a1 1 0 00-1-1zm0 8a1.25 1.25 0 100-2.5 1.25 1.25 0 000 2.5z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                    <p class="text-[10px] font-bold text-slate-500 mt-0.5">{$_('settings.telemetry.desc')}</p>
-                </div>
-            </div>
-            <button
-                role="switch"
-                aria-checked={telemetryEnabled}
-                aria-labelledby="telemetry-label"
-                onclick={() => telemetryEnabled = !telemetryEnabled}
-                onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        telemetryEnabled = !telemetryEnabled;
-                    }
-                }}
-                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {telemetryEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
+    <div class="md:col-span-2">
+        <SettingsCard
+            icon="📊"
+            title={$_('settings.telemetry.title')}
+            description={$_('settings.telemetry.desc')}
+        >
+            <SettingsRow
+                labelId="setting-telemetry"
+                label={$_('settings.telemetry.title')}
+                description={$_('settings.telemetry.appreciation_tooltip')}
             >
-                <span class="sr-only">{$_('settings.telemetry.title')}</span>
-                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {telemetryEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-            </button>
-        </div>
+                <SettingsToggle
+                    checked={telemetryEnabled}
+                    labelledBy="setting-telemetry"
+                    srLabel={$_('settings.telemetry.title')}
+                    onchange={(v) => (telemetryEnabled = v)}
+                />
+            </SettingsRow>
 
-        {#if telemetryEnabled}
-            <div class="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
-                <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
-                <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
-                    <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
+            {#if telemetryEnabled}
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
+                    <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
+                        <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
+                    </div>
+                    <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
                 </div>
-                <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
-            </div>
-        {/if}
-    </section>
+            {/if}
+        </SettingsCard>
+    </div>
 </div>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #94a3b833;
-        border-radius: 10px;
-    }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b833; border-radius: 10px; }
 </style>

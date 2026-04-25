@@ -29,6 +29,7 @@ const MIGRATED_COMPONENTS = new Set([
     'AccessibilitySettings.svelte',
     'AppearanceSettings.svelte',
     'AuthenticationSettings.svelte',
+    'ConnectionSettings.svelte',
     'EnrichmentSettings.svelte'
 ]);
 
