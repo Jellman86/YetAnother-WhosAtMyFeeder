@@ -659,8 +659,17 @@
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
-    const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection));
+    const missingEventMetadataGone = $derived(
+        detection.frigate_status === 'missing'
+        || detection.has_frigate_event === false
+        || detection.video_classification_error === 'event_not_found'
+    );
+    const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
     const upstreamMissing = $derived(detection.frigate_status === 'missing');
+    const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
+    const suppressVideoFailureForMissingEvent = $derived(
+        missingEventNoticeVisible && detection.video_classification_error === 'event_not_found'
+    );
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
 
     function formatEbirdDate(dateStr?: string | null) {
@@ -2111,7 +2120,7 @@
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
                     <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
                 </div>
-                {#if upstreamMissing}
+                {#if missingEventNoticeVisible}
                     <div class="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-slate-200/70 pt-2 text-[10px] font-bold text-slate-500 dark:border-slate-700/60 dark:text-slate-400">
                         <span
                             class="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50/80 px-2 py-1 text-orange-700 dark:border-orange-400/20 dark:bg-orange-500/10 dark:text-orange-200"
@@ -2252,7 +2261,7 @@
                     <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.video_analysis.in_progress')}</span>
                  </div>
-            {:else if detection.video_classification_status === 'failed'}
+            {:else if detection.video_classification_status === 'failed' && !suppressVideoFailureForMissingEvent}
                 <div class="p-4 rounded-2xl bg-rose-50/80 dark:bg-rose-500/10 border border-rose-200/70 dark:border-rose-500/20 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
