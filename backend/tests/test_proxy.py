@@ -1064,20 +1064,31 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(client: httpx.AsyncClient):
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(None, "snapshot_not_found"))):
-        mock_get_snapshot.return_value = b"cached-hq-frame"
-        mock_get_metadata.return_value = {"source": "hq_candidate_full_frame"}
+    # _build_snapshot_status only consults media_cache when both the cache and
+    # snapshot caching are enabled — without these flags `cached` always returns
+    # False regardless of what the mock yields.
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    try:
+        with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
+             patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
+             patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(None, "snapshot_not_found"))):
+            mock_get_snapshot.return_value = b"cached-hq-frame"
+            mock_get_metadata.return_value = {"source": "hq_candidate_full_frame"}
 
-        response = await client.get("/api/frigate/test_event_id/snapshot/status")
+            response = await client.get("/api/frigate/test_event_id/snapshot/status")
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["event_id"] == "test_event_id"
-    assert body["cached"] is True
-    assert body["source"] == "hq_candidate_full_frame"
-    assert body["original_frigate_snapshot_available"] is False
+        assert response.status_code == 200
+        body = response.json()
+        assert body["event_id"] == "test_event_id"
+        assert body["cached"] is True
+        assert body["source"] == "hq_candidate_full_frame"
+        assert body["original_frigate_snapshot_available"] is False
+    finally:
+        settings.media_cache.enabled = original_cache_enabled
+        settings.media_cache.cache_snapshots = original_cache_snapshots
 
 
 @pytest.mark.asyncio
