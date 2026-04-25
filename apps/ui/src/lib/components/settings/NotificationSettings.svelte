@@ -15,6 +15,7 @@
     } from '../../settings/blocked-species';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
     function extractErrorMessage(error: any, fallback: string) {
         const message = error?.message || fallback;
@@ -742,33 +743,6 @@
                         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                     />
                 </div>
-                <div>
-                    <label for="pushover-priority" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.priority')}</label>
-                    <select
-                        id="pushover-priority"
-                        bind:value={pushoverPriority}
-                        aria-label={$_('settings.pushover.priority')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    >
-                        <option value={-2}>{$_('settings.pushover.priority_lowest')}</option>
-                        <option value={-1}>{$_('settings.pushover.priority_low')}</option>
-                        <option value={0}>{$_('settings.pushover.priority_normal')}</option>
-                        <option value={1}>{$_('settings.pushover.priority_high')}</option>
-                        <option value={2}>{$_('settings.pushover.priority_emergency')}</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="pushover-device" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
-                    <input
-                        id="pushover-device"
-                        type="text"
-                        bind:value={pushoverDevice}
-                        placeholder={$_('settings.pushover.device_placeholder')}
-                        aria-label={$_('settings.pushover.device')}
-                        class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                    />
-                    <p class="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
-                </div>
                 <button
                     onclick={sendTestPushover}
                     disabled={testingNotification['pushover'] || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
@@ -777,6 +751,39 @@
                 >
                     {testingNotification['pushover'] ? $_('settings.pushover.test_sending') : $_('settings.pushover.test_notification')}
                 </button>
+
+                <AdvancedSection
+                    id="notifications-pushover-advanced"
+                    title={$_('settings.pushover.advanced_title', { default: 'Priority & device targeting' })}
+                >
+                    <div>
+                        <label for="pushover-priority" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.priority')}</label>
+                        <select
+                            id="pushover-priority"
+                            bind:value={pushoverPriority}
+                            aria-label={$_('settings.pushover.priority')}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        >
+                            <option value={-2}>{$_('settings.pushover.priority_lowest')}</option>
+                            <option value={-1}>{$_('settings.pushover.priority_low')}</option>
+                            <option value={0}>{$_('settings.pushover.priority_normal')}</option>
+                            <option value={1}>{$_('settings.pushover.priority_high')}</option>
+                            <option value={2}>{$_('settings.pushover.priority_emergency')}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="pushover-device" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
+                        <input
+                            id="pushover-device"
+                            type="text"
+                            bind:value={pushoverDevice}
+                            placeholder={$_('settings.pushover.device_placeholder')}
+                            aria-label={$_('settings.pushover.device')}
+                            class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        />
+                        <p class="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
+                    </div>
+                </AdvancedSection>
             </div>
         </section>
 
@@ -1130,6 +1137,12 @@
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.include_snapshot')}</span>
                         </label>
                     </div>
+                </div>
+
+                <AdvancedSection
+                    id="notifications-email-advanced"
+                    title={$_('settings.email.advanced_title', { default: 'Delivery timing & dashboard link' })}
+                >
                     <div>
                         <label for="email-only-on-end" class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
                             <input
@@ -1155,7 +1168,7 @@
                         />
                         <p id="dashboard-url-hint" class="mt-1 text-xs text-slate-500">{$_('settings.email.dashboard_url_desc')}</p>
                     </div>
-                </div>
+                </AdvancedSection>
 
                 <button
                     onclick={async () => {
