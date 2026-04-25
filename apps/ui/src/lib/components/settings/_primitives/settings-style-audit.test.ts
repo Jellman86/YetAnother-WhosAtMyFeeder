@@ -31,7 +31,8 @@ const MIGRATED_COMPONENTS = new Set([
     'AppearanceSettings.svelte',
     'AuthenticationSettings.svelte',
     'ConnectionSettings.svelte',
-    'EnrichmentSettings.svelte'
+    'EnrichmentSettings.svelte',
+    'IntegrationSettings.svelte'
 ]);
 
 describe('settings primitives — style audit', () => {
