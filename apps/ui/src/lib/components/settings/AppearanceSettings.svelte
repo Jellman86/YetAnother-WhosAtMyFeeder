@@ -1,8 +1,11 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { Theme, FontTheme, ColorTheme } from '../../stores/theme.svelte';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
 
-    // Props
     let {
         currentTheme,
         currentLocale,
@@ -30,190 +33,141 @@
         displayCommonNames: boolean;
         scientificNamePrimary: boolean;
     } = $props();
+
+    type NamingMode = 'standard' | 'hobbyist' | 'scientific';
+
+    const currentNamingMode: NamingMode = $derived(
+        !displayCommonNames ? 'scientific' : scientificNamePrimary ? 'hobbyist' : 'standard'
+    );
+
+    function setNamingMode(mode: NamingMode) {
+        if (mode === 'scientific') {
+            displayCommonNames = false;
+            scientificNamePrimary = false;
+            return;
+        }
+        displayCommonNames = true;
+        scientificNamePrimary = mode === 'hobbyist';
+    }
 </script>
 
-<section class="card-base rounded-3xl p-8 backdrop-blur-md">
-    <div class="flex items-center gap-3 mb-8">
-        <div class="w-10 h-10 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-600 dark:text-pink-400">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
-        </div>
-        <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.title')}</h3>
-    </div>
+<SettingsCard icon="🎨" title={$_('theme.title')}>
+    <SettingsRow
+        labelId="setting-theme"
+        label={$_('theme.title')}
+        layout="stacked"
+    >
+        <SettingsSegmented
+            value={currentTheme}
+            ariaLabelTemplate={(label) => $_('theme.select', { values: { theme: label } })}
+            onchange={(v) => setTheme(v as Theme)}
+            options={[
+                { value: 'light', label: $_('theme.light'), icon: '☀️' },
+                { value: 'dark', label: $_('theme.dark'), icon: '🌙' },
+                { value: 'system', label: $_('theme.system'), icon: '💻' }
+            ]}
+        />
+    </SettingsRow>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Theme -->
-        <div>
-            <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('theme.title')}</h4>
-            <div class="grid grid-cols-3 gap-2">
-                {#each [
-                    { value: 'light', label: $_('theme.light'), icon: '☀️' },
-                    { value: 'dark', label: $_('theme.dark'), icon: '🌙' },
-                    { value: 'system', label: $_('theme.system'), icon: '💻' }
-                ] as opt}
-                    <button
-                        onclick={() => setTheme(opt.value as Theme)}
-                        aria-label="{$_('theme.select', { values: { theme: opt.label } })}"
-                        class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all
-                            {currentTheme === opt.value
-                                ? 'bg-teal-500 border-teal-500 text-white shadow-lg shadow-teal-500/20'
-                                : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
-                    >
-                        <span class="text-2xl" aria-hidden="true">{opt.icon}</span>
-                        <span class="text-[10px] font-black uppercase tracking-widest">{opt.label}</span>
-                    </button>
-                {/each}
-            </div>
-        </div>
+    <SettingsRow
+        labelId="setting-language"
+        label={$_('settings.language_selector')}
+        description={$_('settings.language_desc')}
+        layout="stacked"
+    >
+        <SettingsSelect
+            id="language-select"
+            value={currentLocale}
+            ariaLabel={$_('settings.language_selector')}
+            onchange={(v) => setLanguage(v)}
+            options={[
+                { value: 'en', label: 'English' },
+                { value: 'es', label: 'Español' },
+                { value: 'fr', label: 'Français' },
+                { value: 'de', label: 'Deutsch' },
+                { value: 'ja', label: '日本語' },
+                { value: 'zh', label: '中文' },
+                { value: 'ru', label: 'Русский' },
+                { value: 'pt', label: 'Português' },
+                { value: 'it', label: 'Italiano' }
+            ]}
+        />
+    </SettingsRow>
 
-        <!-- Language -->
-        <div>
-            <label for="language-select" class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.language_selector')}</label>
-            <div class="grid grid-cols-1 gap-2">
-                <select
-                    id="language-select"
-                    value={currentLocale}
-                    onchange={(e) => setLanguage(e.currentTarget.value)}
-                    aria-label="{$_('settings.language_selector')}"
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                >
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                    <option value="fr">Français</option>
-                    <option value="de">Deutsch</option>
-                    <option value="ja">日本語</option>
-                    <option value="zh">中文</option>
-                    <option value="ru">Русский</option>
-                    <option value="pt">Português</option>
-                    <option value="it">Italiano</option>
-                </select>
-                <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.language_desc')}</p>
-            </div>
-        </div>
+    <SettingsRow
+        labelId="setting-date-format"
+        label={$_('settings.date_format.label')}
+        description={$_('settings.date_format.desc')}
+        layout="stacked"
+    >
+        <SettingsSelect
+            id="date-format-select"
+            value={currentDateFormat}
+            ariaLabel={$_('settings.date_format.label')}
+            onchange={(v) => setDateFormat(v)}
+            options={[
+                { value: 'mdy', label: $_('settings.date_format.us') },
+                { value: 'dmy', label: $_('settings.date_format.uk') },
+                { value: 'ymd', label: $_('settings.date_format.ymd') }
+            ]}
+        />
+    </SettingsRow>
 
-        <!-- Date Format -->
-        <div>
-            <label for="date-format-select" class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{$_('settings.date_format.label')}</label>
-            <div class="grid grid-cols-1 gap-2">
-                <select
-                    id="date-format-select"
-                    value={currentDateFormat}
-                    onchange={(e) => setDateFormat(e.currentTarget.value)}
-                    aria-label="{$_('settings.date_format.label')}"
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                >
-                    <option value="mdy">{$_('settings.date_format.us')}</option>
-                    <option value="dmy">{$_('settings.date_format.uk')}</option>
-                    <option value="ymd">{$_('settings.date_format.ymd')}</option>
-                </select>
-                <p class="text-[9px] text-slate-400 font-bold italic mt-1">{$_('settings.date_format.desc')}</p>
-            </div>
-        </div>
-    </div>
+    <SettingsRow
+        labelId="setting-naming"
+        label={$_('settings.detection.naming_title')}
+        layout="stacked"
+    >
+        <SettingsSegmented
+            value={currentNamingMode}
+            layout="card"
+            columns={1}
+            ariaLabelTemplate={(label) => $_('settings.detection.naming_select_label', { values: { mode: label } })}
+            onchange={(v) => setNamingMode(v as NamingMode)}
+            options={[
+                { value: 'standard', label: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub') },
+                { value: 'hobbyist', label: $_('settings.detection.naming_hobbyist'), sub: $_('settings.detection.naming_hobbyist_sub') },
+                { value: 'scientific', label: $_('settings.detection.naming_scientific'), sub: $_('settings.detection.naming_scientific_sub') }
+            ]}
+        />
+    </SettingsRow>
 
-    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h8M11 12h8M11 19h8M5 6h.01M5 12h.01M5 18h.01" /></svg>
-            </div>
-            <div>
-                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.detection.naming_title')}</h4>
-            </div>
-        </div>
+    <SettingsRow
+        labelId="setting-font-theme"
+        label={$_('theme.font_title')}
+        description={$_('theme.font_desc')}
+        layout="stacked"
+    >
+        <SettingsSegmented
+            value={currentFontTheme}
+            layout="card"
+            ariaLabelTemplate={(label) => label}
+            onchange={(v) => setFontTheme(v as FontTheme)}
+            options={[
+                { value: 'default', label: $_('theme.font_default'), sub: 'Instrument Sans / Bricolage', meta: $_('theme.font_lang_default') },
+                { value: 'clean', label: $_('theme.font_clean'), sub: 'Manrope / Sora', meta: $_('theme.font_lang_clean') },
+                { value: 'studio', label: $_('theme.font_studio'), sub: 'Sora / Bricolage', meta: $_('theme.font_lang_studio') },
+                { value: 'classic', label: $_('theme.font_classic'), sub: 'Source Serif 4 / Playfair', meta: $_('theme.font_lang_classic') },
+                { value: 'compact', label: $_('theme.font_compact'), sub: 'Instrument Sans / Sora', meta: $_('theme.font_lang_compact') }
+            ]}
+        />
+    </SettingsRow>
 
-        <div class="flex flex-col gap-3">
-            {#each [
-                { id: 'standard', title: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub'), active: displayCommonNames && !scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = false; } },
-                { id: 'hobbyist', title: $_('settings.detection.naming_hobbyist'), sub: $_('settings.detection.naming_hobbyist_sub'), active: displayCommonNames && scientificNamePrimary, action: () => { displayCommonNames = true; scientificNamePrimary = true; } },
-                { id: 'scientific', title: $_('settings.detection.naming_scientific'), sub: $_('settings.detection.naming_scientific_sub'), active: !displayCommonNames, action: () => { displayCommonNames = false; } }
-            ] as mode}
-                <button
-                    onclick={mode.action}
-                    aria-label={$_('settings.detection.naming_select_label', { values: { mode: mode.title } })}
-                    class="flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all {mode.active ? 'border-teal-500 bg-teal-500/5' : 'border-slate-100 dark:border-slate-700/50 hover:border-teal-500/20'}"
-                >
-                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center {mode.active ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'}">
-                        {#if mode.active}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7" /></svg>{/if}
-                    </div>
-                    <div>
-                        <p class="text-sm font-black text-slate-900 dark:text-white leading-none">{mode.title}</p>
-                        <p class="text-[10px] font-bold text-slate-500 mt-1">{mode.sub}</p>
-                    </div>
-                </button>
-            {/each}
-        </div>
-    </div>
-
-    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m-6-6h12" /></svg>
-            </div>
-            <div>
-                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.font_title')}</h4>
-                <p class="text-[10px] font-bold text-slate-500">{$_('theme.font_desc')}</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {#each [
-                { value: 'default', label: $_('theme.font_default'), preview: 'Instrument Sans / Bricolage', lang: $_('theme.font_lang_default') },
-                { value: 'clean', label: $_('theme.font_clean'), preview: 'Manrope / Sora', lang: $_('theme.font_lang_clean') },
-                { value: 'studio', label: $_('theme.font_studio'), preview: 'Sora / Bricolage', lang: $_('theme.font_lang_studio') },
-                { value: 'classic', label: $_('theme.font_classic'), preview: 'Source Serif 4 / Playfair', lang: $_('theme.font_lang_classic') },
-                { value: 'compact', label: $_('theme.font_compact'), preview: 'Instrument Sans / Sora', lang: $_('theme.font_lang_compact') }
-            ] as opt}
-                <button
-                    onclick={() => setFontTheme(opt.value as FontTheme)}
-                    aria-label={opt.label}
-                    class="flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all text-left
-                        {currentFontTheme === opt.value
-                            ? 'bg-teal-500 border-teal-500 text-white shadow-xl shadow-teal-500/20'
-                            : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-500 hover:border-teal-500/30'}"
-                >
-                    <div>
-                        <div class="text-sm font-black uppercase tracking-widest {currentFontTheme === opt.value ? 'text-white' : 'text-slate-900 dark:text-white'}">{opt.label}</div>
-                        <div class="text-xs font-medium mt-1 {currentFontTheme === opt.value ? 'text-white/80' : 'text-slate-400'}">{opt.preview}</div>
-                        <div class="text-[10px] font-semibold mt-1 {currentFontTheme === opt.value ? 'text-white/70' : 'text-slate-400'}">{opt.lang}</div>
-                    </div>
-                    <span class="text-xs font-bold uppercase tracking-widest opacity-70">{currentFontTheme === opt.value ? $_('theme.font_selected') : ''}</span>
-                </button>
-            {/each}
-        </div>
-        <p class="mt-3 text-[10px] font-semibold text-slate-400">{$_('theme.font_apply_hint')}</p>
-    </div>
-
-    <div class="pt-8 mt-8 border-t border-slate-100 dark:border-slate-700/50">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
-            </div>
-            <div>
-                <h4 class="text-lg font-black text-slate-900 dark:text-white tracking-tight">{$_('theme.color_title')}</h4>
-                <p class="text-[10px] font-bold text-slate-500">{$_('theme.color_desc')}</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {#each [
-                { value: 'default', label: $_('theme.color_default'), desc: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
-                { value: 'bluetit', label: $_('theme.color_bluetit'), desc: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
-            ] as opt}
-                <button
-                    onclick={() => setColorTheme(opt.value as ColorTheme)}
-                    aria-label={opt.label}
-                    class="flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left
-                        {currentColorTheme === opt.value
-                            ? 'border-slate-900 dark:border-white bg-slate-900/5 dark:bg-white/5 shadow-lg'
-                            : 'border-slate-100 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600'}"
-                >
-                    <div class="w-10 h-10 rounded-xl {opt.swatch} shrink-0"></div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{opt.label}</div>
-                        <div class="text-[10px] font-medium mt-1 text-slate-400 truncate">{opt.desc}</div>
-                    </div>
-                    <span class="text-xs font-bold uppercase tracking-widest opacity-50">{currentColorTheme === opt.value ? $_('theme.color_selected') : ''}</span>
-                </button>
-            {/each}
-        </div>
-    </div>
-</section>
+    <SettingsRow
+        labelId="setting-color-theme"
+        label={$_('theme.color_title')}
+        description={$_('theme.color_desc')}
+        layout="stacked"
+    >
+        <SettingsSegmented
+            value={currentColorTheme}
+            layout="card"
+            ariaLabelTemplate={(label) => label}
+            onchange={(v) => setColorTheme(v as ColorTheme)}
+            options={[
+                { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
+                { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
+            ]}
+        />
+    </SettingsRow>
+</SettingsCard>
