@@ -2,8 +2,13 @@
     import { _ } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
     import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus, TimezoneRepairPreview } from '../../api';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import SettingsInput from './_primitives/SettingsInput.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
-    // Props
     let {
         maintenanceStats,
         retentionDays = $bindable(0),
@@ -142,13 +147,7 @@
         const month = Number(match[2]);
         const day = Number(match[3]);
         const date = new Date(year, month - 1, day);
-        if (
-            date.getFullYear() !== year
-            || date.getMonth() !== month - 1
-            || date.getDate() !== day
-        ) {
-            return null;
-        }
+        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
         date.setHours(0, 0, 0, 0);
         return date;
     };
@@ -174,13 +173,8 @@
     };
 
     $effect(() => {
-        if (backfillDateRange !== 'custom') {
-            return;
-        }
-        // Keep "To" anchored to today's date by default in custom mode.
-        if (!parseDateOnly(backfillEndDate)) {
-            backfillEndDate = todayDateOnly();
-        }
+        if (backfillDateRange !== 'custom') return;
+        if (!parseDateOnly(backfillEndDate)) backfillEndDate = todayDateOnly();
     });
 
     const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
@@ -190,296 +184,268 @@
         autoPurgeMissingClips = enabled;
         autoPurgeMissingSnapshots = enabled;
     };
+
+    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonNeutralClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonAmberClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonDangerClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
 </script>
 
+{#snippet spinner()}
+    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+{/snippet}
+
 <div class="space-y-6">
-    <!-- Maintenance Stats -->
     {#if maintenanceStats}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             {#each [
-                { label: $_('settings.data.records'), val: fmtCount(maintenanceStats.total_detections), color: 'text-teal-500' },
-                { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A', color: 'text-blue-500' },
-                { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}`, color: 'text-indigo-500' },
-                { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), color: safeCount(maintenanceStats.detections_to_cleanup) > 0 ? 'text-amber-500' : 'text-slate-400' }
+                { label: $_('settings.data.records'), val: fmtCount(maintenanceStats.total_detections) },
+                { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A' },
+                { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}` },
+                { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), highlight: safeCount(maintenanceStats.detections_to_cleanup) > 0 }
             ] as stat}
-                <div class="card-base rounded-3xl p-6 text-center">
-                    <p class="text-2xl font-black {stat.color} tracking-tight">{stat.val}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{stat.label}</p>
+                <div class="card-base rounded-3xl p-6 text-center backdrop-blur-md">
+                    <p class="text-2xl font-black tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
                 </div>
             {/each}
         </div>
     {/if}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <!-- Retention & Cleanup -->
-        <section class="card-base rounded-3xl p-8">
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-6">{$_('settings.data.retention_title')}</h3>
-            <div class="space-y-6">
-                <div>
-                    <label for="retention-days" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.data.history_duration')}</label>
-                    <select
-                        id="retention-days"
-                        bind:value={retentionDays}
-                        aria-label={$_('settings.data.history_duration')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                    >
-                        <option value={0}>{$_('settings.data.keep_everything')}</option>
-                        <option value={7}>{$_('settings.data.retention_week')}</option>
-                        <option value={14}>{$_('settings.data.retention_weeks')}</option>
-                        <option value={30}>{$_('settings.data.retention_month')}</option>
-                        <option value={90}>{$_('settings.data.retention_months')}</option>
-                        <option value={365}>{$_('settings.data.retention_year')}</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="maintenance-max-concurrent" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        {$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                    </label>
-                    <input
+        <SettingsCard icon="🗂️" title={$_('settings.data.retention_title')}>
+            <SettingsRow
+                labelId="setting-retention-days"
+                label={$_('settings.data.history_duration')}
+                layout="stacked"
+            >
+                <SettingsSelect
+                    id="retention-days"
+                    value={String(retentionDays)}
+                    ariaLabel={$_('settings.data.history_duration')}
+                    options={[
+                        { value: '0', label: $_('settings.data.keep_everything') },
+                        { value: '7', label: $_('settings.data.retention_week') },
+                        { value: '14', label: $_('settings.data.retention_weeks') },
+                        { value: '30', label: $_('settings.data.retention_month') },
+                        { value: '90', label: $_('settings.data.retention_months') },
+                        { value: '365', label: $_('settings.data.retention_year') }
+                    ]}
+                    onchange={(v) => (retentionDays = Number(v) || 0)}
+                />
+            </SettingsRow>
+
+            <button
+                type="button"
+                onclick={handleCleanup}
+                disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0}
+                aria-label={$_('settings.data.purge_button')}
+                class="w-full {buttonAmberClass}"
+            >
+                {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
+            </button>
+            <p class="text-[10px] text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
+
+            <AdvancedSection
+                id="data-retention-advanced"
+                title={$_('settings.data.advanced_title', { default: 'Maintenance & media integrity' })}
+            >
+                <SettingsRow
+                    labelId="setting-maint-concurrency"
+                    label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
+                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Per-kind default — each maintenance kind (backfill, weather backfill, video classification, taxonomy repair, timezone repair, analyze-unknowns) gets this many slots. Different kinds already run independently; increase this only if you want multiple jobs of the same kind to overlap.' })}
+                    layout="stacked"
+                >
+                    <SettingsInput
                         id="maintenance-max-concurrent"
                         type="number"
-                        bind:value={maintenanceMaxConcurrent}
-                        min="1"
-                        max="8"
-                        aria-label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                        min={1}
+                        max={8}
+                        value={maintenanceMaxConcurrent}
+                        ariaLabel={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
+                        oninput={(v) => (maintenanceMaxConcurrent = Number(v) || 1)}
                     />
-                    <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                        {$_('settings.data.maintenance_max_concurrent_help', { default: 'Per-kind default — each maintenance kind (backfill, weather backfill, video classification, taxonomy repair, timezone repair, analyze-unknowns) gets this many slots. Different kinds already run independently; increase this only if you want multiple jobs of the same kind to overlap.' })}
-                    </p>
-                </div>
-                <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 flex flex-col gap-3">
-                    <button
-                        onclick={handleCleanup}
-                        disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0}
-                        aria-label={$_('settings.data.purge_button')}
-                        class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
-                    >
-                        {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
-                    </button>
-                    <p class="text-[10px] text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
-                </div>
+                </SettingsRow>
 
-                <div class="pt-4 border-t border-slate-100 dark:border-slate-700/50 space-y-3">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        {$_('settings.data.media_integrity_title', { default: 'Media Integrity' })}
-                    </p>
-                    <div>
-                        <label for="frigate-missing-behavior" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                            {$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
-                        </label>
-                        <select
-                            id="frigate-missing-behavior"
-                            bind:value={frigateMissingBehavior}
-                            aria-label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                        >
-                            <option value="mark_missing">{$_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' })}</option>
-                            <option value="keep">{$_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' })}</option>
-                            <option value="delete">{$_('settings.data.frigate_missing_behavior_delete', { default: 'Delete local data' })}</option>
-                        </select>
-                        <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                            {$_('settings.data.frigate_missing_behavior_note', { default: 'This policy is applied during manual scans and scheduled checks. Use mark-missing when YA-WAMF should keep detections longer than Frigate.' })}
-                        </p>
-                    </div>
-                    <button
-                        onclick={handlePurgeMissingMedia}
-                        disabled={purgingMissingMedia}
-                        aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-                        class="btn btn-danger w-full py-3 text-xs font-black uppercase tracking-widest"
-                    >
-                        {purgingMissingMedia
-                            ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                            : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-                    </button>
-                    <div class="flex items-center justify-between px-1">
-                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}</span>
-                        <button
-                            role="switch"
-                            aria-checked={autoMediaIntegrityScan}
-                            aria-label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
-                            onclick={() => setAutoMediaIntegrityScan(!autoMediaIntegrityScan)}
-                            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAutoMediaIntegrityScan(!autoMediaIntegrityScan); } }}
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoMediaIntegrityScan ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                        >
-                            <span class="sr-only">{$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}</span>
-                            <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoMediaIntegrityScan ? 'translate-x-5' : 'translate-x-0'}"></span>
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-slate-400 font-bold italic">
-                        {$_('settings.data.media_integrity_note', { default: 'These scans apply the selected upstream-missing policy instead of always deleting detections.' })}
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Media Cache -->
-        <section class="card-base rounded-3xl p-8">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.cache_title')}</h3>
-                <button
-                    role="switch"
-                    aria-checked={cacheEnabled}
-                    aria-label={$_('settings.data.cache_title')}
-                    onclick={() => cacheEnabled = !cacheEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            cacheEnabled = !cacheEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {cacheEnabled ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                <SettingsRow
+                    labelId="setting-frigate-missing-behavior"
+                    label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                    description={$_('settings.data.frigate_missing_behavior_note', { default: 'This policy is applied during manual scans and scheduled checks. Use mark-missing when YA-WAMF should keep detections longer than Frigate.' })}
+                    layout="stacked"
                 >
-                    <span class="sr-only">{$_('settings.data.cache_title')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
+                    <SettingsSelect
+                        id="frigate-missing-behavior"
+                        value={frigateMissingBehavior}
+                        ariaLabel={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                        options={[
+                            { value: 'mark_missing', label: $_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' }) },
+                            { value: 'keep', label: $_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' }) },
+                            { value: 'delete', label: $_('settings.data.frigate_missing_behavior_delete', { default: 'Delete local data' }) }
+                        ]}
+                        onchange={(v) => (frigateMissingBehavior = v as 'mark_missing' | 'keep' | 'delete')}
+                    />
+                </SettingsRow>
+
+                <button
+                    type="button"
+                    onclick={handlePurgeMissingMedia}
+                    disabled={purgingMissingMedia}
+                    aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
+                    class="w-full {buttonAmberClass}"
+                >
+                    {purgingMissingMedia
+                        ? $_('settings.data.cleaning', { default: 'Cleaning...' })
+                        : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
                 </button>
-            </div>
+
+                <SettingsRow
+                    labelId="setting-auto-media-integrity"
+                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
+                    description={$_('settings.data.media_integrity_note', { default: 'These scans apply the selected upstream-missing policy instead of always deleting detections.' })}
+                >
+                    <SettingsToggle
+                        checked={autoMediaIntegrityScan}
+                        labelledBy="setting-auto-media-integrity"
+                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
+                        onchange={(v) => setAutoMediaIntegrityScan(v)}
+                    />
+                </SettingsRow>
+            </AdvancedSection>
+        </SettingsCard>
+
+        <SettingsCard icon="📦" title={$_('settings.data.cache_title')}>
+            <SettingsRow
+                labelId="setting-cache-enabled"
+                label={$_('settings.data.cache_title')}
+            >
+                <SettingsToggle
+                    checked={cacheEnabled}
+                    labelledBy="setting-cache-enabled"
+                    srLabel={$_('settings.data.cache_title')}
+                    onchange={(v) => (cacheEnabled = v)}
+                />
+            </SettingsRow>
 
             {#if cacheEnabled}
-                <div class="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    <!-- Basic cache toggles -->
-                    <div class="grid grid-cols-2 gap-3">
-                        <button
-                            onclick={() => cacheSnapshots = !cacheSnapshots}
-                            aria-label={$_('settings.data.cache_snapshots')}
-                            class="p-4 rounded-2xl border-2 transition-all text-center {cacheSnapshots ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                        >
-                            <p class="text-xs font-black uppercase tracking-widest">{$_('settings.data.cache_snapshots')}</p>
-                        </button>
-                        <button
-                            onclick={() => cacheClips = !cacheClips}
-                            aria-label={$_('settings.data.cache_clips')}
-                            class="p-4 rounded-2xl border-2 transition-all text-center {cacheClips ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-400'}"
-                        >
-                            <p class="text-xs font-black uppercase tracking-widest">{$_('settings.data.cache_clips')}</p>
-                        </button>
-                    </div>
+                <SettingsRow
+                    labelId="setting-cache-snapshots"
+                    label={$_('settings.data.cache_snapshots')}
+                >
+                    <SettingsToggle
+                        checked={cacheSnapshots}
+                        labelledBy="setting-cache-snapshots"
+                        srLabel={$_('settings.data.cache_snapshots')}
+                        onchange={(v) => (cacheSnapshots = v)}
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    labelId="setting-cache-clips"
+                    label={$_('settings.data.cache_clips')}
+                >
+                    <SettingsToggle
+                        checked={cacheClips}
+                        labelledBy="setting-cache-clips"
+                        srLabel={$_('settings.data.cache_clips')}
+                        onchange={(v) => (cacheClips = v)}
+                    />
+                </SettingsRow>
 
-                    <!-- HQ Snapshots: dedicated card -->
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
-                        <!-- Header -->
-                        <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-slate-900/50">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <p class="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 truncate">
-                                    {$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
-                                </p>
-                                <span class="flex-shrink-0 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">Beta</span>
-                            </div>
-                            <button
-                                role="switch"
-                                aria-checked={cacheHighQualityEventSnapshots}
-                                aria-label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
-                                onclick={() => {
-                                    cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots;
-                                    if (!cacheHighQualityEventSnapshots) cacheHighQualityEventSnapshotBirdCrop = false;
-                                }}
-                                onkeydown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        cacheHighQualityEventSnapshots = !cacheHighQualityEventSnapshots;
-                                        if (!cacheHighQualityEventSnapshots) cacheHighQualityEventSnapshotBirdCrop = false;
-                                    }
-                                }}
-                                class="relative flex-shrink-0 inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {cacheHighQualityEventSnapshots ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                            >
-                                <span class="sr-only">{$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}</span>
-                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {cacheHighQualityEventSnapshots ? 'translate-x-5' : 'translate-x-0'}"></span>
-                            </button>
-                        </div>
-                        <!-- Description -->
-                        <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-700/50">
-                            <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'Replace Frigate snapshots later with a frame from the main-stream clip.' })}
-                            </p>
-                        </div>
-                        <!-- Sub-options -->
-                        {#if cacheHighQualityEventSnapshots}
-                            <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700/50 space-y-3 animate-in fade-in slide-in-from-top-1">
-                                <button
-                                    onclick={() => cacheHighQualityEventSnapshotBirdCrop = !cacheHighQualityEventSnapshotBirdCrop}
-                                    aria-label={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
-                                    class="w-full p-4 rounded-2xl border-2 transition-all text-left {cacheHighQualityEventSnapshotBirdCrop ? 'border-teal-500 bg-teal-500/5 text-teal-600' : 'border-slate-100 dark:border-slate-700/50 text-slate-500 dark:text-slate-400'}"
-                                >
-                                    <p class="text-xs font-black uppercase tracking-widest">
-                                        {$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
-                                    </p>
-                                    <p class="mt-2 text-[10px] font-bold normal-case tracking-normal text-slate-500 dark:text-slate-400">
-                                        {$_('settings.data.cache_high_quality_event_snapshot_bird_crop_help', { default: 'Use the bird crop detector on HQ frames. Falls back to the full HQ frame if no crop is found.' })}
-                                    </p>
-                                </button>
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between gap-4">
-                                        <div>
-                                            <p class="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                                                {$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                            </p>
-                                            <p class="mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                                {$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
-                                            </p>
-                                        </div>
-                                        <span class="text-sm font-black text-slate-900 dark:text-white flex-shrink-0">{cacheHighQualityEventSnapshotJpegQuality}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="70"
-                                        max="100"
-                                        step="1"
-                                        bind:value={cacheHighQualityEventSnapshotJpegQuality}
-                                        aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                        class="w-full accent-teal-500"
-                                    />
-                                    <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        <span>70</span>
-                                        <span>100</span>
-                                    </div>
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
+                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+                </div>
+
+                <button
+                    type="button"
+                    onclick={handleCacheCleanup}
+                    disabled={cleaningCache}
+                    aria-label={$_('settings.data.cache_clear_button')}
+                    class="w-full {buttonNeutralClass}"
+                >
+                    {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
+                </button>
+
+                <AdvancedSection
+                    id="data-cache-advanced"
+                    title={$_('settings.data.cache_advanced_title', { default: 'High-quality snapshots & quality' })}
+                >
+                    <SettingsRow
+                        labelId="setting-cache-hq"
+                        label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
+                        description={$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'Replace Frigate snapshots later with a frame from the main-stream clip.' })}
+                    >
+                        <SettingsToggle
+                            checked={cacheHighQualityEventSnapshots}
+                            labelledBy="setting-cache-hq"
+                            srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
+                            onchange={(v) => {
+                                cacheHighQualityEventSnapshots = v;
+                                if (!v) cacheHighQualityEventSnapshotBirdCrop = false;
+                            }}
+                        />
+                    </SettingsRow>
+
+                    {#if cacheHighQualityEventSnapshots}
+                        <SettingsRow
+                            labelId="setting-cache-hq-bird-crop"
+                            label={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
+                            description={$_('settings.data.cache_high_quality_event_snapshot_bird_crop_help', { default: 'Use the bird crop detector on HQ frames. Falls back to the full HQ frame if no crop is found.' })}
+                        >
+                            <SettingsToggle
+                                checked={cacheHighQualityEventSnapshotBirdCrop}
+                                labelledBy="setting-cache-hq-bird-crop"
+                                srLabel={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
+                                onchange={(v) => (cacheHighQualityEventSnapshotBirdCrop = v)}
+                            />
+                        </SettingsRow>
+
+                        <SettingsRow
+                            labelId="setting-cache-hq-jpeg-quality"
+                            label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                            description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
+                            layout="stacked"
+                        >
+                            <div class="space-y-2">
+                                <div class="flex justify-end">
+                                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="70"
+                                    max="100"
+                                    step="1"
+                                    bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                                    aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                                    class="w-full accent-teal-500"
+                                />
+                                <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    <span>70</span>
+                                    <span>100</span>
                                 </div>
                             </div>
-                        {/if}
-                    </div>
-
-                    <!-- Cache size + clear -->
-                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                        <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
-                    </div>
-                    <button
-                        onclick={handleCacheCleanup}
-                        disabled={cleaningCache}
-                        aria-label={$_('settings.data.cache_clear_button')}
-                        class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800 transition-all disabled:opacity-50"
-                    >
-                        {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
-                    </button>
-                </div>
+                        </SettingsRow>
+                    {/if}
+                </AdvancedSection>
             {/if}
-        </section>
+        </SettingsCard>
     </div>
 
-    <!-- Taxonomy Sync -->
-    <section class="card-base rounded-3xl p-8">
-        <div class="flex items-center justify-between mb-6">
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.taxonomy_title')}</h3>
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{$_('settings.data.taxonomy_desc')}</p>
-            </div>
-            {#if taxonomyStatus?.is_running}
-                <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-600 animate-pulse">
-                    <div class="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                    <span class="text-[10px] font-black uppercase tracking-widest">{$_('settings.data.taxonomy_syncing')}</span>
-                </div>
-            {/if}
-        </div>
-
+    <SettingsCard
+        icon="🌳"
+        title={$_('settings.data.taxonomy_title')}
+        description={$_('settings.data.taxonomy_desc')}
+    >
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
-                <div class="mb-6">
-                    <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                        <span class="text-slate-400">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                        <span class="text-teal-500">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
-                    </div>
+                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300">
+                    <span class="text-[10px] font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                    <span class="text-[10px] font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
             {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
-                <div class="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
                     {#if taxonomyStatus.error}
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
@@ -492,45 +458,28 @@
         {/if}
 
         <button
+            type="button"
             onclick={handleStartTaxonomySync}
             disabled={taxonomyStatus?.is_running || syncingTaxonomy}
             aria-label={$_('settings.data.taxonomy_run_button')}
-            class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+            class="w-full {buttonPrimaryClass}"
         >
-            {#if syncingTaxonomy || taxonomyStatus?.is_running}
-                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            {/if}
+            {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
             {$_('settings.data.taxonomy_run_button')}
         </button>
-    </section>
+    </SettingsCard>
 
-    <section class="card-base rounded-3xl p-8">
-        <div class="flex items-center justify-between gap-4 mb-6">
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.timezone_repair_title', { default: 'Timezone Repair' })}</h3>
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
-                    {$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
-                </p>
-            </div>
-            {#if timezoneRepairPreview}
-                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 px-4 py-3 text-right">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{timezoneRepairCandidates}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        {$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}
-                    </p>
-                </div>
-            {/if}
-        </div>
-
-        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+    <SettingsCard
+        icon="🕒"
+        title={$_('settings.data.timezone_repair_title', { default: 'Timezone Repair' })}
+        description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
+    >
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             {$_('settings.data.timezone_repair_note', { default: 'This only updates detections when Frigate still has the matching event and the timestamp difference looks like a real timezone offset.' })}
         </p>
 
         {#if timezoneRepairPreview}
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
                     <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
@@ -554,32 +503,22 @@
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
-                <div class="rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
-                    <div class="px-5 py-4 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                            {$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}
-                        </p>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
                     <div class="divide-y divide-slate-200 dark:divide-slate-700">
                         {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-black text-slate-900 dark:text-white truncate">
-                                        {candidate.display_name || candidate.frigate_event}
-                                    </p>
-                                    <span class="text-[10px] font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">
-                                        {candidate.status.replace(/_/g, ' ')}
-                                    </span>
+                                    <p class="text-sm font-black text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
+                                    <span class="text-[10px] font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
                                     <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
-                                    {#if candidate.repaired_detection_time}
-                                        <span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>
-                                    {/if}
-                                    {#if candidate.delta_hours !== null}
-                                        <span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>
-                                    {/if}
+                                    {#if candidate.repaired_detection_time}<span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
+                                    {#if candidate.delta_hours !== null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
                                 </div>
                             </div>
                         {/each}
@@ -590,286 +529,251 @@
 
         <div class="flex flex-col md:flex-row gap-3">
             <button
+                type="button"
                 onclick={handlePreviewTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair}
                 aria-label={$_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
-                class="flex-1 px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-900 dark:bg-slate-700 text-white hover:bg-slate-800 transition-all disabled:opacity-50"
+                class="flex-1 {buttonNeutralClass}"
             >
                 {previewingTimezoneRepair
                     ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning...' })
                     : $_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
             </button>
             <button
+                type="button"
                 onclick={handleApplyTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
                 aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
-                class="flex-1 px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                class="flex-1 {buttonAmberClass}"
             >
                 {applyingTimezoneRepair
                     ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
                     : $_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
             </button>
         </div>
-    </section>
+    </SettingsCard>
 
-    <!-- Missed Detections (Backfill) -->
-    <section class="card-base rounded-3xl p-8">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            </div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.backfill_title')}</h3>
-        </div>
-        <p class="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-wider mb-6">{$_('settings.data.backfill_desc')}</p>
+    <SettingsCard
+        icon="🔄"
+        title={$_('settings.data.backfill_title')}
+        description={$_('settings.data.backfill_desc')}
+    >
+        <SettingsRow
+            labelId="setting-backfill-window"
+            label={$_('settings.data.backfill_window')}
+            layout="stacked"
+        >
+            <SettingsSelect
+                id="backfill-range"
+                value={backfillDateRange}
+                ariaLabel={$_('settings.data.backfill_window')}
+                options={[
+                    { value: 'day', label: $_('settings.data.backfill_24h') },
+                    { value: 'week', label: $_('settings.data.backfill_week') },
+                    { value: 'month', label: $_('settings.data.backfill_month') },
+                    { value: 'custom', label: $_('settings.data.backfill_custom') }
+                ]}
+                onchange={(v) => (backfillDateRange = v as 'day' | 'week' | 'month' | 'custom')}
+            />
+        </SettingsRow>
 
-        <div class="space-y-6">
-            <div>
-                <label for="backfill-range" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.data.backfill_window')}</label>
-                <select
-                    id="backfill-range"
-                    bind:value={backfillDateRange}
-                    aria-label={$_('settings.data.backfill_window')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                >
-                    <option value="day">{$_('settings.data.backfill_24h')}</option>
-                    <option value="week">{$_('settings.data.backfill_week')}</option>
-                    <option value="month">{$_('settings.data.backfill_month')}</option>
-                    <option value="custom">{$_('settings.data.backfill_custom')}</option>
-                </select>
-            </div>
-
-            {#if backfillDateRange === 'custom'}
-                <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
-                    <p class="block text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        {$_('settings.data.backfill_custom', { default: 'Custom range' })}
-                    </p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                        <div class="min-w-0">
-                            <label for="backfill-from-date" class="block text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 sm:mb-2">
-                                {$_('settings.data.backfill_from', { default: 'From' })}
-                            </label>
-                            <input
-                                id="backfill-from-date"
-                                type="date"
-                                bind:value={backfillStartDate}
-                                max={backfillEndDate || todayDateOnly()}
-                                aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
-                                class="w-full min-w-0 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs sm:text-sm"
-                            />
-                        </div>
-                        <div class="min-w-0">
-                            <label for="backfill-to-date" class="block text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 sm:mb-2">
-                                {$_('settings.data.backfill_to', { default: 'To' })}
-                            </label>
-                            <input
-                                id="backfill-to-date"
-                                type="date"
-                                bind:value={backfillEndDate}
-                                min={backfillStartDate || undefined}
-                                max={todayDateOnly()}
-                                aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
-                                class="w-full min-w-0 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs sm:text-sm"
-                            />
-                        </div>
+        {#if backfillDateRange === 'custom'}
+            <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="backfill-from-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                            {$_('settings.data.backfill_from', { default: 'From' })}
+                        </label>
+                        <input
+                            id="backfill-from-date"
+                            type="date"
+                            bind:value={backfillStartDate}
+                            max={backfillEndDate || todayDateOnly()}
+                            aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                        />
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
-                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
-                        <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
+                    <div>
+                        <label for="backfill-to-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                            {$_('settings.data.backfill_to', { default: 'To' })}
+                        </label>
+                        <input
+                            id="backfill-to-date"
+                            type="date"
+                            bind:value={backfillEndDate}
+                            min={backfillStartDate || undefined}
+                            max={todayDateOnly()}
+                            aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                        />
                     </div>
-                    {#if backfillCustomError}
-                        <p class="text-[11px] font-bold text-red-500">{backfillCustomError}</p>
-                    {/if}
                 </div>
-            {/if}
-
-            {#if backfillResult}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                    <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
-                    <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                    <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
-                {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
-                    <div class="mt-2 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
-                        <div class="grid grid-cols-1 gap-2">
-                            {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="text-slate-500">
-                                        {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
-                                    </span>
-                                    <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
+                {#if backfillCustomError}
+                    <p class="text-[11px] font-bold text-red-500">{backfillCustomError}</p>
                 {/if}
-            {/if}
-
-            <button
-                onclick={handleBackfill}
-                disabled={backfilling || !backfillCustomValid}
-                aria-label={$_('settings.data.backfill_scan_button')}
-                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-                {#if backfilling}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                {/if}
-                {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
-            </button>
-
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{$_('settings.data.weather_backfill_title')}</p>
-                {#if weatherBackfillResult}
-                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center mb-3">
-                        <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                        <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
-                        <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                        <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
-                    </div>
-                {/if}
-                <button
-                    onclick={handleWeatherBackfill}
-                    disabled={weatherBackfilling || !backfillCustomValid}
-                    aria-label={$_('settings.data.weather_backfill_button')}
-                    class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-800 hover:bg-slate-900 text-white transition-all shadow-lg shadow-slate-500/10 flex items-center justify-center gap-3 disabled:opacity-50"
-                >
-                    {#if weatherBackfilling}
-                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    {/if}
-                    {weatherBackfilling ? $_('settings.data.weather_backfill_filling') : $_('settings.data.weather_backfill_button')}
-                </button>
             </div>
-        </div>
-    </section>
+        {/if}
 
-    <!-- Batch Analysis -->
-    <section class="card-base rounded-3xl p-8">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+        {#if backfillResult}
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
+                <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
+                <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
             </div>
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.data.batch_analysis_title')}</h3>
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{$_('settings.data.batch_analysis_desc')}</p>
-            </div>
-        </div>
-
-        <div class="space-y-4">
-            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                {$_('settings.data.batch_analysis_long_desc')}
-            </p>
-            <button
-                onclick={handleAnalyzeUnknowns}
-                disabled={analyzingUnknowns}
-                aria-label={$_('settings.data.batch_analysis_button')}
-                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-                {#if analyzingUnknowns}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                {/if}
-                {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
-            </button>
-            <div class="flex items-center justify-between px-1">
-                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}</span>
-                <button
-                    role="switch"
-                    aria-checked={autoAnalyzeUnknowns}
-                    aria-label={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
-                    onclick={() => autoAnalyzeUnknowns = !autoAnalyzeUnknowns}
-                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); autoAnalyzeUnknowns = !autoAnalyzeUnknowns; } }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {autoAnalyzeUnknowns ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {autoAnalyzeUnknowns ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
-
-            {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
-                {@const remaining = analysisStatus.pending + analysisStatus.active}
-                {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
-
-                <div class="mt-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700/30 space-y-3 animate-in fade-in slide-in-from-top-2">
-                    <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
-                        <span class="text-indigo-600 dark:text-indigo-400">{$_('settings.data.batch_analysis_processing')}</span>
-                        <span class="text-slate-500">{processed} / {analysisTotal}</span>
-                    </div>
-                    <div class="flex justify-between text-[10px] font-bold text-slate-400">
-                        <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
-                        <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
-                    </div>
-                    {#if analysisStatus.maintenance_status_message}
-                        <div class="text-[10px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
-                            {analysisStatus.maintenance_status_message}
-                        </div>
-                    {/if}
-                    {#if analysisStatus.circuit_open}
-                        <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            {$_('settings.data.batch_analysis_circuit_open')}
-                            {#if analysisStatus.open_until}
-                                <span class="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-300">
-                                    {formatSafeTime(analysisStatus.open_until)}
+            {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
+                <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
+                    <div class="grid grid-cols-1 gap-2">
+                        {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-500">
+                                    {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
                                 </span>
-                            {/if}
-                        </div>
-                        {#if analysisStatus.failure_count !== undefined}
-                            <div class="text-[10px] font-bold text-amber-500/90">
-                                {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
                             </div>
-                        {/if}
-                    {/if}
+                        {/each}
+                    </div>
                 </div>
             {/if}
-        </div>
-    </section>
+        {/if}
 
-    <!-- Danger Zone -->
-    <section class="card-base rounded-3xl p-8 border-2 border-red-500/20 bg-red-500/5">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        <button
+            type="button"
+            onclick={handleBackfill}
+            disabled={backfilling || !backfillCustomValid}
+            aria-label={$_('settings.data.backfill_scan_button')}
+            class="w-full {buttonPrimaryClass}"
+        >
+            {#if backfilling}{@render spinner()}{/if}
+            {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
+        </button>
+
+        <AdvancedSection
+            id="data-backfill-weather"
+            title={$_('settings.data.weather_backfill_title')}
+        >
+            {#if weatherBackfillResult}
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
+                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                    <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
+                    <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                    <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                </div>
+            {/if}
+            <button
+                type="button"
+                onclick={handleWeatherBackfill}
+                disabled={weatherBackfilling || !backfillCustomValid}
+                aria-label={$_('settings.data.weather_backfill_button')}
+                class="w-full {buttonNeutralClass}"
+            >
+                {#if weatherBackfilling}{@render spinner()}{/if}
+                {weatherBackfilling ? $_('settings.data.weather_backfill_filling') : $_('settings.data.weather_backfill_button')}
+            </button>
+        </AdvancedSection>
+    </SettingsCard>
+
+    <SettingsCard
+        icon="🧪"
+        title={$_('settings.data.batch_analysis_title')}
+        description={$_('settings.data.batch_analysis_desc')}
+    >
+        <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+            {$_('settings.data.batch_analysis_long_desc')}
+        </p>
+
+        <button
+            type="button"
+            onclick={handleAnalyzeUnknowns}
+            disabled={analyzingUnknowns}
+            aria-label={$_('settings.data.batch_analysis_button')}
+            class="w-full {buttonPrimaryClass}"
+        >
+            {#if analyzingUnknowns}{@render spinner()}{/if}
+            {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
+        </button>
+
+        <SettingsRow
+            labelId="setting-auto-analyze"
+            label={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
+        >
+            <SettingsToggle
+                checked={autoAnalyzeUnknowns}
+                labelledBy="setting-auto-analyze"
+                srLabel={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
+                onchange={(v) => (autoAnalyzeUnknowns = v)}
+            />
+        </SettingsRow>
+
+        {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
+            {@const remaining = analysisStatus.pending + analysisStatus.active}
+            {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
+
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
+                    <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
+                    <span class="text-slate-500">{processed} / {analysisTotal}</span>
+                </div>
+                <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                    <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
+                    <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
+                </div>
+                {#if analysisStatus.maintenance_status_message}
+                    <div class="text-[10px] font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                        {analysisStatus.maintenance_status_message}
+                    </div>
+                {/if}
+                {#if analysisStatus.circuit_open}
+                    <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        {$_('settings.data.batch_analysis_circuit_open')}
+                        {#if analysisStatus.open_until}
+                            <span class="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-300">{formatSafeTime(analysisStatus.open_until)}</span>
+                        {/if}
+                    </div>
+                    {#if analysisStatus.failure_count !== undefined}
+                        <div class="text-[10px] font-bold text-amber-500/90">
+                            {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
+                        </div>
+                    {/if}
+                {/if}
             </div>
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.danger.title')}</h3>
+        {/if}
+    </SettingsCard>
+
+    <section class="card-base rounded-3xl p-6 md:p-8 backdrop-blur-md border-2 border-red-500/20 bg-red-500/5">
+        <header class="flex items-start gap-3 mb-6">
+            <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 flex-shrink-0">
+                <span class="text-xl" aria-hidden="true">⚠️</span>
+            </div>
+            <div class="min-w-0">
+                <h3 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.danger.title')}</h3>
                 <p class="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">{$_('settings.danger.subtitle')}</p>
             </div>
-        </div>
+        </header>
 
         <div class="space-y-4">
-            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                {$_('settings.danger.reset_desc')}
-            </p>
+            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">{$_('settings.danger.reset_desc')}</p>
             <button
                 type="button"
                 onclick={handleClearFavorites}
                 disabled={clearingFavorites}
                 aria-label={$_('settings.data.clear_favorites_button')}
-                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-lg shadow-rose-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                class="w-full {buttonDangerClass}"
             >
-                {#if clearingFavorites}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                {/if}
+                {#if clearingFavorites}{@render spinner()}{/if}
                 {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
             </button>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
-                {$_('settings.data.clear_favorites_desc')}
-            </p>
-            <div class="h-px bg-red-500/10 my-4"></div>
-            
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">{$_('settings.data.clear_favorites_desc')}</p>
+
+            <div class="h-px bg-red-500/10"></div>
+
             <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
                 {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
             </p>
@@ -878,35 +782,25 @@
                 onclick={handleClearFeedback}
                 disabled={clearingFeedback}
                 aria-label={$_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
-                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                class="w-full {buttonAmberClass}"
             >
-                {#if clearingFeedback}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                {/if}
+                {#if clearingFeedback}{@render spinner()}{/if}
                 {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
             </button>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold mb-4">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
                 {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
             </p>
 
-            <div class="h-px bg-red-500/10 my-4"></div>
-            
+            <div class="h-px bg-red-500/10"></div>
+
             <button
                 type="button"
                 onclick={handleResetDatabase}
                 disabled={resettingDatabase}
                 aria-label={$_('settings.danger.reset_button')}
-                class="w-full px-4 py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                class="w-full {buttonDangerClass}"
             >
-                {#if resettingDatabase}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                {/if}
+                {#if resettingDatabase}{@render spinner()}{/if}
                 {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
             </button>
         </div>
