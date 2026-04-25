@@ -2,6 +2,12 @@
     import { _ } from 'svelte-i18n';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
     import { AUTH_PASSWORD_COMPLEXITY_MESSAGE } from '../../auth-password-policy';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import SettingsInput from './_primitives/SettingsInput.svelte';
+    import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
     let {
         authEnabled = $bindable(false),
@@ -63,356 +69,332 @@
         publicAccessHistoricalDaysMode === 'retention' ? effectiveRetentionDays() : capPublicDays(publicAccessHistoricalDays);
     const effectiveMediaDays = () =>
         publicAccessMediaDaysMode === 'retention' ? effectiveRetentionDays() : capPublicDays(publicAccessMediaHistoricalDays);
+
+    const daysOptions = [
+        { value: 'retention', label: $_('settings.public_access.window_retention', { default: 'Same as retention policy' }) },
+        { value: '0', label: $_('settings.public_access.window_live_only', { default: 'Live only (today)' }) },
+        { value: '7', label: '7' },
+        { value: '30', label: '30' },
+        { value: '90', label: '90' },
+        { value: '365', label: '365' }
+    ];
+
+    function eventsDaysValue() {
+        return publicAccessHistoricalDaysMode === 'retention' ? 'retention' : String(publicAccessHistoricalDays);
+    }
+    function mediaDaysValue() {
+        return publicAccessMediaDaysMode === 'retention' ? 'retention' : String(publicAccessMediaHistoricalDays);
+    }
+    function setEventsDays(v: string) {
+        if (v === 'retention') {
+            publicAccessHistoricalDaysMode = 'retention';
+            return;
+        }
+        publicAccessHistoricalDaysMode = 'custom';
+        publicAccessHistoricalDays = capPublicDays(parseInt(v, 10));
+    }
+    function setMediaDays(v: string) {
+        if (v === 'retention') {
+            publicAccessMediaDaysMode = 'retention';
+            return;
+        }
+        publicAccessMediaDaysMode = 'custom';
+        publicAccessMediaHistoricalDays = capPublicDays(parseInt(v, 10));
+    }
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <span class="text-xl">🔐</span>
-            </div>
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.auth.title')}</h3>
-                <p class="text-xs text-slate-500">{$_('settings.auth.desc')}</p>
-            </div>
-        </div>
+    <SettingsCard
+        icon="🔐"
+        title={$_('settings.auth.title')}
+        description={$_('settings.auth.desc')}
+    >
+        <SettingsRow
+            labelId="setting-auth-enabled"
+            label={$_('settings.auth.enable')}
+            description={$_('settings.auth.enable_desc')}
+        >
+            <SettingsToggle
+                checked={authEnabled}
+                labelledBy="setting-auth-enabled"
+                srLabel={$_('settings.auth.enable')}
+                onchange={(v) => (authEnabled = v)}
+            />
+        </SettingsRow>
 
-        <div class="space-y-6 flex-1">
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="auth-enabled-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.auth.enable')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.auth.enable_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={authEnabled}
-                    aria-labelledby="auth-enabled-label"
-                    onclick={() => authEnabled = !authEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            authEnabled = !authEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {authEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.auth.enable')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {authEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
+        <SettingsRow
+            labelId="setting-auth-username"
+            label={$_('settings.auth.username')}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="auth-username"
+                type="text"
+                value={authUsername}
+                ariaLabel={$_('settings.auth.username')}
+                oninput={(v) => (authUsername = v)}
+            />
+        </SettingsRow>
 
-            <div>
-                <label for="auth-username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.username')}</label>
-                <input
-                    id="auth-username"
-                    type="text"
-                    bind:value={authUsername}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+        <SettingsRow
+            labelId="setting-auth-password"
+            label={$_('settings.auth.password')}
+            description={AUTH_PASSWORD_COMPLEXITY_MESSAGE}
+            layout="stacked"
+        >
+            <div class="space-y-2">
+                {#if authHasPassword}
+                    <div class="flex justify-end">
+                        <SecretSavedBadge />
+                    </div>
+                {/if}
+                <SettingsInput
+                    id="auth-password"
+                    type="password"
+                    autocomplete="new-password"
+                    value={authPassword}
+                    placeholder={authHasPassword ? $_('settings.auth.password_placeholder') : $_('settings.auth.password_new')}
+                    ariaLabel={$_('settings.auth.password')}
+                    oninput={(v) => (authPassword = v)}
                 />
             </div>
+        </SettingsRow>
 
-            <div class="grid grid-cols-1 gap-3">
-                <div>
-                    <div class="flex items-center gap-2 mb-2">
-                        <label for="auth-password" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.auth.password')}</label>
-                        {#if authHasPassword}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
-                        id="auth-password"
-                        type="password"
-                        autocomplete="new-password"
-                        bind:value={authPassword}
-                        placeholder={authHasPassword ? $_('settings.auth.password_placeholder') : $_('settings.auth.password_new')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                    <p class="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">{AUTH_PASSWORD_COMPLEXITY_MESSAGE}</p>
-                </div>
-                <div>
-                    <label for="auth-password-confirm" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.password_confirm')}</label>
-                    <input
-                        id="auth-password-confirm"
-                        type="password"
-                        autocomplete="new-password"
-                        bind:value={authPasswordConfirm}
-                        placeholder={$_('settings.auth.password_confirm_placeholder')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                </div>
-            </div>
+        <SettingsRow
+            labelId="setting-auth-password-confirm"
+            label={$_('settings.auth.password_confirm')}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="auth-password-confirm"
+                type="password"
+                autocomplete="new-password"
+                value={authPasswordConfirm}
+                placeholder={$_('settings.auth.password_confirm_placeholder')}
+                ariaLabel={$_('settings.auth.password_confirm')}
+                oninput={(v) => (authPasswordConfirm = v)}
+            />
+        </SettingsRow>
 
-            <div>
-                <label for="auth-expiry" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.session_expiry')}</label>
-                <input
+        <AdvancedSection
+            id="auth-session-and-proxy"
+            title={$_('settings.auth.advanced_title', { default: 'Session & reverse proxy' })}
+        >
+            <SettingsRow
+                labelId="setting-auth-expiry"
+                label={$_('settings.auth.session_expiry')}
+                layout="stacked"
+            >
+                <SettingsInput
                     id="auth-expiry"
                     type="number"
-                    min="1"
-                    max="720"
-                    bind:value={authSessionExpiryHours}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    min={1}
+                    max={720}
+                    value={authSessionExpiryHours}
+                    ariaLabel={$_('settings.auth.session_expiry')}
+                    oninput={(v) => (authSessionExpiryHours = Number(v) || 0)}
                 />
-            </div>
+            </SettingsRow>
 
             <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-[11px] font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
                 {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
             </div>
 
-            <div class="pt-2">
-                <label for="trusted-proxy-hosts" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.auth.trusted_proxies')}</label>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
-                    {$_('settings.auth.trusted_proxies_desc', { default: 'Add your reverse proxy container names or IPs (e.g., nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker DNS names work when services share a network.' })}
-                </p>
-                <div class="flex gap-2 mb-4">
-                    <input
-                        id="trusted-proxy-hosts"
-                        bind:value={newTrustedProxyHost}
-                        onkeydown={(e) => e.key === 'Enter' && addTrustedProxyHost()}
-                        placeholder={$_('settings.auth.trusted_proxies_placeholder', { default: 'Add proxy host or IP' })}
-                        aria-label={$_('settings.auth.trusted_proxies')}
-                        class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
-                    <button
-                        onclick={addTrustedProxyHost}
-                        disabled={!newTrustedProxyHost.trim()}
-                        aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                        class="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all disabled:opacity-50"
-                    >
-                        {$_('common.add')}
-                    </button>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    {#each trustedProxyHosts as host}
-                        <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700/50 text-slate-700 dark:text-slate-300'}">
-                            {host}
-                            {#if trustedProxyHostsSuggested}
-                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                    {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
-                                </span>
-                            {:else}
-                                <button
-                                    onclick={() => removeTrustedProxyHost(host)}
-                                    aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
-                                    class="text-slate-400 hover:text-red-500 transition-colors"
-                                >
-                                    ✕
-                                </button>
-                            {/if}
-                        </span>
-                    {/each}
-                    {#if trustedProxyHosts.length === 0}
-                        <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
-                    {/if}
-                </div>
-                {#if trustedProxyHostsSuggested}
-                    <div class="mt-3 flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
+            <SettingsRow
+                labelId="setting-trusted-proxies"
+                label={$_('settings.auth.trusted_proxies')}
+                description={$_('settings.auth.trusted_proxies_desc', { default: 'Add your reverse proxy container names or IPs (e.g., nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker DNS names work when services share a network.' })}
+                layout="stacked"
+            >
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <SettingsInput
+                                id="trusted-proxy-hosts"
+                                value={newTrustedProxyHost}
+                                placeholder={$_('settings.auth.trusted_proxies_placeholder', { default: 'Add proxy host or IP' })}
+                                ariaLabel={$_('settings.auth.trusted_proxies')}
+                                oninput={(v) => (newTrustedProxyHost = v)}
+                                onkeydown={(e) => { if (e.key === 'Enter') addTrustedProxyHost(); }}
+                            />
+                        </div>
                         <button
-                            onclick={acceptTrustedProxySuggestions}
-                            class="self-start px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest"
+                            type="button"
+                            onclick={addTrustedProxyHost}
+                            disabled={!newTrustedProxyHost.trim()}
+                            aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
+                            class="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
+                            {$_('common.add')}
                         </button>
                     </div>
-                {/if}
-            </div>
-        </div>
-    </section>
-
-    <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                <span class="text-xl">🌐</span>
-            </div>
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.public_access.title')}</h3>
-                <p class="text-xs text-slate-500">{$_('settings.public_access.desc')}</p>
-            </div>
-        </div>
-
-        <div class="space-y-6 flex-1">
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="public-enabled-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.enable')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.public_access.enable_desc')}</span>
+                    <div class="flex flex-wrap gap-2">
+                        {#each trustedProxyHosts as host}
+                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700/50 text-slate-700 dark:text-slate-300'}">
+                                {host}
+                                {#if trustedProxyHostsSuggested}
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                        {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
+                                    </span>
+                                {:else}
+                                    <button
+                                        type="button"
+                                        onclick={() => removeTrustedProxyHost(host)}
+                                        aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
+                                        class="text-slate-400 hover:text-red-500 transition-colors"
+                                    >
+                                        ✕
+                                    </button>
+                                {/if}
+                            </span>
+                        {/each}
+                        {#if trustedProxyHosts.length === 0}
+                            <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                        {/if}
+                    </div>
+                    {#if trustedProxyHostsSuggested}
+                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
+                            <button
+                                type="button"
+                                onclick={acceptTrustedProxySuggestions}
+                                class="self-start px-3 py-1.5 rounded-xl bg-teal-500 text-white text-[10px] font-black uppercase tracking-widest"
+                            >
+                                {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
+                            </button>
+                        </div>
+                    {/if}
                 </div>
-                <button
-                    role="switch"
-                    aria-checked={publicAccessEnabled}
-                    aria-labelledby="public-enabled-label"
-                    onclick={() => publicAccessEnabled = !publicAccessEnabled}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            publicAccessEnabled = !publicAccessEnabled;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {publicAccessEnabled ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.public_access.enable')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
+            </SettingsRow>
+        </AdvancedSection>
+    </SettingsCard>
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="public-camera-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.show_camera_names')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.public_access.show_camera_names_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={publicAccessShowCameraNames}
-                    aria-labelledby="public-camera-label"
-                    onclick={() => publicAccessShowCameraNames = !publicAccessShowCameraNames}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            publicAccessShowCameraNames = !publicAccessShowCameraNames;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {publicAccessShowCameraNames ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.public_access.show_camera_names')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessShowCameraNames ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
+    <SettingsCard
+        icon="🌐"
+        title={$_('settings.public_access.title')}
+        description={$_('settings.public_access.desc')}
+    >
+        <SettingsRow
+            labelId="setting-public-enabled"
+            label={$_('settings.public_access.enable')}
+            description={$_('settings.public_access.enable_desc')}
+        >
+            <SettingsToggle
+                checked={publicAccessEnabled}
+                labelledBy="setting-public-enabled"
+                srLabel={$_('settings.public_access.enable')}
+                onchange={(v) => (publicAccessEnabled = v)}
+            />
+        </SettingsRow>
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="public-ai-convo-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.show_ai_conversation')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.public_access.show_ai_conversation_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={publicAccessShowAiConversation}
-                    aria-labelledby="public-ai-convo-label"
-                    onclick={() => publicAccessShowAiConversation = !publicAccessShowAiConversation}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            publicAccessShowAiConversation = !publicAccessShowAiConversation;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {publicAccessShowAiConversation ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.public_access.show_ai_conversation')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessShowAiConversation ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
+        <SettingsRow
+            labelId="setting-public-show-cameras"
+            label={$_('settings.public_access.show_camera_names')}
+            description={$_('settings.public_access.show_camera_names_desc')}
+        >
+            <SettingsToggle
+                checked={publicAccessShowCameraNames}
+                labelledBy="setting-public-show-cameras"
+                srLabel={$_('settings.public_access.show_camera_names')}
+                onchange={(v) => (publicAccessShowCameraNames = v)}
+            />
+        </SettingsRow>
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                <div id="public-clip-download-label">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.public_access.allow_clip_downloads')}</span>
-                    <span class="block text-[10px] text-slate-500 font-medium">{$_('settings.public_access.allow_clip_downloads_desc')}</span>
-                </div>
-                <button
-                    role="switch"
-                    aria-checked={publicAccessAllowClipDownloads}
-                    aria-labelledby="public-clip-download-label"
-                    onclick={() => publicAccessAllowClipDownloads = !publicAccessAllowClipDownloads}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            publicAccessAllowClipDownloads = !publicAccessAllowClipDownloads;
-                        }
-                    }}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {publicAccessAllowClipDownloads ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                >
-                    <span class="sr-only">{$_('settings.public_access.allow_clip_downloads')}</span>
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {publicAccessAllowClipDownloads ? 'translate-x-5' : 'translate-x-0'}"></span>
-                </button>
-            </div>
+        <SettingsRow
+            labelId="setting-public-show-ai"
+            label={$_('settings.public_access.show_ai_conversation')}
+            description={$_('settings.public_access.show_ai_conversation_desc')}
+        >
+            <SettingsToggle
+                checked={publicAccessShowAiConversation}
+                labelledBy="setting-public-show-ai"
+                srLabel={$_('settings.public_access.show_ai_conversation')}
+                onchange={(v) => (publicAccessShowAiConversation = v)}
+            />
+        </SettingsRow>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="public-days-mode" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        {$_('settings.public_access.history_days')}
-                    </label>
-                    <select
+        <SettingsRow
+            labelId="setting-public-clip-download"
+            label={$_('settings.public_access.allow_clip_downloads')}
+            description={$_('settings.public_access.allow_clip_downloads_desc')}
+        >
+            <SettingsToggle
+                checked={publicAccessAllowClipDownloads}
+                labelledBy="setting-public-clip-download"
+                srLabel={$_('settings.public_access.allow_clip_downloads')}
+                onchange={(v) => (publicAccessAllowClipDownloads = v)}
+            />
+        </SettingsRow>
+
+        <AdvancedSection
+            id="public-access-windows"
+            title={$_('settings.public_access.advanced_title', { default: 'History windows & rate limits' })}
+        >
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SettingsRow
+                    labelId="setting-public-history-days"
+                    label={$_('settings.public_access.history_days')}
+                    description={$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveEventsDays() } })}
+                    layout="stacked"
+                >
+                    <SettingsSelect
                         id="public-days-mode"
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={publicAccessHistoricalDaysMode === 'retention' ? 'retention' : String(publicAccessHistoricalDays)}
-                        oninput={(e) => {
-                            const v = (e.currentTarget as HTMLSelectElement).value;
-                            if (v === 'retention') {
-                                publicAccessHistoricalDaysMode = 'retention';
-                                return;
-                            }
-                            publicAccessHistoricalDaysMode = 'custom';
-                            publicAccessHistoricalDays = capPublicDays(parseInt(v, 10));
-                        }}
-                    >
-                        <option value="retention">
-                            {$_('settings.public_access.window_retention', { default: 'Same as retention policy' })}
-                        </option>
-                        <option value="0">{$_('settings.public_access.window_live_only', { default: 'Live only (today)' })}</option>
-                        <option value="7">7</option>
-                        <option value="30">30</option>
-                        <option value="90">90</option>
-                        <option value="365">365</option>
-                    </select>
-                    <p class="mt-2 text-[10px] text-slate-500">
-                        {$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveEventsDays() } })}
-                    </p>
-                </div>
-                <div>
-                    <label for="public-media-days-mode" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        {$_('settings.public_access.media_days')}
-                    </label>
-                    <select
+                        value={eventsDaysValue()}
+                        ariaLabel={$_('settings.public_access.history_days')}
+                        options={daysOptions}
+                        onchange={(v) => setEventsDays(v)}
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-public-media-days"
+                    label={$_('settings.public_access.media_days')}
+                    description={$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveMediaDays() } })}
+                    layout="stacked"
+                >
+                    <SettingsSelect
                         id="public-media-days-mode"
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={publicAccessMediaDaysMode === 'retention' ? 'retention' : String(publicAccessMediaHistoricalDays)}
-                        oninput={(e) => {
-                            const v = (e.currentTarget as HTMLSelectElement).value;
-                            if (v === 'retention') {
-                                publicAccessMediaDaysMode = 'retention';
-                                return;
-                            }
-                            publicAccessMediaDaysMode = 'custom';
-                            publicAccessMediaHistoricalDays = capPublicDays(parseInt(v, 10));
-                        }}
-                    >
-                        <option value="retention">
-                            {$_('settings.public_access.window_retention', { default: 'Same as retention policy' })}
-                        </option>
-                        <option value="0">{$_('settings.public_access.window_live_only', { default: 'Live only (today)' })}</option>
-                        <option value="7">7</option>
-                        <option value="30">30</option>
-                        <option value="90">90</option>
-                        <option value="365">365</option>
-                    </select>
-                    <p class="mt-2 text-[10px] text-slate-500">
-                        {$_('settings.public_access.window_effective', { default: 'Effective: {days} days', values: { days: effectiveMediaDays() } })}
-                    </p>
-                </div>
-                <div>
-                    <label for="public-rate" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.public_access.rate_limit')}</label>
-                    <input
+                        value={mediaDaysValue()}
+                        ariaLabel={$_('settings.public_access.media_days')}
+                        options={daysOptions}
+                        onchange={(v) => setMediaDays(v)}
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-public-rate-limit"
+                    label={$_('settings.public_access.rate_limit')}
+                    layout="stacked"
+                >
+                    <SettingsInput
                         id="public-rate"
                         type="number"
-                        min="1"
-                        max="100"
-                        bind:value={publicAccessRateLimitPerMinute}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        min={1}
+                        max={100}
+                        value={publicAccessRateLimitPerMinute}
+                        ariaLabel={$_('settings.public_access.rate_limit')}
+                        oninput={(v) => (publicAccessRateLimitPerMinute = Number(v) || 0)}
                     />
-                </div>
-                <div class="col-span-2">
-                    <label for="public-share-base-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                        {$_('settings.public_access.share_base_url', { default: 'Share Link Base URL (optional)' })}
-                    </label>
-                    <input
-                        id="public-share-base-url"
-                        type="url"
-                        bind:value={publicAccessExternalBaseUrl}
-                        placeholder={$_('settings.public_access.share_base_url_placeholder', { default: 'https://your-public-domain.example' })}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                    <p class="mt-2 text-[10px] text-slate-500">
-                        {$_('settings.public_access.share_base_url_desc', { default: 'If set, new share links use this public base URL instead of the detected request host.' })}
-                    </p>
+                </SettingsRow>
+
+                <div class="sm:col-span-2">
+                    <SettingsRow
+                        labelId="setting-public-share-base-url"
+                        label={$_('settings.public_access.share_base_url', { default: 'Share Link Base URL (optional)' })}
+                        description={$_('settings.public_access.share_base_url_desc', { default: 'If set, new share links use this public base URL instead of the detected request host.' })}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="public-share-base-url"
+                            type="url"
+                            value={publicAccessExternalBaseUrl}
+                            placeholder={$_('settings.public_access.share_base_url_placeholder', { default: 'https://your-public-domain.example' })}
+                            ariaLabel={$_('settings.public_access.share_base_url', { default: 'Share Link Base URL' })}
+                            oninput={(v) => (publicAccessExternalBaseUrl = v)}
+                        />
+                    </SettingsRow>
                 </div>
             </div>
-        </div>
-    </section>
+        </AdvancedSection>
+    </SettingsCard>
 </div>

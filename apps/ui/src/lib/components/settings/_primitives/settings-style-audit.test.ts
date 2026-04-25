@@ -28,6 +28,7 @@ function listSettingsComponents(): string[] {
 const MIGRATED_COMPONENTS = new Set([
     'AccessibilitySettings.svelte',
     'AppearanceSettings.svelte',
+    'AuthenticationSettings.svelte',
     'EnrichmentSettings.svelte'
 ]);
 
