@@ -59,6 +59,7 @@
     import { renderMarkdown } from '../utils/markdown';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
+    import { isVideoPromotionGated } from '../video-promotion-gate';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -99,32 +100,9 @@
     }: Props = $props();
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
 
-    // True when video classification completed and produced a label that is *not*
-    // the current display name — i.e. the auto-promotion guardrail withheld the
-    // result. Surfacing this is what closes the "thumbnail says Unknown but the
-    // video analysis section shows the right species" UX gap from issue #47.
-    const _UNKNOWN_LABELS = new Set(['unknown bird', 'unknown', 'background']);
-    function _isUnknownLabel(label: string | null | undefined): boolean {
-        return _UNKNOWN_LABELS.has((label || '').trim().toLowerCase());
-    }
-    let videoPromotionGated = $derived.by(() => {
-        if (!detection) return false;
-        if (detection.video_classification_status !== 'completed') return false;
-        const videoLabel = (detection.video_classification_label || '').trim();
-        if (!videoLabel) return false;
-        // The video result is being shown but did NOT make it onto the primary
-        // display fields. Two flavours: (a) display still says Unknown and
-        // video has a real species, or (b) display has a different label and
-        // video has a non-Unknown alternative.
-        const displayName = (detection.display_name || '').trim();
-        if (videoLabel === displayName) return false;
-        if (_isUnknownLabel(videoLabel)) return false;
-        // If the video result was blocked by the species blacklist that's a
-        // separate state (already explained by `video_result_blocked` in the
-        // existing video-analysis card); don't double-count it here.
-        if (detection.video_result_blocked) return false;
-        return true;
-    });
+    // True when video classification completed with a real species but did not
+    // match any current primary identity field, so owner confirmation is needed.
+    let videoPromotionGated = $derived(isVideoPromotionGated(detection));
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
