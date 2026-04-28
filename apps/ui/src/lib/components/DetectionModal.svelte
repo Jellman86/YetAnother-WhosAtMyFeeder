@@ -99,6 +99,33 @@
     }: Props = $props();
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
 
+    // True when video classification completed and produced a label that is *not*
+    // the current display name — i.e. the auto-promotion guardrail withheld the
+    // result. Surfacing this is what closes the "thumbnail says Unknown but the
+    // video analysis section shows the right species" UX gap from issue #47.
+    const _UNKNOWN_LABELS = new Set(['unknown bird', 'unknown', 'background']);
+    function _isUnknownLabel(label: string | null | undefined): boolean {
+        return _UNKNOWN_LABELS.has((label || '').trim().toLowerCase());
+    }
+    let videoPromotionGated = $derived.by(() => {
+        if (!detection) return false;
+        if (detection.video_classification_status !== 'completed') return false;
+        const videoLabel = (detection.video_classification_label || '').trim();
+        if (!videoLabel) return false;
+        // The video result is being shown but did NOT make it onto the primary
+        // display fields. Two flavours: (a) display still says Unknown and
+        // video has a real species, or (b) display has a different label and
+        // video has a non-Unknown alternative.
+        const displayName = (detection.display_name || '').trim();
+        if (videoLabel === displayName) return false;
+        if (_isUnknownLabel(videoLabel)) return false;
+        // If the video result was blocked by the species blacklist that's a
+        // separate state (already explained by `video_result_blocked` in the
+        // existing video-analysis card); don't double-count it here.
+        if (detection.video_result_blocked) return false;
+        return true;
+    });
+
     // State
     let modalElement = $state<HTMLElement | null>(null);
     let previousBodyPosition = '';
@@ -2189,6 +2216,48 @@
                                 { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' }) }
                             )}
                         </span>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Auto-promotion gated notice: video analysis ran successfully but the
+                 score didn't clear the auto-promotion floor, so the primary display
+                 wasn't updated. Manual reclassify is the documented path here, so we
+                 wire the existing handler in directly. -->
+            {#if videoPromotionGated && !readOnly && onReclassify}
+                <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div class="flex-1 min-w-0 flex flex-col gap-2">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-black uppercase tracking-widest">
+                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
+                            </span>
+                            <span class="text-[11px] font-semibold leading-snug">
+                                {$_('detection.video_analysis.gated_desc', {
+                                    default: 'Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.',
+                                })}
+                            </span>
+                        </div>
+                        <div>
+                            <button
+                                type="button"
+                                onclick={handleReclassifyClick}
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
+                            >
+                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                                    <path d="M21 3v5h-5"/>
+                                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                                    <path d="M3 21v-5h5"/>
+                                </svg>
+                                {$_('detection.video_analysis.gated_action', { default: 'Reclassify' })}
+                            </button>
+                        </div>
                     </div>
                 </div>
             {/if}

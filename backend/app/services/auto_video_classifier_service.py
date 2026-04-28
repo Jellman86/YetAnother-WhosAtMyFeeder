@@ -89,6 +89,12 @@ _FRIGATE_CONNECTIVITY_ERROR_PREFIXES: tuple[str, ...] = (
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
 SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
 _VIDEO_TOP_FRAMES_LIMIT = 8
+# When the precheck aborts because Frigate has no event yet AND no clip is
+# cached locally, give the recording-clip auto-fetch a chance to complete and
+# then retry once. 60 seconds covers the common Frigate clip-finalisation lag
+# without piling up retries during a real outage.
+_PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS = 60
+_PRECHECK_NO_CLIP_MAX_RETRIES = 1
 BackgroundImageClassificationUnavailableError = getattr(
     classifier_service_module,
     "BackgroundImageClassificationUnavailableError",
@@ -147,6 +153,10 @@ class AutoVideoClassifierService:
         self._maintenance_last_progress_at: float | None = None
         self._last_reported_maintenance_state: str | None = None
         self._last_reported_maintenance_state_at: float | None = None
+        # Sleeping retry tasks scheduled by _schedule_precheck_retry. Tracked
+        # so stop()/reset_state() can cancel them and so we never schedule a
+        # second concurrent retry for the same event_id.
+        self._precheck_retry_tasks: Dict[str, asyncio.Task] = {}
 
     @staticmethod
     def _maintenance_holder_id(source: JobSource, event_id: str) -> str:
@@ -180,6 +190,10 @@ class AutoVideoClassifierService:
         for task in self._active_tasks.values():
             task.cancel()
         self._active_tasks.clear()
+        # Cancel any sleeping precheck retries so they do not fire after stop.
+        for retry_task in list(self._precheck_retry_tasks.values()):
+            retry_task.cancel()
+        self._precheck_retry_tasks.clear()
         self._pending_ids.clear()
         self._pending_metadata.clear()
         self._active_metadata.clear()
@@ -188,6 +202,11 @@ class AutoVideoClassifierService:
 
     async def reset_state(self):
         """Cancel active tasks and clear pending queue without stopping the service."""
+        # Cancel sleeping precheck retries first so they don't try to enqueue
+        # work into the state we're about to clear.
+        for retry_task in list(self._precheck_retry_tasks.values()):
+            retry_task.cancel()
+        self._precheck_retry_tasks.clear()
         for task in self._active_tasks.values():
             task.cancel()
         for task in list(self._active_tasks.values()):
@@ -959,8 +978,15 @@ class AutoVideoClassifierService:
         skip_delay: bool = False,
         fallback_to_snapshot: bool = False,
         source: JobSource = "live",
+        precheck_retry_attempt: int = 0,
     ):
-        """Main workflow for processing a video clip."""
+        """Main workflow for processing a video clip.
+
+        ``precheck_retry_attempt`` is incremented when the precheck has already
+        aborted once due to Frigate ``event_not_found`` with no cached clip
+        available. We schedule one delayed retry so the recording-clip auto-fetch
+        has time to populate the cache before we permanently fail the job.
+        """
         log.info(
             "Starting auto video classification",
             event_id=frigate_event,
@@ -1042,11 +1068,62 @@ class AutoVideoClassifierService:
                     )
                     event_data = None  # box/region hints unavailable; _build_classification_input_context handles None safely
                 else:
+                    # If the user has full-visit recording clips enabled, the
+                    # auto-fetch of the recording clip is asynchronous and may
+                    # not have completed by the time we got here (the precheck
+                    # only waited ~6 s in total). Schedule one delayed retry
+                    # so the recording-clip cache has a chance to populate
+                    # before we permanently mark the detection failed.
+                    can_retry_for_recording_clip = (
+                        event_error == "event_not_found"
+                        and precheck_retry_attempt < _PRECHECK_NO_CLIP_MAX_RETRIES
+                        and bool(getattr(settings.frigate, "recording_clip_enabled", False))
+                        and not self._is_circuit_open(source)
+                        and self._running
+                        and frigate_event not in self._precheck_retry_tasks
+                    )
+                    if can_retry_for_recording_clip:
+                        log.info(
+                            "Frigate event_not_found and no cached clip yet; scheduling retry to wait for recording clip",
+                            event_id=frigate_event,
+                            attempts=_precheck_attempts,
+                            retry_in_seconds=_PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS,
+                        )
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="precheck_retry_pending_recording_clip",
+                            message=(
+                                "Frigate event not found and no cached clip yet; waiting for the full-visit recording clip "
+                                f"auto-fetch to complete and retrying in {_PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS} seconds."
+                            ),
+                            severity="info",
+                            context={
+                                "error": event_error,
+                                "attempts": _precheck_attempts,
+                                "retry_in_seconds": _PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS,
+                                "retry_attempt": precheck_retry_attempt + 1,
+                            },
+                        )
+                        # Keep DB status as 'pending' — do NOT mark failed,
+                        # do NOT _record_failure, do NOT _auto_delete_if_missing,
+                        # do NOT broadcast reclassification_completed. The retry
+                        # will broadcast its own reclassification_started which
+                        # the UI store treats idempotently.
+                        self._schedule_precheck_retry(
+                            frigate_event=frigate_event,
+                            camera=camera,
+                            fallback_to_snapshot=fallback_to_snapshot,
+                            source=source,
+                            next_attempt=precheck_retry_attempt + 1,
+                        )
+                        return
+
                     log.warning(
                         "Frigate event precheck failed",
                         event_id=frigate_event,
                         error=event_error,
                         attempts=_precheck_attempts,
+                        retry_attempt=precheck_retry_attempt,
                     )
                     self._record_diagnostic(
                         frigate_event,
@@ -1059,7 +1136,11 @@ class AutoVideoClassifierService:
                             else "Frigate event precheck failed during video classification"
                         ),
                         severity="warning",
-                        context={"error": event_error, "attempts": _precheck_attempts},
+                        context={
+                            "error": event_error,
+                            "attempts": _precheck_attempts,
+                            "retry_attempt": precheck_retry_attempt,
+                        },
                     )
                     await self._update_status(frigate_event, 'failed', error=event_error, broadcast=True)
                     self._record_failure(frigate_event, event_error, source=source)
@@ -1578,6 +1659,101 @@ class AutoVideoClassifierService:
         except asyncio.TimeoutError:
             log.warning("Clip decode check timed out — treating clip as invalid")
             return False
+
+    def _schedule_precheck_retry(
+        self,
+        *,
+        frigate_event: str,
+        camera: str,
+        fallback_to_snapshot: bool,
+        source: JobSource,
+        next_attempt: int,
+    ) -> None:
+        """Schedule one delayed re-run of _process_event after the precheck
+        aborted with no cached clip available.
+
+        Idempotent: if a retry is already pending for this event_id, do nothing.
+        """
+        if frigate_event in self._precheck_retry_tasks:
+            return
+
+        async def _delayed_retry() -> None:
+            try:
+                await asyncio.sleep(_PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS)
+            except asyncio.CancelledError:
+                return
+            if not self._running:
+                return
+            # Don't pile on if the user manually requeued or if a fresh
+            # MQTT-driven attempt is already running for this event.
+            if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
+                log.debug(
+                    "Precheck retry skipped — another job is already in flight for this event",
+                    event_id=frigate_event,
+                )
+                return
+            # If a manual reclassify (or any other path) has already completed
+            # the video classification while we slept, skip the retry — running
+            # _process_event again would either re-broadcast a started/completed
+            # overlay or, on abort, overwrite the now-good
+            # video_classification_status back to 'failed'.
+            try:
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    existing = await repo.get_by_frigate_event(frigate_event)
+            except Exception as exc:
+                log.warning(
+                    "Precheck retry skipped — detection lookup failed",
+                    event_id=frigate_event,
+                    error=str(exc),
+                )
+                return
+            if existing is None:
+                log.debug(
+                    "Precheck retry skipped — detection no longer exists",
+                    event_id=frigate_event,
+                )
+                return
+            current_video_status = (getattr(existing, "video_classification_status", None) or "").strip().lower()
+            if current_video_status in {"completed", "failed"}:
+                log.debug(
+                    "Precheck retry skipped — video classification already settled",
+                    event_id=frigate_event,
+                    current_status=current_video_status,
+                )
+                return
+            log.info(
+                "Running deferred precheck retry",
+                event_id=frigate_event,
+                retry_attempt=next_attempt,
+            )
+            try:
+                await self._process_event(
+                    frigate_event,
+                    camera,
+                    skip_delay=True,
+                    fallback_to_snapshot=fallback_to_snapshot,
+                    source=source,
+                    precheck_retry_attempt=next_attempt,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.error(
+                    "Deferred precheck retry failed",
+                    event_id=frigate_event,
+                    error=str(exc),
+                    exc_info=True,
+                )
+
+        task = create_background_task(
+            _delayed_retry(),
+            name=f"video_classifier_retry:{frigate_event}",
+        )
+        self._precheck_retry_tasks[frigate_event] = task
+        task.add_done_callback(
+            lambda _t, eid=frigate_event: self._precheck_retry_tasks.pop(eid, None)
+        )
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
         """Apply the configured missing-upstream policy when clip/event is missing."""
