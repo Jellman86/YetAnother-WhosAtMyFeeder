@@ -1276,14 +1276,21 @@
 
     async function handleGenerateSnapshotCandidates() {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
+        const eventId = detection.frigate_event;
         snapshotGeneratePending = true;
         try {
-            const result = await generateHighQualityBirdCropSnapshot(detection.frigate_event);
+            const result = await generateHighQualityBirdCropSnapshot(eventId);
+            if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            await refreshSnapshotControls(detection.frigate_event, { closeOverlay: false });
+            await refreshSnapshotControls(eventId, { closeOverlay: false });
+            if (!detection || detection.frigate_event !== eventId) return;
             resetSnapshotPickerSelection();
-            toastStore.success($_('detection.snapshot_generate_success', { default: 'HQ snapshot generated' }));
+            if (snapshotCandidates.length > 0) {
+                toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
+            } else {
+                toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
+            }
         } catch (e: any) {
             toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
         } finally {
@@ -3232,7 +3239,7 @@
                                         {$_('detection.snapshot_candidate_frames_hint', { default: 'AI-ranked frames from the video clip — tap to select' })}
                                     </p>
                                 </div>
-                                {#if canGenerateSnapshotCandidates}
+                                {#if canGenerateSnapshotCandidates && allSnapshotFrameCandidates.length > 0}
                                     <button
                                         type="button"
                                         onclick={handleGenerateSnapshotCandidates}
@@ -3258,12 +3265,32 @@
                                     {$_('detection.snapshot_candidates_loading', { default: 'Loading…' })}
                                 </div>
                             {:else if allSnapshotFrameCandidates.length === 0}
-                                <div class="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/50">
-                                    <svg class="h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                        <circle cx="12" cy="12" r="9"/>
-                                        <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
-                                    </svg>
-                                    {$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet — use "Regenerate HQ" to analyse this clip.' })}
+                                <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/50 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <svg class="h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="9"/>
+                                            <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>{$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet - regenerate snapshots to analyse this clip.' })}</span>
+                                    </div>
+                                    {#if canGenerateSnapshotCandidates}
+                                        <button
+                                            type="button"
+                                            onclick={handleGenerateSnapshotCandidates}
+                                            disabled={snapshotGeneratePending}
+                                            title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
+                                            class="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {#if snapshotGeneratePending}
+                                                <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                            {:else}
+                                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
+                                                </svg>
+                                            {/if}
+                                            {$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                                        </button>
+                                    {/if}
                                 </div>
                             {:else}
                                 {#if modelSnapshotCandidates.length === 0}
