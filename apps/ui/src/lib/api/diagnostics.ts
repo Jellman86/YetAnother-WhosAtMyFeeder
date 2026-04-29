@@ -7,7 +7,7 @@ export interface BackendDiagnosticEvent {
     stage?: string | null;
     reason_code: string;
     message: string;
-    severity: 'warning' | 'error' | 'critical';
+    severity: 'info' | 'warning' | 'error' | 'critical';
     event_id?: string | null;
     context?: Record<string, unknown> | null;
     timestamp: string;

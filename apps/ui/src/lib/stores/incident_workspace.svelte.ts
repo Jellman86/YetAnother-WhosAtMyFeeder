@@ -120,6 +120,11 @@ function normalizeSeverity(value: unknown): IncidentSeverity {
     return 'warning';
 }
 
+function isIncidentSeverity(value: unknown): boolean {
+    const severity = normalizeString(value).toLowerCase();
+    return severity === 'critical' || severity === 'error' || severity === 'warning';
+}
+
 function severityRank(value: IncidentSeverity): number {
     if (value === 'critical') return 3;
     if (value === 'error') return 2;
@@ -361,6 +366,7 @@ class IncidentWorkspaceStore {
             : null;
 
         for (const event of this.backendEvents) {
+            if (!isIncidentSeverity(event.severity)) continue;
             const key = buildIncidentKey(event);
             const jobId = normalizeString(event.job_id);
             const job = jobId ? this.jobs.get(jobId) : undefined;

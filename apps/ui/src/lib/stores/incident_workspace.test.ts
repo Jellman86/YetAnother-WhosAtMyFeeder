@@ -125,6 +125,25 @@ describe('incidentWorkspaceStore', () => {
         expect(store.recentIncidents).toHaveLength(0);
     });
 
+    it('keeps info backend diagnostics out of live incidents', () => {
+        const store = createIncidentWorkspaceStore();
+
+        store.ingestBackendDiagnostics([
+            {
+                id: 'diag-info-1',
+                component: 'auto_video_classifier',
+                reason_code: 'auto_classify_retry_after_late_clip',
+                severity: 'info',
+                message: 'Recording clip arrived after auto-classify failed; re-queueing',
+                timestamp: '2026-04-29T10:00:00Z'
+            }
+        ]);
+
+        expect(store.backendEvents).toHaveLength(1);
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents).toHaveLength(0);
+    });
+
     it('does not churn incident state when equivalent local diagnostic groups are re-ingested', () => {
         const store = createIncidentWorkspaceStore();
         const groups = [
