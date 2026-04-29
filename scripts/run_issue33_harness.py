@@ -1497,6 +1497,7 @@ def main() -> int:
     backend_settings_restore: dict[str, Any] | None = None
     backfill_result: dict[str, Any] | None = None
     manual_tag_result: dict[str, Any] | None = None
+    pending_backfill_job: dict[str, Any] | None = None
 
     def _restore_backend_settings() -> None:
         nonlocal backend_settings_restore
@@ -1685,7 +1686,7 @@ def main() -> int:
             parser.error("--trigger-backfill requires owner authentication")
         try:
             if args.frigate_load_source == "fixture":
-                backfill_job = _trigger_backfill_async(
+                pending_backfill_job = _trigger_backfill_async(
                     backend_url=args.backend_url,
                     token=auth_token,
                     timeout_seconds=max(args.http_timeout_seconds, 30.0),
@@ -1699,20 +1700,9 @@ def main() -> int:
                         "type": "backfill_async_started",
                         "observed_at": base_soak._now_utc().isoformat(),
                         "ok": True,
-                        "response": backfill_job,
+                        "response": pending_backfill_job,
                     },
                 )
-                backfill_response = _wait_for_backfill_job(
-                    backend_url=args.backend_url,
-                    token=auth_token,
-                    job=backfill_job,
-                    timeout_seconds=max(args.http_timeout_seconds, 120.0),
-                )
-                if str(backfill_response.get("status") or "").lower() != "completed":
-                    raise RuntimeError(
-                        "Async backfill did not complete: "
-                        f"status={backfill_response.get('status')} message={backfill_response.get('message')}"
-                    )
             else:
                 backfill_response = _trigger_backfill(
                     backend_url=args.backend_url,
@@ -1722,16 +1712,16 @@ def main() -> int:
                     end_date=run_started_at.strftime("%Y-%m-%d"),
                     cameras=[args.frigate_camera],
                 )
-            backfill_result = {"ok": True, "response": backfill_response}
-            base_soak._write_ndjson_line(
-                samples_path,
-                {
-                    "type": "backfill_trigger",
-                    "observed_at": base_soak._now_utc().isoformat(),
-                    "ok": True,
-                    "response": backfill_response,
-                },
-            )
+                backfill_result = {"ok": True, "response": backfill_response}
+                base_soak._write_ndjson_line(
+                    samples_path,
+                    {
+                        "type": "backfill_trigger",
+                        "observed_at": base_soak._now_utc().isoformat(),
+                        "ok": True,
+                        "response": backfill_response,
+                    },
+                )
         except Exception as exc:
             backfill_result = {"ok": False, "error": str(exc)}
             base_soak._write_ndjson_line(
@@ -1744,36 +1734,6 @@ def main() -> int:
                 },
             )
 
-        if args.fixture_manual_tag_unknown and fixture_events:
-            try:
-                manual_response = _manual_tag_unknowns(
-                    backend_url=args.backend_url,
-                    token=auth_token,
-                    timeout_seconds=max(args.http_timeout_seconds, 30.0),
-                    event_ids=[str(event["id"]) for event in fixture_events],
-                )
-                manual_tag_result = {"ok": True, "response": manual_response}
-                base_soak._write_ndjson_line(
-                    samples_path,
-                    {
-                        "type": "fixture_manual_tag_unknown",
-                        "observed_at": base_soak._now_utc().isoformat(),
-                        "ok": True,
-                        "response": manual_response,
-                    },
-                )
-            except Exception as exc:
-                manual_tag_result = {"ok": False, "error": str(exc)}
-                base_soak._write_ndjson_line(
-                    samples_path,
-                    {
-                        "type": "fixture_manual_tag_unknown",
-                        "observed_at": base_soak._now_utc().isoformat(),
-                        "ok": False,
-                        "error": str(exc),
-                    },
-                )
-
     samples = []
     diagnostics_workspace_snapshots: list[dict[str, Any]] = []
     analysis_triggers: list[dict[str, Any]] = []
@@ -1781,6 +1741,46 @@ def main() -> int:
     app_frigate_stale_seconds: float | None = None
     deadline = time.time() + max(1, args.duration_seconds)
     next_analysis_trigger = time.time() + args.trigger_analysis_interval_seconds if args.trigger_analysis_interval_seconds > 0 else None
+    if pending_backfill_job and args.fixture_manual_tag_unknown and fixture_events:
+        next_analysis_trigger = None
+
+    def _manual_tag_fixture_events() -> None:
+        nonlocal manual_tag_result, next_analysis_trigger
+        if not args.fixture_manual_tag_unknown or not fixture_events or manual_tag_result is not None:
+            return
+        if not auth_token:
+            manual_tag_result = {"ok": False, "error": "missing owner authentication"}
+            return
+        try:
+            manual_response = _manual_tag_unknowns(
+                backend_url=args.backend_url,
+                token=auth_token,
+                timeout_seconds=max(args.http_timeout_seconds, 30.0),
+                event_ids=[str(event["id"]) for event in fixture_events],
+            )
+            manual_tag_result = {"ok": True, "response": manual_response}
+            base_soak._write_ndjson_line(
+                samples_path,
+                {
+                    "type": "fixture_manual_tag_unknown",
+                    "observed_at": base_soak._now_utc().isoformat(),
+                    "ok": True,
+                    "response": manual_response,
+                },
+            )
+        except Exception as exc:
+            manual_tag_result = {"ok": False, "error": str(exc)}
+            base_soak._write_ndjson_line(
+                samples_path,
+                {
+                    "type": "fixture_manual_tag_unknown",
+                    "observed_at": base_soak._now_utc().isoformat(),
+                    "ok": False,
+                    "error": str(exc),
+                },
+            )
+        if next_analysis_trigger is None and args.trigger_analysis_interval_seconds > 0:
+            next_analysis_trigger = time.time() + args.trigger_analysis_interval_seconds
 
     while not stop_event.is_set() and time.time() < deadline:
         tick_started = time.time()
@@ -1874,6 +1874,58 @@ def main() -> int:
                     },
                 )
 
+        if pending_backfill_job is not None and auth_token:
+            job_id = str(pending_backfill_job.get("id") or "")
+            try:
+                backfill_status = _fetch_backfill_status(
+                    backend_url=args.backend_url,
+                    token=auth_token,
+                    timeout_seconds=min(30.0, max(1.0, args.http_timeout_seconds)),
+                    job_id=job_id,
+                )
+                pending_backfill_job = backfill_status
+                base_soak._write_ndjson_line(
+                    samples_path,
+                    {
+                        "type": "backfill_async_status",
+                        "observed_at": observed_at.isoformat(),
+                        "response": backfill_status,
+                    },
+                )
+                job_status = str(backfill_status.get("status") or "").lower()
+                if job_status == "completed":
+                    backfill_result = {"ok": True, "response": backfill_status}
+                    base_soak._write_ndjson_line(
+                        samples_path,
+                        {
+                            "type": "backfill_trigger",
+                            "observed_at": observed_at.isoformat(),
+                            "ok": True,
+                            "response": backfill_status,
+                        },
+                    )
+                    pending_backfill_job = None
+                    _manual_tag_fixture_events()
+                elif job_status in {"failed", "cancelled"}:
+                    backfill_result = {
+                        "ok": False,
+                        "error": (
+                            "Async backfill did not complete: "
+                            f"status={backfill_status.get('status')} message={backfill_status.get('message')}"
+                        ),
+                        "response": backfill_status,
+                    }
+                    pending_backfill_job = None
+            except Exception as exc:
+                base_soak._write_ndjson_line(
+                    samples_path,
+                    {
+                        "type": "backfill_async_status_error",
+                        "observed_at": observed_at.isoformat(),
+                        "error": str(exc),
+                    },
+                )
+
         if next_analysis_trigger is not None and time.time() >= next_analysis_trigger:
             for burst_index in range(max(1, args.analysis_trigger_burst_count)):
                 trigger_time = base_soak._now_utc()
@@ -1907,6 +1959,26 @@ def main() -> int:
             next_analysis_trigger = time.time() + args.trigger_analysis_interval_seconds
 
         time.sleep(max(0.0, args.poll_interval_seconds - (time.time() - tick_started)))
+
+    if pending_backfill_job is not None:
+        backfill_result = {
+            "ok": False,
+            "error": (
+                "Async backfill did not complete before harness sampling ended: "
+                f"status={pending_backfill_job.get('status')} message={pending_backfill_job.get('message')}"
+            ),
+            "response": pending_backfill_job,
+        }
+        base_soak._write_ndjson_line(
+            samples_path,
+            {
+                "type": "backfill_trigger",
+                "observed_at": base_soak._now_utc().isoformat(),
+                "ok": False,
+                "error": backfill_result["error"],
+                "response": pending_backfill_job,
+            },
+        )
 
     stop_event.set()
     frigate_stop_event.set()
