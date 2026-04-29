@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -184,6 +185,64 @@ async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, 
     assert clip_path != recording_path
     assert service.get_clip_path(event_id) == clip_path
     assert service.get_recording_clip_path(event_id) == recording_path
+
+
+@pytest.mark.asyncio
+async def test_cache_recording_clip_emits_listener_on_success(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    async def listener(event_id: str) -> None:
+        calls.append(event_id)
+
+    monkeypatch.setattr(
+        media_cache_module,
+        "create_background_task",
+        lambda coro, name=None: asyncio.create_task(coro),
+        raising=False,
+    )
+    service.register_recording_clip_listener(listener)
+
+    recording_path = await service.cache_recording_clip("evt_listener_success", b"b" * 700)
+    await asyncio.sleep(0)
+
+    assert recording_path is not None
+    assert calls == ["evt_listener_success"]
+
+
+@pytest.mark.asyncio
+async def test_cache_recording_clip_does_not_emit_on_stub(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    async def listener(event_id: str) -> None:
+        calls.append(event_id)
+
+    service.register_recording_clip_listener(listener)
+
+    recording_path = await service.cache_recording_clip("evt_listener_stub", b"x" * 64)
+
+    assert recording_path is None
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_cache_recording_clip_streaming_emits_only_on_validated_size(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    async def listener(event_id: str) -> None:
+        calls.append(event_id)
+
+    service.register_recording_clip_listener(listener)
+
+    async def chunks():
+        yield b"x" * 64
+
+    recording_path = await service.cache_recording_clip_streaming("evt_listener_stream_stub", chunks())
+
+    assert recording_path is None
+    assert calls == []
 
 
 def test_get_recording_clip_path_rejects_truncated_cached_recording_and_preview_assets(tmp_path, monkeypatch):

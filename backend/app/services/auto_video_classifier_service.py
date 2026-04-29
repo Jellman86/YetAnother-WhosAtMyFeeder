@@ -95,6 +95,12 @@ _VIDEO_TOP_FRAMES_LIMIT = 8
 # without piling up retries during a real outage.
 _PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS = 60
 _PRECHECK_NO_CLIP_MAX_RETRIES = 1
+_RETRIABLE_ON_LATE_CLIP_ERRORS: frozenset[str] = frozenset({
+    "clip_not_found",
+    "clip_not_retained",
+    "event_not_found",
+    "clip_unavailable",
+})
 BackgroundImageClassificationUnavailableError = getattr(
     classifier_service_module,
     "BackgroundImageClassificationUnavailableError",
@@ -167,6 +173,9 @@ class AutoVideoClassifierService:
         if self._running:
             return
         self._running = True
+        # Belt-and-braces idempotency for stop/start cycles and tests.
+        media_cache.unregister_recording_clip_listener(self._on_recording_clip_cached)
+        media_cache.register_recording_clip_listener(self._on_recording_clip_cached)
         self._processor_task = create_background_task(self._process_queue_loop(), name="video_classifier_queue")
         self._stale_task = create_background_task(self._stale_watchdog_loop(), name="video_classifier_stale_watchdog")
         log.info("AutoVideoClassifierService started")
@@ -174,6 +183,7 @@ class AutoVideoClassifierService:
     async def stop(self):
         """Stop the queue processor."""
         self._running = False
+        media_cache.unregister_recording_clip_listener(self._on_recording_clip_cached)
         if self._processor_task:
             self._processor_task.cancel()
             try:
@@ -199,6 +209,62 @@ class AutoVideoClassifierService:
         self._active_metadata.clear()
         self._timeout_state = _empty_timeout_state()
         log.info("AutoVideoClassifierService stopped")
+
+    async def _on_recording_clip_cached(self, event_id: str) -> None:
+        """Re-queue stranded video classification when a late recording clip lands."""
+        if not self._running:
+            return
+        self._cleanup_completed_tasks()
+        if event_id in self._active_tasks or event_id in self._pending_ids:
+            return
+        if event_id in self._precheck_retry_tasks:
+            return
+        if self._is_circuit_open("live") and self._is_circuit_open("maintenance"):
+            return
+
+        try:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+        except Exception as exc:
+            log.warning(
+                "Recording-clip-cached lookup failed",
+                event_id=event_id,
+                error=str(exc),
+            )
+            return
+
+        if detection is None:
+            return
+
+        status = (getattr(detection, "video_classification_status", "") or "").strip().lower()
+        if status != "failed":
+            return
+
+        error = (getattr(detection, "video_classification_error", "") or "").strip().lower()
+        if error not in _RETRIABLE_ON_LATE_CLIP_ERRORS:
+            return
+
+        camera = (getattr(detection, "camera_name", "") or "").strip()
+        if not camera:
+            return
+
+        log.info(
+            "Recording clip arrived after auto-classify failed; re-queueing",
+            event_id=event_id,
+            prior_error=error,
+        )
+        self._record_diagnostic(
+            event_id,
+            reason_code="auto_classify_retry_after_late_clip",
+            message=(
+                "Recording clip became available after auto-classification had failed; "
+                "re-running video classification with the cached clip."
+            ),
+            severity="info",
+            context={"prior_error": error},
+        )
+        await self.queue_classification(event_id, camera, skip_delay=True, source="maintenance")
 
     async def reset_state(self):
         """Cancel active tasks and clear pending queue without stopping the service."""
@@ -1465,7 +1531,7 @@ class AutoVideoClassifierService:
         *,
         reason_code: str,
         message: str,
-        severity: Literal["warning", "error", "critical"] = "warning",
+        severity: Literal["info", "warning", "error", "critical"] = "warning",
         context: Optional[dict] = None,
     ) -> None:
         merged_context = self._classifier_runtime_context()

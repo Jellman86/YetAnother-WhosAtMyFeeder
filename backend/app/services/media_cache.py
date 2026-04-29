@@ -10,7 +10,9 @@ import aiofiles.os
 import structlog
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Awaitable, Callable, Optional
+
+from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
@@ -26,6 +28,7 @@ PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 # threshold is treated as a corrupt placeholder and is rejected at every
 # cache boundary so callers always receive None rather than an unusable path.
 _MIN_VALID_CLIP_BYTES = 512
+RecordingClipListener = Callable[[str], Awaitable[None]]
 
 
 def _clip_duration_seconds(path: Path) -> Optional[float]:
@@ -58,6 +61,7 @@ class MediaCacheService:
         self._available = True
         self._init_error: Optional[str] = None
         self._recording_clip_duration_cache: dict[str, tuple[int, int, Optional[float]]] = {}
+        self._recording_clip_listeners: list[RecordingClipListener] = []
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -80,6 +84,33 @@ class MediaCacheService:
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         CLIPS_DIR.mkdir(parents=True, exist_ok=True)
         PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+
+    def register_recording_clip_listener(self, listener: RecordingClipListener) -> None:
+        """Register a coroutine callback for successful recording-clip writes."""
+        if listener in self._recording_clip_listeners:
+            return
+        self._recording_clip_listeners.append(listener)
+
+    def unregister_recording_clip_listener(self, listener: RecordingClipListener) -> None:
+        """Remove a previously registered recording-clip callback."""
+        try:
+            self._recording_clip_listeners.remove(listener)
+        except ValueError:
+            pass
+
+    async def _emit_recording_clip_cached(self, event_id: str) -> None:
+        """Notify listeners after a validated recording clip is available."""
+        if not self._recording_clip_listeners:
+            return
+        for listener in list(self._recording_clip_listeners):
+            coro = None
+            try:
+                coro = listener(event_id)
+                create_background_task(coro, name=f"recording_clip_listener:{event_id}")
+            except Exception:
+                if coro is not None:
+                    coro.close()
+                log.exception("Recording-clip listener dispatch failed", event_id=event_id)
 
     def _sanitize_event_id(self, event_id: str) -> str:
         """Sanitize event_id to prevent path traversal attacks.
@@ -564,6 +595,7 @@ class MediaCacheService:
                 await f.write(clip_bytes)
             self._invalidate_recording_clip_duration_cache(path)
             log.debug("Cached recording clip", event_id=event_id, size=len(clip_bytes))
+            await self._emit_recording_clip_cached(event_id)
             return path
         except Exception as e:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
@@ -607,6 +639,7 @@ class MediaCacheService:
 
             self._invalidate_recording_clip_duration_cache(path)
             log.debug("Cached recording clip (streaming)", event_id=event_id, size=total_size)
+            await self._emit_recording_clip_cached(event_id)
             return path
         except Exception as e:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))

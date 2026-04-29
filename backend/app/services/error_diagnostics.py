@@ -11,7 +11,7 @@ DIAGNOSTICS_HISTORY_MAX_EVENTS = max(
     int(os.getenv("DIAGNOSTICS_HISTORY_MAX_EVENTS", "500")),
 )
 
-_ALLOWED_SEVERITIES = {"warning", "error", "critical"}
+_ALLOWED_SEVERITIES = {"info", "warning", "error", "critical"}
 
 
 def _normalize_string(value: Any, fallback: str = "") -> str:

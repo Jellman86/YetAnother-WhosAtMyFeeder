@@ -80,6 +80,23 @@ def test_snapshot_supports_filters_and_summary_counters():
     assert filtered["events"][0]["event_id"] == "evt-1"
 
 
+def test_snapshot_preserves_info_severity():
+    history = ErrorDiagnosticsHistory(max_events=10)
+
+    history.record(
+        source="video_classifier",
+        component="auto_video_classifier",
+        reason_code="auto_classify_retry_after_late_clip",
+        message="Retry queued",
+        severity="info",
+    )
+
+    snapshot = history.snapshot(limit=5, severity="info")
+
+    assert snapshot["severity_counts"] == {"info": 1}
+    assert snapshot["events"][0]["severity"] == "info"
+
+
 def test_snapshot_preserves_distinct_overload_reason_codes():
     history = ErrorDiagnosticsHistory(max_events=10)
 

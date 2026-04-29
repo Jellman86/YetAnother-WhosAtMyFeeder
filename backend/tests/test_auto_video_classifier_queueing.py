@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import types
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -8,6 +10,22 @@ from app.services import auto_video_classifier_service as auto_video_classifier_
 from app.config import settings
 
 AutoVideoClassifierService = auto_video_classifier_module.AutoVideoClassifierService
+
+
+class _FakeDbContext:
+    async def __aenter__(self):
+        return object()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def _patch_detection_lookup(monkeypatch: pytest.MonkeyPatch, detection):
+    repo = MagicMock()
+    repo.get_by_frigate_event = AsyncMock(return_value=detection)
+    monkeypatch.setattr(auto_video_classifier_module, "get_db", lambda: _FakeDbContext())
+    monkeypatch.setattr(auto_video_classifier_module, "DetectionRepository", lambda _db: repo)
+    return repo
 
 
 @pytest.mark.asyncio
@@ -80,6 +98,114 @@ async def test_queue_classification_dedupes_under_concurrent_enqueues():
     assert results.count("queued") == 1
     assert results.count("duplicate") == 19
     assert service.get_status()["pending"] == 1
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_requeues_failed_detection_for_retriable_error(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    detection = types.SimpleNamespace(
+        video_classification_status="failed",
+        video_classification_error="clip_not_found",
+        camera_name="cam1",
+    )
+    _patch_detection_lookup(monkeypatch, detection)
+    queue = AsyncMock(return_value="queued")
+    diagnostics = MagicMock()
+    monkeypatch.setattr(service, "queue_classification", queue)
+    monkeypatch.setattr(service, "_record_diagnostic", diagnostics)
+
+    await service._on_recording_clip_cached("evt-late-clip")
+
+    queue.assert_awaited_once_with("evt-late-clip", "cam1", skip_delay=True, source="maintenance")
+    diagnostics.assert_called_once()
+    assert diagnostics.call_args.kwargs["reason_code"] == "auto_classify_retry_after_late_clip"
+    assert diagnostics.call_args.kwargs["context"] == {"prior_error": "clip_not_found"}
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_skips_completed_detection(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    detection = types.SimpleNamespace(
+        video_classification_status="completed",
+        video_classification_error="clip_not_found",
+        camera_name="cam1",
+    )
+    _patch_detection_lookup(monkeypatch, detection)
+    queue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", queue)
+
+    await service._on_recording_clip_cached("evt-completed")
+
+    queue.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_skips_non_retriable_error(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    detection = types.SimpleNamespace(
+        video_classification_status="failed",
+        video_classification_error="clip_decode_failed",
+        camera_name="cam1",
+    )
+    _patch_detection_lookup(monkeypatch, detection)
+    queue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", queue)
+
+    await service._on_recording_clip_cached("evt-decode-failed")
+
+    queue.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_skips_when_already_in_flight(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    task = asyncio.create_task(asyncio.sleep(60))
+    service._active_tasks["evt-in-flight"] = task
+    queue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", queue)
+    try:
+        await service._on_recording_clip_cached("evt-in-flight")
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    queue.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_skips_when_precheck_retry_pending(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    task = asyncio.create_task(asyncio.sleep(60))
+    service._precheck_retry_tasks["evt-precheck-pending"] = task
+    queue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", queue)
+    try:
+        await service._on_recording_clip_cached("evt-precheck-pending")
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    queue.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recording_clip_listener_handles_missing_detection(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    _patch_detection_lookup(monkeypatch, None)
+    queue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", queue)
+
+    await service._on_recording_clip_cached("evt-missing")
+
+    queue.assert_not_awaited()
 
 
 @pytest.mark.asyncio

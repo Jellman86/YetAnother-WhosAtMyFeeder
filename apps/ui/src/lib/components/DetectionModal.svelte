@@ -672,10 +672,83 @@
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
     const upstreamMissing = $derived(detection.frigate_status === 'missing');
     const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
-    const suppressVideoFailureForMissingEvent = $derived(
-        missingEventNoticeVisible && detection.video_classification_error === 'event_not_found'
-    );
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
+
+    // Consolidated video-status notice: single source of truth that replaces
+    // the three overlapping panels (Frigate-event-missing pill, "Result from
+    // snapshot" amber notice, "Video Analysis Failed" red card) that used to
+    // co-exist for the same underlying state.
+    const videoStatusNoticeVisible = $derived.by(() => {
+        const status = (detection.video_classification_status || '').trim().toLowerCase();
+        const error = (detection.video_classification_error || '').trim();
+        // Failed video classification of any kind.
+        if (status === 'failed' && error) return true;
+        // Snapshot fallback already produced a result, but the underlying
+        // Frigate event is gone — surface that so the modal isn't silent
+        // about why the player and the diagnostics disagree.
+        if (currentClassificationSource === 'snapshot' && missingEventNoticeVisible) return true;
+        return false;
+    });
+    const videoStatusNoticeTone = $derived.by(() => {
+        const status = (detection.video_classification_status || '').trim().toLowerCase();
+        // "rose" reserved for the genuinely-stuck cases where there's no
+        // recovered classification to fall back on.  When the snapshot path
+        // already produced a real result we tier amber/slate based on
+        // confidence so we don't over-alarm successful classifications.
+        if (status === 'failed' && currentClassificationSource !== 'snapshot') {
+            return {
+                kind: 'rose' as const,
+                container: 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 text-rose-900 dark:text-rose-200',
+                detailsContainer: 'border-rose-200/80 dark:border-rose-400/25 bg-white/75 dark:bg-slate-900/40',
+                detailsSummary: 'text-rose-700 dark:text-rose-300',
+            };
+        }
+        const score = Number(detection.score ?? 0);
+        if (score >= 0.8) {
+            return {
+                kind: 'slate' as const,
+                container: 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/60 text-slate-700 dark:text-slate-300',
+                detailsContainer: 'border-slate-200/80 dark:border-slate-700/60 bg-white/75 dark:bg-slate-900/40',
+                detailsSummary: 'text-slate-700 dark:text-slate-300',
+            };
+        }
+        return {
+            kind: 'amber' as const,
+            container: 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/30 text-amber-900 dark:text-amber-200',
+            detailsContainer: 'border-amber-200/80 dark:border-amber-500/30 bg-white/75 dark:bg-slate-900/40',
+            detailsSummary: 'text-amber-700 dark:text-amber-300',
+        };
+    });
+    const videoStatusNoticeTitle = $derived.by(() => {
+        const status = (detection.video_classification_status || '').trim().toLowerCase();
+        if (status === 'failed' && currentClassificationSource !== 'snapshot') {
+            return $_('detection.video_analysis.failed_title');
+        }
+        return $_('detection.video_analysis.fallback_title', { default: 'Classified from snapshot' });
+    });
+    const videoStatusNoticeDescription = $derived.by(() => {
+        const error = (detection.video_classification_error || '').trim();
+        if (error) {
+            return $_(
+                `detection.reclassification.snapshot_fallback_reason.${error}`,
+                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' }) }
+            );
+        }
+        // No specific error code (e.g. snapshot fallback succeeded but the
+        // upstream Frigate event was rotated out) — show a neutral
+        // explanation that doesn't imply something is broken.
+        return $_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media. The cached snapshot and recording clip are still available in YA-WAMF.' });
+    });
+    const videoStatusShowTechnicalDetails = $derived.by(() => {
+        // Only surface the technical-details expander when there is
+        // something useful inside it (a known error code, a "why" list, or
+        // a "checks" list).  No point offering a disclosure that opens onto
+        // an empty section.
+        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0) {
+            return false;
+        }
+        return true;
+    });
 
     function formatEbirdDate(dateStr?: string | null) {
         if (!dateStr) return '—';
@@ -2132,36 +2205,10 @@
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
                     <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
                 </div>
-                {#if missingEventNoticeVisible}
-                    <div class="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-slate-200/70 pt-2 text-[10px] font-bold text-slate-500 dark:border-slate-700/60 dark:text-slate-400">
-                        <span
-                            class="inline-flex items-center gap-1.5 rounded-full border border-orange-200/70 bg-orange-50/80 px-2 py-1 text-orange-700 dark:border-orange-400/20 dark:bg-orange-500/10 dark:text-orange-200"
-                            title={$_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media' })}
-                            aria-label={$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
-                        >
-                            <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-3.5 w-3.5 rounded-[3px] bg-white/90 p-0.5 object-contain" />
-                            {$_('detection.upstream_missing.compact_label', { default: 'Frigate event missing' })}
-                        </span>
-                        {#if detection.frigate_last_checked_at}
-                            <span class="text-slate-400 dark:text-slate-500">
-                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}: {formatDateTime(detection.frigate_last_checked_at)}
-                            </span>
-                        {/if}
-                        <a
-                            href={FRIGATE_MISSING_DOCS_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="font-black uppercase tracking-widest text-teal-600 hover:text-teal-700 hover:underline dark:text-teal-400 dark:hover:text-teal-300"
-                        >
-                            {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
-                        </a>
-                    </div>
-                    {#if detection.frigate_last_error}
-                        <p class="mt-1 text-right text-[10px] font-mono text-slate-400 dark:text-slate-500">
-                            {$_('detection.upstream_missing.error', { default: 'Last Frigate error' })}: {detection.frigate_last_error}
-                        </p>
-                    {/if}
-                {/if}
+                <!-- The "Frigate event missing" indicator that used to live here as a
+                     standalone pill has been folded into the consolidated snapshot/
+                     video-status notice below.  The same information is now shown
+                     once instead of three times. -->
             </div>
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
@@ -2182,25 +2229,102 @@
             {/if}
 
             <!-- Snapshot fallback notice: video analysis failed, result came from a single frame -->
-            {#if currentClassificationSource === 'snapshot'
-                && detection.video_classification_status === 'failed'
-                && detection.video_classification_error}
-                <div class="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-500/10 border border-amber-200/80 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 flex items-start gap-2" role="status">
+            <!-- Consolidated video-status notice. Single survivor for the three
+                 overlapping panels that used to fire on this state (pill +
+                 amber "Result from snapshot" + red "Video Analysis Failed").
+                 Tone tier:
+                  - hidden when video classification completed and the result
+                    matches the display name (the happy path)
+                  - slate when the snapshot fallback succeeded with high
+                    confidence (informational, not alarming)
+                  - amber when the snapshot fallback succeeded but confidence
+                    is borderline / unknown
+                  - rose when video genuinely failed and the snapshot path
+                    didn't recover (rare, but actionable)
+                 Folds Frigate-event-missing context, the technical details
+                 expander, and the snapshot-fallback explanation together. -->
+            {#if videoStatusNoticeVisible}
+                <div
+                    class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
+                    role="status"
+                >
                     <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        {#if videoStatusNoticeTone.kind === 'rose'}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        {:else if videoStatusNoticeTone.kind === 'amber'}
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        {:else}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        {/if}
                     </svg>
-                    <div class="flex flex-col gap-0.5 min-w-0">
+                    <div class="flex flex-col gap-1 min-w-0 flex-1">
                         <span class="text-[10px] font-black uppercase tracking-widest">
-                            {$_('detection.video_analysis.fallback_title', { default: 'Result from snapshot' })}
+                            {videoStatusNoticeTitle}
                         </span>
                         <span class="text-[11px] font-semibold leading-snug">
-                            {$_(
-                                `detection.reclassification.snapshot_fallback_reason.${detection.video_classification_error}`,
-                                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' }) }
-                            )}
+                            {videoStatusNoticeDescription}
                         </span>
+                        {#if upstreamMissing && detection.frigate_last_checked_at}
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
+                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
+                                {formatDateTime(detection.frigate_last_checked_at)}
+                                ·
+                                <a
+                                    href={FRIGATE_MISSING_DOCS_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="font-black uppercase tracking-widest hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-teal-600 dark:text-teal-400'}"
+                                >
+                                    {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
+                                </a>
+                            </span>
+                        {/if}
+                        {#if videoStatusShowTechnicalDetails}
+                            <details class="mt-1 rounded-lg border px-3 py-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
+                                <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
+                                    {videoErrorDetailsOpen
+                                        ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
+                                        : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
+                                </summary>
+                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                    {#if videoFailureInsight.errorCode}
+                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                                            {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
+                                        </p>
+                                    {/if}
+                                    {#if videoFailureInsight.causes.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.causes as cause}
+                                                    <li>{cause}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                    {#if videoFailureInsight.checks.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.checks as check}
+                                                    <li>{check}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </details>
+                        {/if}
                     </div>
                 </div>
             {/if}
@@ -2315,61 +2439,9 @@
                     <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.video_analysis.in_progress')}</span>
                  </div>
-            {:else if detection.video_classification_status === 'failed' && !suppressVideoFailureForMissingEvent}
-                <div class="p-4 rounded-2xl bg-rose-50/80 dark:bg-rose-500/10 border border-rose-200/70 dark:border-rose-500/20 animate-in fade-in slide-in-from-top-2">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-[0.2em] mb-1">
-                                {$_('detection.video_analysis.failed_title')}
-                            </p>
-                            <p class="text-xs text-slate-700 dark:text-slate-300">
-                                {videoFailureInsight.summary}
-                            </p>
-                        </div>
-                        {#if videoFailureInsight.isFrigateRelated}
-                            <div
-                                class="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
-                                title={$_('detection.frigate_badge', { default: 'Frigate' })}
-                                aria-label={$_('detection.frigate_badge', { default: 'Frigate' })}
-                            >
-                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-3.5 w-3.5 rounded-[3px] bg-white/95 p-0.5 object-contain" />
-                            </div>
-                        {/if}
-                    </div>
-                    <details class="mt-3 rounded-xl border border-rose-200/80 dark:border-rose-400/25 bg-white/75 dark:bg-slate-900/40 px-3 py-2" bind:open={videoErrorDetailsOpen}>
-                        <summary class="cursor-pointer select-none text-[11px] font-bold text-rose-700 dark:text-rose-300">
-                            {videoErrorDetailsOpen
-                                ? $_('detection.video_analysis.error_details.hide', { default: 'Hide error details' })
-                                : $_('detection.video_analysis.error_details.show', { default: 'Show error details' })}
-                        </summary>
-                        <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
-                            <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
-                                {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
-                            </p>
-                            <div>
-                                <p class="font-bold text-slate-800 dark:text-slate-200">
-                                    {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
-                                </p>
-                                <ul class="mt-1 list-disc pl-5 space-y-1">
-                                    {#each videoFailureInsight.causes as cause}
-                                        <li>{cause}</li>
-                                    {/each}
-                                </ul>
-                            </div>
-                            <div>
-                                <p class="font-bold text-slate-800 dark:text-slate-200">
-                                    {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
-                                </p>
-                                <ul class="mt-1 list-disc pl-5 space-y-1">
-                                    {#each videoFailureInsight.checks as check}
-                                        <li>{check}</li>
-                                    {/each}
-                                </ul>
-                            </div>
-                        </div>
-                    </details>
-                </div>
             {/if}
+            <!-- The standalone "Video Analysis Failed" red card has been folded
+                 into the consolidated video-status notice above. -->
 
             <!-- Metadata -->
             <div class="grid grid-cols-2 gap-4">
