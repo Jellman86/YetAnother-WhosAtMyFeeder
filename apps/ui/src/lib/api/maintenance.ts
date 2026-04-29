@@ -64,6 +64,11 @@ export interface AnalyzeUnknownsResult {
     skipped_outside_retention?: number;
     precheck_errors?: number;
     total_candidates?: number;
+    remaining_candidates?: number;
+    queue_limit?: number;
+    pending_maintenance?: number;
+    active_maintenance?: number;
+    retry_after_seconds?: number;
 }
 
 export interface AnalysisStatus {

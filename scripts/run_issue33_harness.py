@@ -124,6 +124,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-video-circuit-open", action="store_true")
     parser.add_argument("--min-backfill-processed", type=int, default=0)
     parser.add_argument("--min-analysis-total-candidates", type=int, default=0)
+    parser.add_argument(
+        "--max-analysis-accepted",
+        type=int,
+        default=0,
+        help="Fail fixture replay if any analyze-unknowns trigger accepts more jobs than this. 0 disables the check.",
+    )
     return parser
 
 
@@ -204,6 +210,7 @@ def _apply_stress_profile(
             "fixture_manual_tag_unknown": True,
             "min_backfill_processed": 3,
             "min_analysis_total_candidates": 1,
+            "max_analysis_accepted": 50,
             "max_pressure_level": "critical",
             "max_degraded_ratio": 0.75,
             "min_samples": 60,
@@ -1359,6 +1366,7 @@ def _evaluate_fixture_replay(
     min_analysis_total_candidates: int,
     reconnect_delta: int | None,
     min_reconnect_delta: int | None,
+    max_analysis_accepted: int = 0,
     app_frigate_stale_seconds: float | None = None,
     max_observed_frigate_age_seconds: float | None = None,
 ) -> dict[str, Any]:
@@ -1398,6 +1406,11 @@ def _evaluate_fixture_replay(
         observed_analysis = True
         max_candidates = max(max_candidates, int(response.get("total_candidates") or 0))
         max_accepted = max(max_accepted, int(response.get("accepted") or 0))
+        if max_analysis_accepted > 0 and int(response.get("accepted") or 0) > int(max_analysis_accepted):
+            reasons.append(
+                "Fixture replay analyze-unknowns accepted too many jobs "
+                f"({int(response.get('accepted') or 0)} > {int(max_analysis_accepted)})."
+            )
         status = str(response.get("status") or "")
         if status == "in_progress" and int(response.get("count") or 0) > 0:
             max_candidates = max(max_candidates, int(response.get("count") or 0))
@@ -2037,6 +2050,7 @@ def main() -> int:
         analysis_triggers=analysis_triggers,
         min_backfill_processed=args.min_backfill_processed,
         min_analysis_total_candidates=args.min_analysis_total_candidates,
+        max_analysis_accepted=args.max_analysis_accepted,
         reconnect_delta=evaluation.get("topic_liveness_reconnects_delta"),
         min_reconnect_delta=thresholds.min_topic_liveness_reconnects_delta,
         app_frigate_stale_seconds=app_frigate_stale_seconds,

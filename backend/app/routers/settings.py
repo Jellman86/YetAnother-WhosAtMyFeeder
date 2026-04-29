@@ -47,6 +47,8 @@ router = APIRouter()
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
+BATCH_ANALYSIS_MAX_QUEUE_PER_RUN = 50
+BATCH_ANALYSIS_RETRY_AFTER_SECONDS = 120
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 
 
@@ -1690,6 +1692,29 @@ async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
 
 async def _run_analyze_unknowns() -> dict:
     """Core logic for analyzing unknown detections. Used by endpoint and scheduler."""
+    guard = _maintenance_guardrail_status()
+    pending_maintenance = int(guard.get("pending_maintenance") or 0)
+    active_maintenance = int(guard.get("active_maintenance") or 0)
+    if pending_maintenance > 0 or active_maintenance > 0:
+        return {
+            "status": "deferred",
+            "count": pending_maintenance + active_maintenance,
+            "accepted": 0,
+            "skipped_duplicate": 0,
+            "dropped_full": 0,
+            "skipped_no_clip": 0,
+            "skipped_missing_event": 0,
+            "skipped_outside_retention": 0,
+            "precheck_errors": 0,
+            "total_candidates": 0,
+            "remaining_candidates": 0,
+            "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "pending_maintenance": pending_maintenance,
+            "active_maintenance": active_maintenance,
+            "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
+            "message": f"{_maintenance_busy_message(guard)} Batch analysis deferred until queued maintenance work drains.",
+        }
+
     holder_id = "analyze_unknowns"
     acquired = await maintenance_coordinator.try_acquire(holder_id, kind="analyze_unknowns")
     if not acquired:
@@ -1706,6 +1731,11 @@ async def _run_analyze_unknowns() -> dict:
             "skipped_outside_retention": 0,
             "precheck_errors": 0,
             "total_candidates": 0,
+            "remaining_candidates": 0,
+            "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "pending_maintenance": pending_maintenance,
+            "active_maintenance": active_maintenance,
+            "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
             "message": "Maintenance work is already in progress. Batch analysis is already in progress.",
         }
     accepted = 0
@@ -1715,11 +1745,18 @@ async def _run_analyze_unknowns() -> dict:
     skipped_missing_event = 0
     skipped_outside_retention = 0
     precheck_errors = 0
+    total_candidates = 0
+    processed_candidates = 0
     try:
         async with get_db() as db:
             repo = DetectionRepository(db)
             unknowns = await repo.get_unknown_detections()
-            log.info("Batch analysis triggered", total_unknowns=len(unknowns))
+            total_candidates = len(unknowns)
+            log.info(
+                "Batch analysis triggered",
+                total_unknowns=total_candidates,
+                queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            )
 
             # Pre-check availability before queueing to avoid failure storms when
             # detections are older than Frigate media retention or clips are missing.
@@ -1757,54 +1794,66 @@ async def _run_analyze_unknowns() -> dict:
 
                 return ("eligible", detection)
 
-            prechecked = await asyncio.gather(*(precheck_detection(d) for d in unknowns))
+            for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
+                if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
+                    break
+                batch = unknowns[offset:offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
+                prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
 
-            for state, d in prechecked:
-                if state == "outside_retention":
-                    skipped_outside_retention += 1
-                    await repo.update_video_status(
-                        d.frigate_event,
-                        "failed",
-                        error="frigate_retention_expired"
-                    )
-                    continue
-                if state == "missing_event":
-                    skipped_missing_event += 1
-                    await repo.update_video_status(
-                        d.frigate_event,
-                        "failed",
-                        error="event_not_found"
-                    )
-                    continue
-                if state == "no_clip":
-                    skipped_no_clip += 1
-                    await repo.update_video_status(
-                        d.frigate_event,
-                        "failed",
-                        error="clip_not_retained"
-                    )
-                    continue
-                if state == "precheck_error":
-                    precheck_errors += 1
+                for state, d in prechecked:
+                    processed_candidates += 1
+                    if state == "outside_retention":
+                        skipped_outside_retention += 1
+                        await repo.update_video_status(
+                            d.frigate_event,
+                            "failed",
+                            error="frigate_retention_expired"
+                        )
+                        continue
+                    if state == "missing_event":
+                        skipped_missing_event += 1
+                        await repo.update_video_status(
+                            d.frigate_event,
+                            "failed",
+                            error="event_not_found"
+                        )
+                        continue
+                    if state == "no_clip":
+                        skipped_no_clip += 1
+                        await repo.update_video_status(
+                            d.frigate_event,
+                            "failed",
+                            error="clip_not_retained"
+                        )
+                        continue
+                    if state == "precheck_error":
+                        precheck_errors += 1
 
-                result = await auto_video_classifier.queue_classification(
-                    d.frigate_event,
-                    d.camera_name,
-                    fallback_to_snapshot=True,
-                    source="maintenance",
-                )
-                if result == "queued":
-                    accepted += 1
-                elif result == "duplicate":
-                    skipped_duplicate += 1
-                elif result == "full":
-                    dropped_full += 1
+                    result = await auto_video_classifier.queue_classification(
+                        d.frigate_event,
+                        d.camera_name,
+                        fallback_to_snapshot=True,
+                        source="maintenance",
+                    )
+                    if result == "queued":
+                        accepted += 1
+                        if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
+                            break
+                    elif result == "duplicate":
+                        skipped_duplicate += 1
+                    elif result == "full":
+                        dropped_full += 1
+                        break
+                if dropped_full > 0:
+                    break
     finally:
         await maintenance_coordinator.release(holder_id)
 
     count = accepted  # Backward-compatible field expected by current UI.
+    remaining_candidates = max(0, total_candidates - processed_candidates)
     msg = (
-        f"Queued {accepted} unknown detections for video analysis. "
+        f"Queued {accepted} unknown detections for video analysis "
+        f"(batch limit {BATCH_ANALYSIS_MAX_QUEUE_PER_RUN}, remaining candidates {remaining_candidates}). "
         f"Skipped duplicates: {skipped_duplicate}. "
         f"Queue full drops: {dropped_full}. "
         f"Skipped no clip: {skipped_no_clip}. "
@@ -1814,7 +1863,10 @@ async def _run_analyze_unknowns() -> dict:
     )
     log.info(
         "Batch analysis precheck summary",
-        total_candidates=len(unknowns),
+        total_candidates=total_candidates,
+        processed_candidates=processed_candidates,
+        remaining_candidates=remaining_candidates,
+        queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
         accepted=accepted,
         skipped_duplicate=skipped_duplicate,
         dropped_full=dropped_full,
@@ -1833,7 +1885,12 @@ async def _run_analyze_unknowns() -> dict:
         "skipped_missing_event": skipped_missing_event,
         "skipped_outside_retention": skipped_outside_retention,
         "precheck_errors": precheck_errors,
-        "total_candidates": len(unknowns),
+        "total_candidates": total_candidates,
+        "remaining_candidates": remaining_candidates,
+        "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+        "pending_maintenance": pending_maintenance,
+        "active_maintenance": active_maintenance,
+        "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS if remaining_candidates > 0 else 0,
         "message": msg
     }
 
@@ -1856,6 +1913,11 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
             "skipped_outside_retention": 0,
             "precheck_errors": 0,
             "total_candidates": 0,
+            "remaining_candidates": 0,
+            "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "pending_maintenance": pending_maintenance,
+            "active_maintenance": active_maintenance,
+            "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
             "message": f"{_maintenance_busy_message(guard)} Batch analysis is already in progress.",
         }
     return await _run_analyze_unknowns()

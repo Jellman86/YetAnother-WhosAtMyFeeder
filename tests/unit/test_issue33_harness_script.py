@@ -87,6 +87,33 @@ def test_apply_stress_profile_uses_fixture_replay_defaults():
     assert args.fixture_manual_tag_unknown is True
     assert args.min_backfill_processed == 3
     assert args.min_analysis_total_candidates == 1
+    assert args.max_analysis_accepted == 50
+
+
+def test_evaluate_fixture_replay_fails_when_analysis_accepts_too_many_jobs():
+    result = issue33._evaluate_fixture_replay(
+        enabled=True,
+        backfill_result={"response": {"processed": 900, "errors": 0}},
+        manual_tag_result={"response": {"updated_count": 900}},
+        analysis_triggers=[
+            {
+                "ok": True,
+                "response": {
+                    "status": "queued",
+                    "total_candidates": 900,
+                    "accepted": 812,
+                },
+            }
+        ],
+        min_backfill_processed=900,
+        min_analysis_total_candidates=1,
+        max_analysis_accepted=50,
+        reconnect_delta=1,
+        min_reconnect_delta=0,
+    )
+
+    assert result["passed"] is False
+    assert any("accepted too many" in reason for reason in result["failure_reasons"])
 
 
 def test_apply_stress_profile_uses_aggressive_issue33_live_defaults():
