@@ -408,6 +408,43 @@ def test_build_fixture_events_cycles_images_and_sets_frigate_fields(tmp_path):
     assert events[0]["_fixture_image_path"] == str(image)
 
 
+def test_filter_fixture_events_for_query_paginates_newest_first(tmp_path):
+    image = tmp_path / "bird.jpg"
+    image.write_bytes(b"jpeg")
+    events = issue33._build_fixture_events(
+        images=[image],
+        count=5,
+        camera="BirdCam",
+        run_label="20260424-test",
+        now=issue33.datetime(2026, 4, 24, 12, 0, 0, tzinfo=issue33.timezone.utc),
+    )
+
+    first_page = issue33._filter_fixture_events_for_query(
+        events,
+        camera="BirdCam",
+        label="bird",
+        limit=2,
+    )
+    cursor_before = min(float(event["start_time"]) for event in first_page) - 0.001
+    second_page = issue33._filter_fixture_events_for_query(
+        events,
+        camera="BirdCam",
+        label="bird",
+        before=cursor_before,
+        limit=2,
+    )
+
+    assert [event["id"] for event in first_page] == [
+        "issue33-fixture-20260424-test-0005",
+        "issue33-fixture-20260424-test-0004",
+    ]
+    assert [event["id"] for event in second_page] == [
+        "issue33-fixture-20260424-test-0003",
+        "issue33-fixture-20260424-test-0002",
+    ]
+    assert "_fixture_image_path" not in first_page[0]
+
+
 def test_evaluate_fixture_replay_requires_backfill_and_analysis_progress():
     result = issue33._evaluate_fixture_replay(
         enabled=True,

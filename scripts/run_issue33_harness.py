@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
 import signal
@@ -83,6 +84,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fixture-frigate-host", default="127.0.0.1")
     parser.add_argument("--fixture-frigate-port", type=int, default=8799)
     parser.add_argument("--fixture-clip-seconds", type=float, default=3.0)
+    parser.add_argument(
+        "--fixture-update-backend-frigate-url",
+        action="store_true",
+        help=(
+            "When using fixture load, temporarily point the backend Frigate URL "
+            "at the fixture server for backfill/analyze-unknowns, then restore it."
+        ),
+    )
     parser.add_argument("--trigger-backfill", action="store_true")
     parser.add_argument("--fixture-manual-tag-unknown", action="store_true")
     parser.add_argument("--frigate-topic", default=os.getenv("SOAK_FRIGATE_TOPIC", "frigate/events"))
@@ -281,6 +290,43 @@ def _build_fixture_events(
     return events
 
 
+def _fixture_event_timestamp(event: dict[str, Any]) -> float:
+    for key in ("start_time", "end_time"):
+        try:
+            return float(event[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _filter_fixture_events_for_query(
+    events: list[dict[str, Any]],
+    *,
+    camera: str = "",
+    label: str = "",
+    after: float | None = None,
+    before: float | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    filtered: list[dict[str, Any]] = []
+    for event in events:
+        if camera and str(event.get("camera")) != camera:
+            continue
+        if label and str(event.get("label")) != label:
+            continue
+        event_ts = _fixture_event_timestamp(event)
+        if after is not None and event_ts <= after:
+            continue
+        if before is not None and event_ts >= before:
+            continue
+        filtered.append({k: v for k, v in event.items() if not k.startswith("_")})
+
+    filtered.sort(key=_fixture_event_timestamp, reverse=True)
+    if limit is not None:
+        filtered = filtered[: max(0, int(limit))]
+    return filtered
+
+
 def _generate_fixture_clip(
     *,
     image_path: Path,
@@ -371,15 +417,28 @@ class _FixtureFrigateServer:
                     query = parse_qs(parsed.query)
                     camera_filter = (query.get("camera") or [""])[0]
                     label_filter = (query.get("label") or [""])[0]
-                    limit = int((query.get("limit") or [len(events)])[0])
-                    filtered = []
-                    for event in events:
-                        if camera_filter and str(event.get("camera")) != camera_filter:
-                            continue
-                        if label_filter and str(event.get("label")) != label_filter:
-                            continue
-                        filtered.append({k: v for k, v in event.items() if not k.startswith("_")})
-                    self._send_json(filtered[:limit])
+                    try:
+                        limit = int((query.get("limit") or [len(events)])[0])
+                    except (TypeError, ValueError):
+                        limit = len(events)
+                    try:
+                        after = float((query.get("after") or [""])[0])
+                    except (TypeError, ValueError):
+                        after = None
+                    try:
+                        before = float((query.get("before") or [""])[0])
+                    except (TypeError, ValueError):
+                        before = None
+                    self._send_json(
+                        _filter_fixture_events_for_query(
+                            events,
+                            camera=camera_filter,
+                            label=label_filter,
+                            after=after,
+                            before=before,
+                            limit=limit,
+                        )
+                    )
                     return
                 prefix = "/api/events/"
                 if path.startswith(prefix):
@@ -781,6 +840,27 @@ def _request_json_with_body(
     return json.loads(response_payload.decode("utf-8"))
 
 
+def _request_json(
+    method: str,
+    url: str,
+    timeout_seconds: float,
+    token: str | None = None,
+) -> dict[str, Any] | None:
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(
+        url=url,
+        method=method.upper(),
+        headers=headers,
+    )
+    with urlopen(request, timeout=timeout_seconds) as response:
+        response_payload = response.read()
+    if not response_payload:
+        return None
+    return json.loads(response_payload.decode("utf-8"))
+
+
 def _fetch_owner_settings(
     *,
     backend_url: str,
@@ -852,6 +932,74 @@ def _trigger_backfill(
     )
 
 
+def _trigger_backfill_async(
+    *,
+    backend_url: str,
+    token: str,
+    timeout_seconds: float,
+    start_date: str,
+    end_date: str,
+    cameras: list[str],
+) -> dict[str, Any]:
+    url = urljoin(f"{backend_url.rstrip('/')}/", "api/backfill/async")
+    return _request_json_with_body(
+        "POST",
+        url,
+        timeout_seconds,
+        {
+            "date_range": "custom",
+            "start_date": start_date,
+            "end_date": end_date,
+            "cameras": cameras,
+        },
+        token=token,
+    )
+
+
+def _fetch_backfill_status(
+    *,
+    backend_url: str,
+    token: str,
+    timeout_seconds: float,
+    job_id: str,
+) -> dict[str, Any]:
+    url = urljoin(f"{backend_url.rstrip('/')}/", f"api/backfill/status/{job_id}")
+    payload = _request_json("GET", url, timeout_seconds, token=token)
+    if not isinstance(payload, dict):
+        raise ValueError("Backfill status response was not a JSON object")
+    return payload
+
+
+def _wait_for_backfill_job(
+    *,
+    backend_url: str,
+    token: str,
+    job: dict[str, Any],
+    timeout_seconds: float,
+    poll_interval_seconds: float = 5.0,
+) -> dict[str, Any]:
+    job_id = str(job.get("id") or "")
+    if not job_id:
+        raise ValueError("Async backfill response did not include a job id")
+    deadline = time.monotonic() + timeout_seconds
+    status = dict(job)
+    while True:
+        job_status = str(status.get("status") or "").lower()
+        if job_status in {"completed", "failed", "cancelled"}:
+            return status
+        if time.monotonic() >= deadline:
+            status["status"] = "timeout"
+            status["message"] = f"Timed out waiting for async backfill job {job_id}"
+            return status
+        time.sleep(min(max(0.5, poll_interval_seconds), max(0.5, deadline - time.monotonic())))
+        status = _fetch_backfill_status(
+            backend_url=backend_url,
+            token=token,
+            timeout_seconds=min(30.0, max(1.0, timeout_seconds)),
+            job_id=job_id,
+        )
+
+
 def _manual_tag_unknowns(
     *,
     backend_url: str,
@@ -860,14 +1008,62 @@ def _manual_tag_unknowns(
     event_ids: list[str],
 ) -> dict[str, Any]:
     url = urljoin(f"{backend_url.rstrip('/')}/", "api/events/bulk/manual-tag")
+    chunks = [event_ids[index:index + 200] for index in range(0, len(event_ids), 200)]
+    responses: list[dict[str, Any]] = []
+    aggregate: dict[str, Any] = {
+        "status": "updated",
+        "requested_count": 0,
+        "updated_count": 0,
+        "unchanged_count": 0,
+        "missing_count": 0,
+        "failed_count": 0,
+        "updated_event_ids": [],
+        "unchanged_event_ids": [],
+        "missing_event_ids": [],
+        "failed_event_ids": [],
+        "new_species": "Unknown Bird",
+        "chunks": responses,
+    }
+    for chunk in chunks:
+        response = _request_json_with_body(
+            "PATCH",
+            url,
+            timeout_seconds,
+            {
+                "event_ids": chunk,
+                "display_name": "Unknown Bird",
+            },
+            token=token,
+        )
+        responses.append(response)
+        for key in ("requested_count", "updated_count", "unchanged_count", "missing_count", "failed_count"):
+            aggregate[key] += int(response.get(key) or 0)
+        for key in ("updated_event_ids", "unchanged_event_ids", "missing_event_ids", "failed_event_ids"):
+            values = response.get(key)
+            if isinstance(values, list):
+                aggregate[key].extend(values)
+    if aggregate["failed_count"]:
+        aggregate["status"] = "failed" if not aggregate["updated_count"] else "partial"
+    elif aggregate["missing_count"] and not aggregate["updated_count"]:
+        aggregate["status"] = "missing"
+    elif aggregate["unchanged_count"] and not aggregate["updated_count"]:
+        aggregate["status"] = "unchanged"
+    return aggregate
+
+
+def _update_owner_settings(
+    *,
+    backend_url: str,
+    token: str,
+    timeout_seconds: float,
+    settings_payload: dict[str, Any],
+) -> dict[str, Any]:
+    url = urljoin(f"{backend_url.rstrip('/')}/", "api/settings")
     return _request_json_with_body(
-        "PATCH",
+        "POST",
         url,
         timeout_seconds,
-        {
-            "event_ids": event_ids,
-            "display_name": "Unknown Bird",
-        },
+        settings_payload,
         token=token,
     )
 
@@ -1297,8 +1493,33 @@ def main() -> int:
     fixture_events: list[dict[str, Any]] = []
     fixture_server: _FixtureFrigateServer | None = None
     fixture_server_url: str | None = None
+    original_backend_settings: dict[str, Any] | None = None
+    backend_settings_restore: dict[str, Any] | None = None
     backfill_result: dict[str, Any] | None = None
     manual_tag_result: dict[str, Any] | None = None
+
+    def _restore_backend_settings() -> None:
+        nonlocal backend_settings_restore
+        if not original_backend_settings or backend_settings_restore is not None:
+            return
+        if not auth_token:
+            backend_settings_restore = {"ok": False, "error": "missing owner auth token"}
+            return
+        try:
+            _update_owner_settings(
+                backend_url=args.backend_url,
+                token=auth_token,
+                timeout_seconds=max(args.http_timeout_seconds, 30.0),
+                settings_payload=original_backend_settings,
+            )
+            backend_settings_restore = {
+                "ok": True,
+                "frigate_url": original_backend_settings.get("frigate_url"),
+            }
+            base_soak._log("Restored backend Frigate URL after fixture run.")
+        except Exception as exc:
+            backend_settings_restore = {"ok": False, "error": str(exc)}
+            base_soak._log(f"WARNING: Failed to restore backend settings: {exc}")
 
     def _handle_signal(_signum, _frame) -> None:
         base_soak._log("Received termination signal; stopping issue #33 harness.")
@@ -1340,6 +1561,27 @@ def main() -> int:
         fixture_server_url = fixture_server.start()
         args.frigate_api_url = fixture_server_url
         replay_seed_events = fixture_events
+        if args.fixture_update_backend_frigate_url:
+            if not auth_token:
+                parser.error("--fixture-update-backend-frigate-url requires owner authentication")
+            original_backend_settings = _fetch_owner_settings(
+                backend_url=args.backend_url,
+                token=auth_token,
+                timeout_seconds=args.http_timeout_seconds,
+            )
+            fixture_settings = dict(original_backend_settings)
+            fixture_settings["frigate_url"] = fixture_server_url
+            _update_owner_settings(
+                backend_url=args.backend_url,
+                token=auth_token,
+                timeout_seconds=max(args.http_timeout_seconds, 30.0),
+                settings_payload=fixture_settings,
+            )
+            atexit.register(_restore_backend_settings)
+            base_soak._log(
+                "Temporarily pointed backend Frigate URL at fixture server "
+                f"(original={original_backend_settings.get('frigate_url')}, fixture={fixture_server_url})"
+            )
         base_soak._log(
             "Using fixture-backed Frigate load "
             f"({len(fixture_events)} event(s), images={len(fixture_images)}, url={fixture_server_url})"
@@ -1442,14 +1684,44 @@ def main() -> int:
         if not auth_token:
             parser.error("--trigger-backfill requires owner authentication")
         try:
-            backfill_response = _trigger_backfill(
-                backend_url=args.backend_url,
-                token=auth_token,
-                timeout_seconds=max(args.http_timeout_seconds, 120.0),
-                start_date=run_started_at.strftime("%Y-%m-%d"),
-                end_date=run_started_at.strftime("%Y-%m-%d"),
-                cameras=[args.frigate_camera],
-            )
+            if args.frigate_load_source == "fixture":
+                backfill_job = _trigger_backfill_async(
+                    backend_url=args.backend_url,
+                    token=auth_token,
+                    timeout_seconds=max(args.http_timeout_seconds, 30.0),
+                    start_date=run_started_at.strftime("%Y-%m-%d"),
+                    end_date=run_started_at.strftime("%Y-%m-%d"),
+                    cameras=[args.frigate_camera],
+                )
+                base_soak._write_ndjson_line(
+                    samples_path,
+                    {
+                        "type": "backfill_async_started",
+                        "observed_at": base_soak._now_utc().isoformat(),
+                        "ok": True,
+                        "response": backfill_job,
+                    },
+                )
+                backfill_response = _wait_for_backfill_job(
+                    backend_url=args.backend_url,
+                    token=auth_token,
+                    job=backfill_job,
+                    timeout_seconds=max(args.http_timeout_seconds, 120.0),
+                )
+                if str(backfill_response.get("status") or "").lower() != "completed":
+                    raise RuntimeError(
+                        "Async backfill did not complete: "
+                        f"status={backfill_response.get('status')} message={backfill_response.get('message')}"
+                    )
+            else:
+                backfill_response = _trigger_backfill(
+                    backend_url=args.backend_url,
+                    token=auth_token,
+                    timeout_seconds=max(args.http_timeout_seconds, 120.0),
+                    start_date=run_started_at.strftime("%Y-%m-%d"),
+                    end_date=run_started_at.strftime("%Y-%m-%d"),
+                    cameras=[args.frigate_camera],
+                )
             backfill_result = {"ok": True, "response": backfill_response}
             base_soak._write_ndjson_line(
                 samples_path,
@@ -1642,6 +1914,11 @@ def main() -> int:
         frigate_thread.join(timeout=5.0)
     for birdnet_thread in birdnet_threads:
         birdnet_thread.join(timeout=5.0)
+    _restore_backend_settings()
+    try:
+        atexit.unregister(_restore_backend_settings)
+    except Exception:
+        pass
     if fixture_server:
         fixture_server.stop()
 
@@ -1732,6 +2009,7 @@ def main() -> int:
             "fixture_image_dir": args.fixture_image_dir,
             "fixture_event_count": args.fixture_event_count,
             "fixture_frigate_url": fixture_server_url,
+            "fixture_update_backend_frigate_url": args.fixture_update_backend_frigate_url,
             "trigger_backfill": args.trigger_backfill,
             "fixture_manual_tag_unknown": args.fixture_manual_tag_unknown,
             "frigate_topic": args.frigate_topic,
@@ -1759,6 +2037,7 @@ def main() -> int:
         "analysis_triggers": analysis_triggers,
         "backfill": backfill_result,
         "manual_tag_unknown": manual_tag_result,
+        "backend_settings_restore": backend_settings_restore,
         "induced_frigate_stall_at": induced_frigate_stall_at,
         "resumed_frigate_at": resumed_frigate_at,
         "replay": {
