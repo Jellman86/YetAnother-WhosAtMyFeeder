@@ -3,6 +3,7 @@
     import { _ } from 'svelte-i18n';
     import { getThumbnailUrl, fetchClassifierStatus } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
+    import SnapshotAnalysisScanner from './SnapshotAnalysisScanner.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
@@ -376,18 +377,36 @@
 
         {#if !small}
             <div class="mt-auto w-full pt-3">
-                <VideoAnalysisFilmReel
-                    {progress}
-                    variant="overlay"
-                    showFooter={false}
-                />
+                {#if hasFallenBackToSnapshot}
+                    <SnapshotAnalysisScanner
+                        {progress}
+                        imageUrl={backdropImageUrl}
+                        variant="overlay"
+                        showFooter={false}
+                    />
+                {:else}
+                    <VideoAnalysisFilmReel
+                        {progress}
+                        variant="overlay"
+                        showFooter={false}
+                    />
+                {/if}
             </div>
         {:else}
-            <VideoAnalysisFilmReel
-                {progress}
-                variant="compact"
-                showFooter={false}
-            />
+            {#if hasFallenBackToSnapshot}
+                <SnapshotAnalysisScanner
+                    {progress}
+                    imageUrl={backdropImageUrl}
+                    variant="compact"
+                    showFooter={false}
+                />
+            {:else}
+                <VideoAnalysisFilmReel
+                    {progress}
+                    variant="compact"
+                    showFooter={false}
+                />
+            {/if}
         {/if}
     </div>
 </div>
