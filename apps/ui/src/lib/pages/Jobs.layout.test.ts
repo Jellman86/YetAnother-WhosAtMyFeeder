@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest';
 import jobsPageSource from './Jobs.svelte?raw';
 
 describe('jobs page active work semantics', () => {
+    it('puts work lanes before individual job cards for queue clarity', () => {
+        expect(jobsPageSource).toContain('presentWorkLane');
+        expect(jobsPageSource).toContain('let presentedWorkLanes = $derived');
+        expect(jobsPageSource).toContain("jobs.work_lanes', { default: 'Work Lanes' }");
+        expect(jobsPageSource).toContain('{#each presentedWorkLanes as item (item.row.kind)}');
+        expect(jobsPageSource).toContain('presentation.runningLabel');
+        expect(jobsPageSource).toContain('presentation.queuedLabel');
+        expect(jobsPageSource).toContain('presentation.batchLabel');
+    });
+
     it('renders actual active jobs instead of fake thread slots', () => {
         expect(jobsPageSource).toContain("from '../stores/backfill_status.svelte'");
         expect(jobsPageSource).toContain('let presentedActiveJobs = $derived.by(() =>');

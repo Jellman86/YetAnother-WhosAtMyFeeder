@@ -96,6 +96,10 @@ export interface AnalysisStatus {
     oldest_maintenance_pending_age_seconds?: number;
     pending_maintenance?: number;
     active_maintenance?: number;
+    queue_limit?: number;
+    scan_limit?: number;
+    scan_truncated?: boolean;
+    remaining_candidates?: number;
     maintenance_state?: string;
     maintenance_status_message?: string;
     maintenance_seconds_since_progress?: number | null;

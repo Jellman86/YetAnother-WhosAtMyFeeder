@@ -24,6 +24,15 @@ describe('Global progress layout', () => {
         expect(bannerSource).toContain("(hover: hover) and (pointer: fine)");
     });
 
+    it('surfaces queue-only work lanes in the global progress details', () => {
+        expect(bannerSource).toContain('presentWorkLane');
+        expect(bannerSource).toContain('let detailLanes = $derived');
+        expect(bannerSource).toContain('{#if activeJobs.length > 0 || pipeline.kinds.length > 0}');
+        expect(bannerSource).toContain('{#each detailLanes as item (item.row.kind)}');
+        expect(bannerSource).toContain('presentation.runningLabel');
+        expect(bannerSource).toContain('presentation.queuedLabel');
+    });
+
     it('removes desktop header route tabs and the appearance layout picker', () => {
         expect(headerSource).not.toContain('<!-- Desktop Navigation -->');
         expect(headerSource).not.toContain('class="hidden md:flex items-center gap-1"');

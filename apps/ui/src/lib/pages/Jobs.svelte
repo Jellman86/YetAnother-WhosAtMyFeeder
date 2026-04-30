@@ -3,7 +3,7 @@
     import { _ } from 'svelte-i18n';
     import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
     import { buildJobsPipelineModel, type QueueTelemetryByKind } from '../jobs/pipeline';
-    import { presentActiveJob, presentJobKindIcon, type JobsTranslateFn } from '../jobs/presenter';
+    import { presentActiveJob, presentJobKindIcon, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
@@ -47,6 +47,10 @@
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
+    let presentedWorkLanes = $derived(pipeline.kinds.map((row) => ({
+        row,
+        presentation: presentWorkLane(row, analysisStatus, nowTs, t, kindLabel)
+    })));
     let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
@@ -78,6 +82,15 @@
 
     function isBackfillKind(kind: string) {
         return kind === 'backfill' || kind === 'weather_backfill';
+    }
+
+    function kindLabel(kind: string): string {
+        if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
+        if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
+        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
+        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
+        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
 
     function jobRecentSortTimestamp(job: JobProgressItem): number {
@@ -161,6 +174,52 @@
                         {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
                     </p>
                 </div>
+            </div>
+        {/if}
+    </section>
+
+    <section class="card-base p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.work_lanes', { default: 'Work Lanes' })}</h3>
+            <span class="text-[10px] font-semibold text-slate-400">{presentedWorkLanes.length}</span>
+        </div>
+        {#if presentedWorkLanes.length === 0}
+            <p class="text-xs text-slate-500">{$_('jobs.work_lanes_empty', { default: 'No queued or running work.' })}</p>
+        {:else}
+            <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {#each presentedWorkLanes as item (item.row.kind)}
+                    {@const presentation = item.presentation}
+                    <div class="py-3 first:pt-0 last:pb-0">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-sm font-black text-slate-900 dark:text-white">{presentation.title}</p>
+                                    <span class="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider {item.row.running > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}">
+                                        {presentation.stateLabel}
+                                    </span>
+                                </div>
+                                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                    <span>{presentation.runningLabel}</span>
+                                    <span>{presentation.queuedLabel}</span>
+                                    {#if presentation.capacityLabel}
+                                        <span>{presentation.capacityLabel}</span>
+                                    {/if}
+                                </div>
+                                {#if presentation.batchLabel || presentation.candidateLabel || presentation.blockerLabel}
+                                    <p class="mt-2 text-[10px] font-semibold {presentation.blockerLabel ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}">
+                                        {presentation.blockerLabel ?? presentation.batchLabel}
+                                        {#if presentation.candidateLabel && !presentation.blockerLabel}
+                                            · {presentation.candidateLabel}
+                                        {/if}
+                                    </p>
+                                {/if}
+                            </div>
+                            {#if presentation.freshnessLabel}
+                                <p class="text-[10px] font-semibold text-slate-400">{presentation.freshnessLabel}</p>
+                            {/if}
+                        </div>
+                    </div>
+                {/each}
             </div>
         {/if}
     </section>

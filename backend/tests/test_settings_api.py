@@ -147,6 +147,9 @@ async def test_analysis_status_is_not_cacheable(client: httpx.AsyncClient):
     assert response.status_code == 200, response.text
     assert response.headers.get("Cache-Control") == "no-store, max-age=0"
     assert response.headers.get("Pragma") == "no-cache"
+    payload = response.json()
+    assert payload["queue_limit"] == settings_router.BATCH_ANALYSIS_MAX_QUEUE_PER_RUN
+    assert payload["scan_limit"] == settings_router.BATCH_ANALYSIS_MAX_SCAN_PER_RUN
 
 
 @pytest.mark.asyncio

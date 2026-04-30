@@ -30,6 +30,18 @@ export interface PresentedPipelineKindRow {
     queueCapacityLabel: string | null;
 }
 
+export interface PresentedWorkLane {
+    title: string;
+    stateLabel: string;
+    runningLabel: string;
+    queuedLabel: string;
+    capacityLabel: string | null;
+    blockerLabel: string | null;
+    batchLabel: string | null;
+    candidateLabel: string | null;
+    freshnessLabel: string | null;
+}
+
 export interface PresentedGlobalProgressSummary {
     headline: string;
     subline: string;
@@ -37,6 +49,9 @@ export interface PresentedGlobalProgressSummary {
     determinate: boolean;
     percent: number | null;
 }
+
+const DEFAULT_ANALYZE_UNKNOWN_BATCH_LIMIT = 50;
+const DEFAULT_ANALYZE_UNKNOWN_SCAN_LIMIT = 200;
 
 function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
     if (count === 1) {
@@ -170,6 +185,94 @@ function resolveCapacityLabel(row: JobPipelineKindRow | null, t: JobsTranslateFn
     return null;
 }
 
+function resolveLaneCapacity(row: JobPipelineKindRow | null, t: JobsTranslateFn): string | null {
+    if (!row) return null;
+    const running = normalizeCount(row.running);
+    const effective = normalizeCount(row.maxConcurrentEffective);
+    const configured = normalizeCount(row.maxConcurrentConfigured);
+    const capacity = effective > 0 ? effective : configured;
+    if (capacity > 0) {
+        return t('jobs.capacity_worker_slots', {
+            running: running.toLocaleString(),
+            capacity: capacity.toLocaleString()
+        }, '{running} of {capacity} worker slots busy');
+    }
+    return null;
+}
+
+function resolveLaneTitle(row: JobPipelineKindRow, t: JobsTranslateFn, kindLabel: (kind: string) => string): string {
+    if (supportsReclassifyQueueStatus(row.kind)) {
+        return t('jobs.work_lane_analyze_unknowns', undefined, 'Analyze Unknowns');
+    }
+    return kindLabel(row.kind);
+}
+
+function resolveBatchLabel(analysisStatus: AnalysisStatus | null | undefined, t: JobsTranslateFn): string {
+    const queueLimit = normalizeCount(analysisStatus?.queue_limit) || DEFAULT_ANALYZE_UNKNOWN_BATCH_LIMIT;
+    const scanLimit = normalizeCount(analysisStatus?.scan_limit) || DEFAULT_ANALYZE_UNKNOWN_SCAN_LIMIT;
+    return t('jobs.analyze_unknowns_batch_label', {
+        queueLimit: queueLimit.toLocaleString(),
+        scanLimit: scanLimit.toLocaleString()
+    }, 'Batching up to {queueLimit} at a time; newest {scanLimit} scanned');
+}
+
+function resolveCandidateLabel(analysisStatus: AnalysisStatus | null | undefined, t: JobsTranslateFn): string | null {
+    const remaining = normalizeCount(analysisStatus?.remaining_candidates);
+    if (remaining > 0) {
+        return t('jobs.analyze_unknowns_candidates_remain', {
+            count: remaining.toLocaleString()
+        }, '{count} more candidates may remain');
+    }
+    if (analysisStatus?.scan_truncated) {
+        return t('jobs.analyze_unknowns_scan_truncated', undefined, 'More candidates may remain');
+    }
+    return null;
+}
+
+function resolveLaneStateLabel(
+    row: JobPipelineKindRow,
+    analysisStatus: AnalysisStatus | null | undefined,
+    t: JobsTranslateFn
+): string {
+    if (supportsReclassifyQueueStatus(row.kind) && analysisStatus?.circuit_open) {
+        return t('jobs.state_paused', undefined, 'Paused');
+    }
+    if (row.running > 0) {
+        return t('jobs.state_running', undefined, 'Running');
+    }
+    if (normalizeCount(row.queued) > 0 || !row.queueDepthKnown) {
+        return t('jobs.state_queued', undefined, 'Queued');
+    }
+    return t('jobs.state_idle', undefined, 'Idle');
+}
+
+function formatLaneCounts(row: JobPipelineKindRow, t: JobsTranslateFn): { runningLabel: string; queuedLabel: string } {
+    const running = normalizeCount(row.running);
+    const queued = normalizeCount(row.queued);
+    return {
+        runningLabel: t('jobs.lane_running_count', { count: running.toLocaleString() }, '{count} running'),
+        queuedLabel: row.queueDepthKnown
+            ? t('jobs.lane_queued_count', { count: queued.toLocaleString() }, '{count} queued')
+            : t('jobs.queue_depth_unknown', undefined, 'Queue depth not reported')
+    };
+}
+
+function formatLaneSummarySubline(row: JobPipelineKindRow, t: JobsTranslateFn): string {
+    const counts = formatLaneCounts(row, t);
+    const capacity = normalizeCount(row.maxConcurrentEffective) || normalizeCount(row.maxConcurrentConfigured);
+    const capacityLabel = capacity > 0
+        ? t('jobs.global_capacity_ratio', {
+            running: normalizeCount(row.running).toLocaleString(),
+            capacity: capacity.toLocaleString()
+        }, 'capacity {running} / {capacity}')
+        : null;
+    return [
+        counts.runningLabel,
+        counts.queuedLabel,
+        capacityLabel
+    ].filter((value): value is string => Boolean(value)).join(' • ');
+}
+
 function resolveBlockerLabel(
     row: JobPipelineKindRow | null,
     analysisStatus: AnalysisStatus | null | undefined,
@@ -248,6 +351,32 @@ export function presentPipelineKindRow(
     };
 }
 
+export function presentWorkLane(
+    row: JobPipelineKindRow,
+    analysisStatus: AnalysisStatus | null | undefined,
+    nowTs: number,
+    t: JobsTranslateFn,
+    kindLabel: (kind: string) => string
+): PresentedWorkLane {
+    const queueStatusApplies = supportsReclassifyQueueStatus(row.kind);
+    const counts = formatLaneCounts(row, t);
+    const age = row.queueUpdatedAt !== null
+        ? formatAge(Math.max(0, nowTs - row.queueUpdatedAt))
+        : null;
+
+    return {
+        title: resolveLaneTitle(row, t, kindLabel),
+        stateLabel: resolveLaneStateLabel(row, analysisStatus, t),
+        runningLabel: counts.runningLabel,
+        queuedLabel: counts.queuedLabel,
+        capacityLabel: resolveLaneCapacity(row, t),
+        blockerLabel: resolveBlockerLabel(row, analysisStatus, t),
+        batchLabel: queueStatusApplies ? resolveBatchLabel(analysisStatus, t) : null,
+        candidateLabel: queueStatusApplies ? resolveCandidateLabel(analysisStatus, t) : null,
+        freshnessLabel: age ? t('jobs.queue_updated_age', { age }, 'Queue updated {age} ago') : null
+    };
+}
+
 export function buildGlobalProgressSummary(
     activeJobs: JobProgressItem[],
     rowsByKind: Map<string, JobPipelineKindRow>,
@@ -257,6 +386,24 @@ export function buildGlobalProgressSummary(
     kindLabel: (kind: string) => string
 ): PresentedGlobalProgressSummary {
     if (activeJobs.length === 0) {
+        const dominantRow = [...rowsByKind.values()].sort((a, b) => {
+            const diff = rankRow(b) - rankRow(a);
+            if (diff !== 0) return diff;
+            return a.kind.localeCompare(b.kind);
+        })[0];
+        if (dominantRow) {
+            const lane = presentWorkLane(dominantRow, analysisStatus, _nowTs, t, kindLabel);
+            return {
+                headline: t('jobs.global_queue_only_headline', {
+                    title: lane.title,
+                    state: lowercaseLeadingChar(lane.stateLabel)
+                }, '{title} {state}'),
+                subline: formatLaneSummarySubline(dominantRow, t),
+                progressLabel: lane.blockerLabel ?? lane.batchLabel ?? lane.freshnessLabel ?? t('jobs.progress_working', undefined, 'Working...'),
+                determinate: false,
+                percent: null
+            };
+        }
         return {
             headline: formatRunningHeadline(0, t),
             subline: t('jobs.activity_processing', undefined, 'Processing work'),
@@ -295,7 +442,7 @@ export function buildGlobalProgressSummary(
 
     return {
         headline: formatRunningHeadline(activeJobs.length, t),
-        subline: resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
+        subline: dominantRow ? formatLaneSummarySubline(dominantRow, t) : resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
         progressLabel,
         determinate: compatible,
         percent

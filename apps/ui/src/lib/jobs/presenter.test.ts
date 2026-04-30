@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
-import { buildGlobalProgressSummary, presentActiveJob, presentJobKindIcon, presentPipelineKindRow } from './presenter';
+import { buildGlobalProgressSummary, presentActiveJob, presentJobKindIcon, presentPipelineKindRow, presentWorkLane } from './presenter';
 
 function renderTemplate(template: string, values: Record<string, unknown> = {}): string {
     return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
@@ -143,6 +143,36 @@ describe('jobs presenter', () => {
         expect(presented.queueCapacityLabel).toBe('188 of 200 queue slots free');
     });
 
+    it('presents analyze unknowns as a clear work lane with batch and scan limits', () => {
+        const analysisStatus: AnalysisStatus = {
+            pending: 18,
+            active: 2,
+            circuit_open: false,
+            max_concurrent_configured: 4,
+            max_concurrent_effective: 2,
+            queue_limit: 50,
+            scan_limit: 200,
+            remaining_candidates: 132,
+            scan_truncated: true
+        };
+
+        const presented = presentWorkLane(
+            makeRow({ queued: 18, running: 2, maxConcurrentConfigured: 4, maxConcurrentEffective: 2 }),
+            analysisStatus,
+            125_000,
+            t,
+            (kind) => kind === 'reclassify' ? 'Reclassification' : kind
+        );
+
+        expect(presented.title).toBe('Analyze Unknowns');
+        expect(presented.stateLabel).toBe('Running');
+        expect(presented.runningLabel).toBe('2 running');
+        expect(presented.queuedLabel).toBe('18 queued');
+        expect(presented.capacityLabel).toBe('2 of 2 worker slots busy');
+        expect(presented.batchLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
+        expect(presented.candidateLabel).toBe('132 more candidates may remain');
+    });
+
     it('does not leak reclassify circuit and queue telemetry into unrelated job rows', () => {
         const analysisStatus: AnalysisStatus = {
             pending: 12,
@@ -205,9 +235,33 @@ describe('jobs presenter', () => {
         );
 
         expect(summary.headline).toBe('2 jobs running');
-        expect(summary.subline).toBe('Reclassification analyzing clips');
+        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
         expect(summary.determinate).toBe(false);
         expect(summary.progressLabel).toBe('Multiple jobs in progress');
+    });
+
+    it('shows queue-only analyze unknowns work in the global banner', () => {
+        const summary = buildGlobalProgressSummary(
+            [],
+            new Map([
+                ['reclassify', makeRow({ queued: 18, running: 0, maxConcurrentConfigured: 2, maxConcurrentEffective: 2 })]
+            ]),
+            {
+                pending: 18,
+                active: 0,
+                circuit_open: false,
+                queue_limit: 50,
+                scan_limit: 200
+            },
+            125_000,
+            t,
+            (kind) => kind === 'reclassify' ? 'Reclassification' : kind
+        );
+
+        expect(summary.headline).toBe('Analyze Unknowns queued');
+        expect(summary.subline).toBe('0 running • 18 queued • capacity 0 / 2');
+        expect(summary.progressLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
+        expect(summary.determinate).toBe(false);
     });
 
     it('chooses the highest-pressure job family for the banner summary, not just the newest update', () => {
@@ -230,7 +284,7 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.subline).toBe('Reclassification analyzing clips');
+        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
     });
 
 

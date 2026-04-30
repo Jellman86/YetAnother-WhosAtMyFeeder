@@ -1943,7 +1943,11 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
     """Get status of auto video classification queue. Owner only."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
-    return auto_video_classifier.get_status()
+    return {
+        **auto_video_classifier.get_status(),
+        "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+        "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+    }
 
 
 # =============================================================================
