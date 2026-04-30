@@ -37,6 +37,48 @@ def _unknowns(count: int):
 
 
 @pytest.mark.asyncio
+async def test_run_analyze_unknowns_limits_candidate_scan_window(monkeypatch):
+    from app.routers import settings as settings_router
+
+    fake_coordinator = _FakeMaintenanceCoordinator()
+    captured: dict[str, int | None] = {}
+
+    class _FakeRepo:
+        def __init__(self, db):
+            pass
+
+        async def get_unknown_detections(self, *, limit=None):
+            captured["limit"] = limit
+            return _unknowns(3)
+
+        async def update_video_status(self, frigate_event, status, error=None):
+            raise AssertionError("all fixture detections should be eligible")
+
+    async def _get_config():
+        return {}
+
+    async def _get_event_with_error(event_id, timeout):
+        return ({"has_clip": True}, None)
+
+    async def _queue_classification(event_id, camera, **kwargs):
+        return "queued"
+
+    monkeypatch.setattr(settings_router, "get_db", lambda: _FakeDbContext())
+    monkeypatch.setattr(settings_router, "DetectionRepository", _FakeRepo)
+    monkeypatch.setattr(settings_router, "maintenance_coordinator", fake_coordinator)
+    monkeypatch.setattr(settings_router, "_maintenance_guardrail_status", lambda: {"pending_maintenance": 0, "active_maintenance": 0})
+    monkeypatch.setattr(settings_router.frigate_client, "get_config", _get_config)
+    monkeypatch.setattr(settings_router.frigate_client, "get_event_with_error", _get_event_with_error)
+    monkeypatch.setattr(settings_router.auto_video_classifier, "queue_classification", _queue_classification)
+
+    result = await settings_router._run_analyze_unknowns()
+
+    assert captured["limit"] == 200
+    assert result["scan_limit"] == 200
+    assert result["scan_truncated"] is False
+
+
+@pytest.mark.asyncio
 async def test_run_analyze_unknowns_caps_queued_maintenance_jobs_per_run(monkeypatch):
     from app.routers import settings as settings_router
 
@@ -47,7 +89,7 @@ async def test_run_analyze_unknowns_caps_queued_maintenance_jobs_per_run(monkeyp
         def __init__(self, db):
             pass
 
-        async def get_unknown_detections(self):
+        async def get_unknown_detections(self, *, limit=None):
             return _unknowns(60)
 
         async def update_video_status(self, frigate_event, status, error=None):

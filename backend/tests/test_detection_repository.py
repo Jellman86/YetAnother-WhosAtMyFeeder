@@ -164,6 +164,32 @@ async def test_mark_and_clear_frigate_missing_state():
 
 
 @pytest.mark.asyncio
+async def test_get_unknown_detections_returns_newest_first_with_limit():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        base = datetime(2026, 4, 29, 12, 0, 0)
+        for index in range(5):
+            await repo.create(
+                Detection(
+                    detection_time=base + timedelta(minutes=index),
+                    detection_index=index,
+                    score=0.4,
+                    display_name="Unknown Bird",
+                    category_name="Unknown Bird",
+                    frigate_event=f"unknown-{index}",
+                    camera_name="cam_1",
+                )
+            )
+
+        detections = await repo.get_unknown_detections(limit=3)
+
+        assert [d.frigate_event for d in detections] == ["unknown-4", "unknown-3", "unknown-2"]
+
+
+@pytest.mark.asyncio
 async def test_species_rollup_metrics():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

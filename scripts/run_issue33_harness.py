@@ -211,6 +211,7 @@ def _apply_stress_profile(
             "min_backfill_processed": 3,
             "min_analysis_total_candidates": 1,
             "max_analysis_accepted": 50,
+            "max_video_pending": 50,
             "max_pressure_level": "critical",
             "max_degraded_ratio": 0.75,
             "min_samples": 60,

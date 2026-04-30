@@ -48,6 +48,7 @@ log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_MAX_QUEUE_PER_RUN = 50
+BATCH_ANALYSIS_MAX_SCAN_PER_RUN = 200
 BATCH_ANALYSIS_RETRY_AFTER_SECONDS = 120
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 
@@ -1709,6 +1710,8 @@ async def _run_analyze_unknowns() -> dict:
             "total_candidates": 0,
             "remaining_candidates": 0,
             "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+            "scan_truncated": False,
             "pending_maintenance": pending_maintenance,
             "active_maintenance": active_maintenance,
             "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
@@ -1733,6 +1736,8 @@ async def _run_analyze_unknowns() -> dict:
             "total_candidates": 0,
             "remaining_candidates": 0,
             "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+            "scan_truncated": False,
             "pending_maintenance": pending_maintenance,
             "active_maintenance": active_maintenance,
             "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
@@ -1750,12 +1755,15 @@ async def _run_analyze_unknowns() -> dict:
     try:
         async with get_db() as db:
             repo = DetectionRepository(db)
-            unknowns = await repo.get_unknown_detections()
+            unknowns = await repo.get_unknown_detections(limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN)
             total_candidates = len(unknowns)
+            scan_truncated = total_candidates >= BATCH_ANALYSIS_MAX_SCAN_PER_RUN
             log.info(
                 "Batch analysis triggered",
                 total_unknowns=total_candidates,
                 queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+                scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+                scan_truncated=scan_truncated,
             )
 
             # Pre-check availability before queueing to avoid failure storms when
@@ -1853,7 +1861,8 @@ async def _run_analyze_unknowns() -> dict:
     remaining_candidates = max(0, total_candidates - processed_candidates)
     msg = (
         f"Queued {accepted} unknown detections for video analysis "
-        f"(batch limit {BATCH_ANALYSIS_MAX_QUEUE_PER_RUN}, remaining candidates {remaining_candidates}). "
+        f"(batch limit {BATCH_ANALYSIS_MAX_QUEUE_PER_RUN}, scanned {processed_candidates}/{total_candidates}, "
+        f"scan limit {BATCH_ANALYSIS_MAX_SCAN_PER_RUN}, remaining scanned candidates {remaining_candidates}). "
         f"Skipped duplicates: {skipped_duplicate}. "
         f"Queue full drops: {dropped_full}. "
         f"Skipped no clip: {skipped_no_clip}. "
@@ -1867,6 +1876,8 @@ async def _run_analyze_unknowns() -> dict:
         processed_candidates=processed_candidates,
         remaining_candidates=remaining_candidates,
         queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+        scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+        scan_truncated=scan_truncated,
         accepted=accepted,
         skipped_duplicate=skipped_duplicate,
         dropped_full=dropped_full,
@@ -1888,6 +1899,8 @@ async def _run_analyze_unknowns() -> dict:
         "total_candidates": total_candidates,
         "remaining_candidates": remaining_candidates,
         "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+        "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+        "scan_truncated": scan_truncated,
         "pending_maintenance": pending_maintenance,
         "active_maintenance": active_maintenance,
         "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS if remaining_candidates > 0 else 0,
@@ -1915,6 +1928,8 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
             "total_candidates": 0,
             "remaining_candidates": 0,
             "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+            "scan_truncated": False,
             "pending_maintenance": pending_maintenance,
             "active_maintenance": active_maintenance,
             "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,

@@ -1787,12 +1787,13 @@ class DetectionRepository:
             await self.db.commit()
             return count
 
-    async def get_unknown_detections(self) -> list[Detection]:
-        """Get unresolved detections labeled as 'Unknown Bird'."""
+    async def get_unknown_detections(self, *, limit: int | None = None) -> list[Detection]:
+        """Get unresolved detections labeled as 'Unknown Bird', newest first."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name="Unknown Bird",
         )
+        query_params = list(params)
         query = f"""
             SELECT {DETECTION_SELECT_COLUMNS}
             FROM detections d
@@ -1801,8 +1802,12 @@ class DetectionRepository:
             WHERE {species_condition}
               AND COALESCE(d.video_classification_status, '') NOT IN ('pending', 'processing')
               AND COALESCE(d.video_classification_error, '') NOT IN ('clip_not_retained', 'frigate_retention_expired')
+            ORDER BY d.detection_time DESC, d.id DESC
         """
-        async with self.db.execute(query, params) as cursor:
+        if limit is not None:
+            query += " LIMIT ?"
+            query_params.append(max(1, int(limit)))
+        async with self.db.execute(query, query_params) as cursor:
             rows = await cursor.fetchall()
             return [_row_to_detection(row) for row in rows]
 

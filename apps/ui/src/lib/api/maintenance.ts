@@ -66,6 +66,8 @@ export interface AnalyzeUnknownsResult {
     total_candidates?: number;
     remaining_candidates?: number;
     queue_limit?: number;
+    scan_limit?: number;
+    scan_truncated?: boolean;
     pending_maintenance?: number;
     active_maintenance?: number;
     retry_after_seconds?: number;

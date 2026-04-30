@@ -88,6 +88,7 @@ def test_apply_stress_profile_uses_fixture_replay_defaults():
     assert args.min_backfill_processed == 3
     assert args.min_analysis_total_candidates == 1
     assert args.max_analysis_accepted == 50
+    assert args.max_video_pending == 50
 
 
 def test_evaluate_fixture_replay_fails_when_analysis_accepts_too_many_jobs():
