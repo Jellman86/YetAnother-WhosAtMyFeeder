@@ -1186,6 +1186,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "Analyse de la détection",
+      "video_subtitle": "Analyse des images vidéo",
+      "snapshot_subtitle": "Utilisation du meilleur instantané disponible",
+      "finalizing": "Finalisation du résultat",
+      "finalizing_subtitle": "Application de la meilleure correspondance"
+    },
     "reclassification": {
       "analysis": "Analyse",
       "ai_analysis": "Analyse IA",

@@ -1194,6 +1194,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "Анализ обнаружения",
+      "video_subtitle": "Сканирование кадров видео",
+      "snapshot_subtitle": "Используется лучший доступный снимок",
+      "finalizing": "Завершение результата",
+      "finalizing_subtitle": "Применение лучшего совпадения"
+    },
     "reclassification": {
       "analysis": "Анализ",
       "ai_analysis": "ИИ Анализ",

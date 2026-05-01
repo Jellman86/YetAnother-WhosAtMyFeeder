@@ -1186,6 +1186,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "Erkennung analysieren",
+      "video_subtitle": "Videobilder werden gescannt",
+      "snapshot_subtitle": "Bestes verfügbares Standbild wird verwendet",
+      "finalizing": "Ergebnis wird abgeschlossen",
+      "finalizing_subtitle": "Beste Übereinstimmung wird angewendet"
+    },
     "reclassification": {
       "analysis": "Analyse",
       "ai_analysis": "KI-Analyse",

@@ -1186,6 +1186,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "Analizando detección",
+      "video_subtitle": "Escaneando fotogramas del video",
+      "snapshot_subtitle": "Usando la mejor instantánea disponible",
+      "finalizing": "Finalizando resultado",
+      "finalizing_subtitle": "Aplicando la mejor coincidencia"
+    },
     "reclassification": {
       "analysis": "Análisis",
       "ai_analysis": "Análisis de IA",

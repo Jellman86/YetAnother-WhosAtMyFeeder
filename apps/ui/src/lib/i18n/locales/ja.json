@@ -1186,6 +1186,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "検出を解析中",
+      "video_subtitle": "動画フレームをスキャン中",
+      "snapshot_subtitle": "利用可能な最良のスナップショットを使用中",
+      "finalizing": "結果を確定中",
+      "finalizing_subtitle": "最適な一致を適用中"
+    },
     "reclassification": {
       "analysis": "解析",
       "ai_analysis": "AI解析",

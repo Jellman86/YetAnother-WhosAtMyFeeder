@@ -1186,6 +1186,13 @@
         }
       }
     },
+    "card_analysis": {
+      "title": "正在分析检测",
+      "video_subtitle": "正在扫描视频帧",
+      "snapshot_subtitle": "正在使用最佳可用快照",
+      "finalizing": "正在完成结果",
+      "finalizing_subtitle": "正在应用最佳匹配"
+    },
     "reclassification": {
       "analysis": "分析",
       "ai_analysis": "AI 分析",
