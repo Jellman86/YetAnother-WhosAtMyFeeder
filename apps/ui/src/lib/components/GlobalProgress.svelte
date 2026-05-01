@@ -2,11 +2,11 @@
     import { onMount } from 'svelte';
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
-    import { jobProgressStore, type JobProgressItem } from '../stores/job_progress.svelte';
+    import { jobProgressStore } from '../stores/job_progress.svelte';
     import { getNotificationsTabPathForAccess } from '../app/notifications_route';
     import { authStore } from '../stores/auth.svelte';
     import { buildJobsPipelineModel } from '../jobs/pipeline';
-    import { buildGlobalProgressSummary, presentActiveJob, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
+    import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
@@ -40,11 +40,6 @@
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, [], queueByKind));
     let rowsByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
-    let visibleJobs = $derived(activeJobs);
-    let detailJobs = $derived(visibleJobs.slice(0, detailLimit).map((job) => ({
-        job,
-        presentation: presentActiveJob(job, rowsByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)
-    })));
     let detailLanes = $derived(pipeline.kinds.slice(0, detailLimit).map((row) => ({
         row,
         presentation: presentWorkLane(row, analysisStatus, nowTs, t, kindLabel)
@@ -159,34 +154,13 @@
                                 {/if}
                             </div>
                         {/each}
-                        {#each detailJobs as item (item.job.id)}
-                            {@const job = item.job}
-                            {@const presentation = item.presentation}
-                            <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
-                                <div class="flex items-center justify-between gap-2">
-                                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{job.title}</p>
-                                    <span class="text-[9px] font-bold uppercase tracking-widest {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
-                                        {job.status}
-                                    </span>
-                                </div>
-                                <p class="mt-1 text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{presentation.activityLabel}</p>
-                                <p class="mt-1 text-[9px] font-semibold text-slate-400 dark:text-slate-400 truncate">
-                                    {presentation.progressLabel} · {presentation.freshnessLabel}
-                                </p>
-                                {#if presentation.detailLabel && !presentation.isStale}
-                                    <p class="mt-1 text-[9px] font-semibold text-amber-600 dark:text-amber-300 truncate">
-                                        {presentation.detailLabel}
-                                    </p>
-                                {/if}
-                            </div>
-                        {/each}
-                        {#if visibleJobs.length > detailLimit}
+                        {#if pipeline.kinds.length > detailLimit}
                             <button
                                 type="button"
                                 class="text-left text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline"
                                 onclick={openJobsPage}
                             >
-                                {$_('jobs.more', { values: { count: visibleJobs.length - detailLimit }, default: '+{count} more jobs' })}
+                                {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count} more work lanes' })}
                             </button>
                         {/if}
                     </div>

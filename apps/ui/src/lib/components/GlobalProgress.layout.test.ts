@@ -31,6 +31,8 @@ describe('Global progress layout', () => {
         expect(bannerSource).toContain('{#each detailLanes as item (item.row.kind)}');
         expect(bannerSource).toContain('presentation.runningLabel');
         expect(bannerSource).toContain('presentation.queuedLabel');
+        expect(bannerSource).not.toContain('{#each detailJobs as item (item.job.id)}');
+        expect(bannerSource).not.toContain('presentActiveJob');
     });
 
     it('removes desktop header route tabs and the appearance layout picker', () => {
