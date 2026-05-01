@@ -13,7 +13,12 @@
         small?: boolean;
     }>();
 
-    let latestFrame = $derived(progress.frameResults[progress.frameResults.length - 1]);
+    type FrameResult = ReclassificationProgress['frameResults'][number];
+    function hasFrameResult(frame: FrameResult | undefined): frame is FrameResult {
+        return Boolean(frame);
+    }
+
+    let latestFrame = $derived(progress.frameResults.findLast(hasFrameResult));
     let finalTopResult = $derived(
         Array.isArray(progress.results) && progress.results.length > 0 ? progress.results[0] : null
     );

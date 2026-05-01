@@ -16,6 +16,11 @@
         showFooter?: boolean;
     } = $props();
 
+    type FrameResult = ReclassificationProgress['frameResults'][number];
+    function hasFrameResult(frame: FrameResult | undefined): frame is FrameResult {
+        return Boolean(frame);
+    }
+
     let safeCurrentFrame = $derived(
         Number.isFinite(progress.currentFrame) ? Math.max(0, Math.floor(progress.currentFrame)) : 0
     );
@@ -24,7 +29,7 @@
     );
     let isComplete = $derived(progress.status === 'completed' || safeCurrentFrame >= safeTotalFrames);
     let progressPercent = $derived(Math.max(2, Math.min(100, Math.round((safeCurrentFrame / safeTotalFrames) * 100))));
-    let latestFrame = $derived(progress.frameResults[progress.frameResults.length - 1]);
+    let latestFrame = $derived(progress.frameResults.findLast(hasFrameResult));
     let latestLabel = $derived(latestFrame?.label ?? null);
     let latestScore = $derived(
         typeof latestFrame?.score === 'number' ? Math.round(latestFrame.score * 100) : null

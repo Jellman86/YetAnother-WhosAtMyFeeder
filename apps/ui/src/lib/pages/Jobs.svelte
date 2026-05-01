@@ -47,10 +47,14 @@
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
     const t: JobsTranslateFn = (key, values, fallback) => $_(key, { values, default: fallback });
-    let presentedWorkLanes = $derived(pipeline.kinds.map((row) => ({
-        row,
-        presentation: presentWorkLane(row, analysisStatus, nowTs, t, kindLabel)
-    })));
+    let presentedWorkLanes = $derived(
+        pipeline.kinds
+            .filter((row) => row.running > 0 || row.stale > 0 || (row.queued ?? 0) > 0)
+            .map((row) => ({
+                row,
+                presentation: presentWorkLane(row, analysisStatus, nowTs, t, kindLabel)
+            }))
+    );
     let circuitOpen = $derived(Boolean(analysisStatus?.circuit_open));
     let circuitOpenUntil = $derived(analysisStatus?.open_until ?? null);
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));

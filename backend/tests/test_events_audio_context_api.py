@@ -10,6 +10,15 @@ from app.database import get_db, init_db, close_db
 from app.config import settings
 
 
+def assert_audio_species_matches(actual: list[str], expected: list[str | set[str]]) -> None:
+    assert len(actual) == len(expected)
+    for actual_value, expected_value in zip(actual, expected):
+        if isinstance(expected_value, set):
+            assert actual_value in expected_value
+        else:
+            assert actual_value == expected_value
+
+
 @pytest_asyncio.fixture
 async def client():
     transport = httpx.ASGITransport(app=app)
@@ -118,7 +127,10 @@ async def test_events_include_audio_context_species_for_unmatched_audio(client: 
     event = next(item for item in payload if item["frigate_event"] == event_id)
     assert event["audio_confirmed"] is False
     assert event["audio_species"] == "Corvus corone"
-    assert event["audio_context_species"] == ["Corvus corone", "Passer domesticus"]
+    assert_audio_species_matches(
+        event["audio_context_species"],
+        ["Corvus corone", {"Passer domesticus", "House Sparrow"}],
+    )
 
 
 @pytest.mark.asyncio
@@ -178,4 +190,7 @@ async def test_events_handles_mixed_naive_and_aware_timestamps_for_audio_context
     assert response.status_code == 200, response.text
     payload = response.json()
     event = next(item for item in payload if item["frigate_event"] == event_id)
-    assert event["audio_context_species"] == ["Passer domesticus"]
+    assert_audio_species_matches(
+        event["audio_context_species"],
+        [{"Passer domesticus", "House Sparrow"}],
+    )

@@ -6,6 +6,7 @@ describe('jobs page active work semantics', () => {
     it('puts work lanes before individual job cards for queue clarity', () => {
         expect(jobsPageSource).toContain('presentWorkLane');
         expect(jobsPageSource).toContain('let presentedWorkLanes = $derived');
+        expect(jobsPageSource).toContain('.filter((row) => row.running > 0 || row.stale > 0 || (row.queued ?? 0) > 0)');
         expect(jobsPageSource).toContain("jobs.work_lanes', { default: 'Work Lanes' }");
         expect(jobsPageSource).toContain('{#each presentedWorkLanes as item (item.row.kind)}');
         expect(jobsPageSource).toContain('presentation.runningLabel');

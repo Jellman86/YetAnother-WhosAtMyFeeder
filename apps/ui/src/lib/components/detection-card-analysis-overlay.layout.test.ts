@@ -12,6 +12,7 @@ describe('DetectionCardAnalysisOverlay layout', () => {
         expect(overlaySource).toContain("card-analysis-close-indicator");
         expect(overlaySource).toContain("card-analysis-close-ring");
         expect(overlaySource).not.toContain("default: 'Closing soon'");
+        expect(overlaySource).toContain('progress.frameResults.findLast(hasFrameResult)');
         expect(overlaySource).toContain("text-base font-black leading-none");
         expect(overlaySource).toContain("rounded-xl border border-white/10 bg-black/18 p-2.5");
         expect(overlaySource).not.toContain("text-lg font-black leading-none");

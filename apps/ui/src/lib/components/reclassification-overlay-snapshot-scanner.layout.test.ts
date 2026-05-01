@@ -9,6 +9,7 @@ describe('ReclassificationOverlay snapshot analysis presentation', () => {
         expect(overlaySource).toContain('<SnapshotAnalysisScanner');
         expect(overlaySource).toContain('{:else}');
         expect(overlaySource).toContain('<VideoAnalysisFilmReel');
+        expect(overlaySource).toContain('progress.frameResults.findLast(hasFrameResult)');
     });
 
     it('renders a scanning sweep over the current snapshot image', () => {
@@ -16,5 +17,6 @@ describe('ReclassificationOverlay snapshot analysis presentation', () => {
         expect(scannerSource).toContain('snapshot-analysis-sweep');
         expect(scannerSource).toContain("detection.reclassification.snapshot_scanning");
         expect(scannerSource).toContain('motion-reduce:animate-none');
+        expect(scannerSource).toContain('progress.frameResults.findLast(hasFrameResult)');
     });
 });
