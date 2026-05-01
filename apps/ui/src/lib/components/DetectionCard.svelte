@@ -5,7 +5,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import ReclassificationOverlay from './ReclassificationOverlay.svelte';
+    import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte';
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -208,7 +208,7 @@
     <!-- Reclassification Overlay -->
     {#if analysisActive && reclassifyProgress}
         <div class="absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden">
-            <ReclassificationOverlay progress={reclassifyProgress} small={true} />
+            <DetectionCardAnalysisOverlay progress={reclassifyProgress} />
         </div>
     {/if}
 

@@ -57,6 +57,10 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30");
         expect(detectionCardSource).toContain('{#if analysisActive && reclassifyProgress}');
         expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden');
+        expect(detectionCardSource).toContain("import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte'");
+        expect(detectionCardSource).toContain('<DetectionCardAnalysisOverlay progress={reclassifyProgress} />');
+        expect(detectionCardSource).not.toContain("import ReclassificationOverlay from './ReclassificationOverlay.svelte'");
+        expect(detectionCardSource).not.toContain('<ReclassificationOverlay');
         expect(detectionCardSource).toContain('{#if !analysisActive}');
         expect(detectionCardSource).toContain('{#if (onReclassify || onRetag) && !analysisActive}');
         expect(detectionCardSource).toContain('{#if selectionMode && selected && !analysisActive}');
