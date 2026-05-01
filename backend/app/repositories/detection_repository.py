@@ -159,6 +159,7 @@ def _extract_audio_mapping_keys(sensor_id: str | None, raw_data: str | None) -> 
     source = source if isinstance(source, dict) else {}
     for candidate in (
         payload.get("nm"),
+        payload.get("sourceName"),
         source.get("displayName"),
         payload.get("src"),
         payload.get("sourceId"),

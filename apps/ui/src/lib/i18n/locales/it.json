@@ -242,7 +242,10 @@
         "source_discovery_loading": "Caricamento nomi sorgenti recenti...",
         "source_discovery_empty": "Nessun nome sorgente BirdNET rilevato ancora. Attendere i rilevamenti audio, poi ricaricare le impostazioni.",
         "source_discovery_error": "Impossibile caricare i nomi sorgente BirdNET recenti.",
-        "source_discovery_help": "Usare questi nomi sorgente rilevati nei campi di mappatura sopra. I nomi sono più stabili degli ID dinamici tra i riavvii di BirdNET-Go."
+        "source_discovery_help": "Usare questi nomi sorgente rilevati nei campi di mappatura sopra. I nomi sono più stabili degli ID dinamici tra i riavvii di BirdNET-Go.",
+        "source_discovery_mapping_value": "Valore mappatura",
+        "source_discovery_sample_id": "ID esempio",
+        "source_discovery_seen": "Visto"
       },
       "inaturalist": {
         "title": "iNaturalist",

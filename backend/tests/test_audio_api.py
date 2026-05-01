@@ -89,6 +89,7 @@ async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.
     assert [item["source_name"] for item in payload] == ["BirdCam", "Garden Mic"]
 
     birdcam = payload[0]
+    assert birdcam["mapping_value"] == "BirdCam"
     assert birdcam["sample_source_id"] == "rtsp_new"
     assert birdcam["seen_count"] == 2
     assert birdcam["last_seen"].startswith(now.strftime("%Y-%m-%d"))
@@ -124,6 +125,41 @@ async def test_audio_sources_falls_back_to_source_id_when_name_missing(client: h
 
     assert len(payload) == 1
     assert payload[0]["source_name"] == "rtsp_livepayload"
+    assert payload[0]["mapping_value"] == "rtsp_livepayload"
+    assert payload[0]["sample_source_id"] == "rtsp_livepayload"
+
+
+@pytest.mark.asyncio
+async def test_audio_sources_uses_birdnet_source_name(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc)
+    row = (
+        now.isoformat(sep=" "),
+        "House Sparrow",
+        0.91,
+        "rtsp_livepayload",
+        json.dumps({"sourceName": "Patio Mic", "sourceId": "rtsp_livepayload"}),
+        "Passer domesticus",
+    )
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            row,
+        )
+        await db.commit()
+
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert len(payload) == 1
+    assert payload[0]["source_name"] == "Patio Mic"
+    assert payload[0]["mapping_value"] == "Patio Mic"
     assert payload[0]["sample_source_id"] == "rtsp_livepayload"
 
 
@@ -186,6 +222,45 @@ async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.
     assert "Dunnock" in species
     assert "Blue Tit" in species
     assert "Woodpigeon" not in species
+
+
+@pytest.mark.asyncio
+async def test_audio_context_matches_birdnet_source_name(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"front": "Patio Mic"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    row = (
+        target.isoformat(sep=" "),
+        "Dunnock",
+        0.81,
+        "rtsp_livepayload",
+        json.dumps({"sourceName": "Patio Mic", "sourceId": "rtsp_livepayload"}),
+        "Prunella modularis",
+    )
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            row,
+        )
+        await db.commit()
+
+    response = await client.get(
+        "/api/audio/context",
+        params={
+            "timestamp": target.isoformat(),
+            "camera": "front",
+            "window_seconds": 60,
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert [item["species"] for item in payload] == ["Dunnock"]
 
 
 @pytest.mark.asyncio

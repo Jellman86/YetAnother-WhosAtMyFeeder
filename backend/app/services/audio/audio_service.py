@@ -37,7 +37,7 @@ class AudioService:
         """Return the canonical BirdNET source key used for camera mapping.
 
         Hard switch semantics:
-        - Prefer stable source names (`nm`, `Source.displayName`)
+        - Prefer stable source names (`nm`, `sourceName`, `Source.displayName`)
         - Fall back to ID-style values for malformed/older payloads
         """
         source = data.get("Source")
@@ -45,6 +45,7 @@ class AudioService:
 
         candidates = (
             data.get("nm"),
+            data.get("sourceName"),
             source.get("displayName"),
             data.get("sourceId"),
             data.get("src"),
@@ -90,6 +91,7 @@ class AudioService:
         keys: set[str] = set()
         for candidate in (
             data.get("nm") if isinstance(data, dict) else None,
+            data.get("sourceName") if isinstance(data, dict) else None,
             source.get("displayName"),
             data.get("src") if isinstance(data, dict) else None,
             data.get("sourceId") if isinstance(data, dict) else None,

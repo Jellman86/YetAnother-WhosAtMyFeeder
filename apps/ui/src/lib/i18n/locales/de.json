@@ -381,7 +381,10 @@
         "source_discovery_loading": "Letzte Quellnamen werden geladen...",
         "source_discovery_empty": "Noch keine BirdNET-Quellnamen erkannt. Auf Audioerkennungen warten, dann Einstellungen neu laden.",
         "source_discovery_error": "Fehler beim Laden der letzten BirdNET-Quellnamen.",
-        "source_discovery_help": "Diese erkannten Quellnamen in den Zuordnungsfeldern oben verwenden. Namen sind stabiler als dynamische IDs bei BirdNET-Go-Neustarts."
+        "source_discovery_help": "Diese erkannten Quellnamen in den Zuordnungsfeldern oben verwenden. Namen sind stabiler als dynamische IDs bei BirdNET-Go-Neustarts.",
+        "source_discovery_mapping_value": "Zuordnungswert",
+        "source_discovery_sample_id": "Beispiel-ID",
+        "source_discovery_seen": "Gesehen"
       },
       "inaturalist": {
         "title": "iNaturalist",

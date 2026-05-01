@@ -58,7 +58,13 @@
         audioBufferHours: number;
         audioCorrelationWindowSeconds: number;
         cameraAudioMapping: Record<string, string>;
-        birdnetSourceOptions: Array<{ source_name: string; last_seen: string; sample_source_id?: string | null; seen_count?: number }>;
+        birdnetSourceOptions: Array<{
+            source_name: string;
+            mapping_value?: string;
+            last_seen: string;
+            sample_source_id?: string | null;
+            seen_count?: number;
+        }>;
         loadingBirdnetSources: boolean;
         birdnetSourcesError: string | null;
         availableCameras: string[];
@@ -261,7 +267,7 @@
                     {/each}
                     <datalist id="birdnet-source-options">
                         {#each birdnetSourceOptions as source}
-                            <option value={source.source_name}></option>
+                            <option value={source.mapping_value || source.source_name}></option>
                         {/each}
                     </datalist>
                     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/30 p-3">
@@ -282,8 +288,11 @@
                                         <div class="min-w-0">
                                             <div class="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{source.source_name}</div>
                                             <div class="text-[10px] text-slate-500 truncate">
-                                                {#if source.sample_source_id}ID: {source.sample_source_id}{/if}
-                                                {#if source.seen_count}{#if source.sample_source_id} · {/if}Seen: {source.seen_count}{/if}
+                                                {$_('settings.integrations.birdnet.source_discovery_mapping_value')}: {source.mapping_value || source.source_name}
+                                            </div>
+                                            <div class="text-[10px] text-slate-500 truncate">
+                                                {#if source.sample_source_id}{$_('settings.integrations.birdnet.source_discovery_sample_id')}: {source.sample_source_id}{/if}
+                                                {#if source.seen_count}{#if source.sample_source_id} · {/if}{$_('settings.integrations.birdnet.source_discovery_seen')}: {source.seen_count}{/if}
                                             </div>
                                         </div>
                                         <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">{source.last_seen}</div>

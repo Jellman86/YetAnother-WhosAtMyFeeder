@@ -234,7 +234,10 @@
         "source_discovery_loading": "最近のソース名を読み込み中...",
         "source_discovery_empty": "BirdNETソース名がまだ検出されていません。音声検出を待ってから設定を再読み込みしてください。",
         "source_discovery_error": "最近のBirdNETソース名の読み込みに失敗しました。",
-        "source_discovery_help": "これらの検出されたソース名を上のマッピングフィールドに使用してください。名前はBirdNET-Go再起動時の動的IDより安定しています。"
+        "source_discovery_help": "これらの検出されたソース名を上のマッピングフィールドに使用してください。名前はBirdNET-Go再起動時の動的IDより安定しています。",
+        "source_discovery_mapping_value": "マッピング値",
+        "source_discovery_sample_id": "サンプルID",
+        "source_discovery_seen": "検出数"
       },
       "inaturalist": {
         "title": "iNaturalist",

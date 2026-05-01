@@ -18,6 +18,7 @@ export interface AudioContextDetection extends AudioDetection {
 
 export interface AudioSourceOption {
     source_name: string;
+    mapping_value: string;
     last_seen: string;
     sample_source_id?: string | null;
     seen_count?: number;

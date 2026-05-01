@@ -234,7 +234,10 @@
         "source_discovery_loading": "正在加载最近的来源名称...",
         "source_discovery_empty": "尚未检测到BirdNET来源名称。等待音频检测后重新加载设置。",
         "source_discovery_error": "加载最近的BirdNET来源名称失败。",
-        "source_discovery_help": "在上方的映射字段中使用这些检测到的来源名称。名称比BirdNET-Go重启时的动态ID更稳定。"
+        "source_discovery_help": "在上方的映射字段中使用这些检测到的来源名称。名称比BirdNET-Go重启时的动态ID更稳定。",
+        "source_discovery_mapping_value": "映射值",
+        "source_discovery_sample_id": "示例ID",
+        "source_discovery_seen": "已见"
       },
       "inaturalist": {
         "title": "iNaturalist",

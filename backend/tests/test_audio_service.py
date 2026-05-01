@@ -89,6 +89,24 @@ async def test_add_detection_uses_source_display_name_when_nm_missing(audio_serv
 
 
 @pytest.mark.asyncio
+async def test_add_detection_uses_birdnet_source_name_when_nested_source_missing(audio_service):
+    now = datetime.now(timezone.utc)
+    ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+    data = {
+        "sourceName": "Patio Mic",
+        "sourceId": "rtsp_1234abcd",
+        "CommonName": "Dunnock",
+        "Confidence": 0.8,
+        "BeginTime": ts,
+    }
+    await audio_service.add_detection(data)
+
+    assert len(audio_service._buffer) == 1
+    det = audio_service._buffer[0]
+    assert det.sensor_id == "Patio Mic"
+
+
+@pytest.mark.asyncio
 async def test_add_detection_falls_back_to_id_when_name_fields_missing(audio_service):
     now = datetime.now(timezone.utc)
     ts = (now - timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
@@ -265,6 +283,26 @@ async def test_find_match_uses_legacy_source_id_from_raw_payload(audio_service):
         match = await audio_service.find_match(now, camera_name="cam1")
         assert match is not None
         assert match.species == "Legacy Bird"
+
+
+@pytest.mark.asyncio
+async def test_find_match_uses_source_name_from_raw_payload(audio_service):
+    now = datetime.now(timezone.utc)
+    det = AudioDetection(
+        timestamp=now,
+        species="Stable Source Bird",
+        confidence=0.9,
+        sensor_id="rtsp_1234abcd",
+        raw_data={"sourceName": "Patio Mic", "sourceId": "rtsp_1234abcd"}
+    )
+    audio_service._buffer.append(det)
+
+    with patch("app.services.audio.audio_service.settings") as mock_settings:
+        mock_settings.frigate.camera_audio_mapping = {"cam1": "Patio Mic"}
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        match = await audio_service.find_match(now, camera_name="cam1")
+        assert match is not None
+        assert match.species == "Stable Source Bird"
 
 
 @pytest.mark.asyncio

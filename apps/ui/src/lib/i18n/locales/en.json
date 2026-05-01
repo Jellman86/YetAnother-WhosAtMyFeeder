@@ -420,6 +420,9 @@
                 "source_discovery_error": "Failed to load recent BirdNET source names.",
                 "source_discovery_empty": "No BirdNET source names detected yet. Wait for audio detections, then reload Settings.",
                 "source_discovery_help": "Use these detected source names in the mapping fields above. Names are more stable than dynamic IDs across BirdNET-Go restarts.",
+                "source_discovery_mapping_value": "Mapping value",
+                "source_discovery_sample_id": "Sample ID",
+                "source_discovery_seen": "Seen",
                 "mqtt_topic_placeholder": "birdnet/text"
             },
             "inaturalist": {

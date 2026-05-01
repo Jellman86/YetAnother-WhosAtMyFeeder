@@ -242,7 +242,10 @@
         "source_discovery_loading": "Загрузка последних имён источников...",
         "source_discovery_empty": "Имена источников BirdNET ещё не обнаружены. Дождитесь аудиообнаружений, затем перезагрузите настройки.",
         "source_discovery_error": "Не удалось загрузить последние имена источников BirdNET.",
-        "source_discovery_help": "Используйте эти обнаруженные имена источников в полях сопоставления выше. Имена более стабильны, чем динамические ID при перезапусках BirdNET-Go."
+        "source_discovery_help": "Используйте эти обнаруженные имена источников в полях сопоставления выше. Имена более стабильны, чем динамические ID при перезапусках BirdNET-Go.",
+        "source_discovery_mapping_value": "Значение сопоставления",
+        "source_discovery_sample_id": "Пример ID",
+        "source_discovery_seen": "Встречено"
       },
       "inaturalist": {
         "title": "iNaturalist",

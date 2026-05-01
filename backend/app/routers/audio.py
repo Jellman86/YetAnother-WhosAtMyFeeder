@@ -21,6 +21,7 @@ log = structlog.get_logger()
 
 class AudioSourceResponse(BaseModel):
     source_name: str
+    mapping_value: str
     last_seen: str
     sample_source_id: str | None = None
     seen_count: int = 1
@@ -37,7 +38,12 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
                 source = payload.get("Source")
                 source = source if isinstance(source, dict) else {}
 
-                for candidate in (payload.get("nm"), source.get("displayName"), stored_sensor_id):
+                for candidate in (
+                    payload.get("nm"),
+                    payload.get("sourceName"),
+                    source.get("displayName"),
+                    stored_sensor_id,
+                ):
                     if isinstance(candidate, str) and candidate.strip():
                         source_name = candidate.strip()
                         break
@@ -163,6 +169,7 @@ async def get_audio_sources(
             ordered_keys.append(source_name)
             sources[source_name] = AudioSourceResponse(
                 source_name=source_name,
+                mapping_value=source_name,
                 last_seen=str(row.get("timestamp")),
                 sample_source_id=sample_source_id,
                 seen_count=1,
