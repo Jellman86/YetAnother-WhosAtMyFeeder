@@ -1202,7 +1202,8 @@
       "video_subtitle": "Сканирование кадров видео",
       "snapshot_subtitle": "Используется лучший доступный снимок",
       "finalizing": "Завершение результата",
-      "finalizing_subtitle": "Применение лучшего совпадения"
+      "finalizing_subtitle": "Применение лучшего совпадения",
+      "closing_soon": "Скоро закроется"
     },
     "reclassification": {
       "analysis": "Анализ",

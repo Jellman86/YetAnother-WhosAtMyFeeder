@@ -45,6 +45,7 @@
                 ? $_('detection.card_analysis.snapshot_subtitle', { default: 'Using the best available snapshot' })
                 : $_('detection.card_analysis.video_subtitle', { default: 'Scanning video frames' })
     );
+    let closeIndicatorLabel = $derived($_('detection.card_analysis.closing_soon'));
 </script>
 
 <div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-3xl border border-indigo-300/45 bg-white/88 p-4 text-slate-950 shadow-2xl backdrop-blur-md dark:border-indigo-300/35 dark:bg-slate-950/82 dark:text-white">
@@ -64,11 +65,27 @@
             </p>
         </div>
 
-        <div class="shrink-0 rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-sm dark:border-white/15 dark:bg-white/10">
-            <p class="text-base font-black leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
-            <p class="mt-0.5 text-[8px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-                {$_('detection.reclassification.analysis', { default: 'Analysis' })}
-            </p>
+        <div class="flex shrink-0 items-center gap-2">
+            {#if isComplete}
+                <div
+                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 shadow-sm dark:border-emerald-300/30 dark:bg-emerald-300/10 dark:text-emerald-200"
+                    role="img"
+                    aria-label={closeIndicatorLabel}
+                    title={closeIndicatorLabel}
+                >
+                    <svg class="card-analysis-close-ring h-5 w-5" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-width="2"></circle>
+                        <circle class="card-analysis-close-countdown" cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"></circle>
+                        <path d="M10 5.8v4.2l2.7 1.7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"></path>
+                    </svg>
+                </div>
+            {/if}
+            <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-sm dark:border-white/15 dark:bg-white/10">
+                <p class="text-base font-black leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
+                <p class="mt-0.5 text-[8px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                    {$_('detection.reclassification.analysis', { default: 'Analysis' })}
+                </p>
+            </div>
         </div>
     </div>
 
@@ -100,3 +117,28 @@
         </div>
     </div>
 </div>
+
+<style>
+    .card-analysis-close-ring {
+        transform: rotate(-90deg);
+    }
+
+    .card-analysis-close-countdown {
+        stroke-dasharray: 44;
+        stroke-dashoffset: 0;
+        animation: card-analysis-close-countdown 35s linear forwards;
+    }
+
+    @keyframes card-analysis-close-countdown {
+        to {
+            stroke-dashoffset: 44;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .card-analysis-close-countdown {
+            animation: none;
+            stroke-dashoffset: 22;
+        }
+    }
+</style>

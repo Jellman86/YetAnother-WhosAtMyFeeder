@@ -1228,7 +1228,8 @@
             "video_subtitle": "Scanning video frames",
             "snapshot_subtitle": "Using the best available snapshot",
             "finalizing": "Finalizing result",
-            "finalizing_subtitle": "Applying the best match"
+            "finalizing_subtitle": "Applying the best match",
+            "closing_soon": "Closing soon"
         },
         "reclassification": {
             "analysis": "Analysis",

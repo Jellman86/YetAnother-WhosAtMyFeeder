@@ -6,4 +6,10 @@ describe('DetectionModal video promotion gating', () => {
         expect(detectionModalSource).toContain("from '../video-promotion-gate'");
         expect(detectionModalSource).toContain('isVideoPromotionGated(detection)');
     });
+
+    it('hides the favorite action while video reclassification owns the modal', () => {
+        expect(detectionModalSource).toContain('let canShowFavoriteAction = $derived(');
+        expect(detectionModalSource).toContain('!reclassifyProgress');
+        expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
+    });
 });

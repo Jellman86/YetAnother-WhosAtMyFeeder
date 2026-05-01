@@ -569,6 +569,13 @@
         && !reclassifyProgress
         && hasSnapshotRepairWork
     );
+    let canShowFavoriteAction = $derived(
+        authStore.canModify
+        && !readOnly
+        && !snapshotRepairOpen
+        && !showMediaSlotVideoAnalysis
+        && !reclassifyProgress
+    );
     const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
     const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
@@ -2041,25 +2048,25 @@
                         </div>
                     {:else}
                         <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-cover" />
-    	                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-    	                {#if authStore.canModify && !readOnly && !snapshotRepairOpen}
-    	                    <button
-    	                        type="button"
-    	                        onclick={handleFavoriteToggle}
-    	                        disabled={favoritePending}
-    	                        class="absolute top-4 left-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
-    	                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-    	                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-    	                    >
-    	                        {#if favoritePending}
-    	                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-    	                        {:else}
-    	                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-    	                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-    	                            </svg>
-    	                        {/if}
-    	                    </button>
-    	                {/if}
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                        {#if canShowFavoriteAction}
+                            <button
+                                type="button"
+                                onclick={handleFavoriteToggle}
+                                disabled={favoritePending}
+                                class="absolute top-4 left-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                            >
+                                {#if favoritePending}
+                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                {:else}
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                                    </svg>
+                                {/if}
+                            </button>
+                        {/if}
                         {#if showSnapshotRepairAction && !snapshotRepairOpen}
                             <button
                                 type="button"

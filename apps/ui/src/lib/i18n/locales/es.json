@@ -1194,7 +1194,8 @@
       "video_subtitle": "Escaneando fotogramas del video",
       "snapshot_subtitle": "Usando la mejor instantánea disponible",
       "finalizing": "Finalizando resultado",
-      "finalizing_subtitle": "Aplicando la mejor coincidencia"
+      "finalizing_subtitle": "Aplicando la mejor coincidencia",
+      "closing_soon": "Se cerrará pronto"
     },
     "reclassification": {
       "analysis": "Análisis",

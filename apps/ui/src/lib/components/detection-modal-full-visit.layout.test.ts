@@ -71,7 +71,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
         expect(detectionModalSource).toContain('</div>\n        </div>\n\n        {#if snapshotRepairOpen}');
-        expect(detectionModalSource).toContain('{#if authStore.canModify && !readOnly && !snapshotRepairOpen}');
+        expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
         expect(detectionModalSource).toContain('{#if showSnapshotRepairAction && !snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if showFetchFullVisitAction && !snapshotRepairOpen}');

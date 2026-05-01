@@ -1194,7 +1194,8 @@
       "video_subtitle": "Analyse des images vidéo",
       "snapshot_subtitle": "Utilisation du meilleur instantané disponible",
       "finalizing": "Finalisation du résultat",
-      "finalizing_subtitle": "Application de la meilleure correspondance"
+      "finalizing_subtitle": "Application de la meilleure correspondance",
+      "closing_soon": "Fermeture imminente"
     },
     "reclassification": {
       "analysis": "Analyse",
