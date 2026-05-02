@@ -159,6 +159,56 @@
     }
 
     let locationToggle = $derived(locationTogglePresentation(locationAuto));
+    let birdnetMappingOptions = $derived.by(() => {
+        const seen = new Set<string>();
+        return birdnetSourceOptions
+            .flatMap((source) => {
+                const value = (source.mapping_value || source.source_name || '').trim();
+                if (!value) return [];
+                const key = value.toLocaleLowerCase();
+                if (seen.has(key)) return [];
+                seen.add(key);
+                return [{
+                    value,
+                    label: source.source_name && source.source_name !== value
+                        ? `${source.source_name} (${value})`
+                        : value,
+                    sampleSourceId: source.sample_source_id
+                }];
+            });
+    });
+
+    function mappingTokensFor(camera: string): string[] {
+        return (cameraAudioMapping[camera] || '')
+            .split(/[,\n;|]+/)
+            .map((token) => token.trim())
+            .filter(Boolean);
+    }
+
+    function setCameraAudioMapping(camera: string, tokens: string[]) {
+        cameraAudioMapping = {
+            ...cameraAudioMapping,
+            [camera]: tokens.join(', ')
+        };
+    }
+
+    function addCameraAudioSource(camera: string, value: string) {
+        const nextSource = value.trim();
+        if (!nextSource) return;
+
+        const existing = mappingTokensFor(camera);
+        const nextKey = nextSource.toLocaleLowerCase();
+        if (existing.some((token) => token.toLocaleLowerCase() === nextKey)) return;
+
+        setCameraAudioMapping(camera, [...existing, nextSource]);
+    }
+
+    function removeCameraAudioSourceToken(camera: string, index: number) {
+        setCameraAudioMapping(
+            camera,
+            mappingTokensFor(camera).filter((_, tokenIndex) => tokenIndex !== index)
+        );
+    }
 
     const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
     const buttonSecondaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -253,21 +303,60 @@
             >
                 <div class="space-y-2" role="group">
                     {#each availableCameras as camera}
-                        <div class="flex items-center gap-3">
-                            <span class="text-[10px] font-black text-slate-400 w-24 truncate uppercase">{camera}</span>
-                            <input
-                                type="text"
-                                list="birdnet-source-options"
-                                bind:value={cameraAudioMapping[camera]}
-                                placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
-                                aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
+                        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-950/20 p-3 space-y-2">
+                            <div class="grid grid-cols-1 lg:grid-cols-[6rem_minmax(0,1fr)_minmax(12rem,18rem)] gap-2 lg:items-center">
+                                <span class="text-[10px] font-black text-slate-400 truncate uppercase">{camera}</span>
+                                <input
+                                    type="text"
+                                    list="birdnet-source-options"
+                                    bind:value={cameraAudioMapping[camera]}
+                                    placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
+                                    aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none"
+                                />
+                                <select
+                                    aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50"
+                                    disabled={birdnetMappingOptions.length === 0}
+                                    onchange={(event) => {
+                                        const select = event.currentTarget;
+                                        addCameraAudioSource(camera, select.value);
+                                        select.value = '';
+                                    }}
+                                >
+                                    <option value="">{$_('settings.integrations.birdnet.add_detected_source')}</option>
+                                    {#each birdnetMappingOptions as source}
+                                        <option value={source.value}>
+                                            {source.label}{source.sampleSourceId ? ` - ${source.sampleSourceId}` : ''}
+                                        </option>
+                                    {/each}
+                                </select>
+                            </div>
+                            {#if mappingTokensFor(camera).length > 0}
+                                <div
+                                    class="flex flex-wrap gap-1.5 pl-0 lg:pl-24"
+                                    aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
+                                >
+                                    {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
+                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-black text-teal-700 dark:text-teal-200">
+                                            <span class="truncate">{sourceToken}</span>
+                                            <button
+                                                type="button"
+                                                class="shrink-0 rounded-full text-teal-600 hover:text-rose-600 dark:text-teal-300 dark:hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
+                                                onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
+                                            >
+                                                &times;
+                                            </button>
+                                        </span>
+                                    {/each}
+                                </div>
+                            {/if}
                         </div>
                     {/each}
                     <datalist id="birdnet-source-options">
-                        {#each birdnetSourceOptions as source}
-                            <option value={source.mapping_value || source.source_name}></option>
+                        {#each birdnetMappingOptions as source}
+                            <option value={source.value}></option>
                         {/each}
                     </datalist>
                     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/30 p-3">
