@@ -301,22 +301,27 @@
                     : $_('settings.integrations.birdnet.sensor_mapping_help')}
                 layout="stacked"
             >
-                <div class="space-y-2" role="group">
+                <div class="space-y-3" role="group">
                     {#each availableCameras as camera}
                         <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-950/20 p-3 space-y-2">
-                            <div class="grid grid-cols-1 lg:grid-cols-[6rem_minmax(0,1fr)_minmax(12rem,18rem)] gap-2 lg:items-center">
-                                <span class="text-[10px] font-black text-slate-400 truncate uppercase">{camera}</span>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                                {#if mappingTokensFor(camera).length > 0}
+                                    <span class="text-[10px] font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
+                                {/if}
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <input
                                     type="text"
                                     list="birdnet-source-options"
                                     bind:value={cameraAudioMapping[camera]}
                                     placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
                                     aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none"
                                 />
                                 <select
                                     aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50"
                                     disabled={birdnetMappingOptions.length === 0}
                                     onchange={(event) => {
                                         const select = event.currentTarget;
@@ -334,12 +339,12 @@
                             </div>
                             {#if mappingTokensFor(camera).length > 0}
                                 <div
-                                    class="flex flex-wrap gap-1.5 pl-0 lg:pl-24"
+                                    class="flex flex-wrap gap-1.5"
                                     aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                                 >
                                     {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-black text-teal-700 dark:text-teal-200">
-                                            <span class="truncate">{sourceToken}</span>
+                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-mono font-black text-teal-700 dark:text-teal-200">
+                                            <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
                                                 class="shrink-0 rounded-full text-teal-600 hover:text-rose-600 dark:text-teal-300 dark:hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -359,9 +364,15 @@
                             <option value={source.value}></option>
                         {/each}
                     </datalist>
+
                     <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/30 p-3">
-                        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                            {$_('settings.integrations.birdnet.source_discovery_title')}
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                {$_('settings.integrations.birdnet.source_discovery_title')}
+                            </div>
+                            {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0}
+                                <div class="text-[9px] font-bold uppercase tracking-wider text-slate-400">click to add</div>
+                            {/if}
                         </div>
                         {#if loadingBirdnetSources}
                             <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
@@ -370,23 +381,29 @@
                         {:else if birdnetSourceOptions.length === 0}
                             <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
-                            <p class="text-[10px] text-slate-400 font-bold italic mb-2">{$_('settings.integrations.birdnet.source_discovery_help')}</p>
-                            <div class="space-y-2">
-                                {#each birdnetSourceOptions as source}
-                                    <div class="flex items-center justify-between gap-3 rounded-lg bg-white/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-700/70 px-2 py-1.5">
-                                        <div class="min-w-0">
-                                            <div class="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{source.source_name}</div>
-                                            <div class="text-[10px] text-slate-500 truncate">
-                                                {$_('settings.integrations.birdnet.source_discovery_mapping_value')}: {source.mapping_value || source.source_name}
-                                            </div>
-                                            <div class="text-[10px] text-slate-500 truncate">
-                                                {#if source.sample_source_id}{$_('settings.integrations.birdnet.source_discovery_sample_id')}: {source.sample_source_id}{/if}
-                                                {#if source.seen_count}{#if source.sample_source_id} · {/if}{$_('settings.integrations.birdnet.source_discovery_seen')}: {source.seen_count}{/if}
-                                            </div>
-                                        </div>
-                                        <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">{source.last_seen}</div>
-                                    </div>
-                                {/each}
+                            <div class="relative">
+                                <ul class="space-y-1 max-h-56 overflow-y-auto pr-1">
+                                    {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
+                                        {@const fade = Math.max(0.35, 1 - sourceIndex * 0.07)}
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="w-full flex items-baseline justify-between gap-3 rounded-md px-2 py-1 text-left hover:bg-teal-50 dark:hover:bg-teal-950/30 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                                                style="opacity: {fade};"
+                                                onclick={() => {
+                                                    if (availableCameras.length > 0) {
+                                                        addCameraAudioSource(availableCameras[0], source.mapping_value || source.source_name);
+                                                    }
+                                                }}
+                                                title={availableCameras[0] ? `Add to ${availableCameras[0]}` : ''}
+                                            >
+                                                <span class="text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all">{source.mapping_value || source.source_name}</span>
+                                                <span class="shrink-0 text-[10px] font-bold text-slate-400 whitespace-nowrap tabular-nums">{source.last_seen}</span>
+                                            </button>
+                                        </li>
+                                    {/each}
+                                </ul>
+                                <div class="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50/90 dark:from-slate-900/60 to-transparent rounded-b-xl"></div>
                             </div>
                         {/if}
                     </div>
