@@ -8,6 +8,7 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import Map from '../Map.svelte';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -159,6 +160,11 @@
     }
 
     let locationToggle = $derived(locationTogglePresentation(locationAuto));
+    let mapPoint = $derived<[number, number] | null>(
+        typeof locationLat === 'number' && typeof locationLon === 'number' && Number.isFinite(locationLat) && Number.isFinite(locationLon)
+            ? [locationLat, locationLon]
+            : null
+    );
     let birdnetMappingOptions = $derived.by(() => {
         const seen = new Set<string>();
         return birdnetSourceOptions
@@ -892,6 +898,27 @@
                     </SettingsRow>
                 </div>
             {/if}
+
+            <SettingsRow
+                labelId="setting-location-map"
+                label={$_('settings.location.map_title', { default: 'Map preview' })}
+                description={mapPoint
+                    ? $_('settings.location.map_help', { default: 'Showing the location currently configured for weather, hotspots, and observations.' })
+                    : $_('settings.location.map_empty', { default: 'No coordinates configured yet — set a latitude and longitude (or enable auto-detect) to see the map.' })}
+                layout="stacked"
+            >
+                <div class="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                    {#if mapPoint}
+                        {#key `${mapPoint[0]},${mapPoint[1]}`}
+                            <Map userLocation={mapPoint} center={mapPoint} zoom={11} />
+                        {/key}
+                    {:else}
+                        <div class="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-900/40 text-xs font-bold text-slate-400 italic">
+                            {$_('settings.location.map_empty', { default: 'No coordinates configured yet.' })}
+                        </div>
+                    {/if}
+                </div>
+            </SettingsRow>
 
             <SettingsRow
                 labelId="setting-weather-units"
