@@ -3,7 +3,7 @@
     import { layoutStore } from '../stores/layout.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import { APP_ICON_192_URL } from '../assets';
+    import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
 
@@ -60,16 +60,18 @@
 <aside class="fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-900/90 shadow-lg border-r border-slate-200/80 dark:border-slate-700/50 backdrop-blur-xl transition-all duration-300 flex flex-col {collapsed ? 'w-20' : 'w-64'}
     {mobileSidebarOpen ? 'translate-x-0 z-50' : '-translate-x-full md:translate-x-0 z-50'}">
     <!-- Logo and Collapse Button -->
-    <div class="flex items-center justify-between p-4 border-b border-slate-200/80 dark:border-slate-700/50 h-16">
-        {#if !collapsed}
-            <button
-                class="flex items-center gap-3 focus-ring rounded-lg p-1 -m-1"
-                onclick={() => handleNavClick('/')}
-            >
-                <div class="w-9 h-9 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <img src={APP_ICON_192_URL} alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
-                </div>
-                <div class="flex flex-col overflow-hidden">
+    <div class="relative flex flex-col items-center w-full p-4 border-b border-slate-200/80 dark:border-slate-700/50 text-center gap-3">
+        <button
+            class="flex flex-col items-center gap-3 focus-ring rounded-lg p-1 -m-1"
+            onclick={() => handleNavClick('/')}
+        >
+            <BrandMark
+                alt={$_('app.title')}
+                sizes={collapsed ? '40px' : '64px'}
+                class="flex-shrink-0 transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
+            />
+            {#if !collapsed}
+                <div class="flex flex-col overflow-hidden items-center">
                     <h1 class="text-sm font-bold text-gradient leading-tight truncate">
                         {$_('app.logo_title')}
                     </h1>
@@ -77,23 +79,15 @@
                         {$_('app.logo_subtitle')}
                     </span>
                 </div>
-            </button>
-        {:else}
-            <button
-                class="w-full flex items-center justify-center focus-ring rounded-lg p-1"
-                onclick={() => handleNavClick('/')}
-            >
-                <div class="w-9 h-9 flex items-center justify-center overflow-hidden">
-                    <img src={APP_ICON_192_URL} alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
-                </div>
-            </button>
-        {/if}
+            {/if}
+        </button>
 
         {#if !collapsed}
             <button
-                class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
+                class="absolute top-3 right-3 btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={$_('nav.collapse_sidebar')}
+                aria-label={$_('nav.collapse_sidebar')}
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
