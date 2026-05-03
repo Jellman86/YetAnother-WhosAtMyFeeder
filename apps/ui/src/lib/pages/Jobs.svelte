@@ -7,6 +7,7 @@
     import { formatDateTime } from '../utils/datetime';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { resetVideoCircuit } from '../api/maintenance';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
@@ -23,6 +24,15 @@
             releaseBackfill();
             clearInterval(tick);
         };
+    });
+
+    $effect(() => {
+        return pageRefreshAction.register(async () => {
+            await Promise.all([
+                analysisQueueStatusStore.refresh(),
+                backfillStatusStore.refresh()
+            ]);
+        });
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);

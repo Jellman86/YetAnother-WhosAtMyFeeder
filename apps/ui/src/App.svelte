@@ -47,6 +47,7 @@
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
+  import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -367,7 +368,13 @@
                   // Close keyboard shortcuts modal
                   showKeyboardShortcuts = false;
               },
-              'r': () => window.location.reload()
+              'r': () => {
+                  if (pageRefreshAction.available) {
+                      void pageRefreshAction.run();
+                      return;
+                  }
+                  window.location.reload();
+              }
           });
 
           // Store cleanup function to return

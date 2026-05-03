@@ -64,6 +64,7 @@
     import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
@@ -2013,6 +2014,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     });
 
+    $effect(() => {
+        return pageRefreshAction.register(() => loadSettings());
+    });
+
     function handleTabChange(tab: SettingsTab) {
         activeTab = tab;
         window.location.hash = tab;
@@ -3308,8 +3313,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     subtitle={$_('settings.subtitle')}
     {loading}
     {message}
-    onRefresh={() => loadSettings()}
-    refreshing={loading}
     {isDirty}
     {saving}
     onSave={saveSettings}

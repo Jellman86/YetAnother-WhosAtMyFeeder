@@ -22,6 +22,7 @@
     } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
@@ -263,6 +264,11 @@
         }
     }
 
+    async function refreshCurrentEventsPage() {
+        await refreshEventMetadata(true, false);
+        await loadEvents();
+    }
+
     function scheduleEventMetadataRefresh() {
         if (typeof window === 'undefined') {
             void refreshEventMetadata(true, false);
@@ -322,6 +328,10 @@
             currentPage = 1;
             await loadEvents();
         }
+    });
+
+    $effect(() => {
+        return pageRefreshAction.register(refreshCurrentEventsPage);
     });
 
     // Reset state when switching events

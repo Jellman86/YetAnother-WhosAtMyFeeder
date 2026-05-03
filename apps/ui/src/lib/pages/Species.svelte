@@ -33,6 +33,7 @@
     import { logger } from '../utils/logger';
     import { _, locale } from 'svelte-i18n';
     import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { StaleTracker } from '../utils/stale_tracker';
 
     type LeaderboardRow = {
@@ -161,6 +162,10 @@
             if (loading || !leaderboardStale.isStale()) return;
             await loadLeaderboard();
         });
+    });
+
+    $effect(() => {
+        return pageRefreshAction.register(loadLeaderboard);
     });
 
     $effect(() => {
@@ -1156,17 +1161,6 @@
                 {$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}
             </span>
 
-            <button
-                onclick={loadLeaderboard}
-                disabled={loading}
-                class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/70 disabled:opacity-50"
-            >
-                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M16 10a6 6 0 1 1-1.8-4.3"></path>
-                    <path d="M16 4v4h-4"></path>
-                </svg>
-                {$_('common.refresh')}
-            </button>
         </div>
     </div>
 

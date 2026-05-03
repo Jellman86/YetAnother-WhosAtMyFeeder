@@ -3,6 +3,7 @@
     import type { Snippet } from 'svelte';
     import CameraStatus from './CameraStatus.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
 
     type Props = {
         title: string;
@@ -29,6 +30,21 @@
         {#if actions}
             {@render actions()}
         {:else}
+            {#if pageRefreshAction.available}
+                <button
+                    type="button"
+                    onclick={() => void pageRefreshAction.run()}
+                    disabled={pageRefreshAction.refreshing}
+                    class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring disabled:opacity-60 disabled:cursor-wait"
+                    title={$_('common.refresh')}
+                    aria-label={$_('common.refresh')}
+                    aria-busy={pageRefreshAction.refreshing}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 {pageRefreshAction.refreshing ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            {/if}
             <CameraStatus />
             <NotificationCenter
                 onNavigate={(path) => onNavigate?.(path)}

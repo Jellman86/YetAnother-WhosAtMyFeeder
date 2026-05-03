@@ -16,6 +16,7 @@
     import type { Detection, DailySummary, SpeciesInfo } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
@@ -212,6 +213,16 @@
 
     onMount(async () => {
         await loadSummary(true);
+    });
+
+    $effect(() => {
+        return pageRefreshAction.register(async () => {
+            summaryLoading = true;
+            await Promise.all([
+                detectionsStore.loadInitial(),
+                loadSummary(true)
+            ]);
+        });
     });
 
     // Reset state when switching detections
