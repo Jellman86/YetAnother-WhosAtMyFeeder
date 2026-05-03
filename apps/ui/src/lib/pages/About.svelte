@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
+    import { APP_ICON_192_URL } from '../assets';
     import { _ } from 'svelte-i18n';
 
     type FeatureDefinition = {
@@ -256,6 +257,11 @@
 <div class="max-w-7xl mx-auto space-y-8">
     <!-- Tagline + version + quick links (PageHeader supplies the page title and icon cluster) -->
     <header class="text-center space-y-4">
+        <img
+            src={APP_ICON_192_URL}
+            alt={$_('app.title')}
+            class="mx-auto h-20 w-20 object-contain drop-shadow-md"
+        />
         <p class="text-lg text-slate-600 dark:text-slate-400">
             {$_('app.tagline')}
         </p>

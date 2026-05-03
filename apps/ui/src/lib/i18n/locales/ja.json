@@ -214,6 +214,10 @@
       "birdnet": {
         "title": "BirdNET-Go",
         "toggle_label": "BirdNET-Go 連携の切り替え",
+        "internal_url_label": "BirdNET-Go 内部 URL",
+        "internal_url_help": "スペクトログラム背景の取得にバックエンドだけが使う URL です。Docker ネットワーク上のアドレスなどを指定します。",
+        "external_url_label": "BirdNET-Go ブラウザ URL",
+        "external_url_help": "ダッシュボードのリンクで開く公開 HTTPS URL です。空の場合は内部 URL にフォールバックします。",
         "mqtt_topic": "MQTTトピック",
         "mqtt_topic_label": "BirdNET の MQTT トピック",
         "audio_buffer_hours": "音声バッファ（時間）",

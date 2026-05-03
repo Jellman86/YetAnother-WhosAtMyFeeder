@@ -214,6 +214,10 @@
       "birdnet": {
         "title": "BirdNET-Go",
         "toggle_label": "切换 BirdNET-Go 集成",
+        "internal_url_label": "BirdNET-Go 内部 URL",
+        "internal_url_help": "仅供后端获取声谱图背景的 URL，例如 Docker 网络地址。",
+        "external_url_label": "BirdNET-Go 浏览器 URL",
+        "external_url_help": "仪表盘链接打开的公共 HTTPS URL。留空时回退到内部 URL。",
         "mqtt_topic": "MQTT 主题",
         "mqtt_topic_label": "BirdNET MQTT 主题",
         "audio_buffer_hours": "音频缓冲（小时）",

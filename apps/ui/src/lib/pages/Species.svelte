@@ -1142,28 +1142,6 @@
 </script>
 
 <div class="space-y-8">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('leaderboard.title')}</h2>
-
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
-                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M3.5 14.2c1.6-1.8 3.2-2.7 4.8-2.7 1.9 0 3.4 1.1 4.3 3.2"></path>
-                    <path d="M6.2 9.1a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path>
-                    <path d="M13.9 10.4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z"></path>
-                </svg>
-                {$_('leaderboard.species_count', { values: { count: leaderboardSpecies().length } })}
-            </span>
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
-                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M3 14l4-4 3 2 7-8"></path>
-                </svg>
-                {$_('leaderboard.detections_count', { values: { count: totalDetections.toLocaleString() } })}
-            </span>
-
-        </div>
-    </div>
-
     <!-- Rank + Filters -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2">

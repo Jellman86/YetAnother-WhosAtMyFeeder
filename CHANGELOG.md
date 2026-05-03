@@ -13,6 +13,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 - **UI:** Page refresh actions now live in the shared page header as an icon button inline with camera status, notifications, and settings. Dashboard, Events, Species, Settings, Jobs, and Errors register their own refresh handlers, and duplicate in-page refresh buttons were removed where the header action now covers the same work.
+- **UI:** About restores the application icon below the global page header controls and above the tagline, and the Species page no longer repeats the leaderboard title/count row now covered by the shared page header context.
 - **UI:** Auto/manual location toggle replaced with a clearer two-card segmented control ("Auto-detect" / "Manual entry") explaining what each mode does.
 - **UI:** Sidebar collapse/expand now lives at a single consistent slot at the very bottom of the sidebar (replacing the absolute-positioned chevron in the brand block and the separate collapsed-only expand row).
 - **UI:** Notifications, language, and theme are now a single inline icon row at the bottom of the sidebar (above the collapse toggle) instead of three full-width rows. `LanguageSelector` gained a `compact` prop that renders icon-only with a tooltip carrying the current language name. The expanded sidebar now matches the visual rhythm of the collapsed sidebar instead of being noisier than it.

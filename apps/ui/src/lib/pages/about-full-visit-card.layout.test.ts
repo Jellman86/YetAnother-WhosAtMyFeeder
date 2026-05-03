@@ -11,4 +11,11 @@ describe('about page full-visit feature card', () => {
         expect(enLocaleSource).toContain('"full_visit_clip"');
         expect(enLocaleSource).toContain('"title": "Full-Visit Clips"');
     });
+
+    it('restores the app icon above the About tagline', () => {
+        expect(aboutPageSource).toContain("import { APP_ICON_192_URL } from '../assets';");
+        expect(aboutPageSource.indexOf('src={APP_ICON_192_URL}')).toBeLessThan(
+            aboutPageSource.indexOf("{$_('app.tagline')}")
+        );
+    });
 });

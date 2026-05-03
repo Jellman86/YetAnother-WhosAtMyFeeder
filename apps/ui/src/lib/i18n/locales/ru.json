@@ -222,6 +222,10 @@
       "birdnet": {
         "title": "BirdNET-Go",
         "toggle_label": "Переключить интеграцию BirdNET-Go",
+        "internal_url_label": "Внутренний URL BirdNET-Go",
+        "internal_url_help": "URL только для backend, используемый для загрузки фонов спектрограмм, например адрес в сети Docker.",
+        "external_url_label": "URL BirdNET-Go для браузера",
+        "external_url_help": "Публичный HTTPS URL, открываемый ссылками панели. Если пусто, используется внутренний URL.",
         "mqtt_topic": "Тема MQTT",
         "mqtt_topic_label": "Тема MQTT для BirdNET",
         "audio_buffer_hours": "Буфер аудио (часы)",

@@ -214,6 +214,10 @@
       "birdnet": {
         "title": "BirdNET-Go",
         "toggle_label": "Alternar integración de BirdNET-Go",
+        "internal_url_label": "URL interna de BirdNET-Go",
+        "internal_url_help": "URL solo para el backend usada para obtener fondos de espectrograma, como la dirección de la red Docker.",
+        "external_url_label": "URL de BirdNET-Go para el navegador",
+        "external_url_help": "URL HTTPS pública que abren los enlaces del panel. Si está vacía, se usa la URL interna.",
         "mqtt_topic": "Tema MQTT",
         "mqtt_topic_label": "Tema MQTT de BirdNET",
         "audio_buffer_hours": "Búfer de audio (horas)",

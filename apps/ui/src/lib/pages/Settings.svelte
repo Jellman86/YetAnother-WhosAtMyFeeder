@@ -2015,6 +2015,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     $effect(() => {
+        if (isDirty) return;
         return pageRefreshAction.register(() => loadSettings());
     });
 
