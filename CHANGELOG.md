@@ -13,6 +13,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **UI:** Auto/manual location toggle replaced with a clearer two-card segmented control ("Auto-detect" / "Manual entry") explaining what each mode does.
 - **UI:** Sidebar collapse/expand now lives at a single consistent slot at the very bottom of the sidebar (replacing the absolute-positioned chevron in the brand block and the separate collapsed-only expand row).
 - **UI:** Notifications, language, and theme are now a single inline icon row at the bottom of the sidebar (above the collapse toggle) instead of three full-width rows. `LanguageSelector` gained a `compact` prop that renders icon-only with a tooltip carrying the current language name. The expanded sidebar now matches the visual rhythm of the collapsed sidebar instead of being noisier than it.
+- **UI:** New page header chrome above Dashboard / Events / Species / Notifications. Left side shows the page title; right side shows a camera-status icon (configured camera count plus an online/mixed/offline status dot, with hover popover listing each camera with a live frame thumbnail from the existing `/api/frigate/camera/{name}/latest.jpg` endpoint), the existing notifications bell, and a settings cog. Modeled on the BirdNET-Go layout.
+- **UI:** Sidebar utility row is now language + theme + collapse — the notifications bell has moved to the page header, the collapse toggle has moved into the utility row, and the dedicated bottom collapse slot has been removed.
 - **UI:** AI settings tab now uses the full Settings page width again — the usage table has five columns and was being cramped by the new `max-w-3xl` cap applied in 2.9.14.
 
 ## [2.9.14] - 2026-05-03

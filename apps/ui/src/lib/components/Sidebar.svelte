@@ -5,7 +5,6 @@
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
-    import NotificationCenter from './NotificationCenter.svelte';
 
     let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
         currentRoute: string;
@@ -143,14 +142,9 @@
         {/if}
     </div>
 
-    <!-- Notifications, Language, Theme — inline utility row -->
+    <!-- Language, Theme, Collapse — inline utility row -->
     <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
-            <NotificationCenter
-                {collapsed}
-                onNavigate={(path) => handleNavClick(path)}
-                buttonClass="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
-            />
             <LanguageSelector dropUp compact />
             <button
                 class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
@@ -168,27 +162,21 @@
                     </svg>
                 {/if}
             </button>
+            <button
+                class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                onclick={() => layoutStore.toggleSidebar()}
+                title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
+                aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    {#if collapsed}
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    {:else}
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    {/if}
+                </svg>
+            </button>
         </div>
     </div>
 
-    <!-- Collapse / Expand Sidebar -->
-    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
-        <button
-            class="nav-button w-full flex items-center {collapsed ? 'justify-center' : 'gap-3'} text-left nav-button-inactive text-slate-500 dark:text-slate-400"
-            onclick={() => layoutStore.toggleSidebar()}
-            title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
-            aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                {#if collapsed}
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                {:else}
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                {/if}
-            </svg>
-            {#if !collapsed}
-                <span class="text-sm font-medium">{$_('nav.collapse_sidebar')}</span>
-            {/if}
-        </button>
-    </div>
 </aside>

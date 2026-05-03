@@ -6,6 +6,7 @@
   import MobileTopBar from './lib/components/MobileTopBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
+  import PageHeader from './lib/components/PageHeader.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
@@ -54,6 +55,21 @@
   let currentRoute = $state('/');
   let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
+
+  let pageTitle = $derived.by(() => {
+      if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
+      if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
+      if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
+      if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
+      return '';
+  });
+  // Settings and About already render their own page-level headers; skip the global PageHeader there.
+  let showPageHeader = $derived(
+      !currentRoute.startsWith('/settings')
+      && !currentRoute.startsWith('/about')
+      && !authStore.isGuest
+      && pageTitle.length > 0
+  );
 
   function syncGlobalProgressSticky() {
       if (typeof window === 'undefined') return;
@@ -594,6 +610,9 @@
               </div>
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {#if showPageHeader}
+                  <PageHeader title={pageTitle} onNavigate={navigate} />
+              {/if}
               {#if currentRoute === '/'}
                   {#key dashboardRefreshKey}
                       <Dashboard onnavigate={navigate} />
