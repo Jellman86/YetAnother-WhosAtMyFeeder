@@ -81,19 +81,6 @@
                 </div>
             {/if}
         </button>
-
-        {#if !collapsed}
-            <button
-                class="absolute top-3 right-3 btn btn-ghost btn-icon text-slate-500 dark:text-slate-400"
-                onclick={() => layoutStore.toggleSidebar()}
-                title={$_('nav.collapse_sidebar')}
-                aria-label={$_('nav.collapse_sidebar')}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-            </button>
-        {/if}
     </div>
 
     <!-- Navigation -->
@@ -122,21 +109,6 @@
             <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 space-y-2">
                 {@render status?.()}
             </div>
-        </div>
-    {/if}
-
-    <!-- Expand Button (collapsed state) -->
-    {#if collapsed}
-        <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
-            <button
-                class="btn btn-ghost w-full flex items-center justify-center p-3 text-slate-500 dark:text-slate-400"
-                onclick={() => layoutStore.toggleSidebar()}
-                title={$_('nav.expand_sidebar')}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-            </button>
         </div>
     {/if}
 
@@ -201,6 +173,27 @@
             {/if}
             {#if !collapsed}
                 <span class="text-sm font-medium">{themeStore.isDark ? $_('theme.light') : $_('theme.dark')}</span>
+            {/if}
+        </button>
+    </div>
+
+    <!-- Collapse / Expand Sidebar -->
+    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
+        <button
+            class="nav-button w-full flex items-center {collapsed ? 'justify-center' : 'gap-3'} text-left nav-button-inactive text-slate-500 dark:text-slate-400"
+            onclick={() => layoutStore.toggleSidebar()}
+            title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
+            aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                {#if collapsed}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                {:else}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                {/if}
+            </svg>
+            {#if !collapsed}
+                <span class="text-sm font-medium">{$_('nav.collapse_sidebar')}</span>
             {/if}
         </button>
     </div>
