@@ -3632,7 +3632,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {/if}
 
             {#if activeTab === 'debug'}
-                <div class="max-w-3xl space-y-6">
+                <div class="space-y-6">
                     <section class="card-base p-8">
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
