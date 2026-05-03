@@ -35,7 +35,7 @@
     }: Props = $props();
 </script>
 
-<div class="max-w-4xl mx-auto space-y-8 pb-20">
+<div class="max-w-7xl mx-auto space-y-8 pb-20">
     <header class="flex items-center justify-between">
         <div>
             <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{title}</h2>
@@ -99,7 +99,7 @@
 
 {#if isDirty && !loading}
     <div class="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-700 shadow-2xl z-50 animate-in slide-in-from-bottom-4">
-        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3 text-slate-600 dark:text-slate-400">
                 <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

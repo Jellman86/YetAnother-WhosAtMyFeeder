@@ -254,7 +254,7 @@
     ]);
 </script>
 
-<div class="max-w-5xl mx-auto space-y-8">
+<div class="max-w-7xl mx-auto space-y-8">
     <!-- Header -->
     <header class="text-center space-y-4">
         <div class="flex items-center justify-center gap-3">
