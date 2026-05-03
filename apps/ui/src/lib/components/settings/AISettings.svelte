@@ -96,7 +96,7 @@
     const buttonSecondaryClass = 'px-6 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
 </script>
 
-<div class="space-y-6">
+<div class="max-w-3xl space-y-6">
     {#snippet usageActions()}
         <button
             type="button"

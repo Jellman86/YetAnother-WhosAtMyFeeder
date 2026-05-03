@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.9.14] - 2026-05-03
+
+### Changed
+- **UI:** BirdNET source mapping section in Settings → Integrations has been simplified — per-camera input and source-discovery dropdown now align cleanly, the recently-detected BirdNET sources list shows full source names with a compact relative-time label (e.g. `2m ago`), fades older entries, and supports click-to-add directly into the first configured camera mapping. The previous nested cards-within-cards layout is now flat with hairline dividers.
+- **UI:** Settings and About pages now use the same `max-w-7xl` page width as Dashboard, Events, Species, and Errors so the page chrome (header, sticky save bar, tabs) is consistent across the app. Single-column form tabs (Detection, Notifications, AI, Appearance, Accessibility, Debug) cap their inner content at `max-w-3xl` to keep input rows readable, while multi-column tabs (Connection, Authentication, Integrations, Enrichment, Data) use the full new width.
+
 ### Fixed
 - **Maintenance (#33):** Batch analyze-unknowns now uses admission control instead of queueing every eligible historical detection at once. Each run accepts at most 50 maintenance video jobs, defers when maintenance work is already queued or active, and reports the batch limit / remaining candidate count so large backfills drain in visible batches without flooding the video-classifier queue.
 - **Maintenance (#33):** Batch analyze-unknowns now scans only the newest 200 unresolved unknown detections per run, ordered by detection time, instead of walking the entire historical unknown backlog. This keeps dirty databases with stale old Frigate events from spending minutes prechecking obsolete rows before reaching the current backfill batch. The issue-33 fixture harness threshold now matches the bounded 50-job maintenance queue cap.

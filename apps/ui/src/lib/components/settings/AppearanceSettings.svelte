@@ -51,6 +51,7 @@
     }
 </script>
 
+<div class="max-w-3xl">
 <SettingsCard icon="🎨" title={$_('theme.title')}>
     <SettingsRow
         labelId="setting-theme"
@@ -171,3 +172,4 @@
         />
     </SettingsRow>
 </SettingsCard>
+</div>

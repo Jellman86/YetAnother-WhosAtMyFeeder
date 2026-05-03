@@ -179,7 +179,7 @@
     }
 </script>
 
-<div class="space-y-6">
+<div class="max-w-3xl space-y-6">
     <SettingsCard icon="🎯" title={$_('settings.detection.classification_engine')}>
         <ModelManager bind:cropModelOverrides bind:cropSourceOverrides />
 
