@@ -16,7 +16,7 @@
     };
 
     let showDropdown = $state(false);
-    let { dropUp = false } = $props<{ dropUp?: boolean }>();
+    let { dropUp = false, compact = false } = $props<{ dropUp?: boolean; compact?: boolean }>();
     const menuId = 'language-selector-menu';
     let currentLocaleValue = $state('en'); // Local state for locale value
 
@@ -54,8 +54,11 @@
 <div class="relative">
     <button
         onclick={() => showDropdown = !showDropdown}
-        class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring"
+        class={compact
+            ? 'p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring'
+            : 'flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring'}
         aria-label={languageNames[currentLocaleValue || 'en'] || 'English'}
+        title={compact ? (languageNames[currentLocaleValue || 'en'] || 'English') : undefined}
         aria-haspopup="menu"
         aria-expanded={showDropdown}
         aria-controls={menuId}
@@ -63,7 +66,9 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
         </svg>
-        <span class="text-xs font-bold uppercase tracking-wider">{languageNames[currentLocaleValue || 'en'] || 'English'}</span>
+        {#if !compact}
+            <span class="text-xs font-bold uppercase tracking-wider">{languageNames[currentLocaleValue || 'en'] || 'English'}</span>
+        {/if}
     </button>
 
     {#if showDropdown}

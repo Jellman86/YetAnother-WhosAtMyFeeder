@@ -11,6 +11,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 - **UI:** Auto/manual location toggle replaced with a clearer two-card segmented control ("Auto-detect" / "Manual entry") explaining what each mode does.
+- **UI:** Sidebar collapse/expand now lives at a single consistent slot at the very bottom of the sidebar (replacing the absolute-positioned chevron in the brand block and the separate collapsed-only expand row).
+- **UI:** Notifications, language, and theme are now a single inline icon row at the bottom of the sidebar (above the collapse toggle) instead of three full-width rows. `LanguageSelector` gained a `compact` prop that renders icon-only with a tooltip carrying the current language name. The expanded sidebar now matches the visual rhythm of the collapsed sidebar instead of being noisier than it.
 - **UI:** AI settings tab now uses the full Settings page width again — the usage table has five columns and was being cramped by the new `max-w-3xl` cap applied in 2.9.14.
 
 ## [2.9.14] - 2026-05-03

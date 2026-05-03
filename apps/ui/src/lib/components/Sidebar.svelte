@@ -143,38 +143,32 @@
         {/if}
     </div>
 
-    <!-- Language selector and Theme Toggle at Bottom -->
-    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
-        <NotificationCenter
-            showLabel
-            label={$_('notifications.center_title')}
-            {collapsed}
-            onNavigate={(path) => handleNavClick(path)}
-            buttonClass="relative nav-button w-full flex items-center gap-3 text-left nav-button-inactive"
-        />
-        {#if !collapsed}
-            <div class="px-2 py-1">
-                <LanguageSelector dropUp />
-            </div>
-        {/if}
-        <button
-            class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive"
-            onclick={() => themeStore.toggle()}
-            title={collapsed ? (themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')) : ''}
-        >
-            {#if themeStore.isDark}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            {/if}
-            {#if !collapsed}
-                <span class="text-sm font-medium">{themeStore.isDark ? $_('theme.light') : $_('theme.dark')}</span>
-            {/if}
-        </button>
+    <!-- Notifications, Language, Theme — inline utility row -->
+    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
+        <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
+            <NotificationCenter
+                {collapsed}
+                onNavigate={(path) => handleNavClick(path)}
+                buttonClass="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+            />
+            <LanguageSelector dropUp compact />
+            <button
+                class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                onclick={() => themeStore.toggle()}
+                title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+                aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+            >
+                {#if themeStore.isDark}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                {:else}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                {/if}
+            </button>
+        </div>
     </div>
 
     <!-- Collapse / Expand Sidebar -->
