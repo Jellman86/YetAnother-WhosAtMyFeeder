@@ -81,10 +81,7 @@
 
 <div class="space-y-6">
     <div class="flex flex-col gap-4">
-        <div>
-            <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('notifications.page_title')}</h2>
-            <p class="text-xs text-slate-500">{$_('notifications.page_subtitle')}</p>
-        </div>
+        <p class="text-xs text-slate-500 -mt-2">{$_('notifications.page_subtitle')}</p>
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/60 p-1">

@@ -61,15 +61,11 @@
       if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
       if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
+      if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
+      if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
       return '';
   });
-  // Settings and About already render their own page-level headers; skip the global PageHeader there.
-  let showPageHeader = $derived(
-      !currentRoute.startsWith('/settings')
-      && !currentRoute.startsWith('/about')
-      && !authStore.isGuest
-      && pageTitle.length > 0
-  );
+  let showPageHeader = $derived(!authStore.isGuest && pageTitle.length > 0);
 
   function syncGlobalProgressSticky() {
       if (typeof window === 'undefined') return;

@@ -1,7 +1,6 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
     import { _ } from 'svelte-i18n';
-    import { APP_ICON_192_URL } from '../assets';
 
     type FeatureDefinition = {
         icon: string;
@@ -255,14 +254,8 @@
 </script>
 
 <div class="max-w-7xl mx-auto space-y-8">
-    <!-- Header -->
+    <!-- Tagline + version + quick links (PageHeader supplies the page title and icon cluster) -->
     <header class="text-center space-y-4">
-        <div class="flex items-center justify-center gap-3">
-            <div class="w-16 h-16 flex items-center justify-center overflow-hidden">
-                <img src={APP_ICON_192_URL} alt={$_('app.title')} class="w-full h-full object-contain bg-transparent" />
-            </div>
-        </div>
-        <h1 class="text-4xl font-bold text-gradient">{$_('app.logo_title')} {$_('app.logo_subtitle')}</h1>
         <p class="text-lg text-slate-600 dark:text-slate-400">
             {$_('app.tagline')}
         </p>
