@@ -18,7 +18,7 @@
     }
 </script>
 
-<header class="flex items-center justify-between gap-4 mb-6">
+<header class="flex items-center justify-between gap-4 mb-4">
     <div class="min-w-0 flex-1">
         <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">{title}</h1>
         {#if subtitle}

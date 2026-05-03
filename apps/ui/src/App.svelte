@@ -605,7 +605,7 @@
                   <GlobalProgress onNavigate={navigate} />
               </div>
           {/if}
-          <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
               {#if showPageHeader}
                   <PageHeader title={pageTitle} onNavigate={navigate} />
               {/if}
