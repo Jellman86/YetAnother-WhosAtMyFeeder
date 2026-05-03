@@ -315,9 +315,9 @@
                     : $_('settings.integrations.birdnet.sensor_mapping_help')}
                 layout="stacked"
             >
-                <div class="space-y-3" role="group">
+                <div class="divide-y divide-slate-200/70 dark:divide-slate-700/60" role="group">
                     {#each availableCameras as camera}
-                        <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-950/20 p-3 space-y-2">
+                        <div class="py-3 first:pt-0 space-y-2">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
@@ -379,12 +379,12 @@
                         {/each}
                     </datalist>
 
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/30 p-3">
-                        <div class="flex items-center justify-between mb-2">
+                    <div class="pt-3">
+                        <div class="flex items-center justify-between mb-1.5">
                             <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">
                                 {$_('settings.integrations.birdnet.source_discovery_title')}
                             </div>
-                            {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0}
+                            {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
                                 <div class="text-[9px] font-bold uppercase tracking-wider text-slate-400">click to add</div>
                             {/if}
                         </div>
@@ -395,37 +395,32 @@
                         {:else if birdnetSourceOptions.length === 0}
                             <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
-                            <div class="relative">
-                                <ul class="space-y-1 max-h-56 overflow-y-auto pr-1">
-                                    {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
-                                        {@const fade = Math.max(0.4, 1 - sourceIndex * 0.06)}
-                                        {@const sourceValue = source.mapping_value || source.source_name}
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class="group w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left bg-white/40 dark:bg-slate-950/30 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:ring-1 hover:ring-teal-400/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all cursor-pointer"
-                                                style="opacity: {fade};"
-                                                onclick={() => {
-                                                    if (availableCameras.length > 0) {
-                                                        addCameraAudioSource(availableCameras[0], sourceValue);
-                                                    }
-                                                }}
-                                                disabled={availableCameras.length === 0}
-                                                title={availableCameras[0]
-                                                    ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
-                                                    : sourceValue}
-                                            >
-                                                <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white transition-colors text-[11px] font-black leading-none">+</span>
-                                                <span class="min-w-0 flex-1 text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
-                                                <span class="shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
-                                            </button>
-                                        </li>
-                                    {/each}
-                                </ul>
-                                {#if birdnetSourceOptions.length > 6}
-                                    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-slate-50 dark:from-slate-900/50 to-transparent rounded-b-xl"></div>
-                                {/if}
-                            </div>
+                            <ul class="max-h-56 overflow-y-auto">
+                                {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
+                                    {@const fade = Math.max(0.45, 1 - sourceIndex * 0.06)}
+                                    {@const sourceValue = source.mapping_value || source.source_name}
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-teal-50 dark:hover:bg-teal-950/40 active:bg-teal-100 dark:active:bg-teal-950/60 focus:outline-none focus-visible:bg-teal-50 dark:focus-visible:bg-teal-950/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                            style="opacity: {fade};"
+                                            onclick={() => {
+                                                if (availableCameras.length > 0) {
+                                                    addCameraAudioSource(availableCameras[0], sourceValue);
+                                                }
+                                            }}
+                                            disabled={availableCameras.length === 0}
+                                            title={availableCameras[0]
+                                                ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
+                                                : sourceValue}
+                                        >
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-[11px] font-black leading-none" aria-hidden="true">+</span>
+                                            <span class="min-w-0 flex-1 text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
+                                            <span class="shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
+                                        </button>
+                                    </li>
+                                {/each}
+                            </ul>
                         {/if}
                     </div>
                 </div>
