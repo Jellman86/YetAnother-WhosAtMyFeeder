@@ -24,7 +24,7 @@
 
     let toneDotClass = $derived.by(() => {
         switch (statusTone) {
-            case 'ok': return 'bg-emerald-500 ring-emerald-500/40';
+            case 'ok': return 'bg-green-500 ring-green-500/40';
             case 'mixed': return 'bg-amber-500 ring-amber-500/40';
             case 'down': return 'bg-rose-500 ring-rose-500/40';
             default: return 'bg-slate-400 ring-slate-400/40';
@@ -172,7 +172,7 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5">
-                                    <span class="h-2 w-2 rounded-full {entry?.ok ? 'bg-emerald-500' : 'bg-rose-500'}" aria-hidden="true"></span>
+                                    <span class="h-2 w-2 rounded-full {entry?.ok ? 'bg-green-500' : 'bg-rose-500'}" aria-hidden="true"></span>
                                     <span class="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{camera}</span>
                                 </div>
                                 <div class="text-[10px] font-bold text-slate-400 mt-0.5">
