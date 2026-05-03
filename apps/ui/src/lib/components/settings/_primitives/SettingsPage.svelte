@@ -36,27 +36,20 @@
 </script>
 
 <div class="max-w-7xl mx-auto space-y-6 pb-20">
-    {#if subtitle || onRefresh}
-        <div class="flex items-center justify-between gap-3 -mt-2">
-            {#if subtitle}
-                <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">{subtitle}</p>
-            {:else}
-                <span></span>
-            {/if}
-            {#if onRefresh}
-                <button
-                    type="button"
-                    onclick={() => onRefresh?.()}
-                    disabled={refreshing}
-                    class="btn btn-secondary px-3 py-2 text-xs font-bold shrink-0"
-                    aria-label={$_('common.refresh')}
-                >
-                    <svg class="w-4 h-4 {refreshing ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    {$_('common.refresh')}
-                </button>
-            {/if}
+    {#if onRefresh}
+        <div class="flex items-center justify-end gap-3 -mt-2">
+            <button
+                type="button"
+                onclick={() => onRefresh?.()}
+                disabled={refreshing}
+                class="btn btn-secondary px-3 py-2 text-xs font-bold shrink-0"
+                aria-label={$_('common.refresh')}
+            >
+                <svg class="w-4 h-4 {refreshing ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {$_('common.refresh')}
+            </button>
         </div>
     {/if}
 

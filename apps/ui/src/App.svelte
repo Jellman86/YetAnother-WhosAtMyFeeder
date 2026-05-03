@@ -65,6 +65,15 @@
       if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
       return '';
   });
+  let pageSubtitle = $derived.by(() => {
+      if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
+      if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
+      if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
+      if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
+      if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
+      if (currentRoute.startsWith('/about')) return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
+      return '';
+  });
   let showPageHeader = $derived(!authStore.isGuest && pageTitle.length > 0);
 
   function syncGlobalProgressSticky() {
@@ -607,7 +616,7 @@
           {/if}
           <main id="main-content" class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
               {#if showPageHeader}
-                  <PageHeader title={pageTitle} onNavigate={navigate} />
+                  <PageHeader title={pageTitle} subtitle={pageSubtitle} onNavigate={navigate} />
               {/if}
               {#if currentRoute === '/'}
                   {#key dashboardRefreshKey}
