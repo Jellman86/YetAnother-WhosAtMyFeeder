@@ -14,6 +14,7 @@
 
     let {
         birdnetEnabled = $bindable(true),
+        birdnetUrl = $bindable(''),
         audioTopic = $bindable('birdnet/text'),
         audioBufferHours = $bindable(24),
         audioCorrelationWindowSeconds = $bindable(300),
@@ -57,6 +58,7 @@
         onActionFeedback = (_type: 'success' | 'error', _text: string) => {}
     }: {
         birdnetEnabled: boolean;
+        birdnetUrl: string;
         audioTopic: string;
         audioBufferHours: number;
         audioCorrelationWindowSeconds: number;
@@ -287,6 +289,22 @@
                 labelledBy="setting-birdnet-enabled"
                 srLabel={$_('settings.integrations.birdnet.title')}
                 onchange={(v) => (birdnetEnabled = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-birdnet-url"
+            label={$_('settings.integrations.birdnet.url_label', { default: 'BirdNET-Go web URL' })}
+            description={$_('settings.integrations.birdnet.url_help', { default: 'Used by the Recent Audio widget to fetch spectrogram backgrounds and to provide a quick-link to the BirdNET-Go web UI. Leave empty to disable.' })}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="birdnet-url"
+                type="text"
+                value={birdnetUrl}
+                placeholder="http://birdnet-go:8080"
+                ariaLabel={$_('settings.integrations.birdnet.url_label', { default: 'BirdNET-Go web URL' })}
+                oninput={(v) => (birdnetUrl = v)}
             />
         </SettingsRow>
 

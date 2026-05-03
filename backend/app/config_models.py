@@ -204,6 +204,10 @@ class FrigateSettings(BaseModel):
     mqtt_username: str = ""
     mqtt_password: str = ""
     birdnet_enabled: bool = Field(default=True, description="Enable BirdNET-Go integration")
+    birdnet_url: str = Field(
+        default="",
+        description="Base URL of the BirdNET-Go web UI (e.g. http://birdnet-go:8080). Used by the Dashboard Recent Audio widget to fetch spectrogram backgrounds and to provide a quick-link to the BirdNET-Go UI.",
+    )
     audio_topic: str = "birdnet/text"
     camera_audio_mapping: dict[str, str] = Field(
         default_factory=dict,

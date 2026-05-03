@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, Request, Query, HTTPException
+from fastapi.responses import Response
+import httpx
 from datetime import datetime, timezone
 import json
 import structlog
@@ -90,6 +92,43 @@ async def get_recent_audio(
         for detection in detections:
             detection["sensor_id"] = None
     return detections
+
+@router.get("/spectrogram/{birdnet_id}")
+async def get_audio_spectrogram(
+    birdnet_id: int,
+    width: int = Query(default=400, ge=64, le=1600),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Proxy a BirdNET-Go spectrogram PNG so the browser does not need a
+    direct route to the BirdNET-Go host.
+
+    Cached for a day client-side. BirdNET-Go itself returns the image with
+    a 30-day immutable cache header — we keep ours shorter so YA-WAMF can
+    invalidate by changing birdnet_url without long-lived stale URLs.
+    """
+    base_url = (settings.frigate.birdnet_url or "").rstrip("/")
+    if not base_url:
+        raise HTTPException(status_code=503, detail="BirdNET-Go URL not configured")
+    if birdnet_id <= 0:
+        raise HTTPException(status_code=400, detail="Invalid detection id")
+    target = f"{base_url}/api/v2/spectrogram/{birdnet_id}"
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(target, params={"width": width})
+    except httpx.HTTPError as exc:
+        log.warning("birdnet_spectrogram_proxy_failed", id=birdnet_id, error=str(exc))
+        raise HTTPException(status_code=502, detail="BirdNET-Go unreachable")
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="Spectrogram not found")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"BirdNET-Go returned {response.status_code}")
+    media_type = response.headers.get("content-type", "image/png")
+    return Response(
+        content=response.content,
+        media_type=media_type,
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
 
 @router.get("/context")
 @guest_rate_limit()

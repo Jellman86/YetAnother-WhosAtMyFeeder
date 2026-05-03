@@ -18,6 +18,7 @@ export interface Settings {
     mqtt_username?: string;
     mqtt_password?: string;
     birdnet_enabled: boolean;
+    birdnet_url: string;
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, 'feeder' | 'nest'>;

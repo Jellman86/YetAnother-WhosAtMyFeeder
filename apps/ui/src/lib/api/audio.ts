@@ -5,6 +5,7 @@ export interface AudioDetection {
     species: string;
     confidence: number;
     sensor_id: string | null;
+    birdnet_id?: number | null;
 }
 
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {

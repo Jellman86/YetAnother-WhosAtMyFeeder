@@ -20,6 +20,28 @@ class AudioDetection:
     raw_data: dict
     scientific_name: Optional[str] = None
 
+def _extract_birdnet_id(raw_data: dict | None) -> int | None:
+    """Pull a stable BirdNET-Go detection id out of an MQTT payload.
+
+    Modern BirdNET-Go publishes ``detectionId`` as an integer; older builds
+    sometimes used ``id`` or string-typed ``detection_id``. We accept any of
+    those and reject anything non-numeric.
+    """
+    if not isinstance(raw_data, dict):
+        return None
+    for key in ("detectionId", "detection_id", "id"):
+        value = raw_data.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int) and value > 0:
+            return value
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                return int(stripped)
+    return None
+
+
 class AudioService:
     def __init__(self):
         # Store recent audio detections in memory for correlation
@@ -386,6 +408,7 @@ class AudioService:
                     "confidence": d.confidence,
                     "sensor_id": d.sensor_id,
                     "scientific_name": d.scientific_name,
+                    "birdnet_id": _extract_birdnet_id(d.raw_data),
                 }
                 for d in sorted_detections[:limit]
             ]

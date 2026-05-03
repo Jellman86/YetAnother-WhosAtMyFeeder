@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection } from '../api';
+    import { fetchSettings } from '../api/settings';
     import { formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
@@ -9,6 +10,7 @@
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
     let loading = $state(true);
+    let birdnetUrl = $state('');
 
     async function loadAudio() {
         try {
@@ -26,8 +28,28 @@
         }
     }
 
+    async function loadBirdnetUrl() {
+        try {
+            const settings = await fetchSettings();
+            birdnetUrl = (settings as any)?.birdnet_url || '';
+        } catch {
+            birdnetUrl = '';
+        }
+    }
+
+    function spectrogramUrl(birdnet_id: number | null | undefined): string | null {
+        if (!birdnet_id) return null;
+        return `/api/audio/spectrogram/${birdnet_id}?width=600`;
+    }
+
+    function birdnetDetectionUrl(birdnet_id: number | null | undefined): string | null {
+        if (!birdnetUrl || !birdnet_id) return null;
+        return `${birdnetUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
+    }
+
     onMount(() => {
         loadAudio();
+        loadBirdnetUrl();
         pollInterval = setInterval(loadAudio, 5000);
     });
 
@@ -53,12 +75,28 @@
                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{$_('dashboard.audio_feed.subtitle')}</p>
             </div>
         </div>
-        {#if !loading && audioDetections.length > 0}
-            <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200">
-                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                <span class="text-[9px] font-black uppercase tracking-wider">{$_('dashboard.audio_feed.active')}</span>
-            </div>
-        {/if}
+        <div class="flex items-center gap-2">
+            {#if !loading && audioDetections.length > 0}
+                <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-200">
+                    <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                    <span class="text-[9px] font-black uppercase tracking-wider">{$_('dashboard.audio_feed.active')}</span>
+                </div>
+            {/if}
+            {#if birdnetUrl}
+                <a
+                    href={birdnetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 transition-colors text-[9px] font-black uppercase tracking-wider"
+                    title={$_('dashboard.audio_feed.open_birdnet', { default: 'Open BirdNET-Go' })}
+                >
+                    <span>BirdNET-Go</span>
+                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5M19 5L10 14M5 7v12h12" />
+                    </svg>
+                </a>
+            {/if}
+        </div>
     </div>
 
     <div class="space-y-3 flex-1">
@@ -78,19 +116,42 @@
             </div>
         {:else}
             {#each audioDetections as detection}
-                <div class="group p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 transition-all">
-                    <div class="flex items-center justify-between gap-3 mb-1">
-                        <span class="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-tighter">{formatTimeWithSeconds(detection.timestamp)}</span>
-                        <span class="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
-                    </div>
-                    <div class="flex items-center justify-between gap-4">
-                        <p class="text-sm font-black text-slate-800 dark:text-slate-100 truncate">{detection.species}</p>
-                        <div class="flex items-center gap-1.5 flex-shrink-0">
-                            <div class="w-1.5 h-1.5 rounded-full {detection.confidence > 0.7 ? 'bg-emerald-500' : 'bg-amber-500'}"></div>
-                            <span class="text-xs font-black {detection.confidence > 0.7 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">{(detection.confidence * 100).toFixed(0)}%</span>
+                {@const spec = spectrogramUrl(detection.birdnet_id)}
+                {@const link = birdnetDetectionUrl(detection.birdnet_id)}
+                {#snippet body()}
+                    {#if spec}
+                        <div class="absolute inset-0 bg-cover bg-center opacity-50 dark:opacity-40 transition-opacity" style="background-image: url('{spec}');"></div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-white/90 via-white/55 to-white/15 dark:from-slate-900/90 dark:via-slate-900/55 dark:to-slate-900/15"></div>
+                    {/if}
+                    <div class="relative">
+                        <div class="flex items-center justify-between gap-3 mb-1">
+                            <span class="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-tighter">{formatTimeWithSeconds(detection.timestamp)}</span>
+                            <span class="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <p class="text-sm font-black text-slate-800 dark:text-slate-100 truncate">{detection.species}</p>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <div class="w-1.5 h-1.5 rounded-full {detection.confidence > 0.7 ? 'bg-green-500' : 'bg-amber-500'}"></div>
+                                <span class="text-xs font-black {detection.confidence > 0.7 ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'}">{(detection.confidence * 100).toFixed(0)}%</span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                {/snippet}
+                {#if link}
+                    <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="relative block overflow-hidden p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 hover:ring-1 hover:ring-teal-500/20 transition-all"
+                        title={$_('dashboard.audio_feed.open_in_birdnet', { default: 'Open detection in BirdNET-Go' })}
+                    >
+                        {@render body()}
+                    </a>
+                {:else}
+                    <div class="relative overflow-hidden p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 hover:border-teal-500/30 transition-all">
+                        {@render body()}
+                    </div>
+                {/if}
             {/each}
         {/if}
     </div>
