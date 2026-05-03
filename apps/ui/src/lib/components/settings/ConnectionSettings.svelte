@@ -517,7 +517,7 @@
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Live Preview' })}</span>
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                                         <div class="flex items-center gap-2">
                                             <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                                             <button
@@ -533,9 +533,9 @@
                                         </div>
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-800/60">
-                                        <div class="relative w-full h-36">
+                                        <div class="relative w-full aspect-video">
                                             {#if previewBlobUrl}
-                                                <img class="w-full h-36 object-cover" alt="" src={previewBlobUrl} />
+                                                <img class="absolute inset-0 w-full h-full object-contain" alt="" src={previewBlobUrl} />
                                             {/if}
                                             {#if previewLoading}
                                                 <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
