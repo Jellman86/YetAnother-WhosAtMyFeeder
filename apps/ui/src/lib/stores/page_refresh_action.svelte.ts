@@ -1,3 +1,5 @@
+import { untrack } from 'svelte';
+
 type PageRefreshCallback = () => Promise<void> | void;
 
 type RegisteredAction = {
@@ -15,14 +17,18 @@ class PageRefreshAction {
 
     register(callback: PageRefreshCallback): () => void {
         const action = { id: Symbol('page-refresh-action'), callback };
-        this.actions = [...this.actions, action];
+        untrack(() => {
+            this.actions = [...this.actions, action];
+        });
         return () => {
-            this.actions = this.actions.filter((candidate) => candidate.id !== action.id);
+            untrack(() => {
+                this.actions = this.actions.filter((candidate) => candidate.id !== action.id);
+            });
         };
     }
 
     async run(): Promise<void> {
-        const action = this.actions.at(-1);
+        const action = untrack(() => this.actions.at(-1));
         if (!action || this.refreshing) return;
 
         this.refreshing = true;
