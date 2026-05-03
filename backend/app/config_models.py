@@ -209,6 +209,16 @@ class FrigateSettings(BaseModel):
         default_factory=dict,
         description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})"
     )
+    camera_roles: dict[str, Literal["feeder", "nest"]] = Field(
+        default_factory=dict,
+        description="Per-camera role. 'feeder' (default) treats every Frigate event as a fresh visit; 'nest' deduplicates repeat detections of the same species within nest_dedupe_minutes to prevent inflation from a continuously-present nesting bird.",
+    )
+    nest_dedupe_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=720,
+        description="For cameras with role='nest', collapse repeat detections of the same species within this many minutes into a single recorded detection.",
+    )
     audio_buffer_hours: int = Field(default=24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
     audio_correlation_window_seconds: int = Field(default=300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
 

@@ -1032,6 +1032,36 @@ class EventProcessor:
         label = classification['label']
         score = classification['score']
 
+        # Nest-mode dedupe: collapse repeat detections of the same species on a
+        # nest camera within nest_dedupe_minutes. The detection_service.save
+        # path is upsert-keyed by frigate_event, so two distinct events from
+        # the same nesting bird would both land. Skip the save+notify entirely
+        # when a same-species detection already exists in the dedupe window.
+        camera_role = (settings.frigate.camera_roles or {}).get(event.camera, "feeder")
+        if camera_role == "nest" and label:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                if await repo.has_recent_detection_for_species(
+                    camera=event.camera,
+                    display_name=label,
+                    within_minutes=settings.frigate.nest_dedupe_minutes,
+                ):
+                    log.info(
+                        "Skipping nest-mode dedupe of repeat detection",
+                        event_id=event.frigate_event,
+                        camera=event.camera,
+                        species=label,
+                        dedupe_minutes=settings.frigate.nest_dedupe_minutes,
+                    )
+                    self._record_drop(
+                        event.frigate_event,
+                        "nest_mode_dedupe",
+                        camera=event.camera,
+                        species=label,
+                        dedupe_minutes=settings.frigate.nest_dedupe_minutes,
+                    )
+                    return
+
         weather_fields = self._extract_weather_fields(context)
 
         # Save detection (upsert)

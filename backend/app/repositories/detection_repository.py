@@ -635,6 +635,32 @@ class DetectionRepository:
                 return _row_to_detection(row)
             return None
 
+    async def has_recent_detection_for_species(
+        self,
+        camera: str,
+        display_name: str,
+        within_minutes: int,
+    ) -> bool:
+        """Return True if a non-hidden detection of the same display_name exists
+        on the given camera within the last `within_minutes` minutes.
+
+        Used by the nest-mode dedupe guard so a continuously-present nesting
+        bird does not produce a fresh detection per Frigate event.
+        """
+        if not camera or not display_name or within_minutes <= 0:
+            return False
+        async with self.db.execute(
+            """SELECT 1 FROM detections
+               WHERE camera_name = ?
+                 AND LOWER(display_name) = LOWER(?)
+                 AND COALESCE(is_hidden, 0) = 0
+                 AND detection_time >= datetime('now', ?)
+               LIMIT 1""",
+            (camera, display_name, f"-{int(within_minutes)} minutes"),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row is not None
+
     async def get_by_id(self, detection_id: int) -> Optional[Detection]:
         async with self.db.execute(
             f"""SELECT {DETECTION_SELECT_COLUMNS}

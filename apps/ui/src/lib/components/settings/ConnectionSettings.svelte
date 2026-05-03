@@ -25,6 +25,8 @@
         recordingClipBeforeSeconds = $bindable(30),
         recordingClipAfterSeconds = $bindable(90),
         selectedCameras = $bindable<string[]>([]),
+        cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
+        nestDedupeMinutes = $bindable(30),
         telemetryEnabled = $bindable(false),
         availableCameras = $bindable<string[]>([]),
         recordingClipCapability = null,
@@ -52,6 +54,8 @@
         recordingClipBeforeSeconds: number;
         recordingClipAfterSeconds: number;
         selectedCameras: string[];
+        cameraRoles: Record<string, 'feeder' | 'nest'>;
+        nestDedupeMinutes: number;
         telemetryEnabled: boolean;
         availableCameras: string[];
         recordingClipCapability: RecordingClipCapability | null;
@@ -441,6 +445,7 @@
                 <div class="grid grid-cols-1 gap-2">
                     {#each availableCameras as camera}
                         {@const selected = selectedCameras.includes(camera)}
+                        {@const role = cameraRoles[camera] === 'nest' ? 'nest' : 'feeder'}
                         <div
                             role="button"
                             tabindex="0"
@@ -476,6 +481,39 @@
                                     {#if selected}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
                                 </div>
                             </div>
+                            {#if selected}
+                                <div class="flex items-center justify-between gap-2 px-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="presentation">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
+                                    <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5">
+                                        <button
+                                            type="button"
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                const next = { ...cameraRoles };
+                                                delete next[camera];
+                                                cameraRoles = next;
+                                            }}
+                                            class="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors {role === 'feeder' ? 'bg-teal-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            aria-pressed={role === 'feeder'}
+                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam — every Frigate event is treated as a fresh visit (default).' })}
+                                        >
+                                            🪶 {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                cameraRoles = { ...cameraRoles, [camera]: 'nest' };
+                                            }}
+                                            class="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors {role === 'nest' ? 'bg-teal-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            aria-pressed={role === 'nest'}
+                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam — collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
+                                        >
+                                            🪺 {$_('settings.cameras.role_nest', { default: 'Nest' })}
+                                        </button>
+                                    </div>
+                                </div>
+                            {/if}
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
@@ -515,6 +553,25 @@
                             {/if}
                         </div>
                     {/each}
+                </div>
+            {/if}
+            {#if Object.values(cameraRoles).includes('nest')}
+                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/40 p-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs font-black text-slate-700 dark:text-slate-200">🪺 {$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="text-[10px] text-slate-500 font-bold mt-0.5">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <input
+                            type="number"
+                            min={1}
+                            max={720}
+                            bind:value={nestDedupeMinutes}
+                            class="w-20 h-9 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none text-right"
+                            aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
+                        />
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                    </div>
                 </div>
             {/if}
         </div>

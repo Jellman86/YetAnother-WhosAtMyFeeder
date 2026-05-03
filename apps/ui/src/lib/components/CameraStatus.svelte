@@ -5,6 +5,7 @@
     import { fetchSettings } from '../api/settings';
 
     let cameras = $state<string[]>([]);
+    let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
     let frames = $state<Record<string, { url: string | null; ok: boolean; loading: boolean }>>({});
     let popoverOpen = $state(false);
     let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -36,6 +37,8 @@
             const settings = await fetchSettings();
             const list = (settings as any)?.cameras;
             cameras = Array.isArray(list) ? list.filter((c: unknown): c is string => typeof c === 'string' && c.length > 0) : [];
+            const roles = (settings as any)?.camera_roles;
+            cameraRoles = roles && typeof roles === 'object' && !Array.isArray(roles) ? roles : {};
             const next: typeof frames = {};
             for (const camera of cameras) {
                 next[camera] = frames[camera] ?? { url: null, ok: false, loading: false };
@@ -156,6 +159,7 @@
                 <ul class="space-y-2">
                     {#each cameras as camera}
                         {@const entry = frames[camera]}
+                        {@const role = cameraRoles[camera] === 'nest' ? 'nest' : 'feeder'}
                         <li class="flex items-center gap-3 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/60 p-2">
                             <div class="relative w-20 h-14 shrink-0 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800">
                                 {#if entry?.url}
@@ -174,6 +178,17 @@
                                 <div class="flex items-center gap-1.5">
                                     <span class="h-2 w-2 rounded-full {entry?.ok ? 'bg-green-500' : 'bg-rose-500'}" aria-hidden="true"></span>
                                     <span class="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{camera}</span>
+                                    <span
+                                        class="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest {role === 'nest' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-slate-200/60 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400'}"
+                                        title={role === 'nest'
+                                            ? $_('header.cameras_role_nest_help', { default: 'Nest box cam — repeat detections deduped within the configured window.' })
+                                            : $_('header.cameras_role_feeder_help', { default: 'Feeder cam — every Frigate event is a fresh visit.' })}
+                                    >
+                                        <span aria-hidden="true">{role === 'nest' ? '🪺' : '🪶'}</span>
+                                        {role === 'nest'
+                                            ? $_('header.cameras_role_nest', { default: 'Nest' })
+                                            : $_('header.cameras_role_feeder', { default: 'Feeder' })}
+                                    </span>
                                 </div>
                                 <div class="text-[10px] font-bold text-slate-400 mt-0.5">
                                     {entry?.ok

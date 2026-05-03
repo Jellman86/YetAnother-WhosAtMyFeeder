@@ -20,6 +20,8 @@ export interface Settings {
     birdnet_enabled: boolean;
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
+    camera_roles: Record<string, 'feeder' | 'nest'>;
+    nest_dedupe_minutes: number;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
     recording_clip_before_seconds: number;

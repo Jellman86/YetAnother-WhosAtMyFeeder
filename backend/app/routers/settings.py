@@ -379,6 +379,8 @@ class SettingsUpdate(BaseModel):
     birdnet_enabled: Optional[bool] = Field(True, description="Enable BirdNET-Go integration")
     audio_topic: str = Field("birdnet/text", description="MQTT topic for audio detections")
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
+    camera_roles: dict[str, Literal["feeder", "nest"]] = Field(default_factory=dict, description="Per-camera role")
+    nest_dedupe_minutes: int = Field(30, ge=1, le=720, description="Dedupe window for nest cameras")
     audio_buffer_hours: int = Field(24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
     audio_correlation_window_seconds: int = Field(300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
@@ -735,6 +737,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdnet_enabled": settings.frigate.birdnet_enabled,
         "audio_topic": settings.frigate.audio_topic,
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
+        "camera_roles": settings.frigate.camera_roles,
+        "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
         "clips_enabled": settings.frigate.clips_enabled,
@@ -967,6 +971,22 @@ async def update_settings(
                 continue
             cleaned_mapping[normalized_camera] = ", ".join(tokens)
         settings.frigate.camera_audio_mapping = cleaned_mapping
+    if "camera_roles" in fields_set:
+        cleaned_roles: dict[str, str] = {}
+        for camera_name, role in (update.camera_roles or {}).items():
+            if not isinstance(camera_name, str) or not isinstance(role, str):
+                continue
+            normalized_camera = camera_name.strip()
+            normalized_role = role.strip().lower()
+            if not normalized_camera or normalized_role not in ("feeder", "nest"):
+                continue
+            # Don't bother persisting the default 'feeder' role; saves config bloat.
+            if normalized_role == "feeder":
+                continue
+            cleaned_roles[normalized_camera] = normalized_role
+        settings.frigate.camera_roles = cleaned_roles
+    if "nest_dedupe_minutes" in fields_set and update.nest_dedupe_minutes is not None:
+        settings.frigate.nest_dedupe_minutes = update.nest_dedupe_minutes
     if "audio_buffer_hours" in fields_set:
         settings.frigate.audio_buffer_hours = update.audio_buffer_hours
     if "audio_correlation_window_seconds" in fields_set:

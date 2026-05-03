@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **Backend/UI:** Per-camera **role** setting (`feeder` or `nest`) plus a global `nest_dedupe_minutes` window. When a camera's role is `nest`, the event processor skips the save+notify path for any new detection whose species was already recorded on that camera in the last N minutes (default 30). Stops a continuously-present nesting bird from inflating detection counts, leaderboard rankings, and notifications. Settings → Connection now exposes a feeder/nest segmented picker per selected camera and a dedupe-window input that appears once at least one camera is in nest mode. The page-header `CameraStatus` popover shows a Feeder/Nest tag next to each camera so you can see at a glance how each one is configured.
 - **UI/Backend:** Settings → Location now reverse-geocodes the configured latitude/longitude through a new `GET /api/location/reverse-geocode` endpoint (Nominatim, in-memory cache rounded to 2 decimal places). Manual mode no longer asks the user to type state and country — those values are derived from the coordinates and persisted on save, and the resolved place is shown inline beneath the lat/lon fields. The iNaturalist default place guess auto-populates from the same lookup the first time it is empty.
 
 ### Changed

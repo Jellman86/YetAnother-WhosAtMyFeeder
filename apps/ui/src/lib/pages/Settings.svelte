@@ -119,6 +119,8 @@
     let mqttPasswordSaved = $state(false);
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
+    let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
+    let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
     let birdnetSourcesError = $state<string | null>(null);
@@ -1754,6 +1756,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
             { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
+            { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
+            { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
@@ -2615,6 +2619,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
                 cameraAudioMapping = {};
             }
+            cameraRoles = settings.camera_roles || {};
+            if (typeof cameraRoles !== 'object' || Array.isArray(cameraRoles)) {
+                cameraRoles = {};
+            }
+            nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
+                ? settings.nest_dedupe_minutes
+                : 30;
             try {
                 birdnetSourceOptions = await fetchAudioSources(20);
             } catch (e) {
@@ -2960,6 +2971,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 birdnet_enabled: birdnetEnabled,
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
+                camera_roles: cameraRoles,
+                nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 clips_enabled: clipsEnabled,
@@ -3306,6 +3319,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
+                    bind:cameraRoles
+                    bind:nestDedupeMinutes
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
