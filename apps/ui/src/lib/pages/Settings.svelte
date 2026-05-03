@@ -111,6 +111,10 @@
         resolveStoredLlmModel
     } from '../settings/llm-models';
 
+    let {
+        onNavigate
+    } = $props<{ onNavigate?: (path: string) => void }>();
+
     let frigateUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
@@ -3628,6 +3632,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
+                    handleOpenDiagnostics={() => {
+                        if (onNavigate) {
+                            onNavigate('/settings/errors');
+                            return;
+                        }
+                        window.location.assign('/settings/errors');
+                    }}
                 />
             {/if}
 

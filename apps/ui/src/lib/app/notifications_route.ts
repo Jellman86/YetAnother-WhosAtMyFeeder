@@ -1,4 +1,4 @@
-export type NotificationsTab = 'notifications' | 'jobs' | 'errors';
+export type NotificationsTab = 'notifications' | 'jobs';
 
 function matchesPathSegment(path: string, segment: string): boolean {
     return path === segment || path.startsWith(`${segment}/`);
@@ -6,12 +6,11 @@ function matchesPathSegment(path: string, segment: string): boolean {
 
 export function getNotificationsTabPath(tab: NotificationsTab): string {
     if (tab === 'jobs') return '/notifications/jobs';
-    if (tab === 'errors') return '/notifications/errors';
     return '/notifications';
 }
 
 export function isOwnerOnlyNotificationsTab(tab: NotificationsTab): boolean {
-    return tab === 'jobs' || tab === 'errors';
+    return tab === 'jobs';
 }
 
 export function getNotificationsTabPathForAccess(tab: NotificationsTab, canAccessOwnerTabs: boolean): string {
@@ -22,9 +21,6 @@ export function getNotificationsTabPathForAccess(tab: NotificationsTab, canAcces
 }
 
 export function getNotificationsTabFromPath(path: string): NotificationsTab {
-    if (matchesPathSegment(path, '/notifications/errors')) {
-        return 'errors';
-    }
     if (matchesPathSegment(path, '/jobs') || matchesPathSegment(path, '/notifications/jobs')) {
         return 'jobs';
     }
@@ -39,7 +35,7 @@ export function getCanonicalNotificationRoute(path: string): string | null {
         return '/notifications/jobs';
     }
     if (matchesPathSegment(path, '/notifications/errors')) {
-        return '/notifications/errors';
+        return '/settings/errors';
     }
     if (matchesPathSegment(path, '/notifications')) {
         return '/notifications';
@@ -52,7 +48,7 @@ export function canonicalizeNotificationRouteForAccess(path: string, canAccessOw
     if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/jobs')) {
         return '/notifications';
     }
-    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/errors')) {
+    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/settings/errors')) {
         return '/notifications';
     }
     return canonical;

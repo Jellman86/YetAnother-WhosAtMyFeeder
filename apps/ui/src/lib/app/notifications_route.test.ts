@@ -13,27 +13,23 @@ describe('notifications_route', () => {
     it('routes jobs tab to nested notifications path', () => {
         expect(getNotificationsTabPath('notifications')).toBe('/notifications');
         expect(getNotificationsTabPath('jobs')).toBe('/notifications/jobs');
-        expect(getNotificationsTabPath('errors')).toBe('/notifications/errors');
     });
 
-    it('marks jobs and errors tabs as owner-only', () => {
+    it('marks jobs tab as owner-only', () => {
         expect(isOwnerOnlyNotificationsTab('notifications')).toBe(false);
         expect(isOwnerOnlyNotificationsTab('jobs')).toBe(true);
-        expect(isOwnerOnlyNotificationsTab('errors')).toBe(true);
     });
 
     it('resolves notification tab paths for guest vs owner access', () => {
         expect(getNotificationsTabPathForAccess('notifications', false)).toBe('/notifications');
         expect(getNotificationsTabPathForAccess('jobs', false)).toBe('/notifications');
-        expect(getNotificationsTabPathForAccess('errors', false)).toBe('/notifications');
         expect(getNotificationsTabPathForAccess('jobs', true)).toBe('/notifications/jobs');
-        expect(getNotificationsTabPathForAccess('errors', true)).toBe('/notifications/errors');
     });
 
     it('parses notification tab from route path', () => {
         expect(getNotificationsTabFromPath('/notifications')).toBe('notifications');
         expect(getNotificationsTabFromPath('/notifications/jobs')).toBe('jobs');
-        expect(getNotificationsTabFromPath('/notifications/errors')).toBe('errors');
+        expect(getNotificationsTabFromPath('/notifications/errors')).toBe('notifications');
         expect(getNotificationsTabFromPath('/jobs')).toBe('jobs');
         expect(getNotificationsTabFromPath('/notifications/other')).toBe('notifications');
     });
@@ -42,7 +38,7 @@ describe('notifications_route', () => {
         expect(getCanonicalNotificationRoute('/jobs')).toBe('/notifications/jobs');
         expect(getCanonicalNotificationRoute('/jobs/anything')).toBe('/notifications/jobs');
         expect(getCanonicalNotificationRoute('/notifications/jobs')).toBe('/notifications/jobs');
-        expect(getCanonicalNotificationRoute('/notifications/errors')).toBe('/notifications/errors');
+        expect(getCanonicalNotificationRoute('/notifications/errors')).toBe('/settings/errors');
         expect(getCanonicalNotificationRoute('/notifications')).toBe('/notifications');
         expect(getCanonicalNotificationRoute('/settings')).toBeNull();
     });
@@ -53,7 +49,7 @@ describe('notifications_route', () => {
         expect(canonicalizeNotificationRouteForAccess('/notifications/jobs', false)).toBe('/notifications');
         expect(canonicalizeNotificationRouteForAccess('/notifications/errors', false)).toBe('/notifications');
         expect(canonicalizeNotificationRouteForAccess('/notifications/jobs', true)).toBe('/notifications/jobs');
-        expect(canonicalizeNotificationRouteForAccess('/notifications/errors', true)).toBe('/notifications/errors');
+        expect(canonicalizeNotificationRouteForAccess('/notifications/errors', true)).toBe('/settings/errors');
         expect(canonicalizeNotificationRouteForAccess('/events', false)).toBe('/events');
     });
 
@@ -61,6 +57,7 @@ describe('notifications_route', () => {
         expect(isNotificationRoute('/notifications')).toBe(true);
         expect(isNotificationRoute('/notifications/jobs')).toBe(true);
         expect(isNotificationRoute('/notifications/errors')).toBe(true);
+        expect(isNotificationRoute('/settings/errors')).toBe(false);
         expect(isNotificationRoute('/jobs')).toBe(true);
         expect(isNotificationRoute('/events')).toBe(false);
         expect(isNotificationRoute('/notifications-old')).toBe(false);

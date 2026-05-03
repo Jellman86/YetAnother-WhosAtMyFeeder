@@ -7,6 +7,8 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
 
+    const RECENT_AUDIO_LIMIT = 10;
+
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
     let loading = $state(true);
@@ -14,7 +16,7 @@
 
     async function loadAudio() {
         try {
-            audioDetections = await fetchRecentAudio(5);
+            audioDetections = await fetchRecentAudio(RECENT_AUDIO_LIMIT);
         } catch (e) {
             if (isTransientRequestError(e)) {
                 logger.warn('Recent audio fetch failed (transient)', {
@@ -101,7 +103,7 @@
 
     <div class="space-y-3 flex-1">
         {#if loading}
-            {#each [1, 2, 3] as _}
+            {#each Array.from({ length: 6 }) as _}
                 <div class="h-16 bg-slate-100 dark:bg-slate-800/50 rounded-2xl animate-pulse border border-slate-200/50 dark:border-slate-700/50"></div>
             {/each}
         {:else if audioDetections.length === 0}
