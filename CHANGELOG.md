@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **UI/Backend:** Settings → Location now reverse-geocodes the configured latitude/longitude through a new `GET /api/location/reverse-geocode` endpoint (Nominatim, in-memory cache rounded to 2 decimal places). Manual mode no longer asks the user to type state and country — those values are derived from the coordinates and persisted on save, and the resolved place is shown inline beneath the lat/lon fields. The iNaturalist default place guess auto-populates from the same lookup the first time it is empty.
+
+### Changed
+- **UI:** Auto/manual location toggle replaced with a clearer two-card segmented control ("Auto-detect" / "Manual entry") explaining what each mode does.
+- **UI:** AI settings tab now uses the full Settings page width again — the usage table has five columns and was being cramped by the new `max-w-3xl` cap applied in 2.9.14.
+
 ## [2.9.14] - 2026-05-03
 
 ### Changed

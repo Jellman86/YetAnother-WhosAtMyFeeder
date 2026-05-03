@@ -54,6 +54,7 @@ from app.routers import (
     inaturalist,
     ebird,
     diagnostics,
+    geocoding,
     auth as auth_router,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -474,6 +475,7 @@ app.include_router(diagnostics.router, prefix="/api", tags=["diagnostics"], depe
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 
 
 async def _safe_call_next(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

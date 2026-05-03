@@ -9,6 +9,8 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import Map from '../Map.svelte';
+    import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
+    import { reverseGeocode } from '../../api/geocoding';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -165,6 +167,45 @@
             ? [locationLat, locationLon]
             : null
     );
+
+    let geocodeLoading = $state(false);
+    let geocodePlace = $state<string | null>(null);
+    let geocodeError = $state<string | null>(null);
+    let geocodeKey = $state<string | null>(null);
+
+    $effect(() => {
+        if (!mapPoint) {
+            geocodePlace = null;
+            geocodeError = null;
+            geocodeKey = null;
+            return;
+        }
+        const [lat, lon] = mapPoint;
+        const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+        if (key === geocodeKey) return;
+        geocodeKey = key;
+        geocodeLoading = true;
+        geocodeError = null;
+        reverseGeocode(lat, lon)
+            .then((result) => {
+                if (geocodeKey !== key) return;
+                geocodePlace = result.place_guess
+                    || [result.state, result.country].filter(Boolean).join(', ')
+                    || null;
+                if (result.state) locationState = result.state;
+                if (result.country) locationCountry = result.country;
+                if (!inaturalistDefaultPlace && result.place_guess) {
+                    inaturalistDefaultPlace = result.place_guess;
+                }
+            })
+            .catch((error) => {
+                if (geocodeKey !== key) return;
+                geocodeError = error instanceof Error ? error.message : 'Lookup failed';
+            })
+            .finally(() => {
+                if (geocodeKey === key) geocodeLoading = false;
+            });
+    });
     let birdnetMappingOptions = $derived.by(() => {
         const seen = new Set<string>();
         return birdnetSourceOptions
@@ -831,14 +872,30 @@
         >
             <SettingsRow
                 labelId="setting-location-mode"
-                label={$_('settings.location.auto')}
-                description={locationToggle.autoActive ? $_('settings.location.auto_detect_enabled') : $_('settings.location.manual')}
+                label={$_('settings.location.mode_title', { default: 'Location source' })}
+                description={$_('settings.location.mode_help', { default: 'Auto-detect uses your IP/timezone. Manual lets you pin exact coordinates for weather, eBird hotspots, and observation submissions.' })}
+                layout="stacked"
             >
-                <SettingsToggle
-                    checked={locationAuto}
-                    labelledBy="setting-location-mode"
-                    srLabel={$_('settings.location.auto')}
-                    onchange={(v) => (locationAuto = v)}
+                <SettingsSegmented
+                    value={locationAuto ? 'auto' : 'manual'}
+                    layout="card"
+                    columns={2}
+                    ariaLabelTemplate={(label) => $_('settings.location.mode_select', { default: 'Use {mode}', values: { mode: label } })}
+                    onchange={(v) => (locationAuto = v === 'auto')}
+                    options={[
+                        {
+                            value: 'auto',
+                            label: $_('settings.location.mode_auto', { default: 'Auto-detect' }),
+                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' }),
+                            icon: '📡'
+                        },
+                        {
+                            value: 'manual',
+                            label: $_('settings.location.mode_manual', { default: 'Manual entry' }),
+                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' }),
+                            icon: '🎯'
+                        }
+                    ]}
                 />
             </SettingsRow>
 
@@ -870,32 +927,21 @@
                             oninput={(v) => (locationLon = v === '' ? null : Number(v))}
                         />
                     </SettingsRow>
-                    <SettingsRow
-                        labelId="setting-location-state"
-                        label={$_('settings.location.state')}
-                        layout="stacked"
-                    >
-                        <SettingsInput
-                            id="location-state"
-                            type="text"
-                            value={locationState}
-                            ariaLabel={$_('settings.location.state')}
-                            oninput={(v) => (locationState = v)}
-                        />
-                    </SettingsRow>
-                    <SettingsRow
-                        labelId="setting-location-country"
-                        label={$_('settings.location.country')}
-                        layout="stacked"
-                    >
-                        <SettingsInput
-                            id="location-country"
-                            type="text"
-                            value={locationCountry}
-                            ariaLabel={$_('settings.location.country')}
-                            oninput={(v) => (locationCountry = v)}
-                        />
-                    </SettingsRow>
+                </div>
+            {/if}
+
+            {#if mapPoint}
+                <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
+                    {#if geocodeLoading}
+                        <span class="text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
+                    {:else if geocodeError}
+                        <span class="text-rose-500 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
+                    {:else if geocodePlace}
+                        <span class="font-black text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
+                    {:else}
+                        <span class="text-slate-400 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
+                    {/if}
                 </div>
             {/if}
 
