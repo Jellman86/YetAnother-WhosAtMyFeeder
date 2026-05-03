@@ -305,7 +305,7 @@
     });
 </script>
 
-<div class="max-w-3xl space-y-6">
+<div class="space-y-6">
     <!-- Global Notification Filters -->
     <section class="bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-slate-800/30 dark:to-amber-900/10 rounded-3xl border border-amber-200/50 dark:border-amber-700/30 p-8 shadow-sm backdrop-blur-md">
         <div class="flex items-center gap-3 mb-6">
