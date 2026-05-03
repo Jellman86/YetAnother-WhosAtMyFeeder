@@ -182,6 +182,7 @@
     // BirdNET-Go Settings
     let birdnetEnabled = $state(true);
     let birdnetUrl = $state('');
+    let birdnetExternalUrl = $state('');
 
     // BirdWeather Settings
     let birdweatherEnabled = $state(false);
@@ -1668,6 +1669,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
+            { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -2617,6 +2619,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
             birdnetEnabled = settings.birdnet_enabled ?? true;
             birdnetUrl = settings.birdnet_url || '';
+            birdnetExternalUrl = settings.birdnet_external_url || '';
             audioTopic = settings.audio_topic || 'birdnet/text';
             cameraAudioMapping = settings.camera_audio_mapping || {};
             if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
@@ -2973,6 +2976,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 mqtt_password: mqttPassword,
                 birdnet_enabled: birdnetEnabled,
                 birdnet_url: birdnetUrl,
+                birdnet_external_url: birdnetExternalUrl,
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
                 camera_roles: cameraRoles,
@@ -3444,6 +3448,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 <IntegrationSettings
                     bind:birdnetEnabled
                     bind:birdnetUrl
+                    bind:birdnetExternalUrl
                     bind:audioTopic
                     bind:audioBufferHours
                     bind:audioCorrelationWindowSeconds

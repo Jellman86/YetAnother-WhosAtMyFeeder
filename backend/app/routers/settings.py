@@ -377,7 +377,8 @@ class SettingsUpdate(BaseModel):
     mqtt_username: Optional[str] = Field(None, description="MQTT username")
     mqtt_password: Optional[str] = Field(None, description="MQTT password")
     birdnet_enabled: Optional[bool] = Field(True, description="Enable BirdNET-Go integration")
-    birdnet_url: Optional[str] = Field("", description="Base URL of the BirdNET-Go web UI")
+    birdnet_url: Optional[str] = Field("", description="Internal BirdNET-Go base URL (server→BirdNET-Go)")
+    birdnet_external_url: Optional[str] = Field("", description="External BirdNET-Go base URL (browser→BirdNET-Go)")
     audio_topic: str = Field("birdnet/text", description="MQTT topic for audio detections")
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
     camera_roles: dict[str, Literal["feeder", "nest"]] = Field(default_factory=dict, description="Per-camera role")
@@ -737,6 +738,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "mqtt_password": "***REDACTED***" if settings.frigate.mqtt_password else None,
         "birdnet_enabled": settings.frigate.birdnet_enabled,
         "birdnet_url": settings.frigate.birdnet_url,
+        "birdnet_external_url": settings.frigate.birdnet_external_url,
         "audio_topic": settings.frigate.audio_topic,
         "camera_audio_mapping": settings.frigate.camera_audio_mapping,
         "camera_roles": settings.frigate.camera_roles,
@@ -958,6 +960,8 @@ async def update_settings(
         settings.frigate.birdnet_enabled = update.birdnet_enabled
     if "birdnet_url" in fields_set and update.birdnet_url is not None:
         settings.frigate.birdnet_url = update.birdnet_url.strip().rstrip("/")
+    if "birdnet_external_url" in fields_set and update.birdnet_external_url is not None:
+        settings.frigate.birdnet_external_url = update.birdnet_external_url.strip().rstrip("/")
     if "audio_topic" in fields_set:
         settings.frigate.audio_topic = update.audio_topic
     if "camera_audio_mapping" in fields_set:

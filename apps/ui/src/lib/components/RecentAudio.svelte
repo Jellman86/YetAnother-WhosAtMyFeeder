@@ -10,7 +10,7 @@
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
     let loading = $state(true);
-    let birdnetUrl = $state('');
+    let birdnetExternalUrl = $state('');
 
     async function loadAudio() {
         try {
@@ -31,9 +31,9 @@
     async function loadBirdnetUrl() {
         try {
             const settings = await fetchSettings();
-            birdnetUrl = (settings as any)?.birdnet_url || '';
+            birdnetExternalUrl = settings.birdnet_external_url || settings.birdnet_url || '';
         } catch {
-            birdnetUrl = '';
+            birdnetExternalUrl = '';
         }
     }
 
@@ -43,8 +43,8 @@
     }
 
     function birdnetDetectionUrl(birdnet_id: number | null | undefined): string | null {
-        if (!birdnetUrl || !birdnet_id) return null;
-        return `${birdnetUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
+        if (!birdnetExternalUrl || !birdnet_id) return null;
+        return `${birdnetExternalUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
     }
 
     onMount(() => {
@@ -82,9 +82,9 @@
                     <span class="text-[9px] font-black uppercase tracking-wider">{$_('dashboard.audio_feed.active')}</span>
                 </div>
             {/if}
-            {#if birdnetUrl}
+            {#if birdnetExternalUrl}
                 <a
-                    href={birdnetUrl}
+                    href={birdnetExternalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 transition-colors text-[9px] font-black uppercase tracking-wider"

@@ -19,4 +19,11 @@ describe('IntegrationSettings BirdNET source mapping helper', () => {
         expect(componentSource).toContain('bind:value={cameraAudioMapping[camera]}');
         expect(componentSource).toContain('<select');
     });
+
+    it('keeps separate BirdNET internal and browser URL settings', () => {
+        expect(componentSource).toContain('birdnetExternalUrl');
+        expect(componentSource).toContain('settings.integrations.birdnet.internal_url_label');
+        expect(componentSource).toContain('settings.integrations.birdnet.external_url_label');
+        expect(componentSource).toContain('id="birdnet-external-url"');
+    });
 });

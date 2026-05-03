@@ -15,6 +15,7 @@
     let {
         birdnetEnabled = $bindable(true),
         birdnetUrl = $bindable(''),
+        birdnetExternalUrl = $bindable(''),
         audioTopic = $bindable('birdnet/text'),
         audioBufferHours = $bindable(24),
         audioCorrelationWindowSeconds = $bindable(300),
@@ -59,6 +60,7 @@
     }: {
         birdnetEnabled: boolean;
         birdnetUrl: string;
+        birdnetExternalUrl: string;
         audioTopic: string;
         audioBufferHours: number;
         audioCorrelationWindowSeconds: number;
@@ -294,8 +296,8 @@
 
         <SettingsRow
             labelId="setting-birdnet-url"
-            label={$_('settings.integrations.birdnet.url_label', { default: 'BirdNET-Go web URL' })}
-            description={$_('settings.integrations.birdnet.url_help', { default: 'Used by the Recent Audio widget to fetch spectrogram backgrounds and to provide a quick-link to the BirdNET-Go web UI. Leave empty to disable.' })}
+            label={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
+            description={$_('settings.integrations.birdnet.internal_url_help', { default: 'Backend-only URL used to fetch spectrograms, such as the Docker network address. Leave empty to disable spectrogram backgrounds.' })}
             layout="stacked"
         >
             <SettingsInput
@@ -303,8 +305,24 @@
                 type="text"
                 value={birdnetUrl}
                 placeholder="http://birdnet-go:8080"
-                ariaLabel={$_('settings.integrations.birdnet.url_label', { default: 'BirdNET-Go web URL' })}
+                ariaLabel={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
                 oninput={(v) => (birdnetUrl = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-birdnet-external-url"
+            label={$_('settings.integrations.birdnet.external_url_label', { default: 'BirdNET-Go browser URL' })}
+            description={$_('settings.integrations.birdnet.external_url_help', { default: 'Public HTTPS URL opened by dashboard links. Falls back to the internal URL when empty.' })}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="birdnet-external-url"
+                type="text"
+                value={birdnetExternalUrl}
+                placeholder="https://birdnet.example.com"
+                ariaLabel={$_('settings.integrations.birdnet.external_url_label', { default: 'BirdNET-Go browser URL' })}
+                oninput={(v) => (birdnetExternalUrl = v)}
             />
         </SettingsRow>
 

@@ -206,7 +206,11 @@ class FrigateSettings(BaseModel):
     birdnet_enabled: bool = Field(default=True, description="Enable BirdNET-Go integration")
     birdnet_url: str = Field(
         default="",
-        description="Base URL of the BirdNET-Go web UI (e.g. http://birdnet-go:8080). Used by the Dashboard Recent Audio widget to fetch spectrogram backgrounds and to provide a quick-link to the BirdNET-Go UI.",
+        description="Internal base URL the YA-WAMF backend uses to reach BirdNET-Go (e.g. http://birdnet-go:8080 on the docker network). Used to proxy spectrogram PNGs.",
+    )
+    birdnet_external_url: str = Field(
+        default="",
+        description="Public/browser-facing base URL of the BirdNET-Go web UI (e.g. https://birdnet.example.com). Used for the 'open in BirdNET-Go' links in the dashboard. Falls back to birdnet_url if empty.",
     )
     audio_topic: str = "birdnet/text"
     camera_audio_mapping: dict[str, str] = Field(
