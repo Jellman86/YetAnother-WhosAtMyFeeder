@@ -429,6 +429,10 @@
       "geography_value": "根据请求头推断的大致国家/地区（不存储 IP）",
       "frequency": "频率",
       "frequency_value": "运行期间每 24 小时一次",
+      "health_title": "匿名健康诊断",
+      "health_desc": "每天共享一次去重后的后端健康问题，帮助调试反复出现的故障。",
+      "health_includes": "健康诊断包含",
+      "health_includes_value": "问题指纹、组件/原因代码、严重级别、计数、粗略运行时设置和已清理的上下文",
       "appreciation_tooltip": "如果可以，请启用遥测。这能帮助我了解 YA-WAMF 的使用方式并指导改进。"
     },
     "email": {

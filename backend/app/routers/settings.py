@@ -505,6 +505,7 @@ class SettingsUpdate(BaseModel):
     
     # Telemetry
     telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
+    telemetry_health_enabled: Optional[bool] = Field(False, description="Enable anonymous health issue diagnostics")
 
     # Notifications
     notifications_discord_enabled: Optional[bool] = False
@@ -842,6 +843,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "ai_pricing_json": settings.classification.ai_pricing_json,
         # Telemetry
         "telemetry_enabled": settings.telemetry.enabled,
+        "telemetry_health_enabled": settings.telemetry.health_enabled,
         "telemetry_installation_id": settings.telemetry.installation_id,
         "telemetry_platform": f"{platform.system()} {platform.machine()}",
 
@@ -1196,6 +1198,8 @@ async def update_settings(
     # Telemetry
     if "telemetry_enabled" in fields_set and update.telemetry_enabled is not None:
         settings.telemetry.enabled = update.telemetry_enabled
+    if "telemetry_health_enabled" in fields_set and update.telemetry_health_enabled is not None:
+        settings.telemetry.health_enabled = update.telemetry_health_enabled
 
     # Authentication
     if "auth_enabled" in fields_set and update.auth_enabled is not None:
@@ -1384,6 +1388,8 @@ async def update_settings(
 
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)
+    if settings.telemetry.health_enabled:
+        background_tasks.add_task(telemetry_service.force_health_report)
 
     await settings.save()
     if inference_provider_changed or execution_mode_changed:

@@ -623,6 +623,10 @@
       "geography_value": "Ungefähres Land aus Request-Headern abgeleitet (IP wird nicht gespeichert)",
       "frequency": "Häufigkeit",
       "frequency_value": "Alle 24 Stunden während des Betriebs",
+      "health_title": "Anonyme Zustandsdiagnose",
+      "health_desc": "Teilt einmal täglich deduplizierte Backend-Zustandsprobleme, damit wiederkehrende Fehler untersucht werden können.",
+      "health_includes": "Zustand enthält",
+      "health_includes_value": "Problem-Fingerprints, Komponenten-/Grundcodes, Schweregrad, Zähler, grobe Laufzeiteinstellungen und bereinigten Kontext",
       "appreciation_tooltip": "Wenn möglich, aktivieren Sie bitte die Telemetrie. Sie hilft mir zu verstehen, wie YA-WAMF verwendet wird, und Verbesserungen gezielt vorzunehmen."
     },
     "email": {

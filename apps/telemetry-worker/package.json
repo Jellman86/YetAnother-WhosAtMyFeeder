@@ -6,7 +6,8 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "db:init": "wrangler d1 execute yawamf-telemetry --file=./schema.sql"
+    "db:init": "wrangler d1 execute yawamf-telemetry --file=./schema.sql",
+    "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql"
   },
   "dependencies": {
     "hono": "^3.12.0"

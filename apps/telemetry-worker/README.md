@@ -1,6 +1,6 @@
 # YA-WAMF Telemetry Worker
 
-This is a Cloudflare Worker designed to collect anonymous usage statistics from YA-WAMF instances.
+This is a Cloudflare Worker designed to collect anonymous usage statistics from YA-WAMF instances. It also owns a separate D1 database for opt-in anonymous health issue diagnostics.
 
 ## Prerequisites
 
@@ -40,9 +40,10 @@ I use Cloudflare D1 (serverless SQLite) to store the data.
 
 ```bash
 npx wrangler d1 create yawamf-telemetry
+npx wrangler d1 create yawamf-health-issues
 ```
 
-**Important:** The command output will contain a `database_id`. Copy this ID.
+**Important:** Each command output will contain a `database_id`. Copy both IDs.
 
 ### 4. Configure Wrangler
 Open `wrangler.toml` and replace the placeholder with your ID:
@@ -52,6 +53,11 @@ Open `wrangler.toml` and replace the placeholder with your ID:
 binding = "DB"
 database_name = "yawamf-telemetry"
 database_id = "PASTE_YOUR_ID_HERE"
+
+[[d1_databases]]
+binding = "HEALTH_DB"
+database_name = "yawamf-health-issues"
+database_id = "PASTE_YOUR_HEALTH_ID_HERE"
 ```
 
 ### 5. Initialize the Schema
@@ -60,6 +66,7 @@ Create the tables in your remote database:
 ```bash
 npm install
 npx wrangler d1 execute yawamf-telemetry --file=./schema.sql --remote
+npx wrangler d1 execute yawamf-health-issues --file=./health_schema.sql --remote
 ```
 
 ### 6. Deploy the Worker
@@ -89,4 +96,6 @@ When you make changes to the worker code (e.g., updating `src/index.ts`), you ca
 ## API Endpoints
 
 - **`POST /heartbeat`**: Receives the telemetry JSON payload.
+- **`POST /health-issues`**: Receives deduped, sanitized anonymous health issue reports.
 - **`GET /stats/summary`**: Returns a JSON summary of active installs, versions, and model usage.
+- **`GET /stats/health-issues`**: Returns aggregate health issue summaries from the separate health D1 database.

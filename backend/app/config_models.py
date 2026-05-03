@@ -583,6 +583,8 @@ class TelemetrySettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
     url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL")
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
+    health_enabled: bool = Field(default=False, description="Enable anonymous health issue diagnostics")
+    health_url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues", description="Health issue diagnostics endpoint URL")
 
 class DiscordSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Discord notifications")

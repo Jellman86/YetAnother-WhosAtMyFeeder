@@ -109,6 +109,7 @@ export interface Settings {
     llm_conversation_prompt_template?: string;
     llm_chart_prompt_template?: string;
     telemetry_enabled: boolean;
+    telemetry_health_enabled?: boolean;
     telemetry_installation_id?: string;
     telemetry_platform?: string;
     notifications_discord_enabled: boolean;

@@ -5,6 +5,8 @@ YA-WAMF includes an optional telemetry system designed to help the project under
 ## Default State: Disabled
 Telemetry is **disabled by default**. No data is sent unless you explicitly turn it on in the Settings.
 
+Health diagnostics are controlled separately by **Anonymous health diagnostics**. They are also disabled by default and are sent to a separate Cloudflare D1 database from the aggregate usage telemetry.
+
 ## Philosophy
 Open-source software should be transparent. Only high-level aggregate data is collected, to help answer questions like:
 - "Which identification models are most popular (EVA-02, ConvNeXt, or MobileNet)?"
@@ -22,15 +24,31 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 | **Platform** | `Linux-x86_64` | Informs which Docker architectures to prioritise. |
 | **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Shows which features are most popular. |
 
+## Anonymous Health Diagnostics
+
+When enabled, YA-WAMF sends a second daily report only if backend diagnostics contain warning, error, or critical events. This report is grouped and deduplicated before upload.
+
+Health diagnostics may include:
+
+- issue fingerprints
+- component and reason codes
+- severity and occurrence counts
+- coarse runtime settings such as configured inference provider and execution mode
+- enabled integration flags
+- sanitized context fields such as queue depth, timeout seconds, provider names, and pressure level
+
+Health diagnostics are stored separately from aggregate telemetry so recurring failures can be grouped without mixing them into feature-adoption metrics.
+
 ## What is NEVER Collected?
 - ❌ **Your Images or Videos:** Bird images and camera feeds are never transmitted.
 - ❌ **Detection Data:** No species names, times, or locations.
 - ❌ **Credentials:** No passwords, tokens, or API keys.
 - ❌ **Network Info:** No local IP addresses or network topology.
+- ❌ **Raw Diagnostics Bundles:** Health diagnostics do not upload owner notes, full logs, camera names, media paths, event IDs, URLs, or raw stack traces.
 
 ## User Interface & Transparency
 
-When you enable Telemetry in the UI (**Settings > Connections > Telemetry**), a "Transparency" box appears. This shows you:
+When you enable Telemetry or Anonymous health diagnostics in the UI (**Settings > Connections > Telemetry**), a "Transparency" box appears. This shows you:
 1. Your unique Installation ID.
 2. The exact data points being sent.
 

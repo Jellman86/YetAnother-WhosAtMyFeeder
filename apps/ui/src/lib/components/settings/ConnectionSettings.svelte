@@ -28,6 +28,7 @@
         cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
         nestDedupeMinutes = $bindable(30),
         telemetryEnabled = $bindable(false),
+        telemetryHealthEnabled = $bindable(false),
         availableCameras = $bindable<string[]>([]),
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
@@ -57,6 +58,7 @@
         cameraRoles: Record<string, 'feeder' | 'nest'>;
         nestDedupeMinutes: number;
         telemetryEnabled: boolean;
+        telemetryHealthEnabled: boolean;
         availableCameras: string[];
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
@@ -596,14 +598,32 @@
                 />
             </SettingsRow>
 
-            {#if telemetryEnabled}
+            <SettingsRow
+                labelId="setting-telemetry-health"
+                label={$_('settings.telemetry.health_title')}
+                description={$_('settings.telemetry.health_desc')}
+            >
+                <SettingsToggle
+                    checked={telemetryHealthEnabled}
+                    labelledBy="setting-telemetry-health"
+                    srLabel={$_('settings.telemetry.health_title')}
+                    onchange={(v) => (telemetryHealthEnabled = v)}
+                />
+            </SettingsRow>
+
+            {#if telemetryEnabled || telemetryHealthEnabled}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
                     <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
                     <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
                         <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
+                        {#if telemetryEnabled}
+                            <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
+                        {/if}
+                        {#if telemetryHealthEnabled}
+                            <div class="flex justify-between"><span>{$_('settings.telemetry.health_includes')}:</span><span>{$_('settings.telemetry.health_includes_value')}</span></div>
+                        {/if}
                         <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
                     </div>

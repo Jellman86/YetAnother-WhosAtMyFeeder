@@ -8,6 +8,11 @@ binding = "DB" # Available in your worker as env.DB
 database_name = "yawamf-telemetry"
 database_id = "410fe778-460c-4922-86d4-8ea94beb607c" # Run 'wrangler d1 create yawamf-telemetry' to get this
 
+[[d1_databases]]
+binding = "HEALTH_DB" # Available in your worker as env.HEALTH_DB
+database_name = "yawamf-health-issues"
+database_id = "07d320ce-39f6-4d5a-bf16-ddf1ad07a1e7"
+
 # CORS headers for the API
 [vars]
 ALLOWED_ORIGIN = "*"

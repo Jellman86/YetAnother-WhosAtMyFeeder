@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 
 type Bindings = {
   DB: D1Database;
+  HEALTH_DB: D1Database;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -53,6 +54,66 @@ interface TelemetryPayload {
     auth_enabled: boolean;
     public_access_enabled: boolean;
   };
+}
+
+interface HealthIssue {
+  fingerprint: string;
+  source?: string | null;
+  component?: string | null;
+  reason_code?: string | null;
+  stage?: string | null;
+  severity?: string | null;
+  count?: number;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  sample_context?: Record<string, unknown> | null;
+}
+
+interface HealthIssuePayload {
+  schema_version?: string;
+  installation_id: string;
+  timestamp: string;
+  version: string;
+  platform?: {
+    system?: string;
+    release?: string;
+    machine?: string;
+  };
+  runtime?: Record<string, unknown>;
+  integrations?: Record<string, unknown>;
+  diagnostics_window?: Record<string, unknown>;
+  issues: HealthIssue[];
+}
+
+const MAX_HEALTH_ISSUES_PER_REPORT = 25;
+const MAX_JSON_CHARS = 8192;
+
+function safeText(value: unknown, fallback = '', limit = 160): string {
+  const text = String(value ?? '').trim();
+  if (!text) return fallback;
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
+function boundedJson(value: unknown, limit = MAX_JSON_CHARS): string {
+  const text = JSON.stringify(value ?? {});
+  return text.length > limit ? text.slice(0, limit - 3) + '...' : text;
+}
+
+function normalizeSeverity(value: unknown): string {
+  const severity = safeText(value, 'warning', 20).toLowerCase();
+  return ['warning', 'error', 'critical'].includes(severity) ? severity : 'warning';
+}
+
+function safeCount(value: unknown): number {
+  const count = Number(value ?? 0);
+  if (!Number.isFinite(count)) return 0;
+  return Math.max(0, Math.floor(count));
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 app.get('/', (c) => c.text('YA-WAMF Telemetry Receiver is operational.'));
@@ -156,6 +217,108 @@ app.post('/heartbeat', async (c) => {
   }
 });
 
+app.post('/health-issues', async (c) => {
+  try {
+    const payload = await c.req.json<HealthIssuePayload>();
+    const country = c.req.raw.cf?.country || 'XX';
+
+    if (!payload.installation_id) {
+      return c.json({ error: 'Missing installation_id' }, 400);
+    }
+    if (!Array.isArray(payload.issues)) {
+      return c.json({ error: 'Missing issues' }, 400);
+    }
+
+    const installationHash = await sha256Hex(payload.installation_id);
+    const issues = payload.issues.slice(0, MAX_HEALTH_ISSUES_PER_REPORT);
+    const payloadBase = {
+      schema_version: safeText(payload.schema_version, 'unknown', 80),
+      timestamp: safeText(payload.timestamp, '', 80),
+      runtime: payload.runtime ?? {},
+      integrations: payload.integrations ?? {},
+      diagnostics_window: payload.diagnostics_window ?? {}
+    };
+
+    const stmt = c.env.HEALTH_DB.prepare(`
+      INSERT INTO health_issue_reports (
+        report_key,
+        installation_id_hash,
+        issue_fingerprint,
+        app_version,
+        platform_system,
+        platform_release,
+        platform_machine,
+        issue_source,
+        issue_component,
+        issue_reason_code,
+        issue_stage,
+        severity,
+        first_seen_at,
+        last_seen_at,
+        report_count,
+        occurrence_count,
+        sample_context_json,
+        last_payload_json,
+        ip_country,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(report_key) DO UPDATE SET
+        app_version = excluded.app_version,
+        platform_system = excluded.platform_system,
+        platform_release = excluded.platform_release,
+        platform_machine = excluded.platform_machine,
+        issue_source = excluded.issue_source,
+        issue_component = excluded.issue_component,
+        issue_reason_code = excluded.issue_reason_code,
+        issue_stage = excluded.issue_stage,
+        severity = excluded.severity,
+        first_seen_at = COALESCE(MIN(health_issue_reports.first_seen_at, excluded.first_seen_at), excluded.first_seen_at, health_issue_reports.first_seen_at),
+        last_seen_at = COALESCE(MAX(health_issue_reports.last_seen_at, excluded.last_seen_at), excluded.last_seen_at, health_issue_reports.last_seen_at),
+        report_count = health_issue_reports.report_count + 1,
+        occurrence_count = health_issue_reports.occurrence_count + excluded.occurrence_count,
+        sample_context_json = excluded.sample_context_json,
+        last_payload_json = excluded.last_payload_json,
+        ip_country = excluded.ip_country,
+        updated_at = datetime('now')
+    `);
+
+    let accepted = 0;
+    for (const issue of issues) {
+      const fingerprint = safeText(issue.fingerprint, '', 80);
+      if (!fingerprint) continue;
+      const reportKey = await sha256Hex(`${installationHash}:${fingerprint}`);
+      const count = safeCount(issue.count);
+      await stmt.bind(
+        reportKey,
+        installationHash,
+        fingerprint,
+        safeText(payload.version, 'unknown', 80),
+        safeText(payload.platform?.system, '', 80) || null,
+        safeText(payload.platform?.release, '', 120) || null,
+        safeText(payload.platform?.machine, '', 80) || null,
+        safeText(issue.source, 'unknown', 80),
+        safeText(issue.component, 'unknown', 80),
+        safeText(issue.reason_code, 'unknown_reason', 120),
+        safeText(issue.stage, '', 80) || null,
+        normalizeSeverity(issue.severity),
+        safeText(issue.first_seen_at, '', 80) || null,
+        safeText(issue.last_seen_at, '', 80) || null,
+        count,
+        boundedJson(issue.sample_context ?? {}, 2048),
+        boundedJson({ ...payloadBase, issue }, MAX_JSON_CHARS),
+        country
+      ).run();
+      accepted++;
+    }
+
+    return c.json({ status: 'ok', accepted });
+  } catch (e: any) {
+    console.error('Health issue telemetry error:', e);
+    return c.json({ error: e.message }, 500);
+  }
+});
+
 // Simple stats endpoint
 app.get('/stats/summary', async (c) => {
   const activeThreshold = "datetime('now', '-7 days')";
@@ -199,6 +362,47 @@ app.get('/stats/summary', async (c) => {
     versions: versions.results,
     models: models.results,
     features: features
+  });
+});
+
+app.get('/stats/health-issues', async (c) => {
+  const activeThreshold = "datetime('now', '-30 days')";
+
+  const total = await c.env.HEALTH_DB.prepare("SELECT count(*) as count FROM health_issue_reports").first('count');
+  const active30d = await c.env.HEALTH_DB.prepare(`SELECT count(*) as count FROM health_issue_reports WHERE updated_at > ${activeThreshold}`).first('count');
+
+  const bySeverity = await c.env.HEALTH_DB.prepare(`
+    SELECT severity, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
+    FROM health_issue_reports
+    WHERE updated_at > ${activeThreshold}
+    GROUP BY severity
+    ORDER BY issue_count DESC
+  `).all();
+
+  const byComponent = await c.env.HEALTH_DB.prepare(`
+    SELECT issue_component, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
+    FROM health_issue_reports
+    WHERE updated_at > ${activeThreshold}
+    GROUP BY issue_component
+    ORDER BY issue_count DESC
+    LIMIT 20
+  `).all();
+
+  const topIssues = await c.env.HEALTH_DB.prepare(`
+    SELECT issue_component, issue_reason_code, severity, app_version, count(*) as install_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count, max(updated_at) as last_seen
+    FROM health_issue_reports
+    WHERE updated_at > ${activeThreshold}
+    GROUP BY issue_component, issue_reason_code, severity, app_version
+    ORDER BY install_count DESC, occurrence_count DESC
+    LIMIT 30
+  `).all();
+
+  return c.json({
+    total_issues: total,
+    active_last_30_days: active30d,
+    by_severity: bySeverity.results,
+    by_component: byComponent.results,
+    top_issues: topIssues.results
   });
 });
 

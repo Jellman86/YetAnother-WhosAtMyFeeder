@@ -1160,6 +1160,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     // Telemetry
     let telemetryEnabled = $state(true);
+    let telemetryHealthEnabled = $state(false);
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
 
@@ -1769,6 +1770,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
+            { key: 'telemetryHealthEnabled', val: telemetryHealthEnabled, store: s.telemetry_health_enabled ?? false },
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
             { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
             { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
@@ -2791,6 +2793,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             aiPricingJson = settings.ai_pricing_json ?? '[]';
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? true;
+            telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
             telemetryInstallationId = settings.telemetry_installation_id;
             telemetryPlatform = settings.telemetry_platform;
             // Authentication + Public access
@@ -3069,6 +3072,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 llm_chart_prompt_template: llmChartPromptTemplate,
                 ai_pricing_json: aiPricingJson,
                 telemetry_enabled: telemetryEnabled,
+                telemetry_health_enabled: telemetryHealthEnabled,
                 auth_enabled: authEnabled,
                 auth_username: authUsername,
                 auth_password: authPassword || undefined,
@@ -3342,6 +3346,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:recordingClipBeforeSeconds
                     bind:recordingClipAfterSeconds
                     bind:telemetryEnabled
+                    bind:telemetryHealthEnabled
                     {availableCameras}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}

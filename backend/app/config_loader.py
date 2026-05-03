@@ -279,7 +279,9 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     telemetry_data = {
         'enabled': os.environ.get('TELEMETRY__ENABLED', 'false').lower() == 'true',
         'url': os.environ.get('TELEMETRY__URL', 'https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat'),
-        'installation_id': os.environ.get('TELEMETRY__INSTALLATION_ID', None)
+        'installation_id': os.environ.get('TELEMETRY__INSTALLATION_ID', None),
+        'health_enabled': os.environ.get('TELEMETRY__HEALTH_ENABLED', 'false').lower() == 'true',
+        'health_url': os.environ.get('TELEMETRY__HEALTH_URL', 'https://yawamf-telemetry.ya-wamf.workers.dev/health-issues')
     }
     
     # Notification settings

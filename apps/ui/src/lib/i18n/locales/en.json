@@ -633,6 +633,10 @@
             "geography_value": "Approx. country derived from request headers (IP not stored)",
             "frequency": "Frequency",
             "frequency_value": "Once every 24 hours while running",
+            "health_title": "Anonymous health diagnostics",
+            "health_desc": "Share deduped backend health issues once per day so recurring failures can be debugged.",
+            "health_includes": "Health includes",
+            "health_includes_value": "Issue fingerprints, component/reason codes, severity, counts, coarse runtime settings, and sanitized context",
             "appreciation_tooltip": "If you can, please enable telemetry. It helps me understand how YA-WAMF is used and guides improvements."
         },
         "email": {
