@@ -73,7 +73,7 @@
 
     {#if showDropdown}
         <div 
-            class="absolute right-0 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
+            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => {
                 if (e.key === 'Escape') showDropdown = false;
