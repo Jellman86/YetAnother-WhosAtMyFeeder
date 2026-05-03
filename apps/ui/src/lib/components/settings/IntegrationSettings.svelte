@@ -178,6 +178,20 @@
             });
     });
 
+    function formatRelativeTime(raw: string | null | undefined): string {
+        if (!raw) return '';
+        const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+        const ts = Date.parse(normalized);
+        if (Number.isNaN(ts)) return raw;
+        const diffSec = Math.max(0, (Date.now() - ts) / 1000);
+        if (diffSec < 5) return 'just now';
+        if (diffSec < 60) return `${Math.floor(diffSec)}s ago`;
+        if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+        if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+        if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
+        return new Date(ts).toLocaleDateString();
+    }
+
     function mappingTokensFor(camera: string): string[] {
         return (cameraAudioMapping[camera] || '')
             .split(/[,\n;|]+/)
@@ -384,26 +398,33 @@
                             <div class="relative">
                                 <ul class="space-y-1 max-h-56 overflow-y-auto pr-1">
                                     {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
-                                        {@const fade = Math.max(0.35, 1 - sourceIndex * 0.07)}
+                                        {@const fade = Math.max(0.4, 1 - sourceIndex * 0.06)}
+                                        {@const sourceValue = source.mapping_value || source.source_name}
                                         <li>
                                             <button
                                                 type="button"
-                                                class="w-full flex items-baseline justify-between gap-3 rounded-md px-2 py-1 text-left hover:bg-teal-50 dark:hover:bg-teal-950/30 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                                                class="group w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left bg-white/40 dark:bg-slate-950/30 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:ring-1 hover:ring-teal-400/60 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all cursor-pointer"
                                                 style="opacity: {fade};"
                                                 onclick={() => {
                                                     if (availableCameras.length > 0) {
-                                                        addCameraAudioSource(availableCameras[0], source.mapping_value || source.source_name);
+                                                        addCameraAudioSource(availableCameras[0], sourceValue);
                                                     }
                                                 }}
-                                                title={availableCameras[0] ? `Add to ${availableCameras[0]}` : ''}
+                                                disabled={availableCameras.length === 0}
+                                                title={availableCameras[0]
+                                                    ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
+                                                    : sourceValue}
                                             >
-                                                <span class="text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all">{source.mapping_value || source.source_name}</span>
-                                                <span class="shrink-0 text-[10px] font-bold text-slate-400 whitespace-nowrap tabular-nums">{source.last_seen}</span>
+                                                <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white transition-colors text-[11px] font-black leading-none">+</span>
+                                                <span class="min-w-0 flex-1 text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
+                                                <span class="shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                             </button>
                                         </li>
                                     {/each}
                                 </ul>
-                                <div class="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50/90 dark:from-slate-900/60 to-transparent rounded-b-xl"></div>
+                                {#if birdnetSourceOptions.length > 6}
+                                    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-slate-50 dark:from-slate-900/50 to-transparent rounded-b-xl"></div>
+                                {/if}
                             </div>
                         {/if}
                     </div>
