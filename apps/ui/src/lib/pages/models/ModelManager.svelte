@@ -18,9 +18,11 @@
     let {
         cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
         cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
+        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
     }: {
         cropModelOverrides: Record<string, CropModelOverride>;
         cropSourceOverrides: Record<string, CropSourceOverride>;
+        birdCropDetectorTier: 'fast' | 'accurate' | string;
     } = $props();
 
     let availableModels = $state<ModelMetadata[]>([]);
@@ -489,7 +491,41 @@
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
             {#if cropDetectorModels.length > 0}
-                {#each cropDetectorModels as cropDetectorModel}
+                {@const cropTierToModelId = (tier: string) =>
+                    cropDetectorModels.find((m) => (m.tier || '').toLowerCase() === tier.toLowerCase())?.id
+                    || cropDetectorModels[0]?.id
+                    || ''}
+                {@const selectedCropModelId = cropTierToModelId(birdCropDetectorTier)}
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="flex-1">
+                        <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.crop_tier_title', { default: 'Bird crop detector' })}</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                            {$_('settings.detection.crop_tier_desc', { default: 'Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.' })}
+                        </p>
+                        <div class="w-full sm:max-w-md relative">
+                            <select
+                                value={selectedCropModelId}
+                                onchange={(e) => {
+                                    const id = (e.currentTarget as HTMLSelectElement).value;
+                                    const m = cropDetectorModels.find((cm) => cm.id === id);
+                                    if (m?.tier) birdCropDetectorTier = m.tier;
+                                }}
+                                aria-label={$_('settings.detection.crop_tier_title', { default: 'Bird crop detector' })}
+                                class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
+                            >
+                                {#each cropDetectorModels as m}
+                                    <option value={m.id}>
+                                        {m.name} {isCropDetectorInstalled(m.id) ? '— Installed' : ''}
+                                    </option>
+                                {/each}
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {#each cropDetectorModels.filter((m) => m.id === selectedCropModelId) as cropDetectorModel}
                     {@const cropDetectorDownload = downloadStatuses[cropDetectorModel.id]}
                     {@const cropDetectorInstalled = isCropDetectorInstalled(cropDetectorModel.id)}
                     {@const runtimeSelected = cropDetectorStatus?.model_id === cropDetectorModel.id}

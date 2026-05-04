@@ -181,30 +181,16 @@
 
 <div class="space-y-6">
     <SettingsCard icon="🎯" title={$_('settings.detection.classification_engine')}>
-        <ModelManager bind:cropModelOverrides bind:cropSourceOverrides />
+        <ModelManager
+            bind:cropModelOverrides
+            bind:cropSourceOverrides
+            bind:birdCropDetectorTier
+        />
 
         <AdvancedSection
             id="detection-classification-advanced"
-            title={$_('settings.detection.classification_advanced_title', { default: 'Crop detector & region overrides' })}
+            title={$_('settings.detection.classification_advanced_title', { default: 'Crop source & region overrides' })}
         >
-            <SettingsRow
-                labelId="setting-crop-tier"
-                label={$_('settings.detection.crop_tier_title', { default: 'Bird crop detector tier' })}
-                description={$_('settings.detection.crop_tier_desc', { default: 'Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.' })}
-                layout="stacked"
-            >
-                <SettingsSelect
-                    id="bird-crop-detector-tier"
-                    value={birdCropDetectorTier}
-                    ariaLabel={$_('settings.detection.crop_tier_title', { default: 'Bird crop detector tier' })}
-                    options={[
-                        { value: 'fast', label: 'Fast (SSD-MobileNet)' },
-                        { value: 'accurate', label: 'Accurate (YOLOX-Tiny, experimental)' }
-                    ]}
-                    onchange={(v) => (birdCropDetectorTier = v)}
-                />
-            </SettingsRow>
-
             <SettingsRow
                 labelId="setting-crop-priority"
                 label={$_('settings.detection.crop_priority_title', { default: 'Crop source priority' })}
@@ -312,31 +298,36 @@
                 </div>
             </SettingsRow>
 
-            <SettingsRow
-                labelId="setting-trust-frigate"
-                label={$_('settings.detection.trust_frigate')}
-                description={$_('settings.detection.trust_frigate_desc')}
+            <AdvancedSection
+                id="detection-frigate-sublabel-advanced"
+                title={$_('settings.detection.frigate_sublabel_advanced_title', { default: 'Frigate sublabel handoff' })}
             >
-                <SettingsToggle
-                    checked={trustFrigateSublabel}
-                    labelledBy="setting-trust-frigate"
-                    srLabel={$_('settings.detection.trust_frigate')}
-                    onchange={(v) => (trustFrigateSublabel = v)}
-                />
-            </SettingsRow>
+                <SettingsRow
+                    labelId="setting-trust-frigate"
+                    label={$_('settings.detection.trust_frigate')}
+                    description={$_('settings.detection.trust_frigate_desc')}
+                >
+                    <SettingsToggle
+                        checked={trustFrigateSublabel}
+                        labelledBy="setting-trust-frigate"
+                        srLabel={$_('settings.detection.trust_frigate')}
+                        onchange={(v) => (trustFrigateSublabel = v)}
+                    />
+                </SettingsRow>
 
-            <SettingsRow
-                labelId="setting-write-frigate"
-                label={$_('settings.detection.write_frigate_sublabel')}
-                description={$_('settings.detection.write_frigate_sublabel_desc')}
-            >
-                <SettingsToggle
-                    checked={writeFrigateSublabel}
-                    labelledBy="setting-write-frigate"
-                    srLabel={$_('settings.detection.write_frigate_sublabel')}
-                    onchange={(v) => (writeFrigateSublabel = v)}
-                />
-            </SettingsRow>
+                <SettingsRow
+                    labelId="setting-write-frigate"
+                    label={$_('settings.detection.write_frigate_sublabel')}
+                    description={$_('settings.detection.write_frigate_sublabel_desc')}
+                >
+                    <SettingsToggle
+                        checked={writeFrigateSublabel}
+                        labelledBy="setting-write-frigate"
+                        srLabel={$_('settings.detection.write_frigate_sublabel')}
+                        onchange={(v) => (writeFrigateSublabel = v)}
+                    />
+                </SettingsRow>
+            </AdvancedSection>
 
             <SettingsRow
                 labelId="setting-personalized-rerank"
@@ -475,23 +466,28 @@
                 />
             </SettingsRow>
 
-            <SettingsRow
-                labelId="setting-execution-mode"
-                label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
-                layout="stacked"
+            <AdvancedSection
+                id="detection-execution-mode-advanced"
+                title={$_('settings.detection.execution_mode_advanced_title', { default: 'Execution mode' })}
             >
-                <SettingsSelect
-                    id="image-execution-mode"
-                    value={imageExecutionMode}
-                    ariaLabel={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                    options={[
-                        { value: 'subprocess', label: $_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' }) },
-                        { value: 'in_process', label: $_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' }) }
-                    ]}
-                    onchange={(v) => (imageExecutionMode = v)}
-                />
-            </SettingsRow>
+                <SettingsRow
+                    labelId="setting-execution-mode"
+                    label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
+                    description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
+                    layout="stacked"
+                >
+                    <SettingsSelect
+                        id="image-execution-mode"
+                        value={imageExecutionMode}
+                        ariaLabel={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
+                        options={[
+                            { value: 'subprocess', label: $_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' }) },
+                            { value: 'in_process', label: $_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' }) }
+                        ]}
+                        onchange={(v) => (imageExecutionMode = v)}
+                    />
+                </SettingsRow>
+            </AdvancedSection>
 
             <a
                 href={GPU_DOCS_URL}
