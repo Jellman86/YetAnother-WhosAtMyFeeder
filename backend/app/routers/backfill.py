@@ -591,6 +591,32 @@ async def backfill_detections_async(
                 "type": "backfill_complete",
                 "data": _job_payload(job)
             })
+
+            # Auto-chain weather backfill for the same period so weather and
+            # detection history are filled together. Only-missing keeps it cheap
+            # for ranges where weather data already exists. Failures are logged
+            # but do not affect the detection job's success state.
+            try:
+                weather_request = WeatherBackfillRequest(
+                    date_range=backfill_request.date_range,
+                    start_date=backfill_request.start_date,
+                    end_date=backfill_request.end_date,
+                    only_missing=True,
+                )
+                chained = await _start_weather_backfill_async(
+                    weather_request, lang, raise_on_busy=False
+                )
+                if chained is None:
+                    log.info(
+                        "Skipping chained weather backfill — maintenance lane busy or weather job already running",
+                        detection_job_id=job.id,
+                    )
+            except Exception as chain_err:
+                log.warning(
+                    "Failed to chain weather backfill after detection backfill",
+                    detection_job_id=job.id,
+                    error=str(chain_err),
+                )
         except asyncio.CancelledError:
             log.warning("Async backfill cancelled", job_id=job.id)
             if _JOB_STORE.get(job.id) is job:
@@ -756,18 +782,20 @@ async def backfill_weather(
         await maintenance_coordinator.release(holder_id)
 
 
-@router.post("/backfill/weather/async", response_model=BackfillJobStatus)
-async def backfill_weather_async(
+async def _start_weather_backfill_async(
     backfill_request: WeatherBackfillRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
-    """Run weather backfill in the background and return a job status."""
-    lang = get_user_language(request)
+    lang: str,
+    *,
+    raise_on_busy: bool = True,
+) -> Optional[BackfillJobStatus]:
+    """Shared async-job entrypoint used by the public router and chained calls
+    from the detection backfill. When ``raise_on_busy`` is False this returns
+    ``None`` if a weather job is already running or the maintenance lane is
+    saturated, so chained callers can skip silently."""
     async with _JOB_LOCK:
         running = await _get_running_job("weather")
         if running:
-            return running
+            return running if raise_on_busy else None
 
         job = BackfillJobStatus(
             id=str(uuid4()),
@@ -778,7 +806,9 @@ async def backfill_weather_async(
         holder_id = _maintenance_holder_id("backfill_weather", job.id)
         acquired = await maintenance_coordinator.try_acquire(holder_id, kind="weather_backfill")
         if not acquired:
-            raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+            if raise_on_busy:
+                raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+            return None
         _track_job(job)
 
     async def runner():
@@ -927,6 +957,22 @@ async def backfill_weather_async(
         raise
     _JOB_TASKS[job.id] = task
     task.add_done_callback(lambda _: _JOB_TASKS.pop(job.id, None))
+    return job
+
+
+@router.post("/backfill/weather/async", response_model=BackfillJobStatus)
+async def backfill_weather_async(
+    backfill_request: WeatherBackfillRequest,
+    request: Request,
+    auth: AuthContext = Depends(require_owner)
+):
+    """Run weather backfill in the background and return a job status."""
+    lang = get_user_language(request)
+    job = await _start_weather_backfill_async(backfill_request, lang)
+    if job is None:
+        # raise_on_busy defaults to True so this should not happen, but guard
+        # against future changes.
+        raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     return job
 
 
