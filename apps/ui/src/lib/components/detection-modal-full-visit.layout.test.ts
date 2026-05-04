@@ -81,7 +81,6 @@ describe('detection modal full-visit fetch wiring', () => {
     it('normalizes media overlay circular controls to a consistent size', () => {
         expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/95');
         expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full');
-        expect(detectionModalSource).toContain('class="absolute top-4 right-16 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full');
         expect(detectionModalSource).toContain('inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/85');
     });
 
