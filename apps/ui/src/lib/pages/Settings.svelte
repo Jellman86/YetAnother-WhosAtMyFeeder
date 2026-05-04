@@ -3638,7 +3638,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
-                    handleOpenDiagnostics={() => handleTabChange('health')}
                 />
             {/if}
 

@@ -298,37 +298,6 @@
                 </div>
             </SettingsRow>
 
-            <AdvancedSection
-                id="detection-frigate-sublabel-advanced"
-                title={$_('settings.detection.frigate_sublabel_advanced_title', { default: 'Frigate sublabel handoff' })}
-            >
-                <SettingsRow
-                    labelId="setting-trust-frigate"
-                    label={$_('settings.detection.trust_frigate')}
-                    description={$_('settings.detection.trust_frigate_desc')}
-                >
-                    <SettingsToggle
-                        checked={trustFrigateSublabel}
-                        labelledBy="setting-trust-frigate"
-                        srLabel={$_('settings.detection.trust_frigate')}
-                        onchange={(v) => (trustFrigateSublabel = v)}
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-write-frigate"
-                    label={$_('settings.detection.write_frigate_sublabel')}
-                    description={$_('settings.detection.write_frigate_sublabel_desc')}
-                >
-                    <SettingsToggle
-                        checked={writeFrigateSublabel}
-                        labelledBy="setting-write-frigate"
-                        srLabel={$_('settings.detection.write_frigate_sublabel')}
-                        onchange={(v) => (writeFrigateSublabel = v)}
-                    />
-                </SettingsRow>
-            </AdvancedSection>
-
             <SettingsRow
                 labelId="setting-personalized-rerank"
                 label={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
@@ -367,81 +336,112 @@
                 </div>
             {/if}
 
-            {#if autoVideoClassification}
-                <AdvancedSection
-                    id="detection-auto-video-advanced"
-                    title={$_('settings.detection.auto_video_advanced_title', { default: 'Auto-video tuning' })}
+            <AdvancedSection
+                id="detection-fine-tuning-advanced"
+                title={$_('settings.detection.fine_tuning_advanced_title', { default: 'Advanced fine tuning' })}
+            >
+                <SettingsRow
+                    labelId="setting-trust-frigate"
+                    label={$_('settings.detection.trust_frigate')}
+                    description={$_('settings.detection.trust_frigate_desc')}
                 >
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <SettingsRow
-                            labelId="setting-video-delay"
-                            label={$_('settings.detection.video_delay')}
-                            layout="stacked"
-                        >
-                            <SettingsInput
-                                id="video-delay"
-                                type="number"
-                                min={0}
-                                value={videoClassificationDelay}
-                                ariaLabel={$_('settings.detection.video_delay')}
-                                oninput={(v) => (videoClassificationDelay = Number(v) || 0)}
-                            />
-                        </SettingsRow>
-                        <SettingsRow
-                            labelId="setting-video-retries"
-                            label={$_('settings.detection.video_retries')}
-                            layout="stacked"
-                        >
-                            <SettingsInput
-                                id="video-retries"
-                                type="number"
-                                min={0}
-                                value={videoClassificationMaxRetries}
-                                ariaLabel={$_('settings.detection.video_retries')}
-                                oninput={(v) => (videoClassificationMaxRetries = Number(v) || 0)}
-                            />
-                        </SettingsRow>
-                        <SettingsRow
-                            labelId="setting-video-max-concurrent"
-                            label={$_('settings.detection.video_max_concurrent', { default: 'Video Concurrency' })}
-                            layout="stacked"
-                        >
-                            <SettingsInput
-                                id="video-max-concurrent"
-                                type="number"
-                                min={1}
-                                max={20}
-                                value={videoClassificationMaxConcurrent}
-                                ariaLabel={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Video Jobs' })}
-                                oninput={(v) => (videoClassificationMaxConcurrent = Number(v) || 1)}
-                            />
-                        </SettingsRow>
-                        <SettingsRow
-                            labelId="setting-video-frames"
-                            label={$_('settings.detection.video_frames', { default: 'Frames' })}
-                            layout="stacked"
-                        >
-                            <SettingsInput
-                                id="video-frames"
-                                type="number"
-                                min={5}
-                                max={100}
-                                value={videoClassificationFrames}
-                                ariaLabel={$_('settings.detection.video_frames', { default: 'Video Frames' })}
-                                oninput={(v) => (videoClassificationFrames = Number(v) || 5)}
-                            />
-                        </SettingsRow>
+                    <SettingsToggle
+                        checked={trustFrigateSublabel}
+                        labelledBy="setting-trust-frigate"
+                        srLabel={$_('settings.detection.trust_frigate')}
+                        onchange={(v) => (trustFrigateSublabel = v)}
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-write-frigate"
+                    label={$_('settings.detection.write_frigate_sublabel')}
+                    description={$_('settings.detection.write_frigate_sublabel_desc')}
+                >
+                    <SettingsToggle
+                        checked={writeFrigateSublabel}
+                        labelledBy="setting-write-frigate"
+                        srLabel={$_('settings.detection.write_frigate_sublabel')}
+                        onchange={(v) => (writeFrigateSublabel = v)}
+                    />
+                </SettingsRow>
+
+                {#if autoVideoClassification}
+                    <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60">
+                        <p class="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                            {$_('settings.detection.auto_video_advanced_title', { default: 'Auto-video tuning' })}
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <SettingsRow
+                                labelId="setting-video-delay"
+                                label={$_('settings.detection.video_delay')}
+                                layout="stacked"
+                            >
+                                <SettingsInput
+                                    id="video-delay"
+                                    type="number"
+                                    min={0}
+                                    value={videoClassificationDelay}
+                                    ariaLabel={$_('settings.detection.video_delay')}
+                                    oninput={(v) => (videoClassificationDelay = Number(v) || 0)}
+                                />
+                            </SettingsRow>
+                            <SettingsRow
+                                labelId="setting-video-retries"
+                                label={$_('settings.detection.video_retries')}
+                                layout="stacked"
+                            >
+                                <SettingsInput
+                                    id="video-retries"
+                                    type="number"
+                                    min={0}
+                                    value={videoClassificationMaxRetries}
+                                    ariaLabel={$_('settings.detection.video_retries')}
+                                    oninput={(v) => (videoClassificationMaxRetries = Number(v) || 0)}
+                                />
+                            </SettingsRow>
+                            <SettingsRow
+                                labelId="setting-video-max-concurrent"
+                                label={$_('settings.detection.video_max_concurrent', { default: 'Video Concurrency' })}
+                                layout="stacked"
+                            >
+                                <SettingsInput
+                                    id="video-max-concurrent"
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={videoClassificationMaxConcurrent}
+                                    ariaLabel={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Video Jobs' })}
+                                    oninput={(v) => (videoClassificationMaxConcurrent = Number(v) || 1)}
+                                />
+                            </SettingsRow>
+                            <SettingsRow
+                                labelId="setting-video-frames"
+                                label={$_('settings.detection.video_frames', { default: 'Frames' })}
+                                layout="stacked"
+                            >
+                                <SettingsInput
+                                    id="video-frames"
+                                    type="number"
+                                    min={5}
+                                    max={100}
+                                    value={videoClassificationFrames}
+                                    ariaLabel={$_('settings.detection.video_frames', { default: 'Video Frames' })}
+                                    oninput={(v) => (videoClassificationFrames = Number(v) || 5)}
+                                />
+                            </SettingsRow>
+                        </div>
+                        <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                            {#if imageExecutionMode === 'in_process'}
+                                {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
+                            {:else}
+                                {$_('settings.detection.video_concurrency_best_practice_subprocess', { default: 'Subprocess mode isolates classifier workers more strongly, but raising video concurrency still increases CPU, RAM, and GPU pressure.' })}
+                            {/if}
+                        </p>
                     </div>
-                    <p class="text-[10px] text-slate-500 dark:text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
-                    <p class="text-[10px] text-slate-500 dark:text-slate-400">
-                        {#if imageExecutionMode === 'in_process'}
-                            {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
-                        {:else}
-                            {$_('settings.detection.video_concurrency_best_practice_subprocess', { default: 'Subprocess mode isolates classifier workers more strongly, but raising video concurrency still increases CPU, RAM, and GPU pressure.' })}
-                        {/if}
-                    </p>
-                </AdvancedSection>
-            {/if}
+                {/if}
+            </AdvancedSection>
         </SettingsCard>
 
         <SettingsCard icon="⚡" title={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}>
@@ -466,29 +466,6 @@
                 />
             </SettingsRow>
 
-            <AdvancedSection
-                id="detection-execution-mode-advanced"
-                title={$_('settings.detection.execution_mode_advanced_title', { default: 'Execution mode' })}
-            >
-                <SettingsRow
-                    labelId="setting-execution-mode"
-                    label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                    description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
-                    layout="stacked"
-                >
-                    <SettingsSelect
-                        id="image-execution-mode"
-                        value={imageExecutionMode}
-                        ariaLabel={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                        options={[
-                            { value: 'subprocess', label: $_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' }) },
-                            { value: 'in_process', label: $_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' }) }
-                        ]}
-                        onchange={(v) => (imageExecutionMode = v)}
-                    />
-                </SettingsRow>
-            </AdvancedSection>
-
             <a
                 href={GPU_DOCS_URL}
                 target="_blank"
@@ -508,11 +485,33 @@
                 </span>
             </a>
 
-            {#if classifierStatus}
-                <AdvancedSection
-                    id="detection-inference-diagnostics"
-                    title={$_('settings.detection.inference_diagnostics_title', { default: 'Runtime diagnostics' })}
+            <AdvancedSection
+                id="detection-inference-advanced"
+                title={$_('settings.detection.inference_advanced_title', { default: 'Execution mode & runtime diagnostics' })}
+            >
+                <SettingsRow
+                    labelId="setting-execution-mode"
+                    label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
+                    description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
+                    layout="stacked"
                 >
+                    <SettingsSelect
+                        id="image-execution-mode"
+                        value={imageExecutionMode}
+                        ariaLabel={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
+                        options={[
+                            { value: 'subprocess', label: $_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' }) },
+                            { value: 'in_process', label: $_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' }) }
+                        ]}
+                        onchange={(v) => (imageExecutionMode = v)}
+                    />
+                </SettingsRow>
+
+            {#if classifierStatus}
+                <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60 space-y-3">
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                        {$_('settings.detection.inference_diagnostics_title', { default: 'Runtime diagnostics' })}
+                    </p>
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
                             {#if classifierStatus.cuda_available}
@@ -606,8 +605,9 @@
                             </div>
                         </div>
                     {/if}
-                </AdvancedSection>
+                </div>
             {/if}
+            </AdvancedSection>
         </SettingsCard>
     </div>
 

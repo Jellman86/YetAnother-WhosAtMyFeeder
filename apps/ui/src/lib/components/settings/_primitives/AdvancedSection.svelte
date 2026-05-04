@@ -1,45 +1,27 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { onMount } from 'svelte';
 
     interface Props {
-        // Stable identifier — used as the localStorage key so each Advanced
-        // block remembers its own open/closed state.
-        id: string;
+        // Stable identifier — kept for backwards compatibility with existing
+        // callsites and for aria/test hooks. Open/closed state is no longer
+        // persisted; every Advanced block starts closed on each mount.
+        id?: string;
         title?: string;
         description?: string;
         children: Snippet;
     }
 
-    let { id, title, description, children }: Props = $props();
+    let { title, description, children }: Props = $props();
 
-    const storageKey = $derived(`yawamf:settings:advanced:${id}`);
     let open = $state(false);
-
-    onMount(() => {
-        try {
-            open = window.localStorage.getItem(storageKey) === '1';
-        } catch {
-            open = false;
-        }
-    });
-
-    function persist(next: boolean) {
-        open = next;
-        try {
-            window.localStorage.setItem(storageKey, next ? '1' : '0');
-        } catch {
-            // localStorage can be disabled in private mode — silently degrade.
-        }
-    }
 </script>
 
 <div class="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700/60 bg-slate-50/40 dark:bg-slate-900/30">
     <button
         type="button"
         aria-expanded={open}
-        onclick={() => persist(!open)}
+        onclick={() => (open = !open)}
         class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-left focus:outline-none focus:ring-2 focus:ring-teal-400"
     >
         <div class="flex items-center gap-2 min-w-0">

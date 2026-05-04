@@ -62,7 +62,6 @@
         handleAnalyzeUnknowns,
         handleResetDatabase,
         handleClearFeedback,
-        handleOpenDiagnostics = () => {}
     }: {
         maintenanceStats: MaintenanceStats | null;
         retentionDays: number;
@@ -116,7 +115,6 @@
         handleAnalyzeUnknowns: () => Promise<void>;
         handleResetDatabase: () => Promise<void>;
         handleClearFeedback: () => Promise<void>;
-        handleOpenDiagnostics?: () => void;
     } = $props();
 
     const safeCount = (value: unknown): number => {
@@ -218,21 +216,6 @@
     {/if}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <SettingsCard
-            icon="🩺"
-            title={$_('settings.data.diagnostics_title')}
-            description={$_('settings.data.diagnostics_desc')}
-        >
-            <button
-                type="button"
-                onclick={handleOpenDiagnostics}
-                aria-label={$_('settings.data.open_diagnostics')}
-                class="w-full {buttonNeutralClass}"
-            >
-                {$_('settings.data.open_diagnostics')}
-            </button>
-        </SettingsCard>
-
         <SettingsCard icon="🗂️" title={$_('settings.data.retention_title')}>
             <SettingsRow
                 labelId="setting-retention-days"
