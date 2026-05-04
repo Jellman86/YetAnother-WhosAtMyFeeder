@@ -367,6 +367,56 @@
     });
     const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
+
+    // Pick the best audioContext entry to render its BirdNET-Go spectrogram
+    // alongside the audio match card. When the visual detection was audio-
+    // confirmed, prefer the entry whose species matches detection.audio_species.
+    // Otherwise fall back to whichever context entry is closest in time.
+    const matchedAudioEntry = $derived.by(() => {
+        if (!audioContext.length) return null;
+        const target = (detection.audio_species || '').trim().toLowerCase();
+        if (target) {
+            const match = audioContext.find(
+                (a) => (a.species || '').trim().toLowerCase() === target && a.birdnet_id != null
+            );
+            if (match) return match;
+        }
+        const withId = audioContext.filter((a) => a.birdnet_id != null);
+        if (!withId.length) return null;
+        return [...withId].sort(
+            (a, b) => Math.abs(a.offset_seconds) - Math.abs(b.offset_seconds)
+        )[0];
+    });
+    const matchedSpectrogramUrl = $derived(
+        matchedAudioEntry?.birdnet_id != null
+            ? `/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`
+            : null
+    );
+
+    // Auto-fetch audio context whenever this modal renders a detection that
+    // has any audio info, so the spectrogram (and the matched-entry summary)
+    // can be shown without the user having to expand the context list first.
+    $effect(() => {
+        if (!hasAudioContext) return;
+        if (audioContextLoaded || audioContextLoading) return;
+        audioContextLoading = true;
+        audioContextError = null;
+        (async () => {
+            try {
+                audioContext = await fetchAudioContext(
+                    detection.detection_time,
+                    detection.camera_name,
+                    300,
+                    6
+                );
+                audioContextLoaded = true;
+            } catch {
+                audioContextError = $_('common.error');
+            } finally {
+                audioContextLoading = false;
+            }
+        })();
+    });
     const hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
         !!detection.weather_condition ||
@@ -2298,6 +2348,25 @@
                             </p>
                         </div>
                     </div>
+                    {#if matchedSpectrogramUrl}
+                        <figure class="rounded-xl overflow-hidden border border-teal-500/20 bg-slate-900/70">
+                            <img
+                                src={matchedSpectrogramUrl}
+                                alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
+                                loading="lazy"
+                                class="w-full h-auto block"
+                            />
+                            {#if matchedAudioEntry}
+                                <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-200 bg-slate-900/60 backdrop-blur-sm">
+                                    <span class="truncate">{matchedAudioEntry.species}</span>
+                                    <span class="flex items-center gap-2 flex-shrink-0">
+                                        <span class="opacity-70">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
+                                        <span class="opacity-60">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
+                                    </span>
+                                </figcaption>
+                            {/if}
+                        </figure>
+                    {/if}
                     <button
                         type="button"
                         onclick={toggleAudioContext}

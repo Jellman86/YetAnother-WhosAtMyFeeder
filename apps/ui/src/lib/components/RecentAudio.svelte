@@ -1,6 +1,9 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { fly } from 'svelte/transition';
+    import { flip } from 'svelte/animate';
+    import { cubicOut } from 'svelte/easing';
     import { fetchRecentAudio, type AudioDetection } from '../api';
     import { fetchSettings } from '../api/settings';
     import { formatTime } from '../utils/datetime';
@@ -8,6 +11,13 @@
     import { logger } from '../utils/logger';
 
     const RECENT_AUDIO_LIMIT = 10;
+
+    function detectionKey(d: AudioDetection): string {
+        // birdnet_id is stable when present; otherwise compose a key that is
+        // stable across polls so flip animations track moves rather than swap.
+        if (d.birdnet_id != null) return `bn:${d.birdnet_id}`;
+        return `${d.timestamp}|${d.species}|${d.sensor_id ?? ''}`;
+    }
 
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
@@ -117,9 +127,14 @@
                 <p class="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">{$_('dashboard.audio_feed.empty_subtitle')}</p>
             </div>
         {:else}
-            {#each audioDetections as detection}
+            {#each audioDetections as detection (detectionKey(detection))}
                 {@const spec = spectrogramUrl(detection.birdnet_id)}
                 {@const link = birdnetDetectionUrl(detection.birdnet_id)}
+                <div
+                    animate:flip={{ duration: 350, easing: cubicOut }}
+                    in:fly={{ y: -24, duration: 320, easing: cubicOut }}
+                    out:fly={{ y: 28, duration: 260, easing: cubicOut }}
+                >
                 {#snippet body()}
                     {#if spec}
                         <div class="absolute inset-0 bg-cover bg-center opacity-50 dark:opacity-40 transition-opacity" style="background-image: url('{spec}');"></div>
@@ -154,6 +169,7 @@
                         {@render body()}
                     </div>
                 {/if}
+                </div>
             {/each}
         {/if}
     </div>
