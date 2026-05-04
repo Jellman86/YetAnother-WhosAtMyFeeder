@@ -113,8 +113,6 @@ const REQUIRED_ACTIVE_KEYS = [
     'settings.data.cache_high_quality_event_snapshots_help',
     'settings.data.cache_high_quality_event_snapshot_bird_crop',
     'settings.data.cache_high_quality_event_snapshot_bird_crop_help',
-    'settings.debug.ai_diagnostics',
-    'settings.debug.ai_diagnostics_desc',
     'settings.debug.strict_non_finite_output',
     'settings.debug.strict_non_finite_output_desc',
     'settings.detection.blocked_species_legacy',

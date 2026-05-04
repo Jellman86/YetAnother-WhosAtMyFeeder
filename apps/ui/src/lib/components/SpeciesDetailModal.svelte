@@ -62,97 +62,7 @@
 
     let modalElement = $state<HTMLElement | null>(null);
     let stats = $state<SpeciesStats | null>(null);
-    let aiDiagnosticsEnabled = $state(false);
     const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
-
-    const buildSample = (value: string | null | undefined) => {
-        if (!value) return '';
-        return value.replace(/\s+/g, ' ').trim().slice(0, 240);
-    };
-
-    const describeElement = (element: Element | null) => {
-        if (!element || typeof window === 'undefined') return null;
-        const style = getComputedStyle(element as HTMLElement);
-        return {
-            tag: element.tagName.toLowerCase(),
-            color: style.color,
-            backgroundColor: style.backgroundColor,
-            fontSize: style.fontSize,
-            fontWeight: style.fontWeight,
-            lineHeight: style.lineHeight,
-            marginTop: style.marginTop,
-            marginBottom: style.marginBottom,
-            textTransform: style.textTransform,
-            letterSpacing: style.letterSpacing,
-            textDecorationLine: style.textDecorationLine
-        };
-    };
-
-    const collectSpeciesDiagnostics = () => {
-        if (!modalElement || typeof window === 'undefined') return null;
-
-        const root = document.documentElement;
-        const body = document.body;
-
-        const header = modalElement.querySelector('[data-species-modal-header]') as HTMLElement | null;
-        const title = modalElement.querySelector('#modal-title') as HTMLElement | null;
-        const firstCard = modalElement.querySelector('.card-base') as HTMLElement | null;
-        const firstBadge = modalElement.querySelector('.badge') as HTMLElement | null;
-
-        return {
-            theme: root.classList.contains('dark') ? 'dark' : 'light',
-            rootClasses: root.className,
-            bodyClasses: body?.className ?? '',
-            modalHasDarkAncestor: Boolean(modalElement.closest('.dark')),
-            modalClasses: modalElement.className,
-            title: {
-                speciesName,
-                primaryName,
-                subName
-            },
-            contentSample: {
-                info_source: info?.source ?? null,
-                info_summary_source: info?.summary_source ?? null,
-                info_extract_sample: buildSample(info?.extract),
-                recent_sighting_count: stats?.recent_sightings?.length ?? 0
-            },
-            styles: {
-                modal: describeElement(modalElement),
-                header: describeElement(header),
-                title: describeElement(title),
-                firstCard: describeElement(firstCard),
-                firstBadge: describeElement(firstBadge)
-            }
-        };
-    };
-
-    const copySpeciesDiagnosticsBundle = async () => {
-        const statsSummary = stats
-            ? {
-                total_sightings: stats.total_sightings,
-                first_seen: stats.first_seen,
-                last_seen: stats.last_seen,
-                cameras_count: stats.cameras?.length ?? 0,
-                recent_sightings_count: stats.recent_sightings?.length ?? 0,
-                recent_sightings_sample: (stats.recent_sightings || []).slice(0, 3),
-                hourly_distribution_len: stats.hourly_distribution?.length ?? 0,
-                daily_distribution_len: stats.daily_distribution?.length ?? 0,
-                monthly_distribution_len: stats.monthly_distribution?.length ?? 0
-            }
-            : null;
-
-        const payload = JSON.stringify(
-            {
-                diagnostics: collectSpeciesDiagnostics(),
-                speciesName,
-                stats: statsSummary,
-                info: info
-            },
-            null,
-            2
-        );
-        await navigator.clipboard.writeText(payload);
-    };
 
     $effect(() => {
         if (modalElement) {
@@ -358,20 +268,6 @@
     }
 
 
-    onMount(() => {
-        const syncDiagnosticsToggle = () => {
-            if (typeof window === 'undefined') return;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
-        };
-        syncDiagnosticsToggle();
-        const onToggleChanged = () => syncDiagnosticsToggle();
-        window.addEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
-
-        return () => {
-            window.removeEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
-        };
-    });
-
     // Async work is kicked off separately so onMount can return a cleanup function.
     onMount(() => {
         (async () => {
@@ -508,19 +404,6 @@
                 {/if}
             </div>
             <div class="flex items-center gap-2">
-                {#if debugUiEnabled && aiDiagnosticsEnabled}
-                    <button
-                        type="button"
-                        onclick={copySpeciesDiagnosticsBundle}
-                        class="p-2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
-                        title={$_('species_detail.copy_diagnostics_bundle', { default: 'Copy diagnostics bundle' })}
-                        aria-label={$_('species_detail.copy_diagnostics_bundle', { default: 'Copy diagnostics bundle' })}
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-                        </svg>
-                    </button>
-                {/if}
                 <button
                     type="button"
                     onclick={onclose}

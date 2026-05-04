@@ -129,8 +129,6 @@
     let inatLat = $state<number | null>(null);
     let inatLon = $state<number | null>(null);
     let inatPlace = $state('');
-    let inatPreview = $state(false);
-
     // Enrichment state
     let speciesInfo = $state<SpeciesInfo | null>(null);
     let speciesInfoLoading = $state(false);
@@ -227,16 +225,8 @@
         if (typeof document === 'undefined') return;
         const observer = new MutationObserver(syncDarkMode);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-        const syncDiagnosticsToggle = () => {
-            if (typeof window === 'undefined') return;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
-        };
-        syncDiagnosticsToggle();
-        const onToggleChanged = () => syncDiagnosticsToggle();
-        window.addEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
         return () => {
             observer.disconnect();
-            window.removeEventListener('ai-diagnostics-enabled-changed', onToggleChanged as any);
         };
     });
 
@@ -273,140 +263,6 @@
 
     });
 
-    const hasMarkdownHeadings = (value: string | null) => {
-        if (!value) return false;
-        return /(^|\n)#{1,6}\s+/.test(value) || /(^|\n)[A-Z][A-Za-z0-9\s/&()\-]+:\s*$/.test(value);
-    };
-
-    type MarkdownStyleSample = {
-        heading: Record<string, string> | null;
-        paragraph: Record<string, string> | null;
-        listItem: Record<string, string> | null;
-        blockquote: Record<string, string> | null;
-        code: Record<string, string> | null;
-        pre: Record<string, string> | null;
-        link: Record<string, string> | null;
-    };
-
-    const buildSample = (value: string | null) => {
-        if (!value) return '';
-        return value.replace(/\s+/g, ' ').trim().slice(0, 240);
-    };
-
-    const describeElement = (element: Element | null) => {
-        if (!element || typeof window === 'undefined') return null;
-        const style = getComputedStyle(element as HTMLElement);
-        return {
-            tag: element.tagName.toLowerCase(),
-            color: style.color,
-            backgroundColor: style.backgroundColor,
-            fontSize: style.fontSize,
-            fontWeight: style.fontWeight,
-            lineHeight: style.lineHeight,
-            marginTop: style.marginTop,
-            marginBottom: style.marginBottom,
-            textTransform: style.textTransform,
-            letterSpacing: style.letterSpacing,
-            textDecorationLine: style.textDecorationLine
-        };
-    };
-
-    const countMarkdownNodes = (container: HTMLElement | null) => {
-        if (!container) return { headings: 0, paragraphs: 0, listItems: 0, blockquotes: 0, code: 0, pre: 0, links: 0 };
-        return {
-            headings: container.querySelectorAll('h1,h2,h3,h4,h5,h6').length,
-            paragraphs: container.querySelectorAll('p').length,
-            listItems: container.querySelectorAll('li').length,
-            blockquotes: container.querySelectorAll('blockquote').length,
-            code: container.querySelectorAll('code').length,
-            pre: container.querySelectorAll('pre').length,
-            links: container.querySelectorAll('a').length
-        };
-    };
-
-    const sampleMarkdownStyles = (container: HTMLElement | null): MarkdownStyleSample => {
-        if (!container) {
-            return {
-                heading: null,
-                paragraph: null,
-                listItem: null,
-                blockquote: null,
-                code: null,
-                pre: null,
-                link: null
-            };
-        }
-        return {
-            heading: describeElement(container.querySelector('h1, h2, h3, h4, h5, h6')),
-            paragraph: describeElement(container.querySelector('p')),
-            listItem: describeElement(container.querySelector('li')),
-            blockquote: describeElement(container.querySelector('blockquote')),
-            code: describeElement(container.querySelector('code')),
-            pre: describeElement(container.querySelector('pre')),
-            link: describeElement(container.querySelector('a'))
-        };
-    };
-
-    const collectAiDiagnostics = () => {
-        if (!modalElement || typeof window === 'undefined') return;
-        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
-        const panelContent = modalElement.querySelector('.ai-panel__content.ai-markdown') as HTMLElement | null;
-        const panelHeading = panelContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
-        const panelSurface = modalElement.querySelector('.ai-panel.ai-surface') as HTMLElement | null;
-        const bubbleContent = modalElement.querySelector('.ai-bubble--assistant .ai-bubble__content.ai-markdown') as HTMLElement | null;
-        const bubbleHeading = bubbleContent?.querySelector('h1, h2, h3, h4, h5, h6') as HTMLElement | null;
-        const bubbleSurface = modalElement.querySelector('.ai-bubble--assistant') as HTMLElement | null;
-        const root = document.documentElement;
-        const body = document.body;
-
-        aiDiagnostics = {
-            theme: root.classList.contains('dark') ? 'dark' : 'light',
-            rootClasses: root.className,
-            bodyClasses: body?.className ?? '',
-            modalHasDarkAncestor: Boolean(modalElement.closest('.dark')),
-            modalClasses: modalElement.className,
-            modalDataTheme: modalElement.getAttribute('data-theme') ?? '',
-            analysisTextColor: panelContent ? getComputedStyle(panelContent).color : 'n/a',
-            analysisHeadingColor: panelHeading ? getComputedStyle(panelHeading).color : 'n/a',
-            analysisSurfaceColor: panelSurface ? getComputedStyle(panelSurface).color : 'n/a',
-            analysisSurfaceBackground: panelSurface ? getComputedStyle(panelSurface).backgroundImage || getComputedStyle(panelSurface).backgroundColor : 'n/a',
-            analysisSurfaceBorder: panelSurface ? getComputedStyle(panelSurface).borderColor : 'n/a',
-            conversationTextColor: bubbleContent ? getComputedStyle(bubbleContent).color : 'n/a',
-            conversationHeadingColor: bubbleHeading ? getComputedStyle(bubbleHeading).color : 'n/a',
-            conversationSurfaceColor: bubbleSurface ? getComputedStyle(bubbleSurface).color : 'n/a',
-            conversationSurfaceBackground: bubbleSurface ? getComputedStyle(bubbleSurface).backgroundImage || getComputedStyle(bubbleSurface).backgroundColor : 'n/a',
-            conversationSurfaceBorder: bubbleSurface ? getComputedStyle(bubbleSurface).borderColor : 'n/a',
-            analysisMarkdownCounts: countMarkdownNodes(panelContent),
-            conversationMarkdownCounts: countMarkdownNodes(bubbleContent),
-            analysisMarkdownSampleStyles: sampleMarkdownStyles(panelContent),
-            conversationMarkdownSampleStyles: sampleMarkdownStyles(bubbleContent),
-            analysisHasHeadings: hasMarkdownHeadings(aiAnalysis),
-            conversationHasHeadings: hasMarkdownHeadings(latestAssistant),
-            analysisSample: buildSample(aiAnalysis),
-            conversationSample: buildSample(latestAssistant)
-        };
-    };
-
-    
-    const copyAiFullBundle = async () => {
-        collectAiDiagnostics();
-        const latestAssistant = [...conversationTurns].reverse().find((turn) => turn.role === 'assistant')?.content ?? null;
-        const payload = JSON.stringify(
-            {
-                diagnostics: aiDiagnostics,
-                analysis: aiAnalysis ?? '',
-                conversation_latest_assistant: latestAssistant ?? '',
-                prompts: {
-                    analysis_prompt_template: settingsStore.settings?.llm_analysis_prompt_template ?? '',
-                    conversation_prompt_template: settingsStore.settings?.llm_conversation_prompt_template ?? ''
-                }
-            },
-            null,
-            2
-        );
-        await navigator.clipboard.writeText(payload);
-    };
-
     let aiAnalysis = $state<string | null>(null);
     let conversationTurns = $state<ConversationTurn[]>([]);
     let conversationInput = $state('');
@@ -435,35 +291,8 @@
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
     let videoErrorDetailsOpen = $state(false);
-    let aiDiagnostics = $state<{
-        theme: string;
-        rootClasses: string;
-        bodyClasses: string;
-        modalHasDarkAncestor: boolean;
-        modalClasses: string;
-        modalDataTheme: string;
-        analysisTextColor: string;
-        analysisHeadingColor: string;
-        analysisSurfaceColor: string;
-        analysisSurfaceBackground: string;
-        analysisSurfaceBorder: string;
-        conversationTextColor: string;
-        conversationHeadingColor: string;
-        conversationSurfaceColor: string;
-        conversationSurfaceBackground: string;
-        conversationSurfaceBorder: string;
-        analysisMarkdownCounts: Record<string, number>;
-        conversationMarkdownCounts: Record<string, number>;
-        analysisMarkdownSampleStyles: MarkdownStyleSample;
-        conversationMarkdownSampleStyles: MarkdownStyleSample;
-        analysisHasHeadings: boolean;
-        conversationHasHeadings: boolean;
-        analysisSample: string;
-        conversationSample: string;
-    } | null>(null);
     const debugUiEnabled = $derived(settingsStore.settings?.debug_ui_enabled ?? false);
     let isDarkMode = $state(false);
-    let aiDiagnosticsEnabled = $state(false);
 
     
 
@@ -549,7 +378,7 @@
     );
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
-    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && (!!inatConnectedUser || inatPreview));
+    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
@@ -762,17 +591,6 @@
         return formatDateTime(dateStr);
     }
 
-    onMount(() => {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const queryPreview = params.get('inat_preview');
-            const storedPreview = window.localStorage.getItem('inat_preview');
-            inatPreview = queryPreview === '1' || storedPreview === '1';
-        } catch {
-            inatPreview = false;
-        }
-    });
-
     $effect(() => {
         if (!detection?.frigate_event) return;
         if (detection.frigate_event !== lastEventId) {
@@ -924,22 +742,7 @@
         inatLoading = true;
         inatError = null;
         try {
-            if (inatPreview && !inatConnectedUser) {
-                const defaults = settingsStore.settings;
-                const observed = detection.detection_time ? new Date(detection.detection_time).toISOString() : new Date().toISOString();
-                inatDraft = {
-                    event_id: detection.frigate_event,
-                    species_guess: primaryName,
-                    observed_on_string: observed,
-                    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-                    latitude: defaults?.inaturalist_default_latitude ?? null,
-                    longitude: defaults?.inaturalist_default_longitude ?? null,
-                    place_guess: defaults?.inaturalist_default_place_guess ?? null,
-                    snapshot_url: getSnapshotUrl(detection.frigate_event)
-                };
-            } else {
-                inatDraft = await createInaturalistDraft(detection.frigate_event);
-            }
+            inatDraft = await createInaturalistDraft(detection.frigate_event);
             inatNotes = '';
             const defaults = settingsStore.settings;
             inatLat = inatDraft.latitude ?? defaults?.inaturalist_default_latitude ?? defaults?.location_latitude ?? null;
@@ -953,7 +756,7 @@
     }
 
     async function submitInat() {
-        if (!inatDraft || (inatPreview && !inatConnectedUser)) return;
+        if (!inatDraft) return;
         inatSubmitting = true;
         inatError = null;
         try {
@@ -2190,19 +1993,6 @@
             </button>
         {/if}
 
-        {#if debugUiEnabled && aiDiagnosticsEnabled && !snapshotRepairOpen}
-            <button
-                type="button"
-                onclick={copyAiFullBundle}
-                class="absolute top-4 right-16 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-500/20 text-emerald-100 shadow-lg backdrop-blur-sm transition-all hover:bg-emerald-500/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
-                title={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
-                aria-label={$_('detection.ai.copy_diagnostics_bundle', { default: 'Copy AI diagnostics bundle' })}
-            >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-                </svg>
-            </button>
-        {/if}
             </div>
 
             <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
@@ -2906,8 +2696,6 @@
                                 <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
                                 {#if inatConnectedUser}
                                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
-                                {:else if inatPreview}
-                                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.preview_note')}</p>
                                 {/if}
                             </div>
                         </div>
@@ -2983,7 +2771,7 @@
                                     <button
                                         type="button"
                                         onclick={submitInat}
-                                        disabled={inatSubmitting || (inatPreview && !inatConnectedUser)}
+                                        disabled={inatSubmitting}
                                         class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
                                     >
                                         {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}

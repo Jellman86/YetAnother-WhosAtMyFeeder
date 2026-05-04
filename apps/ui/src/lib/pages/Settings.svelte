@@ -1,5 +1,5 @@
 <script lang="ts" module>
-    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
 </script>
 
 <script lang="ts">
@@ -94,6 +94,7 @@
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
+    import Errors from './Errors.svelte';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -1187,8 +1188,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessExternalBaseUrl = $state('');
     let dateFormat = $state('dmy');
     let debugUiEnabled = $state(false);
-    let inatPreviewEnabled = $state(false);
-    let inatPreviewDirty = $state(false);
     let strictNonFiniteOutput = $state(true);
 
     // Notifications
@@ -1276,7 +1275,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let liveAnnouncements = $state(true);
     let reducedMotion = $state(false);
     let zenMode = $state(false);
-    let aiDiagnosticsEnabled = $state(false);
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1980,8 +1978,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         // Handle deep linking to tabs
         const hash = window.location.hash.slice(1);
-        if (hash && ['connection', 'detection', 'notifications', 'integrations', 'enrichment', 'ai', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(hash)) {
-            activeTab = hash as SettingsTab;
+        const pathTab = window.location.pathname.startsWith('/settings/health') || window.location.pathname.startsWith('/settings/errors')
+            ? 'health'
+            : '';
+        const tabTarget = pathTab || hash;
+        if (tabTarget && ['connection', 'detection', 'notifications', 'health', 'integrations', 'enrichment', 'ai', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(tabTarget)) {
+            activeTab = tabTarget as SettingsTab;
         }
 
         // Ensure settings store is loaded for dirty checking
@@ -1998,9 +2000,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 loadAnalysisStatus(), // Check if there's an ongoing job
                 loadBackfillStatus()
             ]);
-            inatPreviewEnabled = window.localStorage.getItem('inat_preview') === '1';
-            inatPreviewDirty = false;
-            aiDiagnosticsEnabled = window.localStorage.getItem('ai_diagnostics_enabled') === '1';
 
         if (activeTab === 'data') {
             startTaxonomyPolling();
@@ -2028,18 +2027,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     function handleTabChange(tab: SettingsTab) {
         activeTab = tab;
-        window.location.hash = tab;
+        const path = tab === 'health' ? '/settings/health' : `/settings#${tab}`;
+        if (onNavigate) onNavigate(path);
+        else window.history.pushState(null, '', path);
         if (tab === 'data') {
             startTaxonomyPolling();
         } else {
             stopTaxonomyPolling();
         }
-    }
-
-    function applyInatPreview() {
-        window.localStorage.setItem('inat_preview', inatPreviewEnabled ? '1' : '0');
-        inatPreviewDirty = false;
-        toastStore.success($_('settings.debug.apply_notice'));
     }
 
     onDestroy(() => {
@@ -3457,6 +3452,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 />
             {/if}
 
+            <!-- Health Tab -->
+            {#if activeTab === 'health'}
+                <Errors />
+            {/if}
+
             <!-- Integrations Tab -->
             {#if activeTab === 'integrations'}
                 <IntegrationSettings
@@ -3638,13 +3638,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
-                    handleOpenDiagnostics={() => {
-                        if (onNavigate) {
-                            onNavigate('/settings/errors');
-                            return;
-                        }
-                        window.location.assign('/settings/errors');
-                    }}
+                    handleOpenDiagnostics={() => handleTabChange('health')}
                 />
             {/if}
 
@@ -3693,59 +3687,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         <div class="space-y-4">
                             <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
                                 <div>
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.ai_diagnostics', { default: 'AI Diagnostics Clipboard' })}</span>
-                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.ai_diagnostics_desc', { default: 'Show a top-of-modal copy button that captures full AI diagnostics and prompts.' })}</span>
-                                </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={aiDiagnosticsEnabled}
-                                    onclick={() => {
-                                        aiDiagnosticsEnabled = !aiDiagnosticsEnabled;
-                                        window.localStorage.setItem('ai_diagnostics_enabled', aiDiagnosticsEnabled ? '1' : '0');
-                                        // Storage events don't fire in the same tab; broadcast so open modals update immediately.
-                                        window.dispatchEvent(new CustomEvent('ai-diagnostics-enabled-changed', { detail: { enabled: aiDiagnosticsEnabled } }));
-                                    }}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            aiDiagnosticsEnabled = !aiDiagnosticsEnabled;
-                                            window.localStorage.setItem('ai_diagnostics_enabled', aiDiagnosticsEnabled ? '1' : '0');
-                                            window.dispatchEvent(new CustomEvent('ai-diagnostics-enabled-changed', { detail: { enabled: aiDiagnosticsEnabled } }));
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {aiDiagnosticsEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.debug.ai_diagnostics', { default: 'AI Diagnostics Clipboard' })}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {aiDiagnosticsEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
-                            </div>
-                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-                                <div>
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.inat_preview')}</span>
-                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.inat_preview_desc')}</span>
-                                </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={inatPreviewEnabled}
-                                    onclick={() => {
-                                        inatPreviewEnabled = !inatPreviewEnabled;
-                                        inatPreviewDirty = true;
-                                    }}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            inatPreviewEnabled = !inatPreviewEnabled;
-                                            inatPreviewDirty = true;
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {inatPreviewEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.debug.inat_preview')}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {inatPreviewEnabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
-                            </div>
-                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-                                <div>
                                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
                                     <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.strict_non_finite_output_desc', { default: 'When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging.' })}</span>
                                 </div>
@@ -3766,22 +3707,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                                     <span class="sr-only">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
                                     <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {strictNonFiniteOutput ? 'translate-x-5' : 'translate-x-0'}"></span>
                                 </button>
-                            </div>
-                            <div class="flex items-center justify-between text-[10px] font-bold">
-                                <span class={inatPreviewDirty ? 'text-amber-600' : 'text-emerald-600/80'}>
-                                    {inatPreviewDirty ? $_('settings.debug.apply_pending') : $_('settings.debug.apply_applied')}
-                                </span>
-                                <button
-                                    type="button"
-                                    class="px-3 py-1 rounded-full border border-slate-200/70 dark:border-slate-700/60 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={!inatPreviewDirty}
-                                    onclick={applyInatPreview}
-                                >
-                                    {$_('settings.debug.apply_button')}
-                                </button>
-                            </div>
-                            <div class="text-[10px] font-bold text-slate-500">
-                                {$_('settings.debug.inat_preview_hint')}
                             </div>
                         </div>
                     </section>
