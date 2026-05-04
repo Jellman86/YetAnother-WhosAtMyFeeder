@@ -14,6 +14,7 @@
         mergeBlockedSpeciesEntries,
     } from '../../settings/blocked-species';
     import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
@@ -170,7 +171,6 @@
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
 
-    let showAdvanced = $state(false);
     let speciesSearchQuery = $state('');
     let speciesSearchResults = $state<SearchResult[]>([]);
     let speciesSearchLoading = $state(false);
@@ -179,12 +179,6 @@
     const notificationsEnabled = $derived(
         notifyMode === 'custom' ? (notifyOnInsert || notifyOnUpdate) : notifyMode !== 'silent'
     );
-
-    $effect(() => {
-        if (notifyMode === 'custom') {
-            showAdvanced = true;
-        }
-    });
 
     function applyPreset(mode: typeof notifyMode) {
         if (mode === 'silent') {
@@ -215,7 +209,6 @@
     function setMode(mode: typeof notifyMode) {
         notifyMode = mode;
         if (mode !== 'custom') {
-            showAdvanced = false;
             applyPreset(mode);
         }
     }
@@ -307,14 +300,7 @@
 
 <div class="space-y-6">
     <!-- Global Notification Filters -->
-    <section class="bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-slate-800/30 dark:to-amber-900/10 rounded-3xl border border-amber-200/50 dark:border-amber-700/30 p-8 shadow-sm backdrop-blur-md">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            </div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.notifications.global_filters')}</h3>
-        </div>
-
+    <SettingsCard icon="🔔" title={$_('settings.notifications.global_filters')}>
         <div class="space-y-6">
             <!-- Delivery Policy -->
             <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20">
@@ -367,103 +353,88 @@
                         </button>
                     </div>
 
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.advanced_title')}</span>
-                            <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.advanced_desc')}</span>
+                    <AdvancedSection
+                        id="notifications-delivery-advanced"
+                        title={$_('settings.notifications.advanced_title')}
+                        description={$_('settings.notifications.advanced_desc')}
+                    >
+                        <div class="flex items-center justify-between gap-4">
+                            <div id="notify-insert-label">
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
+                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
+                            </div>
+                            <SettingsToggle
+                                checked={notifyOnInsert}
+                                labelledBy="notify-insert-label"
+                                srLabel={$_('settings.notifications.notify_on_insert')}
+                                onchange={(v) => setCustom(() => (notifyOnInsert = v))}
+                            />
                         </div>
-                        <button
-                            type="button"
-                            onclick={() => {
-                                showAdvanced = !showAdvanced;
-                                if (showAdvanced) notifyMode = 'custom';
-                            }}
-                            class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border {showAdvanced ? 'border-amber-400 text-amber-700 bg-amber-50' : 'border-slate-200 text-slate-500 bg-white/70 dark:border-slate-700 dark:text-slate-300 dark:bg-slate-900/40'}"
-                        >
-                            {showAdvanced ? $_('settings.notifications.advanced_on') : $_('settings.notifications.advanced_off')}
-                        </button>
-                    </div>
 
-                    {#if showAdvanced}
-                        <div class="space-y-4 border-t border-dashed border-slate-200/70 pt-4">
-                            <div class="flex items-center justify-between gap-4">
-                                <div id="notify-insert-label">
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
-                                </div>
-                                <SettingsToggle
-                                    checked={notifyOnInsert}
-                                    labelledBy="notify-insert-label"
-                                    srLabel={$_('settings.notifications.notify_on_insert')}
-                                    onchange={(v) => setCustom(() => (notifyOnInsert = v))}
+                        <div class="flex items-center justify-between gap-4">
+                            <div id="notify-update-label">
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
+                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
+                            </div>
+                            <SettingsToggle
+                                checked={notifyOnUpdate}
+                                labelledBy="notify-update-label"
+                                srLabel={$_('settings.notifications.notify_on_update')}
+                                onchange={(v) => setCustom(() => (notifyOnUpdate = v))}
+                            />
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
+                            <div id="notify-delay-label">
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
+                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
+                            </div>
+                            <SettingsToggle
+                                checked={notifyDelayUntilVideo}
+                                labelledBy="notify-delay-label"
+                                srLabel={$_('settings.notifications.delay_until_video')}
+                                disabled={!notificationsEnabled}
+                                onchange={(v) => setCustom(() => (notifyDelayUntilVideo = v))}
+                            />
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
+                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="5"
+                                    bind:value={notifyVideoFallbackTimeout}
+                                    disabled={!notifyDelayUntilVideo || !notificationsEnabled}
+                                    class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
+                                    aria-label={$_('settings.notifications.video_fallback_timeout')}
                                 />
-                            </div>
-
-                            <div class="flex items-center justify-between gap-4">
-                                <div id="notify-update-label">
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
-                                </div>
-                                <SettingsToggle
-                                    checked={notifyOnUpdate}
-                                    labelledBy="notify-update-label"
-                                    srLabel={$_('settings.notifications.notify_on_update')}
-                                    onchange={(v) => setCustom(() => (notifyOnUpdate = v))}
-                                />
-                            </div>
-
-                            <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
-                                <div id="notify-delay-label">
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
-                                </div>
-                                <SettingsToggle
-                                    checked={notifyDelayUntilVideo}
-                                    labelledBy="notify-delay-label"
-                                    srLabel={$_('settings.notifications.delay_until_video')}
-                                    disabled={!notificationsEnabled}
-                                    onchange={(v) => setCustom(() => (notifyDelayUntilVideo = v))}
-                                />
-                            </div>
-
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="5"
-                                        bind:value={notifyVideoFallbackTimeout}
-                                        disabled={!notifyDelayUntilVideo || !notificationsEnabled}
-                                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
-                                        aria-label={$_('settings.notifications.video_fallback_timeout')}
-                                    />
-                                    <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        bind:value={notifyCooldownMinutes}
-                                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
-                                        aria-label={$_('settings.notifications.cooldown')}
-                                    />
-                                    <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
-                                </div>
+                                <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
                             </div>
                         </div>
-                    {/if}
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    bind:value={notifyCooldownMinutes}
+                                    class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
+                                    aria-label={$_('settings.notifications.cooldown')}
+                                />
+                                <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
+                            </div>
+                        </div>
+                    </AdvancedSection>
                 </div>
 
                 </div>
@@ -632,7 +603,7 @@
                 {/if}
             </div>
         </div>
-    </section>
+    </SettingsCard>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         <!-- Discord -->
