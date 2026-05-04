@@ -17,7 +17,6 @@
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Notifications from './lib/pages/Notifications.svelte';
-  import Errors from './lib/pages/Errors.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
@@ -63,7 +62,6 @@
       if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
       if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
-      if (currentRoute.startsWith('/settings/errors')) return $_('jobs.errors_title', { default: 'Errors' });
       if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
       if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
       return '';
@@ -73,7 +71,6 @@
       if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
       if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
       if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
-      if (currentRoute.startsWith('/settings/errors')) return $_('jobs.errors_health_subtitle', { default: 'Live system health for your bird detection setup.' });
       if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
       if (currentRoute.startsWith('/about')) return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
       return '';
@@ -86,10 +83,19 @@
   }
 
   function normalizeRouteForCurrentAccess(path: string): string {
+      const settingsRoute = normalizeSettingsRoute(path);
+      if (settingsRoute !== path) return settingsRoute;
       if (!authStore.statusLoaded) {
           return getCanonicalNotificationRoute(path) ?? path;
       }
       return canonicalizeNotificationRouteForAccess(path, authStore.showSettings);
+  }
+
+  function normalizeSettingsRoute(path: string): string {
+      if (path === '/settings/errors' || path.startsWith('/settings/errors/')) {
+          return '/settings/health';
+      }
+      return path;
   }
 
   // Accessibility Logic
@@ -312,7 +318,7 @@
 
           const path = window.location.pathname;
           const resolvedPath = path === '' ? '/' : path;
-          const canonicalPath = getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath;
+          const canonicalPath = normalizeSettingsRoute(getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath);
           currentRoute = canonicalPath;
           if (canonicalPath !== resolvedPath) {
               window.history.replaceState(null, '', canonicalPath);
@@ -638,11 +644,7 @@
                   <Species />
               {:else if currentRoute.startsWith('/settings')}
                    {#if authStore.showSettings}
-                       {#if currentRoute.startsWith('/settings/errors')}
-                           <Errors />
-                       {:else}
-                           <Settings onNavigate={navigate} />
-                       {/if}
+                       <Settings onNavigate={navigate} />
                    {:else}
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>

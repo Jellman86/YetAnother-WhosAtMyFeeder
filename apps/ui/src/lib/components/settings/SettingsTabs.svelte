@@ -13,6 +13,7 @@
         { id: "connection", label: $_("settings.tabs.connection"), icon: "🔗" },
         { id: "detection", label: $_("settings.tabs.detection"), icon: "🎯" },
         { id: "notifications", label: $_("settings.tabs.notifications"), icon: "🔔" },
+        { id: "health", label: $_("settings.tabs.health"), icon: "🩺" },
         { id: "integrations", label: $_("settings.tabs.integrations"), icon: "🔌" },
         { id: "enrichment", label: $_("settings.tabs.enrichment"), icon: "✨" },
         { id: "ai", label: $_("settings.tabs.ai", { default: 'AI' }), icon: "🤖" },

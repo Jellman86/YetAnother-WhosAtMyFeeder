@@ -35,7 +35,7 @@ export function getCanonicalNotificationRoute(path: string): string | null {
         return '/notifications/jobs';
     }
     if (matchesPathSegment(path, '/notifications/errors')) {
-        return '/settings/errors';
+        return '/settings/health';
     }
     if (matchesPathSegment(path, '/notifications')) {
         return '/notifications';
@@ -48,7 +48,7 @@ export function canonicalizeNotificationRouteForAccess(path: string, canAccessOw
     if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/jobs')) {
         return '/notifications';
     }
-    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/settings/errors')) {
+    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/settings/health')) {
         return '/notifications';
     }
     return canonical;
