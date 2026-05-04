@@ -1,4 +1,4 @@
-from app.services.telemetry_service import build_health_issue_report
+from app.services.telemetry_service import build_health_issue_report, build_runtime_telemetry_payload
 
 
 def test_health_issue_report_groups_and_sanitizes_diagnostics():
@@ -83,3 +83,59 @@ def test_health_issue_report_groups_and_sanitizes_diagnostics():
     assert "front" not in rendered
     assert "/media" not in rendered
     assert "/config" not in rendered
+
+
+def test_runtime_telemetry_payload_exposes_device_and_runtime_capabilities():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "intel_gpu",
+            "active_provider": "intel_cpu",
+            "inference_backend": "openvino",
+            "image_execution_mode": "subprocess",
+            "cuda_available": False,
+            "cuda_hardware_available": True,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": False,
+            "openvino_model_compile_device": "GPU",
+            "last_runtime_recovery": {"reason": "non_finite_output"},
+        },
+        app_version="2.9.14-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={
+            "APP_BRANCH": "dev",
+            "GIT_HASH": "abc1234",
+            "YAWAMF_IMAGE_TAG": "dev",
+            "YAWAMF_DEPLOYMENT_MODE": "monolith",
+        },
+    )
+
+    assert payload["configuration"]["model_type"] == "birdnet_v2"
+    assert payload["runtime"] == {
+        "model_runtime": "onnx",
+        "inference_provider_configured": "intel_gpu",
+        "inference_provider_active": "intel_cpu",
+        "inference_backend_active": "openvino",
+        "image_execution_mode": "subprocess",
+        "bird_crop_detector_tier": "fast",
+    }
+    assert payload["hardware"] == {
+        "cuda_available": False,
+        "nvidia_gpu_detected": True,
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "openvino_gpu_compile_ok": False,
+        "openvino_gpu_compile_device": "GPU",
+        "openvino_gpu_fallback_active": True,
+    }
+    assert payload["deployment"] == {
+        "mode": "monolith",
+        "image_flavor": "dev",
+        "image_arch": "x86_64",
+        "app_branch": "dev",
+        "git_hash": "abc1234",
+    }

@@ -37,6 +37,7 @@
         testingBirdNET = $bindable(false),
         telemetryInstallationId,
         telemetryPlatform,
+        telemetryPayloadPreview,
         versionInfo,
         testConnection,
         loadCameras,
@@ -67,6 +68,7 @@
         testingBirdNET: boolean;
         telemetryInstallationId: string | undefined;
         telemetryPlatform: string | undefined;
+        telemetryPayloadPreview: Record<string, unknown> | undefined;
         versionInfo: VersionInfo;
         testConnection: () => Promise<void>;
         loadCameras: () => Promise<void>;
@@ -96,6 +98,38 @@
                 return $_('settings.frigate.full_visit_reason_unknown', { default: 'Capability could not be confirmed.' });
         }
     }
+
+    function nestedValue(source: Record<string, unknown> | undefined, path: string): unknown {
+        return path.split('.').reduce<unknown>((current, key) => {
+            if (!current || typeof current !== 'object') return undefined;
+            return (current as Record<string, unknown>)[key];
+        }, source);
+    }
+
+    function formatTelemetryValue(value: unknown): string {
+        if (typeof value === 'boolean') return value ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' });
+        if (value === null || value === undefined || value === '') return '...';
+        return String(value);
+    }
+
+    const telemetryRuntimeRows = $derived([
+        ['settings.telemetry.payload_model_runtime', 'runtime.model_runtime'],
+        ['settings.telemetry.payload_provider_configured', 'runtime.inference_provider_configured'],
+        ['settings.telemetry.payload_provider_active', 'runtime.inference_provider_active'],
+        ['settings.telemetry.payload_backend_active', 'runtime.inference_backend_active'],
+        ['settings.telemetry.payload_execution_mode', 'runtime.image_execution_mode'],
+        ['settings.telemetry.payload_crop_tier', 'runtime.bird_crop_detector_tier'],
+        ['settings.telemetry.payload_cuda_available', 'hardware.cuda_available'],
+        ['settings.telemetry.payload_nvidia_gpu_detected', 'hardware.nvidia_gpu_detected'],
+        ['settings.telemetry.payload_openvino_available', 'hardware.openvino_available'],
+        ['settings.telemetry.payload_intel_gpu_available', 'hardware.intel_gpu_available'],
+        ['settings.telemetry.payload_openvino_compile', 'hardware.openvino_gpu_compile_ok'],
+        ['settings.telemetry.payload_openvino_device', 'hardware.openvino_gpu_compile_device'],
+        ['settings.telemetry.payload_gpu_fallback', 'hardware.openvino_gpu_fallback_active'],
+        ['settings.telemetry.payload_deployment_mode', 'deployment.mode'],
+        ['settings.telemetry.payload_image_flavor', 'deployment.image_flavor'],
+        ['settings.telemetry.payload_image_arch', 'deployment.image_arch']
+    ]);
 
     let canToggleRecordingClips = $derived(
         recordingClipEnabled || (clipsEnabled && !!recordingClipCapability?.supported)
@@ -627,6 +661,19 @@
                         <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
                     </div>
+                    {#if telemetryEnabled}
+                        <div class="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-700/70">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                                {#each telemetryRuntimeRows as [labelKey, valuePath]}
+                                    <div class="flex justify-between gap-3 min-w-0">
+                                        <span class="truncate">{$_(labelKey)}:</span>
+                                        <span class="text-right text-slate-900 dark:text-white break-all">{formatTelemetryValue(nestedValue(telemetryPayloadPreview, valuePath))}</span>
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
                     <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
                 </div>
             {/if}

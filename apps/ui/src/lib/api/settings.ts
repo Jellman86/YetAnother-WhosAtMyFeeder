@@ -112,6 +112,7 @@ export interface Settings {
     telemetry_health_enabled?: boolean;
     telemetry_installation_id?: string;
     telemetry_platform?: string;
+    telemetry_payload_preview?: Record<string, unknown>;
     notifications_discord_enabled: boolean;
     notifications_discord_webhook_url?: string | null;
     notifications_discord_username: string;

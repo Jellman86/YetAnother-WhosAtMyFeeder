@@ -15,7 +15,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
-from app.services.telemetry_service import telemetry_service
+from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
@@ -702,6 +702,7 @@ _settings_response_fields.update(
         "llm_ready": (bool, False),
         "telemetry_installation_id": (Optional[str], None),
         "telemetry_platform": (Optional[str], None),
+        "telemetry_payload_preview": (Optional[dict], None),
         "notifications_email_connected_email": (Optional[str], None),
         "auth_has_password": (bool, False),
         "debug_ui_enabled": (bool, False),
@@ -846,6 +847,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "telemetry_health_enabled": settings.telemetry.health_enabled,
         "telemetry_installation_id": settings.telemetry.installation_id,
         "telemetry_platform": f"{platform.system()} {platform.machine()}",
+        "telemetry_payload_preview": collect_runtime_telemetry_payload(),
 
         # Notifications
         "notifications_discord_enabled": settings.notifications.discord.enabled,

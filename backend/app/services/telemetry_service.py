@@ -58,6 +58,19 @@ _ALLOWED_HEALTH_CONTEXT_KEYS = {
 }
 
 
+def _safe_optional_text(value: Any, *, limit: int = 120) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
+
+
+def _safe_bool(value: Any) -> bool:
+    return bool(value) if value is not None else False
+
+
 def _safe_text(value: Any, *, limit: int = HEALTH_CONTEXT_MAX_STRING) -> str:
     text = str(value or "").strip()
     if len(text) > limit:
@@ -101,6 +114,128 @@ def _fingerprint_issue(event: dict[str, Any]) -> str:
     ]
     raw = "|".join(parts)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def build_runtime_telemetry_payload(
+    *,
+    model_type: str | None,
+    model_runtime: str | None,
+    classifier_status: dict[str, Any] | None,
+    app_version: str,
+    platform_system: str | None = None,
+    platform_release: str | None = None,
+    platform_machine: str | None = None,
+    deployment_env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build the anonymous heartbeat snapshot shown in Settings and sent upstream."""
+    status = classifier_status if isinstance(classifier_status, dict) else {}
+    env = deployment_env if deployment_env is not None else os.environ
+    machine = platform_machine or platform.machine()
+    configured_provider = _safe_optional_text(
+        status.get("selected_provider") or getattr(settings.classification, "inference_provider", None)
+    )
+    active_provider = _safe_optional_text(status.get("active_provider"))
+    runtime_recovery = status.get("last_runtime_recovery")
+    openvino_compile_ok = status.get("openvino_model_compile_ok")
+    if not isinstance(openvino_compile_ok, bool):
+        openvino_compile_ok = None
+
+    image_flavor = (
+        env.get("YAWAMF_IMAGE_FLAVOR")
+        or env.get("YAWAMF_IMAGE_TAG")
+        or env.get("IMAGE_TAG")
+        or env.get("APP_BRANCH")
+        or "unknown"
+    )
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": app_version,
+        "platform": {
+            "system": platform_system or platform.system(),
+            "release": platform_release or platform.release(),
+            "machine": machine,
+        },
+        "configuration": {
+            "model_type": model_type,
+            "llm_enabled": settings.llm.enabled,
+            "llm_provider": settings.llm.provider,
+            "media_cache_enabled": settings.media_cache.enabled,
+            "media_cache_clips": settings.media_cache.cache_clips,
+            "auto_video_classification": settings.classification.auto_video_classification,
+        },
+        "runtime": {
+            "model_runtime": _safe_optional_text(model_runtime or status.get("runtime")),
+            "inference_provider_configured": configured_provider,
+            "inference_provider_active": active_provider,
+            "inference_backend_active": _safe_optional_text(status.get("inference_backend")),
+            "image_execution_mode": _safe_optional_text(
+                status.get("image_execution_mode") or getattr(settings.classification, "image_execution_mode", None)
+            ),
+            "bird_crop_detector_tier": _safe_optional_text(
+                getattr(settings.classification, "bird_crop_detector_tier", None)
+            ),
+        },
+        "hardware": {
+            "cuda_available": _safe_bool(status.get("cuda_available")),
+            "nvidia_gpu_detected": _safe_bool(
+                status.get("cuda_hardware_available") or status.get("cuda_available")
+            ),
+            "openvino_available": _safe_bool(status.get("openvino_available")),
+            "intel_gpu_available": _safe_bool(status.get("intel_gpu_available")),
+            "openvino_gpu_compile_ok": openvino_compile_ok,
+            "openvino_gpu_compile_device": _safe_optional_text(status.get("openvino_model_compile_device")),
+            "openvino_gpu_fallback_active": bool(
+                runtime_recovery
+                or (
+                    configured_provider in {"intel_gpu", "cuda"}
+                    and active_provider
+                    and active_provider != configured_provider
+                )
+            ),
+        },
+        "deployment": {
+            "mode": _safe_optional_text(
+                env.get("YAWAMF_DEPLOYMENT_MODE") or env.get("DEPLOYMENT_MODE") or "unknown"
+            ),
+            "image_flavor": _safe_optional_text(image_flavor),
+            "image_arch": _safe_optional_text(machine),
+            "app_branch": _safe_optional_text(env.get("APP_BRANCH")),
+            "git_hash": _safe_optional_text(env.get("GIT_HASH")),
+        },
+    }
+
+
+def collect_runtime_telemetry_payload() -> dict[str, Any]:
+    classifier_status: dict[str, Any] = {}
+    model_type: str | None = None
+    model_runtime: str | None = None
+    try:
+        from app.services.model_manager import model_manager
+
+        model_type = getattr(model_manager, "active_model_id", None)
+        model_spec = model_manager.get_active_model_spec()
+        model_runtime = _safe_optional_text((model_spec or {}).get("runtime"))
+    except Exception as exc:
+        log.debug("Failed to collect model telemetry snapshot", error=str(exc))
+
+    try:
+        from app.services import classifier_service as classifier_module
+
+        classifier = getattr(classifier_module, "_classifier_instance", None)
+        if classifier is not None:
+            classifier_status = classifier.get_status()
+        if not model_type:
+            model_type = _safe_optional_text(classifier_status.get("active_model_id"))
+    except Exception as exc:
+        log.debug("Failed to collect classifier telemetry snapshot", error=str(exc))
+
+    return build_runtime_telemetry_payload(
+        model_type=model_type,
+        model_runtime=model_runtime,
+        classifier_status=classifier_status,
+        app_version=os.environ.get("APP_VERSION", "unknown"),
+    )
 
 
 def build_health_issue_report(
@@ -315,26 +450,9 @@ class TelemetryService:
     async def _send_heartbeat(self):
         """Gather stats and send to the telemetry endpoint."""
         try:
-            from app.services.model_manager import model_manager
-            
-            # Gather anonymous stats
             payload = {
                 "installation_id": settings.telemetry.installation_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "version": os.environ.get("APP_VERSION", "unknown"),
-                "platform": {
-                    "system": platform.system(),
-                    "release": platform.release(),
-                    "machine": platform.machine(),
-                },
-                "configuration": {
-                    "model_type": model_manager.active_model_id,
-                    "llm_enabled": settings.llm.enabled,
-                    "llm_provider": settings.llm.provider,
-                    "media_cache_enabled": settings.media_cache.enabled,
-                    "media_cache_clips": settings.media_cache.cache_clips,
-                    "auto_video_classification": settings.classification.auto_video_classification,
-                },
+                **collect_runtime_telemetry_payload(),
                 "integrations": {
                     "birdnet_enabled": settings.frigate.birdnet_enabled,
                     "birdweather_enabled": settings.birdweather.enabled,

@@ -12,6 +12,7 @@ Open-source software should be transparent. Only high-level aggregate data is co
 - "Which identification models are most popular (EVA-02, ConvNeXt, or MobileNet)?"
 - "Is the BirdNET integration widely used?"
 - "What platforms (ARM/x86) should I prioritize for optimization?"
+- "Which inference providers, runtimes, and image variants need the most testing?"
 
 ## What is Collected?
 When enabled, the system sends a lightweight "heartbeat" JSON payload once every 24 hours.
@@ -23,6 +24,9 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 | **App Version** | `2.3.0+a0736ed` | Tracks adoption of new releases. |
 | **Platform** | `Linux-x86_64` | Informs which Docker architectures to prioritise. |
 | **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Shows which features are most popular. |
+| **Runtime** | `{ "inference_provider_active": "intel_cpu", "model_runtime": "onnx" }` | Shows which inference paths are actually in use. |
+| **Hardware Capability** | `{ "cuda_available": false, "intel_gpu_available": true }` | Helps prioritize GPU/runtime support without storing device serials or host details. |
+| **Deployment** | `{ "image_flavor": "dev", "image_arch": "x86_64" }` | Tracks which Docker image lines and architectures are active. |
 
 ## Anonymous Health Diagnostics
 
@@ -50,6 +54,6 @@ Health diagnostics are stored separately from aggregate telemetry so recurring f
 
 When you enable Telemetry or Anonymous health diagnostics in the UI (**Settings > Connections > Telemetry**), a "Transparency" box appears. This shows you:
 1. Your unique Installation ID.
-2. The exact data points being sent.
+2. The runtime/device/deployment data points being sent.
 
 You can toggle this feature off at any time, and the background reporting service will stop immediately.

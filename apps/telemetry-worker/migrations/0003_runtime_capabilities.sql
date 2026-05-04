@@ -1,0 +1,21 @@
+ALTER TABLE heartbeats ADD COLUMN model_runtime TEXT;
+ALTER TABLE heartbeats ADD COLUMN inference_provider_configured TEXT;
+ALTER TABLE heartbeats ADD COLUMN inference_provider_active TEXT;
+ALTER TABLE heartbeats ADD COLUMN inference_backend_active TEXT;
+ALTER TABLE heartbeats ADD COLUMN image_execution_mode TEXT;
+ALTER TABLE heartbeats ADD COLUMN bird_crop_detector_tier TEXT;
+ALTER TABLE heartbeats ADD COLUMN cuda_available BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN nvidia_gpu_detected BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN openvino_available BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN intel_gpu_available BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN openvino_gpu_compile_ok BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN openvino_gpu_compile_device TEXT;
+ALTER TABLE heartbeats ADD COLUMN openvino_gpu_fallback_active BOOLEAN;
+ALTER TABLE heartbeats ADD COLUMN deployment_mode TEXT;
+ALTER TABLE heartbeats ADD COLUMN image_flavor TEXT;
+ALTER TABLE heartbeats ADD COLUMN image_arch TEXT;
+ALTER TABLE heartbeats ADD COLUMN app_branch TEXT;
+ALTER TABLE heartbeats ADD COLUMN git_hash TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_inference_provider_active ON heartbeats(inference_provider_active);
+CREATE INDEX IF NOT EXISTS idx_image_arch ON heartbeats(image_arch);

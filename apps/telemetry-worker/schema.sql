@@ -23,6 +23,24 @@ CREATE TABLE heartbeats (
     enrichment_mode TEXT,
     access_auth_enabled BOOLEAN,
     access_public_enabled BOOLEAN,
+    model_runtime TEXT,
+    inference_provider_configured TEXT,
+    inference_provider_active TEXT,
+    inference_backend_active TEXT,
+    image_execution_mode TEXT,
+    bird_crop_detector_tier TEXT,
+    cuda_available BOOLEAN,
+    nvidia_gpu_detected BOOLEAN,
+    openvino_available BOOLEAN,
+    intel_gpu_available BOOLEAN,
+    openvino_gpu_compile_ok BOOLEAN,
+    openvino_gpu_compile_device TEXT,
+    openvino_gpu_fallback_active BOOLEAN,
+    deployment_mode TEXT,
+    image_flavor TEXT,
+    image_arch TEXT,
+    app_branch TEXT,
+    git_hash TEXT,
     ip_country TEXT,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -30,3 +48,5 @@ CREATE TABLE heartbeats (
 
 CREATE INDEX idx_last_seen ON heartbeats(last_seen);
 CREATE INDEX idx_app_version ON heartbeats(app_version);
+CREATE INDEX idx_inference_provider_active ON heartbeats(inference_provider_active);
+CREATE INDEX idx_image_arch ON heartbeats(image_arch);

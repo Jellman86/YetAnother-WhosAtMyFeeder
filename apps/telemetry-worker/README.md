@@ -93,9 +93,32 @@ When you make changes to the worker code (e.g., updating `src/index.ts`), you ca
    ```
    *Note: This command is non-interactive and does not require a browser login when the API token is set.*
 
+## Dashboard
+
+The worker includes a small server-rendered dashboard at:
+
+```text
+https://yawamf-telemetry.<your-subdomain>.workers.dev/dashboard
+```
+
+It is disabled unless both Basic Auth secrets are configured:
+
+```bash
+npx wrangler secret put DASHBOARD_USERNAME
+npx wrangler secret put DASHBOARD_PASSWORD
+```
+
+The dashboard has two views:
+
+- **Usage:** installs, active installs, versions, models, feature adoption, runtime/provider adoption, GPU capability flags, deployment image split, platform split, and country distribution.
+- **Health:** affected installs, severity/component breakdowns, country distribution, top recurring issue fingerprints, and the health ingestion endpoint status.
+
+Use `?days=7`, `?days=30`, or `?days=90` to change the reporting window.
+
 ## API Endpoints
 
 - **`POST /heartbeat`**: Receives the telemetry JSON payload.
 - **`POST /health-issues`**: Receives deduped, sanitized anonymous health issue reports.
+- **`GET /dashboard`**: Basic-Auth protected HTML dashboard for usage and health summaries.
 - **`GET /stats/summary`**: Returns a JSON summary of active installs, versions, and model usage.
 - **`GET /stats/health-issues`**: Returns aggregate health issue summaries from the separate health D1 database.

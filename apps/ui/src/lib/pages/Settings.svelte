@@ -1163,6 +1163,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let telemetryHealthEnabled = $state(false);
     let telemetryInstallationId = $state<string | undefined>(undefined);
     let telemetryPlatform = $state<string | undefined>(undefined);
+    let telemetryPayloadPreview = $state<Record<string, unknown> | undefined>(undefined);
 
     // Authentication + Public Access
     let authEnabled = $state(false);
@@ -2796,6 +2797,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
             telemetryInstallationId = settings.telemetry_installation_id;
             telemetryPlatform = settings.telemetry_platform;
+            telemetryPayloadPreview = settings.telemetry_payload_preview;
             // Authentication + Public access
             authEnabled = settings.auth_enabled ?? false;
             authUsername = settings.auth_username || 'admin';
@@ -3354,6 +3356,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {testing}
                     {telemetryInstallationId}
                     {telemetryPlatform}
+                    {telemetryPayloadPreview}
                     {versionInfo}
                     {testConnection}
                     {loadCameras}
