@@ -5,7 +5,7 @@
     import type { RecordingClipCapability } from '../../api/system';
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
-    import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -325,19 +325,13 @@
                     label={$_('settings.frigate.mqtt_pass')}
                     layout="stacked"
                 >
-                    <div class="space-y-2">
-                        {#if mqttPasswordSaved}
-                            <div class="flex justify-end"><SecretSavedBadge /></div>
-                        {/if}
-                        <SettingsInput
-                            id="mqtt-password"
-                            type="password"
-                            autocomplete="off"
-                            value={mqttPassword}
-                            ariaLabel={$_('settings.frigate.mqtt_pass')}
-                            oninput={(v) => (mqttPassword = v)}
-                        />
-                    </div>
+                    <SecretInput
+                        id="mqtt-password"
+                        value={mqttPassword}
+                        saved={mqttPasswordSaved}
+                        ariaLabel={$_('settings.frigate.mqtt_pass')}
+                        oninput={(v) => (mqttPassword = v)}
+                    />
                 </SettingsRow>
             </div>
         {/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SecretInput from './_primitives/SecretInput.svelte';
     import { AUTH_PASSWORD_COMPLEXITY_MESSAGE } from '../../auth-password-policy';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
@@ -142,22 +142,15 @@
             description={AUTH_PASSWORD_COMPLEXITY_MESSAGE}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if authHasPassword}
-                    <div class="flex justify-end">
-                        <SecretSavedBadge />
-                    </div>
-                {/if}
-                <SettingsInput
-                    id="auth-password"
-                    type="password"
-                    autocomplete="new-password"
-                    value={authPassword}
-                    placeholder={authHasPassword ? $_('settings.auth.password_placeholder') : $_('settings.auth.password_new')}
-                    ariaLabel={$_('settings.auth.password')}
-                    oninput={(v) => (authPassword = v)}
-                />
-            </div>
+            <SecretInput
+                id="auth-password"
+                value={authPassword}
+                saved={authHasPassword}
+                autocomplete="new-password"
+                emptyPlaceholder={$_('settings.auth.password_new')}
+                ariaLabel={$_('settings.auth.password')}
+                oninput={(v) => (authPassword = v)}
+            />
         </SettingsRow>
 
         <SettingsRow

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { onMount } from 'svelte';
-    import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SecretInput from './_primitives/SecretInput.svelte';
     import { fetchAiUsage, clearAiUsage, type AIUsageResponse } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
     import { getRecommendedLlmModel } from '../../settings/llm-models';
@@ -220,20 +220,14 @@
             label={$_('settings.llm.api_key')}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if llmApiKeySaved}
-                    <div class="flex justify-end"><SecretSavedBadge /></div>
-                {/if}
-                <SettingsInput
-                    id="llm-api-key"
-                    type="password"
-                    autocomplete="off"
-                    value={llmApiKey}
-                    placeholder={llmApiKeySaved ? '***REDACTED***' : 'sk-...'}
-                    ariaLabel={$_('settings.llm.api_key')}
-                    oninput={(v) => (llmApiKey = v)}
-                />
-            </div>
+            <SecretInput
+                id="llm-api-key"
+                value={llmApiKey}
+                saved={llmApiKeySaved}
+                emptyPlaceholder="sk-..."
+                ariaLabel={$_('settings.llm.api_key')}
+                oninput={(v) => (llmApiKey = v)}
+            />
         </SettingsRow>
 
         <SettingsRow

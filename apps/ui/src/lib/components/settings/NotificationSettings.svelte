@@ -13,7 +13,7 @@
         formatBlockedSpeciesLabel,
         mergeBlockedSpeciesEntries,
     } from '../../settings/blocked-species';
-    import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
@@ -627,19 +627,15 @@
 
             <div class="space-y-4 flex-1">
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="discord-webhook" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.discord.webhook_url')}</label>
-                        {#if discordWebhookSaved}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
+                    <label for="discord-webhook" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.webhook_url')}</label>
+                    <SecretInput
                         id="discord-webhook"
-                        type="url"
-                        bind:value={discordWebhook}
-                        placeholder={$_('settings.discord.webhook_placeholder')}
-                        aria-label={$_('settings.discord.webhook_url')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        type="text"
+                        value={discordWebhook}
+                        saved={discordWebhookSaved}
+                        emptyPlaceholder={$_('settings.discord.webhook_placeholder')}
+                        ariaLabel={$_('settings.discord.webhook_url')}
+                        oninput={(v) => (discordWebhook = v)}
                     />
                 </div>
                 <div>
@@ -683,35 +679,27 @@
 
             <div class="space-y-4 flex-1">
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="pushover-userkey" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.user_key')}</label>
-                        {#if pushoverUserSaved}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
+                    <label for="pushover-userkey" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.user_key')}</label>
+                    <SecretInput
                         id="pushover-userkey"
                         type="text"
-                        bind:value={pushoverUserKey}
-                        placeholder={$_('settings.pushover.user_key_placeholder')}
-                        aria-label={$_('settings.pushover.user_key')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        value={pushoverUserKey}
+                        saved={pushoverUserSaved}
+                        emptyPlaceholder={$_('settings.pushover.user_key_placeholder')}
+                        ariaLabel={$_('settings.pushover.user_key')}
+                        oninput={(v) => (pushoverUserKey = v)}
                     />
                 </div>
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="pushover-apitoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.pushover.api_token')}</label>
-                        {#if pushoverTokenSaved}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
+                    <label for="pushover-apitoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.api_token')}</label>
+                    <SecretInput
                         id="pushover-apitoken"
                         type="text"
-                        bind:value={pushoverApiToken}
-                        placeholder={$_('settings.pushover.api_token_placeholder')}
-                        aria-label={$_('settings.pushover.api_token')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        value={pushoverApiToken}
+                        saved={pushoverTokenSaved}
+                        emptyPlaceholder={$_('settings.pushover.api_token_placeholder')}
+                        ariaLabel={$_('settings.pushover.api_token')}
+                        oninput={(v) => (pushoverApiToken = v)}
                     />
                 </div>
                 <button
@@ -779,36 +767,26 @@
 
             <div class="space-y-4 flex-1">
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="telegram-bottoken" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.bot_token')}</label>
-                        {#if telegramTokenSaved}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
+                    <label for="telegram-bottoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.bot_token')}</label>
+                    <SecretInput
                         id="telegram-bottoken"
-                        type="password"
-                        autocomplete="off"
-                        bind:value={telegramBotToken}
-                        placeholder={$_('settings.telegram.bot_token_placeholder')}
-                        aria-label={$_('settings.telegram.bot_token')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        value={telegramBotToken}
+                        saved={telegramTokenSaved}
+                        emptyPlaceholder={$_('settings.telegram.bot_token_placeholder')}
+                        ariaLabel={$_('settings.telegram.bot_token')}
+                        oninput={(v) => (telegramBotToken = v)}
                     />
                 </div>
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="telegram-chatid" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.telegram.chat_id')}</label>
-                        {#if telegramChatIdSaved}
-                            <SecretSavedBadge />
-                        {/if}
-                    </div>
-                    <input
+                    <label for="telegram-chatid" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.chat_id')}</label>
+                    <SecretInput
                         id="telegram-chatid"
                         type="text"
-                        bind:value={telegramChatId}
-                        placeholder={$_('settings.telegram.chat_id_placeholder')}
-                        aria-label={$_('settings.telegram.chat_id')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                        value={telegramChatId}
+                        saved={telegramChatIdSaved}
+                        emptyPlaceholder={$_('settings.telegram.chat_id_placeholder')}
+                        ariaLabel={$_('settings.telegram.chat_id')}
+                        oninput={(v) => (telegramChatId = v)}
                     />
                 </div>
                 <button
@@ -887,20 +865,14 @@
                                 />
                             </div>
                             <div>
-                                <div class="flex items-center justify-between mb-1">
-                                    <label for="gmail-client-secret" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.gmail_client_secret')}</label>
-                                    {#if emailGmailClientSecretSaved}
-                                        <SecretSavedBadge />
-                                    {/if}
-                                </div>
-                                <input
+                                <label for="gmail-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_secret')}</label>
+                                <SecretInput
                                     id="gmail-client-secret"
-                                    type="password"
-                                    autocomplete="off"
-                                    bind:value={emailGmailClientSecret}
-                                    placeholder={$_('settings.email.gmail_client_secret_placeholder')}
-                                    aria-label={$_('settings.email.gmail_client_secret')}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                    value={emailGmailClientSecret}
+                                    saved={emailGmailClientSecretSaved}
+                                    emptyPlaceholder={$_('settings.email.gmail_client_secret_placeholder')}
+                                    ariaLabel={$_('settings.email.gmail_client_secret')}
+                                    oninput={(v) => (emailGmailClientSecret = v)}
                                 />
                             </div>
                         </div>
@@ -919,20 +891,14 @@
                                 />
                             </div>
                             <div>
-                                <div class="flex items-center justify-between mb-1">
-                                    <label for="outlook-client-secret" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.outlook_client_secret')}</label>
-                                    {#if emailOutlookClientSecretSaved}
-                                        <SecretSavedBadge />
-                                    {/if}
-                                </div>
-                                <input
+                                <label for="outlook-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_secret')}</label>
+                                <SecretInput
                                     id="outlook-client-secret"
-                                    type="password"
-                                    autocomplete="off"
-                                    bind:value={emailOutlookClientSecret}
-                                    placeholder={$_('settings.email.outlook_client_secret_placeholder')}
-                                    aria-label={$_('settings.email.outlook_client_secret')}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                    value={emailOutlookClientSecret}
+                                    saved={emailOutlookClientSecretSaved}
+                                    emptyPlaceholder={$_('settings.email.outlook_client_secret_placeholder')}
+                                    ariaLabel={$_('settings.email.outlook_client_secret')}
+                                    oninput={(v) => (emailOutlookClientSecret = v)}
                                 />
                             </div>
                         </div>
@@ -1055,19 +1021,13 @@
                             />
                         </div>
                         <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label for="smtp-password" class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.email.smtp_password')}</label>
-                                {#if emailSmtpPasswordSaved}
-                                    <SecretSavedBadge />
-                                {/if}
-                            </div>
-                            <input
+                            <label for="smtp-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
+                            <SecretInput
                                 id="smtp-password"
-                                type="password"
-                                autocomplete="off"
-                                bind:value={emailSmtpPassword}
-                                aria-label={$_('settings.email.smtp_password')}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                                value={emailSmtpPassword}
+                                saved={emailSmtpPasswordSaved}
+                                ariaLabel={$_('settings.email.smtp_password')}
+                                oninput={(v) => (emailSmtpPassword = v)}
                             />
                         </div>
                     </div>

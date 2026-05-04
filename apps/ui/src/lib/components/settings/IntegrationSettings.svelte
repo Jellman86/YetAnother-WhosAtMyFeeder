@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { locationTogglePresentation } from '../../settings/location-toggle';
-    import SecretSavedBadge from './SecretSavedBadge.svelte';
+    import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -530,17 +530,15 @@
             label={$_('settings.integrations.inaturalist.client_id')}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if inaturalistClientIdSaved}<div class="flex justify-end"><SecretSavedBadge /></div>{/if}
-                <SettingsInput
-                    id="inat-client-id"
-                    type="text"
-                    value={inaturalistClientId}
-                    placeholder={$_('settings.integrations.inaturalist.client_id_placeholder')}
-                    ariaLabel={$_('settings.integrations.inaturalist.client_id_label')}
-                    oninput={(v) => (inaturalistClientId = v)}
-                />
-            </div>
+            <SecretInput
+                id="inat-client-id"
+                type="text"
+                value={inaturalistClientId}
+                saved={inaturalistClientIdSaved}
+                emptyPlaceholder={$_('settings.integrations.inaturalist.client_id_placeholder')}
+                ariaLabel={$_('settings.integrations.inaturalist.client_id_label')}
+                oninput={(v) => (inaturalistClientId = v)}
+            />
         </SettingsRow>
 
         <SettingsRow
@@ -548,18 +546,14 @@
             label={$_('settings.integrations.inaturalist.client_secret')}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if inaturalistClientSecretSaved}<div class="flex justify-end"><SecretSavedBadge /></div>{/if}
-                <SettingsInput
-                    id="inat-client-secret"
-                    type="password"
-                    autocomplete="off"
-                    value={inaturalistClientSecret}
-                    placeholder={$_('settings.integrations.inaturalist.client_secret_placeholder')}
-                    ariaLabel={$_('settings.integrations.inaturalist.client_secret_label')}
-                    oninput={(v) => (inaturalistClientSecret = v)}
-                />
-            </div>
+            <SecretInput
+                id="inat-client-secret"
+                value={inaturalistClientSecret}
+                saved={inaturalistClientSecretSaved}
+                emptyPlaceholder={$_('settings.integrations.inaturalist.client_secret_placeholder')}
+                ariaLabel={$_('settings.integrations.inaturalist.client_secret_label')}
+                oninput={(v) => (inaturalistClientSecret = v)}
+            />
         </SettingsRow>
 
         <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 p-4 space-y-3">
@@ -704,18 +698,14 @@
             description={$_('settings.integrations.ebird.api_key_desc')}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if ebirdApiKeySaved}<div class="flex justify-end"><SecretSavedBadge /></div>{/if}
-                <SettingsInput
-                    id="ebird-api-key"
-                    type="password"
-                    autocomplete="off"
-                    value={ebirdApiKey}
-                    placeholder={$_('settings.integrations.ebird.api_key_placeholder')}
-                    ariaLabel={$_('settings.integrations.ebird.api_key_label')}
-                    oninput={(v) => (ebirdApiKey = v)}
-                />
-            </div>
+            <SecretInput
+                id="ebird-api-key"
+                value={ebirdApiKey}
+                saved={ebirdApiKeySaved}
+                emptyPlaceholder={$_('settings.integrations.ebird.api_key_placeholder')}
+                ariaLabel={$_('settings.integrations.ebird.api_key_label')}
+                oninput={(v) => (ebirdApiKey = v)}
+            />
         </SettingsRow>
 
         <SettingsRow
@@ -875,18 +865,14 @@
             description={$_('settings.integrations.birdweather.token_desc')}
             layout="stacked"
         >
-            <div class="space-y-2">
-                {#if birdweatherStationTokenSaved}<div class="flex justify-end"><SecretSavedBadge /></div>{/if}
-                <SettingsInput
-                    id="birdweather-token"
-                    type="password"
-                    autocomplete="off"
-                    value={birdweatherStationToken}
-                    placeholder={$_('settings.integrations.birdweather.token_placeholder')}
-                    ariaLabel={$_('settings.integrations.birdweather.token_label')}
-                    oninput={(v) => (birdweatherStationToken = v)}
-                />
-            </div>
+            <SecretInput
+                id="birdweather-token"
+                value={birdweatherStationToken}
+                saved={birdweatherStationTokenSaved}
+                emptyPlaceholder={$_('settings.integrations.birdweather.token_placeholder')}
+                ariaLabel={$_('settings.integrations.birdweather.token_label')}
+                oninput={(v) => (birdweatherStationToken = v)}
+            />
         </SettingsRow>
 
         <button
