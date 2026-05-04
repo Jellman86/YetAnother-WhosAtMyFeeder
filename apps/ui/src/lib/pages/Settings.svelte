@@ -3360,9 +3360,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {versionInfo}
                     {testConnection}
                     {loadCameras}
-                    {handleTestBirdNET}
                     {toggleCamera}
-                    bind:testingBirdNET
                 />
             {/if}
 

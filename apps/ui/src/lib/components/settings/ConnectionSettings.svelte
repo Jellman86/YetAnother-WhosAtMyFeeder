@@ -34,14 +34,12 @@
         recordingClipCapabilityLoading = false,
         camerasLoading,
         testing,
-        testingBirdNET = $bindable(false),
         telemetryInstallationId,
         telemetryPlatform,
         telemetryPayloadPreview,
         versionInfo,
         testConnection,
         loadCameras,
-        handleTestBirdNET,
         toggleCamera
     }: {
         frigateUrl: string;
@@ -65,14 +63,12 @@
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
         testing: boolean;
-        testingBirdNET: boolean;
         telemetryInstallationId: string | undefined;
         telemetryPlatform: string | undefined;
         telemetryPayloadPreview: Record<string, unknown> | undefined;
         versionInfo: VersionInfo;
         testConnection: () => Promise<void>;
         loadCameras: () => Promise<void>;
-        handleTestBirdNET: () => Promise<void>;
         toggleCamera: (camera: string) => void;
     } = $props();
 
@@ -266,31 +262,36 @@
             </button>
         </div>
 
-        <button
-            type="button"
-            onclick={handleTestBirdNET}
-            disabled={testingBirdNET}
-            aria-label={$_('settings.frigate.test_mqtt')}
-            class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
-        >
-            {testingBirdNET ? $_('settings.connection.simulating') : $_('settings.frigate.test_mqtt')}
-        </button>
-
-        <SettingsRow
-            labelId="setting-mqtt-broker"
-            label={$_('settings.frigate.mqtt_broker')}
-            description={$_('settings.connection.mqtt_title')}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="mqtt-server"
-                type="text"
-                value={mqttServer}
-                placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
-                ariaLabel={$_('settings.frigate.mqtt_broker')}
-                oninput={(v) => (mqttServer = v)}
-            />
-        </SettingsRow>
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+            <SettingsRow
+                labelId="setting-mqtt-broker"
+                label={$_('settings.frigate.mqtt_broker')}
+                description={$_('settings.connection.mqtt_title')}
+                layout="stacked"
+            >
+                <SettingsInput
+                    id="mqtt-server"
+                    type="text"
+                    value={mqttServer}
+                    placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
+                    ariaLabel={$_('settings.frigate.mqtt_broker')}
+                    oninput={(v) => (mqttServer = v)}
+                />
+            </SettingsRow>
+            <SettingsRow
+                labelId="setting-mqtt-port"
+                label={$_('settings.frigate.mqtt_port')}
+                layout="stacked"
+            >
+                <SettingsInput
+                    id="mqtt-port"
+                    type="number"
+                    value={mqttPort}
+                    ariaLabel={$_('settings.frigate.mqtt_port')}
+                    oninput={(v) => (mqttPort = Number(v) || 0)}
+                />
+            </SettingsRow>
+        </div>
 
         <SettingsRow
             labelId="setting-mqtt-auth"
@@ -416,25 +417,11 @@
             {/if}
         </div>
 
+        {#if recordingClipEnabled}
         <AdvancedSection
             id="connection-advanced"
             title={$_('settings.connection.advanced_title', { default: 'Tuning' })}
         >
-            <SettingsRow
-                labelId="setting-mqtt-port"
-                label={$_('settings.frigate.mqtt_port')}
-                layout="stacked"
-            >
-                <SettingsInput
-                    id="mqtt-port"
-                    type="number"
-                    value={mqttPort}
-                    ariaLabel={$_('settings.frigate.mqtt_port')}
-                    oninput={(v) => (mqttPort = Number(v) || 0)}
-                />
-            </SettingsRow>
-
-            {#if recordingClipEnabled}
                 <div class="grid grid-cols-2 gap-3">
                     <SettingsRow
                         labelId="setting-recording-before"
@@ -467,8 +454,8 @@
                         />
                     </SettingsRow>
                 </div>
-            {/if}
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
     <SettingsCard icon="📷" title={$_('settings.cameras.title')}>
