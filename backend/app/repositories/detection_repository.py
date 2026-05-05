@@ -3425,6 +3425,12 @@ class DetectionRepository:
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
 
+        # Deferred import to avoid the circular `audio_service ->
+        # detection_repository` cycle. Reuse the same extractor that
+        # /api/audio/recent uses so payload key handling stays in lockstep
+        # (`detectionId` / `id` / `detection_id`).
+        from app.services.audio.audio_service import _extract_birdnet_id
+
         wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
         results: list[dict] = []
         for row in rows:
@@ -3436,12 +3442,26 @@ class DetectionRepository:
             if det_time.tzinfo is None:
                 det_time = det_time.replace(tzinfo=timezone.utc)
             offset_seconds = int((det_time - target_time).total_seconds())
+
+            # raw_data is stored as a JSON string; parse and pull the stable
+            # BirdNET-Go id out so the detection modal can render the
+            # spectrogram for the matched audio entry.
+            birdnet_id: int | None = None
+            if row[5]:
+                try:
+                    payload = json.loads(row[5])
+                except Exception:
+                    payload = None
+                if isinstance(payload, dict):
+                    birdnet_id = _extract_birdnet_id(payload)
+
             results.append({
                 "timestamp": det_time.isoformat(),
                 "species": row[1],
                 "confidence": row[2],
                 "sensor_id": row[3],
                 "scientific_name": row[4],
+                "birdnet_id": birdnet_id,
                 "offset_seconds": offset_seconds
             })
 
