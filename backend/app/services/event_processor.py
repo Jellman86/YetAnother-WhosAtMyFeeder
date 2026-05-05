@@ -67,6 +67,15 @@ LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
         )
     ),
 )
+LIVE_EVENT_PRESSURE_QUEUE_TIMEOUT_CAP_SECONDS = max(
+    LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS,
+    float(
+        os.getenv(
+            "LIVE_EVENT_PRESSURE_QUEUE_TIMEOUT_CAP_SECONDS",
+            "15.0",
+        )
+    ),
+)
 EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS = max(
     0.5,
     float(os.getenv("EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS", "2.0")),
@@ -687,15 +696,51 @@ class EventProcessor:
 
     def _live_classification_queue_timeout_seconds(self, event: EventData) -> float:
         remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
+        timeout_cap = (
+            LIVE_EVENT_PRESSURE_QUEUE_TIMEOUT_CAP_SECONDS
+            if self._live_classifier_pressure_active()
+            else LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS
+        )
         return max(
             CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
-            min(LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS, remaining_freshness),
+            min(timeout_cap, remaining_freshness),
         )
 
     def _is_stale_live_event(self, event: EventData) -> bool:
         if event.is_false_positive:
             return False
         return self._live_event_age_seconds(event) >= LIVE_EVENT_STALE_SECONDS
+
+    def _live_classifier_pressure_active(self) -> bool:
+        get_status = getattr(self.classifier, "get_status", None)
+        if not callable(get_status):
+            return False
+        try:
+            status = get_status()
+        except Exception:
+            return False
+        if not isinstance(status, dict):
+            return False
+
+        live_image = status.get("live_image")
+        if not isinstance(live_image, dict):
+            live_image = {}
+
+        def _metric(*keys: str) -> float:
+            for key in keys:
+                value = status.get(key)
+                if value is None:
+                    value = live_image.get(key)
+                try:
+                    return max(0.0, float(value))
+                except (TypeError, ValueError):
+                    continue
+            return 0.0
+
+        running = _metric("live_image_in_flight", "in_flight")
+        queued = _metric("live_image_queued", "queued")
+        capacity = _metric("live_image_max_concurrent", "max_concurrent")
+        return queued > 0.0 or (capacity > 0.0 and running >= capacity)
 
     def _mqtt_snapshot_recovery_active(self) -> bool:
         try:

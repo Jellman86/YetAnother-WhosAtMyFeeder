@@ -76,6 +76,66 @@ Use `--mqtt-publish-container` when the broker is container-local or auth is
 enabled and you want the harness to publish from inside the broker container.
 That was required on the live monolith used for the Apr 6 stress runs.
 
+## Fixture Replay With Example Images
+
+Use this when you want a repeatable hammer run that serves known example images
+through the harness fixture Frigate API. This avoids the synthetic snapshot
+`404` artifact and is the best quick check for live-image admission pressure.
+
+```bash
+/config/workspace/YA-WAMF/backend/venv/bin/python \
+  /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
+  --backend-url http://yawamf:8080 \
+  --stress-profile issue33-fixture-replay \
+  --scenario combined \
+  --username <owner_username> \
+  --password <owner_password> \
+  --mqtt-host mosquitto \
+  --mqtt-port 1883 \
+  --mqtt-username <mqtt_username> \
+  --mqtt-password <mqtt_password> \
+  --fixture-image-dir <directory_with_example_images> \
+  --duration-seconds 900
+```
+
+The `issue33-fixture-replay` profile currently expands to a fixture-backed
+combined run with maintenance queue pressure and an induced Frigate pause:
+
+- `--duration-seconds 240`
+- `--poll-interval-seconds 2`
+- `--trigger-analysis-interval-seconds 20`
+- `--analysis-trigger-burst-count 2`
+- `--analysis-trigger-burst-spacing-seconds 0.5`
+- `--induce-frigate-stall-after-seconds 60`
+- `--frigate-stall-duration-seconds 0`
+- `--frigate-load-source fixture`
+- `--frigate-publish-interval-seconds 0.5`
+- `--birdnet-publish-interval-seconds 0.5`
+- `--frigate-publisher-replicas 2`
+- `--birdnet-publisher-replicas 2`
+- `--trigger-backfill`
+- `--fixture-manual-tag-unknown`
+
+## May 5 Fixture and Stall-Probe Notes
+
+The May 5 hot-patched monolith validation changed the current interpretation of
+issue `#33`:
+
+- Fixture replay against example images no longer reproduced live-image
+  admission drops after the adaptive live-classifier queue timeout change.
+- A 900 second stall-probe run passed with `event_dropped_delta: 0`,
+  `live_image_admission_timeouts_delta: 0`, `video_failure_count_delta: 0`, and
+  `video_circuit_open_observed: false`.
+- The measured stall-probe window proved Frigate pause/resume health under
+  lower pressure, but it did not force the default 1800 second
+  Frigate-topic stale threshold. Extend the run or lower the threshold when you
+  need to prove `topic_liveness_reconnects_delta` growth.
+
+For current code, start with `issue33-fixture-replay` for the overload symptom
+and `issue33-stall-probe` for the MQTT pause/resume symptom. Treat
+`issue33-live` as a heavy collapse profile, not the cleanest reconnect
+validator.
+
 ## Replay-Backed Frigate Load
 
 Use this when you want busy-feeder Frigate stress without synthetic snapshot
@@ -355,7 +415,7 @@ Recommended next step for another agent:
 ```bash
 /config/workspace/YA-WAMF/backend/venv/bin/python \
   /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
-  --backend-url http://yawamf-backend:8000 \
+  --backend-url http://yawamf-monalithic:8080 \
   --scenario combined \
   --mqtt-host mosquitto \
   --mqtt-port 1883 \
@@ -382,7 +442,7 @@ Important:
 ```bash
 /config/workspace/YA-WAMF/backend/venv/bin/python \
   /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
-  --backend-url http://yawamf-backend:8000 \
+  --backend-url http://yawamf-monalithic:8080 \
   --scenario mqtt-no-frigate-resume \
   --mqtt-host mosquitto \
   --mqtt-port 1883 \
@@ -406,7 +466,7 @@ or `--min-reconnect-delta 0` overrides just because both publishers are disabled
 ```bash
 /config/workspace/YA-WAMF/backend/venv/bin/python \
   /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
-  --backend-url http://yawamf-backend:8000 \
+  --backend-url http://yawamf-monalithic:8080 \
   --scenario maintenance-video-timeout \
   --auth-token <owner_jwt> \
   --disable-frigate-publisher \

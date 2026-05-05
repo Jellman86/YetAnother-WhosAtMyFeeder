@@ -148,3 +148,65 @@ If natural feeder traffic is quiet, prefer replay mode against a reachable Friga
 2. Pass an owner JWT with `--auth-token <token>`.
 3. Use `--replay-unsaved-frigate-limit 1` to replay a real unsaved Frigate bird event with snapshot.
 4. Disable continuous synthetic publishers with `--disable-frigate-publisher --disable-birdnet-publisher` when you want a clean persistence-only proof.
+
+## Issue #33 Fixture Replay and Stall Probe
+
+Goal: validate the current issue `#33` failure modes with example images and a
+controlled MQTT stall:
+
+- live Frigate/BirdNET ingest should keep completing events under load
+- live snapshot classification should not drop from admission timeouts
+- maintenance video analysis should not trip the video circuit
+- a Frigate-topic pause should not stop BirdNET liveness or leave Frigate stuck after resume
+
+Harness:
+
+1. Run `/config/workspace/YA-WAMF/scripts/run_issue33_harness.py` using backend venv Python.
+2. Prefer `--stress-profile issue33-fixture-replay` when you want repeatable example-image load.
+3. Prefer `--stress-profile issue33-stall-probe --scenario mqtt-no-frigate-resume` when you want the lower-pressure MQTT pause/resume check.
+4. Use MQTT credentials if your broker requires authentication, and redact them in reports.
+
+Fixture replay example:
+
+```bash
+/config/workspace/YA-WAMF/backend/venv/bin/python \
+  /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
+  --backend-url http://yawamf-monalithic:8080 \
+  --stress-profile issue33-fixture-replay \
+  --scenario combined \
+  --username <owner_username> \
+  --password <owner_password> \
+  --mqtt-host mosquitto \
+  --mqtt-port 1883 \
+  --mqtt-username <mqtt_username> \
+  --mqtt-password <mqtt_password> \
+  --fixture-image-dir <directory_with_example_images>
+```
+
+Stall-probe example:
+
+```bash
+/config/workspace/YA-WAMF/backend/venv/bin/python \
+  /config/workspace/YA-WAMF/scripts/run_issue33_harness.py \
+  --backend-url http://yawamf-monalithic:8080 \
+  --stress-profile issue33-stall-probe \
+  --scenario mqtt-no-frigate-resume \
+  --username <owner_username> \
+  --password <owner_password> \
+  --mqtt-host mosquitto \
+  --mqtt-port 1883 \
+  --mqtt-username <mqtt_username> \
+  --mqtt-password <mqtt_password>
+```
+
+When reporting results, include:
+
+1. Command used (redact tokens, passwords, and owner credentials).
+2. `summary.json` status + `evaluation.failure_reasons`.
+3. `event_started_delta`, `event_completed_delta`, `event_dropped_delta`, `live_image_admission_timeouts_delta`, `classify_snapshot_overloaded_delta`, `video_failure_count_delta`, and `video_circuit_open_observed`.
+4. For stall-probe runs, also include `frigate_stall_effective`, `topic_liveness_reconnects_delta`, and the configured backend Frigate-topic stale threshold.
+
+Note: if the backend's Frigate-topic stale threshold is still the production
+default of 1800 seconds, a 900 second stall-probe validates pause/resume health
+but does not force a stale-topic reconnect unless the threshold is lowered or
+the run is extended past the threshold.

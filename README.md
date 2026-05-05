@@ -34,14 +34,14 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 
 ## Features at a Glance
 
-- **Advanced AI Classification** - MobileNetV2, ConvNeXt, or EVA-02 models (up to ~75% top-1 / 88% top-5 across 10,000 species)
+- **Advanced AI Classification** - RoPE ViT-B14, ConvNeXt, EVA-02, birds-only ONNX models, or legacy MobileNetV2
 - **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **High-Quality Event Snapshots** - Optionally replace Frigate's detect-stream snapshot with a later still extracted from the recorded main-stream clip
-- **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude)
+- **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude/OpenRouter)
 - **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science

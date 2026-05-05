@@ -137,7 +137,7 @@ networks:
 ## Key Configuration Steps
 
 ### 1. Networking
-Notice that all containers share the same `bird_network`. This allows `yawamf-backend` to talk to `frigate` using just the name `http://frigate:5000` instead of complex IP addresses.
+Notice that all containers share the same `bird_network`. This allows the monolithic `yawamf-monalithic` service (or `yawamf-backend` in the legacy split example) to talk to `frigate` using just the name `http://frigate:5000` instead of complex IP addresses.
 
 ### 2. MQTT Setup
 YA-WAMF listens to the events that Frigate publishes. Ensure your `frigate/config.yml` has the following:

@@ -572,7 +572,7 @@ DEFAULT_LLM_MODEL = "gemini-2.5-flash"
 
 class LLMSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable LLM integration")
-    provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude)")
+    provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude, openrouter)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
     model: str = Field(default=DEFAULT_LLM_MODEL, description="Model name to use")
     analysis_prompt_template: str = Field(default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis")

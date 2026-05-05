@@ -516,6 +516,38 @@ async def test_process_mqtt_message_caps_live_queue_timeout_to_remaining_freshne
         assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(1.0)
 
 
+def test_live_queue_timeout_extends_when_live_classifier_is_saturated():
+    classifier = MagicMock()
+    classifier.get_status.return_value = {
+        "live_image_in_flight": 2,
+        "live_image_queued": 0,
+        "live_image_max_concurrent": 2,
+    }
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(received_at_ts=1700000001.0)
+
+    with patch("app.services.event_processor.time.time", return_value=1700000002.0):
+        timeout_seconds = processor._live_classification_queue_timeout_seconds(event)
+
+    assert timeout_seconds == pytest.approx(15.0)
+
+
+def test_live_queue_timeout_still_caps_to_remaining_freshness_under_pressure():
+    classifier = MagicMock()
+    classifier.get_status.return_value = {
+        "live_image_in_flight": 2,
+        "live_image_queued": 1,
+        "live_image_max_concurrent": 2,
+    }
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(received_at_ts=1700000001.0 - 44.0)
+
+    with patch("app.services.event_processor.time.time", return_value=1700000001.0):
+        timeout_seconds = processor._live_classification_queue_timeout_seconds(event)
+
+    assert timeout_seconds == pytest.approx(1.0)
+
+
 @pytest.mark.asyncio
 async def test_process_mqtt_message_preserves_live_overload_from_classifier_service():
     classifier = MagicMock()

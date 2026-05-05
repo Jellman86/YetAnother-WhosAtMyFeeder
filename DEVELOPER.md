@@ -75,8 +75,8 @@ YA-WAMF is a full-stack application that integrates with [Frigate NVR](https://f
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Backend** | Python 3.12 + FastAPI | Async web API |
-| **ML Inference** | ONNX Runtime / TFLite | Bird species classification (EVA-02, ConvNeXt) |
-| **AI Naturalist** | Google Gemini / OpenAI | Behavioral analysis and insights |
+| **ML Inference** | ONNX Runtime / TFLite | Bird species classification (RoPE ViT-B14, ConvNeXt, EVA-02, birds-only models, legacy MobileNet) |
+| **AI Naturalist** | Google Gemini / OpenAI / Claude / OpenRouter | Behavioral analysis and insights |
 | **Database** | SQLite (aiosqlite) | Persistent detection storage (migrations use Alembic + SQLAlchemy metadata) |
 | **Migrations** | Alembic | Database schema management |
 | **Message Queue** | MQTT (aiomqtt) | Frigate & BirdNET-Go event subscription |
@@ -113,7 +113,7 @@ YA-WAMF/
 │   │   └── services/
 │   │       ├── mqtt_service.py      # MQTT subscription
 │   │       ├── classifier_service.py # ONNX/TFLite model loading/inference
-│   │       ├── ai_service.py        # LLM integration (Gemini/OpenAI)
+│   │       ├── ai_service.py        # LLM integration (Gemini/OpenAI/Claude/OpenRouter)
 │   │       ├── telemetry_service.py # Anonymous usage reporting
 │   │       ├── event_processor.py   # Detection processing pipeline
 │   │       ├── backfill_service.py  # Historical event processing
@@ -160,9 +160,10 @@ YA-WAMF/
 ├── ./config/                    # Runtime volume (created next to compose file; not committed)
 ├── ./data/                      # Runtime volume (DB + models; not committed)
 │
-├── docker-compose.yml           # Deployment configuration
-├── docker-compose.dev.yml       # Dev-channel images (`:dev`)
-├── docker-compose.prod.yml      # Production images (`:latest`)
+├── docker-compose.monolith.yml  # Recommended one-container deployment
+├── docker-compose.yml           # Legacy/local split deployment configuration
+├── docker-compose.dev.yml       # Legacy split dev-channel images (`:dev`)
+├── docker-compose.prod.yml      # Legacy split production images (`:latest`)
 ├── .env.example                 # Environment template
 └── .github/workflows/           # CI/CD pipelines
 ```
@@ -637,7 +638,7 @@ Added `llm_*` and `telemetry_*` fields to configuration.
 | `FRIGATE__CLIPS_ENABLED` | `true` | Enable video clip fetching |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep data (0=unlimited) |
 | `LLM__ENABLED` | `false` | Enable AI behavioral analysis |
-| `LLM__PROVIDER` | `gemini` | `gemini` or `openai` |
+| `LLM__PROVIDER` | `gemini` | `gemini`, `openai`, `claude`, or `openrouter` |
 | `LLM__API_KEY` | (none) | API Key for AI Naturalist |
 | `LLM__MODEL` | `gemini-2.5-flash` | AI model name |
 | `YA_WAMF_API_KEY` | (none) | Secure the API/UI with a password |
@@ -723,21 +724,11 @@ def test_endpoint_with_mock():
 
 ### Frontend Testing
 
-Currently no frontend tests configured. To add:
+The UI uses Vitest for TypeScript unit tests and audit checks:
 
 ```bash
 cd apps/ui
-npm install -D vitest @testing-library/svelte jsdom
-```
-
-Add to `vite.config.ts`:
-```typescript
-export default defineConfig({
-    test: {
-        environment: 'jsdom',
-        globals: true
-    }
-});
+npm test
 ```
 
 ---
@@ -747,12 +738,13 @@ export default defineConfig({
 ### Docker Compose (Production)
 
 ```yaml
-# docker-compose.yml
+# docker-compose.monolith.yml
 services:
-  yawamf-backend:
-    image: ghcr.io/jellman86/wamf-backend:latest
+  yawamf:
+    image: ghcr.io/jellman86/yawamf-monalithic:latest
+    container_name: yawamf-monalithic
     ports:
-      - "${BACKEND_BIND_IP:-127.0.0.1}:8946:8000"
+      - "${APP_BIND_IP:-0.0.0.0}:${APP_PORT:-9852}:8080"
     volumes:
       - ./config:/config
       - ./data:/data
@@ -761,34 +753,28 @@ services:
       # ... other env vars
     networks:
       - yawamf_network
-      - external_network  # For Frigate/MQTT access
-
-  yawamf-frontend:
-    image: ghcr.io/jellman86/wamf-frontend:latest
-    ports:
-      - "9852:80"
-    depends_on:
-      - yawamf-backend
-    networks:
-      - yawamf_network
 
 networks:
   yawamf_network:
-  external_network:
     external: true
     name: ${DOCKER_NETWORK}
 ```
 
+The split `wamf-backend` + `wamf-frontend` deployment remains available for
+legacy v2.x installs, but new deployments and release validation should use the
+monolithic image.
+
 ### Building Images
 
 ```bash
-# Build backend
-docker build -t wamf-backend:local ./backend
+# Build recommended monolithic image
+docker build -t yawamf-monalithic:local .
 
-# Build frontend
+# Build legacy split images
+docker build -t wamf-backend:local ./backend
 docker build -t wamf-frontend:local ./apps/ui
 
-# Or use compose
+# Or use compose for the split/local stack
 docker compose build
 ```
 
@@ -796,7 +782,8 @@ docker compose build
 
 GitHub Actions workflow (`.github/workflows/build-and-push.yml`):
 - Triggers on push to `dev` and on release tags (`v*`)
-- Builds and pushes backend/frontend images to GHCR
+- Builds and pushes the monolithic image to GHCR
+- Also builds legacy backend/frontend images for existing split installs
 - Tags:
   - `:dev` on `dev` pushes
   - `:latest` on tag pushes (and the tag name itself, e.g. `:v2.7.9`)
@@ -846,11 +833,11 @@ docker compose start
 # All logs
 docker compose logs -f
 
-# Backend only
-docker compose logs -f yawamf-backend
+# Monolith only
+docker compose logs -f yawamf
 
 # Last 100 lines
-docker compose logs --tail=100 yawamf-backend
+docker compose logs --tail=100 yawamf
 ```
 
 ### Clearing All Data
@@ -868,8 +855,8 @@ docker compose up -d
 
 ### Backend won't start
 
-1. Check logs: `docker compose logs yawamf-backend`
-2. Verify MQTT connectivity: `docker exec -it yawamf-backend ping mqtt`
+1. Check logs: `docker compose logs yawamf`
+2. Verify MQTT connectivity: `docker exec -it yawamf-monalithic ping mqtt`
 3. Check Frigate URL: `curl http://frigate:5000/api/version`
 
 ### No detections appearing

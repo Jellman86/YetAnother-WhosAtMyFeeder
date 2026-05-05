@@ -6,15 +6,19 @@ This document explains the development workflow for YA-WAMF.
 
 ### `main` Branch (Production)
 - **Purpose:** Stable, production-ready code
-- **Image Tags:** `ghcr.io/jellman86/wamf-backend:latest` and `wamf-frontend:latest`
-- **Deployment:** Use `docker-compose.prod.yml`
+- **Primary Image Tags:** `ghcr.io/jellman86/yawamf-monalithic:latest` and `:vX.Y.Z`
+- **Deployment:** Use `docker-compose.monolith.yml`
 - **Protection:** Only merge tested, stable code from `dev`
 
 ### `dev` Branch (Development)
 - **Purpose:** Active development, testing new features and fixes
-- **Image Tags:** `ghcr.io/jellman86/wamf-backend:dev` and `wamf-frontend:dev`
-- **Deployment:** Use `docker-compose.dev.yml`
+- **Primary Image Tags:** `ghcr.io/jellman86/yawamf-monalithic:dev`
+- **Deployment:** Use `docker-compose.monolith.yml` with `YAWAMF_MONOLITHIC_TAG=dev`
 - **Workflow:** All new features and fixes start here
+
+The older split images (`wamf-backend` and `wamf-frontend`) are still built for
+legacy v2.x installs, but new development and release validation should use the
+monolithic image first.
 
 ## Workflow Steps
 
@@ -50,8 +54,8 @@ git push origin dev
 
 # GitHub Actions will automatically build dev images
 # Wait for the build to complete, then test:
-docker compose -f docker-compose.dev.yml pull
-docker compose -f docker-compose.dev.yml up -d
+YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
+YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml up -d
 ```
 
 ### 4. Promoting to Production
@@ -74,25 +78,27 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 git push origin vX.Y.Z
 
 # Deploy production:
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
+YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml up -d
 ```
 
 ## Quick Reference
 
 | Environment | Branch | Image Tag | Docker Compose File |
 |-------------|--------|-----------|---------------------|
-| Production  | `main` | `:latest` | `docker-compose.prod.yml` |
-| Development | `dev`  | `:dev`    | `docker-compose.dev.yml` |
-| Local Build | any    | built locally | `docker-compose.yml` |
+| Production  | `main` | `yawamf-monalithic:latest` or `:vX.Y.Z` | `docker-compose.monolith.yml` |
+| Development | `dev`  | `yawamf-monalithic:dev` | `docker-compose.monolith.yml` |
+| Local Build | any    | built locally | `docker-compose.yml` or service-specific Dockerfiles |
+| Legacy Split | v2.x installs | `wamf-backend:*` + `wamf-frontend:*` | `docker-compose.dev.yml` / `docker-compose.prod.yml` |
 
 ## GitHub Actions
 
 The workflow automatically builds and pushes Docker images:
 
 - **Trigger:** Push to `dev` branch, and release tags (`v*`)
-- **Backend:** `ghcr.io/jellman86/wamf-backend:{tag}`
-- **Frontend:** `ghcr.io/jellman86/wamf-frontend:{tag}`
+- **Primary monolith:** `ghcr.io/jellman86/yawamf-monalithic:{tag}`
+- **Raspberry Pi monolith:** `ghcr.io/jellman86/yawamf-monalithic-rpi:{tag}` when that build path succeeds
+- **Legacy split images:** `ghcr.io/jellman86/wamf-backend:{tag}` and `ghcr.io/jellman86/wamf-frontend:{tag}`
 - **Tag Logic:**
   - `dev` → `:dev`
   - tags (`vX.Y.Z`) → `:latest` and `:vX.Y.Z`
@@ -127,8 +133,8 @@ docker compose up -d --build
 4. **Pull latest images:**
    ```bash
    # Development
-   docker compose -f docker-compose.dev.yml pull
+   YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
 
    # Production
-   docker compose -f docker-compose.prod.yml pull
+   YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
    ```
