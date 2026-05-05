@@ -16,7 +16,10 @@
     "collapse_sidebar": "Seitenleiste einklappen",
     "expand_sidebar": "Seitenleiste ausklappen",
     "close_language_selector": "Sprachauswahl schließen",
-    "jobs": "Aufträge"
+    "jobs": "Aufträge",
+    "events": "Ereignisse",
+    "notifications": "Benachrichtigungen",
+    "species": "Arten"
   },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",
@@ -50,7 +53,8 @@
     "color_default_desc": "Standard Blaugrün & Smaragd-Akzente",
     "color_bluetit": "Blaumeise",
     "color_bluetit_desc": "Kobaltblau & Goldgelb, inspiriert vom App-Symbol",
-    "color_selected": "Aktiv"
+    "color_selected": "Aktiv",
+    "select": "{theme}-Design auswählen"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -89,10 +93,13 @@
       "active": "Aktiv",
       "empty_title": "Keine Audio-Erkennungen im Puffer",
       "empty_subtitle": "Puffer leert sich alle 5 Min.",
-      "unknown_sensor": "Unbekannter Sensor"
+      "unknown_sensor": "Unbekannter Sensor",
+      "open_birdnet": "BirdNET-Go öffnen",
+      "open_in_birdnet": "Erkennung in BirdNET-Go öffnen"
     },
     "top_visitors_title": "Häufigste Besucher",
-    "top_visitors_empty": "Heute wurden noch keine Besucher erfasst."
+    "top_visitors_empty": "Heute wurden noch keine Besucher erfasst.",
+    "top_visitors_count": "{count} Besuche"
   },
   "common": {
     "loading": "Laden...",
@@ -148,7 +155,9 @@
     "play": "Abspielen",
     "yes": "Ja",
     "no": "Nein",
-    "download": "Herunterladen"
+    "download": "Herunterladen",
+    "skip_to_content": "Zum Inhalt springen",
+    "working": "Arbeite…"
   },
   "settings": {
     "title": "Einstellungen",
@@ -301,7 +310,9 @@
       "cache_high_quality_event_snapshots_help": "Frigate-Snapshots später durch einen Frame aus dem Hauptstream-Clip ersetzen.",
       "cache_high_quality_event_snapshot_bird_crop": "HQ-Vogelzuschnitt-Snapshots",
       "cache_high_quality_event_snapshot_bird_crop_help": "Verwendet den Vogel-Zuschnittsdetektor auf HQ-Frames. Fällt auf den vollständigen HQ-Frame zurück, wenn kein Zuschnitt gefunden wird.",
-      "batch_analysis_complete": "Batch-Analyse abgeschlossen"
+      "batch_analysis_complete": "Batch-Analyse abgeschlossen",
+      "advanced_title": "Wartung & Medien-Integrität",
+      "cache_advanced_title": "Hochwertige Snapshots & Qualität"
     },
     "security": {
       "title": "Sicherheit",
@@ -312,10 +323,13 @@
       "frigate_unexpected": "Frigate hat einen unerwarteten Status zurückgegeben",
       "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
       "mqtt_title": "MQTT-Einstellungen (Frigate-Ereignisse)",
-      "simulating": "Simulation läuft..."
+      "simulating": "Simulation läuft...",
+      "advanced_title": "Feineinstellungen"
     },
     "common": {
-      "save_error": "Einstellungen konnten nicht gespeichert werden"
+      "save_error": "Einstellungen konnten nicht gespeichert werden",
+      "advanced": "Erweitert",
+      "advanced_default_title": "Erweiterte Optionen"
     },
     "tabs": {
       "connection": "Verbindung",
@@ -334,13 +348,6 @@
     "debug": {
       "title": "Debug-Tools",
       "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
-      "inat_preview": "iNaturalist Vorschau-UI",
-      "inat_preview_desc": "Zeigt das Einreichungs-Panel ohne OAuth (nur Owner).",
-      "inat_preview_hint": "Tipp: Öffne eine Detailkarte, um das iNaturalist-Panel zu sehen.",
-      "apply_pending": "Ausstehend — zum Aktivieren auf Anwenden klicken.",
-      "apply_applied": "Angewendet.",
-      "apply_button": "Anwenden",
-      "apply_notice": "Vorschau-Einstellung aktualisiert.",
       "llm_prompts_title": "LLM-Promptvorlagen",
       "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
       "llm_prompt_style_label": "Prompt-Stil",
@@ -356,8 +363,6 @@
       "llm_prompt_conversation_hint": "Platzhalter: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Prompt für Diagrammanalyse",
       "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-      "ai_diagnostics": "KI-Diagnose-Zwischenablage",
-      "ai_diagnostics_desc": "Zeigt oben im Modal eine Kopier-Schaltfläche an, die vollständige KI-Diagnosen und Prompts erfasst.",
       "strict_non_finite_output": "Strenge Behandlung nicht-endlicher Ausgaben",
       "strict_non_finite_output_desc": "Wenn aktiviert, werden vollständig nicht-endliche Klassifikator-Ausgaben verworfen und lösen eine Laufzeit-Wiederherstellung aus. Nur für kontrolliertes Debugging deaktivieren."
     },
@@ -396,7 +401,8 @@
         "source_discovery_help": "Diese erkannten Quellnamen in den Zuordnungsfeldern oben verwenden. Namen sind stabiler als dynamische IDs bei BirdNET-Go-Neustarts.",
         "source_discovery_mapping_value": "Zuordnungswert",
         "source_discovery_sample_id": "Beispiel-ID",
-        "source_discovery_seen": "Gesehen"
+        "source_discovery_seen": "Gesehen",
+        "advanced_title": "Audiopuffer & Sensor-Zuordnung"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -423,7 +429,8 @@
         "disconnect_label": "iNaturalist-Konto trennen",
         "refresh": "Status aktualisieren",
         "refresh_label": "iNaturalist-Verbindung aktualisieren",
-        "connected": "Verbunden als {user}"
+        "connected": "Verbunden als {user}",
+        "advanced_title": "Standardstandort"
       },
       "ebird": {
         "title": "eBird",
@@ -448,7 +455,8 @@
         "export_range_error": "Das Von-Datum muss vor oder gleich dem Bis-Datum liegen.",
         "export_everything": "Alles exportieren",
         "export_everything_label": "Alles für eBird-CSV-Export aktivieren/deaktivieren",
-        "export_everything_help": "Aktivieren Sie dies, um alle Erkennungen zu exportieren und den Datumsbereich zu deaktivieren."
+        "export_everything_help": "Aktivieren Sie dies, um alle Erkennungen zu exportieren und den Datumsbereich zu deaktivieren.",
+        "advanced_title": "Standard-Hotspot-Suche"
       },
       "birdweather": {
         "title": "BirdWeather",
@@ -505,7 +513,8 @@
       "table_tokens": "Tokens",
       "table_cost": "Kosten",
       "view_reference_pricing": "Referenzpreise anzeigen →",
-      "usage_load_error": "KI-Nutzung konnte nicht geladen werden."
+      "usage_load_error": "KI-Nutzung konnte nicht geladen werden.",
+      "advanced_title": "Preise & Prompt-Vorlagen"
     },
     "auth": {
       "title": "Authentifizierung",
@@ -528,7 +537,8 @@
       "trusted_proxies_use_suggestions": "Vorschläge verwenden",
       "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
       "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
-      "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig)."
+      "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig).",
+      "advanced_title": "Sitzung & Reverse-Proxy"
     },
     "public_access": {
       "title": "Öffentlicher Zugriff",
@@ -549,7 +559,8 @@
       "allow_clip_downloads_desc": "Gaesten erlauben, vollstaendige Videoclips herunterzuladen",
       "share_base_url": "Basis-URL für Freigabelinks (optional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
-      "share_base_url_desc": "Wenn gesetzt, verwenden neue Freigabelinks diese öffentliche Basis-URL statt des erkannten Anfrage-Hosts."
+      "share_base_url_desc": "Wenn gesetzt, verwenden neue Freigabelinks diese öffentliche Basis-URL statt des erkannten Anfrage-Hosts.",
+      "advanced_title": "Verlaufs-Zeitfenster & Ratenbegrenzungen"
     },
     "accessibility": {
       "title": "Barrierefreiheit-Optionen",
@@ -607,7 +618,15 @@
       "preview_live": "Live",
       "preview_loading": "Vorschau wird geladen...",
       "preview_missing_url": "Für diese Kamera ist keine Vorschau-URL verfügbar.",
-      "select": "Auswählen"
+      "select": "Auswählen",
+      "nest_dedupe_help": "Fasst wiederholte Erkennungen derselben Art an einer Nest-Kamera auf eine pro N Minuten zusammen.",
+      "nest_dedupe_label": "Dedupe-Fenster für Nestkameras",
+      "nest_dedupe_unit": "Min.",
+      "role_feeder": "Futterstelle",
+      "role_feeder_help": "Futterstellen-Kamera — jedes Frigate-Ereignis wird als neuer Besuch behandelt (Standard).",
+      "role_label": "Rolle",
+      "role_nest": "Nest",
+      "role_nest_help": "Nestkasten-Kamera — wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt."
     },
     "telemetry": {
       "title": "Telemetrie",
@@ -700,7 +719,8 @@
       "outlook_client_id": "Outlook Client-ID",
       "outlook_client_id_placeholder": "Microsoft OAuth Anwendungs-ID (Client)",
       "outlook_client_secret": "Outlook Client-Secret",
-      "outlook_client_secret_placeholder": "Microsoft OAuth Client-Secret"
+      "outlook_client_secret_placeholder": "Microsoft OAuth Client-Secret",
+      "advanced_title": "Zustellzeit & Dashboard-Link"
     },
     "notifications": {
       "global_filters": "Globale Benachrichtigungsfilter",
@@ -786,7 +806,8 @@
       "device_placeholder": "z. B. iphone,nexus5 (leer lassen für alle)",
       "device_hint": "Kommagetrennte Gerätenamen. Leer lassen, um an alle aktiven Geräte zu senden.",
       "test_notification": "Testbenachrichtigung senden",
-      "test_sending": "Senden..."
+      "test_sending": "Senden...",
+      "advanced_title": "Priorität & Geräte-Targeting"
     },
     "telegram": {
       "title": "Telegram-Benachrichtigungen",
@@ -815,7 +836,21 @@
       "auto_detect_enabled": "Automatische Erkennung über IP aktiviert",
       "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet.",
       "state": "Bundesland / Region",
-      "country": "Land"
+      "country": "Land",
+      "map_empty": "Noch keine Koordinaten konfiguriert — geben Sie Breiten- und Längengrad ein (oder aktivieren Sie die Auto-Erkennung), um die Karte zu sehen.",
+      "map_help": "Zeigt den Standort, der aktuell für Wetter, Hotspots und Beobachtungen verwendet wird.",
+      "map_title": "Kartenvorschau",
+      "mode_auto": "Automatisch erkennen",
+      "mode_auto_sub": "Aus Ihrem Netzwerk ermittelt",
+      "mode_help": "Auto-Erkennung verwendet Ihre IP/Zeitzone. Manuell erlaubt das Anpinnen exakter Koordinaten für Wetter, eBird-Hotspots und Beobachtungs-Übermittlungen.",
+      "mode_manual": "Manuelle Eingabe",
+      "mode_manual_sub": "Genaue Breite und Länge festlegen",
+      "mode_select": "{mode} verwenden",
+      "mode_title": "Standortquelle",
+      "resolved_label": "Aufgelöst",
+      "resolve_empty": "Kein Ortsname für diese Koordinaten verfügbar",
+      "resolve_error": "Suche fehlgeschlagen",
+      "resolving": "Suche läuft…"
     },
     "danger": {
       "title": "Gefahrenzone",
@@ -827,7 +862,8 @@
       "clear_feedback_button": "Personalisierungsdaten löschen",
       "clear_feedback_desc": "Das Löschen des Personalisierungs-Feedbacks entfernt alle manuellen Tag-Korrekturen, die die KI zum Anpassen der Konfidenzwerte nutzt. Dadurch wird der Klassifikator auf seine Basisgenauigkeit zurückgesetzt.",
       "clear_feedback_hint": "Dadurch werden weder Erkennungen noch Medien gelöscht. Das Re-Ranking beginnt erneut zu lernen, sobald Sie neue manuelle Korrekturen vornehmen.",
-      "clearing_feedback": "Wird gelöscht..."
+      "clearing_feedback": "Wird gelöscht...",
+      "clear_feedback_confirm": "Möchten Sie wirklich alle personalisierten Re-Ranking-Daten löschen? Damit kehrt die KI zur Basisgenauigkeit zurück und der Vorgang kann nicht rückgängig gemacht werden."
     },
     "detection": {
       "classification_engine": "Klassifizierungs-Engine",
@@ -980,7 +1016,16 @@
       "gpu_plugin_error": "GPU-Plugin-Fehler:",
       "model_manager_downloading_detector": "Detektor wird heruntergeladen…",
       "model_manager_default_crop": "Standardzuschnitt:",
-      "model_manager_default_source": "Standardquelle:"
+      "model_manager_default_source": "Standardquelle:",
+      "auto_video_advanced_title": "Auto-Video-Feinabstimmung",
+      "classification_advanced_title": "Crop-Quelle & Regions-Overrides",
+      "crop_priority_desc": "Wählen Sie, ob Frigate-Hinweise oder das konfigurierte Crop-Modell zuerst versucht werden. Die ausgewählte Crop-Detector-Stufe wird immer berücksichtigt, wenn der Modellpfad verwendet wird.",
+      "crop_priority_title": "Priorität der Crop-Quelle",
+      "crop_tier_desc": "\"Schnell\" behält den aktuellen SSD-Detektor als Standard. \"Genau\" verwendet die experimentelle YOLOX-Tiny-Stufe und fällt automatisch auf \"Schnell\" zurück, wenn sie nicht verfügbar ist.",
+      "crop_tier_title": "Vogel-Crop-Detektor",
+      "fine_tuning_advanced_title": "Erweiterte Feineinstellungen",
+      "inference_advanced_title": "Ausführungsmodus & Laufzeit-Diagnose",
+      "inference_diagnostics_title": "Laufzeit-Diagnose"
     },
     "llm": {
       "title": "KI-Einblicke",
@@ -1006,7 +1051,9 @@
       "recommended_model": "Empfohlen: {model}",
       "get_gemini_key": "Get Google Gemini Key →",
       "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →"
+      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_openrouter_key": "OpenRouter-Schlüssel holen →",
+      "openrouter_model_hint": "Geben Sie eine beliebige OpenRouter-Modell-ID ein (z. B. google/gemini-2.5-flash). Modelle finden Sie unter openrouter.ai/models."
     }
   },
   "auth": {
@@ -1022,7 +1069,10 @@
     "continue_guest": "Als Gast fortfahren",
     "secure_access": "YA-WAMF Sicherer Zugriff",
     "public_view": "Öffentliche Ansicht",
-    "public_viewing_mode": "Öffentlicher Ansichtsmodus"
+    "public_viewing_mode": "Öffentlicher Ansichtsmodus",
+    "loading_status": "Authentifizierungsstatus wird geladen…",
+    "status_unavailable_desc": "Falls der Container gerade startet oder nach Modelländerungen neu gestartet wird, kurz warten und erneut versuchen.",
+    "status_unavailable_title": "YA-WAMF-Backend nicht erreichbar."
   },
   "status": {
     "audio_active": "Audio-Analyse aktiv",
@@ -1084,7 +1134,9 @@
     "delete_detection": "Erkennung löschen",
     "hide_detection": "Erkennung ausblenden",
     "read_more_wikipedia": "Mehr auf Wikipedia lesen",
-    "read_more_source": "Mehr auf {source} lesen"
+    "read_more_source": "Mehr auf {source} lesen",
+    "delete_selected": "Auswahl löschen",
+    "reclassify_selected": "Auswahl neu klassifizieren"
   },
   "detection": {
     "confidence": "Konfidenz",
@@ -1121,7 +1173,6 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "Verbunden: {user}",
-      "preview_note": "Vorschau (zum Senden verbinden)",
       "open": "Öffnen",
       "close": "Schließen",
       "open_label": "iNaturalist-Übermittlung öffnen",
@@ -1220,7 +1271,13 @@
           "retry_snapshot": "Manuelle Snapshot- oder Videoklassifizierung später erneut versuchen.",
           "video_timeout_setting": "Videoanalyse-Timeout erhöhen oder gesampelte Frames reduzieren."
         }
-      }
+      },
+      "fallback_title": "Ergebnis aus Snapshot",
+      "fallback_desc": "Die Videoanalyse war nicht verfügbar, daher wurde diese Erkennung anhand eines einzelnen Bildes klassifiziert. Die Konfidenz kann niedriger sein.",
+      "gated_title": "Video hat eine Übereinstimmung gefunden — zur Übernahme bestätigen",
+      "gated_desc": "Die automatische Übernahme wurde zurückgehalten, weil der Video-Score unter Ihrem Mindest-Konfidenzwert liegt. Reclassify ausführen, um dieses Ergebnis anzuwenden, oder den Schwellenwert in Einstellungen → Erkennung senken.",
+      "gated_action": "Neu klassifizieren",
+      "blocked_label": "Mit blockierter Art übereinstimmend — nicht angewendet"
     },
     "card_analysis": {
       "title": "Erkennung analysieren",
@@ -1240,7 +1297,19 @@
       "auto_close_in": "Schließt automatisch in {seconds}s",
       "auto_video_source": "Automatische Videoanalyse",
       "auto_video_source_hint": "Ergebnis anhand von Clip-Frames verfeinert.",
-      "final_result": "Endergebnis"
+      "final_result": "Endergebnis",
+      "snapshot_fallback_title": "Klassifiziere aus Snapshot",
+      "snapshot_fallback_badge": "Snapshot-Fallback",
+      "snapshot_fallback_reason_generic": "Videoclip war nicht verfügbar",
+      "snapshot_fallback_reason": {
+        "clip_not_retained": "Frigate hat den Videoclip für dieses Ereignis nicht aufbewahrt.",
+        "clip_unavailable": "Videoclip war nicht rechtzeitig verfügbar.",
+        "clip_invalid": "Videoclip war beschädigt oder konnte nicht gelesen werden.",
+        "clip_decode_failed": "Videoclip konnte nicht dekodiert werden.",
+        "clip_fetch_failed": "Videoclip konnte nicht von Frigate geladen werden.",
+        "event_not_found": "Frigate kennt dieses Ereignis nicht mehr; kein zwischengespeicherter Clip verfügbar."
+      },
+      "snapshot_scanning": "Snapshot-Scan"
     },
     "ai": {
       "insight": "KI-Naturalist Einblick",
@@ -1319,7 +1388,11 @@
     "snapshot_best": "Bester",
     "snapshot_model_crop_disabled": "KI-Zuschnitt ist deaktiviert — aktivieren Sie „HQ-Vogel-Zuschnitt-Snapshots“ in den Einstellungen für engere Zuschnitte.",
     "snapshot_model_crop_unavailable": "KI-Zuschneidemodell nicht geladen — besuchen Sie den Modell-Manager, um es herunterzuladen.",
-    "snapshot_currently_saved": "Aktuell gespeichert"
+    "snapshot_currently_saved": "Aktuell gespeichert",
+    "audio_spectrogram_alt": "BirdNET-Go-Spektrogramm der zugehörigen Audio-Erkennung",
+    "snapshot_regenerate": "Snapshots neu erzeugen",
+    "snapshot_regenerate_no_candidates": "Snapshots neu erzeugt, aber keine auswählbaren Kandidaten gefunden.",
+    "snapshot_source_unknown": "Unbekannte Quelle"
   },
   "events": {
     "title": "Ereignisse",
@@ -1448,7 +1521,10 @@
     "trend_smooth": "Geglättet",
     "weather_overlay_no_data": "In diesem Bereich sind noch keine Wetterdaten vorhanden.",
     "weather_overlay_range_limited": "Wetter-Overlays sind für Tag-/Woche-/Monat-Bereiche verfügbar.",
-    "weather_overlays": "Wetter-Overlays"
+    "weather_overlays": "Wetter-Overlays",
+    "detection_breakdown_subtitle": "Artenzusammensetzung",
+    "detection_breakdown_title": "Erkennungsaufschlüsselung",
+    "other_species": "Andere"
   },
   "about": {
     "title": "Über dieses Projekt",
@@ -1946,9 +2022,38 @@
     "errors_updated_just_now": "Gerade aktualisiert",
     "errors_updated_seconds": "Vor {count}s aktualisiert",
     "errors_updated_minutes": "Vor {count}m aktualisiert",
-    "system_ram_usage": "System-RAM-Auslastung"
+    "system_ram_usage": "System-RAM-Auslastung",
+    "active_job": "Aktiver Job",
+    "circuit_open_detail": "{queued} Elemente warten in der Warteschlange. Letzte Fehler: {failures}.",
+    "coordinator_detail": "Ein Koordinatorjob steuert die Klassifizierungs-Worker-Kapazität für diesen Backfill.",
+    "coordinator_job": "Koordinator-Job",
+    "more_lanes": "+{count} weitere Arbeitslinien",
+    "work_lanes": "Arbeitslinien",
+    "work_lanes_empty": "Keine wartenden oder laufenden Aufgaben."
   },
   "errors": {
     "stack_trace": "Stack-Trace:"
+  },
+  "header": {
+    "cameras_empty": "Keine Kameras konfiguriert. Kameras unter Einstellungen → Verbindung hinzufügen.",
+    "cameras_label": "Kamerastatus",
+    "cameras_no_frame": "Kein Bild",
+    "cameras_none": "Keine Kameras konfiguriert",
+    "cameras_online": "Kameras online",
+    "cameras_role_feeder": "Futterstelle",
+    "cameras_role_feeder_help": "Futterstellen-Kamera — jedes Frigate-Ereignis ist ein neuer Besuch.",
+    "cameras_role_nest": "Nest",
+    "cameras_role_nest_help": "Nestkasten-Kamera — wiederholte Erkennungen werden im konfigurierten Zeitfenster zusammengefasst.",
+    "cameras_status_offline": "Kein aktuelles Bild",
+    "cameras_status_online": "Online",
+    "cameras_title": "Kameras"
+  },
+  "page_subtitle": {
+    "about": "Version, Changelog, Mitwirkende und Support-Links.",
+    "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
+    "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
+    "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
+    "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
+    "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."
   }
 }

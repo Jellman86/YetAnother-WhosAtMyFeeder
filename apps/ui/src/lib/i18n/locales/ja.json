@@ -16,7 +16,10 @@
     "expand_sidebar": "サイドバーを展開",
     "jobs": "ジョブ",
     "close_menu": "メニューを閉じる",
-    "close_language_selector": "言語セレクターを閉じる"
+    "close_language_selector": "言語セレクターを閉じる",
+    "events": "イベント",
+    "notifications": "通知",
+    "species": "種"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
@@ -50,7 +53,8 @@
     "color_default_desc": "デフォルトのティール＆エメラルドアクセント",
     "color_bluetit": "アオガラ",
     "color_bluetit_desc": "コバルトブルーとゴールデンイエロー、アプリアイコンからインスピレーション",
-    "color_selected": "選択中"
+    "color_selected": "選択中",
+    "select": "{theme} テーマを選択"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -89,10 +93,13 @@
       "active": "アクティブ",
       "empty_title": "バッファ内に音声検出はありません",
       "empty_subtitle": "バッファは5分ごとにクリア",
-      "unknown_sensor": "不明なセンサー"
+      "unknown_sensor": "不明なセンサー",
+      "open_birdnet": "BirdNET-Go を開く",
+      "open_in_birdnet": "この検出を BirdNET-Go で開く"
     },
     "top_visitors_title": "よく来る訪問者",
-    "top_visitors_empty": "今日はまだ訪問者が記録されていません。"
+    "top_visitors_empty": "今日はまだ訪問者が記録されていません。",
+    "top_visitors_count": "{count} 回の訪問"
   },
   "common": {
     "loading": "読み込み中...",
@@ -148,7 +155,9 @@
     "unavailable": "利用不可",
     "yes": "はい",
     "no": "いいえ",
-    "download": "ダウンロード"
+    "download": "ダウンロード",
+    "skip_to_content": "コンテンツへスキップ",
+    "working": "処理中…"
   },
   "settings": {
     "title": "設定",
@@ -184,13 +193,6 @@
     "debug": {
       "title": "デバッグツール",
       "subtitle": "テストと診断のための追加スイッチ。",
-      "inat_preview": "iNaturalist プレビューUI",
-      "inat_preview_desc": "OAuthなしで送信パネルを表示（オーナーのみ）。",
-      "inat_preview_hint": "ヒント: 検出詳細カードを開くとiNaturalistパネルが表示されます。",
-      "apply_pending": "保留中 — 有効化するには適用をクリック。",
-      "apply_applied": "適用済み。",
-      "apply_button": "適用",
-      "apply_notice": "プレビュー設定を更新しました。",
       "llm_prompts_title": "LLMプロンプトテンプレート",
       "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
       "llm_prompt_style_label": "プロンプトスタイル",
@@ -206,8 +208,6 @@
       "llm_prompt_conversation_hint": "トークン: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "グラフ解析プロンプト",
       "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-      "ai_diagnostics": "AI 診断クリップボード",
-      "ai_diagnostics_desc": "モーダル上部に完全な AI 診断とプロンプトをコピーするボタンを表示します。",
       "strict_non_finite_output": "非有限出力の厳格処理",
       "strict_non_finite_output_desc": "有効にすると、すべて非有限値の分類器出力は拒否され、ランタイム回復が発生します。制御されたデバッグ以外では無効にしないでください。"
     },
@@ -246,7 +246,8 @@
         "source_discovery_help": "これらの検出されたソース名を上のマッピングフィールドに使用してください。名前はBirdNET-Go再起動時の動的IDより安定しています。",
         "source_discovery_mapping_value": "マッピング値",
         "source_discovery_sample_id": "サンプルID",
-        "source_discovery_seen": "検出数"
+        "source_discovery_seen": "検出数",
+        "advanced_title": "音声バッファとセンサーマッピング"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -273,7 +274,8 @@
         "disconnect_label": "iNaturalist アカウントを切断",
         "refresh": "状態を更新",
         "refresh_label": "iNaturalist 接続を更新",
-        "connected": "{user} として接続中"
+        "connected": "{user} として接続中",
+        "advanced_title": "既定の位置"
       },
       "ebird": {
         "title": "eBird",
@@ -298,7 +300,8 @@
         "export_range_error": "開始日は終了日以前である必要があります。",
         "export_everything": "すべてエクスポート",
         "export_everything_label": "eBird CSV の全エクスポートを切り替え",
-        "export_everything_help": "これを有効にすると、すべての検出をエクスポートし、日付範囲を無効にします。"
+        "export_everything_help": "これを有効にすると、すべての検出をエクスポートし、日付範囲を無効にします。",
+        "advanced_title": "ホットスポット検索の既定値"
       },
       "birdweather": {
         "title": "BirdWeather",
@@ -334,7 +337,8 @@
       "trusted_proxies_use_suggestions": "提案を使用",
       "trusted_proxies_add": "信頼するプロキシホストを追加",
       "trusted_proxies_remove": "信頼するプロキシホストを削除",
-      "trusted_proxies_empty": "信頼するプロキシが未設定です（すべてのプロキシを信頼）。"
+      "trusted_proxies_empty": "信頼するプロキシが未設定です（すべてのプロキシを信頼）。",
+      "advanced_title": "セッションとリバースプロキシ"
     },
     "public_access": {
       "title": "公開アクセス",
@@ -355,7 +359,8 @@
       "allow_clip_downloads_desc": "ゲストに動画クリップ全体のダウンロードを許可",
       "share_base_url": "共有リンクのベースURL（任意）",
       "share_base_url_placeholder": "https://your-public-domain.example",
-      "share_base_url_desc": "設定すると、新しい共有リンクは検出されたリクエストホストではなく、この公開ベースURLを使用します。"
+      "share_base_url_desc": "設定すると、新しい共有リンクは検出されたリクエストホストではなく、この公開ベースURLを使用します。",
+      "advanced_title": "履歴ウィンドウとレート制限"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",
@@ -413,7 +418,15 @@
       "preview_live": "ライブ",
       "preview_loading": "プレビューを読み込み中...",
       "preview_missing_url": "このカメラではプレビュー URL を利用できません。",
-      "select": "選択"
+      "select": "選択",
+      "nest_dedupe_help": "巣箱カメラで同じ種の繰り返し検出を N 分ごとに 1 回にまとめます。",
+      "nest_dedupe_label": "巣箱の重複排除ウィンドウ",
+      "nest_dedupe_unit": "分",
+      "role_feeder": "給餌台",
+      "role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます (既定)。",
+      "role_label": "役割",
+      "role_nest": "巣箱",
+      "role_nest_help": "巣箱カメラ — 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。"
     },
     "telemetry": {
       "title": "テレメトリ",
@@ -506,7 +519,8 @@
       "outlook_client_id_placeholder": "Microsoft OAuthアプリケーション（クライアント）ID",
       "outlook_client_secret": "Outlookクライアントシークレット",
       "outlook_client_secret_placeholder": "Microsoft OAuthクライアントシークレット",
-      "test_email_sent": "テストメールを送信しました。"
+      "test_email_sent": "テストメールを送信しました。",
+      "advanced_title": "配信タイミングとダッシュボードリンク"
     },
     "notifications": {
       "global_filters": "通知の全体フィルター",
@@ -592,7 +606,8 @@
       "device_placeholder": "例: iphone,nexus5 (空白で全デバイス)",
       "device_hint": "デバイス名をカンマで区切ります。全てのアクティブなデバイスに送信するには空欄にしてください。",
       "test_notification": "テスト通知を送信",
-      "test_sending": "送信中..."
+      "test_sending": "送信中...",
+      "advanced_title": "優先度とデバイスターゲット"
     },
     "telegram": {
       "title": "Telegram通知",
@@ -621,7 +636,21 @@
       "auto_detect_enabled": "IPによる自動検出が有効です",
       "desc": "検出時のローカライズされた気象コンテキストに使用されます。",
       "state": "州 / 地域",
-      "country": "国"
+      "country": "国",
+      "map_empty": "まだ座標が構成されていません — 緯度と経度を設定するか、自動検出を有効にして地図を表示してください。",
+      "map_help": "天気、ホットスポット、観察記録に現在設定されている位置を表示します。",
+      "map_title": "地図プレビュー",
+      "mode_auto": "自動検出",
+      "mode_auto_sub": "ネットワークから取得",
+      "mode_help": "自動検出は IP/タイムゾーンを使用します。手動では天気、eBird のホットスポット、観察提出のために正確な座標を固定できます。",
+      "mode_manual": "手動入力",
+      "mode_manual_sub": "正確な緯度と経度を固定",
+      "mode_select": "{mode} を使用",
+      "mode_title": "位置情報のソース",
+      "resolved_label": "解決済み",
+      "resolve_empty": "この座標に該当する地名はありません",
+      "resolve_error": "検索に失敗しました",
+      "resolving": "検索中…"
     },
     "danger": {
       "title": "危険ゾーン",
@@ -633,7 +662,8 @@
       "clear_feedback_button": "パーソナライズデータを消去",
       "clear_feedback_desc": "パーソナライズ用フィードバックを消去すると、AI が信頼度スコアの調整に使用している手動タグ修正がすべて削除されます。これにより分類器は初期精度に戻ります。",
       "clear_feedback_hint": "検出やメディアは削除されません。新しい手動修正を行うと再ランキングは再び学習を始めます。",
-      "clearing_feedback": "消去中..."
+      "clearing_feedback": "消去中...",
+      "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。"
     },
     "data": {
       "title": "データ管理",
@@ -769,7 +799,9 @@
       "cache_high_quality_event_snapshots_help": "後で Frigate のスナップショットをメインストリームクリップのフレームに置き換えます。",
       "cache_high_quality_event_snapshot_bird_crop": "HQ 鳥クロップスナップショット",
       "cache_high_quality_event_snapshot_bird_crop_help": "HQ フレームに鳥クロップ検出器を使用します。クロップが見つからない場合は完全な HQ フレームに戻します。",
-      "batch_analysis_complete": "一括分析が完了しました"
+      "batch_analysis_complete": "一括分析が完了しました",
+      "advanced_title": "メンテナンスとメディア整合性",
+      "cache_advanced_title": "高品質スナップショットと画質"
     },
     "security": {
       "title": "セキュリティ",
@@ -780,10 +812,13 @@
       "frigate_unexpected": "Frigate が予期しないステータスを返しました",
       "frigate_error": "Frigate に接続できませんでした",
       "mqtt_title": "MQTT 設定 (Frigate イベント)",
-      "simulating": "シミュレーション中..."
+      "simulating": "シミュレーション中...",
+      "advanced_title": "調整"
     },
     "common": {
-      "save_error": "設定を保存できませんでした"
+      "save_error": "設定を保存できませんでした",
+      "advanced": "詳細",
+      "advanced_default_title": "詳細オプション"
     },
     "enrichment": {
       "title": "エンリッチメントソース",
@@ -951,7 +986,16 @@
       "gpu_plugin_error": "GPUプラグインエラー:",
       "model_manager_downloading_detector": "検出器をダウンロード中…",
       "model_manager_default_crop": "デフォルト切り取り:",
-      "model_manager_default_source": "デフォルトソース:"
+      "model_manager_default_source": "デフォルトソース:",
+      "auto_video_advanced_title": "自動動画チューニング",
+      "classification_advanced_title": "クロップソースと地域オーバーライド",
+      "crop_priority_desc": "Frigate のヒントと設定したクロップモデルのどちらを先に試すかを選択します。モデル経路を使用する場合は、選択したクロップ検出ティアが常に尊重されます。",
+      "crop_priority_title": "クロップソースの優先順位",
+      "crop_tier_desc": "「高速」は既定の SSD 検出器を維持します。「高精度」は実験的な YOLOX-Tiny を使用し、利用できない場合は自動的に高速にフォールバックします。",
+      "crop_tier_title": "鳥のクロップ検出器",
+      "fine_tuning_advanced_title": "詳細な微調整",
+      "inference_advanced_title": "実行モードとランタイム診断",
+      "inference_diagnostics_title": "ランタイム診断"
     },
     "llm": {
       "title": "AI インサイト",
@@ -977,7 +1021,9 @@
       "recommended_model": "推奨: {model}",
       "get_gemini_key": "Get Google Gemini Key →",
       "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →"
+      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_openrouter_key": "OpenRouter キーを取得 →",
+      "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-2.5-flash)。モデル一覧は openrouter.ai/models で確認できます。"
     },
     "ai": {
       "usage_title": "AI使用状況",
@@ -1006,7 +1052,8 @@
       "table_tokens": "トークン",
       "table_cost": "コスト",
       "view_reference_pricing": "参照料金を表示 →",
-      "usage_load_error": "AI使用状況の読み込みに失敗しました。"
+      "usage_load_error": "AI使用状況の読み込みに失敗しました。",
+      "advanced_title": "料金とプロンプトテンプレート"
     }
   },
   "auth": {
@@ -1022,7 +1069,10 @@
     "continue_guest": "ゲストとして続行",
     "secure_access": "YA-WAMF 安全なアクセス",
     "public_view": "公開ビュー",
-    "public_viewing_mode": "公開閲覧モード"
+    "public_viewing_mode": "公開閲覧モード",
+    "loading_status": "認証状態を読み込み中…",
+    "status_unavailable_desc": "コンテナが起動中、またはモデル変更後に再起動中の場合は、少し待ってから再試行してください。",
+    "status_unavailable_title": "YA-WAMF バックエンドに接続できません。"
   },
   "status": {
     "audio_active": "音声分析中",
@@ -1084,7 +1134,9 @@
     "delete_detection": "検出を削除",
     "hide_detection": "検出を非表示",
     "read_more_wikipedia": "ウィキペディアで続きを読む",
-    "read_more_source": "{source}で続きを読む"
+    "read_more_source": "{source}で続きを読む",
+    "delete_selected": "選択項目を削除",
+    "reclassify_selected": "選択項目を再分類"
   },
   "detection": {
     "confidence": "信頼度",
@@ -1121,7 +1173,6 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "接続中: {user}",
-      "preview_note": "プレビュー（送信には接続が必要）",
       "open": "開く",
       "close": "閉じる",
       "open_label": "iNaturalist 送信を開く",
@@ -1220,7 +1271,13 @@
           "retry_snapshot": "後で手動スナップショットまたはビデオ再分類を試みる。",
           "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。"
         }
-      }
+      },
+      "fallback_title": "スナップショットからの結果",
+      "fallback_desc": "動画解析が利用できなかったため、この検出は単一フレームから分類されました。信頼度は低くなる可能性があります。",
+      "gated_title": "動画で一致を検出 — 適用するには確認してください",
+      "gated_desc": "動画スコアが最低信頼度を下回っているため、自動適用が保留されました。Reclassify を実行してこの結果を適用するか、設定 → 検出 で下限値を下げてください。",
+      "gated_action": "再分類",
+      "blocked_label": "ブロック対象の種に一致 — 適用されません"
     },
     "card_analysis": {
       "title": "検出を解析中",
@@ -1240,7 +1297,19 @@
       "auto_close_in": "{seconds} 秒後に自動で閉じます",
       "auto_video_source": "自動動画解析",
       "auto_video_source_hint": "クリップのフレームから結果を補正しました。",
-      "final_result": "最終結果"
+      "final_result": "最終結果",
+      "snapshot_fallback_title": "スナップショットから分類中",
+      "snapshot_fallback_badge": "スナップショットへフォールバック",
+      "snapshot_fallback_reason_generic": "動画クリップを利用できませんでした",
+      "snapshot_fallback_reason": {
+        "clip_not_retained": "Frigate がこのイベントの動画クリップを保持していません。",
+        "clip_unavailable": "動画クリップが時間内に利用できませんでした。",
+        "clip_invalid": "動画クリップが破損しているか読み取れませんでした。",
+        "clip_decode_failed": "動画クリップをデコードできませんでした。",
+        "clip_fetch_failed": "Frigate から動画クリップを取得できませんでした。",
+        "event_not_found": "Frigate はこのイベントを保持しておらず、キャッシュされたクリップもありません。"
+      },
+      "snapshot_scanning": "スナップショットをスキャン中"
     },
     "ai": {
       "insight": "AI博物学者の洞察",
@@ -1319,7 +1388,11 @@
     "snapshot_best": "最良",
     "snapshot_model_crop_disabled": "AIトリミングが無効です — 設定で「HQ鳥トリミングスナップショット」を有効にしてください。",
     "snapshot_model_crop_unavailable": "AIトリミングモデルが読み込まれていません — モデルマネージャーからダウンロードしてください。",
-    "snapshot_currently_saved": "現在保存済み"
+    "snapshot_currently_saved": "現在保存済み",
+    "audio_spectrogram_alt": "一致した音声検出の BirdNET-Go スペクトログラム",
+    "snapshot_regenerate": "スナップショットを再生成",
+    "snapshot_regenerate_no_candidates": "スナップショットを再生成しましたが、選択可能な候補は得られませんでした。",
+    "snapshot_source_unknown": "不明なソース"
   },
   "events": {
     "title": "イベント",
@@ -1448,7 +1521,10 @@
     "trend_smooth": "平滑化のみ",
     "weather_overlay_no_data": "この範囲には天気データがありません。",
     "weather_overlay_range_limited": "天気オーバーレイは日・週・月の範囲でのみ利用できます。",
-    "weather_overlays": "天気オーバーレイ"
+    "weather_overlays": "天気オーバーレイ",
+    "detection_breakdown_subtitle": "種の構成",
+    "detection_breakdown_title": "検出の内訳",
+    "other_species": "その他"
   },
   "about": {
     "title": "このプロジェクトについて",
@@ -1946,9 +2022,38 @@
     "errors_updated_just_now": "たった今更新",
     "errors_updated_seconds": "{count}秒前に更新",
     "errors_updated_minutes": "{count}分前に更新",
-    "system_ram_usage": "システムRAM使用率"
+    "system_ram_usage": "システムRAM使用率",
+    "active_job": "実行中のジョブ",
+    "circuit_open_detail": "{queued} 件のキュー項目が待機中です。最近の失敗: {failures}。",
+    "coordinator_detail": "コーディネータージョブがこのバックフィルの分類ワーカー容量を管理します。",
+    "coordinator_job": "コーディネータージョブ",
+    "more_lanes": "他に {count} 件のワークレーン",
+    "work_lanes": "ワークレーン",
+    "work_lanes_empty": "キューに入っているか実行中のジョブはありません。"
   },
   "errors": {
     "stack_trace": "スタックトレース:"
+  },
+  "header": {
+    "cameras_empty": "カメラが構成されていません。設定 → 接続 でカメラを追加してください。",
+    "cameras_label": "カメラの状態",
+    "cameras_no_frame": "フレームなし",
+    "cameras_none": "カメラが構成されていません",
+    "cameras_online": "台のカメラがオンライン",
+    "cameras_role_feeder": "給餌台",
+    "cameras_role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます。",
+    "cameras_role_nest": "巣箱",
+    "cameras_role_nest_help": "巣箱カメラ — 設定したウィンドウ内では重複した検出をまとめます。",
+    "cameras_status_offline": "最近のフレームなし",
+    "cameras_status_online": "オンライン",
+    "cameras_title": "カメラ"
+  },
+  "page_subtitle": {
+    "about": "バージョン、変更履歴、貢献者、サポートリンク。",
+    "dashboard": "ライブ検出、最近のアクティビティ、給餌台の状態を一目で確認。",
+    "events": "分類されたすべての訪問を閲覧、フィルタリング、管理。",
+    "notifications": "アラート、リマインダー、実行中のバックグラウンドジョブ。",
+    "settings": "接続、分類、連携、パーソナライズ。",
+    "species": "これまでに観察した鳥のランキング、合計、分類情報。"
   }
 }

@@ -16,7 +16,10 @@
     "expand_sidebar": "展开侧边栏",
     "jobs": "任务",
     "close_menu": "关闭菜单",
-    "close_language_selector": "关闭语言选择器"
+    "close_language_selector": "关闭语言选择器",
+    "events": "事件",
+    "notifications": "通知",
+    "species": "物种"
   },
   "theme": {
     "switch_light": "切换到浅色模式",
@@ -50,7 +53,8 @@
     "color_default_desc": "默认青色与翠绿色强调",
     "color_bluetit": "蓝冠山雀",
     "color_bluetit_desc": "钴蓝与金黄，灵感来自应用图标",
-    "color_selected": "已选择"
+    "color_selected": "已选择",
+    "select": "选择{theme}主题"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -89,10 +93,13 @@
       "active": "活跃",
       "empty_title": "缓冲区中没有音频检测",
       "empty_subtitle": "缓冲区每5分钟清空",
-      "unknown_sensor": "未知传感器"
+      "unknown_sensor": "未知传感器",
+      "open_birdnet": "打开 BirdNET-Go",
+      "open_in_birdnet": "在 BirdNET-Go 中打开此检测"
     },
     "top_visitors_title": "常见访客",
-    "top_visitors_empty": "今天还没有记录到访客。"
+    "top_visitors_empty": "今天还没有记录到访客。",
+    "top_visitors_count": "访问 {count} 次"
   },
   "common": {
     "loading": "加载中...",
@@ -148,7 +155,9 @@
     "unavailable": "不可用",
     "yes": "是",
     "no": "否",
-    "download": "下载"
+    "download": "下载",
+    "skip_to_content": "跳到主要内容",
+    "working": "处理中…"
   },
   "settings": {
     "title": "设置",
@@ -184,13 +193,6 @@
     "debug": {
       "title": "调试工具",
       "subtitle": "用于测试和诊断的额外开关。",
-      "inat_preview": "iNaturalist 预览界面",
-      "inat_preview_desc": "无需 OAuth 显示提交面板（仅限所有者）。",
-      "inat_preview_hint": "提示：打开检测详情卡即可看到 iNaturalist 面板。",
-      "apply_pending": "待应用 — 点击“应用”以启用。",
-      "apply_applied": "已应用。",
-      "apply_button": "应用",
-      "apply_notice": "预览设置已更新。",
       "llm_prompts_title": "LLM 提示模板",
       "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
       "llm_prompt_style_label": "提示风格",
@@ -206,8 +208,6 @@
       "llm_prompt_conversation_hint": "标记: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "图表分析提示",
       "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-      "ai_diagnostics": "AI 诊断剪贴板",
-      "ai_diagnostics_desc": "在模态框顶部显示一个复制按钮，可捕获完整的 AI 诊断和提示词。",
       "strict_non_finite_output": "严格处理非有限输出",
       "strict_non_finite_output_desc": "启用后，分类器完全由非有限值组成的输出将被拒绝，并触发运行时恢复。仅在受控调试时禁用。"
     },
@@ -246,7 +246,8 @@
         "source_discovery_help": "在上方的映射字段中使用这些检测到的来源名称。名称比BirdNET-Go重启时的动态ID更稳定。",
         "source_discovery_mapping_value": "映射值",
         "source_discovery_sample_id": "示例ID",
-        "source_discovery_seen": "已见"
+        "source_discovery_seen": "已见",
+        "advanced_title": "音频缓冲与传感器映射"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -273,7 +274,8 @@
         "disconnect_label": "断开 iNaturalist 账号",
         "refresh": "刷新状态",
         "refresh_label": "刷新 iNaturalist 连接",
-        "connected": "已连接为 {user}"
+        "connected": "已连接为 {user}",
+        "advanced_title": "默认位置"
       },
       "ebird": {
         "title": "eBird",
@@ -298,7 +300,8 @@
         "export_range_error": "开始日期必须早于或等于结束日期。",
         "export_everything": "导出全部",
         "export_everything_label": "切换 eBird CSV 的全量导出",
-        "export_everything_help": "启用此项以导出所有检测并禁用日期范围。"
+        "export_everything_help": "启用此项以导出所有检测并禁用日期范围。",
+        "advanced_title": "热点搜索默认值"
       },
       "birdweather": {
         "title": "BirdWeather",
@@ -334,7 +337,8 @@
       "trusted_proxies_use_suggestions": "使用建议",
       "trusted_proxies_add": "添加受信任的代理主机",
       "trusted_proxies_remove": "移除受信任的代理主机",
-      "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。"
+      "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。",
+      "advanced_title": "会话与反向代理"
     },
     "public_access": {
       "title": "公开访问",
@@ -355,7 +359,8 @@
       "allow_clip_downloads_desc": "允许访客下载完整视频片段",
       "share_base_url": "分享链接基础 URL（可选）",
       "share_base_url_placeholder": "https://your-public-domain.example",
-      "share_base_url_desc": "设置后，新建分享链接将使用此公共基础 URL，而不是检测到的请求主机。"
+      "share_base_url_desc": "设置后，新建分享链接将使用此公共基础 URL，而不是检测到的请求主机。",
+      "advanced_title": "历史窗口与速率限制"
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -413,7 +418,15 @@
       "preview_live": "实时",
       "preview_loading": "正在加载预览...",
       "preview_missing_url": "此摄像头没有可用的预览 URL。",
-      "select": "选择"
+      "select": "选择",
+      "nest_dedupe_help": "将巢箱摄像头上同一物种的重复检测合并为每 N 分钟一次。",
+      "nest_dedupe_label": "巢箱去重窗口",
+      "nest_dedupe_unit": "分钟",
+      "role_feeder": "喂食器",
+      "role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问(默认)。",
+      "role_label": "角色",
+      "role_nest": "巢箱",
+      "role_nest_help": "巢箱摄像头 — 将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。"
     },
     "telemetry": {
       "title": "遥测",
@@ -506,7 +519,8 @@
       "outlook_client_id_placeholder": "Microsoft OAuth应用程序（客户端）ID",
       "outlook_client_secret": "Outlook客户端密钥",
       "outlook_client_secret_placeholder": "Microsoft OAuth客户端密钥",
-      "test_email_sent": "测试邮件已发送。"
+      "test_email_sent": "测试邮件已发送。",
+      "advanced_title": "送达时间与仪表板链接"
     },
     "notifications": {
       "global_filters": "全局通知筛选",
@@ -592,7 +606,8 @@
       "device_placeholder": "如 iphone,nexus5（留空表示全部设备）",
       "device_hint": "设备名称用逗号分隔。留空则发送至所有活跃设备。",
       "test_notification": "发送测试通知",
-      "test_sending": "发送中..."
+      "test_sending": "发送中...",
+      "advanced_title": "优先级与设备定向"
     },
     "telegram": {
       "title": "Telegram 通知",
@@ -621,7 +636,21 @@
       "auto_detect_enabled": "已启用通过 IP 自动检测",
       "desc": "用于检测期间的本地化天气上下文。",
       "state": "州 / 地区",
-      "country": "国家"
+      "country": "国家",
+      "map_empty": "尚未配置坐标 — 请设置纬度和经度(或启用自动检测)以查看地图。",
+      "map_help": "显示当前为天气、热点和观察记录设置的位置。",
+      "map_title": "地图预览",
+      "mode_auto": "自动检测",
+      "mode_auto_sub": "根据您的网络解析",
+      "mode_help": "自动检测使用您的 IP / 时区。手动模式可让您为天气、eBird 热点和观察提交固定精确坐标。",
+      "mode_manual": "手动输入",
+      "mode_manual_sub": "固定精确的经纬度",
+      "mode_select": "使用{mode}",
+      "mode_title": "位置来源",
+      "resolved_label": "已解析",
+      "resolve_empty": "此坐标没有可用的地点名称",
+      "resolve_error": "查找失败",
+      "resolving": "正在查找…"
     },
     "danger": {
       "title": "危险区域",
@@ -633,7 +662,8 @@
       "clear_feedback_button": "清除个性化数据",
       "clear_feedback_desc": "清除个性化反馈将删除 AI 用于调整置信度分数的所有手动标签修正。这会让分类器恢复到基础精度。",
       "clear_feedback_hint": "这不会删除检测或媒体。随着你进行新的手动修正，重新排序会重新开始学习。",
-      "clearing_feedback": "清除中..."
+      "clearing_feedback": "清除中...",
+      "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。"
     },
     "data": {
       "title": "数据管理",
@@ -769,7 +799,9 @@
       "cache_high_quality_event_snapshots_help": "稍后用主码流剪辑中的一帧替换 Frigate 快照。",
       "cache_high_quality_event_snapshot_bird_crop": "HQ 鸟类裁剪快照",
       "cache_high_quality_event_snapshot_bird_crop_help": "对 HQ 帧使用鸟类裁剪检测器。若未找到裁剪，则回退到完整 HQ 帧。",
-      "batch_analysis_complete": "批量分析已完成"
+      "batch_analysis_complete": "批量分析已完成",
+      "advanced_title": "维护与媒体完整性",
+      "cache_advanced_title": "高质量快照与画质"
     },
     "security": {
       "title": "安全",
@@ -780,10 +812,13 @@
       "frigate_unexpected": "Frigate 返回了意外状态",
       "frigate_error": "连接 Frigate 失败",
       "mqtt_title": "MQTT 设置（Frigate 事件）",
-      "simulating": "模拟中..."
+      "simulating": "模拟中...",
+      "advanced_title": "调优"
     },
     "common": {
-      "save_error": "无法保存设置"
+      "save_error": "无法保存设置",
+      "advanced": "高级",
+      "advanced_default_title": "高级选项"
     },
     "enrichment": {
       "title": "增强来源",
@@ -951,7 +986,16 @@
       "gpu_plugin_error": "GPU插件错误：",
       "model_manager_downloading_detector": "正在下载检测器…",
       "model_manager_default_crop": "默认裁剪：",
-      "model_manager_default_source": "默认来源："
+      "model_manager_default_source": "默认来源：",
+      "auto_video_advanced_title": "自动视频调优",
+      "classification_advanced_title": "裁剪来源与地区覆盖",
+      "crop_priority_desc": "选择优先尝试 Frigate 提示还是已配置的裁剪模型。当走模型路径时,所选的裁剪检测器级别始终生效。",
+      "crop_priority_title": "裁剪来源优先级",
+      "crop_tier_desc": "\"快速\" 保留当前的 SSD 检测器作为默认。\"准确\" 使用实验性的 YOLOX-Tiny,在不可用时会自动回退到快速。",
+      "crop_tier_title": "鸟类裁剪检测器",
+      "fine_tuning_advanced_title": "高级精细调优",
+      "inference_advanced_title": "执行模式与运行时诊断",
+      "inference_diagnostics_title": "运行时诊断"
     },
     "llm": {
       "title": "AI 洞察",
@@ -977,7 +1021,9 @@
       "recommended_model": "推荐：{model}",
       "get_gemini_key": "Get Google Gemini Key →",
       "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →"
+      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_openrouter_key": "获取 OpenRouter 密钥 →",
+      "openrouter_model_hint": "输入任意 OpenRouter 模型 ID(例如 google/gemini-2.5-flash)。可在 openrouter.ai/models 浏览模型。"
     },
     "ai": {
       "usage_title": "AI 使用情况",
@@ -1006,7 +1052,8 @@
       "table_tokens": "令牌",
       "table_cost": "费用",
       "view_reference_pricing": "查看参考定价 →",
-      "usage_load_error": "加载 AI 使用情况失败。"
+      "usage_load_error": "加载 AI 使用情况失败。",
+      "advanced_title": "价格与提示词模板"
     }
   },
   "auth": {
@@ -1022,7 +1069,10 @@
     "continue_guest": "作为访客继续",
     "secure_access": "YA-WAMF 安全访问",
     "public_view": "公开视图",
-    "public_viewing_mode": "公开浏览模式"
+    "public_viewing_mode": "公开浏览模式",
+    "loading_status": "正在加载身份验证状态…",
+    "status_unavailable_desc": "如果容器仍在启动,或在更改模型后正在重启,请稍候再试。",
+    "status_unavailable_title": "无法连接到 YA-WAMF 后端。"
   },
   "status": {
     "audio_active": "音频分析活跃",
@@ -1084,7 +1134,9 @@
     "delete_detection": "删除检测",
     "hide_detection": "隐藏检测",
     "read_more_wikipedia": "在维基百科上阅读更多",
-    "read_more_source": "在 {source} 上阅读更多"
+    "read_more_source": "在 {source} 上阅读更多",
+    "delete_selected": "删除所选",
+    "reclassify_selected": "重新分类所选"
   },
   "detection": {
     "confidence": "置信度",
@@ -1121,7 +1173,6 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "已连接：{user}",
-      "preview_note": "预览模式（连接后可提交）",
       "open": "打开",
       "close": "关闭",
       "open_label": "打开 iNaturalist 提交",
@@ -1220,7 +1271,13 @@
           "retry_snapshot": "稍后尝试手动快照或视频重分类。",
           "video_timeout_setting": "增加视频分析超时时间或减少采样帧数。"
         }
-      }
+      },
+      "fallback_title": "基于快照的结果",
+      "fallback_desc": "视频分析不可用,因此本次检测仅根据单帧进行了分类。置信度可能较低。",
+      "gated_title": "视频已找到匹配 — 请确认以应用",
+      "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新分类\"以应用此结果,或在 设置 → 检测 中降低阈值。",
+      "gated_action": "重新分类",
+      "blocked_label": "匹配到已屏蔽的物种 — 未应用"
     },
     "card_analysis": {
       "title": "正在分析检测",
@@ -1240,7 +1297,19 @@
       "auto_close_in": "将在 {seconds} 秒后自动关闭",
       "auto_video_source": "自动视频分析",
       "auto_video_source_hint": "结果已根据剪辑帧进一步优化。",
-      "final_result": "最终结果"
+      "final_result": "最终结果",
+      "snapshot_fallback_title": "正在根据快照分类",
+      "snapshot_fallback_badge": "回退到快照",
+      "snapshot_fallback_reason_generic": "视频片段不可用",
+      "snapshot_fallback_reason": {
+        "clip_not_retained": "Frigate 未保留此事件的视频片段。",
+        "clip_unavailable": "视频片段未及时可用。",
+        "clip_invalid": "视频片段已损坏或无法读取。",
+        "clip_decode_failed": "无法解码视频片段。",
+        "clip_fetch_failed": "无法从 Frigate 获取视频片段。",
+        "event_not_found": "Frigate 已不再保留此事件,且没有可用的缓存片段。"
+      },
+      "snapshot_scanning": "正在扫描快照"
     },
     "ai": {
       "insight": "AI 自然学家见解",
@@ -1319,7 +1388,11 @@
     "snapshot_best": "最佳",
     "snapshot_model_crop_disabled": "AI裁剪已禁用 — 在设置中启用\"HQ鸟类裁剪快照\"以获得更精确的裁剪。",
     "snapshot_model_crop_unavailable": "AI裁剪模型未加载 — 访问模型管理器下载。",
-    "snapshot_currently_saved": "当前已保存"
+    "snapshot_currently_saved": "当前已保存",
+    "audio_spectrogram_alt": "匹配音频检测的 BirdNET-Go 频谱图",
+    "snapshot_regenerate": "重新生成快照",
+    "snapshot_regenerate_no_candidates": "已重新生成快照,但未产生可供选择的候选。",
+    "snapshot_source_unknown": "未知来源"
   },
   "events": {
     "title": "事件",
@@ -1448,7 +1521,10 @@
     "trend_smooth": "仅平滑",
     "weather_overlay_no_data": "此范围内没有天气数据。",
     "weather_overlay_range_limited": "天气叠加仅适用于日、周或月范围。",
-    "weather_overlays": "天气叠加"
+    "weather_overlays": "天气叠加",
+    "detection_breakdown_subtitle": "物种构成",
+    "detection_breakdown_title": "检测细分",
+    "other_species": "其他"
   },
   "about": {
     "title": "关于本项目",
@@ -1946,9 +2022,38 @@
     "errors_updated_just_now": "刚刚更新",
     "errors_updated_seconds": "{count}秒前更新",
     "errors_updated_minutes": "{count}分钟前更新",
-    "system_ram_usage": "系统内存使用率"
+    "system_ram_usage": "系统内存使用率",
+    "active_job": "正在运行的任务",
+    "circuit_open_detail": "队列中有 {queued} 项正在等待。最近失败次数:{failures}。",
+    "coordinator_detail": "一个协调任务负责管理此回填的分类器工作进程容量。",
+    "coordinator_job": "协调任务",
+    "more_lanes": "另有 {count} 条工作通道",
+    "work_lanes": "工作通道",
+    "work_lanes_empty": "没有排队或正在运行的任务。"
   },
   "errors": {
     "stack_trace": "堆栈跟踪："
+  },
+  "header": {
+    "cameras_empty": "尚未配置摄像头。请在 设置 → 连接 中添加。",
+    "cameras_label": "摄像头状态",
+    "cameras_no_frame": "无画面",
+    "cameras_none": "尚未配置摄像头",
+    "cameras_online": "台摄像头在线",
+    "cameras_role_feeder": "喂食器",
+    "cameras_role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问。",
+    "cameras_role_nest": "巢箱",
+    "cameras_role_nest_help": "巢箱摄像头 — 在配置的时间窗口内合并重复检测。",
+    "cameras_status_offline": "没有最近的画面",
+    "cameras_status_online": "在线",
+    "cameras_title": "摄像头"
+  },
+  "page_subtitle": {
+    "about": "版本、变更日志、贡献者和支持链接。",
+    "dashboard": "实时检测、近期活动和喂食器状态一览。",
+    "events": "浏览、筛选并管理每一次已分类的访问。",
+    "notifications": "提醒、通知和正在运行的后台任务。",
+    "settings": "连接、分类、集成与个性化。",
+    "species": "已观察到的鸟类的排行榜、总数和分类详情。"
   }
 }

@@ -16,7 +16,10 @@
     "expand_sidebar": "Развернуть панель",
     "jobs": "Задачи",
     "close_menu": "Закрыть меню",
-    "close_language_selector": "Закрыть выбор языка"
+    "close_language_selector": "Закрыть выбор языка",
+    "events": "События",
+    "notifications": "Уведомления",
+    "species": "Виды"
   },
   "theme": {
     "switch_light": "Переключить на светлую тему",
@@ -50,7 +53,8 @@
     "color_default_desc": "Стандартные бирюзовые и изумрудные акценты",
     "color_bluetit": "Лазоревка",
     "color_bluetit_desc": "Кобальтово-синий и золотисто-жёлтый, вдохновлено иконкой приложения",
-    "color_selected": "Активен"
+    "color_selected": "Активен",
+    "select": "Выбрать тему {theme}"
   },
   "dashboard": {
     "title": "Дашборд",
@@ -89,10 +93,13 @@
       "active": "Активно",
       "empty_title": "Нет аудио-обнаружений в буфере",
       "empty_subtitle": "Буфер очищается каждые 5 мин",
-      "unknown_sensor": "Неизвестный датчик"
+      "unknown_sensor": "Неизвестный датчик",
+      "open_birdnet": "Открыть BirdNET-Go",
+      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go"
     },
     "top_visitors_title": "Частые посетители",
-    "top_visitors_empty": "Сегодня посетители ещё не зафиксированы."
+    "top_visitors_empty": "Сегодня посетители ещё не зафиксированы.",
+    "top_visitors_count": "{count} визитов"
   },
   "common": {
     "loading": "Загрузка...",
@@ -148,7 +155,9 @@
     "unavailable": "Недоступно",
     "yes": "Да",
     "no": "Нет",
-    "download": "Скачать"
+    "download": "Скачать",
+    "skip_to_content": "Перейти к содержимому",
+    "working": "Выполняется…"
   },
   "error": {
     "boundary_title": "Что-то пошло не так",
@@ -192,13 +201,6 @@
     "debug": {
       "title": "Инструменты отладки",
       "subtitle": "Дополнительные переключатели для тестов и диагностики.",
-      "inat_preview": "Предпросмотр UI iNaturalist",
-      "inat_preview_desc": "Показывает панель отправки без OAuth (только владелец).",
-      "inat_preview_hint": "Совет: откройте карточку обнаружения, чтобы увидеть панель iNaturalist.",
-      "apply_pending": "Ожидание — нажмите «Применить», чтобы активировать.",
-      "apply_applied": "Применено.",
-      "apply_button": "Применить",
-      "apply_notice": "Настройка предпросмотра обновлена.",
       "llm_prompts_title": "Шаблоны промптов LLM",
       "llm_prompts_subtitle": "Настройте структуру Markdown и тон для AI‑анализа и бесед.",
       "llm_prompt_style_label": "Стиль промпта",
@@ -214,8 +216,6 @@
       "llm_prompt_conversation_hint": "Токены: {species}, {analysis}, {history}, {question}, {language_note}",
       "llm_prompt_chart": "Промпт анализа графика",
       "llm_prompt_chart_hint": "Токены: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-      "ai_diagnostics": "Буфер диагностики ИИ",
-      "ai_diagnostics_desc": "Показывает вверху модального окна кнопку копирования, которая собирает полную диагностику и промпты ИИ.",
       "strict_non_finite_output": "Строгая обработка нечисловых выходов",
       "strict_non_finite_output_desc": "Если включено, полностью нечисловые выходы классификатора отклоняются и запускают восстановление во время выполнения. Отключайте только для контролируемой отладки."
     },
@@ -254,7 +254,8 @@
         "source_discovery_help": "Используйте эти обнаруженные имена источников в полях сопоставления выше. Имена более стабильны, чем динамические ID при перезапусках BirdNET-Go.",
         "source_discovery_mapping_value": "Значение сопоставления",
         "source_discovery_sample_id": "Пример ID",
-        "source_discovery_seen": "Встречено"
+        "source_discovery_seen": "Встречено",
+        "advanced_title": "Аудио-буфер и сопоставление датчиков"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -281,7 +282,8 @@
         "disconnect_label": "Отключить аккаунт iNaturalist",
         "refresh": "Обновить статус",
         "refresh_label": "Обновить подключение iNaturalist",
-        "connected": "Подключено как {user}"
+        "connected": "Подключено как {user}",
+        "advanced_title": "Местоположение по умолчанию"
       },
       "ebird": {
         "title": "eBird",
@@ -306,7 +308,8 @@
         "export_range_error": "Дата «С» должна быть раньше или равна дате «По».",
         "export_everything": "Экспортировать всё",
         "export_everything_label": "Включить/выключить полный экспорт для CSV eBird",
-        "export_everything_help": "Включите это, чтобы экспортировать все детекции и отключить диапазон дат."
+        "export_everything_help": "Включите это, чтобы экспортировать все детекции и отключить диапазон дат.",
+        "advanced_title": "Поиск хотспотов по умолчанию"
       },
       "birdweather": {
         "title": "BirdWeather",
@@ -342,7 +345,8 @@
       "trusted_proxies_use_suggestions": "Использовать предложения",
       "trusted_proxies_add": "Добавить доверенный прокси-хост",
       "trusted_proxies_remove": "Удалить доверенный прокси-хост",
-      "trusted_proxies_empty": "Нет настроенных доверенных прокси (все прокси доверенные)."
+      "trusted_proxies_empty": "Нет настроенных доверенных прокси (все прокси доверенные).",
+      "advanced_title": "Сессия и обратный прокси"
     },
     "public_access": {
       "title": "Публичный доступ",
@@ -363,7 +367,8 @@
       "allow_clip_downloads_desc": "Разрешить гостям скачивать полные видеоклипы",
       "share_base_url": "Базовый URL общих ссылок (необязательно)",
       "share_base_url_placeholder": "https://your-public-domain.example",
-      "share_base_url_desc": "Если задано, новые общие ссылки будут использовать этот публичный базовый URL вместо определённого хоста запроса."
+      "share_base_url_desc": "Если задано, новые общие ссылки будут использовать этот публичный базовый URL вместо определённого хоста запроса.",
+      "advanced_title": "Окна истории и ограничения частоты"
     },
     "accessibility": {
       "title": "Параметры доступности",
@@ -421,7 +426,15 @@
       "preview_live": "В эфире",
       "preview_loading": "Загрузка предпросмотра...",
       "preview_missing_url": "Для этой камеры нет URL предпросмотра.",
-      "select": "Выбрать"
+      "select": "Выбрать",
+      "nest_dedupe_help": "Объединяет повторные обнаружения одного вида на гнездовой камере в одно за N минут.",
+      "nest_dedupe_label": "Окно дедупликации для гнезда",
+      "nest_dedupe_unit": "мин",
+      "role_feeder": "Кормушка",
+      "role_feeder_help": "Камера у кормушки — каждое событие Frigate считается новым визитом (по умолчанию).",
+      "role_label": "Роль",
+      "role_nest": "Гнездо",
+      "role_nest_help": "Камера у гнездового домика — объединяет повторные обнаружения одного вида в одно за окно дедупликации, чтобы постоянно присутствующая птица не заполняла ленту."
     },
     "telemetry": {
       "title": "Телеметрия",
@@ -514,7 +527,8 @@
       "outlook_client_id_placeholder": "Идентификатор приложения (клиента) OAuth Microsoft",
       "outlook_client_secret": "Секрет клиента Outlook",
       "outlook_client_secret_placeholder": "Секрет клиента OAuth Microsoft",
-      "test_email_sent": "Тестовое письмо отправлено."
+      "test_email_sent": "Тестовое письмо отправлено.",
+      "advanced_title": "Время доставки и ссылка на панель"
     },
     "notifications": {
       "global_filters": "Глобальные фильтры уведомлений",
@@ -600,7 +614,8 @@
       "device_placeholder": "напр. iphone,nexus5 (оставьте пустым для всех)",
       "device_hint": "Имена устройств, разделённые запятыми. Оставьте пустым для отправки на все активные устройства.",
       "test_notification": "Отправить тестовое уведомление",
-      "test_sending": "Отправка..."
+      "test_sending": "Отправка...",
+      "advanced_title": "Приоритет и выбор устройства"
     },
     "telegram": {
       "title": "Уведомления Telegram",
@@ -629,7 +644,21 @@
       "auto_detect_enabled": "Автоопределение по IP включено",
       "desc": "Используется для локализованного погодного контекста во время обнаружений.",
       "state": "Штат / Регион",
-      "country": "Страна"
+      "country": "Страна",
+      "map_empty": "Координаты ещё не заданы — укажите широту и долготу (или включите автоопределение), чтобы увидеть карту.",
+      "map_help": "Показывает место, заданное для погоды, хотспотов и наблюдений.",
+      "map_title": "Предпросмотр карты",
+      "mode_auto": "Автоопределение",
+      "mode_auto_sub": "Определено по вашей сети",
+      "mode_help": "Автоопределение использует ваш IP/часовой пояс. Ручной режим позволяет точно зафиксировать координаты для погоды, хотспотов eBird и отправки наблюдений.",
+      "mode_manual": "Ручной ввод",
+      "mode_manual_sub": "Зафиксировать точную широту и долготу",
+      "mode_select": "Использовать {mode}",
+      "mode_title": "Источник местоположения",
+      "resolved_label": "Определено",
+      "resolve_empty": "Для этих координат имя места недоступно",
+      "resolve_error": "Поиск не удался",
+      "resolving": "Поиск…"
     },
     "danger": {
       "title": "Опасная зона",
@@ -641,7 +670,8 @@
       "clear_feedback_button": "Очистить данные персонализации",
       "clear_feedback_desc": "Очистка персонализирующей обратной связи удалит все ручные исправления тегов, которые ИИ использует для корректировки уровня уверенности. Это вернёт классификатор к базовой точности.",
       "clear_feedback_hint": "Это не удаляет обнаружения или медиа. Переупорядочивание снова начнёт обучаться по мере появления новых ручных исправлений.",
-      "clearing_feedback": "Очистка..."
+      "clearing_feedback": "Очистка...",
+      "clear_feedback_confirm": "Вы действительно хотите удалить все данные персонализированного ре-ранжирования? ИИ вернётся к базовой точности, и это нельзя отменить."
     },
     "data": {
       "title": "Управление данными",
@@ -777,7 +807,9 @@
       "cache_high_quality_event_snapshots_help": "Позже заменяет снимки Frigate кадром из клипа основного потока.",
       "cache_high_quality_event_snapshot_bird_crop": "HQ-кадры с обрезкой птицы",
       "cache_high_quality_event_snapshot_bird_crop_help": "Использует детектор обрезки птицы на HQ-кадрах. Если обрезка не найдена, используется полный HQ-кадр.",
-      "batch_analysis_complete": "Пакетный анализ завершён"
+      "batch_analysis_complete": "Пакетный анализ завершён",
+      "advanced_title": "Обслуживание и целостность медиа",
+      "cache_advanced_title": "Высококачественные снимки и качество"
     },
     "security": {
       "title": "Безопасность",
@@ -788,10 +820,13 @@
       "frigate_unexpected": "Frigate вернул неожиданный статус",
       "frigate_error": "Не удалось подключиться к Frigate",
       "mqtt_title": "Настройки MQTT (события Frigate)",
-      "simulating": "Симуляция..."
+      "simulating": "Симуляция...",
+      "advanced_title": "Тонкая настройка"
     },
     "common": {
-      "save_error": "Не удалось сохранить настройки"
+      "save_error": "Не удалось сохранить настройки",
+      "advanced": "Дополнительно",
+      "advanced_default_title": "Дополнительные параметры"
     },
     "enrichment": {
       "title": "Источники обогащения",
@@ -959,7 +994,16 @@
       "gpu_plugin_error": "Ошибка плагина GPU:",
       "model_manager_downloading_detector": "Загрузка детектора…",
       "model_manager_default_crop": "Обрезка по умолчанию:",
-      "model_manager_default_source": "Источник по умолчанию:"
+      "model_manager_default_source": "Источник по умолчанию:",
+      "auto_video_advanced_title": "Тонкая настройка авто-видео",
+      "classification_advanced_title": "Источник обрезки и переопределение региона",
+      "crop_priority_desc": "Выберите, что пробовать первым — подсказки Frigate или настроенную модель обрезки. Выбранный уровень детектора обрезки всегда учитывается при использовании пути модели.",
+      "crop_priority_title": "Приоритет источника обрезки",
+      "crop_tier_desc": "«Быстрый» сохраняет текущий SSD-детектор по умолчанию. «Точный» использует экспериментальный уровень YOLOX-Tiny и автоматически возвращается к «Быстрому», если он недоступен.",
+      "crop_tier_title": "Детектор обрезки птиц",
+      "fine_tuning_advanced_title": "Расширенная тонкая настройка",
+      "inference_advanced_title": "Режим выполнения и диагностика во время работы",
+      "inference_diagnostics_title": "Диагностика во время работы"
     },
     "llm": {
       "title": "ИИ-аналитика",
@@ -985,7 +1029,9 @@
       "recommended_model": "Рекомендуется: {model}",
       "get_gemini_key": "Get Google Gemini Key →",
       "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →"
+      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_openrouter_key": "Получить ключ OpenRouter →",
+      "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-2.5-flash). Просмотрите модели на openrouter.ai/models."
     },
     "ai": {
       "usage_title": "Панель использования ИИ",
@@ -1014,7 +1060,8 @@
       "table_tokens": "Токены",
       "table_cost": "Стоимость",
       "view_reference_pricing": "Открыть эталонные цены →",
-      "usage_load_error": "Не удалось загрузить данные использования ИИ."
+      "usage_load_error": "Не удалось загрузить данные использования ИИ.",
+      "advanced_title": "Цены и шаблоны промптов"
     }
   },
   "auth": {
@@ -1030,7 +1077,10 @@
     "continue_guest": "Продолжить как гость",
     "secure_access": "YA-WAMF Безопасный доступ",
     "public_view": "Публичный просмотр",
-    "public_viewing_mode": "Режим публичного просмотра"
+    "public_viewing_mode": "Режим публичного просмотра",
+    "loading_status": "Загрузка статуса аутентификации…",
+    "status_unavailable_desc": "Если контейнер всё ещё запускается или перезапускается после смены модели, подождите немного и повторите попытку.",
+    "status_unavailable_title": "Не удалось связаться с бэкендом YA-WAMF."
   },
   "status": {
     "audio_active": "Аудиоанализ активен",
@@ -1092,7 +1142,9 @@
     "delete_detection": "Удалить обнаружение",
     "hide_detection": "Скрыть обнаружение",
     "read_more_wikipedia": "Читать больше в Википедии",
-    "read_more_source": "Читать больше на {source}"
+    "read_more_source": "Читать больше на {source}",
+    "delete_selected": "Удалить выбранные",
+    "reclassify_selected": "Переклассифицировать выбранные"
   },
   "detection": {
     "confidence": "Уверенность",
@@ -1143,7 +1195,6 @@
     "inat": {
       "title": "iNaturalist",
       "connected": "Подключено: {user}",
-      "preview_note": "Режим предварительного просмотра (подключите для отправки)",
       "open": "Открыть",
       "close": "Закрыть",
       "open_label": "Открыть отправку в iNaturalist",
@@ -1228,7 +1279,13 @@
           "retry_snapshot": "Попробовать ручную переклассификацию снимка или видео позже.",
           "video_timeout_setting": "Увеличить таймаут видеоанализа или уменьшить количество выборочных кадров."
         }
-      }
+      },
+      "fallback_title": "Результат по снимку",
+      "fallback_desc": "Видеоанализ был недоступен, поэтому это обнаружение классифицировано по одному кадру. Уверенность может быть ниже.",
+      "gated_title": "Видео нашло совпадение — подтвердите для применения",
+      "gated_desc": "Автоматическое применение приостановлено, поскольку видео-оценка ниже минимального порога уверенности. Запустите «Переклассифицировать», чтобы применить результат, или понизьте порог в Настройках → Обнаружение.",
+      "gated_action": "Переклассифицировать",
+      "blocked_label": "Совпадение с заблокированным видом — не применено"
     },
     "card_analysis": {
       "title": "Анализ обнаружения",
@@ -1248,7 +1305,19 @@
       "auto_close_in": "Автоматически закроется через {seconds} с",
       "auto_video_source": "Автоматический видеоанализ",
       "auto_video_source_hint": "Результат уточнён по кадрам клипа.",
-      "final_result": "Итоговый результат"
+      "final_result": "Итоговый результат",
+      "snapshot_fallback_title": "Классификация по снимку",
+      "snapshot_fallback_badge": "Резервный снимок",
+      "snapshot_fallback_reason_generic": "Видеоклип был недоступен",
+      "snapshot_fallback_reason": {
+        "clip_not_retained": "Frigate не сохранил видеоклип этого события.",
+        "clip_unavailable": "Видеоклип не был доступен вовремя.",
+        "clip_invalid": "Видеоклип повреждён или не читается.",
+        "clip_decode_failed": "Не удалось декодировать видеоклип.",
+        "clip_fetch_failed": "Не удалось получить видеоклип из Frigate.",
+        "event_not_found": "Frigate больше не содержит это событие; в кэше нет клипа."
+      },
+      "snapshot_scanning": "Сканирование снимка"
     },
     "ai": {
       "insight": "ИИ Натуралист Инсайт",
@@ -1327,7 +1396,11 @@
     "snapshot_best": "Лучший",
     "snapshot_model_crop_disabled": "ИИ-обрезка отключена — включите «Снимки HQ-обрезки птиц» в настройках для более точных кадров.",
     "snapshot_model_crop_unavailable": "Модель ИИ-обрезки не загружена — посетите Менеджер моделей для загрузки.",
-    "snapshot_currently_saved": "Сейчас сохранено"
+    "snapshot_currently_saved": "Сейчас сохранено",
+    "audio_spectrogram_alt": "Спектрограмма BirdNET-Go для соответствующего аудио-обнаружения",
+    "snapshot_regenerate": "Пересоздать снимки",
+    "snapshot_regenerate_no_candidates": "Снимки пересозданы, но не получено ни одного пригодного кандидата.",
+    "snapshot_source_unknown": "Неизвестный источник"
   },
   "events": {
     "title": "События",
@@ -1456,7 +1529,10 @@
     "trend_smooth": "Только сглаженный",
     "weather_overlay_no_data": "В этом диапазоне нет погодных данных.",
     "weather_overlay_range_limited": "Погодные наложения доступны только для диапазонов день, неделя или месяц.",
-    "weather_overlays": "Погодные наложения"
+    "weather_overlays": "Погодные наложения",
+    "detection_breakdown_subtitle": "Состав видов",
+    "detection_breakdown_title": "Разбивка обнаружений",
+    "other_species": "Другие"
   },
   "about": {
     "title": "Об этом проекте",
@@ -1946,9 +2022,38 @@
     "errors_updated_just_now": "Только что обновлено",
     "errors_updated_seconds": "Обновлено {count}с назад",
     "errors_updated_minutes": "Обновмено {count}мин назад",
-    "system_ram_usage": "Использование ОЗУ системы"
+    "system_ram_usage": "Использование ОЗУ системы",
+    "active_job": "Активная задача",
+    "circuit_open_detail": "В очереди ожидает {queued} элементов. Недавних сбоев: {failures}.",
+    "coordinator_detail": "Координирующая задача управляет ёмкостью воркеров классификатора для этого backfill.",
+    "coordinator_job": "Координирующая задача",
+    "more_lanes": "+{count} дополнительных линий работы",
+    "work_lanes": "Линии работы",
+    "work_lanes_empty": "Нет задач в очереди или выполняющихся."
   },
   "errors": {
     "stack_trace": "Трассировка стека:"
+  },
+  "header": {
+    "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Подключение.",
+    "cameras_label": "Состояние камер",
+    "cameras_no_frame": "Нет кадра",
+    "cameras_none": "Камеры не настроены",
+    "cameras_online": "камер в сети",
+    "cameras_role_feeder": "Кормушка",
+    "cameras_role_feeder_help": "Камера у кормушки — каждое событие Frigate — это новый визит.",
+    "cameras_role_nest": "Гнездо",
+    "cameras_role_nest_help": "Камера у гнездового домика — повторные обнаружения объединяются в заданном окне.",
+    "cameras_status_offline": "Нет недавнего кадра",
+    "cameras_status_online": "В сети",
+    "cameras_title": "Камеры"
+  },
+  "page_subtitle": {
+    "about": "Версия, журнал изменений, участники и ссылки поддержки.",
+    "dashboard": "Обнаружения в реальном времени, недавняя активность и состояние кормушки одним взглядом.",
+    "events": "Просматривайте, фильтруйте и управляйте каждым классифицированным визитом.",
+    "notifications": "Оповещения, напоминания и активные фоновые задачи.",
+    "settings": "Подключения, классификация, интеграции и персонализация.",
+    "species": "Рейтинг, итоги и таксономические данные увиденных птиц."
   }
 }
