@@ -208,3 +208,4 @@ backend/tests/fixtures/synthetic/
 
 # Local scratch / untracked binaries
 tmp/
+playwright-results/
