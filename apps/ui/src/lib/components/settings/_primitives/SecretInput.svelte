@@ -28,11 +28,13 @@
         oninput,
     }: Props = $props();
 
-    // When a secret is already saved we visually gray the input out, show the
-    // shared 'Saved' tick badge inside the field, and use the redaction
-    // placeholder so users can see something is stored without exposing it.
-    // Editing the value (typing replaces saved) is still allowed — the styling
-    // indicates state, not interaction.
+    // When a secret is saved we visually gray the input out, show the shared
+    // 'Saved' tick badge inside the field, and use the redaction placeholder
+    // so users can see something is stored without exposing it. Once the user
+    // starts typing a replacement the badge disappears and the input goes back
+    // to normal styling — the parent doesn't need to clear `saved` itself, the
+    // primitive handles the visual contract via `effectivelySaved`.
+    const effectivelySaved = $derived(saved && (value ?? '') === '');
 </script>
 
 <div class="relative">
@@ -42,14 +44,14 @@
         autocomplete={autocomplete as any}
         aria-label={ariaLabel}
         value={value as any}
-        placeholder={saved ? '***REDACTED***' : emptyPlaceholder}
+        placeholder={effectivelySaved ? '***REDACTED***' : emptyPlaceholder}
         oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
         class="w-full px-4 py-3 pr-24 rounded-2xl border font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all
-               {saved
+               {effectivelySaved
                  ? 'border-slate-200 dark:border-slate-700/60 bg-slate-100/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 placeholder-slate-400 dark:placeholder-slate-500'
                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400'}"
     />
-    {#if saved}
+    {#if effectivelySaved}
         <span
             class="pointer-events-none absolute inset-y-0 right-3 flex items-center"
             aria-hidden="false"

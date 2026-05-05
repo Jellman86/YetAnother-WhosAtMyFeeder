@@ -12,11 +12,15 @@
 
     const RECENT_AUDIO_LIMIT = 10;
 
-    function detectionKey(d: AudioDetection): string {
+    function detectionKey(d: AudioDetection, index: number): string {
         // birdnet_id is stable when present; otherwise compose a key that is
         // stable across polls so flip animations track moves rather than swap.
+        // The trailing index protects against the rare collision where two
+        // legacy detections (no birdnet_id) share the same timestamp,
+        // species, and sensor — Svelte's keyed each block would otherwise
+        // throw `each_key_duplicate`.
         if (d.birdnet_id != null) return `bn:${d.birdnet_id}`;
-        return `${d.timestamp}|${d.species}|${d.sensor_id ?? ''}`;
+        return `${d.timestamp}|${d.species}|${d.sensor_id ?? ''}|${index}`;
     }
 
     let audioDetections = $state<AudioDetection[]>([]);
@@ -127,7 +131,7 @@
                 <p class="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">{$_('dashboard.audio_feed.empty_subtitle')}</p>
             </div>
         {:else}
-            {#each audioDetections as detection (detectionKey(detection))}
+            {#each audioDetections as detection, i (detectionKey(detection, i))}
                 {@const spec = spectrogramUrl(detection.birdnet_id)}
                 {@const link = birdnetDetectionUrl(detection.birdnet_id)}
                 <div

@@ -43,7 +43,7 @@
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
-    import { onDestroy, onMount } from 'svelte';
+    import { onDestroy, onMount, untrack } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
     import { getDetectionClassificationSource } from '../detection-classification-source';
@@ -392,6 +392,23 @@
             ? `/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`
             : null
     );
+
+    // Reset audio-context state when the modal switches to a different
+    // detection. The same DetectionModal instance is reused across the
+    // Events / Dashboard prev-next flow, and without this reset the auto-
+    // fetch effect below would early-return on every later detection
+    // (audioContextLoaded already true) and the spectrogram + matched-entry
+    // pill would carry over from the previous detection.
+    $effect(() => {
+        detection.frigate_event;
+        untrack(() => {
+            audioContext = [];
+            audioContextLoaded = false;
+            audioContextLoading = false;
+            audioContextError = null;
+            audioContextOpen = false;
+        });
+    });
 
     // Auto-fetch audio context whenever this modal renders a detection that
     // has any audio info, so the spectrogram (and the matched-entry summary)
@@ -2366,6 +2383,10 @@
                                 </figcaption>
                             {/if}
                         </figure>
+                    {:else if detection.audio_confirmed && audioContextLoaded && audioContext.length > 0}
+                        <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
+                        </p>
                     {/if}
                     <button
                         type="button"
