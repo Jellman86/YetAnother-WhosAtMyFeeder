@@ -16,7 +16,6 @@ import subprocess
 import sys
 import threading
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
@@ -164,14 +163,16 @@ CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD = max(
     1,
     int(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD", "3")),
 )
-CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS = max(
-    1.0,
-    float(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS", "600")),
-)
 CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS", "600")),
 )
+LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON = "live_gpu_lease_expiry_fallback"
+GPU_UNHEALTHY_FALLBACK_REASON = "gpu_unhealthy_fallback"
+LIVE_GPU_LEASE_EXPIRY_FALLBACK_UNAVAILABLE_REASON = "live_gpu_lease_expiry_fallback_unavailable"
+GPU_UNHEALTHY_FALLBACK_UNAVAILABLE_REASON = "gpu_unhealthy_fallback_unavailable"
+WORKER_CIRCUIT_OPEN_RECOVERY_REASON = "worker_circuit_open"
+STALE_WORK_RECLAIM_RECOVERY_REASON = "stale_work_reclaim"
 CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS", "300")),
@@ -2210,9 +2211,6 @@ class ClassifierService:
             min_samples=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD,
             cooldown_seconds=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
         )
-        self._gpu_unhealthy_signal_times: deque[float] = deque(
-            maxlen=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD
-        )
         self._live_gpu_lease_fallback_until_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._bird_model_artifact_metadata: dict[str, Any] = {}
@@ -2507,8 +2505,8 @@ class ClassifierService:
         restoring_after_live_lease_fallback = (
             isinstance(self._last_runtime_recovery, dict)
             and self._last_runtime_recovery.get("reason") in {
-                "live_gpu_lease_expiry_fallback",
-                "gpu_unhealthy_fallback",
+                LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON,
+                GPU_UNHEALTHY_FALLBACK_REASON,
             }
             and not (
                 self._inference_backend == "openvino"
@@ -2584,11 +2582,6 @@ class ClassifierService:
         matters at night or during batch analyze runs when there is no live
         traffic to surface the problem on its own.
         """
-        now = time.monotonic()
-        window_start = now - CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_WINDOW_SECONDS
-        while self._gpu_unhealthy_signal_times and self._gpu_unhealthy_signal_times[0] < window_start:
-            self._gpu_unhealthy_signal_times.popleft()
-        self._gpu_unhealthy_signal_times.append(now)
         runtime_key = runtime_key or self._active_inference_runtime_key()
         if (
             source != "live_lease_expiry"
@@ -2627,9 +2620,9 @@ class ClassifierService:
                     "failed_provider": "intel_gpu",
                     "detail": detail,
                     "reason": (
-                        "live_gpu_lease_expiry_fallback_unavailable"
+                        LIVE_GPU_LEASE_EXPIRY_FALLBACK_UNAVAILABLE_REASON
                         if source == "live_lease_expiry"
-                        else "gpu_unhealthy_fallback_unavailable"
+                        else GPU_UNHEALTHY_FALLBACK_UNAVAILABLE_REASON
                     ),
                     "trigger_source": source,
                     "at": time.time(),
@@ -2640,6 +2633,7 @@ class ClassifierService:
             self._models["bird"] = replacement
             self._inference_backend = backend
             self._active_inference_provider = provider
+            now = time.monotonic()
             self._live_gpu_lease_fallback_until_monotonic = (
                 now + CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS
             )
@@ -2654,9 +2648,9 @@ class ClassifierService:
                 "recovered_provider": provider,
                 "detail": detail,
                 "reason": (
-                    "live_gpu_lease_expiry_fallback"
+                    LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON
                     if source == "live_lease_expiry"
-                    else "gpu_unhealthy_fallback"
+                    else GPU_UNHEALTHY_FALLBACK_REASON
                 ),
                 "trigger_source": source,
                 "at": time.time(),
@@ -2675,7 +2669,6 @@ class ClassifierService:
                     old_model.cleanup()
                 except Exception:
                     pass
-            self._gpu_unhealthy_signal_times.clear()
 
     def _maybe_restore_gpu_provider(self) -> None:
         with self._models_lock:
@@ -2701,7 +2694,6 @@ class ClassifierService:
             self._inference_backend = "openvino"
             self._active_inference_provider = "intel_gpu"
             self._live_gpu_lease_fallback_until_monotonic = 0.0
-            self._gpu_unhealthy_signal_times.clear()
             self._record_gpu_success()
             self._runtime_gpu_restore_successes += 1
             if hasattr(current, "cleanup"):
@@ -3200,11 +3192,11 @@ class ClassifierService:
         live_gpu_fallback_active = self._live_gpu_lease_fallback_active()
         recovery_reason = None
         if worker_circuit_open:
-            recovery_reason = "worker_circuit_open"
+            recovery_reason = WORKER_CIRCUIT_OPEN_RECOVERY_REASON
         elif live_gpu_fallback_active:
-            recovery_reason = "live_gpu_lease_expiry_fallback"
+            recovery_reason = LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON
         elif recovery_active:
-            recovery_reason = "stale_work_reclaim"
+            recovery_reason = STALE_WORK_RECLAIM_RECOVERY_REASON
 
         pressure_level = "normal"
         if queued > 0 or in_flight >= capacity:

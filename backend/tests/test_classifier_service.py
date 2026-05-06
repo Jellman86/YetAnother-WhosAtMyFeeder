@@ -2369,7 +2369,7 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
         )
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
-        service._gpu_unhealthy_signal_times.clear()
+        assert not hasattr(service, "_gpu_unhealthy_signal_times")
 
         service.register_gpu_unhealthy_signal("live_lease_expiry", event_id="evt-health")
 
@@ -2377,6 +2377,45 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
         assert service._active_inference_provider == "intel_cpu"
         assert service._last_runtime_recovery["reason"] == "live_gpu_lease_expiry_fallback"
         assert service._last_runtime_recovery["trigger_source"] == "live_lease_expiry"
+        service._load_runtime_fallback_bird_model.assert_called_once()
+
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_deque(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    fallback_model = MagicMock(loaded=True, error=None)
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        monkeypatch.setattr(
+            classifier_service_module,
+            "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
+            2,
+            raising=False,
+        )
+        service = ClassifierService()
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_gpu"
+        service._image_execution_mode = "in_process"
+        service._accel_caps["intel_gpu_available"] = True
+        service._accel_caps["intel_cpu_available"] = True
+        service._load_runtime_fallback_bird_model = MagicMock(
+            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback")
+        )
+        runtime_key = classifier_service_module.RuntimeKey.from_values(
+            "openvino",
+            "intel_gpu",
+            service._resolve_active_model_id(),
+        )
+        service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
+        service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
+        assert not hasattr(service, "_gpu_unhealthy_signal_times")
+
+        service.register_gpu_unhealthy_signal("live_lease_expiry", event_id="evt-health")
+
+        assert service._models["bird"] is fallback_model
+        assert service._active_inference_provider == "intel_cpu"
         service._load_runtime_fallback_bird_model.assert_called_once()
 
         await service.shutdown()

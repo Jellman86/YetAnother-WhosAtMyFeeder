@@ -16,7 +16,7 @@ Issue `#33` has accumulated many overlapping mitigation layers (admission lease 
 **Current state on `main`:**
 - Phase 1 has shipped: `backend/app/services/inference_health.py` records runtime outcomes keyed by `(backend, provider, model_id)`.
 - `/health` and classifier status expose additive `ml.inference_health` data with per-runtime verdict, latency samples, recent failures, and cooldown details.
-- Legacy fallback and recovery fields still exist, so owners have better visibility but the failure model is not yet simplified.
+- On `dev`, model hot-swap reads the `InferenceHealth` unhealthy verdict, the legacy `_gpu_unhealthy_signal_times` deque has been removed, and runtime recovery reason strings have been centralized. Some compatibility fallback/recovery fields still remain.
 
 **Target:** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. The health payload should replace scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters instead of merely sitting alongside them.
 
@@ -27,8 +27,8 @@ Issue `#33` has accumulated many overlapping mitigation layers (admission lease 
 
 **Phased rollout (no flag day):**
 1. ✅ Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
-2. Switch model hot-swap trigger to `verdict == "unhealthy"`.
-3. Remove legacy mechanisms where they are fully covered (`_gpu_unhealthy_signal_times`, duplicate reason strings, and redundant fallback state).
+2. ✅ Switch model hot-swap trigger to `verdict == "unhealthy"`.
+3. 🔄 Remove legacy mechanisms where they are fully covered (`_gpu_unhealthy_signal_times` removed on `dev`; duplicate reason strings centralized; redundant fallback state remains).
 4. Land pre-flight startup benchmark and `runtime_benchmarks` diagnostics field.
 
 **Success criteria:**
