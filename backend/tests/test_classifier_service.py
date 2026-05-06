@@ -270,6 +270,33 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
     mock_ort.InferenceSession.assert_called_once()
 
 
+def test_onnx_model_probe_reports_active_provider_and_output_summary():
+    fake_input = MagicMock()
+    fake_input.name = "input"
+    fake_session = MagicMock()
+    fake_session.get_inputs.return_value = [fake_input]
+    fake_session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    fake_session.run.return_value = [np.array([[0.1, 0.2, 0.3]], dtype=np.float32)]
+
+    model = ONNXModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        input_size=8,
+        ort_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    model.loaded = True
+    model.session = fake_session
+
+    report = model.probe(Image.new("RGB", (8, 8), color="white"))
+
+    assert report["status"] == "ok"
+    assert report["provider"] == "CUDAExecutionProvider"
+    assert report["active_providers"] == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    assert report["output_summary"]["shape"] == [3]
+    assert report["output_summary"]["finite_count"] == 3
+
+
 def test_onnx_preprocess_letterbox_respects_configured_padding_color():
     model = ONNXModelInstance(
         "test",
@@ -1065,6 +1092,302 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         assert status["model_config_warnings"] == [
             "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: intel_gpu"
         ]
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_init_bird_model_refuses_slow_openvino_gpu_runtime_and_exposes_benchmark(monkeypatch):
+    spec = {
+        "model_path": "/tmp/bird.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "onnx",
+        "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
+    }
+
+    gpu_model = MagicMock()
+    gpu_model.load.return_value = True
+    gpu_model.error = None
+    gpu_model.labels = []
+    gpu_model.get_status.return_value = {"loaded": True, "runtime": "openvino", "device": "GPU"}
+
+    cpu_fallback = MagicMock()
+    cpu_fallback.load.return_value = True
+    cpu_fallback.error = None
+    cpu_fallback.labels = []
+    cpu_fallback.get_status.return_value = {"loaded": True, "runtime": "onnx"}
+
+    def _fake_refresh(self, *, force=False):
+        caps = {
+            "openvino_available": True,
+            "ort_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+        }
+        self._accel_caps = caps
+        return caps
+
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        lambda *_args, **_kwargs: {
+            "backend": "openvino",
+            "active_provider": "intel_gpu",
+            "openvino_device": "GPU",
+            "fallback_reason": None,
+        },
+    )
+    monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: gpu_model)
+    monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: cpu_fallback)
+
+    benchmark = {
+        "status": "failed",
+        "should_mount": False,
+        "device": "GPU",
+        "provider": "intel_gpu",
+        "gpu_latency_seconds": 1.2,
+        "cpu_latency_seconds": 0.1,
+        "ratio": 12.0,
+        "max_ratio": 5.0,
+        "reason": "gpu_latency_ratio_exceeded",
+    }
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
+         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+        service = ClassifierService()
+
+    try:
+        assert service._models["bird"] is cpu_fallback
+        assert service._inference_backend == "onnxruntime"
+        assert service._active_inference_provider == "cpu"
+        assert "runtime benchmark refused OpenVINO GPU" in service._inference_fallback_reason
+        assert service._openvino_model_compile_ok is False
+        assert "runtime benchmark refused OpenVINO GPU" in service._openvino_model_compile_error
+
+        status = service.get_status()
+        diagnostics = status["runtime_benchmarks"]["openvino/intel_gpu"]
+        assert diagnostics["status"] == "failed"
+        assert diagnostics["ratio"] == 12.0
+        assert status["openvino_runtime"]["runtime_benchmarks"] == status["runtime_benchmarks"]
+
+        health = service.check_health()
+        assert health["runtime_benchmarks"]["openvino/intel_gpu"]["status"] == "failed"
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_init_bird_model_mounts_openvino_gpu_when_runtime_benchmark_passes(monkeypatch):
+    spec = {
+        "model_path": "/tmp/bird.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "onnx",
+        "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
+    }
+
+    gpu_model = MagicMock()
+    gpu_model.load.return_value = True
+    gpu_model.error = None
+    gpu_model.labels = []
+    gpu_model.get_status.return_value = {"loaded": True, "runtime": "openvino", "device": "GPU"}
+
+    def _fake_refresh(self, *, force=False):
+        caps = {
+            "openvino_available": True,
+            "ort_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+        }
+        self._accel_caps = caps
+        return caps
+
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        lambda *_args, **_kwargs: {
+            "backend": "openvino",
+            "active_provider": "intel_gpu",
+            "openvino_device": "GPU",
+            "fallback_reason": None,
+        },
+    )
+    monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: gpu_model)
+
+    benchmark = {
+        "status": "passed",
+        "should_mount": True,
+        "device": "GPU",
+        "provider": "intel_gpu",
+        "gpu_latency_seconds": 0.12,
+        "cpu_latency_seconds": 0.1,
+        "ratio": 1.2,
+        "max_ratio": 5.0,
+    }
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
+         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+        service = ClassifierService()
+
+    try:
+        assert service._models["bird"] is gpu_model
+        assert service._inference_backend == "openvino"
+        assert service._active_inference_provider == "intel_gpu"
+        assert service._openvino_model_compile_ok is True
+        assert service.get_status()["runtime_benchmarks"]["openvino/intel_gpu"]["status"] == "passed"
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_init_bird_model_refuses_slow_onnxruntime_cuda_and_exposes_benchmark(monkeypatch):
+    spec = {
+        "model_path": "/tmp/bird.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "onnx",
+        "supported_inference_providers": ["cuda", "cpu"],
+    }
+
+    cuda_model = MagicMock()
+    cuda_model.load.return_value = True
+    cuda_model.error = None
+    cuda_model.labels = []
+    cuda_model.session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    cuda_model.get_status.return_value = {"loaded": True, "runtime": "onnx"}
+
+    cpu_fallback = MagicMock()
+    cpu_fallback.load.return_value = True
+    cpu_fallback.error = None
+    cpu_fallback.labels = []
+    cpu_fallback.get_status.return_value = {"loaded": True, "runtime": "onnx"}
+
+    def _fake_refresh(self, *, force=False):
+        caps = {
+            "openvino_available": False,
+            "ort_available": True,
+            "cuda_available": True,
+            "cuda_provider_installed": True,
+            "cuda_hardware_available": True,
+        }
+        self._accel_caps = caps
+        return caps
+
+    def _fake_onnx_model(*args, **kwargs):
+        providers = list(kwargs.get("ort_providers") or [])
+        return cuda_model if "CUDAExecutionProvider" in providers else cpu_fallback
+
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        lambda *_args, **_kwargs: {
+            "backend": "onnxruntime",
+            "active_provider": "cuda",
+            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            "openvino_device": None,
+            "fallback_reason": None,
+        },
+    )
+    monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", _fake_onnx_model)
+
+    benchmark = {
+        "status": "failed",
+        "should_mount": False,
+        "backend": "onnxruntime",
+        "provider": "cuda",
+        "gpu_latency_seconds": 1.0,
+        "cpu_latency_seconds": 0.1,
+        "ratio": 10.0,
+        "max_ratio": 5.0,
+        "reason": "accelerated_latency_ratio_exceeded",
+    }
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
+         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+        service = ClassifierService()
+
+    try:
+        assert service._models["bird"] is cpu_fallback
+        assert service._inference_backend == "onnxruntime"
+        assert service._active_inference_provider == "cpu"
+        assert "runtime benchmark refused ONNX Runtime CUDA" in service._inference_fallback_reason
+        diagnostics = service.get_status()["runtime_benchmarks"]["onnxruntime/cuda"]
+        assert diagnostics["status"] == "failed"
+        assert diagnostics["ratio"] == 10.0
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_init_bird_model_mounts_onnxruntime_cuda_when_runtime_benchmark_passes(monkeypatch):
+    spec = {
+        "model_path": "/tmp/bird.onnx",
+        "labels_path": "/tmp/labels.txt",
+        "input_size": 224,
+        "preprocessing": {},
+        "runtime": "onnx",
+        "supported_inference_providers": ["cuda", "cpu"],
+    }
+
+    cuda_model = MagicMock()
+    cuda_model.load.return_value = True
+    cuda_model.error = None
+    cuda_model.labels = []
+    cuda_model.session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    cuda_model.get_status.return_value = {"loaded": True, "runtime": "onnx"}
+
+    def _fake_refresh(self, *, force=False):
+        caps = {
+            "openvino_available": False,
+            "ort_available": True,
+            "cuda_available": True,
+            "cuda_provider_installed": True,
+            "cuda_hardware_available": True,
+        }
+        self._accel_caps = caps
+        return caps
+
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_resolve_inference_selection",
+        lambda *_args, **_kwargs: {
+            "backend": "onnxruntime",
+            "active_provider": "cuda",
+            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            "openvino_device": None,
+            "fallback_reason": None,
+        },
+    )
+    monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: cuda_model)
+
+    benchmark = {
+        "status": "passed",
+        "should_mount": True,
+        "backend": "onnxruntime",
+        "provider": "cuda",
+        "gpu_latency_seconds": 0.05,
+        "cpu_latency_seconds": 0.1,
+        "ratio": 0.5,
+        "max_ratio": 5.0,
+    }
+
+    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
+         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
+         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+        service = ClassifierService()
+
+    try:
+        assert service._models["bird"] is cuda_model
+        assert service._inference_backend == "onnxruntime"
+        assert service._active_inference_provider == "cuda"
+        assert service.get_status()["runtime_benchmarks"]["onnxruntime/cuda"]["status"] == "passed"
     finally:
         await service.shutdown()
 

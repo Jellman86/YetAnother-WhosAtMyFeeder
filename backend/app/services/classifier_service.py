@@ -189,6 +189,10 @@ CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS", "120")),
 )
+CLASSIFIER_RUNTIME_BENCHMARK_MAX_GPU_CPU_RATIO = max(
+    1.0,
+    float(os.getenv("CLASSIFIER_RUNTIME_BENCHMARK_MAX_GPU_CPU_RATIO", "5.0")),
+)
 CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER = max(
     1.0,
     float(os.getenv("CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER", "1.25")),
@@ -371,6 +375,19 @@ def _openvino_gpu_startup_self_test_enabled() -> bool:
         "no",
         "off",
     }
+
+
+def _runtime_benchmark_enabled() -> bool:
+    return os.getenv("CLASSIFIER_RUNTIME_BENCHMARK_ENABLED", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _safe_isinstance(value: Any, expected_type: Any) -> bool:
+    return isinstance(expected_type, type) and isinstance(value, expected_type)
 
 
 def _openvino_gpu_optional_compile_properties() -> dict[str, str]:
@@ -1720,6 +1737,40 @@ class ONNXModelInstance:
             log.error("ONNX raw classification failed", error=str(e))
             return np.array([])
 
+    def probe(self, image: Image.Image) -> dict[str, Any]:
+        provider = self.ort_providers[0] if self.ort_providers else "CPUExecutionProvider"
+        input_tensor = self._preprocess(image)
+        report: dict[str, Any] = {
+            "status": "ok",
+            "provider": str(provider),
+            "active_providers": [],
+            "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
+        }
+        if not self.loaded or not self.session:
+            report["status"] = "compile_failed"
+            report["error"] = self.error or "ONNX Runtime model is not loaded"
+            return report
+
+        try:
+            try:
+                report["active_providers"] = list(self.session.get_providers() or [])
+            except Exception:
+                report["active_providers"] = []
+            input_name = self.session.get_inputs()[0].name
+            with self._lock:
+                outputs = self.session.run(None, {input_name: input_tensor})
+            logits = np.asarray(outputs[0])
+            if logits.ndim > 0 and logits.shape[0] == 1:
+                logits = logits[0]
+            report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
+            if logits.size == 0 or not np.isfinite(logits).any():
+                report["status"] = "invalid_output"
+            return report
+        except Exception as exc:
+            report["status"] = "runtime_error"
+            report["error"] = _summarize_runtime_exception(exc, max_len=600)
+            return report
+
     def cleanup(self):
         """Clean up ONNX model resources."""
         if self.session is not None:
@@ -2199,6 +2250,7 @@ class ClassifierService:
         self._openvino_model_compile_device: Optional[str] = None
         self._openvino_model_compile_error: Optional[str] = None
         self._openvino_model_compile_unsupported_ops: list[str] = []
+        self._runtime_benchmarks: dict[str, Any] = {}
         self._runtime_invalid_output_failures = 0
         self._runtime_fallback_recoveries = 0
         self._runtime_gpu_retries = 0
@@ -2328,7 +2380,7 @@ class ClassifierService:
 
     def _active_openvino_model(self) -> OpenVINOModelInstance | None:
         bird = self._models.get("bird")
-        if isinstance(bird, OpenVINOModelInstance):
+        if _safe_isinstance(bird, OpenVINOModelInstance):
             return bird
         return None
 
@@ -2355,6 +2407,7 @@ class ClassifierService:
             },
             "active_model_compile_properties": {},
             "startup_self_test": None,
+            "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
             "last_runtime_recovery": runtime_recovery,
         }
         if active_model is not None:
@@ -2443,6 +2496,218 @@ class ClassifierService:
             return model if model.load() else None
 
         return None
+
+    def _runtime_benchmark_key(self, *, backend: str, provider: str) -> str:
+        return f"{str(backend or 'unknown').strip().lower()}/{str(provider or 'unknown').strip().lower()}"
+
+    def _record_runtime_benchmark(self, benchmark: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(benchmark or {})
+        key = str(payload.get("key") or "").strip()
+        if not key:
+            key = self._runtime_benchmark_key(
+                backend=str(payload.get("backend") or "openvino"),
+                provider=str(payload.get("provider") or "unknown"),
+            )
+            payload["key"] = key
+        self._runtime_benchmarks[key] = payload
+        return payload
+
+    def _benchmark_model_probe(self, model: Any, image: Image.Image) -> tuple[float, dict[str, Any]]:
+        started = time.perf_counter()
+        report = model.probe(image)
+        elapsed = max(0.0, time.perf_counter() - started)
+        return elapsed, dict(report or {})
+
+    def _runtime_benchmark_baseline(
+        self,
+        *,
+        backend: str,
+        provider: str,
+    ) -> tuple[str, str] | None:
+        normalized_backend = str(backend or "").strip().lower()
+        normalized_provider = str(provider or "").strip().lower()
+        if normalized_backend == "openvino" and normalized_provider == "intel_gpu":
+            return ("openvino", "intel_cpu")
+        if normalized_backend == "onnxruntime" and normalized_provider == "cuda":
+            return ("onnxruntime", "cpu")
+        return None
+
+    def _runtime_benchmark_refusal_reason(self, *, backend: str, provider: str, benchmark: dict[str, Any]) -> str:
+        normalized_backend = str(backend or "").strip().lower()
+        normalized_provider = str(provider or "").strip().lower()
+        if normalized_backend == "openvino" and normalized_provider == "intel_gpu":
+            label = "OpenVINO GPU"
+        elif normalized_backend == "onnxruntime" and normalized_provider == "cuda":
+            label = "ONNX Runtime CUDA"
+        else:
+            label = f"{backend}/{provider}".strip("/")
+
+        reason = f"runtime benchmark refused {label}"
+        ratio = benchmark.get("ratio")
+        max_ratio = benchmark.get("max_ratio")
+        if isinstance(ratio, (int, float)) and isinstance(max_ratio, (int, float)):
+            reason = f"{reason}: latency ratio {ratio:.2f} exceeded {max_ratio:.2f}"
+        return reason
+
+    def _build_runtime_benchmark_model(
+        self,
+        spec: dict[str, Any],
+        *,
+        backend: str,
+        provider: str,
+    ) -> ModelType | None:
+        if backend == "openvino":
+            device_name = "GPU" if provider == "intel_gpu" else "CPU"
+            model = OpenVINOModelInstance(
+                "bird",
+                str(spec.get("model_path") or ""),
+                str(spec.get("labels_path") or ""),
+                preprocessing=spec.get("preprocessing"),
+                label_grouping=spec.get("label_grouping"),
+                input_size=int(spec.get("input_size") or 384),
+                device_name=device_name,
+                startup_self_test_enabled=False,
+            )
+            return model if model.load() else model
+
+        if backend == "onnxruntime":
+            providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if provider == "cuda"
+                else ["CPUExecutionProvider"]
+            )
+            model = ONNXModelInstance(
+                "bird",
+                str(spec.get("model_path") or ""),
+                str(spec.get("labels_path") or ""),
+                preprocessing=spec.get("preprocessing"),
+                label_grouping=spec.get("label_grouping"),
+                input_size=int(spec.get("input_size") or 384),
+                ort_providers=providers,
+            )
+            return model if model.load() else model
+
+        return None
+
+    def _build_runtime_benchmark_image(self, model: Any, spec: dict[str, Any]) -> Image.Image:
+        builder = getattr(model, "_build_startup_self_test_image", None)
+        if callable(builder):
+            return builder()
+        size = max(8, int(spec.get("input_size") or getattr(model, "input_size", 384) or 384))
+        x = np.linspace(0, 255, size, dtype=np.uint8)
+        y = np.linspace(255, 0, size, dtype=np.uint8)
+        red = np.tile(x, (size, 1))
+        green = np.tile(y[:, None], (1, size))
+        blue = np.full((size, size), 127, dtype=np.uint8)
+        return Image.fromarray(np.stack((red, green, blue), axis=2), mode="RGB")
+
+    def _benchmark_runtime_candidate_against_cpu(
+        self,
+        spec: dict[str, Any],
+        candidate_model: Any,
+        *,
+        backend: str,
+        provider: str,
+    ) -> dict[str, Any]:
+        backend = str(backend or "").strip().lower()
+        provider = str(provider or "").strip().lower()
+        key = self._runtime_benchmark_key(backend=backend, provider=provider)
+        baseline = self._runtime_benchmark_baseline(backend=backend, provider=provider)
+        benchmark: dict[str, Any] = {
+            "key": key,
+            "backend": backend,
+            "provider": provider,
+            "status": "skipped",
+            "should_mount": True,
+            "enabled": _runtime_benchmark_enabled(),
+            "max_ratio": CLASSIFIER_RUNTIME_BENCHMARK_MAX_GPU_CPU_RATIO,
+        }
+        if not benchmark["enabled"]:
+            benchmark["reason"] = "disabled"
+            return self._record_runtime_benchmark(benchmark)
+        if self._worker_process_mode:
+            benchmark["reason"] = "worker_process_mode"
+            return self._record_runtime_benchmark(benchmark)
+        if baseline is None:
+            benchmark["reason"] = "no_comparable_cpu_baseline"
+            return self._record_runtime_benchmark(benchmark)
+
+        baseline_backend, baseline_provider = baseline
+        benchmark["baseline_backend"] = baseline_backend
+        benchmark["baseline_provider"] = baseline_provider
+
+        cpu_model: Any | None = None
+        try:
+            image = self._build_runtime_benchmark_image(candidate_model, spec)
+            cpu_model = self._build_runtime_benchmark_model(
+                spec,
+                backend=baseline_backend,
+                provider=baseline_provider,
+            )
+            if cpu_model is None or not getattr(cpu_model, "loaded", False):
+                benchmark["reason"] = "cpu_baseline_load_failed"
+                benchmark["cpu_compile_error"] = getattr(cpu_model, "error", None)
+                return self._record_runtime_benchmark(benchmark)
+
+            gpu_latency, gpu_report = self._benchmark_model_probe(candidate_model, image)
+            cpu_latency, cpu_report = self._benchmark_model_probe(cpu_model, image)
+            benchmark.update({
+                "candidate_latency_seconds": gpu_latency,
+                "baseline_latency_seconds": cpu_latency,
+                "gpu_latency_seconds": gpu_latency,
+                "cpu_latency_seconds": cpu_latency,
+                "candidate_status": gpu_report.get("status"),
+                "baseline_status": cpu_report.get("status"),
+                "gpu_status": gpu_report.get("status"),
+                "cpu_status": cpu_report.get("status"),
+                "candidate_probe": gpu_report,
+                "baseline_probe": cpu_report,
+                "gpu_probe": gpu_report,
+                "cpu_probe": cpu_report,
+            })
+            if gpu_report.get("status") != "ok":
+                benchmark.update({
+                    "status": "failed",
+                    "should_mount": False,
+                    "reason": "candidate_probe_failed",
+                })
+                return self._record_runtime_benchmark(benchmark)
+            if cpu_report.get("status") != "ok" or cpu_latency <= 0:
+                benchmark.update({
+                    "status": "skipped",
+                    "should_mount": True,
+                    "reason": "cpu_baseline_probe_unavailable",
+                })
+                return self._record_runtime_benchmark(benchmark)
+
+            ratio = gpu_latency / cpu_latency
+            benchmark["ratio"] = ratio
+            if ratio > CLASSIFIER_RUNTIME_BENCHMARK_MAX_GPU_CPU_RATIO:
+                benchmark.update({
+                    "status": "failed",
+                    "should_mount": False,
+                    "reason": "accelerated_latency_ratio_exceeded",
+                })
+            else:
+                benchmark.update({
+                    "status": "passed",
+                    "should_mount": True,
+                })
+            return self._record_runtime_benchmark(benchmark)
+        except Exception as exc:
+            benchmark.update({
+                "status": "error",
+                "should_mount": True,
+                "reason": "benchmark_error",
+                "error": _summarize_runtime_exception(exc, max_len=600),
+            })
+            return self._record_runtime_benchmark(benchmark)
+        finally:
+            if cpu_model is not None:
+                try:
+                    cpu_model.cleanup()
+                except Exception:
+                    pass
 
     def _runtime_fallback_targets(self) -> list[tuple[str, str]]:
         targets: list[tuple[str, str]] = []
@@ -2871,6 +3136,7 @@ class ClassifierService:
         self._openvino_model_compile_device = None
         self._openvino_model_compile_error = None
         self._openvino_model_compile_unsupported_ops = []
+        self._runtime_benchmarks = {}
 
         if not self._accel_caps.get("openvino_available"):
             if self._accel_caps.get("openvino_import_error"):
@@ -2928,6 +3194,76 @@ class ClassifierService:
                     startup_self_test_enabled=not self._worker_process_mode,
                 )
                 if bird_model.load():
+                    if (
+                        openvino_device == "GPU" or str(openvino_device).startswith("GPU.")
+                    ) and self._active_inference_provider == "intel_gpu":
+                        benchmark = self._benchmark_runtime_candidate_against_cpu(
+                            spec,
+                            bird_model,
+                            backend="openvino",
+                            provider="intel_gpu",
+                        )
+                        benchmark = self._record_runtime_benchmark(benchmark)
+                        if not bool(benchmark.get("should_mount", True)):
+                            reason = self._runtime_benchmark_refusal_reason(
+                                backend="openvino",
+                                provider="intel_gpu",
+                                benchmark=benchmark,
+                            )
+                            self._openvino_model_compile_ok = False
+                            self._openvino_model_compile_error = reason
+                            self._openvino_model_compile_unsupported_ops = []
+                            try:
+                                bird_model.cleanup()
+                            except Exception:
+                                pass
+                            if self._accel_caps.get("ort_available"):
+                                log.warning(
+                                    "OpenVINO GPU runtime benchmark failed; retrying with ONNX Runtime CPU fallback",
+                                    requested=self._selected_inference_provider,
+                                    device=selection.get("openvino_device"),
+                                    benchmark=benchmark,
+                                )
+                                self._inference_backend = "onnxruntime"
+                                self._active_inference_provider = "cpu"
+                                prev_reason = self._inference_fallback_reason
+                                self._inference_fallback_reason = (
+                                    f"{prev_reason}; {reason}" if prev_reason else reason
+                                )
+                                fallback_model = ONNXModelInstance(
+                                    "bird",
+                                    model_path,
+                                    labels_path,
+                                    preprocessing=preprocessing,
+                                    input_size=input_size,
+                                    ort_providers=["CPUExecutionProvider"],
+                                )
+                                if fallback_model.load():
+                                    self._models["bird"] = fallback_model
+                                    return
+                                log.warning(
+                                    "ONNX Runtime CPU fallback model load failed after GPU runtime benchmark; falling back to TFLite",
+                                    error=fallback_model.error,
+                                )
+                                runtime = 'tflite'
+                            else:
+                                prev_reason = self._inference_fallback_reason
+                                self._inference_fallback_reason = (
+                                    f"{prev_reason}; {reason}" if prev_reason else reason
+                                )
+                                log.warning(
+                                    "OpenVINO GPU runtime benchmark failed and no ORT fallback available; falling back to TFLite",
+                                    benchmark=benchmark,
+                                )
+                                runtime = 'tflite'
+                            tflite_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
+                            if tflite_model is None:
+                                tflite_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
+                                tflite_model.load()
+                            self._models["bird"] = tflite_model
+                            self._inference_backend = "tflite"
+                            self._active_inference_provider = "tflite"
+                            return
                     self._openvino_model_compile_ok = True
                     self._openvino_model_compile_error = None
                     self._openvino_model_compile_unsupported_ops = []
@@ -3023,6 +3359,94 @@ class ClassifierService:
                     ort_providers=selection.get("ort_providers") or ["CPUExecutionProvider"],
                 )
                 if bird_model.load():
+                    session_providers = []
+                    if getattr(bird_model, "session", None):
+                        try:
+                            session_providers = list(bird_model.session.get_providers() or [])
+                        except Exception:
+                            session_providers = []
+                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                        self._active_inference_provider,
+                        session_providers,
+                    )
+                    if session_fallback_reason:
+                        prev_reason = self._inference_fallback_reason
+                        self._active_inference_provider = reconciled_provider
+                        self._inference_fallback_reason = (
+                            f"{prev_reason}; {session_fallback_reason}" if prev_reason else session_fallback_reason
+                        )
+                        log.warning(
+                            "ONNX Runtime session provider mismatch; applying runtime fallback status",
+                            requested=self._selected_inference_provider,
+                            planned_active=selection.get("active_provider"),
+                            actual_active=self._active_inference_provider,
+                            session_providers=session_providers,
+                            reason=session_fallback_reason,
+                        )
+                    if self._active_inference_provider == "cuda":
+                        benchmark = self._benchmark_runtime_candidate_against_cpu(
+                            spec,
+                            bird_model,
+                            backend="onnxruntime",
+                            provider="cuda",
+                        )
+                        benchmark = self._record_runtime_benchmark(benchmark)
+                        if not bool(benchmark.get("should_mount", True)):
+                            reason = self._runtime_benchmark_refusal_reason(
+                                backend="onnxruntime",
+                                provider="cuda",
+                                benchmark=benchmark,
+                            )
+                            try:
+                                bird_model.cleanup()
+                            except Exception:
+                                pass
+                            log.warning(
+                                "ONNX Runtime CUDA benchmark failed; retrying with ONNX Runtime CPU fallback",
+                                requested=self._selected_inference_provider,
+                                benchmark=benchmark,
+                            )
+                            self._inference_backend = "onnxruntime"
+                            self._active_inference_provider = "cpu"
+                            prev_reason = self._inference_fallback_reason
+                            self._inference_fallback_reason = (
+                                f"{prev_reason}; {reason}" if prev_reason else reason
+                            )
+                            fallback_model = ONNXModelInstance(
+                                "bird",
+                                model_path,
+                                labels_path,
+                                preprocessing=preprocessing,
+                                input_size=input_size,
+                                ort_providers=["CPUExecutionProvider"],
+                            )
+                            if fallback_model.load():
+                                self._models["bird"] = fallback_model
+                                return
+                            log.warning(
+                                "ONNX Runtime CPU fallback model load failed after CUDA runtime benchmark; falling back to TFLite",
+                                error=fallback_model.error,
+                            )
+                            runtime = 'tflite'
+                            tflite_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
+                            if tflite_model is None:
+                                tflite_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
+                                tflite_model.load()
+                            self._models["bird"] = tflite_model
+                            self._inference_backend = "tflite"
+                            self._active_inference_provider = "tflite"
+                            return
+                        else:
+                            self._models["bird"] = bird_model
+                            if self._inference_fallback_reason:
+                                log.warning(
+                                    "Inference provider fallback applied",
+                                    requested=self._selected_inference_provider,
+                                    active=self._active_inference_provider,
+                                    backend=self._inference_backend,
+                                    reason=self._inference_fallback_reason,
+                                )
+                            return
                     self._models["bird"] = bird_model
                     if self._inference_fallback_reason:
                         log.warning(
@@ -3359,7 +3783,10 @@ class ClassifierService:
             "models": {
                 name: {
                     "loaded": model.loaded,
-                    "runtime": "onnx" if isinstance(model, ONNXModelInstance) else ("openvino" if isinstance(model, OpenVINOModelInstance) else "tflite"),
+                    "runtime": (
+                        "onnx" if _safe_isinstance(model, ONNXModelInstance)
+                        else ("openvino" if _safe_isinstance(model, OpenVINOModelInstance) else "tflite")
+                    ),
                     "error": model.error
                 } for name, model in self._models.items()
             },
@@ -3368,6 +3795,7 @@ class ClassifierService:
             "background_throttled": background_image_health["background_throttled"],
             "runtime_recovery": runtime_recovery,
             "inference_health": self._inference_health.snapshot(),
+            "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
         }
         if supervisor_metrics is not None:
             health["worker_pools"] = supervisor_metrics
@@ -3482,6 +3910,7 @@ class ClassifierService:
             "strict_non_finite_output": _strict_non_finite_output_enabled(),
             "last_runtime_recovery": effective_runtime_recovery,
             "inference_health": self._inference_health.snapshot(),
+            "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
             "openvino_runtime": self._openvino_runtime_snapshot(
                 active_backend=effective_backend,
                 active_provider=effective_provider,
@@ -3518,7 +3947,7 @@ class ClassifierService:
 
         for name, model in self._models.items():
             model_status = model.get_status()
-            if name == "bird" and isinstance(model, ONNXModelInstance) and model.session:
+            if name == "bird" and _safe_isinstance(model, ONNXModelInstance) and model.session:
                 model_status["active_providers"] = model.session.get_providers()
             status["models"][name] = model_status
             
