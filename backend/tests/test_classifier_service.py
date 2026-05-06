@@ -3877,6 +3877,225 @@ def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
     assert sel["fallback_reason"] is None
 
 
+@pytest.mark.parametrize(
+    "requested,caps,expected_provider,expected_backend,expected_device",
+    [
+        (
+            "auto",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "intel_gpu",
+            "openvino",
+            "GPU",
+        ),
+        (
+            "auto",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": False,
+                "intel_gpu_available": False,
+                "intel_cpu_available": False,
+            },
+            "cuda",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "auto",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "intel_gpu",
+            "openvino",
+            "GPU",
+        ),
+        (
+            "auto",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": True,
+                "intel_gpu_available": False,
+                "intel_cpu_available": True,
+            },
+            "intel_cpu",
+            "openvino",
+            "CPU",
+        ),
+        (
+            "auto",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": False,
+                "intel_gpu_available": False,
+                "intel_cpu_available": False,
+            },
+            "cpu",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cuda",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "cuda",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cuda",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": False,
+                "intel_gpu_available": False,
+                "intel_cpu_available": False,
+            },
+            "cuda",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cuda",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "intel_gpu",
+            "openvino",
+            "GPU",
+        ),
+        (
+            "cuda",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": True,
+                "intel_gpu_available": False,
+                "intel_cpu_available": True,
+            },
+            "cpu",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cuda",
+            {
+                "ort_available": True,
+                "cuda_available": False,
+                "openvino_available": False,
+                "intel_gpu_available": False,
+                "intel_cpu_available": False,
+            },
+            "cpu",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "intel_gpu",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "intel_gpu",
+            "openvino",
+            "GPU",
+        ),
+        (
+            "intel_gpu",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": True,
+                "intel_gpu_available": False,
+                "intel_cpu_available": True,
+            },
+            "intel_cpu",
+            "openvino",
+            "CPU",
+        ),
+        (
+            "intel_gpu",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": False,
+                "intel_gpu_available": False,
+                "intel_cpu_available": False,
+            },
+            "cpu",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cpu",
+            {
+                "ort_available": True,
+                "cuda_available": True,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "cpu",
+            "onnxruntime",
+            None,
+        ),
+        (
+            "cpu",
+            {
+                "ort_available": False,
+                "cuda_available": False,
+                "openvino_available": True,
+                "intel_gpu_available": True,
+                "intel_cpu_available": True,
+            },
+            "intel_cpu",
+            "openvino",
+            "CPU",
+        ),
+    ],
+)
+def test_resolve_inference_selection_provider_matrix(
+    requested,
+    caps,
+    expected_provider,
+    expected_backend,
+    expected_device,
+):
+    caps = {
+        "cuda_provider_installed": bool(caps.get("cuda_available")),
+        "cuda_hardware_available": bool(caps.get("cuda_available")),
+        "cuda_probe_error": None,
+        **caps,
+    }
+    sel = _resolve_inference_selection(requested, caps)
+    assert sel["active_provider"] == expected_provider
+    assert sel["backend"] == expected_backend
+    assert sel["openvino_device"] == expected_device
+
+
 def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
     caps = {
         "ort_available": True,
@@ -3895,6 +4114,24 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
     assert sel["fallback_reason"] is not None
 
 
+def test_resolve_inference_selection_cuda_falls_back_to_openvino_gpu_when_available():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "cuda_provider_installed": False,
+        "cuda_hardware_available": False,
+        "cuda_probe_error": None,
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+    }
+    sel = _resolve_inference_selection("cuda", caps)
+    assert sel["active_provider"] == "intel_gpu"
+    assert sel["backend"] == "openvino"
+    assert sel["openvino_device"] == "GPU"
+    assert "CUDA requested" in (sel["fallback_reason"] or "")
+
+
 def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_probe_fails():
     caps = {
         "ort_available": True,
@@ -3910,6 +4147,25 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_probe_fails():
     assert sel["active_provider"] == "cpu"
     assert sel["backend"] == "onnxruntime"
     assert sel["ort_providers"] == ["CPUExecutionProvider"]
+    assert "failed runtime probe" in (sel["fallback_reason"] or "")
+    assert "libcublasLt.so.12" in (sel["fallback_reason"] or "")
+
+
+def test_resolve_inference_selection_cuda_probe_failure_uses_openvino_gpu_when_available():
+    caps = {
+        "ort_available": True,
+        "cuda_available": False,
+        "cuda_provider_installed": True,
+        "cuda_hardware_available": True,
+        "cuda_probe_error": "OSError: libcublasLt.so.12: cannot open shared object file",
+        "openvino_available": True,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+    }
+    sel = _resolve_inference_selection("cuda", caps)
+    assert sel["active_provider"] == "intel_gpu"
+    assert sel["backend"] == "openvino"
+    assert sel["openvino_device"] == "GPU"
     assert "failed runtime probe" in (sel["fallback_reason"] or "")
     assert "libcublasLt.so.12" in (sel["fallback_reason"] or "")
 

@@ -1144,11 +1144,21 @@ def _resolve_inference_selection(
                 "openvino_device": None,
                 "fallback_reason": None,
             }
-        return _ort_cpu(_reason_with_constraint(
+        cuda_fallback_reason = _reason_with_constraint(
             f"CUDA requested but {_cuda_unavailable_reason(caps)}",
             "cuda",
             "CUDA",
-        ))
+        )
+        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_gpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "GPU",
+                "fallback_reason": f"{cuda_fallback_reason}; using OpenVINO GPU",
+            }
+        return _ort_cpu(cuda_fallback_reason)
 
     if requested == "intel_cpu":
         if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
