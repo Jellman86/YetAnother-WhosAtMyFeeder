@@ -9,11 +9,16 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
 ### 0. Classifier Inference-Health Refactor 🩺
-**Priority:** P0 | **Effort:** L (1–2 weeks across 4 phased PRs) | **Status:** Proposed — next up
+**Priority:** P0 | **Effort:** M-L remaining | **Status:** Phase 1 shipped on `main`; consolidation phases remain
 
-Issue `#33` has accumulated 29 changelog entries across five overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout). Each was correct in isolation, but the cumulative surface means any new bundle produces a new mitigation layer rather than a simpler one. Before a sixth layer lands, consolidate.
+Issue `#33` has accumulated many overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout, and live-queue pressure handling). Each was correct in isolation, but the cumulative surface means any new bundle risks adding another mitigation layer rather than simplifying the model. Continue consolidating before adding more fallback paths.
 
-**Target:** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. One `/health.inference_health` field replaces scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters.
+**Current state on `main`:**
+- Phase 1 has shipped: `backend/app/services/inference_health.py` records runtime outcomes keyed by `(backend, provider, model_id)`.
+- `/health` and classifier status expose additive `ml.inference_health` data with per-runtime verdict, latency samples, recent failures, and cooldown details.
+- Legacy fallback and recovery fields still exist, so owners have better visibility but the failure model is not yet simplified.
+
+**Target:** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. The health payload should replace scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters instead of merely sitting alongside them.
 
 **Why now:**
 - The April 23 reproducer showed OpenVINO Intel GPU running at ~12 s/frame (≈20× CPU). A startup benchmark would have caught it before the first user-visible timeout.
@@ -21,13 +26,13 @@ Issue `#33` has accumulated 29 changelog entries across five overlapping mitigat
 - A new contributor cannot currently explain the classifier failure model in one paragraph without cross-referencing four files.
 
 **Phased rollout (no flag day):**
-1. Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
+1. ✅ Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
 2. Switch model hot-swap trigger to `verdict == "unhealthy"`.
-3. Remove legacy mechanisms (`_gpu_unhealthy_signal_times`, snapshot-fallback retry loop, duplicate reason strings).
+3. Remove legacy mechanisms where they are fully covered (`_gpu_unhealthy_signal_times`, duplicate reason strings, and redundant fallback state).
 4. Land pre-flight startup benchmark and `runtime_benchmarks` diagnostics field.
 
 **Success criteria:**
-- A single `/health` field tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
+- A single `ml.inference_health` payload tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
 - Grep count for `gpu_fallback` / `lease_expiry` / `snapshot_fallback` drops ≥50%.
 - The `#33` harness with `--force-slow-gpu` passes in under 60 s instead of 47 min.
 - The classifier failure model fits in one paragraph.
@@ -35,9 +40,9 @@ Issue `#33` has accumulated 29 changelog entries across five overlapping mitigat
 See the full plan for module structure, migration phases, test strategy, risks, and out-of-scope boundaries.
 
 ### 0.1. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
-**Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Completed on `dev` (2026-03-26)
+**Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Completed on `main`
 
-Follow-up shipped on `dev` (2026-03-27): YA-WAMF now auto-generates persisted full-visit clips for eligible completed detections and makes the canonical `/clip.mp4` route prefer that persisted full-visit file once ready.
+YA-WAMF now auto-generates persisted full-visit clips for eligible completed detections and makes the canonical `/clip.mp4` route prefer that persisted full-visit file once ready.
 
 Frigate's event clips are bounded by its object tracker start/stop. For a feeder camera the bird's full visit is often much longer — the tracker fires briefly when the bird enters, drops when it moves or is occluded, and the clip closes after `post_capture`. The resulting clip can miss the arrival, the full feeding session, or the departure entirely.
 
@@ -91,7 +96,7 @@ Cache recording clips under the key `{event_id}_recording.mp4` (separate from `{
 ---
 
 ### 1. Blocked Species — Species Picker + Reliable Matching 🚫
-**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Completed on `dev` (2026-03-26)
+**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Completed on `main`
 
 The current blocked labels feature is broken in practice. It stores raw strings typed by the user and does a single exact string match against the normalized classifier output label. Because different models produce different label formats (common name, scientific name, or hybrids), and because the check is case-sensitive, user-entered values rarely match — particularly when the user types a common name and the model outputs a scientific name or vice versa. A second bug means that manual reclassification can assign a species that is already on the blocked list.
 
@@ -140,9 +145,9 @@ In `DetectionSettings.svelte`, replace the free-text add-label input with the sa
 ---
 
 ### 2. Labeled Feeder Model Evaluation Harness 📊
-**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Partially shipped on `dev` (as of 2026-03-28)
+**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Partially shipped on `main`; feeder-specific harness remains
 
-Current state on `dev`: YA-WAMF already includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` with threshold sweeps, JSON/CSV output, and labelled-directory/CUB-200 support. The remaining work is the feeder-specific harness described below: manifest-driven labeled feeder inputs, temporary per-run crop/source override isolation, and richer crop/source diagnostics through the real classifier stack.
+Current state on `main`: YA-WAMF already includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` with threshold sweeps, JSON/CSV output, and labelled-directory/CUB-200 support. The remaining work is the feeder-specific harness described below: manifest-driven labeled feeder inputs, temporary per-run crop/source override isolation, and richer crop/source diagnostics through the real classifier stack.
 
 Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
 
@@ -159,9 +164,9 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 - Results are good enough to decide default crop behavior per model based on evidence.
 
 ### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
-**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `dev` (2026-03-28)
+**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `main`
 
-Shipped on `dev`: canonical identity is now enforced end to end. Detection writes persist canonical taxonomy fields together, repository filters and rollups use canonical identity instead of raw display-name equality, `species_daily_rollup` stores canonical identity metadata directly, and the existing maintenance taxonomy-repair action now runs an explicit historical canonical-repair pass that backfills missing taxonomy and rebuilds rollups afterward.
+Canonical identity is now enforced end to end. Detection writes persist canonical taxonomy fields together, repository filters and rollups use canonical identity instead of raw display-name equality, `species_daily_rollup` stores canonical identity metadata directly, and the existing maintenance taxonomy-repair action now runs an explicit historical canonical-repair pass that backfills missing taxonomy and rebuilds rollups afterward.
 
 Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
 
@@ -221,9 +226,9 @@ Add a first-class way to pin standout detections so users can build a curated se
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
 ### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
-**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Largely shipped on `dev` (as of 2026-04-25); one follow-up open (route split — see 5.1)
+**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Largely shipped on `main`; one follow-up open (route split — see 5.1)
 
-Current state on `dev`: all 10 settings tabs now route through a shared design system in `apps/ui/src/lib/components/settings/_primitives/` (SettingsCard / SettingsRow / SettingsToggle / SettingsSelect / SettingsSegmented / SettingsInput / SettingsTextarea / AdvancedSection / SettingsPage). Tab code dropped from 5,788 → 4,512 lines, 48 inline `role="switch"` copies removed, and a build-time guard (`settings-style-audit.test.ts`) prevents any tab from drifting back. Six of the tabs got a basic/advanced split behind `AdvancedSection`; the other four are flat by design (already simple). Page chrome (header, status banner, sticky save bar) is owned by `SettingsPage.svelte`. Mobile (<md) collapses the tab strip to a `<select>`.
+Current state on `main`: all 10 settings tabs now route through a shared design system in `apps/ui/src/lib/components/settings/_primitives/` (SettingsCard / SettingsRow / SettingsToggle / SettingsSelect / SettingsSegmented / SettingsInput / SettingsTextarea / AdvancedSection / SettingsPage). Tab code dropped from 5,788 → 4,512 lines, 48 inline `role="switch"` copies removed, and a build-time guard (`settings-style-audit.test.ts`) prevents any tab from drifting back. Six of the tabs got a basic/advanced split behind `AdvancedSection`; the other four are flat by design (already simple). Page chrome (header, status banner, sticky save bar) is owned by `SettingsPage.svelte`. Mobile (<md) collapses the tab strip to a `<select>`.
 
 Helper modules under `apps/ui/src/lib/settings/` (location dirty-state, blocked-species handling, crop overrides, LLM model helpers, taxonomy-aware species filter entries) are unchanged. A README at `_primitives/README.md` documents the design system and the basic-vs-advanced rule applied to each tab.
 
@@ -273,9 +278,9 @@ Settings is still rendered as a single page with all 10 tabs hydrated together a
 - `npm run check` clean and the existing `settings-style-audit` guard still passes.
 
 ### 6. Explorer Filter: Show Audio Matches Only 🎧
-**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `dev` (2026-03-28)
+**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `main`
 
-Shipped on `dev`: the Explorer now supports `audio_confirmed_only` in `/events` and `/events/count`, the API client threads the filter through request params, and the Explorer UI exposes an `Audio Matches` toggle with URL/state integration.
+The Explorer now supports `audio_confirmed_only` in `/events` and `/events/count`, the API client threads the filter through request params, and the Explorer UI exposes an `Audio Matches` toggle with URL/state integration.
 
 Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
 
@@ -294,7 +299,7 @@ Add an Explorer filter toggle to show only detections with direct BirdNET audio 
 ---
 
 ### 7. Manual Tag Picker — Common Name Resolution 🏷️
-**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** ✅ Completed (vNext on `dev`)
+**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** ✅ Completed on `main`
 
 When using the manual tag / reclassify picker, results frequently show only a scientific name or a raw parenthetical label (e.g. `"Cassin's Finch (Adult Male)"`) with no clean common-name subtitle. This is caused by three interacting gaps in the search-to-display pipeline.
 
@@ -438,42 +443,43 @@ This work should be kept out of the current hardening cycle. The immediate prior
 
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
-**Status:** Planned, not yet hardware-validated.
+**Status:** CI-built ARM64 image available; not yet hardware-validated.
 
 YA-WAMF currently does **not** have verified Raspberry Pi support based on direct device testing.  
 At the moment, no physical Raspberry Pi test hardware is available in this project environment, so Pi compatibility is being treated as **best effort** until real-device validation is complete.
 
 ### Current Reality
 
-- Published release images are currently focused on existing CI build targets and should not be treated as confirmed Raspberry Pi-ready.
-- Documentation language has been corrected to avoid claiming confirmed Pi support.
-- Objective remains to support **64-bit Raspberry Pi deployments** (Pi 4/Pi 5 class devices) for the Fast model profile.
+- Release builds now publish a dedicated ARM64 monolith image: `ghcr.io/jellman86/yawamf-monalithic-rpi`.
+- `v2.9.15` successfully built and pushed the Raspberry Pi image in CI.
+- The image should still be treated as **best effort** until it is validated on physical Raspberry Pi 4/5 hardware.
+- The Raspberry Pi path is CPU-only today. CUDA and Intel OpenVINO acceleration are not available on Pi.
 
-### Implementation Plan
+### Shipped
 
 1. **Multi-Arch Image Publishing**
-- Update image build pipeline to publish `linux/amd64` and `linux/arm64` manifests.
-- Keep existing release flow (`dev` for `:dev`, `v*` tags for release tags/`latest`) unchanged.
+- Dedicated `build-monolith-rpi` CI job publishes `linux/arm64` images.
+- Existing release flow remains unchanged (`dev` for `:dev`, `v*` tags for release tags/`latest`).
 
 2. **ARM-Safe Dependency Strategy**
-- Review backend ML/runtime dependencies for `arm64` wheel availability and install stability.
-- Separate heavyweight optional runtimes from baseline runtime to reduce ARM installation failures.
-- Ensure default model/runtime path on ARM uses the lowest-friction inference stack.
+- ARM64 installs CPU ONNX Runtime instead of `onnxruntime-gpu`.
+- TensorFlow dependency selection is architecture-aware.
+- x86-only GPU package setup is skipped on ARM64.
 
 3. **Pi-Oriented Runtime Profile**
-- Provide a documented low-resource profile for Pi:
-  - Fast model default (MobileNet/TFLite path).
-  - Conservative defaults for expensive enrichments/features.
-  - Clear guidance on optional features that may be too heavy on Pi 4-class hardware.
+- `.env.rpi.example` and `docs/setup/raspberry-pi.md` document the ARM64 monolith image and conservative runtime expectations.
+- Guidance keeps Pi users on CPU-only model paths and warns against heavier model choices until hardware testing exists.
 
-4. **CI Validation Without Physical Pi**
-- Add ARM64 container smoke tests in CI (emulated where needed):
+### Remaining Work
+
+1. **CI Validation Without Physical Pi**
+- Add ARM64 container smoke tests beyond image build/push (emulated where needed):
   - Container startup (`/health`, `/ready`).
   - Fresh DB migration + idempotency.
   - Basic inference path smoke check.
 - Treat these as compatibility guards, not performance certification.
 
-5. **Real Hardware Exit Validation (When Available)**
+2. **Real Hardware Exit Validation (When Available)**
 - Run a final acceptance pass on a physical Raspberry Pi before claiming full support:
   - Cold start time.
   - Sustained inference behavior and thermal stability.
@@ -481,8 +487,8 @@ At the moment, no physical Raspberry Pi test hardware is available in this proje
 
 ### Support Statement Until Hardware Validation Exists
 
-- Raspberry Pi support is **planned best effort**.
-- ARM64 compatibility improvements are in progress.
+- Raspberry Pi support is **available as a best-effort ARM64 image**.
+- ARM64 image publishing is working in CI.
 - Official “supported” status will only be declared after successful real-device validation.
 
 ## Already Implemented ✅
@@ -580,14 +586,15 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **March 26, 2026**: no open GitHub issues currently block new feature work.
+- Snapshot as of **May 6, 2026**: no open GitHub issue currently blocks the `v2.9.15` release line, but active follow-up remains.
+- 🔄 `#33` remains open for field validation after the live queue timeout and inference-health work. Latest local and CI validation is good; ask reporters to retest on `v2.9.15` before closing.
+- 🔄 `#42` started as a Frigate dashboard population issue and drifted into BirdNET-Go source/MQTT mapping support. Original MQTT credential problem appears resolved; keep open for sanitized config/output follow-up or split into a BirdNET-Go-specific issue.
 - ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
 - ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
 - ✅ `#16` BirdNET-Go mapping improvements were validated and the issue is now closed.
 - ✅ `#21` OpenVINO ConvNeXt load failure remediation landed and the issue is now closed.
-- 🔄 Latest detection-pipeline hardening (snapshot disagreement guard + optional Frigate sublabel write-back + legacy EVA default remap) remains a candidate for broader field validation, but it is no longer tracked by an open GitHub issue.
-- 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios and GPU/provider fallback paths.
+- 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios, GPU/provider fallback paths, and Raspberry Pi ARM64 startup smoke.
 
 ---
 
@@ -866,18 +873,22 @@ Optimize system performance for large installations.
 - ⚠️ Playwright E2E coverage is improving but still targeted; broader end-to-end regression coverage remains a priority
 
 ### 5.4 Raspberry Pi 4/5 (ARM64) Support 🍓
-**Priority:** P2 | **Effort:** S (4–6 hours) | **Status:** Assessment complete — not started
+**Priority:** P2 | **Effort:** S (4–6 hours) | **Status:** CI image path shipped; hardware validation remains
 
 Full assessment: [`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md)
 
-ARM64 support is achievable with four small changes. The inference layer already degrades gracefully to CPU-only; the entire web stack, MQTT, SQLite, and Nginx work on ARM64 without modification.
+ARM64 support shipped as a dedicated monolithic image path. The inference layer degrades to CPU-only; the web stack, MQTT, SQLite, and Nginx work on ARM64 without modification.
 
-**What needs changing:**
+**Shipped changes:**
 
-1. `backend/requirements.txt` — make `onnxruntime-gpu` conditional on `platform_machine != 'aarch64'`; install CPU-only `onnxruntime` on ARM64 instead. *(Critical: the GPU package fails to install on ARM64.)*
-2. `backend/Dockerfile` — wrap Intel GPU APT repo setup in a `uname -m` arch check so it is skipped on ARM64.
-3. Root `Dockerfile` (monolith) — same arch guard.
-4. `.github/workflows/build-and-push.yml` — add QEMU + Buildx actions; add `platforms: linux/amd64,linux/arm64` to the three build jobs (version-tag builds only, to avoid slow QEMU builds on every dev push).
+1. `backend/requirements.txt` selects CPU `onnxruntime` on ARM64 and avoids `onnxruntime-gpu`.
+2. The monolith build skips x86-only GPU runtime setup on ARM64.
+3. `.github/workflows/build-and-push.yml` publishes `ghcr.io/jellman86/yawamf-monalithic-rpi` for release tags.
+4. Raspberry Pi setup docs and `.env.rpi.example` document the best-effort install path.
+
+**Remaining validation:**
+- Add ARM64 startup/migration/inference smoke checks beyond build success.
+- Validate cold start, sustained inference behavior, and UI responsiveness on physical Raspberry Pi hardware before calling the platform officially supported.
 
 **RPi runtime characteristics:**
 - MobileNetV2 TFLite: ~150–200 ms/frame — suitable for event-based detection
