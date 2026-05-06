@@ -1349,8 +1349,9 @@ class AutoVideoClassifierService:
 
                     # Signal the classifier that a maintenance video timeout
                     # just happened. Combined with live lease expiries this
-                    # triggers the shared OpenVINO Intel GPU -> CPU fallback
-                    # once the threshold is crossed, which matters during
+                    # feeds the shared OpenVINO Intel GPU health verdict and
+                    # can trigger CPU fallback once the runtime is unhealthy,
+                    # which matters during
                     # overnight batch runs when there is no live traffic to
                     # surface the unhealthy GPU on its own (issue #33).
                     signal_fn = getattr(self._classifier, "register_gpu_unhealthy_signal", None)

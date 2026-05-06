@@ -22,7 +22,7 @@ from pathlib import Path
 from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
-from app.services.inference_health import InferenceHealth, RuntimeKey
+from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 
 # TFLite runtime
 try:
@@ -2543,21 +2543,42 @@ class ClassifierService:
     def _live_gpu_lease_fallback_active(self) -> bool:
         return time.monotonic() < self._live_gpu_lease_fallback_until_monotonic
 
-    def _record_live_lease_expiry_and_maybe_fallback(self, error: ClassificationLeaseExpiredError) -> None:
+    def _record_live_lease_expiry_and_maybe_fallback(
+        self,
+        error: ClassificationLeaseExpiredError,
+        *,
+        runtime_key: RuntimeKey | None = None,
+    ) -> None:
         if error.priority != "live":
             return
-        self.register_gpu_unhealthy_signal("live_lease_expiry")
+        self.register_gpu_unhealthy_signal("live_lease_expiry", runtime_key=runtime_key)
+
+    def _active_inference_runtime_key(self) -> RuntimeKey:
+        return RuntimeKey.from_values(
+            self._inference_backend,
+            self._active_inference_provider,
+            self._resolve_active_model_id(),
+        )
+
+    def _gpu_unhealthy_signal_outcome(self, source: str) -> Outcome:
+        normalized_source = str(source or "")
+        if "lease_expir" in normalized_source:
+            return "lease_expired"
+        if "timeout" in normalized_source:
+            return "timeout"
+        return "exception"
 
     def register_gpu_unhealthy_signal(
         self,
         source: str,
         *,
         event_id: str | None = None,
+        runtime_key: RuntimeKey | None = None,
     ) -> None:
         """Record a signal that OpenVINO Intel GPU inference is unhealthy.
 
         Triggers the same model hot-swap as repeated live lease expiries when
-        the signal threshold is crossed within the fallback window. Signals are
+        InferenceHealth marks the active GPU runtime unhealthy. Signals are
         merged across sources so maintenance video timeouts and snapshot
         fallback lease expiries count alongside live lease expiries — which
         matters at night or during batch analyze runs when there is no live
@@ -2568,12 +2589,23 @@ class ClassifierService:
         while self._gpu_unhealthy_signal_times and self._gpu_unhealthy_signal_times[0] < window_start:
             self._gpu_unhealthy_signal_times.popleft()
         self._gpu_unhealthy_signal_times.append(now)
+        runtime_key = runtime_key or self._active_inference_runtime_key()
+        if (
+            source != "live_lease_expiry"
+            and self._inference_backend == "openvino"
+            and self._active_inference_provider == "intel_gpu"
+        ):
+            self._inference_health.record(
+                runtime_key,
+                outcome=self._gpu_unhealthy_signal_outcome(source),
+                latency_seconds=None,
+            )
 
         if self._image_execution_mode != "in_process":
             return
         if self._inference_backend != "openvino" or self._active_inference_provider != "intel_gpu":
             return
-        if len(self._gpu_unhealthy_signal_times) < CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD:
+        if self._inference_health.verdict(runtime_key) != "unhealthy":
             return
         if self._live_gpu_lease_fallback_active():
             return
@@ -4076,7 +4108,7 @@ class ClassifierService:
                 latency_seconds=time.monotonic() - started_at,
             )
             if priority == "live":
-                self._record_live_lease_expiry_and_maybe_fallback(exc)
+                self._record_live_lease_expiry_and_maybe_fallback(exc, runtime_key=runtime_key)
                 log.warning(
                     "Live image classification lease expired; reclaiming capacity",
                     timeout_seconds=lease_timeout_seconds,
