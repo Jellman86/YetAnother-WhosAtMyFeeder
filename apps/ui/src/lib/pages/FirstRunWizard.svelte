@@ -68,8 +68,8 @@
     }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
-    <div class="max-w-lg w-full space-y-8 bg-white dark:bg-surface-800 p-8 rounded-xl shadow-lg border border-surface-200 dark:border-surface-700">
+<div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
+    <div class="max-w-lg w-full space-y-8 bg-white dark:bg-slate-900 p-8 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
         <div class="text-center space-y-2">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{$_('first_run.title')}</h1>
             <p class="text-sm text-gray-600 dark:text-gray-400">

@@ -77,6 +77,7 @@
         resolveRunningBackfillMessage,
         updateScopedBackfillProgress
     } from '../backfill/progress';
+    import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
@@ -1634,7 +1635,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (!notificationPolicy.shouldEmit(key, signature, BACKFILL_TOAST_THROTTLE_MS)) {
             return false;
         }
-        message = { type, text: status.message || fallbackText };
+        message = { type, text: formatTerminalBackfillMessage(kind, status.message, fallbackText) };
         return true;
     }
 

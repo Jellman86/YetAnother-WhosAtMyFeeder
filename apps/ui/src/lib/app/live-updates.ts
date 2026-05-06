@@ -2,6 +2,7 @@ import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
 import { isTransientGatewayError } from '../api/error-message';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
+import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
@@ -1087,9 +1088,17 @@ export class LiveUpdateCoordinator {
                 formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
             );
         } else if (payload.type === 'backfill_complete') {
-            message = data.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
+            message = formatTerminalBackfillMessage(
+                isWeather ? 'weather' : 'detections',
+                data.message,
+                `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`
+            );
         } else if (payload.type === 'backfill_failed') {
-            message = data.message || this.deps.t('notifications.event_backfill_failed');
+            message = formatTerminalBackfillMessage(
+                isWeather ? 'weather' : 'detections',
+                data.message,
+                isWeather ? this.deps.t('notifications.event_weather_backfill_failed') : this.deps.t('notifications.event_backfill_failed')
+            );
         }
 
         const id = `backfill:${kind}:${jobId}`;

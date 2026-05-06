@@ -559,7 +559,7 @@
   </a>
 
   {#if !authStore.statusLoaded}
-      <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
+      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
           <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">
               {$_('auth.loading_status', { default: 'Loading authentication status...' })}
           </div>
@@ -567,12 +567,12 @@
   {:else if authStore.needsInitialSetup}
       <FirstRunWizard />
   {:else if !authStore.statusHealthy}
-      <div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-900 px-4">
-          <div class="w-full max-w-lg rounded-3xl border border-amber-200 bg-white/95 p-8 text-center shadow-lg dark:border-amber-700/70 dark:bg-surface-900/95">
-              <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
+          <div role="alert" class="w-full max-w-lg rounded-3xl border border-amber-200 bg-white/95 p-8 text-center shadow-lg dark:border-amber-700/70 dark:bg-slate-900/95">
+              <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-100">
                   !
               </div>
-              <h1 class="text-xl font-semibold text-slate-900 dark:text-white">
+              <h1 class="text-xl font-semibold text-slate-900 dark:text-amber-100">
                   {$_('auth.status_unavailable_title', { default: 'Unable to reach the YA-WAMF backend.' })}
               </h1>
               <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">

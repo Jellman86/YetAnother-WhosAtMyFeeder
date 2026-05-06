@@ -13,4 +13,12 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain("If the container is still starting or restarting after model changes, wait a moment and retry.");
         expect(appSource).toContain("onclick={() => void authStore.loadStatus()}");
     });
+
+    it('uses valid themed classes for the backend-unavailable error surface', () => {
+        expect(appSource).not.toContain('bg-surface-50');
+        expect(appSource).not.toContain('dark:bg-surface-900');
+        expect(appSource).toContain('role="alert"');
+        expect(appSource).toContain('dark:bg-slate-900/95');
+        expect(appSource).toContain('dark:text-amber-100');
+    });
 });
