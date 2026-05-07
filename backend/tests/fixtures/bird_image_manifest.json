@@ -110,6 +110,7 @@
       "acceptable_labels": ["Eurasian Blackbird", "Turdus merula", "Common Blackbird", "blackbird"],
       "scope": ["eu", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
+      "exclude_photo_ids": [299609865, 299611076, 299939604],
       "notes": "All-black thrush, very common EU garden bird. eurasian_blackbird_01/_02/_03 removed from fixture set — all cross-model failures (top predictions owls/Unknown at low confidence, no blackbird in top-5)."
     },
     {
@@ -130,6 +131,7 @@
       "acceptable_labels": ["Barn Swallow", "Hirundo rustica"],
       "scope": ["na", "eu", "global", "birds_only", "wildlife_wide"],
       "min_top_n": 5,
+      "exclude_photo_ids": [13758585, 575999585],
       "notes": "Cosmopolitan swallow, present in all regional model scopes. barn_swallow_02/_03 removed from fixture set — cross-model failures (egret-dominated frame; no swallow features recognised by any tested model)."
     },
     {

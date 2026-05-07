@@ -637,6 +637,22 @@ class ModelManager:
     def get_crop_detector_meta(self, tier: Optional[str] = None) -> Optional[dict[str, Any]]:
         return self._get_registry_model_meta(self._crop_detector_id_for_tier(tier))
 
+    def _model_install_status(self, model_meta: dict[str, Any], model_dir: str) -> tuple[bool, str]:
+        """Return whether a classifier model directory is complete enough for runtime use."""
+        runtime = str(model_meta.get("runtime") or "tflite")
+        model_path = os.path.join(model_dir, self._model_filename_for_runtime(runtime))
+        if not os.path.exists(model_path):
+            return False, "model_missing"
+        if not os.path.exists(os.path.join(model_dir, "labels.txt")):
+            return False, "labels_missing"
+        if model_meta.get("model_config_url") and not os.path.exists(os.path.join(model_dir, "model_config.json")):
+            return False, "config_missing"
+        return True, "ready"
+
+    def _is_model_install_complete(self, model_meta: dict[str, Any], model_dir: str) -> bool:
+        complete, _reason = self._model_install_status(model_meta, model_dir)
+        return complete
+
     def _build_crop_detector_spec(self, model_id: str, *, selected_tier: str, resolved_tier: str, reason_override: Optional[str] = None) -> dict[str, Any]:
         meta = dict(self._get_registry_model_meta(model_id) or {})
         model_dir = os.path.join(MODELS_DIR, model_id)
@@ -1062,7 +1078,8 @@ class ModelManager:
             runtime = str(model_meta.get("runtime", "tflite") or "tflite")
             model_path = os.path.join(target_dir, self._model_filename_for_runtime(runtime))
             labels_path = os.path.join(target_dir, "labels.txt")
-            if os.path.exists(model_path):
+            complete, reason = self._model_install_status(model_meta, target_dir)
+            if complete:
                 spec = {
                     "model_id": model_id,
                     "model_path": model_path,
@@ -1078,6 +1095,13 @@ class ModelManager:
                 }
                 return self._apply_crop_overrides(
                     self._apply_installed_model_config(spec, model_dir=target_dir)
+                )
+            if os.path.exists(model_path):
+                log.warning(
+                    "Active model install is incomplete, falling back to bundled TFLite model",
+                    active_model_id=model_id,
+                    reason=reason,
+                    model_dir=target_dir,
                 )
 
         log.warning(
@@ -1187,11 +1211,17 @@ class ModelManager:
                     labels_path = os.path.join(model_dir, "labels.txt")
                     
                     if os.path.exists(tflite_path) or os.path.exists(onnx_path):
+                        ready = True
+                        reason = "ready"
+                        if metadata:
+                            ready, reason = self._model_install_status(metadata.model_dump(), model_dir)
                         installed.append(InstalledModel(
                             id=item,
                             path=tflite_path if os.path.exists(tflite_path) else onnx_path,
                             labels_path=labels_path,
                             is_active=(item == self.active_model_id),
+                            ready=ready,
+                            reason=reason,
                             metadata=metadata
                         ))
                         seen_ids.add(item)
@@ -1650,6 +1680,17 @@ class ModelManager:
         # 1. Check if it's a directory-based model in persistent storage
         target_dir = os.path.join(MODELS_DIR, model_id)
         if os.path.exists(target_dir) and os.path.isdir(target_dir):
+            model_meta = self._get_registry_model_meta(model_id)
+            if model_meta:
+                complete, reason = self._model_install_status(model_meta, target_dir)
+                if not complete:
+                    log.warning(
+                        "Activation failed: model install incomplete",
+                        model_id=model_id,
+                        reason=reason,
+                        model_dir=target_dir,
+                    )
+                    return False
             self._save_active_model_id(model_id)
             return True
 

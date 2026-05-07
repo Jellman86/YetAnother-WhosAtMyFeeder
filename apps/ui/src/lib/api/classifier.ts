@@ -247,6 +247,8 @@ export interface InstalledModel {
     path: string;
     labels_path: string;
     is_active: boolean;
+    ready?: boolean;
+    reason?: string;
     metadata?: ModelMetadata;
 }
 

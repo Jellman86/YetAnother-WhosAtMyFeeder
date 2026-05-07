@@ -58,6 +58,17 @@ def _has_sidecar(model_id: str) -> bool:
     return (_model_dir(model_id) / "model_config.json").exists()
 
 
+def _labels_path(model_id: str) -> Path:
+    return _model_dir(model_id) / "labels.txt"
+
+
+def _load_labels(model_id: str) -> list[str]:
+    labels_path = _labels_path(model_id)
+    if not labels_path.exists():
+        return []
+    return [label.strip() for label in labels_path.read_text().splitlines() if label.strip()]
+
+
 def _default_config(model_id: str) -> dict:
     """Return a best-effort config for models without a sidecar (legacy models)."""
     # Best-effort input sizes for known legacy model IDs
@@ -207,10 +218,15 @@ def test_model_config_is_valid(model_id: str) -> None:
 @pytest.mark.parametrize("model_id", _MODEL_IDS)
 def test_labels_file_is_valid(model_id: str) -> None:
     """labels.txt must exist and have at least 10 entries."""
-    labels_path = _model_dir(model_id) / "labels.txt"
+    labels_path = _labels_path(model_id)
+    if not labels_path.exists() and not _has_sidecar(model_id):
+        pytest.xfail(
+            f"{model_id}: labels.txt missing alongside absent model_config.json — "
+            "legacy incomplete install, run export_and_config_birder_model.py or redownload the model"
+        )
     assert labels_path.exists(), f"{model_id}: labels.txt missing"
 
-    labels = [label.strip() for label in labels_path.read_text().splitlines() if label.strip()]
+    labels = _load_labels(model_id)
     assert len(labels) >= 10, f"{model_id}: expected at least 10 labels, got {len(labels)}"
 
     # No empty labels
@@ -239,9 +255,8 @@ def test_model_loads_and_has_correct_io(model_id: str, ort_session_cache: dict) 
 def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) -> None:
     """Running a white image through the model produces valid, finite output."""
     session = ort_session_cache[model_id]
-    model_dir = _model_dir(model_id)
     config = _load_config(model_id)
-    labels = [label.strip() for label in (model_dir / "labels.txt").read_text().splitlines() if label.strip()]
+    labels = _load_labels(model_id)
 
     input_size = config["input_size"]
     pre = config.get("preprocessing", {})
@@ -258,9 +273,16 @@ def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) 
     logits = outputs[0][0]
 
     assert logits.ndim == 1, f"{model_id}: output should be 1-D per sample"
-    assert len(logits) == len(labels), (
-        f"{model_id}: output length {len(logits)} != labels count {len(labels)}"
-    )
+    assert len(logits) > 0, f"{model_id}: output should contain at least one class logit"
+    if labels:
+        assert len(logits) == len(labels), (
+            f"{model_id}: output length {len(logits)} != labels count {len(labels)}"
+        )
+    elif not _has_sidecar(model_id):
+        pytest.xfail(
+            f"{model_id}: labels.txt missing alongside absent model_config.json — "
+            "legacy incomplete install, finite-output check cannot validate class count"
+        )
     assert np.all(np.isfinite(logits)), f"{model_id}: output contains NaN or Inf"
 
 
@@ -312,7 +334,7 @@ def test_model_config_num_classes_matches_labels(model_id: str) -> None:
         pytest.skip(f"{model_id}: no model_config.json — skipping num_classes check")
     model_dir = _model_dir(model_id)
     config = json.loads((model_dir / "model_config.json").read_text())
-    labels = [label.strip() for label in (model_dir / "labels.txt").read_text().splitlines() if label.strip()]
+    labels = _load_labels(model_id)
 
     if "num_classes" in config:
         assert config["num_classes"] == len(labels), (

@@ -266,12 +266,21 @@
         }
     }
 
+    function getInstalledModel(modelId: string): InstalledModel | undefined {
+        return installedModels.find(m => m.id === modelId);
+    }
+
     function isInstalled(modelId: string): boolean {
-        return installedModels.some(m => m.id === modelId);
+        return Boolean(getInstalledModel(modelId));
+    }
+
+    function isReady(modelId: string): boolean {
+        const installed = getInstalledModel(modelId);
+        return Boolean(installed && installed.ready !== false);
     }
 
     function isActive(modelId: string): boolean {
-        return installedModels.some(m => m.id === modelId && m.is_active);
+        return installedModels.some(m => m.id === modelId && m.is_active && m.ready !== false);
     }
 
     function isCropDetectorInstalled(modelId: string): boolean {
@@ -608,8 +617,9 @@
                             class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
                         >
                             {#each visibleModels as m}
+                                {@const installedEntry = getInstalledModel(m.id)}
                                 <option value={m.id}>
-                                    {m.name} {isActive(m.id) ? '— Active' : isInstalled(m.id) ? '— Installed' : ''}
+                                    {m.name} {isActive(m.id) ? '— Active' : installedEntry?.ready === false ? '— Repair needed' : installedEntry ? '— Installed' : ''}
                                 </option>
                             {/each}
                         </select>
@@ -649,7 +659,9 @@
             {#if selectedModelId}
                 {@const model = visibleModels.find(m => m.id === selectedModelId) || visibleModels[0]}
                 {#if model}
-                {@const installed = isInstalled(model.id)}
+                {@const installedEntry = getInstalledModel(model.id)}
+                {@const installed = Boolean(installedEntry)}
+                {@const ready = isReady(model.id)}
                 {@const active = isActive(model.id)}
                 {@const download = downloadStatuses[model.id]}
                 {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
@@ -710,6 +722,14 @@
                                         <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         <p class="text-[10px] font-bold leading-relaxed text-amber-700 dark:text-amber-300">
                                             {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })} <span class="font-black">{Math.round(model.recommended_threshold * 100)}%</span>
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if installedEntry?.ready === false}
+                                    <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-900/20">
+                                        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <p class="text-[10px] font-bold leading-relaxed text-amber-700 dark:text-amber-300">
+                                            {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
                                         </p>
                                     </div>
                                 {/if}
@@ -924,9 +944,18 @@
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
-                                        {$_('settings.detection.model_manager_redownload', { default: 'Re-download' })}
+                                        {ready
+                                            ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
+                                            : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
                                     </button>
-                                    {#if active}
+                                    {#if !ready}
+                                        <button
+                                            disabled
+                                            class="px-6 py-2.5 text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-xl opacity-75 cursor-default border border-amber-200 dark:border-amber-800/50"
+                                        >
+                                            {$_('settings.detection.model_manager_repair_required', { default: 'Repair Required' })}
+                                        </button>
+                                    {:else if active}
                                         <button
                                             disabled
                                             class="px-6 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-xl opacity-75 cursor-default border border-teal-200 dark:border-teal-800/50"

@@ -2,6 +2,7 @@ import asyncio
 import csv
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image
 
@@ -365,3 +366,33 @@ def test_generate_manifest_skips_unknown_and_missing_snapshots_by_default(tmp_pa
     assert stats == {"written": 0, "scanned": 2, "skipped_missing_snapshot": 1, "skipped_unlabeled": 1}
     with manifest_path.open(newline="", encoding="utf-8") as handle:
         assert list(csv.DictReader(handle)) == []
+
+
+def test_resolve_model_ids_skips_incomplete_auto_discovered_models(monkeypatch) -> None:
+    from app.services import model_manager as model_manager_module
+
+    class _FakeModelManager:
+        active_model_id = "ready_model"
+
+        async def list_installed_models(self):
+            return [
+                SimpleNamespace(
+                    id="incomplete_model",
+                    ready=False,
+                    metadata=SimpleNamespace(artifact_kind="classifier"),
+                ),
+                SimpleNamespace(
+                    id="crop_detector",
+                    ready=True,
+                    metadata=SimpleNamespace(artifact_kind="crop_detector"),
+                ),
+                SimpleNamespace(
+                    id="ready_model",
+                    ready=True,
+                    metadata=SimpleNamespace(artifact_kind="classifier"),
+                ),
+            ]
+
+    monkeypatch.setattr(model_manager_module, "model_manager", _FakeModelManager())
+
+    assert asyncio.run(harness._resolve_model_ids("")) == ["ready_model"]

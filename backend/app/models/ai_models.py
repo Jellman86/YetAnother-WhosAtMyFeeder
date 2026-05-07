@@ -73,6 +73,8 @@ class InstalledModel(YAWAMFBaseModel):
     path: str
     labels_path: str
     is_active: bool
+    ready: bool = True
+    reason: str = "ready"
     metadata: Optional[ModelMetadata] = None
 
 class DownloadProgress(YAWAMFBaseModel):

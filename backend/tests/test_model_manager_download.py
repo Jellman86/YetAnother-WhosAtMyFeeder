@@ -709,6 +709,58 @@ async def test_list_installed_models_includes_crop_detector_when_downloaded(monk
 
 
 @pytest.mark.asyncio
+async def test_list_installed_models_reports_incomplete_classifier_install(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    missing_labels_dir = tmp_path / "convnext_large_inat21"
+    missing_labels_dir.mkdir(parents=True, exist_ok=True)
+    (missing_labels_dir / "model.onnx").write_bytes(b"onnx")
+    (missing_labels_dir / "model_config.json").write_text("{}", encoding="utf-8")
+
+    missing_config_dir = tmp_path / "eva02_large_inat21"
+    missing_config_dir.mkdir(parents=True, exist_ok=True)
+    (missing_config_dir / "model.onnx").write_bytes(b"onnx")
+    (missing_config_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+
+    installed = await ModelManager().list_installed_models()
+    by_id = {model.id: model for model in installed}
+
+    assert by_id["convnext_large_inat21"].ready is False
+    assert by_id["convnext_large_inat21"].reason == "labels_missing"
+    assert by_id["eva02_large_inat21"].ready is False
+    assert by_id["eva02_large_inat21"].reason == "config_missing"
+
+
+@pytest.mark.asyncio
+async def test_activate_model_rejects_incomplete_classifier_install(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+
+    manager = ModelManager()
+
+    assert await manager.activate_model("convnext_large_inat21") is False
+    assert manager.active_model_id != "convnext_large_inat21"
+
+
+def test_get_active_model_spec_falls_back_when_active_classifier_install_incomplete(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["model_id"] == "mobilenet_v2_birds"
+
+
+@pytest.mark.asyncio
 async def test_list_available_models_returns_models_sorted_by_sort_order(monkeypatch):
     from app.services import model_manager as model_manager_module
 

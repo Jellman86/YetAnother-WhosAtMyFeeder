@@ -707,13 +707,14 @@ async def _resolve_model_ids(models_arg: str) -> list[str]:
         model.id
         for model in installed
         if getattr(getattr(model, "metadata", None), "artifact_kind", "classifier") == "classifier"
+        and getattr(model, "ready", True) is not False
     ]
     active_model_id = getattr(model_manager, "active_model_id", None)
     if active_model_id in model_ids:
         model_ids.remove(active_model_id)
         model_ids.insert(0, active_model_id)
     if not model_ids:
-        raise RuntimeError("no installed classifier models found; pass --models to select explicit model IDs")
+        raise RuntimeError("no ready installed classifier models found; repair downloads or pass --models to select explicit model IDs")
     return model_ids
 
 
