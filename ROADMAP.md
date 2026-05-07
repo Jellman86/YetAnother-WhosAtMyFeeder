@@ -146,11 +146,20 @@ In `DetectionSettings.svelte`, replace the free-text add-label input with the sa
 ---
 
 ### 2. Labeled Feeder Model Evaluation Harness 📊
-**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Partially shipped on `main`; feeder-specific harness remains
+**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Initial feeder harness shipped on `dev`; real-dataset runs and refinements remain
 
-Current state on `main`: YA-WAMF already includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` with threshold sweeps, JSON/CSV output, and labelled-directory/CUB-200 support. The remaining work is the feeder-specific harness described below: manifest-driven labeled feeder inputs, temporary per-run crop/source override isolation, and richer crop/source diagnostics through the real classifier stack.
+Current state on `dev`: YA-WAMF includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` for raw model checks, plus the feeder-specific `backend/scripts/eval_feeder_model_harness.py` that runs labeled feeder snapshots through `ClassifierService`. The feeder harness reads a CSV manifest, evaluates one or more installed model IDs and crop modes, restores active model/crop settings after each run, emits `summary.json`, `results.csv`, and `failures.csv`, and reports high-confidence `Unknown` top-1 outputs as a distinct failure kind so the medium-birds EU behavior can be measured directly.
 
 Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
+
+**Implemented shape:**
+- `backend/scripts/eval_feeder_model_harness.py` exists rather than expanding the generic ONNX evaluator.
+- Input manifest: CSV with `image_path`, `expected_common_name` or `expected_scientific_name`, optional `taxa_id`, `camera_name`, `source_kind`, and optional notes/tags.
+- Run each case through `ClassifierService` so model selection, preprocessing, crop generation, taxonomy matching, and source context match production behavior.
+- Evaluate one or more active/downloaded model IDs and crop modes in one run, restoring the original active model and settings after every run.
+- Emit `summary.json`, `results.csv`, and optional `failures.csv` under a caller-provided output directory.
+- Keep all source/crop choices explicit in the per-image output so the result can answer "which model/crop mode should become the default?"
+- Count `unknown_top1` and `high_confidence_unknown` separately from ordinary wrong-species failures.
 
 **Scope:**
 - Add a manifest-driven backend evaluation script for labeled feeder images.
@@ -159,10 +168,13 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 - Write detailed per-image results plus aggregate summary metrics.
 
 **Acceptance Criteria:**
-- A labeled CSV manifest can be evaluated against one or more requested models.
-- Outputs include top-1/top-3 hit rates plus crop/source diagnostics.
-- The harness leaves live app settings and active model selection unchanged after the run.
-- Results are good enough to decide default crop behavior per model based on evidence.
+- ✅ A labeled CSV manifest can be evaluated against one or more requested models.
+- ✅ Outputs include top-1/top-3 hit rates, per-species breakdown, inference latency, crop diagnostics, and high-confidence Unknown counts.
+- ✅ The harness leaves live app settings and active model selection unchanged after the run.
+- 🔄 Results are good enough to decide default crop behavior per model based on evidence once a real labeled feeder manifest has been run.
+- ✅ Tests cover manifest parsing, label matching, settings restoration after failure, result aggregation, high-confidence Unknown scoring, and crop diagnostics capture.
+
+**Next validation step:** run the harness against a real labeled feeder manifest, especially with `medium_birds` EU, and compare `high_confidence_unknown_rate` across crop modes and alternative models.
 
 ### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
 **Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `main`

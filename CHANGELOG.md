@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Roadmap:** Clarified the next implementation target as the feeder-specific model evaluation harness, including the recommended script shape, manifest fields, output files, and test expectations.
+- **Evaluation:** Added `backend/scripts/eval_feeder_model_harness.py`, a feeder-specific model evaluation harness that runs labeled real-world feeder images through `ClassifierService`, compares installed model IDs and crop modes, restores active model/crop settings after each run, and writes `summary.json`, `results.csv`, and `failures.csv`. The summary tracks top-1/top-3 accuracy, per-species breakdowns, inference timing, crop diagnostics, and high-confidence `Unknown` top-1 outputs as a distinct failure mode.
+
 ### Changed
 - **Classification (#33):** Live-image GPU fallback status now derives its active/cooldown state from `InferenceHealth` instead of a separate classifier-service monotonic timestamp. Existing `gpu_fallback_active` response fields remain as compatibility aliases, and runtime recovery records now carry the exact failed runtime key that triggered fallback.
 - **Classification (#33):** Successful startup runtime benchmarks now seed the matching `InferenceHealth` latency baseline, and latency-based health verdicts only use low-pressure inference samples. Load-affected samples remain visible in telemetry but are excluded from baseline drift decisions so queue pressure does not masquerade as a slow runtime.
