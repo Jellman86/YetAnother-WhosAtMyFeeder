@@ -6,6 +6,23 @@ from app.config import settings
 
 UNKNOWN_BIRD_DISPLAY_LABEL = "Unknown Bird"
 UNKNOWN_RAW_LABEL = "Unknown"
+ABSTENTION_SPECIES_LABELS = (
+    "No detection",
+    "No detections",
+    "No data",
+    "No result",
+    "No results",
+    "No classification",
+    "No classifications",
+    "No bird",
+    "Not a bird",
+    "Unclassified",
+    "Unidentified",
+    "Unidentified bird",
+    "N/A",
+    "None",
+    "Null",
+)
 _LABEL_SPACE_RE = re.compile(r"\s+")
 _SPECIFIC_SCIENTIFIC_NAME_RE = re.compile(r"^[A-Z][a-z-]+(?: [a-z][a-z-]+){1,3}$")
 _NONCANONICAL_EXACT = {
@@ -26,6 +43,7 @@ def unknown_species_labels(extra_labels: Iterable[str] | None = None) -> list[st
     values = [
         UNKNOWN_BIRD_DISPLAY_LABEL,
         UNKNOWN_RAW_LABEL,
+        *ABSTENTION_SPECIES_LABELS,
         *(settings.classification.unknown_bird_labels or []),
     ]
     if extra_labels:
