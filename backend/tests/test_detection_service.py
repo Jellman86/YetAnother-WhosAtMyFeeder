@@ -560,6 +560,45 @@ async def test_apply_video_result_does_not_override_known_species_with_hidden_no
 
 
 @pytest.mark.asyncio
+async def test_apply_video_result_treats_auto_unknown_as_no_usable_species_result(mock_deps):
+    classifier = MagicMock()
+    service = DetectionService(classifier)
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.05
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.scientific_name = None
+    existing.common_name = None
+    existing.sub_label = None
+    existing.frigate_score = 0.0
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    result_applied = await service.apply_video_result("event1", "Unknown", 0.99, 0)
+
+    assert result_applied is False
+    mock_deps["repo"].update_video_classification.assert_awaited_once()
+    kwargs = mock_deps["repo"].update_video_classification.await_args.kwargs
+    assert kwargs["label"] is None
+    assert kwargs["score"] == pytest.approx(0.99)
+    assert kwargs["status"] == "completed"
+    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
+    assert primary_updates == []
+    mock_deps["taxonomy"].get_names.assert_not_called()
+    mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_apply_video_result_records_blocked_flag_and_skips_promotion(mock_deps):
     """When video label is blocked, video_result_blocked=True is stored but primary fields stay unchanged."""
     classifier = MagicMock()

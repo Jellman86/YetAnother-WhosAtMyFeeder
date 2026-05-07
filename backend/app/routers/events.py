@@ -1434,9 +1434,10 @@ async def reclassify_event(
                             effective_strategy = "snapshot"
                         else:
                             top_result = results[0]
+                            hidden_video_label = should_hide_species_label(top_result.get("label"))
                             await repo.update_video_classification(
                                 frigate_event=event_id,
-                                label=top_result["label"],
+                                label=None if hidden_video_label else top_result["label"],
                                 score=top_result["score"],
                                 index=top_result["index"],
                                 status="completed",
@@ -1445,6 +1446,12 @@ async def reclassify_event(
                                 model_id=top_result.get("model_id"),
                             )
                             await broadcast_video_status("completed", None)
+                            if hidden_video_label:
+                                log.debug(
+                                    "Manual video reclassify produced Unknown; recording completion without species label",
+                                    event_id=event_id,
+                                    video_score=top_result.get("score"),
+                                )
 
                             # Persist top video-analysis frames for HQ snapshot reuse
                             if _video_frame_scores:

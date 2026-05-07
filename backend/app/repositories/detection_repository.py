@@ -758,7 +758,7 @@ class DetectionRepository:
     async def update_video_classification(
         self,
         frigate_event: str,
-        label: str,
+        label: Optional[str],
         score: float,
         index: int,
         status: str = 'completed',

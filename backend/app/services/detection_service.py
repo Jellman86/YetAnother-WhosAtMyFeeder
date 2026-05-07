@@ -387,13 +387,14 @@ class DetectionService:
             )
 
             normalized_video_label = normalize_classifier_label(video_label)
+            hidden_video_label = should_hide_species_label(normalized_video_label)
 
             # 1. Always update video-specific columns, even when the result is blocked.
             # This marks the job as 'completed' so the stale watchdog and re-queue logic
             # don't pick it up again.  We just skip the promotion step below.
             await repo.update_video_classification(
                 frigate_event=frigate_event,
-                label=normalized_video_label,
+                label=None if hidden_video_label and not manual_tagged else normalized_video_label,
                 score=video_score,
                 index=video_index,
                 status='completed',
@@ -406,7 +407,15 @@ class DetectionService:
             if is_blocked:
                 log.debug("Video result is a blocked species; recorded but not promoted",
                           label=video_label, event_id=frigate_event)
-                return
+                return False
+
+            if hidden_video_label and not manual_tagged:
+                log.debug(
+                    "Video analysis produced Unknown; recording completion without promotion",
+                    event_id=frigate_event,
+                    video_score=video_score,
+                )
+                return False
 
             # 2. Only promote video results when they are trustworthy enough, but
             # always allow explicit/manual reclassifications and unknown-bird upgrades.
@@ -471,7 +480,6 @@ class DetectionService:
 
             if should_override:
                 new_species = normalize_classifier_label(video_label)
-                hidden_video_label = should_hide_species_label(new_species)
                 # Relabel unknown birds consistently
                 if hidden_video_label or new_species in settings.classification.unknown_bird_labels:
                     new_species = "Unknown Bird"
@@ -483,7 +491,7 @@ class DetectionService:
                         old_species=existing.display_name,
                         video_label=video_label,
                     )
-                    return
+                    return False
 
                 log.info("Video analysis overriding primary identification", 
                          event_id=frigate_event, 
@@ -595,6 +603,7 @@ class DetectionService:
                             "video_classification_timestamp": serialize_api_datetime(updated.video_classification_timestamp)
                         }
                     })
+                return True
             else:
                 log.debug("Video analysis completed but did not override primary ID", 
                           event_id=frigate_event, 
@@ -607,3 +616,4 @@ class DetectionService:
                           video_label=normalized_video_label,
                           manual_tagged=manual_tagged,
                           video_score=video_score)
+                return False

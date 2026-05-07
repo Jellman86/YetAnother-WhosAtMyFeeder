@@ -19,7 +19,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Telemetry:** Runtime telemetry now reports OpenVINO GPU fallback from the classifier's explicit live-image fallback status instead of treating any runtime recovery as GPU fallback.
 
 ### Fixed
-- **Classification:** Video analysis now treats model-emitted `Unknown` labels as an abstention rather than a species candidate. Per-frame video aggregation skips frames whose top label is `Unknown` / `Unknown Bird`, removes hidden unknown classes from the final top-K list, and ignores unknown-labeled analysis frames when selecting stored top frames for HQ snapshot reuse if known-species frames are available.
+- **Classification:** Video analysis now treats model-emitted `Unknown` labels as an abstention rather than a species candidate. Per-frame video aggregation skips frames whose top label is `Unknown` / `Unknown Bird`, removes hidden unknown classes from the final top-K list, ignores unknown-labeled analysis frames when selecting stored top frames for HQ snapshot reuse if known-species frames are available, and refuses to promote or publish automatic `Unknown` video results as usable species labels even when confidence is high.
 
 ## [2.9.15] - 2026-05-05
 

@@ -28,7 +28,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.routers.proxy import _get_valid_cached_recording_clip_path
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
-from app.utils.canonical_species import user_facing_species_fields
+from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.video_analysis import rank_video_top_frames
 
@@ -1935,7 +1935,7 @@ class AutoVideoClassifierService:
         from app.services.detection_service import DetectionService
         svc = DetectionService(self._classifier)
         
-        await svc.apply_video_result(
+        usable_result = await svc.apply_video_result(
             frigate_event=frigate_event,
             video_label=result['label'],
             video_score=result['score'],
@@ -1947,8 +1947,8 @@ class AutoVideoClassifierService:
         await video_classification_waiter.publish(
             frigate_event,
             "completed",
-            label=result.get("label"),
-            score=result.get("score"),
+            label=result.get("label") if usable_result and not should_hide_species_label(result.get("label")) else None,
+            score=result.get("score") if usable_result else None,
             error=None
         )
         # _record_success is already called on completion in _process_event.
