@@ -155,6 +155,7 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 **Implemented shape:**
 - `backend/scripts/eval_feeder_model_harness.py` exists rather than expanding the generic ONNX evaluator.
 - Input manifest: CSV with `image_path`, `expected_common_name` or `expected_scientific_name`, optional `taxa_id`, `camera_name`, `source_kind`, and optional notes/tags.
+- Optional `expected_aliases` / `acceptable_labels` manifest values are included in scoring, and controlled common-name qualifiers are matched so model labels like `Eurasian blue tit` and `Common chaffinch` can be evaluated against concise feeder labels.
 - If `--manifest` is omitted, generate the manifest from `DB_PATH` (`/data/speciesid.db` by default) and `MEDIA_CACHE_DIR` (`/config/media_cache` by default), selecting cached snapshots with labels from stored detections.
 - If `--output-dir` is omitted, create a timestamped run directory under `/config/workspace/yawamf-results/feeder-model-eval/`.
 - If `--models` is omitted, evaluate installed classifier models discovered by `ModelManager` and skip managed crop-detector artifacts.

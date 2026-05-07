@@ -34,6 +34,7 @@ class FeederEvalCase:
     image_path: Path
     expected_common_name: str = ""
     expected_scientific_name: str = ""
+    expected_aliases: list[str] | None = None
     taxa_id: int | None = None
     camera_name: str = ""
     source_kind: str = ""
@@ -65,12 +66,25 @@ MANIFEST_FIELDNAMES = [
     "image_path",
     "expected_common_name",
     "expected_scientific_name",
+    "expected_aliases",
     "taxa_id",
     "camera_name",
     "source_kind",
     "tags",
     "notes",
 ]
+
+COMMON_NAME_QUALIFIERS = {
+    "african",
+    "american",
+    "common",
+    "eurasian",
+    "european",
+    "northern",
+    "southern",
+    "western",
+    "eastern",
+}
 
 
 def _clean(value: Any) -> str:
@@ -86,6 +100,14 @@ def _normalize_label(value: str) -> str:
 
 def _split_tags(value: str) -> list[str]:
     return [tag.strip() for tag in _clean(value).split(",") if tag.strip()]
+
+
+def _split_aliases(value: str) -> list[str]:
+    cleaned = _clean(value)
+    if not cleaned:
+        return []
+    delimiter = "|" if "|" in cleaned else ","
+    return [item.strip() for item in cleaned.split(delimiter) if item.strip()]
 
 
 def _optional_int(value: Any) -> int | None:
@@ -133,8 +155,30 @@ def _expected_labels(case: FeederEvalCase) -> list[str]:
     labels = [
         case.expected_common_name,
         case.expected_scientific_name,
+        *(case.expected_aliases or []),
     ]
     return [_normalize_label(label) for label in labels if _normalize_label(label)]
+
+
+def _label_tokens(label: str) -> list[str]:
+    return _normalize_label(label).split()
+
+
+def _label_matches_qualified_variant(expected_label: str, predicted_label: str) -> bool:
+    expected_tokens = _label_tokens(expected_label)
+    predicted_tokens = _label_tokens(predicted_label)
+    if not expected_tokens or len(predicted_tokens) <= len(expected_tokens):
+        return False
+    if len(expected_tokens) == 1:
+        return (
+            len(predicted_tokens) == 2
+            and predicted_tokens[0] in COMMON_NAME_QUALIFIERS
+            and predicted_tokens[1] == expected_tokens[0]
+        )
+    return (
+        predicted_tokens[-len(expected_tokens):] == expected_tokens
+        or predicted_tokens[:len(expected_tokens)] == expected_tokens
+    )
 
 
 def _label_matches_prediction(expected_labels: Iterable[str], predicted_label: str) -> bool:
@@ -142,7 +186,7 @@ def _label_matches_prediction(expected_labels: Iterable[str], predicted_label: s
     if not predicted:
         return False
     for expected in expected_labels:
-        if predicted == expected:
+        if predicted == expected or _label_matches_qualified_variant(expected, predicted):
             return True
     return False
 
@@ -172,6 +216,7 @@ def load_manifest(path: Path | str) -> list[FeederEvalCase]:
                     image_path=image_path,
                     expected_common_name=expected_common_name,
                     expected_scientific_name=expected_scientific_name,
+                    expected_aliases=_split_aliases(row.get("expected_aliases") or row.get("acceptable_labels") or ""),
                     taxa_id=taxa_id,
                     camera_name=_clean(row.get("camera_name")),
                     source_kind=_clean(row.get("source_kind")),
@@ -328,6 +373,7 @@ def generate_manifest_from_detections(
                 "image_path": str(image_path),
                 "expected_common_name": common_name,
                 "expected_scientific_name": scientific_name,
+                "expected_aliases": "",
                 "taxa_id": taxa_id,
                 "camera_name": _clean(row["camera_name"]),
                 "source_kind": "cached_snapshot",

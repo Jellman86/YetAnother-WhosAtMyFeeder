@@ -29,6 +29,7 @@ def test_load_manifest_reads_required_species_and_optional_context(tmp_path: Pat
             image_path=image_path,
             expected_common_name="Blue Tit",
             expected_scientific_name="Cyanistes caeruleus",
+            expected_aliases=[],
             taxa_id=14600,
             camera_name="feeder",
             source_kind="frigate_snapshot",
@@ -61,6 +62,31 @@ def test_score_predictions_flags_high_confidence_unknown_as_distinct_failure() -
     assert scored.unknown_top1 is True
     assert scored.high_confidence_unknown is True
     assert scored.failure_kind == "high_confidence_unknown"
+
+
+def test_score_predictions_matches_common_qualifier_variants_and_aliases() -> None:
+    blue_tit = harness.FeederEvalCase(
+        case_id="blue-tit",
+        image_path=Path("frame.jpg"),
+        expected_common_name="Blue Tit",
+    )
+    chaffinch = harness.FeederEvalCase(
+        case_id="chaffinch",
+        image_path=Path("frame.jpg"),
+        expected_common_name="Chaffinch",
+        expected_aliases=["Fringilla coelebs"],
+    )
+
+    assert harness.score_predictions(
+        blue_tit,
+        predictions=[{"label": "Eurasian blue tit", "score": 0.85}],
+        high_confidence_unknown_threshold=0.9,
+    ).top1_correct is True
+    assert harness.score_predictions(
+        chaffinch,
+        predictions=[{"label": "Common chaffinch", "score": 0.89}],
+        high_confidence_unknown_threshold=0.9,
+    ).top1_correct is True
 
 
 def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
@@ -279,6 +305,7 @@ def test_generate_manifest_from_detections_writes_cached_verified_snapshots(tmp_
             "image_path": str(snapshot_path),
             "expected_common_name": "Blue Tit",
             "expected_scientific_name": "Cyanistes caeruleus",
+            "expected_aliases": "",
             "taxa_id": "14600",
             "camera_name": "feeder",
             "source_kind": "cached_snapshot",
