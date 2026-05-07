@@ -27,6 +27,8 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
+from app.utils.canonical_species import is_unknown_species_label  # noqa: E402
+
 
 @dataclass(frozen=True)
 class FeederEvalCase:
@@ -56,6 +58,8 @@ class FeederEvalResult:
     top3_correct: bool
     unknown_top1: bool
     high_confidence_unknown: bool
+    abstention_topk_count: int
+    abstention_labels: list[str]
     failure_kind: str
     inference_ms: float
     crop_diagnostics: dict[str, Any]
@@ -121,8 +125,7 @@ def _optional_int(value: Any) -> int | None:
 
 
 def _is_unknown_label(value: str) -> bool:
-    normalized = _normalize_label(value)
-    return normalized in {"unknown", "unknown bird"} or normalized.startswith("unknown ")
+    return is_unknown_species_label(value)
 
 
 def _sanitize_event_id(event_id: str) -> str:
@@ -413,6 +416,17 @@ def score_predictions(
     top1_correct = _label_matches_prediction(expected_labels, top1_label)
     top3_correct = any(_label_matches_prediction(expected_labels, label) for label in top3_labels)
     unknown_top1 = _is_unknown_label(top1_label)
+    abstention_labels: list[str] = []
+    seen_abstentions: set[str] = set()
+    for prediction in top_predictions:
+        label = _clean(prediction.get("label"))
+        if not _is_unknown_label(label):
+            continue
+        normalized = _normalize_label(label)
+        if normalized in seen_abstentions:
+            continue
+        seen_abstentions.add(normalized)
+        abstention_labels.append(label)
     high_confidence_unknown = bool(
         unknown_top1 and top1_score >= float(high_confidence_unknown_threshold)
     )
@@ -442,6 +456,8 @@ def score_predictions(
         top3_correct=top3_correct,
         unknown_top1=unknown_top1,
         high_confidence_unknown=high_confidence_unknown,
+        abstention_topk_count=len(abstention_labels),
+        abstention_labels=abstention_labels,
         failure_kind=failure_kind,
         inference_ms=round(float(inference_ms), 3),
         crop_diagnostics=dict(crop_diagnostics or {}),
@@ -488,6 +504,17 @@ def aggregate_results(rows: list[FeederEvalResult]) -> dict[str, Any]:
                 sum(1 for row in model_rows if row.high_confidence_unknown),
                 total,
             ),
+            "abstention_topk_count": sum(row.abstention_topk_count for row in model_rows),
+            "abstention_topk_rate": _percent(
+                sum(1 for row in model_rows if row.abstention_topk_count > 0),
+                total,
+            ),
+            "abstention_labels": sorted({
+                label
+                for row in model_rows
+                for label in row.abstention_labels
+                if label
+            }),
             "median_inference_ms": round(sorted(inference_ms)[len(inference_ms) // 2], 3) if inference_ms else 0.0,
             "failure_kinds": dict(sorted(failures.items())),
             "per_species": {
@@ -594,6 +621,7 @@ def _write_outputs(rows: list[FeederEvalResult], output_dir: Path) -> None:
     for row in rows:
         payload = asdict(row)
         payload["top3_labels"] = "|".join(row.top3_labels)
+        payload["abstention_labels"] = "|".join(row.abstention_labels)
         payload["crop_diagnostics"] = json.dumps(row.crop_diagnostics, sort_keys=True)
         result_rows.append(payload)
 

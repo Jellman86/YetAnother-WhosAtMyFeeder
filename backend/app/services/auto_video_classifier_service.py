@@ -2030,7 +2030,16 @@ class AutoVideoClassifierService:
             })
             return "snapshot_no_results"
 
-        top = results[0]
+        from app.services.detection_service import DetectionService
+        svc = DetectionService(self._classifier)
+        top, reason = svc.select_usable_classification(results, frigate_event)
+        if not top:
+            await self._update_status(frigate_event, 'failed', error=reason or "snapshot_no_usable_result", broadcast=True)
+            await broadcaster.broadcast({
+                "type": "reclassification_completed",
+                "data": {"event_id": frigate_event, "results": []}
+            })
+            return reason or "snapshot_no_usable_result"
         await self._save_results(frigate_event, top)
         await broadcaster.broadcast({
             "type": "reclassification_completed",

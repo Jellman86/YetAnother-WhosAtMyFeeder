@@ -149,7 +149,7 @@ In `DetectionSettings.svelte`, replace the free-text add-label input with the sa
 ### 2. Labeled Feeder Model Evaluation Harness 📊
 **Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Feeder harness and auto-manifest bootstrap shipped on `dev`; real-dataset runs and refinements remain
 
-Current state on `dev`: YA-WAMF includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` for raw model checks, plus the feeder-specific `backend/scripts/eval_feeder_model_harness.py` that runs labeled feeder snapshots through `ClassifierService`. The feeder harness can read a curated CSV manifest, or generate `manifest.csv` automatically from the YA-WAMF SQLite DB and cached snapshots when `--manifest` is omitted. It evaluates one or more installed model IDs and crop modes, restores active model/crop settings after each run, emits `summary.json`, `results.csv`, and `failures.csv`, and reports high-confidence `Unknown` top-1 outputs as a distinct failure kind so the medium-birds EU behavior can be measured directly.
+Current state on `dev`: YA-WAMF includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` for raw model checks, plus the feeder-specific `backend/scripts/eval_feeder_model_harness.py` that runs labeled feeder snapshots through `ClassifierService`. The feeder harness can read a curated CSV manifest, or generate `manifest.csv` automatically from the YA-WAMF SQLite DB and cached snapshots when `--manifest` is omitted. It evaluates one or more installed model IDs and crop modes, restores active model/crop settings after each run, emits `summary.json`, `results.csv`, and `failures.csv`, reports high-confidence `Unknown` top-1 outputs as a distinct failure kind, and now also counts abstention labels anywhere in the returned top-K predictions so the medium-birds EU behavior can be measured directly even when a concrete species is ranked nearby.
 
 Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
 
@@ -165,7 +165,7 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 - Evaluate one or more active/downloaded model IDs and crop modes in one run, restoring the original active model and settings after every run.
 - Emit `summary.json`, `results.csv`, and optional `failures.csv` under a caller-provided output directory.
 - Keep all source/crop choices explicit in the per-image output so the result can answer "which model/crop mode should become the default?"
-- Count `unknown_top1` and `high_confidence_unknown` separately from ordinary wrong-species failures.
+- Count `unknown_top1`, `high_confidence_unknown`, and top-K abstention labels separately from ordinary wrong-species failures.
 
 **Scope:**
 - Add a manifest-driven backend evaluation script for labeled feeder images.
@@ -176,12 +176,12 @@ Build a repeatable offline evaluation harness for real feeder snapshots so YA-WA
 **Acceptance Criteria:**
 - ✅ A labeled CSV manifest can be evaluated against one or more requested models.
 - ✅ The harness can generate a starter CSV manifest from the app DB and cached feeder snapshots without hand-writing paths.
-- ✅ Outputs include top-1/top-3 hit rates, per-species breakdown, inference latency, crop diagnostics, and high-confidence Unknown counts.
+- ✅ Outputs include top-1/top-3 hit rates, per-species breakdown, inference latency, crop diagnostics, high-confidence Unknown counts, and top-K abstention counts/labels.
 - ✅ The harness leaves live app settings and active model selection unchanged after the run.
 - 🔄 Results are good enough to decide default crop behavior per model based on evidence once a real labeled feeder manifest has been run.
-- ✅ Tests cover manifest parsing, label matching, auto-manifest generation from DB/cache, settings restoration after failure, result aggregation, high-confidence Unknown scoring, and crop diagnostics capture.
+- ✅ Tests cover manifest parsing, label matching, auto-manifest generation from DB/cache, settings restoration after failure, result aggregation, high-confidence Unknown scoring, top-K abstention reporting, and crop diagnostics capture.
 
-**Next validation step:** run the auto-generated manifest against real cached feeder snapshots, especially with `medium_birds` EU, and compare `high_confidence_unknown_rate` across crop modes and alternative models.
+**Next validation step:** rerun the live-container harness against the larger auto-generated manifest and compare `high_confidence_unknown_rate`, `abstention_topk_rate`, and ordinary wrong-species failures across crop modes and alternative models.
 
 ### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
 **Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `main`

@@ -68,6 +68,10 @@ class DetectionService:
             label = "Unknown Bird"
             top = {**top, 'label': label}
 
+        if should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
+            log.info("Discarding classifier abstention label", label=label, event_id=frigate_event)
+            return None, "abstention_label"
+
         # Filter out blocked labels (case-insensitive).
         # Also check the parenthetical-stripped label (e.g. "Cassin's Finch (Adult Male)" →
         # "Cassin's Finch") so that users can block a species by its base name regardless of
@@ -162,6 +166,45 @@ class DetectionService:
             # But just in case logic drifts:
             log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
             return None, "below_threshold"
+
+    def select_usable_classification(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+    ) -> tuple[dict | None, str | None]:
+        """Return the first classifier result that survives filtering.
+
+        Some model artifacts expose abstention classes such as "Unknown" or
+        "No detection". Those classes are diagnostics, not useful species
+        labels, so lower-ranked concrete species should still get a chance.
+        """
+        last_reason: str | None = None
+        for classification in classifications or []:
+            top, reason = self.filter_and_label(
+                classification,
+                frigate_event,
+                frigate_sub_label,
+                frigate_score,
+            )
+            if top:
+                return top, reason
+            last_reason = reason
+        fallback_label = normalize_sub_label(frigate_sub_label)
+        if settings.classification.trust_frigate_sublabel and fallback_label:
+            final_score = (
+                frigate_score
+                if (frigate_score and frigate_score > 0)
+                else max(settings.classification.min_confidence, settings.classification.threshold)
+            )
+            return {
+                "label": fallback_label,
+                "score": final_score,
+                "index": -1,
+                "source": "frigate_fallback",
+            }, "frigate_fallback"
+        return None, last_reason
 
     async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
                            classification: dict, frigate_score: float = None, sub_label: str = None,

@@ -248,7 +248,7 @@ class BackfillService:
             sub_label = normalize_sub_label(event.get('sub_label'))
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
-            top, reason = self.detection_service.filter_and_label(results[0], frigate_event, sub_label, frigate_score)
+            top, reason = self.detection_service.select_usable_classification(results, frigate_event, sub_label, frigate_score)
             if not top:
                 if reason == "invalid_score":
                     log.warning("Historical event skipped due to invalid classifier score", event_id=frigate_event)

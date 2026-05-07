@@ -64,6 +64,30 @@ def test_score_predictions_flags_high_confidence_unknown_as_distinct_failure() -
     assert scored.failure_kind == "high_confidence_unknown"
 
 
+def test_score_predictions_reports_abstentions_beyond_top1() -> None:
+    case = harness.FeederEvalCase(
+        case_id="case-1",
+        image_path=Path("frame.jpg"),
+        expected_common_name="Blue Tit",
+    )
+
+    scored = harness.score_predictions(
+        case,
+        predictions=[
+            {"label": "Great Tit", "score": 0.87},
+            {"label": "No data", "score": 0.80},
+            {"label": "Blue Tit", "score": 0.71},
+        ],
+        high_confidence_unknown_threshold=0.90,
+    )
+
+    assert scored.top1_correct is False
+    assert scored.top3_correct is True
+    assert scored.abstention_topk_count == 1
+    assert scored.abstention_labels == ["No data"]
+    assert scored.failure_kind == "wrong_species"
+
+
 def test_score_predictions_matches_common_qualifier_variants_and_aliases() -> None:
     blue_tit = harness.FeederEvalCase(
         case_id="blue-tit",
@@ -104,6 +128,8 @@ def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
             top3_correct=True,
             unknown_top1=False,
             high_confidence_unknown=False,
+            abstention_topk_count=0,
+            abstention_labels=[],
             failure_kind="",
             inference_ms=50.0,
             crop_diagnostics={},
@@ -121,6 +147,8 @@ def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
             top3_correct=True,
             unknown_top1=True,
             high_confidence_unknown=True,
+            abstention_topk_count=1,
+            abstention_labels=["Unknown Bird"],
             failure_kind="high_confidence_unknown",
             inference_ms=70.0,
             crop_diagnostics={},
@@ -135,6 +163,8 @@ def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
     assert model_summary["top3_accuracy"] == 1.0
     assert model_summary["unknown_top1_rate"] == 0.5
     assert model_summary["high_confidence_unknown_count"] == 1
+    assert model_summary["abstention_topk_count"] == 1
+    assert model_summary["abstention_topk_rate"] == 0.5
 
 
 def test_settings_restored_after_evaluation_failure(monkeypatch) -> None:

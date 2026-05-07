@@ -12,6 +12,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Evaluation:** The feeder model harness can now bootstrap itself from the live YA-WAMF SQLite DB and media cache. If `--manifest` is omitted it writes `manifest.csv` from cached snapshots under `MEDIA_CACHE_DIR`, defaults outputs to `/config/workspace/yawamf-results/feeder-model-eval/<timestamp>/`, can filter generated samples by camera, stored score, and manual tags, skips `Unknown Bird` labels by default, and auto-discovers installed classifier models when `--models` is omitted.
 - **Deployment:** The monolithic image now includes `backend/scripts` under `/app/scripts` so evaluation harnesses can be run inside a pulled live container against its installed models, database, and media cache.
 - **Evaluation:** Feeder model harness label matching now supports `expected_aliases` / `acceptable_labels` manifest columns and controlled common-name qualifier variants, so labels such as `Eurasian blue tit` and `Common chaffinch` are not mis-scored as wrong for `Blue Tit` and `Chaffinch`.
+- **Evaluation:** Feeder model harness summaries now report abstention labels anywhere in the returned top-K predictions, not just top-1, including aggregate abstention counts/rates and the exact abstention labels seen per model/crop mode.
 
 ### Changed
 - **Classification (#33):** Live-image GPU fallback status now derives its active/cooldown state from `InferenceHealth` instead of a separate classifier-service monotonic timestamp. Existing `gpu_fallback_active` response fields remain as compatibility aliases, and runtime recovery records now carry the exact failed runtime key that triggered fallback.
@@ -20,6 +21,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 - **Classification:** Video analysis now treats model-emitted abstention labels as non-species evidence rather than species candidates. Per-frame video aggregation skips frames whose top label is `Unknown` / `Unknown Bird` / `No detection` / `No data` / similar exact abstention labels, removes hidden unknown classes from the final top-K list, ignores abstention-labeled analysis frames when selecting stored top frames for HQ snapshot reuse if known-species frames are available, and refuses to promote or publish automatic abstention video results as usable species labels even when confidence is high.
+- **Classification:** Live snapshot, historical backfill, manual snapshot reclassification, and snapshot fallback paths now discard model-emitted abstention labels before choosing a species. If `Unknown`, `No detection`, `No data`, or similar labels appear ahead of a concrete species, YA-WAMF now evaluates the lower-ranked concrete candidate instead of saving or promoting the abstention as a useful classification.
 
 ## [2.9.15] - 2026-05-05
 

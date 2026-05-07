@@ -522,8 +522,8 @@ class EventProcessor:
             self._record_drop(event.frigate_event, "classifier_empty_results")
             return
 
-        top, reason = self.detection_service.filter_and_label(
-            results[0], event.frigate_event, event.sub_label, event.frigate_score
+        top, reason = self.detection_service.select_usable_classification(
+            results, event.frigate_event, event.sub_label, event.frigate_score
         )
         if not top:
             top_candidate = results[0] if results else {}

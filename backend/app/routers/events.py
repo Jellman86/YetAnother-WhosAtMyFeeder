@@ -1511,11 +1511,19 @@ async def reclassify_event(
                     detail=i18n_service.translate("errors.events.reclassification_failed", lang)
                 )
 
-            top = results[0]
-            
             # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
             from app.services.detection_service import DetectionService
             svc = DetectionService(classifier)
+            selection = svc.select_usable_classification(results, event_id)
+            if isinstance(selection, tuple) and len(selection) == 2:
+                top, reason = selection
+            else:
+                top, reason = results[0], None
+            if not top:
+                raise HTTPException(
+                    status_code=500,
+                    detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                )
             await svc.apply_video_result(
                 frigate_event=event_id,
                 video_label=top['label'],

@@ -398,6 +398,75 @@ def test_filter_and_label_rejects_non_finite_score():
     assert reason == "invalid_score"
 
 
+def test_filter_and_label_rejects_model_abstention_labels():
+    service = DetectionService(MagicMock())
+
+    result, reason = service.filter_and_label(
+        {"label": "No detection", "score": 0.99, "index": 0},
+        "evt-no-detection",
+    )
+
+    assert result is None
+    assert reason == "abstention_label"
+
+
+def test_select_usable_classification_skips_unknown_top1_for_known_candidate():
+    service = DetectionService(MagicMock())
+
+    result, reason = service.select_usable_classification(
+        [
+            {"label": "Unknown", "score": 0.99, "index": 0},
+            {"label": "Blue Tit", "score": 0.93, "index": 12},
+        ],
+        "evt-known-second",
+    )
+
+    assert result == {"label": "Blue Tit", "score": 0.93, "index": 12}
+    assert reason == "threshold_passed"
+
+
+def test_select_usable_classification_reports_last_rejection_when_all_abstain():
+    service = DetectionService(MagicMock())
+
+    result, reason = service.select_usable_classification(
+        [
+            {"label": "Unknown", "score": 0.99, "index": 0},
+            {"label": "No data", "score": 0.95, "index": 1},
+        ],
+        "evt-all-abstain",
+    )
+
+    assert result is None
+    assert reason == "abstention_label"
+
+
+def test_select_usable_classification_uses_trusted_frigate_sublabel_when_all_abstain():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.8
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = True
+
+        result, reason = service.select_usable_classification(
+            [{"label": "Unknown", "score": 0.99, "index": 0}],
+            "evt-trusted-sublabel",
+            frigate_sub_label="Robin",
+            frigate_score=0.74,
+        )
+
+    assert result == {
+        "label": "Robin",
+        "score": 0.74,
+        "index": -1,
+        "source": "frigate_fallback",
+    }
+    assert reason == "frigate_fallback"
+
+
 @pytest.mark.asyncio
 async def test_save_detection_skips_structured_blocked_species_by_taxa_id(mock_deps):
     classifier = MagicMock()
