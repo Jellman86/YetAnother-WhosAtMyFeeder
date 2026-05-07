@@ -17,6 +17,7 @@
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Notifications from './lib/pages/Notifications.svelte';
+  import ModelEvaluation from './lib/pages/ModelEvaluation.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
@@ -63,6 +64,7 @@
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
       if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
       if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
+      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Model Evaluation';
       if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
       return '';
   });
@@ -72,6 +74,7 @@
       if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
       if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
       if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
+      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Benchmark every installed classifier against verified bird images.';
       if (currentRoute.startsWith('/about')) return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
       return '';
   });
@@ -127,7 +130,8 @@
   $effect(() => {
       if (!authStore.statusLoaded) return;
       if (authStore.needsInitialSetup) return;
-      if (!currentRoute.startsWith('/settings')) return;
+      const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval');
+      if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {
           authStore.requestLogin();
@@ -651,6 +655,12 @@
                    {/if}
               {:else if currentRoute.startsWith('/notifications')}
                   <Notifications onNavigate={navigate} {currentRoute} />
+              {:else if currentRoute.startsWith('/diagnostics/model-eval')}
+                   {#if authStore.showSettings}
+                       <ModelEvaluation />
+                   {:else}
+                       <div class="h-24"></div>
+                   {/if}
               {:else if currentRoute.startsWith('/about')}
                    <About />
               {/if}
