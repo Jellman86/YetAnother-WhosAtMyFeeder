@@ -1,9 +1,14 @@
 import asyncio
+import csv
+import sqlite3
 from pathlib import Path
 
 from PIL import Image
 
-from backend.scripts import eval_feeder_model_harness as harness
+try:
+    from backend.scripts import eval_feeder_model_harness as harness
+except ModuleNotFoundError:
+    from scripts import eval_feeder_model_harness as harness
 
 
 def test_load_manifest_reads_required_species_and_optional_context(tmp_path: Path) -> None:
@@ -172,3 +177,134 @@ def test_evaluate_case_uses_classifier_service_and_includes_crop_diagnostics(tmp
 
     assert result.top1_correct is True
     assert result.crop_diagnostics["crop_reason"] == "no_candidate"
+
+
+def _create_detection_db(path: Path) -> None:
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute(
+            """
+            CREATE TABLE detections (
+                id INTEGER PRIMARY KEY,
+                detection_time TEXT NOT NULL,
+                score REAL,
+                display_name TEXT,
+                category_name TEXT,
+                frigate_event TEXT,
+                camera_name TEXT,
+                is_hidden INTEGER DEFAULT 0,
+                manual_tagged INTEGER DEFAULT 0,
+                scientific_name TEXT,
+                common_name TEXT,
+                taxa_id INTEGER
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _insert_detection(db_path: Path, **overrides) -> None:
+    row = {
+        "id": 1,
+        "detection_time": "2026-05-07T08:00:00Z",
+        "score": 0.91,
+        "display_name": "Blue Tit",
+        "category_name": "bird",
+        "frigate_event": "event-1",
+        "camera_name": "feeder",
+        "is_hidden": 0,
+        "manual_tagged": 1,
+        "scientific_name": "Cyanistes caeruleus",
+        "common_name": "Blue Tit",
+        "taxa_id": 14600,
+    }
+    row.update(overrides)
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO detections (
+                id, detection_time, score, display_name, category_name, frigate_event,
+                camera_name, is_hidden, manual_tagged, scientific_name, common_name, taxa_id
+            ) VALUES (
+                :id, :detection_time, :score, :display_name, :category_name, :frigate_event,
+                :camera_name, :is_hidden, :manual_tagged, :scientific_name, :common_name, :taxa_id
+            )
+            """,
+            row,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_cached_snapshot_path_matches_media_cache_sanitizing(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "media_cache"
+    snapshot_path = cache_dir / "snapshots" / "event..abc-123.jpg"
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_bytes(b"fake")
+
+    assert harness.cached_snapshot_path(cache_dir, "event/../abc-123") == snapshot_path
+    assert harness.cached_snapshot_path(cache_dir / "snapshots", "event/../abc-123") == snapshot_path
+    assert harness.cached_snapshot_path(cache_dir, "../bad") is None
+
+
+def test_generate_manifest_from_detections_writes_cached_verified_snapshots(tmp_path: Path) -> None:
+    db_path = tmp_path / "speciesid.db"
+    cache_dir = tmp_path / "media_cache"
+    snapshot_path = cache_dir / "snapshots" / "event-1.jpg"
+    snapshot_path.parent.mkdir(parents=True)
+    snapshot_path.write_bytes(b"fake")
+    _create_detection_db(db_path)
+    _insert_detection(db_path)
+    manifest_path = tmp_path / "manifest.csv"
+
+    stats = harness.generate_manifest_from_detections(
+        db_path=db_path,
+        media_cache_dir=cache_dir,
+        output_manifest=manifest_path,
+        min_confidence=0.8,
+        manual_only=True,
+        limit=10,
+    )
+
+    assert stats == {"written": 1, "scanned": 1, "skipped_missing_snapshot": 0, "skipped_unlabeled": 0}
+    with manifest_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows == [
+        {
+            "case_id": "event-1",
+            "image_path": str(snapshot_path),
+            "expected_common_name": "Blue Tit",
+            "expected_scientific_name": "Cyanistes caeruleus",
+            "taxa_id": "14600",
+            "camera_name": "feeder",
+            "source_kind": "cached_snapshot",
+            "tags": "manual_tagged,score:0.910",
+            "notes": "detection_time=2026-05-07T08:00:00Z;frigate_event=event-1",
+        }
+    ]
+
+
+def test_generate_manifest_skips_unknown_and_missing_snapshots_by_default(tmp_path: Path) -> None:
+    db_path = tmp_path / "speciesid.db"
+    cache_dir = tmp_path / "media_cache"
+    (cache_dir / "snapshots").mkdir(parents=True)
+    (cache_dir / "snapshots" / "event-unknown.jpg").write_bytes(b"fake")
+    _create_detection_db(db_path)
+    _insert_detection(db_path, id=1, frigate_event="event-unknown", common_name="Unknown Bird", display_name="Unknown Bird")
+    _insert_detection(db_path, id=2, frigate_event="event-missing", common_name="Great Tit", display_name="Great Tit")
+    manifest_path = tmp_path / "manifest.csv"
+
+    stats = harness.generate_manifest_from_detections(
+        db_path=db_path,
+        media_cache_dir=cache_dir,
+        output_manifest=manifest_path,
+        limit=10,
+    )
+
+    assert stats == {"written": 0, "scanned": 2, "skipped_missing_snapshot": 1, "skipped_unlabeled": 1}
+    with manifest_path.open(newline="", encoding="utf-8") as handle:
+        assert list(csv.DictReader(handle)) == []

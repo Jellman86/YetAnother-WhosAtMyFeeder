@@ -85,6 +85,7 @@ COPY --from=ui-builder /ui/dist /usr/share/nginx/html
 COPY backend/alembic.ini /app/alembic.ini
 COPY backend/download_model.py /app/download_model.py
 COPY backend/app /app/app
+COPY backend/scripts /app/scripts
 COPY backend/locales /app/locales
 COPY backend/migrations /app/migrations
 COPY docker/monolith/nginx-main.conf /etc/nginx/nginx.conf

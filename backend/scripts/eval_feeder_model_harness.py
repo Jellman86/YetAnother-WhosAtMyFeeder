@@ -11,10 +11,13 @@ import argparse
 import asyncio
 import csv
 import json
+import os
+import sqlite3
 import sys
 import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterable
 
@@ -57,6 +60,19 @@ class FeederEvalResult:
     crop_diagnostics: dict[str, Any]
 
 
+MANIFEST_FIELDNAMES = [
+    "case_id",
+    "image_path",
+    "expected_common_name",
+    "expected_scientific_name",
+    "taxa_id",
+    "camera_name",
+    "source_kind",
+    "tags",
+    "notes",
+]
+
+
 def _clean(value: Any) -> str:
     return str(value or "").strip()
 
@@ -85,6 +101,32 @@ def _optional_int(value: Any) -> int | None:
 def _is_unknown_label(value: str) -> bool:
     normalized = _normalize_label(value)
     return normalized in {"unknown", "unknown bird"} or normalized.startswith("unknown ")
+
+
+def _sanitize_event_id(event_id: str) -> str:
+    safe_id = "".join(c for c in str(event_id or "") if c.isalnum() or c in "-_.")
+    if not safe_id or safe_id in (".", "..") or safe_id.startswith("."):
+        raise ValueError(f"invalid event id: {event_id}")
+    return safe_id
+
+
+def cached_snapshot_path(media_cache_dir: Path | str, event_id: str) -> Path | None:
+    """Return the existing cached snapshot path for an event, matching MediaCacheService naming."""
+    try:
+        safe_id = _sanitize_event_id(event_id)
+    except ValueError:
+        return None
+
+    cache_path = Path(media_cache_dir)
+    snapshots_dir = cache_path if cache_path.name == "snapshots" else cache_path / "snapshots"
+    candidate = snapshots_dir / f"{safe_id}.jpg"
+    try:
+        resolved = candidate.resolve()
+        if not resolved.is_relative_to(snapshots_dir.resolve()):
+            return None
+    except (OSError, ValueError):
+        return None
+    return candidate if candidate.exists() else None
 
 
 def _expected_labels(case: FeederEvalCase) -> list[str]:
@@ -138,6 +180,168 @@ def load_manifest(path: Path | str) -> list[FeederEvalCase]:
                 )
             )
     return cases
+
+
+def _sqlite_columns(db_path: Path) -> set[str]:
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute("PRAGMA table_info(detections)").fetchall()
+    finally:
+        conn.close()
+    return {str(row[1]) for row in rows}
+
+
+def _select_detection_rows(
+    *,
+    db_path: Path,
+    min_confidence: float,
+    manual_only: bool,
+    camera_name: str,
+    scan_limit: int,
+) -> list[sqlite3.Row]:
+    columns = _sqlite_columns(db_path)
+    required = {"frigate_event"}
+    missing = required - columns
+    if missing:
+        raise RuntimeError(f"detections table is missing required columns: {', '.join(sorted(missing))}")
+
+    selected_columns = [
+        "id",
+        "detection_time",
+        "score",
+        "display_name",
+        "category_name",
+        "frigate_event",
+        "camera_name",
+        "is_hidden",
+        "manual_tagged",
+        "scientific_name",
+        "common_name",
+        "taxa_id",
+    ]
+    projections = [column if column in columns else f"NULL AS {column}" for column in selected_columns]
+    filters = ["frigate_event IS NOT NULL", "TRIM(frigate_event) != ''"]
+    params: list[Any] = []
+    if "is_hidden" in columns:
+        filters.append("(is_hidden IS NULL OR is_hidden = 0)")
+    if "score" in columns:
+        filters.append("(score IS NULL OR score >= ?)")
+        params.append(float(min_confidence))
+    if manual_only and "manual_tagged" in columns:
+        filters.append("manual_tagged = 1")
+    if camera_name and "camera_name" in columns:
+        filters.append("camera_name = ?")
+        params.append(camera_name)
+
+    order_by = "detection_time DESC" if "detection_time" in columns else "id DESC"
+    params.append(max(1, int(scan_limit)))
+    sql = f"""
+        SELECT {', '.join(projections)}
+        FROM detections
+        WHERE {' AND '.join(filters)}
+        ORDER BY {order_by}
+        LIMIT ?
+    """
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        return list(conn.execute(sql, params).fetchall())
+    finally:
+        conn.close()
+
+
+def _manifest_label_from_detection(row: sqlite3.Row) -> tuple[str, str, str]:
+    common_name = _clean(row["common_name"]) or _clean(row["display_name"])
+    scientific_name = _clean(row["scientific_name"])
+    taxa_id = _clean(row["taxa_id"])
+    return common_name, scientific_name, taxa_id
+
+
+def generate_manifest_from_detections(
+    *,
+    db_path: Path | str,
+    media_cache_dir: Path | str,
+    output_manifest: Path | str,
+    min_confidence: float = 0.0,
+    manual_only: bool = False,
+    camera_name: str = "",
+    limit: int = 100,
+    scan_limit: int | None = None,
+    include_unknown: bool = False,
+) -> dict[str, int]:
+    """Create a feeder eval CSV from stored detections with cached snapshots."""
+    resolved_db_path = Path(db_path)
+    if not resolved_db_path.exists():
+        raise FileNotFoundError(f"database not found: {resolved_db_path}")
+
+    output_path = Path(output_manifest)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    effective_scan_limit = scan_limit or max(int(limit) * 5, int(limit), 50)
+    rows = _select_detection_rows(
+        db_path=resolved_db_path,
+        min_confidence=min_confidence,
+        manual_only=manual_only,
+        camera_name=camera_name,
+        scan_limit=effective_scan_limit,
+    )
+
+    stats = {
+        "written": 0,
+        "scanned": 0,
+        "skipped_missing_snapshot": 0,
+        "skipped_unlabeled": 0,
+    }
+    manifest_rows: list[dict[str, str]] = []
+    for row in rows:
+        if stats["written"] >= int(limit):
+            break
+        stats["scanned"] += 1
+        event_id = _clean(row["frigate_event"])
+        common_name, scientific_name, taxa_id = _manifest_label_from_detection(row)
+        if (
+            not common_name
+            and not scientific_name
+            and not taxa_id
+        ) or (not include_unknown and (_is_unknown_label(common_name) or _is_unknown_label(scientific_name))):
+            stats["skipped_unlabeled"] += 1
+            continue
+
+        image_path = cached_snapshot_path(media_cache_dir, event_id)
+        if image_path is None:
+            stats["skipped_missing_snapshot"] += 1
+            continue
+
+        tags = []
+        if bool(row["manual_tagged"]):
+            tags.append("manual_tagged")
+        score = row["score"]
+        if score is not None:
+            try:
+                tags.append(f"score:{float(score):.3f}")
+            except (TypeError, ValueError):
+                pass
+
+        notes = [f"detection_time={_clean(row['detection_time'])}", f"frigate_event={event_id}"]
+        manifest_rows.append(
+            {
+                "case_id": event_id,
+                "image_path": str(image_path),
+                "expected_common_name": common_name,
+                "expected_scientific_name": scientific_name,
+                "taxa_id": taxa_id,
+                "camera_name": _clean(row["camera_name"]),
+                "source_kind": "cached_snapshot",
+                "tags": ",".join(tags),
+                "notes": ";".join(note for note in notes if not note.endswith("=")),
+            }
+        )
+        stats["written"] += 1
+
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(manifest_rows)
+    return stats
 
 
 def score_predictions(
@@ -412,11 +616,93 @@ def _split_csv_arg(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _default_output_dir() -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return Path(os.getenv("YA_WAMF_EVAL_OUTPUT_DIR", f"/config/workspace/yawamf-results/feeder-model-eval/{timestamp}"))
+
+
+async def _resolve_model_ids(models_arg: str) -> list[str]:
+    explicit = _split_csv_arg(models_arg)
+    if explicit:
+        return explicit
+
+    from app.services.model_manager import model_manager
+
+    installed = await model_manager.list_installed_models()
+    model_ids = [
+        model.id
+        for model in installed
+        if getattr(getattr(model, "metadata", None), "artifact_kind", "classifier") == "classifier"
+    ]
+    active_model_id = getattr(model_manager, "active_model_id", None)
+    if active_model_id in model_ids:
+        model_ids.remove(active_model_id)
+        model_ids.insert(0, active_model_id)
+    if not model_ids:
+        raise RuntimeError("no installed classifier models found; pass --models to select explicit model IDs")
+    return model_ids
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate YA-WAMF models on labeled feeder snapshots.")
-    parser.add_argument("--manifest", required=True, help="CSV manifest of labeled feeder images")
-    parser.add_argument("--output-dir", required=True, help="Directory for summary.json/results.csv/failures.csv")
-    parser.add_argument("--models", required=True, help="Comma-separated installed model IDs to evaluate")
+    parser.add_argument(
+        "--manifest",
+        default="",
+        help="CSV manifest of labeled feeder images. If omitted, one is generated from the DB and media cache.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="",
+        help="Directory for manifest.csv/summary.json/results.csv/failures.csv",
+    )
+    parser.add_argument(
+        "--models",
+        default="",
+        help="Comma-separated installed model IDs to evaluate. If omitted, all installed classifier models are used.",
+    )
+    parser.add_argument(
+        "--db-path",
+        default=os.getenv("DB_PATH", "/data/speciesid.db"),
+        help="SQLite DB used when --manifest is omitted",
+    )
+    parser.add_argument(
+        "--media-cache-dir",
+        default=os.getenv("MEDIA_CACHE_DIR", "/config/media_cache"),
+        help="Media cache base or snapshots directory used when --manifest is omitted",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum generated manifest rows when --manifest is omitted",
+    )
+    parser.add_argument(
+        "--scan-limit",
+        type=int,
+        default=0,
+        help="Maximum DB rows to scan when generating a manifest; defaults to 5x --limit, minimum 50",
+    )
+    parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.0,
+        help="Minimum stored detection score for generated manifests",
+    )
+    parser.add_argument(
+        "--manual-only",
+        action="store_true",
+        help="Only include manually tagged detections in generated manifests",
+    )
+    parser.add_argument(
+        "--camera",
+        default="",
+        help="Optional camera filter for generated manifests",
+    )
+    parser.add_argument(
+        "--include-unknown",
+        action="store_true",
+        help="Allow Unknown/Unknown Bird rows in generated manifests",
+    )
     parser.add_argument(
         "--crop-modes",
         default="default",
@@ -435,11 +721,31 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else _default_output_dir()
+    manifest_path = Path(args.manifest).resolve() if args.manifest else output_dir / "manifest.csv"
+    if not args.manifest:
+        stats = generate_manifest_from_detections(
+            db_path=Path(args.db_path),
+            media_cache_dir=Path(args.media_cache_dir),
+            output_manifest=manifest_path,
+            min_confidence=args.min_confidence,
+            manual_only=args.manual_only,
+            camera_name=args.camera,
+            limit=args.limit,
+            scan_limit=args.scan_limit or None,
+            include_unknown=args.include_unknown,
+        )
+        print(f"Generated manifest at {manifest_path}: {json.dumps(stats, sort_keys=True)}")
+        if stats["written"] == 0:
+            print("ERROR: generated manifest is empty; check DB labels, cache snapshots, and filters", file=sys.stderr)
+            return 1
+
+    model_ids = asyncio.run(_resolve_model_ids(args.models))
     summary = asyncio.run(
         run_harness(
-            manifest_path=Path(args.manifest),
-            output_dir=Path(args.output_dir),
-            model_ids=_split_csv_arg(args.models),
+            manifest_path=manifest_path,
+            output_dir=output_dir,
+            model_ids=model_ids,
             crop_modes=_split_csv_arg(args.crop_modes),
             source_mode=args.source_mode,
             high_confidence_unknown_threshold=args.high_confidence_unknown_threshold,
