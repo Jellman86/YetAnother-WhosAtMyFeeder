@@ -22,6 +22,7 @@ from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
+from app.utils.canonical_species import should_hide_species_label
 
 # TFLite runtime
 try:
@@ -5036,6 +5037,7 @@ class ClassifierService:
             )
 
             all_scores = []
+            skipped_unknown_frame_count = 0
 
             active_model_id = None
             try:
@@ -5091,12 +5093,14 @@ class ClassifierService:
                     bird_model = active_bird_model
 
                 if len(scores) > 0:
-                    all_scores.append(scores)
-
                     # Update last valid result metadata
                     top_idx = int(np.argmax(scores))
                     last_top_score = float(scores[top_idx])
                     last_top_label = normalize_classifier_label(bird_model.labels[top_idx]) if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                    if should_hide_species_label(last_top_label):
+                        skipped_unknown_frame_count += 1
+                    else:
+                        all_scores.append(scores)
 
                     try:
                         from io import BytesIO
@@ -5141,9 +5145,16 @@ class ClassifierService:
             processed_count = len(all_scores)
             scores_matrix = np.vstack(all_scores)
             representative_scores = np.max(scores_matrix, axis=0)
+            for class_index, label in enumerate(getattr(bird_model, "labels", []) or []):
+                if class_index >= len(representative_scores):
+                    break
+                normalized_label = normalize_classifier_label(label)
+                if should_hide_species_label(normalized_label):
+                    representative_scores[class_index] = -np.inf
 
             # Create standard classification list from representative scores
-            top_indices = representative_scores.argsort()[-5:][::-1]
+            finite_indices = np.where(np.isfinite(representative_scores))[0]
+            top_indices = finite_indices[np.argsort(representative_scores[finite_indices])[-5:][::-1]]
 
             classifications = []
             for i in top_indices:
@@ -5177,7 +5188,8 @@ class ClassifierService:
 
             log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
                      top_result=classifications[0]['label'] if classifications else None,
-                     top_score=round(classifications[0]['score'], 3))
+                     top_score=round(classifications[0]['score'], 3),
+                     skipped_unknown_frames=skipped_unknown_frame_count)
 
             return classifications
 

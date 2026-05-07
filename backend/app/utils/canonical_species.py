@@ -5,6 +5,7 @@ from app.config import settings
 
 
 UNKNOWN_BIRD_DISPLAY_LABEL = "Unknown Bird"
+UNKNOWN_RAW_LABEL = "Unknown"
 _LABEL_SPACE_RE = re.compile(r"\s+")
 _SPECIFIC_SCIENTIFIC_NAME_RE = re.compile(r"^[A-Z][a-z-]+(?: [a-z][a-z-]+){1,3}$")
 _NONCANONICAL_EXACT = {
@@ -22,7 +23,11 @@ def _normalize_label_key(value: str | None) -> str:
 
 
 def unknown_species_labels(extra_labels: Iterable[str] | None = None) -> list[str]:
-    values = [UNKNOWN_BIRD_DISPLAY_LABEL, *(settings.classification.unknown_bird_labels or [])]
+    values = [
+        UNKNOWN_BIRD_DISPLAY_LABEL,
+        UNKNOWN_RAW_LABEL,
+        *(settings.classification.unknown_bird_labels or []),
+    ]
     if extra_labels:
         values.extend(str(value) for value in extra_labels if str(value).strip())
 

@@ -18,6 +18,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Classification (#33):** Successful startup runtime benchmarks now seed the matching `InferenceHealth` latency baseline, and latency-based health verdicts only use low-pressure inference samples. Load-affected samples remain visible in telemetry but are excluded from baseline drift decisions so queue pressure does not masquerade as a slow runtime.
 - **Telemetry:** Runtime telemetry now reports OpenVINO GPU fallback from the classifier's explicit live-image fallback status instead of treating any runtime recovery as GPU fallback.
 
+### Fixed
+- **Classification:** Video analysis now treats model-emitted `Unknown` labels as an abstention rather than a species candidate. Per-frame video aggregation skips frames whose top label is `Unknown` / `Unknown Bird`, removes hidden unknown classes from the final top-K list, and ignores unknown-labeled analysis frames when selecting stored top frames for HQ snapshot reuse if known-species frames are available.
+
 ## [2.9.15] - 2026-05-05
 
 ### Added

@@ -1478,6 +1478,70 @@ async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mo
 
 
 @pytest.mark.asyncio
+async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    frames = [
+        np.full((8, 8, 3), 32, dtype=np.uint8),
+        np.full((8, 8, 3), 64, dtype=np.uint8),
+        np.full((8, 8, 3), 96, dtype=np.uint8),
+    ]
+    frame_scores = [
+        np.array([0.96, 0.03, 0.01], dtype=np.float32),
+        np.array([0.04, 0.72, 0.24], dtype=np.float32),
+        np.array([0.03, 0.61, 0.36], dtype=np.float32),
+    ]
+
+    class _FakeCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            import cv2
+
+            if prop == cv2.CAP_PROP_FRAME_COUNT:
+                return len(frames)
+            if prop == cv2.CAP_PROP_FPS:
+                return 10
+            return 0
+
+        def set(self, _prop, value):
+            self._index = int(value)
+
+        def read(self):
+            if 0 <= self._index < len(frames):
+                frame = frames[self._index]
+                self._index += 1
+                return True, frame
+            return False, None
+
+        def release(self):
+            return None
+
+    calls = {"count": 0}
+
+    def _fake_classify_raw(_image, input_context=None):
+        idx = min(calls["count"], len(frame_scores) - 1)
+        calls["count"] += 1
+        return frame_scores[idx], service._models["bird"]
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = MagicMock(loaded=True, labels=["Unknown", "Robin", "Blue Jay"])
+        monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
+        monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
+
+        results = service.classify_video("/tmp/demo.mp4", max_frames=3)
+
+        assert results[0]["label"] == "Robin"
+        assert all(result["label"] != "Unknown" for result in results)
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
          patch.object(ClassifierService, "classify") as mock_classify:

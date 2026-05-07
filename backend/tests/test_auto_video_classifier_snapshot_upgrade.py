@@ -662,3 +662,32 @@ async def test_process_event_top_frames_ranked_by_score_descending():
     assert scores == sorted(scores, reverse=True), "frames must be ranked by descending score"
     assert persisted[0]["frame_score"] == pytest.approx(0.9)
     assert persisted[0]["rank"] == 1
+
+
+@pytest.mark.asyncio
+async def test_persist_video_top_frames_discards_unknown_frames_when_known_frames_exist():
+    service = AutoVideoClassifierService()
+    persisted: list[dict] = []
+
+    class _Repo:
+        def __init__(self, _db):
+            pass
+
+        async def replace_video_top_frames(self, _event_id, top_frames):
+            persisted.extend(top_frames)
+
+    with patch.object(auto_video_classifier_module, "DetectionRepository", _Repo), \
+         patch.object(auto_video_classifier_module, "get_db") as mock_get_db:
+        mock_get_db.return_value.__aenter__.return_value = AsyncMock()
+        await service._persist_video_top_frames(
+            "evt-known-over-unknown",
+            [
+                {"frame_index": 1, "frame_score": 0.99, "top_label": "Unknown"},
+                {"frame_index": 2, "frame_score": 0.72, "top_label": "European Robin"},
+                {"frame_index": 3, "frame_score": 0.66, "top_label": "Blue Tit"},
+            ],
+            "event",
+        )
+
+    assert [frame["top_label"] for frame in persisted] == ["European Robin", "Blue Tit"]
+    assert [frame["rank"] for frame in persisted] == [1, 2]

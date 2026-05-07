@@ -31,6 +31,7 @@ from app.utils.public_access import effective_public_events_days
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.api_datetime import serialize_api_datetime
 from app.routers.proxy import _get_valid_cached_recording_clip_path
+from app.utils.video_analysis import rank_video_top_frames
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
@@ -1448,11 +1449,11 @@ async def reclassify_event(
                             # Persist top video-analysis frames for HQ snapshot reuse
                             if _video_frame_scores:
                                 try:
-                                    sorted_frames = sorted(_video_frame_scores, key=lambda f: f["frame_score"], reverse=True)
-                                    top_frames = [
-                                        {**f, "rank": rank, "clip_variant": clip_variant}
-                                        for rank, f in enumerate(sorted_frames[:8], 1)
-                                    ]
+                                    top_frames = rank_video_top_frames(
+                                        _video_frame_scores,
+                                        limit=8,
+                                        clip_variant=clip_variant,
+                                    )
                                     await repo.replace_video_top_frames(event_id, top_frames)
                                 except Exception as e:
                                     log.warning("Failed to persist video top frames", event_id=event_id, error=str(e))

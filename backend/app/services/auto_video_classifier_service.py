@@ -30,6 +30,7 @@ from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.video_analysis import rank_video_top_frames
 
 log = structlog.get_logger()
 MAX_PENDING_QUEUE = 1000
@@ -1919,11 +1920,11 @@ class AutoVideoClassifierService:
     ) -> None:
         """Persist top-N video-analysis frames for HQ snapshot reuse."""
         try:
-            sorted_frames = sorted(frame_scores, key=lambda f: f["frame_score"], reverse=True)
-            top_frames = [
-                {**f, "rank": rank, "clip_variant": clip_variant}
-                for rank, f in enumerate(sorted_frames[:_VIDEO_TOP_FRAMES_LIMIT], 1)
-            ]
+            top_frames = rank_video_top_frames(
+                frame_scores,
+                limit=_VIDEO_TOP_FRAMES_LIMIT,
+                clip_variant=clip_variant,
+            )
             async with get_db() as db:
                 await DetectionRepository(db).replace_video_top_frames(frigate_event, top_frames)
         except Exception as e:
