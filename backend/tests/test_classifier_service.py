@@ -2614,6 +2614,7 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
             assert status["live_image"]["recovery_reason"] == "live_gpu_lease_expiry_fallback"
             assert status["live_image_gpu_fallback_active"] is True
             assert status["last_runtime_recovery"]["failed_provider"] == "intel_gpu"
+            assert status["last_runtime_recovery"]["failed_runtime"]["key"] == "openvino/intel_gpu/eu_medium_focalnet_b"
             assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
             service._load_runtime_fallback_bird_model.assert_called_once()
 
@@ -2799,6 +2800,46 @@ async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(
 
 
 @pytest.mark.asyncio
+async def test_live_image_gpu_fallback_cooldown_comes_from_inference_health(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        monkeypatch.setattr(
+            classifier_service_module,
+            "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
+            2,
+            raising=False,
+        )
+        service = ClassifierService()
+        service._inference_backend = "openvino"
+        service._active_inference_provider = "intel_cpu"
+        service._image_execution_mode = "in_process"
+        runtime_key = classifier_service_module.RuntimeKey.from_values(
+            "openvino",
+            "intel_gpu",
+            service._resolve_active_model_id(),
+        )
+        service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
+        service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
+        service._last_runtime_recovery = {
+            "status": "recovered",
+            "failed_backend": "openvino",
+            "failed_provider": "intel_gpu",
+            "recovered_backend": "openvino",
+            "recovered_provider": "intel_cpu",
+            "reason": "live_gpu_lease_expiry_fallback",
+            "at": 123.0,
+        }
+
+        status = service.get_status()
+
+        assert status["live_image"]["gpu_fallback_active"] is True
+        assert status["live_image_gpu_fallback_active"] is True
+        assert status["live_image"]["gpu_fallback_cooldown_remaining_seconds"] > 0
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_status_exposes_additive_inference_health(
     mock_tflite, mock_os_path_exists
 ):
@@ -2869,7 +2910,6 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     service._inference_backend = "onnxruntime"
     service._active_inference_provider = "cpu"
     service._gpu_restore_not_before_monotonic = 0.0
-    service._live_gpu_lease_fallback_until_monotonic = 0.0
     service._last_runtime_recovery = {
         "status": "recovered",
         "failed_backend": "openvino",
@@ -2917,8 +2957,81 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     assert service._active_inference_provider == "intel_gpu"
     assert service._runtime_gpu_restore_attempts == 1
     assert service._runtime_gpu_restore_successes == 1
-    assert service._live_gpu_lease_fallback_until_monotonic == 0.0
     mock_build.assert_called()
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_runtime_benchmark_seeds_inference_health_baseline(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    benchmark = service._record_runtime_benchmark({
+        "key": "openvino/intel_gpu",
+        "backend": "openvino",
+        "provider": "intel_gpu",
+        "status": "passed",
+        "candidate_latency_seconds": 0.125,
+    })
+    runtime_key = classifier_service_module.RuntimeKey.from_values(
+        "openvino",
+        "intel_gpu",
+        service._resolve_active_model_id(),
+    )
+
+    snapshot = service._inference_health.snapshot()
+    runtime = snapshot["runtimes"][runtime_key.display()]
+
+    assert benchmark["status"] == "passed"
+    assert runtime["baseline_p95_latency_seconds"] == 0.125
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_coordinated_inference_marks_latency_load_affected_under_pressure(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+
+    service._inference_backend = "openvino"
+    service._active_inference_provider = "intel_gpu"
+    original_get_metrics = service._classification_admission.get_metrics
+    call_count = 0
+
+    def _pressure_once_then_real():
+        nonlocal call_count
+        call_count += 1
+        metrics = original_get_metrics()
+        if call_count <= 1:
+            metrics["live"]["running"] = 1
+        return metrics
+
+    async def _runner():
+        return [{"label": "Robin", "score": 0.9, "index": 0}]
+
+    service._classification_admission.get_metrics = MagicMock(side_effect=_pressure_once_then_real)
+    context = service._classification_admission_context(model_id="medium_birds")
+
+    results = await service._run_coordinated_inference(
+        "live",
+        "live_image_inference",
+        _runner,
+        context=context,
+    )
+    runtime_key = classifier_service_module.RuntimeKey.from_values(
+        "openvino",
+        "intel_gpu",
+        "medium_birds",
+    )
+    runtime = service._inference_health.snapshot()["runtimes"][runtime_key.display()]
+
+    assert results == [{"label": "Robin", "score": 0.9, "index": 0}]
+    assert runtime["latency_seconds"]["p95"] is not None
+    assert runtime["latency_health_samples"] == 0
+    assert runtime["load_affected_latency_samples"] == 1
     await service.shutdown()
 
 

@@ -135,10 +135,19 @@ def build_runtime_telemetry_payload(
         status.get("selected_provider") or getattr(settings.classification, "inference_provider", None)
     )
     active_provider = _safe_optional_text(status.get("active_provider"))
-    runtime_recovery = status.get("last_runtime_recovery")
     openvino_compile_ok = status.get("openvino_model_compile_ok")
     if not isinstance(openvino_compile_ok, bool):
         openvino_compile_ok = None
+    live_image = status.get("live_image") if isinstance(status.get("live_image"), dict) else {}
+    explicit_gpu_fallback_active = status.get("live_image_gpu_fallback_active")
+    if not isinstance(explicit_gpu_fallback_active, bool):
+        explicit_gpu_fallback_active = live_image.get("gpu_fallback_active")
+    if not isinstance(explicit_gpu_fallback_active, bool):
+        explicit_gpu_fallback_active = (
+            configured_provider in {"intel_gpu", "cuda"}
+            and bool(active_provider)
+            and active_provider != configured_provider
+        )
 
     image_flavor = (
         env.get("YAWAMF_IMAGE_FLAVOR")
@@ -185,14 +194,7 @@ def build_runtime_telemetry_payload(
             "intel_gpu_available": _safe_bool(status.get("intel_gpu_available")),
             "openvino_gpu_compile_ok": openvino_compile_ok,
             "openvino_gpu_compile_device": _safe_optional_text(status.get("openvino_model_compile_device")),
-            "openvino_gpu_fallback_active": bool(
-                runtime_recovery
-                or (
-                    configured_provider in {"intel_gpu", "cuda"}
-                    and active_provider
-                    and active_provider != configured_provider
-                )
-            ),
+            "openvino_gpu_fallback_active": bool(explicit_gpu_fallback_active),
         },
         "deployment": {
             "mode": _safe_optional_text(

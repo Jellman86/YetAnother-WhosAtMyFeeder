@@ -38,7 +38,9 @@ class RuntimeKey(NamedTuple):
 class _RuntimeHealth:
     outcomes: deque[Outcome]
     latencies: deque[float]
+    health_latencies: deque[float]
     baseline_p95_latency_seconds: float | None = None
+    load_affected_latency_samples: int = 0
     first_recorded_at: float | None = None
     last_recorded_at: float | None = None
     last_outcome: Outcome | None = None
@@ -95,6 +97,7 @@ class InferenceHealth:
         *,
         outcome: Outcome,
         latency_seconds: float | None,
+        latency_health_eligible: bool = True,
     ) -> None:
         now_wall = time.time()
         with self._lock:
@@ -106,6 +109,10 @@ class InferenceHealth:
             state.outcomes.append(outcome)
             if isinstance(latency_seconds, (int, float)) and latency_seconds >= 0:
                 state.latencies.append(float(latency_seconds))
+                if latency_health_eligible:
+                    state.health_latencies.append(float(latency_seconds))
+                else:
+                    state.load_affected_latency_samples += 1
 
             verdict = self._compute_verdict(state)
             if verdict == "unhealthy" and state.last_verdict != "unhealthy":
@@ -148,6 +155,7 @@ class InferenceHealth:
             state = _RuntimeHealth(
                 outcomes=deque(maxlen=self._config.window_size),
                 latencies=deque(maxlen=self._config.window_size),
+                health_latencies=deque(maxlen=self._config.window_size),
             )
             self._runtimes[key] = state
         return state
@@ -159,8 +167,8 @@ class InferenceHealth:
         error_rate = self._error_rate(state)
         if error_rate >= self._config.unhealthy_error_rate:
             return "unhealthy"
-        if state.baseline_p95_latency_seconds and self._p95(state.latencies) is not None:
-            p95 = self._p95(state.latencies) or 0.0
+        if state.baseline_p95_latency_seconds and self._p95(state.health_latencies) is not None:
+            p95 = self._p95(state.health_latencies) or 0.0
             if p95 >= state.baseline_p95_latency_seconds * self._config.unhealthy_latency_multiplier:
                 return "unhealthy"
             if p95 >= state.baseline_p95_latency_seconds * self._config.degraded_latency_multiplier:
@@ -171,6 +179,7 @@ class InferenceHealth:
 
     def _snapshot_runtime(self, state: _RuntimeHealth) -> dict:
         latencies = list(state.latencies)
+        health_latencies = list(state.health_latencies)
         return {
             "verdict": self._compute_verdict(state),
             "samples": len(state.outcomes),
@@ -180,10 +189,17 @@ class InferenceHealth:
             "first_recorded_at": state.first_recorded_at,
             "last_recorded_at": state.last_recorded_at,
             "baseline_p95_latency_seconds": state.baseline_p95_latency_seconds,
+            "latency_health_samples": len(state.health_latencies),
+            "load_affected_latency_samples": state.load_affected_latency_samples,
             "latency_seconds": {
                 "p50": self._round_or_none(self._p50(latencies)),
                 "p95": self._round_or_none(self._p95(latencies)),
                 "max": self._round_or_none(max(latencies) if latencies else None),
+            },
+            "latency_health_seconds": {
+                "p50": self._round_or_none(self._p50(health_latencies)),
+                "p95": self._round_or_none(self._p95(health_latencies)),
+                "max": self._round_or_none(max(health_latencies) if health_latencies else None),
             },
             "cooldown_remaining_seconds": self._round_or_none(
                 max(0.0, state.cooldown_until_monotonic - time.monotonic())

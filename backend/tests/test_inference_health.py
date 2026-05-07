@@ -64,3 +64,24 @@ def test_inference_health_uses_baseline_latency_for_degraded_and_unhealthy_verdi
     health.record(key, outcome="ok", latency_seconds=6.0)
 
     assert health.verdict(key) == "unhealthy"
+
+
+def test_inference_health_ignores_load_affected_latency_for_verdicts():
+    health = InferenceHealth(
+        min_samples=2,
+        degraded_latency_multiplier=2.0,
+        unhealthy_latency_multiplier=5.0,
+    )
+    key = RuntimeKey("openvino", "intel_gpu", "eu_medium_focalnet_b")
+
+    health.set_baseline(key, p95_latency_seconds=1.0)
+    health.record(key, outcome="ok", latency_seconds=6.0, latency_health_eligible=False)
+    health.record(key, outcome="ok", latency_seconds=7.0, latency_health_eligible=False)
+
+    snapshot = health.snapshot()
+    runtime = snapshot["runtimes"]["openvino/intel_gpu/eu_medium_focalnet_b"]
+
+    assert health.verdict(key) == "healthy"
+    assert runtime["latency_seconds"]["p95"] == 7.0
+    assert runtime["latency_health_samples"] == 0
+    assert runtime["load_affected_latency_samples"] == 2

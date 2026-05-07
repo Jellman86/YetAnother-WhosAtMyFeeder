@@ -100,7 +100,7 @@ def test_runtime_telemetry_payload_exposes_device_and_runtime_capabilities():
             "intel_gpu_available": True,
             "openvino_model_compile_ok": False,
             "openvino_model_compile_device": "GPU",
-            "last_runtime_recovery": {"reason": "non_finite_output"},
+            "live_image_gpu_fallback_active": True,
         },
         app_version="2.9.14-dev+abc1234",
         platform_system="Linux",
@@ -139,3 +139,30 @@ def test_runtime_telemetry_payload_exposes_device_and_runtime_capabilities():
         "app_branch": "dev",
         "git_hash": "abc1234",
     }
+
+
+def test_runtime_telemetry_payload_does_not_treat_unrelated_recovery_as_gpu_fallback():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "auto",
+            "active_provider": "intel_gpu",
+            "inference_backend": "openvino",
+            "cuda_available": False,
+            "cuda_hardware_available": False,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": True,
+            "openvino_model_compile_device": "GPU",
+            "last_runtime_recovery": {"reason": "non_finite_output"},
+            "live_image_gpu_fallback_active": False,
+        },
+        app_version="2.9.14-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={},
+    )
+
+    assert payload["hardware"]["openvino_gpu_fallback_active"] is False

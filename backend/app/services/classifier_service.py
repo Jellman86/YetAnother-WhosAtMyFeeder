@@ -2273,7 +2273,6 @@ class ClassifierService:
             min_samples=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD,
             cooldown_seconds=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
         )
-        self._live_gpu_lease_fallback_until_monotonic: float = 0.0
         self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._bird_model_artifact_metadata: dict[str, Any] = {}
         self._model_config_warnings: list[str] = []
@@ -2520,6 +2519,17 @@ class ClassifierService:
             )
             payload["key"] = key
         self._runtime_benchmarks[key] = payload
+        if payload.get("status") == "passed":
+            baseline_latency = payload.get("candidate_latency_seconds")
+            if isinstance(baseline_latency, (int, float)) and baseline_latency > 0:
+                self._inference_health.set_baseline(
+                    RuntimeKey.from_values(
+                        str(payload.get("backend") or "unknown"),
+                        str(payload.get("provider") or "unknown"),
+                        self._resolve_active_model_id(),
+                    ),
+                    p95_latency_seconds=float(baseline_latency),
+                )
         return payload
 
     def _benchmark_model_probe(self, model: Any, image: Image.Image) -> tuple[float, dict[str, Any]]:
@@ -2813,8 +2823,29 @@ class ClassifierService:
     def _record_gpu_success(self) -> None:
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
 
+    def _live_gpu_fallback_health_key(self) -> RuntimeKey | None:
+        if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
+            return None
+        if not isinstance(self._last_runtime_recovery, dict):
+            return None
+        failed_backend = str(self._last_runtime_recovery.get("failed_backend") or "").strip().lower()
+        failed_provider = str(self._last_runtime_recovery.get("failed_provider") or "").strip().lower()
+        if failed_backend != "openvino" or failed_provider not in {"gpu", "intel_gpu"}:
+            return None
+        failed_runtime = self._last_runtime_recovery.get("failed_runtime")
+        failed_model_id = None
+        if isinstance(failed_runtime, dict):
+            failed_model_id = str(failed_runtime.get("model_id") or "").strip() or None
+        return RuntimeKey.from_values("openvino", "intel_gpu", failed_model_id or self._resolve_active_model_id())
+
+    def _live_gpu_lease_fallback_cooldown_remaining(self) -> float:
+        runtime_key = self._live_gpu_fallback_health_key()
+        if runtime_key is None:
+            return 0.0
+        return self._inference_health.cooldown_remaining(runtime_key)
+
     def _live_gpu_lease_fallback_active(self) -> bool:
-        return time.monotonic() < self._live_gpu_lease_fallback_until_monotonic
+        return self._live_gpu_lease_fallback_cooldown_remaining() > 0
 
     def _record_live_lease_expiry_and_maybe_fallback(
         self,
@@ -2893,6 +2924,12 @@ class ClassifierService:
                     "status": "failed",
                     "failed_backend": "openvino",
                     "failed_provider": "intel_gpu",
+                    "failed_runtime": {
+                        "backend": runtime_key.backend,
+                        "provider": runtime_key.provider,
+                        "model_id": runtime_key.model_id,
+                        "key": runtime_key.display(),
+                    },
                     "detail": detail,
                     "reason": (
                         LIVE_GPU_LEASE_EXPIRY_FALLBACK_UNAVAILABLE_REASON
@@ -2909,16 +2946,21 @@ class ClassifierService:
             self._inference_backend = backend
             self._active_inference_provider = provider
             now = time.monotonic()
-            self._live_gpu_lease_fallback_until_monotonic = (
+            self._gpu_restore_not_before_monotonic = (
                 now + CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS
             )
-            self._gpu_restore_not_before_monotonic = self._live_gpu_lease_fallback_until_monotonic
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
             self._last_runtime_recovery = {
                 "status": "recovered",
                 "failed_backend": "openvino",
                 "failed_provider": "intel_gpu",
+                "failed_runtime": {
+                    "backend": runtime_key.backend,
+                    "provider": runtime_key.provider,
+                    "model_id": runtime_key.model_id,
+                    "key": runtime_key.display(),
+                },
                 "recovered_backend": backend,
                 "recovered_provider": provider,
                 "detail": detail,
@@ -2968,7 +3010,6 @@ class ClassifierService:
             self._models["bird"] = replacement
             self._inference_backend = "openvino"
             self._active_inference_provider = "intel_gpu"
-            self._live_gpu_lease_fallback_until_monotonic = 0.0
             self._record_gpu_success()
             self._runtime_gpu_restore_successes += 1
             if hasattr(current, "cleanup"):
@@ -3624,6 +3665,7 @@ class ClassifierService:
         live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
         worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
         live_gpu_fallback_active = self._live_gpu_lease_fallback_active()
+        live_gpu_fallback_cooldown_remaining = self._live_gpu_lease_fallback_cooldown_remaining()
         recovery_reason = None
         if worker_circuit_open:
             recovery_reason = WORKER_CIRCUIT_OPEN_RECOVERY_REASON
@@ -3665,10 +3707,7 @@ class ClassifierService:
             "recent_abandoned": recent_counts["recent_live_abandoned"],
             "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
             "gpu_fallback_active": live_gpu_fallback_active,
-            "gpu_fallback_cooldown_remaining_seconds": max(
-                0.0,
-                round(self._live_gpu_lease_fallback_until_monotonic - time.monotonic(), 3),
-            ),
+            "gpu_fallback_cooldown_remaining_seconds": round(live_gpu_fallback_cooldown_remaining, 3),
         }
 
     def _describe_background_image_health(self, admission_metrics: dict) -> dict:
@@ -4483,15 +4522,31 @@ class ClassifierService:
                 else CLASSIFIER_IMAGE_LEASE_TIMEOUT_SECONDS
             )
         )
-        capacity = int(self._classification_admission.get_metrics()[priority]["capacity"])
+        pressure_metrics = self._classification_admission.get_metrics()
+        priority_metrics = pressure_metrics[priority]
+        capacity = int(priority_metrics["capacity"])
+        latency_health_eligible = (
+            int(priority_metrics.get("queued") or 0) == 0
+            and int(priority_metrics.get("running") or 0) == 0
+            and not bool(pressure_metrics.get("background_throttled"))
+        )
         started_at = time.monotonic()
         runtime_key = self._inference_runtime_key_from_context(context)
+        runner_latency_seconds: float | None = None
+
+        async def _timed_runner(*runner_args: Any) -> list[dict]:
+            nonlocal runner_latency_seconds
+            runner_started_at = time.monotonic()
+            try:
+                return await runner(*runner_args)
+            finally:
+                runner_latency_seconds = time.monotonic() - runner_started_at
 
         try:
             result = await self._classification_admission.submit(
                 priority=priority,
                 kind=kind,
-                runner=runner,
+                runner=_timed_runner,
                 queue_timeout_seconds=queue_timeout_seconds,
                 lease_timeout_seconds=lease_timeout_seconds,
                 runner_accepts_work_metadata=runner_accepts_work_metadata,
@@ -4501,7 +4556,8 @@ class ClassifierService:
             self._inference_health.record(
                 runtime_key,
                 outcome="ok",
-                latency_seconds=time.monotonic() - started_at,
+                latency_seconds=runner_latency_seconds if runner_latency_seconds is not None else time.monotonic() - started_at,
+                latency_health_eligible=latency_health_eligible,
             )
             return result
         except ClassificationAdmissionTimeoutError:

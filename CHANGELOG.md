@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **Classification (#33):** Live-image GPU fallback status now derives its active/cooldown state from `InferenceHealth` instead of a separate classifier-service monotonic timestamp. Existing `gpu_fallback_active` response fields remain as compatibility aliases, and runtime recovery records now carry the exact failed runtime key that triggered fallback.
+- **Classification (#33):** Successful startup runtime benchmarks now seed the matching `InferenceHealth` latency baseline, and latency-based health verdicts only use low-pressure inference samples. Load-affected samples remain visible in telemetry but are excluded from baseline drift decisions so queue pressure does not masquerade as a slow runtime.
+- **Telemetry:** Runtime telemetry now reports OpenVINO GPU fallback from the classifier's explicit live-image fallback status instead of treating any runtime recovery as GPU fallback.
+
 ## [2.9.15] - 2026-05-05
 
 ### Added
