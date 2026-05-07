@@ -3710,6 +3710,32 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             </div>
                         </div>
                     </section>
+
+                    <section class="card-base p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Model Evaluation</h3>
+                                <p class="text-xs text-slate-500">Benchmark every installed classifier against auto-fetched, taxonomy-verified bird images. Persists artifacts under <code class="text-[10px]">/config/yawamf-eval/</code>.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+                            <div>
+                                <span class="block text-sm font-black text-slate-900 dark:text-white">Open the harness</span>
+                                <span class="block text-[10px] font-bold text-slate-500 mt-1">Run accuracy / latency / sanity checks against every installed model. Owner-only.</span>
+                            </div>
+                            <button
+                                type="button"
+                                onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
+                                class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-black hover:bg-slate-700 dark:hover:bg-white transition-colors"
+                            >
+                                Open
+                            </button>
+                        </div>
+                    </section>
                 </div>
             {/if}
     {/snippet}
