@@ -21,7 +21,10 @@ from app.services.model_eval_service import (
     SUMMARY_FILENAME,
     _build_summary_envelope,
     _drift_ratio,
+    _inference_health_for,
     _percentile,
+    _provider_summary,
+    _resolve_label_taxa,
     _safe_div,
     _safe_run_id,
 )
@@ -54,6 +57,54 @@ def test_drift_ratio_handles_missing():
 def test_drift_ratio_computes():
     ratio = _drift_ratio([100, 200, 300], 100)
     assert ratio == 2.0
+
+
+def test_resolve_label_taxa_panel_exact_match():
+    panel = {"passer domesticus": 12345, "house sparrow": 12345}
+    assert _resolve_label_taxa("Passer domesticus", panel, {}) == 12345
+    assert _resolve_label_taxa("HOUSE sparrow", panel, {}) == 12345
+
+
+def test_resolve_label_taxa_strips_parenthetical():
+    panel = {"haemorhous mexicanus": 99}
+    assert _resolve_label_taxa("Haemorhous mexicanus (Adult Male)", panel, {}) == 99
+
+
+def test_resolve_label_taxa_uses_cache():
+    cache = {"weird label": 555}
+    assert _resolve_label_taxa("weird label", {}, cache) == 555
+
+
+def test_resolve_label_taxa_returns_none_when_unknown():
+    assert _resolve_label_taxa("Mystery bird", {}, {}) is None
+
+
+def test_provider_summary_pulls_active_provider_and_benchmark():
+    status = {
+        "active_provider": "intel_gpu",
+        "inference_backend": "openvino",
+        "selected_provider": "openvino",
+        "fallback_reason": None,
+        "openvino_model_compile_device": "GPU",
+        "runtime_benchmarks": {
+            "openvino/intel_gpu": {"candidate_latency_seconds": 0.290, "status": "passed"},
+        },
+    }
+    out = _provider_summary(status)
+    assert out["active_provider"] == "intel_gpu"
+    assert out["startup_benchmark_ms"] == 290.0
+    assert out["device"] == "GPU"
+
+
+def test_provider_summary_safe_when_status_missing():
+    out = _provider_summary({})
+    assert out["active_provider"] is None
+    assert out["startup_benchmark_ms"] is None
+
+
+def test_inference_health_for_defaults_to_unknown():
+    assert _inference_health_for({})["verdict"] == "unknown"
+    assert _inference_health_for({"inference_health": {"verdict": "healthy"}})["verdict"] == "healthy"
 
 
 def test_safe_run_id_sanitizes_and_rejects():

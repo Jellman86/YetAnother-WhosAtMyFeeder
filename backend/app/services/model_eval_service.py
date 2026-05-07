@@ -130,7 +130,18 @@ class ModelEvalRunner:
         summary_path = run_dir / SUMMARY_FILENAME
         if not summary_path.is_file():
             if self.is_running() and (self._active_status or {}).get("run_id") == run_id:
-                return {"in_progress": True, "status": self.active_status()}
+                # In-progress run that hasn't written its first partial
+                # summary yet. Return a minimal envelope shaped like the
+                # final summary so the frontend can render uniformly.
+                status = self.active_status() or {}
+                return {
+                    "run_id": run_id,
+                    "started_at": status.get("started_at"),
+                    "finished_at": None,
+                    "models": [],
+                    "in_progress": True,
+                    "active_status": status,
+                }
             return None
         try:
             summary = json.loads(summary_path.read_text())
@@ -215,9 +226,11 @@ class ModelEvalRunner:
         include_per_image: bool,
         region_override: Optional[str],
     ) -> None:
-        from app.services.classifier_service import classifier_service
+        from app.services.classifier_service import get_classifier
         from app.services.model_manager import model_manager
         from app.services.taxonomy.taxonomy_service import taxonomy_service
+
+        classifier_service = get_classifier()
 
         started_at = datetime.now(timezone.utc)
         await self._emit(run_id, phase="building_panel", progress={"done": 0, "total": 0, "label": "building species panel"})
@@ -287,6 +300,17 @@ class ModelEvalRunner:
         runtime_payload: dict[str, dict[str, Any]] = {}
         model_summaries: list[dict[str, Any]] = []
 
+        # Pre-build a panel label → taxa_id map. Lets us resolve predictions
+        # without an iNat round-trip when the predicted label matches a
+        # species that's already in our test set — which is the common case
+        # since we only test on panel species.
+        panel_label_to_taxa: dict[str, int] = {}
+        for entry in usable_panel:
+            for label in (entry.scientific_name, entry.common_name):
+                norm = (label or "").strip().lower()
+                if norm and norm not in panel_label_to_taxa:
+                    panel_label_to_taxa[norm] = entry.taxa_id
+
         try:
             for model_idx, model in enumerate(classifiers):
                 await self._emit(
@@ -319,6 +343,7 @@ class ModelEvalRunner:
                 high_conf_unknown_count = 0
                 processed = 0
                 taxa_cache: dict[str, Optional[int]] = {}
+                taxa_resolution_failures = 0
                 confusions: dict[tuple[int, int], dict[str, Any]] = {}
 
                 for entry in usable_panel:
@@ -346,19 +371,28 @@ class ModelEvalRunner:
                         latencies.append(latency_ms)
 
                         top5 = list(results or [])[:5]
-                        # Resolve labels → taxa_ids via taxonomy cache
+                        # Resolve labels → taxa_ids. Fast-path against the
+                        # panel label map first so we don't need iNat just to
+                        # confirm the model named a panel species correctly.
                         for r in top5:
                             label = (r.get("label") or "").strip()
                             if not label:
                                 r["taxa_id"] = None
                                 continue
-                            if label not in taxa_cache:
+                            r["taxa_id"] = _resolve_label_taxa(
+                                label,
+                                panel_label_to_taxa,
+                                taxa_cache,
+                            )
+                            if r["taxa_id"] is None and label not in taxa_cache:
                                 try:
                                     lookup = await taxonomy_service.get_names(label)
-                                    taxa_cache[label] = (lookup or {}).get("taxa_id")
+                                    resolved = (lookup or {}).get("taxa_id")
+                                    taxa_cache[label] = resolved
+                                    r["taxa_id"] = resolved
                                 except Exception:
                                     taxa_cache[label] = None
-                            r["taxa_id"] = taxa_cache.get(label)
+                                    taxa_resolution_failures += 1
 
                         top1 = top5[0] if top5 else None
                         is_top1_unknown = bool(top1 and is_unknown_species_label(top1.get("label") or ""))
@@ -424,8 +458,9 @@ class ModelEvalRunner:
                             }) + "\n")
 
                 # Per-model summary
-                provider_info = _provider_summary(classifier_service, model.id)
-                health_snapshot = _inference_health_snapshot(model.id)
+                status = _classifier_status_snapshot(classifier_service)
+                provider_info = _provider_summary(status)
+                health_snapshot = _inference_health_for(status)
                 summary = {
                     "model_id": model.id,
                     "active_provider": provider_info.get("active_provider"),
@@ -449,6 +484,7 @@ class ModelEvalRunner:
                     "shared_core_top1": _safe_div(shared_core_top1, shared_core_total),
                     "regional_top1": _safe_div(regional_top1, regional_total),
                     "inference_health_verdict": health_snapshot.get("verdict"),
+                    "taxa_resolution_failures": taxa_resolution_failures,
                     "warnings": [],
                 }
                 summary["warnings"] = sanity_checks.collect(summary, region_label=region_label)
@@ -634,44 +670,72 @@ def _append_confusions_csv(
             ])
 
 
-def _provider_summary(classifier_service: Any, model_id: str) -> dict[str, Any]:
-    """Best-effort provider info — gracefully degrades when the service doesn't expose it."""
-    out: dict[str, Any] = {
-        "active_provider": None,
-        "requested_provider": getattr(settings.classification, "inference_provider", None),
-        "device": None,
-        "startup_benchmark_ms": None,
-    }
-    # ClassifierService keeps a runtime status map that the classifier router
-    # serves at /api/classifier/status. We pull whatever is present without
-    # depending on its exact shape.
+def _resolve_label_taxa(
+    label: str,
+    panel_label_to_taxa: dict[str, int],
+    taxa_cache: dict[str, Optional[int]],
+) -> Optional[int]:
+    """Resolve a classifier label to a taxa_id using cheap, offline matches.
+
+    Tries: cached lookup, panel exact match, panel match after stripping
+    a trailing parenthetical (handles labels like "Cassin's Finch (Adult Male)").
+    Returns None if nothing matched — caller can then fall back to iNat.
+    """
+    if label in taxa_cache:
+        return taxa_cache[label]
+    norm = label.strip().lower()
+    if norm in panel_label_to_taxa:
+        return panel_label_to_taxa[norm]
+    if "(" in label:
+        head = label.split("(", 1)[0].strip().lower()
+        if head and head in panel_label_to_taxa:
+            return panel_label_to_taxa[head]
+    return None
+
+
+def _classifier_status_snapshot(classifier_service: Any) -> dict[str, Any]:
+    """Capture a single classifier-service status snapshot. Empty dict on failure."""
     try:
-        status = getattr(classifier_service, "status", None)
-        if callable(status):
-            snap = status()
+        getter = getattr(classifier_service, "get_status", None)
+        if callable(getter):
+            snap = getter()
             if isinstance(snap, dict):
-                rt = (snap.get("runtime_benchmarks") or {}).get(model_id)
-                if isinstance(rt, dict):
-                    out["startup_benchmark_ms"] = rt.get("p50_ms") or rt.get("mean_ms")
-                    out["active_provider"] = rt.get("active_provider")
-                    out["device"] = rt.get("device")
-    except Exception:
-        pass
-    return out
+                return snap
+    except Exception as e:
+        log.warning("model_eval_status_failed", error=str(e))
+    return {}
 
 
-def _inference_health_snapshot(model_id: str) -> dict[str, Any]:
-    try:
-        from app.services.inference_health import inference_health  # type: ignore
-        snap = inference_health.snapshot()
-        # Find the runtime entry that mentions this model_id.
-        runtimes = (snap or {}).get("runtimes") or {}
-        for key, val in runtimes.items():
-            if model_id in str(key):
-                return val
-        return {"verdict": (snap or {}).get("verdict") or "unknown"}
-    except Exception:
-        return {"verdict": "unknown"}
+def _provider_summary(status: dict[str, Any]) -> dict[str, Any]:
+    """Pull provider/device/benchmark info out of a classifier_service.get_status()."""
+    active_provider = status.get("active_provider")
+    backend = status.get("inference_backend")
+    requested = status.get("selected_provider")
+    benchmarks = status.get("runtime_benchmarks") or {}
+    benchmark_key = f"{str(backend or 'unknown').strip().lower()}/{str(active_provider or 'unknown').strip().lower()}"
+    bench = benchmarks.get(benchmark_key) if isinstance(benchmarks, dict) else None
+    candidate_seconds = None
+    if isinstance(bench, dict):
+        cand = bench.get("candidate_latency_seconds")
+        if isinstance(cand, (int, float)) and cand > 0:
+            candidate_seconds = float(cand)
+    return {
+        "active_provider": active_provider,
+        "requested_provider": requested,
+        "inference_backend": backend,
+        "device": status.get("openvino_model_compile_device"),
+        "fallback_reason": status.get("fallback_reason"),
+        "startup_benchmark_ms": round(candidate_seconds * 1000.0, 2) if candidate_seconds else None,
+    }
+
+
+def _inference_health_for(status: dict[str, Any]) -> dict[str, Any]:
+    """Pull the inference_health snapshot out of get_status() with sane defaults."""
+    snap = status.get("inference_health") or {}
+    return {
+        "verdict": snap.get("verdict") or "unknown",
+        "runtimes": snap.get("runtimes") or {},
+    }
 
 
 def _labels_file_present(model: Any) -> bool:
