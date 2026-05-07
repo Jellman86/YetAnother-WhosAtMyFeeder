@@ -522,7 +522,7 @@ class EventProcessor:
             self._record_drop(event.frigate_event, "classifier_empty_results")
             return
 
-        top, reason = self.detection_service.select_usable_classification(
+        top, reason = self._select_usable_classification(
             results, event.frigate_event, event.sub_label, event.frigate_score
         )
         if not top:
@@ -608,6 +608,28 @@ class EventProcessor:
         self._prune_false_positive_tombstones()
         expiry = self._false_positive_tombstones.get(event_id)
         return bool(expiry and expiry > time.monotonic())
+
+    def _select_usable_classification(
+        self,
+        results: list,
+        frigate_event: str,
+        sub_label: str | None,
+        frigate_score: float | None,
+    ) -> tuple[dict | None, str | None]:
+        selector = getattr(self.detection_service, "select_usable_classification", None)
+        if callable(selector):
+            selection = selector(results, frigate_event, sub_label, frigate_score)
+            if isinstance(selection, tuple) and len(selection) == 2:
+                return selection
+
+        if not results:
+            return None, "no_prediction"
+        return self.detection_service.filter_and_label(
+            results[0],
+            frigate_event,
+            sub_label,
+            frigate_score,
+        )
 
     async def _handle_false_positive(self, frigate_event_id: str):
         """Delete detection if Frigate marks it as false positive."""
