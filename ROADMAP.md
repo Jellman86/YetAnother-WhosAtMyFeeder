@@ -148,7 +148,9 @@ In `DetectionSettings.svelte`, replace the free-text add-label input with the sa
 ---
 
 ### 2. Labeled Feeder Model Evaluation Harness 📊
-**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Feeder harness and auto-manifest bootstrap shipped on `dev`; real-dataset runs and refinements remain
+**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Feeder harness and auto-manifest bootstrap shipped on `dev`; the auto-fetch model evaluation harness at `/diagnostics/model-eval` complements it for installs without labeled feeder snapshots; real-dataset feeder runs remain.
+
+A second harness shipped alongside the feeder one: an owner-only `/diagnostics/model-eval` page that auto-fetches taxonomy-verified bird images (iNaturalist primary, Wikimedia Commons fallback) for a hand-curated shared core plus a region-aware extension, runs every installed classifier through the live pipeline, and writes persistent artifacts under `/config/yawamf-eval/<run_id>/`. See [docs/features/model-evaluation.md](docs/features/model-evaluation.md) for warning codes and result interpretation. The feeder harness remains the right tool when real labeled feeder snapshots are available.
 
 Current state on `dev`: YA-WAMF includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` for raw model checks, plus the feeder-specific `backend/scripts/eval_feeder_model_harness.py` that runs labeled feeder snapshots through `ClassifierService`. The feeder harness can read a curated CSV manifest, or generate `manifest.csv` automatically from the YA-WAMF SQLite DB and cached snapshots when `--manifest` is omitted. It evaluates one or more installed model IDs and crop modes, restores active model/crop settings after each run, emits `summary.json`, `results.csv`, and `failures.csv`, reports high-confidence `Unknown` top-1 outputs as a distinct failure kind, and now also counts abstention labels anywhere in the returned top-K predictions so the medium-birds EU behavior can be measured directly even when a concrete species is ranked nearby.
 
