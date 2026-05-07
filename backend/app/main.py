@@ -55,6 +55,7 @@ from app.routers import (
     ebird,
     diagnostics,
     geocoding,
+    model_eval,
     auth as auth_router,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -472,6 +473,7 @@ app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependenci
 app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(diagnostics.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
