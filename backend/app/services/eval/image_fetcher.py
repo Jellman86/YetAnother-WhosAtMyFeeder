@@ -30,6 +30,13 @@ _INAT_PHOTO_SIZE = "medium"
 DEFAULT_MAX_PER_SPECIES = 3
 DEFAULT_TIMEOUT = 15.0
 
+# Wikimedia REST API requires a descriptive User-Agent or it returns 403
+# Forbidden. iNaturalist also recommends one. The string identifies the
+# project and points at the repo so they can contact us if our usage
+# pattern becomes a problem.
+USER_AGENT = "YA-WAMF-ModelEval/1.0 (https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
+DEFAULT_HEADERS = {"User-Agent": USER_AGENT}
+
 
 @dataclass
 class FetchedImage:
@@ -67,7 +74,7 @@ def _inat_photo_url(raw_url: str) -> str:
 
 async def _get_json(client: httpx.AsyncClient, url: str, params: dict[str, Any]) -> Optional[dict[str, Any]]:
     try:
-        resp = await client.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        resp = await client.get(url, params=params, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
     except httpx.HTTPError as e:
@@ -77,7 +84,7 @@ async def _get_json(client: httpx.AsyncClient, url: str, params: dict[str, Any])
 
 async def _download_bytes(client: httpx.AsyncClient, url: str) -> Optional[bytes]:
     try:
-        resp = await client.get(url, timeout=DEFAULT_TIMEOUT, follow_redirects=True)
+        resp = await client.get(url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT, follow_redirects=True)
         resp.raise_for_status()
         return resp.content
     except httpx.HTTPError as e:
@@ -305,7 +312,7 @@ async def fetch_panel_images(
     total = len(species)
     done = 0
 
-    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT, headers=DEFAULT_HEADERS) as client:
         async def _one(entry: dict[str, Any]) -> None:
             nonlocal done
             taxa_id = entry.get("taxa_id")

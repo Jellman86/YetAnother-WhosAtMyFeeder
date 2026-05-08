@@ -314,6 +314,7 @@ class ModelEvalRunner:
 
         runtime_payload: dict[str, dict[str, Any]] = {}
         model_summaries: list[dict[str, Any]] = []
+        skipped_models: list[dict[str, Any]] = []
 
         # Pre-build a panel label → taxa_id map. Lets us resolve predictions
         # without an iNat round-trip when the predicted label matches a
@@ -340,6 +341,17 @@ class ModelEvalRunner:
                 activated = await model_manager.activate_model(model.id)
                 if not activated:
                     log.warning("model_eval_activation_failed", model_id=model.id)
+                    skipped_models.append({
+                        "model_id": model.id,
+                        "reason": "activation_failed",
+                        "detail": (
+                            "model_manager.activate_model returned False. Common cause: "
+                            "family models with eu/na variants whose top-level dir lacks "
+                            "model.onnx — model_manager validates the parent dir."
+                        ),
+                        "ready": getattr(model, "ready", None),
+                        "ready_reason": getattr(model, "reason", None),
+                    })
                     continue
                 # Reload classifier_service to pick up the new active model.
                 try:
@@ -347,6 +359,11 @@ class ModelEvalRunner:
                         await classifier_service.reload_bird_model()
                 except Exception as e:
                     log.warning("model_eval_reload_failed", model_id=model.id, error=str(e))
+                    skipped_models.append({
+                        "model_id": model.id,
+                        "reason": "reload_failed",
+                        "detail": str(e),
+                    })
                     continue
 
                 # Per-model state
@@ -360,6 +377,8 @@ class ModelEvalRunner:
                 taxa_cache: dict[str, Optional[int]] = {}
                 confusions: dict[tuple[int, int], dict[str, Any]] = {}
 
+                images_for_model = sum(len(images_by_taxa.get(e.taxa_id, [])) for e in usable_panel)
+                last_emit_at = time.monotonic()
                 for entry in usable_panel:
                     images = images_by_taxa.get(entry.taxa_id) or []
                     for fetched in images:
@@ -369,6 +388,21 @@ class ModelEvalRunner:
                         except Exception as e:
                             log.warning("model_eval_image_open_failed", path=fetched.local_path, error=str(e))
                             continue
+
+                        # Refresh the progress label every ~2 s so the UI
+                        # doesn't look frozen on slow models.
+                        now = time.monotonic()
+                        if now - last_emit_at > 2.0:
+                            last_emit_at = now
+                            await self._emit(
+                                run_id,
+                                phase="evaluating",
+                                progress={
+                                    "done": model_idx,
+                                    "total": len(classifiers),
+                                    "label": f"{model.id} {processed}/{images_for_model} images",
+                                },
+                            )
 
                         t0 = time.monotonic()
                         try:
@@ -405,24 +439,33 @@ class ModelEvalRunner:
                             if float(top1.get("score") or 0.0) >= 0.90:
                                 high_conf_unknown_count += 1
 
-                        ids = [r.get("taxa_id") for r in top5]
-                        if ids and ids[0] == entry.taxa_id:
+                        # Match each prediction against the expected entry by
+                        # taxa_id OR by case-folded scientific/common name.
+                        # The name fallback catches iNat's duplicate-taxa
+                        # situation where the same species (e.g. Pica pica)
+                        # gets resolved to different taxa_ids through
+                        # different code paths.
+                        match_flags = [
+                            _is_correct_match(r, entry) for r in top5
+                        ]
+                        if match_flags and match_flags[0]:
                             top1_hits += 1
-                        if entry.taxa_id in ids[:3]:
+                        if any(match_flags[:3]):
                             top3_hits += 1
-                        if entry.taxa_id in ids[:5]:
+                        if any(match_flags[:5]):
                             top5_hits += 1
                         if entry.panel == "shared_core":
                             shared_core_total += 1
-                            if ids and ids[0] == entry.taxa_id:
+                            if match_flags and match_flags[0]:
                                 shared_core_top1 += 1
                         else:
                             regional_total += 1
-                            if ids and ids[0] == entry.taxa_id:
+                            if match_flags and match_flags[0]:
                                 regional_top1 += 1
 
                         # Confusion: only when top-1 was wrong and resolved
-                        if top1 and ids and ids[0] != entry.taxa_id and ids[0] is not None and not is_top1_unknown:
+                        ids = [r.get("taxa_id") for r in top5]
+                        if top1 and match_flags and not match_flags[0] and ids[0] is not None and not is_top1_unknown:
                             key = (entry.taxa_id, ids[0])
                             cur = confusions.get(key)
                             if cur is None:
@@ -458,7 +501,7 @@ class ModelEvalRunner:
                                     } for r in top5
                                 ],
                                 "latency_ms": round(latency_ms, 2),
-                                "correct_top1": ids[0] == entry.taxa_id if ids else False,
+                                "correct_top1": bool(match_flags and match_flags[0]),
                             }) + "\n")
 
                 # Per-model summary
@@ -502,6 +545,7 @@ class ModelEvalRunner:
                     "ready": model.ready,
                     "ready_reason": model.reason,
                     "warnings": summary["warnings"],
+                    "gpu_diagnostic": _gpu_diagnostic(status, model),
                 }
 
                 # Confusion CSV — append per model so partial runs leave usable data
@@ -516,6 +560,7 @@ class ModelEvalRunner:
                     image_sources=image_sources_count,
                     region_label=region_label,
                     models=model_summaries,
+                    skipped_models=skipped_models,
                 ))
                 _write_runtime(run_dir, runtime_payload)
         finally:
@@ -545,6 +590,7 @@ class ModelEvalRunner:
             image_sources=image_sources_count,
             region_label=region_label,
             models=model_summaries,
+            skipped_models=skipped_models,
         )
         _write_summary(run_dir, envelope)
         _write_runtime(run_dir, runtime_payload)
@@ -611,6 +657,7 @@ def _build_summary_envelope(
     image_sources: dict[str, int],
     region_label: Optional[str],
     models: list[dict[str, Any]],
+    skipped_models: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     shared_core = sum(1 for e in panel if e.panel == "shared_core")
     return {
@@ -628,6 +675,7 @@ def _build_summary_envelope(
             "image_sources": image_sources,
         },
         "models": models,
+        "skipped_models": skipped_models or [],
         "config_snapshot": {
             "min_confidence": getattr(settings.classification, "min_confidence", None),
             "trust_frigate_sublabel": getattr(settings.classification, "trust_frigate_sublabel", None),
@@ -671,6 +719,36 @@ def _append_confusions_csv(
                 row["count"],
                 f"{mean_score:.3f}",
             ])
+
+
+def _is_correct_match(prediction: dict[str, Any], expected: SpeciesEntry) -> bool:
+    """Did the model name the expected species?
+
+    Returns True on any of: matching taxa_id, matching scientific_name,
+    or matching common_name (case-insensitive). The name fallbacks
+    sidestep iNat's duplicate-taxa-for-same-species pattern that
+    otherwise scores correct predictions as wrong.
+    """
+    pred_taxa = prediction.get("taxa_id")
+    if pred_taxa and pred_taxa == expected.taxa_id:
+        return True
+    label = (prediction.get("label") or "").strip().lower()
+    if not label:
+        return False
+    if expected.scientific_name and label == expected.scientific_name.strip().lower():
+        return True
+    if expected.common_name and label == expected.common_name.strip().lower():
+        return True
+    # Strip a trailing parenthetical and retry name match (handles
+    # labels like "Cassin's Finch (Adult Male)").
+    if "(" in label:
+        head = label.split("(", 1)[0].strip()
+        if head and (
+            head == expected.scientific_name.strip().lower()
+            or head == expected.common_name.strip().lower()
+        ):
+            return True
+    return False
 
 
 def _resolve_label_taxa(
@@ -732,6 +810,56 @@ def _provider_summary(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _gpu_diagnostic(status: dict[str, Any], model: Any) -> dict[str, Any]:
+    """Per-model snapshot of every signal that could explain a CPU fallback.
+
+    Combines:
+    - what we asked for (settings.classification.inference_provider)
+    - what the model registry advertises as supported
+    - environment-level provider availability (OpenVINO/CUDA install state,
+      probe errors, /dev/dri presence)
+    - model-specific compile result (Intel GPU compile success / device /
+      error / unsupported ops list)
+    - the fallback_reason string the runtime stamped if it had to drop
+      to CPU on first inference
+
+    This is what an owner needs to answer 'why isn't this model on the GPU?'.
+    """
+    metadata = getattr(model, "metadata", None)
+    declared_providers: list[str] = []
+    if metadata is not None:
+        declared_providers = list(getattr(metadata, "supported_inference_providers", None) or [])
+    return {
+        "requested_provider": status.get("selected_provider"),
+        "active_provider": status.get("active_provider"),
+        "inference_backend": status.get("inference_backend"),
+        "fallback_reason": status.get("fallback_reason"),
+        "registry_supported_providers": declared_providers,
+        "openvino": {
+            "available": bool(status.get("openvino_available")),
+            "version": status.get("openvino_version"),
+            "import_error": status.get("openvino_import_error"),
+            "probe_error": status.get("openvino_probe_error"),
+            "gpu_probe_error": status.get("openvino_gpu_probe_error"),
+            "devices": status.get("openvino_devices") or [],
+            "model_compile_ok": status.get("openvino_model_compile_ok"),
+            "model_compile_device": status.get("openvino_model_compile_device"),
+            "model_compile_error": status.get("openvino_model_compile_error"),
+            "model_compile_unsupported_ops": status.get("openvino_model_compile_unsupported_ops") or [],
+        },
+        "cuda": {
+            "provider_installed": bool(status.get("cuda_provider_installed")),
+            "hardware_available": bool(status.get("cuda_hardware_available")),
+            "available": bool(status.get("cuda_available")),
+            "probe_error": status.get("cuda_probe_error"),
+        },
+        "intel_gpu_available": bool(status.get("intel_gpu_available")),
+        "intel_cpu_available": bool(status.get("intel_cpu_available")),
+        "dev_dri_present": bool(status.get("dev_dri_present")),
+        "dev_dri_entries": status.get("dev_dri_entries") or [],
+    }
+
+
 def _inference_health_for(status: dict[str, Any]) -> dict[str, Any]:
     """Pull the inference_health snapshot out of get_status() with sane defaults."""
     snap = status.get("inference_health") or {}
@@ -749,11 +877,21 @@ def _labels_file_present(model: Any) -> bool:
 
 
 def _model_config_present(model: Any) -> bool:
+    """True if a model_config.json sidecar exists, OR the model is a legacy
+    bundled flat-file install where no sidecar is expected.
+    """
     try:
         path = Path(getattr(model, "path", "") or "")
         if not path.is_file():
             return False
-        return (path.parent / "model_config.json").is_file()
+        if (path.parent / "model_config.json").is_file():
+            return True
+        # Legacy bundled mobilenet_v2_birds ships as a flat model.tflite in
+        # backend/app/assets without a sidecar — that's intentional and
+        # working as designed, not an incomplete install.
+        if model.id == "mobilenet_v2_birds":
+            return True
+        return False
     except Exception:
         return False
 

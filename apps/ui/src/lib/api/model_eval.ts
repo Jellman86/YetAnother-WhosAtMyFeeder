@@ -15,9 +15,18 @@ export interface ModelEvalRunSummary {
         image_sources: Record<string, number>;
     };
     models?: ModelEvalModelSummary[];
+    skipped_models?: ModelEvalSkippedModel[];
     config_snapshot?: Record<string, unknown>;
     runtime?: Record<string, unknown>;
     error?: string;
+}
+
+export interface ModelEvalSkippedModel {
+    model_id: string;
+    reason: string;
+    detail?: string;
+    ready?: boolean;
+    ready_reason?: string;
 }
 
 export interface ModelEvalModelSummary {

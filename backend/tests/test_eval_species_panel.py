@@ -96,6 +96,22 @@ def test_merge_panel_dedupes_by_taxa_id():
     assert len(merged) == 3
 
 
+def test_merge_panel_dedupes_by_scientific_name():
+    """iNat carries multiple taxa nodes for the same species; resolving the
+    same scientific name through different code paths can return different
+    taxa_ids. The merge should still treat them as one species."""
+    core = [SpeciesEntry(891696, "Pica pica", "Eurasian Magpie", "shared_core")]
+    regional = [
+        # Same species (Pica pica), different iNat taxa_id (subspecies node)
+        SpeciesEntry(17550, "Pica pica", "Eurasian magpie", "regional"),
+        SpeciesEntry(3, "Other species", "Other", "regional"),
+    ]
+    merged = merge_panel(core, regional)
+    sci_names = {e.scientific_name for e in merged}
+    assert sci_names == {"Pica pica", "Other species"}
+    assert len(merged) == 2
+
+
 def test_merge_panel_preserves_core_when_regional_empty():
     core = [SpeciesEntry(1, "A a", "A", "shared_core")]
     merged = merge_panel(core, [])

@@ -150,15 +150,27 @@ def merge_panel(
     shared_core: list[SpeciesEntry],
     regional: list[SpeciesEntry],
 ) -> list[SpeciesEntry]:
-    """Concatenate shared core with regional, dropping regional duplicates of the core."""
-    by_taxa: dict[int, SpeciesEntry] = {}
-    for entry in shared_core:
-        by_taxa[entry.taxa_id] = entry
-    for entry in regional:
-        if entry.taxa_id in by_taxa:
+    """Concatenate shared core with regional, dropping regional duplicates.
+
+    Dedupes by taxa_id AND by case-folded scientific_name. iNat carries
+    multiple taxa nodes for the same species (a species node plus its
+    subspecies); resolving the same scientific name through different code
+    paths can return different taxa_ids for what is the same bird, which
+    used to silently double-add it to the panel and create a label-collision
+    that broke scoring.
+    """
+    out: list[SpeciesEntry] = []
+    seen_taxa: set[int] = set()
+    seen_sci: set[str] = set()
+    for entry in (*shared_core, *regional):
+        sci_key = entry.scientific_name.strip().lower()
+        if entry.taxa_id in seen_taxa or sci_key in seen_sci:
             continue
-        by_taxa[entry.taxa_id] = entry
-    return list(by_taxa.values())
+        seen_taxa.add(entry.taxa_id)
+        if sci_key:
+            seen_sci.add(sci_key)
+        out.append(entry)
+    return out
 
 
 async def build_panel(

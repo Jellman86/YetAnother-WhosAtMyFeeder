@@ -21,7 +21,9 @@ from app.services.model_eval_service import (
     SUMMARY_FILENAME,
     _build_summary_envelope,
     _drift_ratio,
+    _gpu_diagnostic,
     _inference_health_for,
+    _is_correct_match,
     _percentile,
     _provider_summary,
     _resolve_label_taxa,
@@ -105,6 +107,75 @@ def test_provider_summary_safe_when_status_missing():
 def test_inference_health_for_defaults_to_unknown():
     assert _inference_health_for({})["verdict"] == "unknown"
     assert _inference_health_for({"inference_health": {"verdict": "healthy"}})["verdict"] == "healthy"
+
+
+def test_is_correct_match_taxa_id_strict():
+    expected = SpeciesEntry(891696, "Pica pica", "Eurasian Magpie", "shared_core")
+    assert _is_correct_match({"label": "Anything", "taxa_id": 891696}, expected) is True
+
+
+def test_is_correct_match_falls_back_to_scientific_name():
+    # iNat duplicate-taxa scenario: same species, different taxa_id
+    expected = SpeciesEntry(891696, "Pica pica", "Eurasian Magpie", "shared_core")
+    pred = {"label": "Pica pica", "taxa_id": 17550}
+    assert _is_correct_match(pred, expected) is True
+
+
+def test_is_correct_match_falls_back_to_common_name_case_insensitive():
+    expected = SpeciesEntry(891696, "Pica pica", "Eurasian Magpie", "shared_core")
+    pred = {"label": "eurasian magpie", "taxa_id": 17550}
+    assert _is_correct_match(pred, expected) is True
+
+
+def test_is_correct_match_strips_parenthetical():
+    expected = SpeciesEntry(99, "Haemorhous mexicanus", "House Finch", "shared_core")
+    pred = {"label": "House Finch (Adult Male)", "taxa_id": None}
+    assert _is_correct_match(pred, expected) is True
+
+
+def test_is_correct_match_rejects_different_species():
+    expected = SpeciesEntry(8021, "Corvus brachyrhynchos", "American Crow", "shared_core")
+    pred = {"label": "Carrion crow", "taxa_id": 144757}
+    assert _is_correct_match(pred, expected) is False
+
+
+def test_gpu_diagnostic_collects_relevant_signals():
+    class _Meta:
+        supported_inference_providers = ["openvino", "cpu"]
+    class _Model:
+        metadata = _Meta()
+    status = {
+        "selected_provider": "auto",
+        "active_provider": "intel_cpu",
+        "inference_backend": "openvino",
+        "fallback_reason": "compile_failed",
+        "openvino_available": True,
+        "openvino_version": "2024.4.0",
+        "openvino_devices": ["CPU", "GPU"],
+        "openvino_model_compile_ok": False,
+        "openvino_model_compile_device": None,
+        "openvino_model_compile_error": "unsupported op MultiHeadAttention",
+        "openvino_model_compile_unsupported_ops": ["MultiHeadAttention"],
+        "cuda_provider_installed": False,
+        "intel_gpu_available": True,
+        "intel_cpu_available": True,
+        "dev_dri_present": True,
+        "dev_dri_entries": ["/dev/dri/card0"],
+    }
+    diag = _gpu_diagnostic(status, _Model())
+    assert diag["registry_supported_providers"] == ["openvino", "cpu"]
+    assert diag["openvino"]["model_compile_ok"] is False
+    assert diag["openvino"]["model_compile_unsupported_ops"] == ["MultiHeadAttention"]
+    assert diag["intel_gpu_available"] is True
+    assert diag["fallback_reason"] == "compile_failed"
+
+
+def test_gpu_diagnostic_handles_no_metadata():
+    class _Model:
+        metadata = None
+    diag = _gpu_diagnostic({}, _Model())
+    assert diag["registry_supported_providers"] == []
+    assert diag["openvino"]["available"] is False
 
 
 def test_safe_run_id_sanitizes_and_rejects():

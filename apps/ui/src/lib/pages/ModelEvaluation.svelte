@@ -261,6 +261,20 @@
                     </table>
                 </div>
             {/if}
+
+            {#if selectedRun.skipped_models && selectedRun.skipped_models.length > 0}
+                <div class="mt-4 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
+                    <h4 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Skipped models</h4>
+                    <ul class="mt-1 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                        {#each selectedRun.skipped_models as s}
+                            <li>
+                                <span class="font-mono">{s.model_id}</span> — {s.reason}
+                                {#if s.detail}<span class="text-amber-700 dark:text-amber-400 italic"> ({s.detail})</span>{/if}
+                            </li>
+                        {/each}
+                    </ul>
+                </div>
+            {/if}
         </section>
     {/if}
 
