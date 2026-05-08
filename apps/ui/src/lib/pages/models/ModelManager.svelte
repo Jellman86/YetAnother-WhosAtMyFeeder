@@ -2,7 +2,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import {
@@ -497,6 +497,7 @@
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
         {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorModels.some((model) => isCropDetectorInstalled(model.id)))}
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
+        {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         <div class="space-y-6">
             {#if cropDetectorModels.length > 0}
@@ -616,16 +617,30 @@
                             bind:value={selectedModelId}
                             class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
                         >
-                            {#each visibleModels as m}
-                                {@const installedEntry = getInstalledModel(m.id)}
-                                <option value={m.id}>
-                                    {m.name} {isActive(m.id) ? '— Active' : installedEntry?.ready === false ? '— Repair needed' : installedEntry ? '— Installed' : ''}
-                                </option>
+                            {#each modelGroups as group (group.category)}
+                                <optgroup label={`${group.info.icon}  ${group.info.label}`}>
+                                    {#each group.models as m (m.id)}
+                                        {@const installedEntry = getInstalledModel(m.id)}
+                                        <option value={m.id}>
+                                            {m.name} {isActive(m.id) ? '— Active' : installedEntry?.ready === false ? '— Repair needed' : installedEntry ? '— Installed' : ''}
+                                        </option>
+                                    {/each}
+                                </optgroup>
                             {/each}
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </div>
+                        {#if selectedModelId}
+                            {@const selectedModel = classifierModels.find((m) => m.id === selectedModelId)}
+                            {#if selectedModel}
+                                {@const cat = categorizeModel(selectedModel)}
+                                <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    <span class="font-bold">{MODEL_CATEGORY_INFO[cat].icon} {MODEL_CATEGORY_INFO[cat].label}</span>
+                                    — {MODEL_CATEGORY_INFO[cat].hint}
+                                </p>
+                            {/if}
+                        {/if}
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap justify-start sm:justify-end pb-1">

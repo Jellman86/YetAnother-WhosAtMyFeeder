@@ -209,6 +209,121 @@ export function getVisibleTieredModelLineup(
         .filter((model) => showAdvanced || !model.advanced_only || model.id === selectedOrActiveModelId);
 }
 
+// ---------------------------------------------------------------------------
+// Model categorization for the Model Manager UI.
+//
+// Splits the tiered lineup into groups that match how a user actually picks
+// a model: "what's fastest on my hardware?" / "what's most accurate if I
+// don't mind waiting?" / "what's a one-click fallback?". The harness
+// validation status (registry intel_gpu support) is the primary signal.
+// ---------------------------------------------------------------------------
+
+export type ModelCategory =
+    | 'igpu_recommended'
+    | 'cpu_high_accuracy'
+    | 'cpu_standard'
+    | 'cpu_alternative'
+    | 'bundled';
+
+export interface ModelCategoryInfo {
+    label: string;
+    hint: string;
+    icon: string;
+}
+
+export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
+    igpu_recommended: {
+        label: 'Fast on Intel GPU',
+        hint: 'Validated on Intel iGPU — sub-second inference with confirmed-good predictions.',
+        icon: '🚀',
+    },
+    cpu_high_accuracy: {
+        label: 'Highest accuracy (CPU)',
+        hint: 'Slower but most accurate. Best for owners who can trade latency for breadth.',
+        icon: '🎯',
+    },
+    cpu_standard: {
+        label: 'Balanced (CPU)',
+        hint: 'Moderate accuracy and latency on CPU.',
+        icon: '⚖️',
+    },
+    cpu_alternative: {
+        label: 'Architectural alternatives (CPU)',
+        hint: 'Experimental options for accuracy comparison via the model-eval harness.',
+        icon: '🧪',
+    },
+    bundled: {
+        label: 'Built-in fallback',
+        hint: 'TFLite model bundled with the app. Always available without download.',
+        icon: '📦',
+    },
+};
+
+const CATEGORY_DISPLAY_ORDER: ModelCategory[] = [
+    'igpu_recommended',
+    'cpu_standard',
+    'cpu_high_accuracy',
+    'cpu_alternative',
+    'bundled',
+];
+
+export function categorizeModel(model: ModelMetadata): ModelCategory {
+    const providers = (model.supported_inference_providers || []).map((p) => p.toLowerCase());
+    const tier = (model.tier || '').toLowerCase();
+    const accuracy = (model.accuracy_tier || '').toLowerCase();
+    const runtime = (model.runtime || '').toLowerCase();
+
+    // The bundled-fallback path: TFLite-only legacy model that ships in the
+    // image as a guaranteed-installable fallback.
+    if (tier === 'cpu_only' || runtime === 'tflite') return 'bundled';
+
+    // Registry declares intel_gpu support → harness-validated for iGPU.
+    if (providers.includes('intel_gpu')) return 'igpu_recommended';
+
+    // Heavy iNat21-class CPU classifiers (top accuracy, much slower).
+    if (accuracy.includes('elite') || accuracy.includes('very high')) {
+        return 'cpu_high_accuracy';
+    }
+
+    // Experimental / advanced-only options grouped together as
+    // architectural alternatives users opt into for comparison.
+    if (model.advanced_only) return 'cpu_alternative';
+
+    return 'cpu_standard';
+}
+
+export interface ModelCategoryGroup {
+    category: ModelCategory;
+    info: ModelCategoryInfo;
+    models: ModelMetadata[];
+}
+
+/**
+ * Group classifier models for the Model Manager UI by recommended-use category.
+ * Order within each group preserves compareTieredModelMetadata. Empty groups
+ * are dropped so the UI doesn't render headers with no entries.
+ */
+export function groupTieredModelLineup(
+    models: ModelMetadata[],
+    showAdvanced: boolean = false,
+    selectedOrActiveModelId?: string | null,
+): ModelCategoryGroup[] {
+    const visible = getVisibleTieredModelLineup(models, showAdvanced, selectedOrActiveModelId);
+    const buckets = new Map<ModelCategory, ModelMetadata[]>();
+    for (const cat of CATEGORY_DISPLAY_ORDER) buckets.set(cat, []);
+    for (const m of visible) {
+        const cat = categorizeModel(m);
+        buckets.get(cat)!.push(m);
+    }
+    return CATEGORY_DISPLAY_ORDER
+        .map((category) => ({
+            category,
+            info: MODEL_CATEGORY_INFO[category],
+            models: buckets.get(category) || [],
+        }))
+        .filter((group) => group.models.length > 0);
+}
+
 function formatModelMetadataLabel(value: string): string {
     return value
         .split(/[_-]+/g)
