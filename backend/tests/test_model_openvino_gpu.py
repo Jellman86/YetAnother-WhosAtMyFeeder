@@ -63,23 +63,22 @@ GPU_VALIDATED: set[str] = {
     # the depthwise-conv precision issue seen in convnext_large_inat21.
     # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
     "medium_birds_eu",
-    # The entries below are kept enabled in the registry so the model
-    # evaluation harness can empirically retest them on current OpenVINO
-    # versions and capture the result via gpu_diagnostic. The historical
-    # failure modes are documented in the comments next to each model's
-    # registry entry; the harness now re-establishes ground truth on each
-    # run rather than relying on snapshot test results.
-    # eva02_large_inat21 is intentionally excluded — it SIGABRTs the
-    # runtime, which kills any in-progress eval run.
-    "convnext_large_inat21",
-    "flexivit_il_all",
-    "rope_vit_b14_inat21",
+    # The entries below were probed on OpenVINO 2025.4.1 via the model
+    # evaluation harness on 2026-05-08. They compile clean on Intel GPU
+    # AND produce useful predictions in the live ClassifierService
+    # pipeline. Harness gpu_diagnostic confirmed real predictions and
+    # provider=intel_gpu for each.
     "medium_birds",
     "medium_birds_na",
     "small_birds",
     "small_birds_eu",
     "small_birds_na",
     "bird_crop_detector_accurate_yolox_tiny",
+    "flexivit_il_all",
+    # convnext_large_inat21 and rope_vit_b14_inat21 were retested but
+    # fail on iGPU — see GPU_NOT_SUPPORTED below for current evidence.
+    # eva02_large_inat21 is intentionally excluded everywhere — it
+    # SIGABRTs the runtime, killing any in-progress eval run.
 }
 
 # GPU_CRASH_RISK: models that cause an unrecoverable process crash (SIGABRT /
@@ -91,15 +90,28 @@ GPU_CRASH_RISK: set[str] = {
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
 # failure reason. Tested on Intel integrated GPU with OpenVINO 2025.4.x.
-#
-# Models that historically failed (convnext_large_inat21, rope_vit_b14_inat21,
-# flexivit_il_all, small_birds_eu, small_birds_na) have been moved into
-# GPU_VALIDATED so the model evaluation harness can empirically retest them
-# on the current OpenVINO version. Their historical failure modes remain
-# documented in the registry comments next to each model entry. EVA-02 is
-# kept here because it crashes the runtime process — the eval harness can't
-# safely test it.
 GPU_NOT_SUPPORTED: dict[str, str] = {
+    "convnext_large_inat21": (
+        "Wrong predictions — harness retest 2026-05-08 on OV 2025.4.1 "
+        "confirmed the depthwise-conv precision issue persists. Compile "
+        "succeeds on iGPU and inference is ~2x faster (599 ms vs 1175 ms "
+        "CPU), but top-1 accuracy collapses from 66.8% to 32.7% and "
+        "shared-core top-1 from 65.3% to 28.0% — model names systematically "
+        "wrong species. Documented historical root cause: 7×7 depthwise-conv "
+        "+ LayerNorm precision degradation. No precision strategy fixes "
+        "it (f16 → NaN; HETERO:GPU,CPU → range recovers but rankings still "
+        "wrong). Not fixable without OpenVINO depthwise-conv precision "
+        "fixes for this iGPU generation."
+    ),
+    "rope_vit_b14_inat21": (
+        "NaN output — harness retest 2026-05-08 on OV 2025.4.1 confirmed "
+        "RoPE attention ops still produce non-finite logits. The OpenVINO "
+        "startup self-test caught the NaN and fell all the way back to "
+        "ONNX Runtime CPU (active_provider=cpu, not intel_cpu). Listing "
+        "intel_gpu in the registry just wastes a compile + self-test "
+        "attempt every model load. Original probe 22 March 2026, OV "
+        "2025.4.1: f32 → NaN, f16 → NaN. Confirmed unchanged."
+    ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
         "SIGABRT on Intel GPU. Behaviour is non-deterministic: first inference attempt may "

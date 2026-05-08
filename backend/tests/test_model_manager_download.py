@@ -580,7 +580,9 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["runtime"] == "onnx"
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+    # convnext_large_inat21 is CPU-only (intel_gpu produces wrong predictions
+    # — see tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED).
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
     assert spec["label_grouping"] == {}
 
 

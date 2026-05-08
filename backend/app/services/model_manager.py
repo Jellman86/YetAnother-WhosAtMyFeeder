@@ -209,7 +209,11 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        # NOT intel_gpu: harness retest 2026-05-08 on OV 2025.4.1 confirmed
+        # the depthwise-conv precision issue persists. Compile succeeds on
+        # iGPU but top-1 collapses 66.8% → 32.7%; the model produces
+        # systematically wrong species. Stays CPU-only.
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -400,7 +404,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (89%+)",
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        # NOT intel_gpu: harness retest 2026-05-08 confirmed RoPE attention
+        # ops still produce non-finite logits on iGPU (OpenVINO startup
+        # self-test caught the NaN and fell all the way back to ONNX
+        # Runtime CPU). Stays CPU-only; intel_gpu in the registry would
+        # just waste a compile attempt every model load.
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
