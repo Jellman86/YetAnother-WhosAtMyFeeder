@@ -63,6 +63,13 @@ GPU_VALIDATED: set[str] = {
     # the depthwise-conv precision issue seen in convnext_large_inat21.
     # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
     "medium_birds_eu",
+    # convnext_v2_tiny_eu_common: probed 2026-05-08 with f32 + static reshape
+    # + real bird image. top-1 matches CPU, top-5 overlap 3/5, range ratio
+    # 1.28. ConvNeXt-V2-Tiny architecture (same family as medium_birds_eu).
+    "convnext_v2_tiny_eu_common",
+    # moganet_s_eu_common: probed 2026-05-08, top-5 overlap 5/5 (best of any
+    # tested candidate), range ratio 1.03. Multi-order gated CNN — no attention.
+    "moganet_s_eu_common",
     # The entries below were probed on OpenVINO 2025.4.1 via the model
     # evaluation harness on 2026-05-08. They compile clean on Intel GPU
     # AND produce useful predictions in the live ClassifierService
@@ -114,12 +121,27 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "2025.4.1: f32 → NaN, f16 → NaN. Confirmed unchanged."
     ),
     "davit_tiny_il_all": (
-        "NaN output on Intel iGPU. Direct OpenVINO probe 2026-05-08 (OV "
-        "2025.4.1): compile succeeds (~9.8s) and inference runs but "
-        "produces non-finite logits and a near-zero range. Works fine on "
-        "CPU (~200 ms inference, finite, range ≈ 9.2). Same failure "
-        "pattern as RoPE-ViT and FlexiViT on this hardware — likely "
-        "depthwise-conv or LayerNorm precision issues at 28M params."
+        "NaN output on Intel iGPU. Probed 2026-05-08 with f32 hint + "
+        "static reshape + real bird image — still NaN. Works fine on "
+        "CPU (~110 ms inference, finite, range ≈ 8.9). Same failure "
+        "pattern as RoPE-ViT and FlexiViT on this hardware."
+    ),
+    "convnext_v1_tiny_eu_common": (
+        "Precision-degraded on Intel iGPU. Probed 2026-05-08: compile and "
+        "inference succeed and output is finite, but range_ratio vs CPU "
+        "is only 0.53 and top-5 overlap is 2/5. V1's BatchNorm differs "
+        "from V2's LayerNorm in iGPU precision behavior. CPU-only."
+    ),
+    "regnet_y_8g_eu_common": (
+        "iGPU output finite but predictions disagree with CPU. Probed "
+        "2026-05-08: range_ratio 1.46, top-5 overlap 0/5, top-1 mismatch. "
+        "The squeeze-excite blocks and the GroupNorm at large widths "
+        "appear to interact poorly with iGPU f32 precision. CPU-only."
+    ),
+    "uniformer_s_eu_common": (
+        "NaN output on Intel iGPU even with f32 hint. Probed 2026-05-08. "
+        "UniFormer's MHRA (Multi-Head Relation Aggregator) attention "
+        "blocks behave like other ViT variants on this hardware. CPU-only."
     ),
     "mvit_v2_t_il_all": (
         "Process crash on Intel iGPU. Direct OpenVINO probe 2026-05-08 "
