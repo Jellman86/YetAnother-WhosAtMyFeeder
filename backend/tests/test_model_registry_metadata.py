@@ -36,7 +36,7 @@ async def test_available_models_expose_tiered_metadata():
     assert {"eu", "na"} <= set(by_id["small_birds"].region_variants.keys())
     assert by_id["small_birds"].default_region == "na"
     assert by_id["small_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
     assert by_id["small_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])
@@ -53,7 +53,7 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["eu"]["region_scope"] == "eu"
     assert by_id["medium_birds"].region_variants["na"]["region_scope"] == "na"
     assert by_id["medium_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
     assert by_id["medium_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
     assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5191, 0.5306, 0.4877])
@@ -145,8 +145,8 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
 
         assert na_by_id["small_birds"].file_size_mb == pytest.approx(18.0, abs=0.1)
         assert na_by_id["medium_birds"].file_size_mb == pytest.approx(333.0, abs=0.1)
-        assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
-        assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
+        assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
+        assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
     finally:
         settings.location.country = original_country
         settings.classification.bird_model_region_override = original_override

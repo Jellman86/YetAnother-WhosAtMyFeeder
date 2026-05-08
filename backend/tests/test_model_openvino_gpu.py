@@ -63,6 +63,23 @@ GPU_VALIDATED: set[str] = {
     # the depthwise-conv precision issue seen in convnext_large_inat21.
     # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
     "medium_birds_eu",
+    # The entries below are kept enabled in the registry so the model
+    # evaluation harness can empirically retest them on current OpenVINO
+    # versions and capture the result via gpu_diagnostic. The historical
+    # failure modes are documented in the comments next to each model's
+    # registry entry; the harness now re-establishes ground truth on each
+    # run rather than relying on snapshot test results.
+    # eva02_large_inat21 is intentionally excluded — it SIGABRTs the
+    # runtime, which kills any in-progress eval run.
+    "convnext_large_inat21",
+    "flexivit_il_all",
+    "rope_vit_b14_inat21",
+    "medium_birds",
+    "medium_birds_na",
+    "small_birds",
+    "small_birds_eu",
+    "small_birds_na",
+    "bird_crop_detector_accurate_yolox_tiny",
 }
 
 # GPU_CRASH_RISK: models that cause an unrecoverable process crash (SIGABRT /
@@ -74,25 +91,15 @@ GPU_CRASH_RISK: set[str] = {
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
 # failure reason. Tested on Intel integrated GPU with OpenVINO 2025.4.x.
+#
+# Models that historically failed (convnext_large_inat21, rope_vit_b14_inat21,
+# flexivit_il_all, small_birds_eu, small_birds_na) have been moved into
+# GPU_VALIDATED so the model evaluation harness can empirically retest them
+# on the current OpenVINO version. Their historical failure modes remain
+# documented in the registry comments next to each model entry. EVA-02 is
+# kept here because it crashes the runtime process — the eval harness can't
+# safely test it.
 GPU_NOT_SUPPORTED: dict[str, str] = {
-    "convnext_large_inat21": (
-        "Wrong predictions — compiles and runs without NaN/crash (static reshape required), "
-        "but GPU logit spread is ~3–7 vs ~18 on CPU; top predictions are entirely wrong species. "
-        "Root cause: numeric precision degradation in ConvNeXt 7×7 depthwise-conv + LayerNorm "
-        "on this Intel iGPU. Exhaustive precision probe (OV 2025.4.1) confirms no strategy fixes it: "
-        "f16 → NaN; PERFORMANCE_HINT=ACCURACY → compile crash; noWinograd → still low range (0.18×); "
-        "HETERO:GPU,CPU → range recovers (0.74×) but Spearman 0.16 / top-5 ∩ 0 (rankings wrong). "
-        "The GPU sub-graph scrambles feature rankings even when output magnitude is near-correct. "
-        "Not fixable without OpenVINO depthwise-conv precision fixes for this iGPU generation."
-    ),
-    "rope_vit_b14_inat21": (
-        "NaN output — RoPE attention ops produce non-finite values in both f32 and f16 on "
-        "Intel GPU. Probed 22 March 2026, OV 2025.4.1: f32 → NaN, f16 → NaN."
-    ),
-    "flexivit_il_all": (
-        "NaN output — FlexiViT DINOv2 with RMSNorm produces non-finite values in both f32 "
-        "and f16 on Intel GPU. Probed 22 March 2026, OV 2025.4.1: f32 → NaN, f16 → NaN."
-    ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
         "SIGABRT on Intel GPU. Behaviour is non-deterministic: first inference attempt may "
@@ -105,31 +112,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector":  "Crop detector — CPU-only by design",
     # small_birds NA (EfficientNet-B0): non-deterministic on Intel GPU. Probed 22 March 2026.
-    # First inference after a clean GPU state may pass (ratio=0.83, Spearman=0.821),
-    # but subsequent GPU compilations crash with CL_OUT_OF_RESOURCES. f16 → NaN.
-    # Treated as unsupported due to non-deterministic crash risk.
-    "small_birds_na": (
-        "Non-deterministic GPU failure — first inference after clean GPU state may pass "
-        "(f32: ratio=0.83, Spearman=0.821, top5∩=1), but subsequent GPU compilations crash "
-        "with CL_OUT_OF_RESOURCES. f16 → NaN. Probed 22 March 2026, OV 2025.4.1."
-    ),
-    # small_birds EU (MobileNetV4-L): isolated probe passes (ratio=1.03, Spearman=0.996,
-    # top5∩=5, 22 March 2026) but crashes with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST
-    # (-14) after sustained production load (~9 min, single session, no prior GPU models),
-    # corrupting the OpenCL context and causing terminate() / process abort (24 March 2026).
-    "small_birds_eu": (
-        "GPU instability under sustained load — passes a single-shot probe but crashes "
-        "with CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST (-14) after ~9 minutes of "
-        "production inference, then terminate() on GPU context cleanup. "
-        "Observed 24 March 2026, OV 2025.4.1, Intel iGPU. Probe passed 22 March 2026 "
-        "(ratio=1.03, Spearman=0.996, top5∩=5) — single-shot probes are insufficient "
-        "to validate this model on this GPU."
-    ),
-    # medium_birds NA (Binocular): NaN in both f32 and f16. Probed 22 March 2026.
-    "medium_birds_na": (
-        "NaN output in both f32 and f16 on Intel GPU. "
-        "Probed 22 March 2026, OV 2025.4.1."
-    ),
 }
 
 # ---------------------------------------------------------------------------

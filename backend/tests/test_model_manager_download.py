@@ -640,7 +640,9 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
 
     spec = manager.get_active_model_spec()
 
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+    # eva02 stays CPU-only on Intel iGPU (SIGABRT risk) — registry list
+    # excludes intel_gpu by hard requirement.
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
     assert spec["model_config_warnings"] == [
         "Installed model_config.json only advertised providers no longer supported by the current registry: legacy_unsupported. Falling back to registry-supported providers."
     ]

@@ -437,7 +437,13 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        # NOT intel_gpu: EVA-02 SIGABRTs the runtime on Intel iGPU
+        # (CL_OUT_OF_RESOURCES → process abort). Documented in
+        # tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED. Tested OV
+        # 2024.6.0, 2026.0.0, 2025.4.1 — all crash. Hard requirement, do
+        # not re-enable without confirming the OpenCL kernel issue is
+        # fixed in a future OpenVINO release.
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
