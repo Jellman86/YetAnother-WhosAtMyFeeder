@@ -63,10 +63,6 @@ GPU_VALIDATED: set[str] = {
     # the depthwise-conv precision issue seen in convnext_large_inat21.
     # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
     "medium_birds_eu",
-    # convnext_v2_tiny_eu_common: probed 2026-05-08 with f32 + static reshape
-    # + real bird image. top-1 matches CPU, top-5 overlap 3/5, range ratio
-    # 1.28. ConvNeXt-V2-Tiny architecture (same family as medium_birds_eu).
-    "convnext_v2_tiny_eu_common",
     # moganet_s_eu_common: probed 2026-05-08, top-5 overlap 5/5 (best of any
     # tested candidate), range ratio 1.03. Multi-order gated CNN — no attention.
     "moganet_s_eu_common",
@@ -93,7 +89,6 @@ GPU_VALIDATED: set[str] = {
 # attempted inside the test runner; the gpu-unsupported test skips them.
 GPU_CRASH_RISK: set[str] = {
     "eva02_large_inat21",   # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
-    "mvit_v2_t_il_all",     # CL_OUT_OF_RESOURCES → terminate() in compile (probed 2026-05-08)
 }
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
@@ -120,12 +115,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "attempt every model load. Original probe 22 March 2026, OV "
         "2025.4.1: f32 → NaN, f16 → NaN. Confirmed unchanged."
     ),
-    "davit_tiny_il_all": (
-        "NaN output on Intel iGPU. Probed 2026-05-08 with f32 hint + "
-        "static reshape + real bird image — still NaN. Works fine on "
-        "CPU (~110 ms inference, finite, range ≈ 8.9). Same failure "
-        "pattern as RoPE-ViT and FlexiViT on this hardware."
-    ),
     "convnext_v1_tiny_eu_common": (
         "Precision-degraded on Intel iGPU. Probed 2026-05-08: compile and "
         "inference succeed and output is finite, but range_ratio vs CPU "
@@ -142,15 +131,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "NaN output on Intel iGPU even with f32 hint. Probed 2026-05-08. "
         "UniFormer's MHRA (Multi-Head Relation Aggregator) attention "
         "blocks behave like other ViT variants on this hardware. CPU-only."
-    ),
-    "mvit_v2_t_il_all": (
-        "Process crash on Intel iGPU. Direct OpenVINO probe 2026-05-08 "
-        "(OV 2025.4.1) raised CL_OUT_OF_RESOURCES from "
-        "intel_gpu/runtime/ocl/ocl_stream.cpp:376 followed by terminate() "
-        "and 'longjmp causes uninitialized stack frame' — same SIGABRT "
-        "class as EVA-02. CPU-only. Multi-scale pooling attention is "
-        "the suspected trigger. Lives in GPU_CRASH_RISK; never attempt "
-        "iGPU inference for this model."
     ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
