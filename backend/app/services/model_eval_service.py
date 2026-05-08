@@ -508,6 +508,10 @@ class ModelEvalRunner:
                 status = _classifier_status_snapshot(classifier_service)
                 provider_info = _provider_summary(status)
                 health_snapshot = _inference_health_for(status)
+                try:
+                    active_spec = dict(model_manager.get_active_model_spec() or {})
+                except Exception:
+                    active_spec = {}
                 summary = {
                     "model_id": model.id,
                     "active_provider": provider_info.get("active_provider"),
@@ -545,7 +549,7 @@ class ModelEvalRunner:
                     "ready": model.ready,
                     "ready_reason": model.reason,
                     "warnings": summary["warnings"],
-                    "gpu_diagnostic": _gpu_diagnostic(status, model),
+                    "gpu_diagnostic": _gpu_diagnostic(status, model, active_spec),
                 }
 
                 # Confusion CSV — append per model so partial runs leave usable data
@@ -810,25 +814,45 @@ def _provider_summary(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _gpu_diagnostic(status: dict[str, Any], model: Any) -> dict[str, Any]:
-    """Per-model snapshot of every signal that could explain a CPU fallback.
+def _gpu_diagnostic(
+    status: dict[str, Any],
+    model: Any,
+    active_spec: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Per-model snapshot of every signal that could explain a CPU fallback
+    OR a wrong-prediction / NaN-output result on GPU.
 
-    Combines:
-    - what we asked for (settings.classification.inference_provider)
-    - what the model registry advertises as supported
-    - environment-level provider availability (OpenVINO/CUDA install state,
-      probe errors, /dev/dri presence)
-    - model-specific compile result (Intel GPU compile success / device /
-      error / unsupported ops list)
-    - the fallback_reason string the runtime stamped if it had to drop
-      to CPU on first inference
+    Three concentric layers:
 
-    This is what an owner needs to answer 'why isn't this model on the GPU?'.
+    1. **Runtime / provider** — what was asked for, what's actually running,
+       OpenVINO version, /dev/dri presence, CUDA probe state, OpenVINO
+       compile result + unsupported-op list. Answers 'is the GPU even
+       being attempted, and did the compile fail?'
+
+    2. **Preprocessing config** — color_space (RGB/BGR), resize_mode
+       (letterbox/center_crop/direct_resize), crop_pct, interpolation,
+       mean/std normalization, input_size. Answers 'is the harness
+       feeding the model the same tensor shape and value range it was
+       trained on?'  A mismatch here looks identical to a buggy model
+       from the outside (wrong predictions, NaN, 0% accuracy) but is
+       actually a YA-WAMF config bug.
+
+    3. **Model artifact identity** — ONNX producer/version, opset, sha256.
+       Lets us tell whether two runs that disagree are running the same
+       weights or not, plus surfaces any model_config.json sanitization
+       warnings the runtime emitted on activation.
     """
     metadata = getattr(model, "metadata", None)
     declared_providers: list[str] = []
     if metadata is not None:
         declared_providers = list(getattr(metadata, "supported_inference_providers", None) or [])
+
+    spec = active_spec or {}
+    preprocessing = dict(spec.get("preprocessing") or {})
+    runtime_model = (status.get("openvino_runtime") or {}).get("model") or {}
+    if not runtime_model:
+        runtime_model = {}
+
     return {
         "requested_provider": status.get("selected_provider"),
         "active_provider": status.get("active_provider"),
@@ -857,6 +881,28 @@ def _gpu_diagnostic(status: dict[str, Any], model: Any) -> dict[str, Any]:
         "intel_cpu_available": bool(status.get("intel_cpu_available")),
         "dev_dri_present": bool(status.get("dev_dri_present")),
         "dev_dri_entries": status.get("dev_dri_entries") or [],
+        # --- preprocessing config: detects color/precision/normalization mismatches
+        "preprocessing": {
+            "input_size": spec.get("input_size") or runtime_model.get("input_size"),
+            "color_space": preprocessing.get("color_space") or "RGB",
+            "resize_mode": preprocessing.get("resize_mode"),
+            "crop_pct": preprocessing.get("crop_pct"),
+            "interpolation": preprocessing.get("interpolation"),
+            "mean": preprocessing.get("mean"),
+            "std": preprocessing.get("std"),
+            "normalization": preprocessing.get("normalization"),
+            "padding_color": preprocessing.get("padding_color"),
+        },
+        "model_config_warnings": list(spec.get("model_config_warnings") or runtime_model.get("model_config_warnings") or []),
+        "model_artifact": {
+            "runtime": spec.get("runtime") or runtime_model.get("declared_runtime"),
+            "model_type": runtime_model.get("model_type"),
+            "model_sha256": runtime_model.get("model_sha256"),
+            "weights_sha256": runtime_model.get("weights_sha256"),
+            "producer_name": runtime_model.get("producer_name"),
+            "producer_version": runtime_model.get("producer_version"),
+            "opset": runtime_model.get("opset") or [],
+        },
     }
 
 

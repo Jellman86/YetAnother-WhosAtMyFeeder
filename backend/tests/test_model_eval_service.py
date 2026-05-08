@@ -178,6 +178,75 @@ def test_gpu_diagnostic_handles_no_metadata():
     assert diag["openvino"]["available"] is False
 
 
+def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
+    class _Meta:
+        supported_inference_providers = ["cpu", "intel_cpu", "intel_gpu"]
+    class _Model:
+        metadata = _Meta()
+    status = {
+        "selected_provider": "auto",
+        "active_provider": "intel_gpu",
+        "inference_backend": "openvino",
+        "openvino_runtime": {
+            "model": {
+                "model_type": "onnx",
+                "model_sha256": "abc123",
+                "weights_sha256": "def456",
+                "producer_name": "pytorch",
+                "producer_version": "2.1.0",
+                "opset": [{"domain": "ai.onnx", "version": 17}],
+                "model_config_warnings": [],
+            },
+        },
+    }
+    active_spec = {
+        "input_size": 384,
+        "runtime": "onnx",
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "crop_pct": 0.95,
+            "interpolation": "bicubic",
+            "mean": [0.481, 0.458, 0.408],
+            "std": [0.269, 0.261, 0.276],
+            "normalization": "float32",
+        },
+        "model_config_warnings": ["installed config rejected legacy provider"],
+    }
+    diag = _gpu_diagnostic(status, _Model(), active_spec)
+    pre = diag["preprocessing"]
+    assert pre["input_size"] == 384
+    assert pre["color_space"] == "RGB"
+    assert pre["resize_mode"] == "center_crop"
+    assert pre["crop_pct"] == 0.95
+    assert pre["mean"] == [0.481, 0.458, 0.408]
+    artifact = diag["model_artifact"]
+    assert artifact["runtime"] == "onnx"
+    assert artifact["model_sha256"] == "abc123"
+    assert artifact["producer_name"] == "pytorch"
+    assert artifact["opset"] == [{"domain": "ai.onnx", "version": 17}]
+    # active_spec wins over runtime_model when both have warnings, but the
+    # union is what matters operationally
+    assert "installed config rejected legacy provider" in diag["model_config_warnings"]
+
+
+def test_gpu_diagnostic_color_space_defaults_to_rgb():
+    class _Model:
+        metadata = None
+    diag = _gpu_diagnostic({}, _Model(), active_spec={"preprocessing": {}})
+    assert diag["preprocessing"]["color_space"] == "RGB"
+
+
+def test_gpu_diagnostic_preserves_bgr_when_explicitly_set():
+    class _Model:
+        metadata = None
+    diag = _gpu_diagnostic(
+        {}, _Model(),
+        active_spec={"preprocessing": {"color_space": "BGR"}},
+    )
+    assert diag["preprocessing"]["color_space"] == "BGR"
+
+
 def test_safe_run_id_sanitizes_and_rejects():
     assert _safe_run_id("20260507-204512") == "20260507-204512"
     assert _safe_run_id("abc_def") == "abc_def"
