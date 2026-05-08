@@ -73,6 +73,18 @@ class ModelEvalRunner:
     def is_running(self) -> bool:
         return self._task is not None and not self._task.done()
 
+    async def cancel(self) -> bool:
+        """Cancel the active run, if any. Returns True if a run was cancelled."""
+        task = self._task
+        if task is None or task.done():
+            return False
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+        return True
+
     def active_status(self) -> Optional[dict[str, Any]]:
         return dict(self._active_status) if self._active_status else None
 
@@ -200,6 +212,10 @@ class ModelEvalRunner:
                     include_per_image=include_per_image,
                     region_override=region_override,
                 )
+            except asyncio.CancelledError:
+                log.info("model_eval_run_cancelled", run_id=run_id)
+                await self._emit(run_id, phase="cancelled")
+                raise
             except Exception as e:
                 log.exception("model_eval_run_failed", run_id=run_id, error=str(e))
                 await self._emit(run_id, phase="error", error=str(e))
@@ -228,7 +244,6 @@ class ModelEvalRunner:
     ) -> None:
         from app.services.classifier_service import get_classifier
         from app.services.model_manager import model_manager
-        from app.services.taxonomy.taxonomy_service import taxonomy_service
 
         classifier_service = get_classifier()
 
@@ -343,7 +358,6 @@ class ModelEvalRunner:
                 high_conf_unknown_count = 0
                 processed = 0
                 taxa_cache: dict[str, Optional[int]] = {}
-                taxa_resolution_failures = 0
                 confusions: dict[tuple[int, int], dict[str, Any]] = {}
 
                 for entry in usable_panel:
@@ -371,28 +385,18 @@ class ModelEvalRunner:
                         latencies.append(latency_ms)
 
                         top5 = list(results or [])[:5]
-                        # Resolve labels → taxa_ids. Fast-path against the
-                        # panel label map first so we don't need iNat just to
-                        # confirm the model named a panel species correctly.
+                        # Resolve labels → taxa_ids using the offline panel
+                        # map. Predictions that don't match any panel species
+                        # keep taxa_id=None: they were never going to count
+                        # toward an accuracy hit (we only score panel species)
+                        # and the iNat round-trips per non-matching prediction
+                        # were the dominant runtime cost in v1.
                         for r in top5:
                             label = (r.get("label") or "").strip()
-                            if not label:
-                                r["taxa_id"] = None
-                                continue
-                            r["taxa_id"] = _resolve_label_taxa(
-                                label,
-                                panel_label_to_taxa,
-                                taxa_cache,
+                            r["taxa_id"] = (
+                                _resolve_label_taxa(label, panel_label_to_taxa, taxa_cache)
+                                if label else None
                             )
-                            if r["taxa_id"] is None and label not in taxa_cache:
-                                try:
-                                    lookup = await taxonomy_service.get_names(label)
-                                    resolved = (lookup or {}).get("taxa_id")
-                                    taxa_cache[label] = resolved
-                                    r["taxa_id"] = resolved
-                                except Exception:
-                                    taxa_cache[label] = None
-                                    taxa_resolution_failures += 1
 
                         top1 = top5[0] if top5 else None
                         is_top1_unknown = bool(top1 and is_unknown_species_label(top1.get("label") or ""))
@@ -484,7 +488,6 @@ class ModelEvalRunner:
                     "shared_core_top1": _safe_div(shared_core_top1, shared_core_total),
                     "regional_top1": _safe_div(regional_top1, regional_total),
                     "inference_health_verdict": health_snapshot.get("verdict"),
-                    "taxa_resolution_failures": taxa_resolution_failures,
                     "warnings": [],
                 }
                 summary["warnings"] = sanity_checks.collect(summary, region_label=region_label)

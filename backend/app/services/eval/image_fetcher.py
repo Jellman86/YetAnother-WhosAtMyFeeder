@@ -291,7 +291,7 @@ async def fetch_panel_images(
     species: list[dict[str, Any]],
     dest_root: Path | str,
     max_per_species: int = DEFAULT_MAX_PER_SPECIES,
-    concurrency: int = 5,
+    concurrency: int = 3,
     progress_cb: Optional[Any] = None,
 ) -> dict[int, list[FetchedImage]]:
     """Fetch images for many species concurrently.

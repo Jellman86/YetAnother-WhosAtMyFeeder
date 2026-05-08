@@ -27,8 +27,8 @@ def test_shared_core_seed_loads_and_has_entries():
 @pytest.mark.asyncio
 async def test_resolve_shared_core_uses_seed_taxa_id_when_present():
     seed = [{"scientific_name": "X y", "common_name": "X", "taxa_id": 999}]
-    with patch.object(species_panel, "_resolve_taxa_id_from_inat", AsyncMock()) as inat:
-        out = await resolve_shared_core(client=MagicMock(), seed=seed)
+    with patch.object(species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock()) as inat:
+        out = await resolve_shared_core(client=MagicMock(), seed=seed, inter_lookup_delay_seconds=0)
     assert len(out) == 1
     assert out[0].taxa_id == 999
     assert out[0].panel == "shared_core"
@@ -39,9 +39,9 @@ async def test_resolve_shared_core_uses_seed_taxa_id_when_present():
 async def test_resolve_shared_core_calls_inat_when_taxa_missing():
     seed = [{"scientific_name": "Passer domesticus", "common_name": "House Sparrow"}]
     with patch.object(
-        species_panel, "_resolve_taxa_id_from_inat", AsyncMock(return_value=12345)
+        species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock(return_value=12345)
     ):
-        out = await resolve_shared_core(client=MagicMock(), seed=seed)
+        out = await resolve_shared_core(client=MagicMock(), seed=seed, inter_lookup_delay_seconds=0)
     assert len(out) == 1
     assert out[0].taxa_id == 12345
 
@@ -52,10 +52,10 @@ async def test_resolve_shared_core_skips_unresolvable():
         {"scientific_name": "Real bird", "common_name": "Real"},
         {"scientific_name": "Made up", "common_name": "Fake"},
     ]
-    async def fake_lookup(_client, name):
+    async def fake_lookup(name):
         return 1 if name == "Real bird" else None
-    with patch.object(species_panel, "_resolve_taxa_id_from_inat", AsyncMock(side_effect=fake_lookup)):
-        out = await resolve_shared_core(client=MagicMock(), seed=seed)
+    with patch.object(species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock(side_effect=fake_lookup)):
+        out = await resolve_shared_core(client=MagicMock(), seed=seed, inter_lookup_delay_seconds=0)
     assert [s.scientific_name for s in out] == ["Real bird"]
 
 

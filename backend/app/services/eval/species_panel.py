@@ -7,6 +7,7 @@ taxon IDs, sidestepping a separate species-code → taxa_id lookup).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -45,28 +46,20 @@ def load_shared_core_seed() -> list[dict[str, Any]]:
     return list(data.get("species") or [])
 
 
-async def _resolve_taxa_id_from_inat(
-    client: httpx.AsyncClient, scientific_name: str
-) -> Optional[int]:
+async def _resolve_taxa_id_via_taxonomy_service(scientific_name: str) -> Optional[int]:
+    """Resolve a scientific name to taxa_id using the project taxonomy service.
+
+    The taxonomy service caches results in the local DB (``taxonomy_cache``),
+    so subsequent runs of the harness skip iNat entirely. Falls back to None
+    when iNat is unreachable; the caller drops the species from the panel.
+    """
     if not scientific_name:
         return None
     try:
-        resp = await client.get(
-            INAT_TAXA_URL,
-            params={"q": scientific_name, "rank": "species", "per_page": 1},
-            timeout=15.0,
-        )
-        resp.raise_for_status()
-        results = (resp.json() or {}).get("results") or []
-        if not results:
-            return None
-        candidate = results[0]
-        # Prefer exact scientific-name match when available.
-        candidate_name = (candidate.get("name") or "").strip().lower()
-        if candidate_name and candidate_name != scientific_name.strip().lower():
-            return None
-        return int(candidate["id"]) if candidate.get("id") else None
-    except (httpx.HTTPError, KeyError, ValueError) as e:
+        from app.services.taxonomy.taxonomy_service import taxonomy_service
+        result = await taxonomy_service.get_names(scientific_name)
+        return int(result["taxa_id"]) if result and result.get("taxa_id") else None
+    except Exception as e:
         log.warning("eval_panel_taxa_lookup_failed", name=scientific_name, error=str(e))
         return None
 
@@ -74,16 +67,25 @@ async def _resolve_taxa_id_from_inat(
 async def resolve_shared_core(
     client: httpx.AsyncClient,
     seed: Optional[list[dict[str, Any]]] = None,
+    *,
+    inter_lookup_delay_seconds: float = 0.25,
 ) -> list[SpeciesEntry]:
-    """Take the hand-curated seed and ensure every entry has a taxa_id."""
+    """Take the hand-curated seed and ensure every entry has a taxa_id.
+
+    Uses the cached taxonomy service so subsequent runs skip iNat entirely.
+    First-run lookups are spaced by ``inter_lookup_delay_seconds`` to stay
+    under iNat's anonymous rate limit; cached lookups skip the delay.
+    """
     rows = seed if seed is not None else load_shared_core_seed()
     out: list[SpeciesEntry] = []
-    for row in rows:
+    for idx, row in enumerate(rows):
         sci = (row.get("scientific_name") or "").strip()
         common = (row.get("common_name") or "").strip()
         taxa_id = row.get("taxa_id")
         if not taxa_id:
-            taxa_id = await _resolve_taxa_id_from_inat(client, sci)
+            taxa_id = await _resolve_taxa_id_via_taxonomy_service(sci)
+            if inter_lookup_delay_seconds > 0 and idx < len(rows) - 1:
+                await asyncio.sleep(inter_lookup_delay_seconds)
         if not taxa_id:
             log.info("eval_panel_skipped_unresolved", scientific_name=sci)
             continue

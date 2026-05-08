@@ -85,3 +85,12 @@ async def delete_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -
     if not ok:
         raise HTTPException(status_code=404, detail="run not found or in progress")
     return {"deleted": run_id}
+
+
+@router.post("/runs/{run_id}/cancel")
+async def cancel_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict:
+    active = model_eval_runner.active_status() or {}
+    if active.get("run_id") != run_id or not model_eval_runner.is_running():
+        raise HTTPException(status_code=404, detail="no active run with that id")
+    cancelled = await model_eval_runner.cancel()
+    return {"cancelled": cancelled, "run_id": run_id}

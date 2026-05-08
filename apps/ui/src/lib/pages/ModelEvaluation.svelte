@@ -5,6 +5,7 @@
         listModelEvalRuns,
         getModelEvalRun,
         deleteModelEvalRun,
+        cancelModelEvalRun,
         modelEvalArtifactUrl,
         type ModelEvalActiveStatus,
         type ModelEvalRunRow,
@@ -91,6 +92,17 @@
         }
     }
 
+    async function cancelRun() {
+        if (!active) return;
+        if (!confirm(`Cancel run ${active.run_id}? Partial artifacts will be kept.`)) return;
+        try {
+            await cancelModelEvalRun(active.run_id);
+            await refresh();
+        } catch (e) {
+            error = (e as Error).message;
+        }
+    }
+
     async function deleteRun(runId: string) {
         if (!confirm(`Delete eval run ${runId}? Artifacts will be removed.`)) return;
         try {
@@ -142,6 +154,15 @@
             >
                 {active ? 'Run in progress…' : 'Run Evaluation'}
             </button>
+            {#if active}
+                <button
+                    type="button"
+                    onclick={cancelRun}
+                    class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                >
+                    Cancel
+                </button>
+            {/if}
         </div>
 
         {#if active}

@@ -108,6 +108,11 @@ export async function deleteModelEvalRun(runId: string): Promise<void> {
     await handleResponse(resp);
 }
 
+export async function cancelModelEvalRun(runId: string): Promise<void> {
+    const resp = await apiFetch(`${BASE}/runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST' });
+    await handleResponse(resp);
+}
+
 export function modelEvalArtifactUrl(runId: string, artifact: string): string {
     return `${BASE}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(artifact)}`;
 }
