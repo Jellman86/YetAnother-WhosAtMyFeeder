@@ -297,7 +297,7 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert na_spec["labels_path"] == str(na_dir / "labels.txt")
         assert na_spec["input_size"] == 224
         assert na_spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-        assert na_spec["supported_inference_providers"] == ["cpu", "intel_cpu"]
+        assert na_spec["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
         assert na_spec["crop_generator"]["enabled"] is True
         assert na_spec["crop_generator"]["input_context"]["is_cropped"] is True
 
@@ -307,7 +307,7 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert eu_spec["labels_path"] == str(eu_dir / "labels.txt")
         assert eu_spec["input_size"] == 384
         assert "intel_cpu" in eu_spec["supported_inference_providers"]
-        assert "intel_gpu" not in eu_spec["supported_inference_providers"]
+        assert "intel_gpu" in eu_spec["supported_inference_providers"]
         assert eu_spec["crop_generator"]["enabled"] is False
     finally:
         settings.location.country = original_country
@@ -580,7 +580,7 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["runtime"] == "onnx"
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
     assert spec["label_grouping"] == {}
 
 
@@ -595,7 +595,10 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
         json.dumps(
             {
                 "runtime": "onnx",
-                "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
+                # Use a synthetic unsupported provider name so the test
+                # still exercises the filter behavior even though
+                # intel_gpu is now in the registry list.
+                "supported_inference_providers": ["legacy_unsupported", "intel_cpu", "cpu"],
             }
         ),
         encoding="utf-8",
@@ -608,7 +611,7 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
 
     assert spec["supported_inference_providers"] == ["intel_cpu", "cpu"]
     assert spec["model_config_warnings"] == [
-        "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: intel_gpu"
+        "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: legacy_unsupported"
     ]
 
 
@@ -623,7 +626,10 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
         json.dumps(
             {
                 "runtime": "onnx",
-                "supported_inference_providers": ["intel_gpu"],
+                # Synthetic unsupported provider — exercises the
+                # all-unsupported fallback path now that intel_gpu is in
+                # the registry list.
+                "supported_inference_providers": ["legacy_unsupported"],
             }
         ),
         encoding="utf-8",
@@ -634,9 +640,9 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
 
     spec = manager.get_active_model_spec()
 
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_gpu"]
     assert spec["model_config_warnings"] == [
-        "Installed model_config.json only advertised providers no longer supported by the current registry: intel_gpu. Falling back to registry-supported providers."
+        "Installed model_config.json only advertised providers no longer supported by the current registry: legacy_unsupported. Falling back to registry-supported providers."
     ]
 
 

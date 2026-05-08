@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import threading
+from pathlib import Path
 import aiofiles
 import httpx
 import structlog
@@ -62,7 +63,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Higher",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "cuda", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_model_config.json",
@@ -131,7 +132,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -154,7 +155,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
                 "file_size_mb": 122.7,
                 "input_size": 384,
-                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -184,7 +185,7 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -208,7 +209,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -283,7 +284,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast (~80-150ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
@@ -321,7 +322,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High",
         "inference_speed": "Medium-Slow",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -375,7 +376,7 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -399,7 +400,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (89%+)",
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -436,7 +437,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
@@ -1682,13 +1683,21 @@ class ModelManager:
         if os.path.exists(target_dir) and os.path.isdir(target_dir):
             model_meta = self._get_registry_model_meta(model_id)
             if model_meta:
-                complete, reason = self._model_install_status(model_meta, target_dir)
+                # Family models (e.g. medium_birds with eu/na variants) place
+                # their model artifact inside a variant subdir, not at the
+                # parent. Validate the resolved variant dir for those.
+                check_dir = target_dir
+                if self._is_family_model(model_meta):
+                    resolved = self._resolve_installed_family_variant(target_dir, model_meta)
+                    if resolved and resolved.get("model_path"):
+                        check_dir = str(Path(resolved["model_path"]).parent)
+                complete, reason = self._model_install_status(model_meta, check_dir)
                 if not complete:
                     log.warning(
                         "Activation failed: model install incomplete",
                         model_id=model_id,
                         reason=reason,
-                        model_dir=target_dir,
+                        model_dir=check_dir,
                     )
                     return False
             self._save_active_model_id(model_id)
