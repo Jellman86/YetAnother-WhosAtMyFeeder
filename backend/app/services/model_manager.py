@@ -494,6 +494,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common_model_config.json",
+        "sha256": "f0a2d6e737903123141cc9ccff8cd23738de82a5eae1b43aae6fa64b27415891",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -529,6 +531,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_model_config.json",
+        "sha256": "cac213ac1d41611654c3461fd9faf16415ed2af72293f85ac14d0234a625328f",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -564,6 +568,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
+        "sha256": "a638ea3457e0c50bd8259869aa72351f576eb13c2f353fd36b56b78013e77f7f",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -599,6 +605,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
+        "sha256": "67a19680561b2ac6bfef31ea42b9713eda429a3e2282b5abf841d23df0131d69",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -634,6 +642,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
+        "sha256": "1e19b7d971b085f4bda5d149faa92a756d0e49b2e140dab3e9fc4061bd853955",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -676,6 +686,9 @@ REMOTE_REGISTRY = [
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all_model_config.json",
+        "sha256": "22073ae0af48f92e6f509e0d8f7b53fc2f4c4df44f41a92e661d0024294f90f9",
+        "labels_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
+        "weights_sha256": "b9251b75d2ecb427ea622383d1626f0bd1c30f879eb5ecab7e0948507bb3eac2",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -718,6 +731,9 @@ REMOTE_REGISTRY = [
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all_model_config.json",
+        "sha256": "9f64426e94439a247ef34b5e0adfce51473a9b4d5e87020cb05d7840863c3c7d",
+        "labels_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
+        "weights_sha256": "14275063a98e1a73c9e2871b041bf85082a243dcf7b134741aef199f98b1437d",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
