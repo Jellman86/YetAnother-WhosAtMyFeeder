@@ -830,6 +830,35 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 ### 4.4 Backup & Export Tools 💾 (Partially Completed)
 **Status:** ✅ CSV Export for eBird added. ❌ Full DB backup/restore tool pending.
 
+### 4.5 Home Assistant OS Add-on 🏠
+**Priority:** P3 | **Effort:** M (3–5 days) | **Status:** Proposed (issue #49)
+
+YA-WAMF currently ships as a Docker container intended for `docker compose` deployment. Home Assistant OS users can run it today via the Portainer add-on or any other path that lets them schedule a third-party container alongside HA, but there is no first-class HA add-on listing — installing YA-WAMF from the HA add-on store with a button-click is not possible.
+
+A proper add-on would wrap the existing monolithic image as an installable HA Supervisor add-on so HAOS users can deploy it without a docker-compose stack, with the existing `custom_components/yawamf` integration continuing to handle the in-HA sensor/event surface separately.
+
+**Scope:**
+- Author an `addon-yawamf` companion repo containing the HA add-on manifest (`config.yaml`), `Dockerfile` that pulls or extends the published monolithic image, an `s6-overlay`/run script if needed, and an `apparmor.txt` profile sized to the actual permissions YA-WAMF requires.
+- Map the existing `/data` and `/config` volumes to HA's add-on data volume so the SQLite DB, models, and `config.json` survive add-on updates.
+- Expose YA-WAMF's port and Ingress entry so it is reachable through the HA UI.
+- Surface the most-used config knobs (Frigate URL, MQTT broker, BirdNET-Go MQTT topic, optional API key) as add-on options that get translated into env vars or `config.json` overrides on first boot.
+- Document the upgrade story: the add-on tracks the YA-WAMF release tag, not `dev` or `latest`.
+
+**Out of scope:**
+- Replacing the docker-compose deployment path. Both ship side-by-side; the add-on is for HAOS users who don't otherwise run Docker.
+- Embedding YA-WAMF inside the HA core. The add-on stays a separate process.
+
+**Risks / open questions:**
+- The monolith image runs `nginx + backend` together. HA Ingress will need to point at the nginx port and CSP/CORS may need adjustment under the Ingress path prefix.
+- ARM64 support requires the existing RPi monolith image to be production-ready (it is currently best-effort, see Raspberry Pi section above).
+- Add-on store listing requires a separate repo and ongoing maintenance — should be considered before committing.
+
+**Acceptance criteria:**
+- HAOS users can add a repository URL, install YA-WAMF, configure Frigate/MQTT through the add-on Options panel, and reach the UI through HA Ingress.
+- Stopping/starting the add-on preserves data; updating to a newer add-on version preserves data and runs DB migrations cleanly.
+- The existing `custom_components/yawamf` integration continues to work whether YA-WAMF runs as the add-on or as a standalone Docker container.
+- Add-on documentation lives in the new repo with a link from the YA-WAMF README's "Home Assistant" section.
+
 ---
 
 ## Phase 5: Performance & Reliability
