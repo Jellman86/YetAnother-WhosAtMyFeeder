@@ -491,9 +491,9 @@ REMOTE_REGISTRY = [
         "inference_speed": "Fast on iGPU (~120ms)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v2_tiny_eu_common_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -526,9 +526,9 @@ REMOTE_REGISTRY = [
         "inference_speed": "Fast on iGPU (~130ms)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -561,9 +561,9 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium (~140ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -596,9 +596,9 @@ REMOTE_REGISTRY = [
         "inference_speed": "Slow (~200ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -631,9 +631,9 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium (~95ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -672,9 +672,10 @@ REMOTE_REGISTRY = [
         "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
         # Self-converted from the upstream PyTorch checkpoint. Not yet
         # hosted as a public download.
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all.onnx",
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all.onnx.data",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/davit_tiny_il_all_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -713,9 +714,10 @@ REMOTE_REGISTRY = [
         # Same SIGABRT-class failure as EVA-02. Hard requirement to
         # exclude — listing intel_gpu would crash the runtime process.
         "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
-        "download_url": "pending",
-        "labels_url": "pending",
-        "model_config_url": "pending",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all.onnx",
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all.onnx.data",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mvit_v2_t_il_all_model_config.json",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
