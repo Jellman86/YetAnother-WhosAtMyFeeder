@@ -792,9 +792,11 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "medium_birds",
         "eu_medium_focalnet_b",
         "convnext_large_inat21",
+        "davit_tiny_il_all",
+        "mvit_v2_t_il_all",
         "eva02_large_inat21",
     ]
-    assert [model.sort_order for model in models] == [5, 6, 10, 13, 14, 17, 18, 19, 20, 30]
+    assert [model.sort_order for model in models] == [5, 6, 10, 13, 14, 17, 18, 19, 20, 25, 26, 30]
 
 
 def test_build_download_progress_is_monotonic_across_onnx_phases():

@@ -85,7 +85,8 @@ GPU_VALIDATED: set[str] = {
 # longjmp) on GPU inference — not merely wrong output.  These must NOT be
 # attempted inside the test runner; the gpu-unsupported test skips them.
 GPU_CRASH_RISK: set[str] = {
-    "eva02_large_inat21",  # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
+    "eva02_large_inat21",   # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
+    "mvit_v2_t_il_all",     # CL_OUT_OF_RESOURCES → terminate() in compile (probed 2026-05-08)
 }
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
@@ -111,6 +112,23 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "intel_gpu in the registry just wastes a compile + self-test "
         "attempt every model load. Original probe 22 March 2026, OV "
         "2025.4.1: f32 → NaN, f16 → NaN. Confirmed unchanged."
+    ),
+    "davit_tiny_il_all": (
+        "NaN output on Intel iGPU. Direct OpenVINO probe 2026-05-08 (OV "
+        "2025.4.1): compile succeeds (~9.8s) and inference runs but "
+        "produces non-finite logits and a near-zero range. Works fine on "
+        "CPU (~200 ms inference, finite, range ≈ 9.2). Same failure "
+        "pattern as RoPE-ViT and FlexiViT on this hardware — likely "
+        "depthwise-conv or LayerNorm precision issues at 28M params."
+    ),
+    "mvit_v2_t_il_all": (
+        "Process crash on Intel iGPU. Direct OpenVINO probe 2026-05-08 "
+        "(OV 2025.4.1) raised CL_OUT_OF_RESOURCES from "
+        "intel_gpu/runtime/ocl/ocl_stream.cpp:376 followed by terminate() "
+        "and 'longjmp causes uninitialized stack frame' — same SIGABRT "
+        "class as EVA-02. CPU-only. Multi-scale pooling attention is "
+        "the suspected trigger. Lives in GPU_CRASH_RISK; never attempt "
+        "iGPU inference for this model."
     ),
     "eva02_large_inat21": (
         "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "

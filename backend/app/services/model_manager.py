@@ -480,6 +480,90 @@ REMOTE_REGISTRY = [
             "enabled": True,
         },
         "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
+    },
+    {
+        "id": "davit_tiny_il_all",
+        "name": "DaViT-Tiny IL-ALL (Bird-only, CPU)",
+        "description": "DaViT-Tiny classifier trained on Birder's IL-ALL dataset (550 bird species). Standard LayerNorm + spatial/channel attention. Useful as a wider-vocab CPU companion to the medium_birds family — same speed class as flexivit but with a different architecture and label space.",
+        "architecture": "DaViT-Tiny",
+        "file_size_mb": 113,
+        "accuracy_tier": "High",
+        "inference_speed": "Medium (~200ms CPU)",
+        "runtime": "onnx",
+        # NOT intel_gpu: direct OpenVINO probe on Intel iGPU (OV 2025.4.1,
+        # 2026-05-08) produced NaN logits despite clean compile. Same
+        # failure pattern as RoPE-ViT and FlexiViT on this hardware.
+        # CPU-only.
+        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        # Self-converted from the upstream PyTorch checkpoint. Not yet
+        # hosted as a public download.
+        "download_url": "pending",
+        "labels_url": "pending",
+        "model_config_url": "pending",
+        "input_size": 384,
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 1.0,
+            "mean": [0.5, 0.5, 0.5],
+            "std": [0.5, 0.5, 0.5],
+            "normalization": "float32"
+        },
+        "license": "Apache-2.0",
+        "tier": "medium",
+        "taxonomy_scope": "birds_only",
+        "recommended_threshold": 0.5,
+        "recommended_for": "Wider bird vocabulary alternative (550 species) on CPU. Bird-only — does not detect non-bird wildlife.",
+        "estimated_ram_mb": 512,
+        "advanced_only": True,
+        "sort_order": 25,
+        "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
+        "notes": "Sourced from huggingface.co/birder-project/davit_tiny_il-all (PyTorch, Apache-2.0). Converted to ONNX via torch.onnx.export. Empirically fails on Intel iGPU (NaN output) so registry excludes intel_gpu. 550 bird species, IL-Levant focus but covers common North American and European feeder species."
+    },
+    {
+        "id": "mvit_v2_t_il_all",
+        "name": "MViT-v2 Tiny IL-ALL (Bird-only, CPU)",
+        "description": "MViT-v2 Tiny classifier trained on Birder's IL-ALL dataset (550 bird species). Pooling-based multi-scale attention. CPU-only — multi-scale pool attention triggers a fatal OpenCL crash on Intel iGPU on this generation.",
+        "architecture": "MViT-v2-Tiny",
+        "file_size_mb": 98,
+        "accuracy_tier": "High",
+        "inference_speed": "Medium (~330ms CPU)",
+        "runtime": "onnx",
+        # NOT intel_gpu: direct OpenVINO probe on Intel iGPU (OV 2025.4.1,
+        # 2026-05-08) crashed with CL_OUT_OF_RESOURCES → terminate().
+        # Same SIGABRT-class failure as EVA-02. Hard requirement to
+        # exclude — listing intel_gpu would crash the runtime process.
+        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "download_url": "pending",
+        "labels_url": "pending",
+        "model_config_url": "pending",
+        "input_size": 384,
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "center_crop",
+            "interpolation": "bicubic",
+            "crop_pct": 1.0,
+            "mean": [0.5, 0.5, 0.5],
+            "std": [0.5, 0.5, 0.5],
+            "normalization": "float32"
+        },
+        "license": "Apache-2.0",
+        "tier": "medium",
+        "taxonomy_scope": "birds_only",
+        "recommended_threshold": 0.5,
+        "recommended_for": "Architectural alternative to davit_tiny_il_all (also 550 bird species, comparable CPU speed). Bird-only.",
+        "estimated_ram_mb": 512,
+        "advanced_only": True,
+        "sort_order": 26,
+        "status": "experimental",
+        "crop_generator": {
+            "enabled": True,
+        },
+        "notes": "Sourced from huggingface.co/birder-project/mvit_v2_t_il-all (PyTorch, Apache-2.0). Converted to ONNX via torch.onnx.export. Intel iGPU crashes with CL_OUT_OF_RESOURCES — never re-add intel_gpu without confirming the OpenCL kernel issue is fixed. 550 bird species."
     }
 ]
 
