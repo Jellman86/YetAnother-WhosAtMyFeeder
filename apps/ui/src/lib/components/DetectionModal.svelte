@@ -397,6 +397,33 @@
             ? `/api/audio/clip/${matchedAudioEntry.birdnet_id}`
             : null
     );
+    // Playhead state for the spectrogram cursor — bound to the <audio>
+    // element by `bind:currentTime` / `bind:duration`. Reset to 0 whenever
+    // the modal switches detections so the cursor doesn't carry over.
+    let audioCurrentTime = $state(0);
+    let audioDuration = $state(0);
+    const audioProgressPct = $derived(
+        audioDuration > 0 ? Math.min(100, Math.max(0, (audioCurrentTime / audioDuration) * 100)) : 0
+    );
+    $effect(() => {
+        detection.frigate_event;
+        untrack(() => {
+            audioCurrentTime = 0;
+            audioDuration = 0;
+        });
+    });
+    function seekAudioFromSpectrogramClick(event: MouseEvent) {
+        const target = event.currentTarget as HTMLElement;
+        const audio = target.querySelector('audio');
+        if (!audio || !audio.duration || !isFinite(audio.duration)) return;
+        const img = target.querySelector('img');
+        if (!img) return;
+        const rect = img.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        const fraction = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        audio.currentTime = fraction * audio.duration;
+        if (audio.paused) audio.play().catch(() => {});
+    }
 
     // Reset audio-context state when the modal switches to a different
     // detection. The same DetectionModal instance is reused across the
@@ -2372,17 +2399,35 @@
                     </div>
                     {#if matchedSpectrogramUrl}
                         <figure class="rounded-xl overflow-hidden border border-teal-500/20 bg-slate-900/70">
-                            <img
-                                src={matchedSpectrogramUrl}
-                                alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
-                                loading="lazy"
-                                class="w-full h-auto block"
-                            />
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <button
+                                type="button"
+                                class="relative w-full block cursor-crosshair p-0 m-0 border-0 bg-transparent"
+                                onclick={matchedAudioClipUrl ? seekAudioFromSpectrogramClick : undefined}
+                                disabled={!matchedAudioClipUrl}
+                                aria-label={$_('detection.audio_seek_spectrogram_aria', { default: 'Click on the spectrogram to seek the audio' })}
+                            >
+                                <img
+                                    src={matchedSpectrogramUrl}
+                                    alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
+                                    loading="lazy"
+                                    class="w-full h-auto block pointer-events-none"
+                                />
+                                {#if audioDuration > 0}
+                                    <div
+                                        class="absolute top-0 bottom-0 w-px bg-amber-300 shadow-[0_0_4px_rgba(252,211,77,0.9)] pointer-events-none transition-[left] duration-75"
+                                        style="left: {audioProgressPct}%"
+                                        aria-hidden="true"
+                                    ></div>
+                                {/if}
+                            </button>
                             {#if matchedAudioClipUrl}
                                 <audio
                                     controls
                                     preload="metadata"
                                     src={matchedAudioClipUrl}
+                                    bind:currentTime={audioCurrentTime}
+                                    bind:duration={audioDuration}
                                     class="w-full h-9 bg-slate-900/60 block"
                                     aria-label={$_('detection.audio_clip_aria', { default: 'BirdNET-Go audio clip for the matched detection' })}
                                 ></audio>
