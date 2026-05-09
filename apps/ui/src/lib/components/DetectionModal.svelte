@@ -397,32 +397,51 @@
             ? `/api/audio/clip/${matchedAudioEntry.birdnet_id}`
             : null
     );
-    // Playhead state for the spectrogram cursor — bound to the <audio>
-    // element by `bind:currentTime` / `bind:duration`. Reset to 0 whenever
-    // the modal switches detections so the cursor doesn't carry over.
+    // Playback state bound to the hidden <audio> element. Reset whenever
+    // the modal switches detections so the cursor + button state don't
+    // carry over.
     let audioCurrentTime = $state(0);
     let audioDuration = $state(0);
+    let audioPaused = $state(true);
+    let audioElement = $state<HTMLAudioElement | null>(null);
     const audioProgressPct = $derived(
         audioDuration > 0 ? Math.min(100, Math.max(0, (audioCurrentTime / audioDuration) * 100)) : 0
     );
+    function formatAudioClipTime(seconds: number): string {
+        if (!isFinite(seconds) || seconds < 0) return '0:00';
+        const total = Math.floor(seconds);
+        return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+    }
     $effect(() => {
         detection.frigate_event;
         untrack(() => {
             audioCurrentTime = 0;
             audioDuration = 0;
+            audioPaused = true;
+            // If the previous detection's clip was playing, stop it.
+            if (audioElement && !audioElement.paused) {
+                try { audioElement.pause(); } catch { /* noop */ }
+            }
         });
     });
+    function toggleAudioPlayback() {
+        if (!audioElement) return;
+        if (audioElement.paused) {
+            audioElement.play().catch(() => {});
+        } else {
+            audioElement.pause();
+        }
+    }
     function seekAudioFromSpectrogramClick(event: MouseEvent) {
+        if (!audioElement || !audioElement.duration || !isFinite(audioElement.duration)) return;
         const target = event.currentTarget as HTMLElement;
-        const audio = target.querySelector('audio');
-        if (!audio || !audio.duration || !isFinite(audio.duration)) return;
         const img = target.querySelector('img');
         if (!img) return;
         const rect = img.getBoundingClientRect();
         if (rect.width <= 0) return;
         const fraction = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-        audio.currentTime = fraction * audio.duration;
-        if (audio.paused) audio.play().catch(() => {});
+        audioElement.currentTime = fraction * audioElement.duration;
+        if (audioElement.paused) audioElement.play().catch(() => {});
     }
 
     // Reset audio-context state when the modal switches to a different
@@ -2398,37 +2417,85 @@
                         </div>
                     </div>
                     {#if matchedSpectrogramUrl}
-                        <figure class="rounded-xl overflow-hidden border border-teal-500/20 bg-slate-900/70">
-                            <!-- svelte-ignore a11y_click_events_have_key_events -->
-                            <button
-                                type="button"
-                                class="relative w-full block cursor-crosshair p-0 m-0 border-0 bg-transparent"
-                                onclick={matchedAudioClipUrl ? seekAudioFromSpectrogramClick : undefined}
-                                disabled={!matchedAudioClipUrl}
-                                aria-label={$_('detection.audio_seek_spectrogram_aria', { default: 'Click on the spectrogram to seek the audio' })}
-                            >
-                                <img
-                                    src={matchedSpectrogramUrl}
-                                    alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
-                                    loading="lazy"
-                                    class="w-full h-auto block pointer-events-none"
-                                />
-                                {#if audioDuration > 0}
-                                    <div
-                                        class="absolute top-0 bottom-0 w-px bg-amber-300 shadow-[0_0_4px_rgba(252,211,77,0.9)] pointer-events-none transition-[left] duration-75"
-                                        style="left: {audioProgressPct}%"
-                                        aria-hidden="true"
-                                    ></div>
+                        <figure class="rounded-xl overflow-hidden border border-teal-500/20 bg-slate-900/70 group/spec">
+                            <div class="relative">
+                                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                <button
+                                    type="button"
+                                    class="relative w-full block p-0 m-0 border-0 bg-transparent {matchedAudioClipUrl ? 'cursor-crosshair' : 'cursor-default'}"
+                                    onclick={matchedAudioClipUrl ? seekAudioFromSpectrogramClick : undefined}
+                                    disabled={!matchedAudioClipUrl}
+                                    aria-label={$_('detection.audio_seek_spectrogram_aria', { default: 'Click to seek the audio clip' })}
+                                >
+                                    <img
+                                        src={matchedSpectrogramUrl}
+                                        alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
+                                        loading="lazy"
+                                        class="w-full h-auto block pointer-events-none select-none"
+                                    />
+                                    {#if matchedAudioClipUrl && audioDuration > 0}
+                                        <!-- Trail: short gradient fading amber→transparent
+                                             behind the playhead so the eye traces motion -->
+                                        <div
+                                            class="absolute top-0 bottom-0 w-12 max-w-[15%] pointer-events-none transition-[left] duration-75"
+                                            style="left: calc({audioProgressPct}% - 3rem); background: linear-gradient(to right, transparent, rgba(252, 211, 77, 0.18) 55%, rgba(252, 211, 77, 0.45));"
+                                            aria-hidden="true"
+                                        ></div>
+                                        <!-- Playhead cursor -->
+                                        <div
+                                            class="absolute top-0 bottom-0 w-px bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,1)] pointer-events-none transition-[left] duration-75"
+                                            style="left: {audioProgressPct}%"
+                                            aria-hidden="true"
+                                        ></div>
+                                    {/if}
+                                    {#if matchedAudioClipUrl}
+                                        <!-- Subtle dim overlay when paused, fades on hover/play
+                                             so the play button reads as the obvious affordance -->
+                                        <div
+                                            class="absolute inset-0 pointer-events-none transition-opacity duration-200 {audioPaused ? 'bg-slate-950/30 opacity-100 group-hover/spec:opacity-60' : 'opacity-0'}"
+                                            aria-hidden="true"
+                                        ></div>
+                                    {/if}
+                                </button>
+                                {#if matchedAudioClipUrl}
+                                    <!-- Play/pause button: sibling of the spectrogram-click button
+                                         (avoids button-in-button), absolutely centered. -->
+                                    <button
+                                        type="button"
+                                        onclick={(e) => { e.stopPropagation(); toggleAudioPlayback(); }}
+                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/65 hover:bg-slate-900/85 backdrop-blur-md border border-white/25 text-white flex items-center justify-center transition-all duration-150 hover:scale-110 active:scale-95 shadow-lg shadow-black/30 {audioPaused ? 'opacity-95' : 'opacity-0 group-hover/spec:opacity-90'}"
+                                        aria-label={audioPaused ? $_('detection.audio_play', { default: 'Play audio clip' }) : $_('detection.audio_pause', { default: 'Pause audio clip' })}
+                                    >
+                                        {#if audioPaused}
+                                            <svg class="w-5 h-5 ml-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                <path d="M8 5v14l11-7z"/>
+                                            </svg>
+                                        {:else}
+                                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+                                            </svg>
+                                        {/if}
+                                    </button>
+                                    {#if audioDuration > 0}
+                                        <div class="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-sm text-[10px] font-bold text-white/90 tabular-nums pointer-events-none">
+                                            {formatAudioClipTime(audioCurrentTime)} / {formatAudioClipTime(audioDuration)}
+                                        </div>
+                                    {/if}
                                 {/if}
-                            </button>
+                            </div>
                             {#if matchedAudioClipUrl}
+                                <!-- Hidden audio element: drives the bound playback state
+                                     (currentTime, duration, paused) surfaced by the overlay
+                                     button, playhead cursor, trail, and time pill. Native
+                                     controls intentionally hidden in favour of the custom UI. -->
                                 <audio
-                                    controls
-                                    preload="metadata"
-                                    src={matchedAudioClipUrl}
+                                    bind:this={audioElement}
                                     bind:currentTime={audioCurrentTime}
                                     bind:duration={audioDuration}
-                                    class="w-full h-9 bg-slate-900/60 block"
+                                    bind:paused={audioPaused}
+                                    preload="metadata"
+                                    src={matchedAudioClipUrl}
+                                    class="hidden"
                                     aria-label={$_('detection.audio_clip_aria', { default: 'BirdNET-Go audio clip for the matched detection' })}
                                 ></audio>
                             {/if}
