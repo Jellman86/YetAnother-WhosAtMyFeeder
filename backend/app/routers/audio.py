@@ -130,6 +130,55 @@ async def get_audio_spectrogram(
     )
 
 
+@router.get("/clip/{birdnet_id}")
+async def get_audio_clip(
+    birdnet_id: int,
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Proxy a BirdNET-Go audio clip so the browser can play the matched
+    audio inline in the detection modal.
+
+    Forwards the client's Range header so HTML5 ``<audio controls>`` can
+    scrub. Clips are typically ~250 KB AAC/m4a; buffered in memory rather
+    than streamed because the size is bounded and the existing Frigate
+    proxy uses the same shape.
+    """
+    base_url = (settings.frigate.birdnet_url or "").rstrip("/")
+    if not base_url:
+        raise HTTPException(status_code=503, detail="BirdNET-Go URL not configured")
+    if birdnet_id <= 0:
+        raise HTTPException(status_code=400, detail="Invalid detection id")
+    target = f"{base_url}/api/v2/audio/{birdnet_id}"
+    forward_headers: dict[str, str] = {}
+    if (range_header := request.headers.get("range")):
+        forward_headers["Range"] = range_header
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(target, headers=forward_headers)
+    except httpx.HTTPError as exc:
+        log.warning("birdnet_clip_proxy_failed", id=birdnet_id, error=str(exc))
+        raise HTTPException(status_code=502, detail="BirdNET-Go unreachable")
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="Audio clip not found")
+    if response.status_code >= 400 and response.status_code != 206:
+        raise HTTPException(status_code=502, detail=f"BirdNET-Go returned {response.status_code}")
+    # Pass through everything an audio element needs to scrub: status code
+    # (200 vs 206), Content-Type, Content-Length, Accept-Ranges, Content-Range.
+    media_type = response.headers.get("content-type", "audio/mp4")
+    pass_through = {}
+    for h in ("accept-ranges", "content-range", "content-length", "content-disposition"):
+        if h in response.headers:
+            pass_through[h.title()] = response.headers[h]
+    pass_through["Cache-Control"] = "private, max-age=86400"
+    return Response(
+        content=response.content,
+        media_type=media_type,
+        status_code=response.status_code,
+        headers=pass_through,
+    )
+
+
 @router.get("/context")
 @guest_rate_limit()
 async def get_audio_context(

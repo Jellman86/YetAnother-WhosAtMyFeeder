@@ -392,6 +392,11 @@
             ? `/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`
             : null
     );
+    const matchedAudioClipUrl = $derived(
+        matchedAudioEntry?.birdnet_id != null
+            ? `/api/audio/clip/${matchedAudioEntry.birdnet_id}`
+            : null
+    );
 
     // Reset audio-context state when the modal switches to a different
     // detection. The same DetectionModal instance is reused across the
@@ -2373,6 +2378,15 @@
                                 loading="lazy"
                                 class="w-full h-auto block"
                             />
+                            {#if matchedAudioClipUrl}
+                                <audio
+                                    controls
+                                    preload="metadata"
+                                    src={matchedAudioClipUrl}
+                                    class="w-full h-9 bg-slate-900/60 block"
+                                    aria-label={$_('detection.audio_clip_aria', { default: 'BirdNET-Go audio clip for the matched detection' })}
+                                ></audio>
+                            {/if}
                             {#if matchedAudioEntry}
                                 <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-200 bg-slate-900/60 backdrop-blur-sm">
                                     <span class="truncate">{matchedAudioEntry.species}</span>
