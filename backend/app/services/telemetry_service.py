@@ -171,6 +171,35 @@ def build_runtime_telemetry_payload(
         or "unknown"
     )
 
+    inference_health_status: str | None = None
+    inference_health_unhealthy_runtimes = 0
+    inference_health_degraded_runtimes = 0
+    inference_health_total_runtimes = 0
+    last_recovery_reason: str | None = None
+    last_recovery_status: str | None = None
+    if isinstance(inference_health, dict):
+        raw_status = str(inference_health.get("status") or "").lower()
+        if raw_status in {"ok", "degraded", "unhealthy"}:
+            inference_health_status = raw_status
+        runtimes = inference_health.get("runtimes")
+        if isinstance(runtimes, dict):
+            for runtime in runtimes.values():
+                if not isinstance(runtime, dict):
+                    continue
+                inference_health_total_runtimes += 1
+                verdict = str(runtime.get("verdict") or "").lower()
+                if verdict == "unhealthy":
+                    inference_health_unhealthy_runtimes += 1
+                elif verdict == "degraded":
+                    inference_health_degraded_runtimes += 1
+        if isinstance(health_recovery, dict):
+            raw_reason = str(health_recovery.get("reason") or "")[:64]
+            if raw_reason and all(c.isalnum() or c == "_" for c in raw_reason):
+                last_recovery_reason = raw_reason
+            raw_recovery_status = str(health_recovery.get("status") or "").lower()
+            if raw_recovery_status in {"recovered", "failed"}:
+                last_recovery_status = raw_recovery_status
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": app_version,
@@ -198,6 +227,12 @@ def build_runtime_telemetry_payload(
             "bird_crop_detector_tier": _safe_optional_text(
                 getattr(settings.classification, "bird_crop_detector_tier", None)
             ),
+            "inference_health_status": inference_health_status,
+            "inference_health_unhealthy_runtimes": inference_health_unhealthy_runtimes,
+            "inference_health_degraded_runtimes": inference_health_degraded_runtimes,
+            "inference_health_total_runtimes": inference_health_total_runtimes,
+            "last_recovery_reason": last_recovery_reason,
+            "last_recovery_status": last_recovery_status,
         },
         "hardware": {
             "cuda_available": _safe_bool(status.get("cuda_available")),

@@ -41,6 +41,12 @@ CREATE TABLE heartbeats (
     image_arch TEXT,
     app_branch TEXT,
     git_hash TEXT,
+    inference_health_status TEXT,
+    inference_health_unhealthy_runtimes INTEGER,
+    inference_health_degraded_runtimes INTEGER,
+    inference_health_total_runtimes INTEGER,
+    last_recovery_reason TEXT,
+    last_recovery_status TEXT,
     ip_country TEXT,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -50,3 +56,5 @@ CREATE INDEX idx_last_seen ON heartbeats(last_seen);
 CREATE INDEX idx_app_version ON heartbeats(app_version);
 CREATE INDEX idx_inference_provider_active ON heartbeats(inference_provider_active);
 CREATE INDEX idx_image_arch ON heartbeats(image_arch);
+CREATE INDEX idx_inference_health_status ON heartbeats(inference_health_status);
+CREATE INDEX idx_last_recovery_reason ON heartbeats(last_recovery_reason);

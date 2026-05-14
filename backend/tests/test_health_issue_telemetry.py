@@ -122,6 +122,12 @@ def test_runtime_telemetry_payload_exposes_device_and_runtime_capabilities():
         "inference_backend_active": "openvino",
         "image_execution_mode": "subprocess",
         "bird_crop_detector_tier": "fast",
+        "inference_health_status": None,
+        "inference_health_unhealthy_runtimes": 0,
+        "inference_health_degraded_runtimes": 0,
+        "inference_health_total_runtimes": 0,
+        "last_recovery_reason": None,
+        "last_recovery_status": None,
     }
     assert payload["hardware"] == {
         "cuda_available": False,
@@ -203,6 +209,90 @@ def test_runtime_telemetry_payload_prefers_inference_health_recovery_over_legacy
     )
 
     assert payload["hardware"]["openvino_gpu_fallback_active"] is True
+
+
+def test_runtime_telemetry_payload_exposes_inference_health_distribution_fields():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "intel_gpu",
+            "active_provider": "intel_cpu",
+            "inference_backend": "openvino",
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": True,
+            "openvino_model_compile_device": "GPU",
+            "inference_health": {
+                "status": "unhealthy",
+                "runtimes": {
+                    "openvino/intel_gpu/eu_medium_focalnet_b": {"verdict": "unhealthy"},
+                    "openvino/intel_cpu/eu_medium_focalnet_b": {"verdict": "degraded"},
+                    "tflite/cpu/model.tflite": {"verdict": "healthy"},
+                },
+                "last_recovery": {
+                    "status": "recovered",
+                    "reason": "live_gpu_lease_expiry_fallback",
+                    "failed_provider": "intel_gpu",
+                    "recovered_provider": "intel_cpu",
+                },
+            },
+        },
+        app_version="2.10.0-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={},
+    )
+
+    runtime = payload["runtime"]
+    assert runtime["inference_health_status"] == "unhealthy"
+    assert runtime["inference_health_unhealthy_runtimes"] == 1
+    assert runtime["inference_health_degraded_runtimes"] == 1
+    assert runtime["inference_health_total_runtimes"] == 3
+    assert runtime["last_recovery_reason"] == "live_gpu_lease_expiry_fallback"
+    assert runtime["last_recovery_status"] == "recovered"
+
+
+def test_runtime_telemetry_payload_sanitizes_inference_health_unknown_values():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "auto",
+            "active_provider": "intel_gpu",
+            "inference_backend": "openvino",
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": True,
+            "openvino_model_compile_device": "GPU",
+            "inference_health": {
+                "status": "weird",
+                "runtimes": {
+                    "openvino/intel_gpu/x": {"verdict": "weird"},
+                },
+                "last_recovery": {
+                    "status": "in_progress",
+                    "reason": "bad reason with spaces;DROP",
+                },
+            },
+        },
+        app_version="2.10.0-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={},
+    )
+
+    runtime = payload["runtime"]
+    assert runtime["inference_health_status"] is None
+    assert runtime["inference_health_unhealthy_runtimes"] == 0
+    assert runtime["inference_health_degraded_runtimes"] == 0
+    assert runtime["inference_health_total_runtimes"] == 1
+    assert runtime["last_recovery_reason"] is None
+    assert runtime["last_recovery_status"] is None
 
 
 def test_runtime_telemetry_payload_inference_health_no_fallback_when_not_recovered():

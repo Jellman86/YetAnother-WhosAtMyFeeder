@@ -63,6 +63,12 @@ interface TelemetryPayload {
     inference_backend_active?: string | null;
     image_execution_mode?: string | null;
     bird_crop_detector_tier?: string | null;
+    inference_health_status?: string | null;
+    inference_health_unhealthy_runtimes?: number | null;
+    inference_health_degraded_runtimes?: number | null;
+    inference_health_total_runtimes?: number | null;
+    last_recovery_reason?: string | null;
+    last_recovery_status?: string | null;
   };
   hardware?: {
     cuda_available?: boolean | null;
@@ -540,6 +546,36 @@ app.get('/dashboard', async (c) => {
     LIMIT 16
   `).all();
 
+  const inferenceHealthStatuses = await c.env.DB.prepare(`
+    SELECT inference_health_status as status, count(*) as count
+    FROM heartbeats
+    WHERE last_seen > ${activeThreshold}
+      AND inference_health_status IS NOT NULL
+    GROUP BY inference_health_status
+    ORDER BY count DESC
+  `).all();
+
+  const inferenceHealthAggregate = await c.env.DB.prepare(`
+    SELECT
+      sum(inference_health_unhealthy_runtimes) as unhealthy_runtimes,
+      sum(inference_health_degraded_runtimes) as degraded_runtimes,
+      sum(inference_health_total_runtimes) as total_runtimes,
+      sum(CASE WHEN inference_health_unhealthy_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_unhealthy,
+      sum(CASE WHEN inference_health_degraded_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_degraded
+    FROM heartbeats
+    WHERE last_seen > ${activeThreshold}
+  `).first();
+
+  const recoveryReasons = await c.env.DB.prepare(`
+    SELECT last_recovery_reason as reason, last_recovery_status as status, count(*) as count
+    FROM heartbeats
+    WHERE last_seen > ${activeThreshold}
+      AND last_recovery_reason IS NOT NULL
+    GROUP BY last_recovery_reason, last_recovery_status
+    ORDER BY count DESC
+    LIMIT 16
+  `).all();
+
   const activeInstalls = Number(totals?.active_installs ?? 0);
   const featureRows = [
     ['BirdNET-Go', features?.birdnet],
@@ -632,6 +668,38 @@ app.get('/dashboard', async (c) => {
         ['Installs', (row) => fmt(row.count)]
       ])}</tbody></table>
     </section>
+    <section class="grid two">
+      <div class="panel">
+        <h2>Inference Health Status</h2>
+        <table><thead><tr><th>Status</th><th>Installs</th></tr></thead><tbody>${
+          inferenceHealthStatuses.results.length
+            ? renderRows(inferenceHealthStatuses.results, [
+                ['Status', (row) => row.status || 'Unknown'],
+                ['Installs', (row) => fmt(row.count)]
+              ])
+            : '<tr><td colspan="2" class="empty">No reports yet</td></tr>'
+        }</tbody></table>
+        <table style="margin-top:12px"><thead><tr><th>Aggregate</th><th>Value</th></tr></thead><tbody>
+          <tr><td>Installs reporting unhealthy runtimes</td><td>${fmt(inferenceHealthAggregate?.installs_with_unhealthy ?? 0)}</td></tr>
+          <tr><td>Installs reporting degraded runtimes</td><td>${fmt(inferenceHealthAggregate?.installs_with_degraded ?? 0)}</td></tr>
+          <tr><td>Unhealthy runtime sum</td><td>${fmt(inferenceHealthAggregate?.unhealthy_runtimes ?? 0)}</td></tr>
+          <tr><td>Degraded runtime sum</td><td>${fmt(inferenceHealthAggregate?.degraded_runtimes ?? 0)}</td></tr>
+          <tr><td>Tracked runtime sum</td><td>${fmt(inferenceHealthAggregate?.total_runtimes ?? 0)}</td></tr>
+        </tbody></table>
+      </div>
+      <div class="panel">
+        <h2>Most-Recent Recovery Reasons</h2>
+        <table><thead><tr><th>Reason</th><th>Status</th><th>Installs</th></tr></thead><tbody>${
+          recoveryReasons.results.length
+            ? renderRows(recoveryReasons.results, [
+                ['Reason', (row) => row.reason || 'Unknown'],
+                ['Status', (row) => row.status || 'Unknown'],
+                ['Installs', (row) => fmt(row.count)]
+              ])
+            : '<tr><td colspan="3" class="empty">No reports yet</td></tr>'
+        }</tbody></table>
+      </div>
+    </section>
   `;
 
   return c.html(dashboardShell({ title: 'YA-WAMF Usage Telemetry', view, days, body }));
@@ -688,9 +756,15 @@ app.post('/heartbeat', async (c) => {
         image_arch,
         app_branch,
         git_hash,
-        ip_country, 
+        inference_health_status,
+        inference_health_unhealthy_runtimes,
+        inference_health_degraded_runtimes,
+        inference_health_total_runtimes,
+        last_recovery_reason,
+        last_recovery_status,
+        ip_country,
         last_seen
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(installation_id) DO UPDATE SET
         app_version = excluded.app_version,
         platform_system = excluded.platform_system,
@@ -731,6 +805,12 @@ app.post('/heartbeat', async (c) => {
         image_arch = excluded.image_arch,
         app_branch = excluded.app_branch,
         git_hash = excluded.git_hash,
+        inference_health_status = excluded.inference_health_status,
+        inference_health_unhealthy_runtimes = excluded.inference_health_unhealthy_runtimes,
+        inference_health_degraded_runtimes = excluded.inference_health_degraded_runtimes,
+        inference_health_total_runtimes = excluded.inference_health_total_runtimes,
+        last_recovery_reason = excluded.last_recovery_reason,
+        last_recovery_status = excluded.last_recovery_status,
         ip_country = excluded.ip_country,
         last_seen = datetime('now')
     `);
@@ -781,6 +861,12 @@ app.post('/heartbeat', async (c) => {
       payload.deployment?.image_arch || null,
       payload.deployment?.app_branch || null,
       payload.deployment?.git_hash || null,
+      payload.runtime?.inference_health_status || null,
+      typeof payload.runtime?.inference_health_unhealthy_runtimes === 'number' ? payload.runtime!.inference_health_unhealthy_runtimes : null,
+      typeof payload.runtime?.inference_health_degraded_runtimes === 'number' ? payload.runtime!.inference_health_degraded_runtimes : null,
+      typeof payload.runtime?.inference_health_total_runtimes === 'number' ? payload.runtime!.inference_health_total_runtimes : null,
+      payload.runtime?.last_recovery_reason || null,
+      payload.runtime?.last_recovery_status || null,
       country
     ).run();
 
