@@ -9,36 +9,34 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
 ### 0. Classifier Inference-Health Refactor 🩺
-**Priority:** P0 | **Effort:** M-L remaining | **Status:** Phase 1 shipped on `main`; consolidation phases remain
+**Priority:** P0 | **Effort:** Complete | **Status:** All consolidation phases shipped on `dev`; field validation on `v2.10.0+` retests remains
 
-Issue `#33` has accumulated many overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout, and live-queue pressure handling). Each was correct in isolation, but the cumulative surface means any new bundle risks adding another mitigation layer rather than simplifying the model. Continue consolidating before adding more fallback paths.
+Issue `#33` had accumulated many overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout, and live-queue pressure handling). Each was correct in isolation, but the cumulative surface meant any new bundle risked adding another mitigation layer rather than simplifying the model. The consolidation pass is now complete.
 
-**Current state on `main`:**
-- Phase 1 has shipped: `backend/app/services/inference_health.py` records runtime outcomes keyed by `(backend, provider, model_id)`.
-- `/health` and classifier status expose additive `ml.inference_health` data with per-runtime verdict, latency samples, recent failures, and cooldown details.
-- On `dev`, model hot-swap reads the `InferenceHealth` unhealthy verdict, the legacy `_gpu_unhealthy_signal_times` deque has been removed, runtime recovery reason strings have been centralized, accelerated runtime startup now records `runtime_benchmarks` before mounting OpenVINO Intel GPU or ONNX Runtime CUDA, successful startup benchmarks seed the matching `InferenceHealth` latency baseline, and live-image GPU fallback active/cooldown status is backed by `InferenceHealth` instead of a separate monotonic timestamp. Some compatibility fallback/recovery fields still remain.
-- On `dev`, auto video analysis also treats classifier `Unknown` / `Unknown Bird` / `No detection` / `No data` / similar exact abstention outputs as abstentions for frame aggregation, top-frame persistence, promotion, and completion broadcasts, preventing a high-confidence non-species analysis frame from overriding known-species evidence or steering HQ snapshot reuse.
-- On `dev`, incomplete downloaded classifier model directories are visible but no longer activatable: `/models/installed` reports `ready` and `reason`, activation rejects missing runtime/labels/config sidecars, stale active incomplete models fall back to the bundled classifier, and the Model Manager exposes a repair-needed state with a repair download action.
+**Current state on `dev`:**
+- `backend/app/services/inference_health.py` records runtime outcomes keyed by `(backend, provider, model_id)` and now also carries the most-recent recovery context (failed/recovered backend + provider, reason, diagnostics) per-runtime and at the snapshot top level.
+- `/health` and classifier status expose `ml.inference_health` with per-runtime verdict, latency samples, recent failures, cooldown details, and `last_recovery`. The legacy `_last_runtime_recovery` field, the `WORKER_CIRCUIT_OPEN_RECOVERY_REASON` / `STALE_WORK_RECLAIM_RECOVERY_REASON` sentinels, the `recovery_reason` / `gpu_fallback_active` / `gpu_fallback_cooldown_remaining_seconds` fields on `live_image` health, the top-level `live_image_gpu_fallback_active` and `last_runtime_recovery` keys on classifier status, and the `last_runtime_recovery` block on `openvino_runtime` are all gone.
+- Every former consumer (`_gpu_restore_eligible`, `_live_gpu_fallback_health_key`, the status builders, auto-video diagnostics context, the anonymous telemetry payload, and the UI job-diagnostics store) now reads recovery context from `inference_health.last_recovery` / `most_recent_recovery()`. Worker-process recoveries publish into the main-process `InferenceHealth` from `_latest_worker_runtime_recovery` so subprocess installs surface the same payload.
+- Model hot-swap reads the `InferenceHealth` unhealthy verdict; the legacy `_gpu_unhealthy_signal_times` deque is gone; accelerated runtime startup records `runtime_benchmarks` before mounting OpenVINO Intel GPU or ONNX Runtime CUDA; successful startup benchmarks seed the matching `InferenceHealth` latency baseline; live-image GPU fallback active/cooldown status is backed by `InferenceHealth`.
+- The telemetry-payload builder retains its legacy-key fallback chain to keep older fixtures ingesting, and the Cloudflare telemetry worker accepts both old and new payload shapes; new fields (`inference_health_status`, unhealthy/degraded/total runtime counts, `last_recovery_reason`, `last_recovery_status`) feed two new owner-only `/dashboard` panels.
+- Auto video analysis treats classifier `Unknown` / `Unknown Bird` / `No detection` / `No data` / similar exact abstention outputs as abstentions for frame aggregation, top-frame persistence, promotion, and completion broadcasts.
+- Incomplete downloaded classifier model directories are visible but no longer activatable: `/models/installed` reports `ready` and `reason`, activation rejects missing runtime/labels/config sidecars, stale active incomplete models fall back to the bundled classifier, and the Model Manager exposes a repair-needed state with a repair download action.
 
-**Target:** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. The health payload should replace scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters instead of merely sitting alongside them.
-
-**Why now:**
-- The April 23 reproducer showed OpenVINO Intel GPU running at ~12 s/frame (≈20× CPU). A startup benchmark would have caught it before the first user-visible timeout.
-- `register_gpu_unhealthy_signal` now has four call sites; the next bundle will ask for a fifth. A measured-state gate has zero.
-- A new contributor cannot currently explain the classifier failure model in one paragraph without cross-referencing four files.
+**Target (achieved):** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. The health payload has replaced the scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters.
 
 **Phased rollout (no flag day):**
 1. ✅ Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
 2. ✅ Switch model hot-swap trigger to `verdict == "unhealthy"`.
-3. 🔄 Remove legacy mechanisms where they are fully covered (`_gpu_unhealthy_signal_times` removed on `dev`; duplicate reason strings centralized; live GPU fallback cooldown state now backed by `InferenceHealth`; public compatibility fallback/recovery fields remain).
+3. ✅ Remove legacy mechanisms now fully covered (legacy classifier-service field, sentinels, status aliases, openvino_runtime block).
 4. ✅ Land pre-flight startup benchmark and `runtime_benchmarks` diagnostics field.
 5. ✅ Seed `InferenceHealth` latency baselines from successful startup benchmarks while excluding load-affected inference samples from latency verdicts.
+6. ✅ Surface inference-health distributions and most-recent recovery context to anonymous telemetry + the Cloudflare `/dashboard`.
 
 **Success criteria:**
-- A single `ml.inference_health` payload tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
-- Grep count for `gpu_fallback` / `lease_expiry` / `snapshot_fallback` drops ≥50%.
-- The `#33` harness with `--force-slow-gpu` passes in under 60 s instead of 47 min.
-- The classifier failure model fits in one paragraph.
+- ✅ A single `ml.inference_health` payload tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
+- ✅ Grep count for legacy fields collapsed: `last_runtime_recovery` in `classifier_service.py` went from 18+ refs to 1 (docstring); the `_RECOVERY_REASON` sentinels and `_last_runtime_recovery` field are removed entirely.
+- 🔄 The `#33` reporter retest on `v2.10.0+` remains; ask reporters to retest before closing.
+- ✅ The classifier failure model fits in one paragraph: `InferenceHealth` records every inference outcome and produces one verdict per runtime; recoveries publish into the same object; the rest of the system reads from there.
 
 See the full plan for module structure, migration phases, test strategy, risks, and out-of-scope boundaries.
 
@@ -611,9 +609,10 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **May 6, 2026**: no open GitHub issue currently blocks the `v2.9.15` release line, but active follow-up remains.
-- 🔄 `#33` remains open for field validation after the live queue timeout and inference-health work. Latest local and CI validation is good; ask reporters to retest on `v2.9.15` before closing.
-- 🔄 `#42` started as a Frigate dashboard population issue and drifted into BirdNET-Go source/MQTT mapping support. Original MQTT credential problem appears resolved; keep open for sanitized config/output follow-up or split into a BirdNET-Go-specific issue.
+- Snapshot as of **May 14, 2026**: only `#33` and `#49` are open. `v2.10.0` shipped on 2026-05-09; the inference-health consolidation (legacy aliases removed, recovery context unified, anonymous telemetry + Cloudflare dashboard panels added) landed on `dev` on 2026-05-14 (`Unreleased`).
+- 🔄 `#33` remains open for field validation. The maintenance-mode consolidation pass on item 0 is complete on `dev`; ask reporters to retest on the next monolithic `dev` build (or the next tagged release after `v2.10.0`) before closing.
+- 🔄 `#49` (HAOS add-on?) — see Phase 4.5; assigned and design captured, implementation deferred.
+- ✅ `#42` BirdNET-Go MQTT/source mapping follow-up closed since the previous roadmap snapshot.
 - ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
 - ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
@@ -1060,5 +1059,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-02-27
-**Version:** 2.8.5-dev
+**Last Updated:** 2026-05-14
+**Version:** 2.10.0 (Unreleased follow-up: #33 consolidation + telemetry dashboard)

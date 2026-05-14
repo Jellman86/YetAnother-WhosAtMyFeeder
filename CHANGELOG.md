@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **Classification (#33):** Final consolidation pass on the classifier inference-health refactor. `InferenceHealth` now carries the most recent recovery context (failed/recovered backend + provider, reason, diagnostics) per runtime and at the snapshot top level. The classifier-service `_last_runtime_recovery` field, the `WORKER_CIRCUIT_OPEN` / `STALE_WORK_RECLAIM` recovery-reason sentinels, the `recovery_reason` / `gpu_fallback_active` / `gpu_fallback_cooldown_remaining_seconds` fields on `live_image` health, the top-level `live_image_gpu_fallback_active` and `last_runtime_recovery` keys on classifier status, and the `last_runtime_recovery` block on `openvino_runtime` have all been removed. Every site that previously read those fields (`_gpu_restore_eligible`, `_live_gpu_fallback_health_key`, the status builders, auto-video diagnostics context, the anonymous telemetry payload, and the UI job-diagnostics store) now sources the same data from `inference_health.last_recovery` / `most_recent_recovery()`. Worker-process recoveries publish into the main-process `InferenceHealth` from `_latest_worker_runtime_recovery` so subprocess-mode installs surface the same payload. The telemetry-payload builder retains its legacy-key fallback chain so old fixtures continue to ingest.
+- **Telemetry:** Anonymous heartbeats now report inference-health distributions and the most-recent recovery context. Six new fields under `payload.runtime` — `inference_health_status` (`ok` / `degraded` / `unhealthy`), `inference_health_unhealthy_runtimes`, `inference_health_degraded_runtimes`, `inference_health_total_runtimes`, sanitized `last_recovery_reason` (alphanumeric+underscore, 64-char cap), and `last_recovery_status` (`recovered` / `failed`) — let the Cloudflare telemetry worker aggregate verdict distribution and recovery-reason frequency across the install fleet. The owner-only `/dashboard` Usage view gains two panels showing per-status install counts plus the top recovery reasons.
+
 ## [2.10.0] - 2026-05-09
 
 ### Added
