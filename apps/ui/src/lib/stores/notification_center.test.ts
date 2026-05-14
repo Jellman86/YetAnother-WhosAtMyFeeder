@@ -25,7 +25,7 @@ describe('notificationCenter access filtering', () => {
             id: 'reclassify:progress',
             type: 'process',
             title: 'Batch analysis',
-            meta: { source: 'sse', route: '/settings#data' }
+            meta: { source: 'sse', route: '/settings/data' }
         });
         notificationCenter.add({
             id: 'settings:updated',

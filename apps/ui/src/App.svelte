@@ -648,7 +648,7 @@
                   <Species />
               {:else if currentRoute.startsWith('/settings')}
                    {#if authStore.showSettings}
-                       <Settings onNavigate={navigate} />
+                       <Settings onNavigate={navigate} {currentRoute} />
                    {:else}
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>

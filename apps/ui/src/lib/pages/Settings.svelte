@@ -114,8 +114,36 @@
     } from '../settings/llm-models';
 
     let {
-        onNavigate
-    } = $props<{ onNavigate?: (path: string) => void }>();
+        onNavigate,
+        currentRoute
+    } = $props<{
+        onNavigate?: (path: string, opts?: { replace?: boolean }) => void;
+        currentRoute?: string;
+    }>();
+
+    const SETTINGS_TABS: SettingsTab[] = [
+        'connection',
+        'detection',
+        'notifications',
+        'health',
+        'integrations',
+        'enrichment',
+        'ai',
+        'security',
+        'data',
+        'appearance',
+        'accessibility',
+        'debug'
+    ];
+
+    function tabFromRoute(route: string | undefined): SettingsTab {
+        if (!route) return 'connection';
+        const match = /^\/settings\/([^/]+)/.exec(route);
+        if (!match) return 'connection';
+        const slug = match[1];
+        if (slug === 'errors') return 'health';
+        return (SETTINGS_TABS as string[]).includes(slug) ? (slug as SettingsTab) : 'connection';
+    }
 
     let frigateUrl = $state('');
     let mqttServer = $state('');
@@ -1909,8 +1937,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisStatusSignature = $state('');
     let analysisPollInterval: any;
 
-    // Tab navigation
-    let activeTab = $state<SettingsTab>('connection');
+    // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
+    let activeTab = $derived<SettingsTab>(tabFromRoute(currentRoute));
 
     const parseDateOnly = (value: string): Date | null => {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -1977,14 +2005,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return;
         }
 
-        // Handle deep linking to tabs
+        // Legacy hash-based deep links (older share links / notifications used
+        // /settings#<tab>) — promote to the canonical /settings/<tab> form once so
+        // reloads survive and downstream history stays clean.
         const hash = window.location.hash.slice(1);
-        const pathTab = window.location.pathname.startsWith('/settings/health') || window.location.pathname.startsWith('/settings/errors')
-            ? 'health'
-            : '';
-        const tabTarget = pathTab || hash;
-        if (tabTarget && ['connection', 'detection', 'notifications', 'health', 'integrations', 'enrichment', 'ai', 'security', 'data', 'appearance', 'accessibility', 'debug'].includes(tabTarget)) {
-            activeTab = tabTarget as SettingsTab;
+        const pathname = window.location.pathname;
+        if (hash && pathname === '/settings' && (SETTINGS_TABS as string[]).includes(hash)) {
+            if (onNavigate) onNavigate(`/settings/${hash}`, { replace: true });
+            else window.history.replaceState(null, '', `/settings/${hash}`);
+        } else if (pathname === '/settings') {
+            // Canonicalise the bare /settings landing to /settings/connection so the active
+            // tab is reflected in the URL and back/forward stays predictable.
+            if (onNavigate) onNavigate('/settings/connection', { replace: true });
+            else window.history.replaceState(null, '', '/settings/connection');
         }
 
         // Ensure settings store is loaded for dirty checking
@@ -2002,10 +2035,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 loadBackfillStatus()
             ]);
 
-        if (activeTab === 'data') {
-            startTaxonomyPolling();
-        }
-        
+        // Taxonomy polling lifecycle for the data tab is handled by the activeTab
+        // $effect below, so no need to start it explicitly here.
+
         // If there are pending/active items on load, start polling
         if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
              startAnalysisPolling();
@@ -2027,16 +2059,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     function handleTabChange(tab: SettingsTab) {
-        activeTab = tab;
-        const path = tab === 'health' ? '/settings/health' : `/settings#${tab}`;
+        const path = `/settings/${tab}`;
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', path);
-        if (tab === 'data') {
+    }
+
+    // Drive taxonomy polling from the derived active tab so router-driven changes
+    // (back/forward, deep links) still flip the polling lifecycle correctly.
+    $effect(() => {
+        if (activeTab === 'data') {
             startTaxonomyPolling();
         } else {
             stopTaxonomyPolling();
         }
-    }
+    });
 
     onDestroy(() => {
         stopTaxonomyPolling();

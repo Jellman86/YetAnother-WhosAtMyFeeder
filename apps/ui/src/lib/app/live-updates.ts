@@ -735,7 +735,7 @@ export class LiveUpdateCoordinator {
                     read: false,
                     meta: {
                         source: 'poll',
-                        route: '/settings#data',
+                        route: '/settings/data',
                         kind: 'reclassify_batch',
                         current,
                         total: baseline,
@@ -752,7 +752,7 @@ export class LiveUpdateCoordinator {
                     kind: 'reclassify_batch',
                     title: this.deps.t('settings.data.batch_analysis_title'),
                     message,
-                    route: '/settings#data',
+                    route: '/settings/data',
                     current,
                     total: baseline,
                     source: 'poll'
@@ -812,7 +812,7 @@ export class LiveUpdateCoordinator {
                     kind: 'reclassify_batch',
                     current: completedTotal,
                     total: completedTotal,
-                    route: '/settings#data',
+                    route: '/settings/data',
                     open_label: this.deps.t('notifications.open_action')
                 }
             });
@@ -824,7 +824,7 @@ export class LiveUpdateCoordinator {
                 kind: 'reclassify_batch',
                 title: this.deps.t('settings.data.batch_analysis_title'),
                 message: completionMessage,
-                route: '/settings#data',
+                route: '/settings/data',
                 current: completedTotal,
                 total: completedTotal,
                 source: 'poll'

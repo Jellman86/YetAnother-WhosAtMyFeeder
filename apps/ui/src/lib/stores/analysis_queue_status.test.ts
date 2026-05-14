@@ -81,7 +81,7 @@ describe('AnalysisQueueStatusStore', () => {
             timestamp: Date.now(),
             read: false,
             meta: {
-                route: '/settings#data',
+                route: '/settings/data',
                 kind: 'reclassify_batch',
                 current: 0,
                 total: 21

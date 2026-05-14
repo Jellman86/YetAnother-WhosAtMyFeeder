@@ -2772,7 +2772,7 @@
                             {#if !ebirdEnabled}
                                 <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-sky-200 dark:border-sky-800/30">
                                     <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_sightings')}</p>
-                                    <a href="/settings#integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
+                                    <a href="/settings/integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
                                 </div>
                             {:else if ebirdNearbyLoading}
                                 <div class="space-y-3">

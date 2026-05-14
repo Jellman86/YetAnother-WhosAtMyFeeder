@@ -65,7 +65,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
                     kind: 'reclassify_batch',
                     current: completedTotal,
                     total: completedTotal,
-                    route: '/settings#data',
+                    route: '/settings/data',
                     open_label: existingProgressNotification.meta?.open_label
                 }
             });
@@ -80,7 +80,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
             kind: 'reclassify_batch',
             title: existingBatchJob?.title || existingProgressNotification?.title || DEFAULT_BATCH_ANALYSIS_TITLE,
             message: DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE,
-            route: existingBatchJob?.route || '/settings#data',
+            route: existingBatchJob?.route || '/settings/data',
             current: completedTotal,
             total: completedTotal,
             source: 'poll'
