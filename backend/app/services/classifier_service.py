@@ -2873,6 +2873,33 @@ class ClassifierService:
             return "timeout"
         return "exception"
 
+    def _publish_runtime_recovery(self, recovery: dict[str, Any]) -> None:
+        """Mirror a recovery payload into InferenceHealth.
+
+        Keeps `self._last_runtime_recovery` writes in lockstep with the
+        consolidated `InferenceHealth.last_recovery` surface so consumers can
+        migrate to the unified payload without losing recovery context.
+        """
+        if not isinstance(recovery, dict):
+            return
+        failed_runtime = recovery.get("failed_runtime")
+        if isinstance(failed_runtime, dict):
+            key = RuntimeKey.from_values(
+                failed_runtime.get("backend"),
+                failed_runtime.get("provider"),
+                failed_runtime.get("model_id"),
+            )
+        else:
+            failed_backend = recovery.get("failed_backend")
+            failed_provider = recovery.get("failed_provider")
+            active_key = self._active_inference_runtime_key()
+            key = RuntimeKey.from_values(
+                failed_backend or active_key.backend,
+                failed_provider or active_key.provider,
+                active_key.model_id,
+            )
+        self._inference_health.record_recovery(key, recovery)
+
     def register_gpu_unhealthy_signal(
         self,
         source: str,
@@ -2940,6 +2967,7 @@ class ClassifierService:
                     "trigger_source": source,
                     "at": time.time(),
                 }
+                self._publish_runtime_recovery(self._last_runtime_recovery)
                 return
 
             old_model = self._models.get("bird")
@@ -2974,6 +3002,7 @@ class ClassifierService:
                 "at": time.time(),
                 "cooldown_seconds": CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
             }
+            self._publish_runtime_recovery(self._last_runtime_recovery)
             log.warning(
                 "OpenVINO Intel GPU fallback engaged after repeated unhealthy signals",
                 trigger_source=source,
@@ -3027,6 +3056,7 @@ class ClassifierService:
                 "detail": "Auto-restored OpenVINO GPU provider after cooldown",
                 "at": time.time(),
             }
+            self._publish_runtime_recovery(self._last_runtime_recovery)
 
     def _attempt_gpu_retry_after_invalid_output(
         self,
@@ -3065,6 +3095,7 @@ class ClassifierService:
         }
         if error.diagnostics:
             self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
+        self._publish_runtime_recovery(self._last_runtime_recovery)
         if hasattr(failed_model, "cleanup"):
             try:
                 failed_model.cleanup()
@@ -3102,6 +3133,7 @@ class ClassifierService:
                 }
                 if error.diagnostics:
                     self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
+                self._publish_runtime_recovery(self._last_runtime_recovery)
                 log.error(
                     "Classifier produced invalid runtime output and no fallback succeeded",
                     failed_backend=error.backend,
@@ -3131,6 +3163,7 @@ class ClassifierService:
             }
             if error.diagnostics:
                 self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
+            self._publish_runtime_recovery(self._last_runtime_recovery)
             if hasattr(old_model, "cleanup"):
                 try:
                     old_model.cleanup()

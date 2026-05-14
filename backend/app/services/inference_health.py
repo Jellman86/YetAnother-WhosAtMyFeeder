@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import copy
 import statistics
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Literal, NamedTuple
+from typing import Any, Literal, Mapping, NamedTuple
 
 
 Outcome = Literal["ok", "timeout", "lease_expired", "exception"]
@@ -46,6 +47,7 @@ class _RuntimeHealth:
     last_outcome: Outcome | None = None
     cooldown_until_monotonic: float = 0.0
     last_verdict: Verdict = "healthy"
+    last_recovery: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +121,46 @@ class InferenceHealth:
                 state.cooldown_until_monotonic = time.monotonic() + self._config.cooldown_seconds
             state.last_verdict = verdict
 
+    def record_recovery(
+        self,
+        key: RuntimeKey,
+        recovery: Mapping[str, Any] | None,
+    ) -> None:
+        """Attach the most recent recovery/fallback context to a runtime.
+
+        Recovery context replaces (does not merge with) any prior value for
+        the runtime. ``at`` is stamped on entry if the caller has not set it.
+        """
+        if recovery is None:
+            return
+        payload: dict[str, Any] = copy.deepcopy(dict(recovery))
+        payload.setdefault("at", time.time())
+        with self._lock:
+            state = self._state_for(key)
+            state.last_recovery = payload
+
+    def last_recovery(self, key: RuntimeKey) -> dict[str, Any] | None:
+        with self._lock:
+            state = self._runtimes.get(key)
+            if state is None or state.last_recovery is None:
+                return None
+            return copy.deepcopy(state.last_recovery)
+
+    def most_recent_recovery(self) -> dict[str, Any] | None:
+        """Return the newest recovery payload across all tracked runtimes."""
+        with self._lock:
+            newest: dict[str, Any] | None = None
+            newest_at: float = -1.0
+            for state in self._runtimes.values():
+                if state.last_recovery is None:
+                    continue
+                at_value = state.last_recovery.get("at")
+                at_float = float(at_value) if isinstance(at_value, (int, float)) else 0.0
+                if at_float >= newest_at:
+                    newest_at = at_float
+                    newest = state.last_recovery
+            return copy.deepcopy(newest) if newest is not None else None
+
     def verdict(self, key: RuntimeKey) -> Verdict:
         with self._lock:
             state = self._runtimes.get(key)
@@ -144,9 +186,22 @@ class InferenceHealth:
                 status = "unhealthy"
             elif any(runtime["verdict"] == "degraded" for runtime in runtimes.values()):
                 status = "degraded"
+
+            most_recent: dict[str, Any] | None = None
+            most_recent_at: float = -1.0
+            for state in self._runtimes.values():
+                if state.last_recovery is None:
+                    continue
+                at_value = state.last_recovery.get("at")
+                at_float = float(at_value) if isinstance(at_value, (int, float)) else 0.0
+                if at_float >= most_recent_at:
+                    most_recent_at = at_float
+                    most_recent = state.last_recovery
+
             return {
                 "status": status,
                 "runtimes": runtimes,
+                "last_recovery": copy.deepcopy(most_recent) if most_recent is not None else None,
             }
 
     def _state_for(self, key: RuntimeKey) -> _RuntimeHealth:
@@ -204,6 +259,7 @@ class InferenceHealth:
             "cooldown_remaining_seconds": self._round_or_none(
                 max(0.0, state.cooldown_until_monotonic - time.monotonic())
             ),
+            "last_recovery": copy.deepcopy(state.last_recovery) if state.last_recovery is not None else None,
         }
 
     @staticmethod
