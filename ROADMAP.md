@@ -249,7 +249,7 @@ Add a first-class way to pin standout detections so users can build a curated se
 - If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
 
 ### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
-**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** Largely shipped on `main`; one follow-up open (route split — see 5.1)
+**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** ✅ Complete — primitives refactor shipped on `main`, route split (5.1) shipped on `dev` 2026-05-14
 
 Current state on `main`: all 10 settings tabs now route through a shared design system in `apps/ui/src/lib/components/settings/_primitives/` (SettingsCard / SettingsRow / SettingsToggle / SettingsSelect / SettingsSegmented / SettingsInput / SettingsTextarea / AdvancedSection / SettingsPage). Tab code dropped from 5,788 → 4,512 lines, 48 inline `role="switch"` copies removed, and a build-time guard (`settings-style-audit.test.ts`) prevents any tab from drifting back. Six of the tabs got a basic/advanced split behind `AdvancedSection`; the other four are flat by design (already simple). Page chrome (header, status banner, sticky save bar) is owned by `SettingsPage.svelte`. Mobile (<md) collapses the tab strip to a `<select>`.
 
@@ -275,7 +275,7 @@ Consolidate the large settings implementation into reusable modules to reduce re
 - Existing `npm run check`, unit tests, and settings E2E flows remain green.
 
 ### 5.1. Settings Route Split (`/settings/<tab>`) 🧭
-**Priority:** P2 | **Effort:** S (1 day) | **Status:** Proposed — last open item from the 2026-04-25 settings refactor
+**Priority:** P2 | **Effort:** S (1 day) | **Status:** ✅ Shipped on `dev` 2026-05-14
 
 Settings is still rendered as a single page with all 10 tabs hydrated together and tab state held in component memory. This means:
 
@@ -294,11 +294,12 @@ Settings is still rendered as a single page with all 10 tabs hydrated together a
 
 **Out of scope:** any further splitting of the high-density tabs themselves (already done in the 2026-04-25 refactor) and any change to the basic/advanced taxonomy.
 
-**Acceptance Criteria:**
-- Hard-reloading on `/settings/notifications` lands on the notifications tab.
-- Tabs the user hasn't visited do not parse / mount.
-- The unsaved-changes save bar still appears regardless of which sub-route the user is on, and survives tab switches.
-- `npm run check` clean and the existing `settings-style-audit` guard still passes.
+**Acceptance Criteria (shipped):**
+- ✅ Hard-reloading on `/settings/notifications` lands on the notifications tab. `Settings.svelte` derives `activeTab` from the `currentRoute` prop passed by `App.svelte`.
+- ✅ Tabs the user hasn't visited do not parse / mount — the existing `{#if activeTab === '...'}` lazy-render pattern is preserved.
+- ✅ The unsaved-changes save bar lives inside `SettingsPage` above the tab body, so it stays visible across router-driven tab switches.
+- ✅ `npm run check` clean (0 errors / 0 warnings); a new `Settings.route-split.layout.test.ts` guard locks in the derived activeTab, the legacy-hash canonicalisation paths, and the App-side prop pass-through.
+- ✅ Legacy `/settings#<tab>` deep links from share-link templates and notification job routes (`/settings#data`, `/settings#integrations`) are rewritten to the path form, and the `Settings.svelte` mount handler promotes any older URLs via a single `replaceState`.
 
 ### 6. Explorer Filter: Show Audio Matches Only 🎧
 **Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `main`
