@@ -2909,10 +2909,19 @@ async def test_live_image_gpu_fallback_cooldown_comes_from_inference_health(
 
         status = service.get_status()
         last_recovery = status["inference_health"]["last_recovery"]
+        gpu_runtime_snapshot = status["inference_health"]["runtimes"][
+            f"openvino/intel_gpu/{service._resolve_active_model_id()}"
+        ]
 
         assert last_recovery is not None
         assert last_recovery["recovered_provider"] == "intel_cpu"
+        assert last_recovery["reason"] == "live_gpu_lease_expiry_fallback"
         assert status["live_image"]["recovery_active"] is True
+        # Cooldown from inference_health.record(unhealthy) must propagate.
+        assert gpu_runtime_snapshot["verdict"] == "unhealthy"
+        assert (gpu_runtime_snapshot["cooldown_remaining_seconds"] or 0) > 0
+        assert service._live_gpu_lease_fallback_cooldown_remaining() > 0
+        assert service._live_gpu_lease_fallback_active() is True
         await service.shutdown()
 
 

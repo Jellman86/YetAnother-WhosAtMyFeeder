@@ -2890,10 +2890,13 @@ class ClassifierService:
         else:
             failed_backend = recovery.get("failed_backend")
             failed_provider = recovery.get("failed_provider")
-            active_key = self._active_inference_runtime_key()
+            try:
+                active_key = self._active_inference_runtime_key()
+            except Exception:
+                active_key = RuntimeKey.from_values(None, None, None)
             key = RuntimeKey.from_values(
-                failed_backend or active_key.backend,
-                failed_provider or active_key.provider,
+                failed_backend if failed_backend else active_key.backend,
+                failed_provider if failed_provider else active_key.provider,
                 active_key.model_id,
             )
         self._inference_health.record_recovery(key, recovery)
