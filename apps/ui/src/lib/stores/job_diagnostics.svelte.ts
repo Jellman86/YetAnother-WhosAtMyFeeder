@@ -145,6 +145,21 @@ function sumCounterMap(counters: unknown): number {
     return total;
 }
 
+function deriveLiveImageRecoveryReason(
+    recoveryActive: boolean,
+    workerCircuitOpen: boolean,
+    inferenceHealthRecovery: any
+): string {
+    if (workerCircuitOpen) {
+        return 'worker_circuit_open';
+    }
+    if (!recoveryActive) {
+        return '-';
+    }
+    const reason = normalizeString(inferenceHealthRecovery?.reason, '');
+    return reason || 'stale_work_reclaim';
+}
+
 function normalizeWorkerPoolState(pool: unknown): Record<string, unknown> {
     const value = pool && typeof pool === 'object' ? (pool as Record<string, unknown>) : {};
     return {
@@ -198,7 +213,13 @@ function createHealthSignature(health: any): string {
     const liveImageInFlight = Math.max(0, Math.floor(asFiniteNumber(liveImage?.in_flight)));
     const liveImageAbandoned = Math.max(0, Math.floor(asFiniteNumber(liveImage?.abandoned)));
     const liveImageRecoveryActive = !!liveImage?.recovery_active;
-    const liveImageRecoveryReason = normalizeString(liveImage?.recovery_reason, '-');
+    const inferenceHealth = ml?.inference_health ?? {};
+    const inferenceHealthRecovery = inferenceHealth?.last_recovery ?? null;
+    const liveImageRecoveryReason = deriveLiveImageRecoveryReason(
+        liveImageRecoveryActive,
+        Boolean(liveWorkerPool.circuit_open),
+        inferenceHealthRecovery
+    );
     const backgroundQueued = Math.max(0, Math.floor(asFiniteNumber(backgroundImage?.queued)));
     const backgroundThrottled = !!(backgroundImage?.background_throttled ?? ml?.background_throttled);
 
@@ -324,7 +345,11 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
                 late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.late_completions_ignored)),
                 oldest_running_age_seconds: asFiniteNumber(liveImage?.oldest_running_age_seconds),
                 recovery_active: Boolean(liveImage?.recovery_active),
-                recovery_reason: normalizeString(liveImage?.recovery_reason, ''),
+                recovery_reason: deriveLiveImageRecoveryReason(
+                    Boolean(liveImage?.recovery_active),
+                    Boolean(normalizeWorkerPoolState(workerPools?.live).circuit_open),
+                    (ml?.inference_health ?? {})?.last_recovery ?? null
+                ).replace(/^-$/, ''),
                 recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
                 recent_late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.recent_late_completions_ignored))
             },
@@ -582,7 +607,12 @@ class JobDiagnosticsStore {
         }
 
         if (Boolean(liveImage?.recovery_active)) {
-            const recoveryReason = normalizeString(liveImage?.recovery_reason, '');
+            const pools = ml?.worker_pools ?? health?.worker_pools ?? {};
+            const recoveryReason = deriveLiveImageRecoveryReason(
+                true,
+                Boolean(normalizeWorkerPoolState(pools?.live).circuit_open),
+                (ml?.inference_health ?? {})?.last_recovery ?? null
+            );
             const recoveryMessage = recoveryReason === 'worker_circuit_open'
                 ? 'Live image classifier is recovering worker processes'
                 : 'Live image classifier is reclaiming stale work';

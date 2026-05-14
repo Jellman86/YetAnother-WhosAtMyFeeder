@@ -1625,9 +1625,11 @@ async def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock
         assert service._active_inference_provider == "intel_cpu"
         assert service._runtime_invalid_output_failures == 1
         assert service._runtime_fallback_recoveries == 1
-        assert service._last_runtime_recovery["status"] == "recovered"
-        assert service._last_runtime_recovery["diagnostics"]["output_summary"]["nan_count"] == 10000
-        assert service._last_runtime_recovery["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
+        last_recovery = service._inference_health.most_recent_recovery()
+        assert last_recovery is not None
+        assert last_recovery["status"] == "recovered"
+        assert last_recovery["diagnostics"]["output_summary"]["nan_count"] == 10000
+        assert last_recovery["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
         assert broken.cleanup_called is True
         assert "openvino/intel_cpu" in (service._inference_fallback_reason or "")
         mock_load.assert_called_once()
@@ -2237,13 +2239,13 @@ async def test_classifier_health_reports_error_when_invalid_output_recovery_fail
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
         service._models["bird"] = _FallbackReadyModel([{"label": "Robin", "score": 0.9, "index": 0}])
-        service._last_runtime_recovery = {
+        service._publish_runtime_recovery({
             "status": "failed",
             "failed_backend": "openvino",
             "failed_provider": "intel_gpu",
             "detail": "bird inference produced no finite probabilities",
             "at": 123.0,
-        }
+        })
 
         health = service.check_health()
 
@@ -2599,7 +2601,7 @@ async def test_classifier_service_live_abandoned_outcomes_include_runtime_contex
             assert abandoned[-1]["model_id"] == "eu_medium_focalnet_b"
             assert abandoned[-1]["execution_mode"] == "in_process"
             assert status["active_provider"] == "intel_gpu"
-            assert status["live_image_gpu_fallback_active"] is False
+            assert status["inference_health"]["last_recovery"] is None
 
             release.set()
             await service.shutdown()
@@ -2675,11 +2677,12 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
             assert service._models["bird"] is fallback_model
             assert status["active_provider"] == "intel_cpu"
             assert status["inference_backend"] == "openvino"
-            assert status["live_image"]["recovery_reason"] == "live_gpu_lease_expiry_fallback"
-            assert status["live_image_gpu_fallback_active"] is True
-            assert status["last_runtime_recovery"]["failed_provider"] == "intel_gpu"
-            assert status["last_runtime_recovery"]["failed_runtime"]["key"] == "openvino/intel_gpu/eu_medium_focalnet_b"
-            assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+            last_recovery = status["inference_health"]["last_recovery"]
+            assert last_recovery is not None
+            assert last_recovery["reason"] == "live_gpu_lease_expiry_fallback"
+            assert last_recovery["failed_provider"] == "intel_gpu"
+            assert last_recovery["failed_runtime"]["key"] == "openvino/intel_gpu/eu_medium_focalnet_b"
+            assert last_recovery["recovered_provider"] == "intel_cpu"
             service._load_runtime_fallback_bird_model.assert_called_once()
 
             release.set()
@@ -2722,8 +2725,10 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
         # After second signal (threshold=2), fallback should engage.
         assert service._models["bird"] is fallback_model
         assert service._active_inference_provider == "intel_cpu"
-        assert service._last_runtime_recovery["reason"] == "gpu_unhealthy_fallback"
-        assert service._last_runtime_recovery["trigger_source"] == "snapshot_fallback_lease_expired"
+        recovery = service._inference_health.most_recent_recovery()
+        assert recovery is not None
+        assert recovery["reason"] == "gpu_unhealthy_fallback"
+        assert recovery["trigger_source"] == "snapshot_fallback_lease_expired"
         service._load_runtime_fallback_bird_model.assert_called_once()
 
         await service.shutdown()
@@ -2763,8 +2768,10 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
 
         assert service._models["bird"] is fallback_model
         assert service._active_inference_provider == "intel_cpu"
-        assert service._last_runtime_recovery["reason"] == "live_gpu_lease_expiry_fallback"
-        assert service._last_runtime_recovery["trigger_source"] == "live_lease_expiry"
+        recovery = service._inference_health.most_recent_recovery()
+        assert recovery is not None
+        assert recovery["reason"] == "live_gpu_lease_expiry_fallback"
+        assert recovery["trigger_source"] == "live_lease_expiry"
         service._load_runtime_fallback_bird_model.assert_called_once()
 
         await service.shutdown()
@@ -2885,21 +2892,27 @@ async def test_live_image_gpu_fallback_cooldown_comes_from_inference_health(
         )
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
-        service._last_runtime_recovery = {
+        service._publish_runtime_recovery({
             "status": "recovered",
             "failed_backend": "openvino",
             "failed_provider": "intel_gpu",
+            "failed_runtime": {
+                "backend": "openvino",
+                "provider": "intel_gpu",
+                "model_id": service._resolve_active_model_id(),
+            },
             "recovered_backend": "openvino",
             "recovered_provider": "intel_cpu",
             "reason": "live_gpu_lease_expiry_fallback",
             "at": 123.0,
-        }
+        })
 
         status = service.get_status()
+        last_recovery = status["inference_health"]["last_recovery"]
 
-        assert status["live_image"]["gpu_fallback_active"] is True
-        assert status["live_image_gpu_fallback_active"] is True
-        assert status["live_image"]["gpu_fallback_cooldown_remaining_seconds"] > 0
+        assert last_recovery is not None
+        assert last_recovery["recovered_provider"] == "intel_cpu"
+        assert status["live_image"]["recovery_active"] is True
         await service.shutdown()
 
 
@@ -2916,7 +2929,7 @@ async def test_classifier_status_exposes_additive_inference_health(
 
         assert status["inference_health"]["status"] == "ok"
         assert status["inference_health"]["runtimes"] == {}
-        assert status["last_runtime_recovery"] is None
+        assert status["inference_health"]["last_recovery"] is None
         await service.shutdown()
 
 
@@ -2957,7 +2970,7 @@ async def test_coordinated_inference_records_inference_health_without_changing_r
         assert runtime["verdict"] == "healthy"
         assert runtime["samples"] == 1
         assert runtime["last_outcome"] == "ok"
-        assert status["last_runtime_recovery"] is None
+        assert status["inference_health"]["last_recovery"] is None
         await service.shutdown()
 
 
@@ -2974,7 +2987,7 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     service._inference_backend = "onnxruntime"
     service._active_inference_provider = "cpu"
     service._gpu_restore_not_before_monotonic = 0.0
-    service._last_runtime_recovery = {
+    service._publish_runtime_recovery({
         "status": "recovered",
         "failed_backend": "openvino",
         "failed_provider": "intel_gpu",
@@ -2984,7 +2997,7 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
         "reason": "live_gpu_lease_expiry_fallback",
         "at": 123.0,
         "cooldown_seconds": 600,
-    }
+    })
     service._accel_caps = {
         "openvino_available": True,
         "intel_gpu_available": True,
@@ -4679,7 +4692,7 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     service._image_execution_mode = "in_process"
     service._active_inference_provider = "intel_gpu"
     service._inference_backend = "openvino"
-    service._last_runtime_recovery = {
+    service._publish_runtime_recovery({
         "status": "recovered",
         "failed_backend": "openvino",
         "failed_provider": "GPU",
@@ -4697,7 +4710,7 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
                 "finite_count": 0,
             },
         },
-    }
+    })
     service._models["bird"] = MagicMock()
     service._models["bird"].get_status.return_value = {
         "loaded": True,
@@ -4745,8 +4758,10 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     assert status["openvino_runtime"]["model"]["opset"] == [{"domain": "ai.onnx", "version": 18}]
     assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["artifact_trust_state"] == "untrusted"
     assert status["openvino_runtime"]["compatibility"]["devices"]["GPU"]["last_probe_status"] == "invalid_output"
-    assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
-    assert status["openvino_runtime"]["last_runtime_recovery"]["diagnostics"]["output_summary"]["nan_count"] == 10000
+    last_recovery = status["inference_health"]["last_recovery"]
+    assert last_recovery is not None
+    assert last_recovery["diagnostics"]["compile_properties"]["INFERENCE_PRECISION_HINT"] == "f32"
+    assert last_recovery["diagnostics"]["output_summary"]["nan_count"] == 10000
     await service.shutdown()
 
 
@@ -5042,7 +5057,7 @@ async def test_classifier_check_health_exposes_supervisor_pool_state():
     assert health["worker_pools"]["live"]["workers"] == 2
     assert health["worker_pools"]["live"]["circuit_open"] is True
     assert health["live_image"]["status"] == "degraded"
-    assert health["live_image"]["recovery_reason"] == "worker_circuit_open"
+    assert health["live_image"]["recovery_active"] is True
     assert status["worker_pools"]["live"]["restarts"] == 3
     assert status["late_results_ignored"] == 4
     await service.shutdown()
@@ -5114,7 +5129,7 @@ async def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_m
 
     assert health["status"] == "ok"
     assert health["runtime_recovery"]["last_recovery"]["failed_provider"] == "GPU"
-    assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+    assert status["inference_health"]["last_recovery"]["recovered_provider"] == "intel_cpu"
     await service.shutdown()
 
 
@@ -5168,7 +5183,7 @@ async def test_classifier_status_uses_video_worker_runtime_truth_in_subprocess_m
     assert status["selected_provider"] == "auto"
     assert status["active_provider"] == "intel_cpu"
     assert status["inference_backend"] == "openvino"
-    assert status["last_runtime_recovery"]["recovered_provider"] == "intel_cpu"
+    assert status["inference_health"]["last_recovery"]["recovered_provider"] == "intel_cpu"
     await service.shutdown()
 
 

@@ -172,8 +172,6 @@ LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON = "live_gpu_lease_expiry_fallback"
 GPU_UNHEALTHY_FALLBACK_REASON = "gpu_unhealthy_fallback"
 LIVE_GPU_LEASE_EXPIRY_FALLBACK_UNAVAILABLE_REASON = "live_gpu_lease_expiry_fallback_unavailable"
 GPU_UNHEALTHY_FALLBACK_UNAVAILABLE_REASON = "gpu_unhealthy_fallback_unavailable"
-WORKER_CIRCUIT_OPEN_RECOVERY_REASON = "worker_circuit_open"
-STALE_WORK_RECLAIM_RECOVERY_REASON = "stale_work_reclaim"
 CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS", "300")),
@@ -2274,7 +2272,6 @@ class ClassifierService:
             min_samples=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD,
             cooldown_seconds=CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
         )
-        self._last_runtime_recovery: Optional[dict[str, Any]] = None
         self._bird_model_artifact_metadata: dict[str, Any] = {}
         self._model_config_warnings: list[str] = []
         self._bird_model_compatibility: dict[str, Any] = {}
@@ -2399,7 +2396,6 @@ class ClassifierService:
         *,
         active_backend: str,
         active_provider: str,
-        runtime_recovery: dict[str, Any] | None,
     ) -> dict[str, Any]:
         active_model = self._active_openvino_model()
         snapshot = {
@@ -2418,7 +2414,6 @@ class ClassifierService:
             "active_model_compile_properties": {},
             "startup_self_test": None,
             "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
-            "last_runtime_recovery": runtime_recovery,
         }
         if active_model is not None:
             snapshot["active_model_compile_properties"] = active_model.current_compile_properties()
@@ -2788,9 +2783,10 @@ class ClassifierService:
         return None, None, None, None
 
     def _gpu_restore_eligible(self) -> bool:
+        last_recovery = self._inference_health.most_recent_recovery()
         restoring_after_live_lease_fallback = (
-            isinstance(self._last_runtime_recovery, dict)
-            and self._last_runtime_recovery.get("reason") in {
+            isinstance(last_recovery, dict)
+            and last_recovery.get("reason") in {
                 LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON,
                 GPU_UNHEALTHY_FALLBACK_REASON,
             }
@@ -2827,13 +2823,14 @@ class ClassifierService:
     def _live_gpu_fallback_health_key(self) -> RuntimeKey | None:
         if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
             return None
-        if not isinstance(self._last_runtime_recovery, dict):
+        last_recovery = self._inference_health.most_recent_recovery()
+        if not isinstance(last_recovery, dict):
             return None
-        failed_backend = str(self._last_runtime_recovery.get("failed_backend") or "").strip().lower()
-        failed_provider = str(self._last_runtime_recovery.get("failed_provider") or "").strip().lower()
+        failed_backend = str(last_recovery.get("failed_backend") or "").strip().lower()
+        failed_provider = str(last_recovery.get("failed_provider") or "").strip().lower()
         if failed_backend != "openvino" or failed_provider not in {"gpu", "intel_gpu"}:
             return None
-        failed_runtime = self._last_runtime_recovery.get("failed_runtime")
+        failed_runtime = last_recovery.get("failed_runtime")
         failed_model_id = None
         if isinstance(failed_runtime, dict):
             failed_model_id = str(failed_runtime.get("model_id") or "").strip() or None
@@ -2874,11 +2871,12 @@ class ClassifierService:
         return "exception"
 
     def _publish_runtime_recovery(self, recovery: dict[str, Any]) -> None:
-        """Mirror a recovery payload into InferenceHealth.
+        """Record a recovery/fallback payload in InferenceHealth.
 
-        Keeps `self._last_runtime_recovery` writes in lockstep with the
-        consolidated `InferenceHealth.last_recovery` surface so consumers can
-        migrate to the unified payload without losing recovery context.
+        Routes the payload to the runtime described by ``failed_runtime`` (or
+        the ``failed_backend``/``failed_provider`` pair, or the currently
+        active runtime when neither is present). Consumers read recovery
+        context from ``InferenceHealth.last_recovery`` / ``most_recent_recovery``.
         """
         if not isinstance(recovery, dict):
             return
@@ -2948,7 +2946,7 @@ class ClassifierService:
                 failure_detail=detail,
             )
             if replacement is None or backend is None or provider is None or reason is None:
-                self._last_runtime_recovery = {
+                recovery = {
                     "status": "failed",
                     "failed_backend": "openvino",
                     "failed_provider": "intel_gpu",
@@ -2967,7 +2965,7 @@ class ClassifierService:
                     "trigger_source": source,
                     "at": time.time(),
                 }
-                self._publish_runtime_recovery(self._last_runtime_recovery)
+                self._publish_runtime_recovery(recovery)
                 return
 
             old_model = self._models.get("bird")
@@ -2980,7 +2978,7 @@ class ClassifierService:
             )
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
-            self._last_runtime_recovery = {
+            recovery = {
                 "status": "recovered",
                 "failed_backend": "openvino",
                 "failed_provider": "intel_gpu",
@@ -3002,7 +3000,7 @@ class ClassifierService:
                 "at": time.time(),
                 "cooldown_seconds": CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS,
             }
-            self._publish_runtime_recovery(self._last_runtime_recovery)
+            self._publish_runtime_recovery(recovery)
             log.warning(
                 "OpenVINO Intel GPU fallback engaged after repeated unhealthy signals",
                 trigger_source=source,
@@ -3047,7 +3045,7 @@ class ClassifierService:
                     current.cleanup()
                 except Exception:
                     pass
-            self._last_runtime_recovery = {
+            self._publish_runtime_recovery({
                 "status": "recovered",
                 "failed_backend": "openvino",
                 "failed_provider": "intel_cpu",
@@ -3055,8 +3053,7 @@ class ClassifierService:
                 "recovered_provider": "intel_gpu",
                 "detail": "Auto-restored OpenVINO GPU provider after cooldown",
                 "at": time.time(),
-            }
-            self._publish_runtime_recovery(self._last_runtime_recovery)
+            })
 
     def _attempt_gpu_retry_after_invalid_output(
         self,
@@ -3084,7 +3081,7 @@ class ClassifierService:
         self._gpu_invalid_retry_remaining -= 1
         self._runtime_gpu_retries += 1
         self._models["bird"] = replacement
-        self._last_runtime_recovery = {
+        recovery: dict[str, Any] = {
             "status": "recovered",
             "failed_backend": error.backend,
             "failed_provider": error.provider,
@@ -3094,8 +3091,8 @@ class ClassifierService:
             "at": time.time(),
         }
         if error.diagnostics:
-            self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
-        self._publish_runtime_recovery(self._last_runtime_recovery)
+            recovery["diagnostics"] = dict(error.diagnostics)
+        self._publish_runtime_recovery(recovery)
         if hasattr(failed_model, "cleanup"):
             try:
                 failed_model.cleanup()
@@ -3124,7 +3121,7 @@ class ClassifierService:
                 failure_detail=error.detail,
             )
             if replacement is None or backend is None or provider is None or reason is None:
-                self._last_runtime_recovery = {
+                recovery: dict[str, Any] = {
                     "status": "failed",
                     "failed_backend": error.backend,
                     "failed_provider": error.provider,
@@ -3132,8 +3129,8 @@ class ClassifierService:
                     "at": time.time(),
                 }
                 if error.diagnostics:
-                    self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
-                self._publish_runtime_recovery(self._last_runtime_recovery)
+                    recovery["diagnostics"] = dict(error.diagnostics)
+                self._publish_runtime_recovery(recovery)
                 log.error(
                     "Classifier produced invalid runtime output and no fallback succeeded",
                     failed_backend=error.backend,
@@ -3152,7 +3149,7 @@ class ClassifierService:
                 )
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
-            self._last_runtime_recovery = {
+            recovery: dict[str, Any] = {
                 "status": "recovered",
                 "failed_backend": error.backend,
                 "failed_provider": error.provider,
@@ -3162,8 +3159,8 @@ class ClassifierService:
                 "at": time.time(),
             }
             if error.diagnostics:
-                self._last_runtime_recovery["diagnostics"] = dict(error.diagnostics)
-            self._publish_runtime_recovery(self._last_runtime_recovery)
+                recovery["diagnostics"] = dict(error.diagnostics)
+            self._publish_runtime_recovery(recovery)
             if hasattr(old_model, "cleanup"):
                 try:
                     old_model.cleanup()
@@ -3701,14 +3698,6 @@ class ClassifierService:
         live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
         worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
         live_gpu_fallback_active = self._live_gpu_lease_fallback_active()
-        live_gpu_fallback_cooldown_remaining = self._live_gpu_lease_fallback_cooldown_remaining()
-        recovery_reason = None
-        if worker_circuit_open:
-            recovery_reason = WORKER_CIRCUIT_OPEN_RECOVERY_REASON
-        elif live_gpu_fallback_active:
-            recovery_reason = LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON
-        elif recovery_active:
-            recovery_reason = STALE_WORK_RECLAIM_RECOVERY_REASON
 
         pressure_level = "normal"
         if queued > 0 or in_flight >= capacity:
@@ -3739,11 +3728,8 @@ class ClassifierService:
             "late_completions_ignored": int(admission_metrics["late_completions_ignored"]),
             "oldest_running_age_seconds": oldest_age,
             "recovery_active": recovery_active or worker_circuit_open or live_gpu_fallback_active,
-            "recovery_reason": recovery_reason,
             "recent_abandoned": recent_counts["recent_live_abandoned"],
             "recent_late_completions_ignored": recent_counts["recent_live_late_ignored"],
-            "gpu_fallback_active": live_gpu_fallback_active,
-            "gpu_fallback_cooldown_remaining_seconds": round(live_gpu_fallback_cooldown_remaining, 3),
         }
 
     def _describe_background_image_health(self, admission_metrics: dict) -> dict:
@@ -3802,7 +3788,7 @@ class ClassifierService:
             self._latest_worker_runtime_recovery(supervisor_metrics)
             if self._image_execution_mode == "subprocess"
             else None
-        ) or self._last_runtime_recovery
+        ) or self._inference_health.most_recent_recovery()
         
         # Determine which TFLite runtime is actually in use
         tflite_type = "none"
@@ -3928,7 +3914,7 @@ class ClassifierService:
             self._latest_worker_runtime_recovery(supervisor_metrics)
             if self._image_execution_mode == "subprocess"
             else None
-        ) or self._last_runtime_recovery
+        ) or self._inference_health.most_recent_recovery()
         effective_backend, effective_provider = (
             self._effective_subprocess_runtime_fields(effective_runtime_recovery)
             if self._image_execution_mode == "subprocess"
@@ -3993,13 +3979,11 @@ class ClassifierService:
             "runtime_gpu_restore_failures": self._runtime_gpu_restore_failures,
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
             "strict_non_finite_output": _strict_non_finite_output_enabled(),
-            "last_runtime_recovery": effective_runtime_recovery,
             "inference_health": self._inference_health.snapshot(),
             "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
             "openvino_runtime": self._openvino_runtime_snapshot(
                 active_backend=effective_backend,
                 active_provider=effective_provider,
-                runtime_recovery=effective_runtime_recovery,
             ),
             "live_image_max_concurrent": admission_metrics["live"]["capacity"],
             "live_image_admission_timeout_seconds": CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
@@ -4008,7 +3992,6 @@ class ClassifierService:
             "live_image_queued": admission_metrics["live"]["queued"],
             "live_image_abandoned": admission_metrics["live"]["abandoned"],
             "live_image": live_image_health,
-            "live_image_gpu_fallback_active": live_image_health["gpu_fallback_active"],
             "background_image_in_flight": admission_metrics["background"]["running"],
             "background_image_queued": admission_metrics["background"]["queued"],
             "background_image_abandoned": admission_metrics["background"]["abandoned"],
