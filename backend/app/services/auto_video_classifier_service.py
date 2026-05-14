@@ -1566,9 +1566,18 @@ class AutoVideoClassifierService:
             value = status.get(key)
             if value is not None:
                 context[key] = value
-        recovery = status.get("last_runtime_recovery")
-        if isinstance(recovery, dict):
-            context["last_runtime_recovery"] = dict(recovery)
+        inference_health = status.get("inference_health")
+        recovery: dict | None = None
+        if isinstance(inference_health, dict):
+            health_recovery = inference_health.get("last_recovery")
+            if isinstance(health_recovery, dict):
+                recovery = dict(health_recovery)
+        if recovery is None:
+            legacy_recovery = status.get("last_runtime_recovery")
+            if isinstance(legacy_recovery, dict):
+                recovery = dict(legacy_recovery)
+        if recovery is not None:
+            context["last_runtime_recovery"] = recovery
         return context
 
     @staticmethod

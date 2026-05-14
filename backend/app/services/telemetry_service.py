@@ -139,10 +139,24 @@ def build_runtime_telemetry_payload(
     if not isinstance(openvino_compile_ok, bool):
         openvino_compile_ok = None
     live_image = status.get("live_image") if isinstance(status.get("live_image"), dict) else {}
-    explicit_gpu_fallback_active = status.get("live_image_gpu_fallback_active")
-    if not isinstance(explicit_gpu_fallback_active, bool):
-        explicit_gpu_fallback_active = live_image.get("gpu_fallback_active")
-    if not isinstance(explicit_gpu_fallback_active, bool):
+    inference_health = status.get("inference_health") if isinstance(status.get("inference_health"), dict) else {}
+    explicit_gpu_fallback_active: bool | None = None
+    health_recovery = inference_health.get("last_recovery") if isinstance(inference_health, dict) else None
+    if isinstance(health_recovery, dict):
+        if str(health_recovery.get("status") or "").lower() == "recovered":
+            failed_provider = str(health_recovery.get("failed_provider") or "").lower()
+            recovered_provider = str(health_recovery.get("recovered_provider") or "").lower()
+            if failed_provider in {"intel_gpu", "cuda"} and recovered_provider and recovered_provider != failed_provider:
+                explicit_gpu_fallback_active = True
+    if explicit_gpu_fallback_active is None:
+        legacy_top = status.get("live_image_gpu_fallback_active")
+        if isinstance(legacy_top, bool):
+            explicit_gpu_fallback_active = legacy_top
+    if explicit_gpu_fallback_active is None:
+        legacy_live = live_image.get("gpu_fallback_active")
+        if isinstance(legacy_live, bool):
+            explicit_gpu_fallback_active = legacy_live
+    if explicit_gpu_fallback_active is None:
         explicit_gpu_fallback_active = (
             configured_provider in {"intel_gpu", "cuda"}
             and bool(active_provider)

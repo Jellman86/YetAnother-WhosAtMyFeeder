@@ -166,3 +166,73 @@ def test_runtime_telemetry_payload_does_not_treat_unrelated_recovery_as_gpu_fall
     )
 
     assert payload["hardware"]["openvino_gpu_fallback_active"] is False
+
+
+def test_runtime_telemetry_payload_prefers_inference_health_recovery_over_legacy_flags():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "intel_gpu",
+            "active_provider": "intel_cpu",
+            "inference_backend": "openvino",
+            "image_execution_mode": "subprocess",
+            "cuda_available": False,
+            "cuda_hardware_available": False,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": True,
+            "openvino_model_compile_device": "GPU",
+            "inference_health": {
+                "status": "degraded",
+                "runtimes": {},
+                "last_recovery": {
+                    "status": "recovered",
+                    "failed_backend": "openvino",
+                    "failed_provider": "intel_gpu",
+                    "recovered_backend": "openvino",
+                    "recovered_provider": "intel_cpu",
+                },
+            },
+        },
+        app_version="2.10.0-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={},
+    )
+
+    assert payload["hardware"]["openvino_gpu_fallback_active"] is True
+
+
+def test_runtime_telemetry_payload_inference_health_no_fallback_when_not_recovered():
+    payload = build_runtime_telemetry_payload(
+        model_type="birdnet_v2",
+        model_runtime="onnx",
+        classifier_status={
+            "selected_provider": "intel_gpu",
+            "active_provider": "intel_gpu",
+            "inference_backend": "openvino",
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_gpu_available": True,
+            "openvino_model_compile_ok": True,
+            "openvino_model_compile_device": "GPU",
+            "inference_health": {
+                "status": "degraded",
+                "runtimes": {},
+                "last_recovery": {
+                    "status": "failed",
+                    "failed_backend": "openvino",
+                    "failed_provider": "intel_gpu",
+                },
+            },
+        },
+        app_version="2.10.0-dev+abc1234",
+        platform_system="Linux",
+        platform_release="6.8.0",
+        platform_machine="x86_64",
+        deployment_env={},
+    )
+
+    assert payload["hardware"]["openvino_gpu_fallback_active"] is False

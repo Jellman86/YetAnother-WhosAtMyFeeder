@@ -3665,7 +3665,9 @@ class ClassifierService:
         if not recoveries:
             return None
         recoveries.sort(key=lambda item: float(item.get("at") or 0.0), reverse=True)
-        return recoveries[0]
+        latest = recoveries[0]
+        self._publish_runtime_recovery(latest)
+        return latest
 
     def _effective_subprocess_runtime_fields(
         self,
