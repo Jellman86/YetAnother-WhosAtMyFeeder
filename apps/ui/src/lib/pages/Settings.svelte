@@ -145,6 +145,37 @@
         return (SETTINGS_TABS as string[]).includes(slug) ? (slug as SettingsTab) : 'connection';
     }
 
+    // Returns the canonical /settings/<tab> URL for any pathname/hash combination,
+    // or null when the input is already canonical (so callers can no-op).
+    function canonicalSettingsPath(pathname: string, hash: string): string | null {
+        if (!pathname.startsWith('/settings')) return null;
+
+        // Trim trailing slash on /settings/ exactly (canonical paths have no trailing /).
+        if (pathname === '/settings/' || pathname === '/settings') {
+            if (hash && (SETTINGS_TABS as string[]).includes(hash)) {
+                return `/settings/${hash}`;
+            }
+            return '/settings/connection';
+        }
+
+        // /settings/errors is a documented alias for /settings/health.
+        if (pathname === '/settings/errors' || pathname.startsWith('/settings/errors/')) {
+            return '/settings/health';
+        }
+
+        const match = /^\/settings\/([^/]+)\/?$/.exec(pathname);
+        if (!match) return null; // Deep sub-path like /settings/data/foo — leave alone.
+        const slug = match[1];
+        if (!(SETTINGS_TABS as string[]).includes(slug)) {
+            // Unknown tab in URL — silently steer back to connection so the
+            // visible tab and the URL agree.
+            return '/settings/connection';
+        }
+        // Strip a trailing slash on /settings/<known>/ if present.
+        const canonical = `/settings/${slug}`;
+        return canonical === pathname ? null : canonical;
+    }
+
     let frigateUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
@@ -2005,20 +2036,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return;
         }
 
-        // Legacy hash-based deep links (older share links / notifications used
-        // /settings#<tab>) — promote to the canonical /settings/<tab> form once so
-        // reloads survive and downstream history stays clean.
-        const hash = window.location.hash.slice(1);
-        const pathname = window.location.pathname;
-        if (hash && pathname === '/settings' && (SETTINGS_TABS as string[]).includes(hash)) {
-            if (onNavigate) onNavigate(`/settings/${hash}`, { replace: true });
-            else window.history.replaceState(null, '', `/settings/${hash}`);
-        } else if (pathname === '/settings') {
-            // Canonicalise the bare /settings landing to /settings/connection so the active
-            // tab is reflected in the URL and back/forward stays predictable.
-            if (onNavigate) onNavigate('/settings/connection', { replace: true });
-            else window.history.replaceState(null, '', '/settings/connection');
-        }
+        // Settings route canonicalisation lives in a reactive $effect below so it
+        // also self-heals after popstate / back-button to non-canonical URLs.
 
         // Ensure settings store is loaded for dirty checking
         await settingsStore.load();
@@ -2071,6 +2090,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             startTaxonomyPolling();
         } else {
             stopTaxonomyPolling();
+        }
+    });
+
+    // Self-heal non-canonical routes that arrive after mount (popstate from a
+    // bookmark to /settings/foo, manual address-bar edit, etc.). canonicalSettingsPath
+    // returns null for already-canonical inputs so this is a no-op in steady state.
+    $effect(() => {
+        if (typeof window === 'undefined') return;
+        if (!currentRoute || !currentRoute.startsWith('/settings')) return;
+        const canonical = canonicalSettingsPath(currentRoute, window.location.hash.slice(1));
+        if (canonical && canonical !== currentRoute) {
+            if (onNavigate) onNavigate(canonical, { replace: true });
+            else window.history.replaceState(null, '', canonical);
         }
     });
 
