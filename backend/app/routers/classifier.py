@@ -14,8 +14,10 @@ from app.ratelimit import guest_rate_limit
 router = APIRouter(prefix="/classifier", tags=["classifier"])
 log = structlog.get_logger()
 
-# Get shared classifier instance
-classifier_service = get_classifier()
+# Resolve the shared classifier instance on every request rather than
+# capturing it at import time. After a settings-driven reload that calls
+# shutdown_classifier(), the global singleton is replaced and any captured
+# reference would point at a closed coordinator (issue #50).
 
 
 @router.get("/status")
@@ -25,7 +27,7 @@ async def classifier_status(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Return the status of the bird classifier model."""
-    status = classifier_service.get_status()
+    status = get_classifier().get_status()
     status["personalized_rerank_enabled"] = bool(
         getattr(settings.classification, "personalized_rerank_enabled", False)
     )
@@ -48,7 +50,7 @@ async def classifier_labels(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Return the list of species labels from the classifier model."""
-    return {"labels": classifier_service.labels}
+    return {"labels": get_classifier().labels}
 
 
 @router.get("/wildlife/status")
@@ -58,7 +60,7 @@ async def wildlife_classifier_status(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Return the status of the wildlife classifier model."""
-    return classifier_service.get_wildlife_status()
+    return get_classifier().get_wildlife_status()
 
 
 @router.get("/wildlife/labels")
@@ -68,24 +70,24 @@ async def wildlife_classifier_labels(
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Return the list of labels from the wildlife classifier model."""
-    return {"labels": classifier_service.get_wildlife_labels()}
+    return {"labels": get_classifier().get_wildlife_labels()}
 
 
 @router.get("/debug")
 async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
     """Debug endpoint to inspect bird model details. Owner only."""
-    if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
+    if getattr(get_classifier(), "_image_execution_mode", "in_process") == "subprocess":
         return {
             "mode": "subprocess",
             "message": "Direct bird runtime inspection is unavailable in subprocess mode",
-            "status": classifier_service.get_status(),
+            "status": get_classifier().get_status(),
         }
 
     import numpy as np
     from PIL import Image
 
     try:
-        bird = classifier_service._models.get("bird")
+        bird = get_classifier()._models.get("bird")
 
         if not bird or not bird.loaded:
             return {"error": "Bird model not loaded"}
@@ -174,13 +176,13 @@ async def test_bird_classifier(
     try:
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
-        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
-            results = await classifier_service.classify_async_background(
+        if getattr(get_classifier(), "_image_execution_mode", "in_process") == "subprocess":
+            results = await get_classifier().classify_async_background(
                 pil_image,
                 input_context={"is_cropped": False},
             )
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = get_classifier().classify(pil_image, input_context={"is_cropped": False})
 
         return {
             "status": "ok",
@@ -215,19 +217,19 @@ async def classify_image(
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
-    status = classifier_service.get_status()
+    status = get_classifier().get_status()
     active_model_id = status.get("active_model_id")
     inference_backend = status.get("inference_backend")
     active_provider = status.get("active_provider")
 
     t0 = _time.perf_counter()
     try:
-        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
-            results = await classifier_service.classify_async_background(
+        if getattr(get_classifier(), "_image_execution_mode", "in_process") == "subprocess":
+            results = await get_classifier().classify_async_background(
                 pil_image, input_context={"is_cropped": False}
             )
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = get_classifier().classify(pil_image, input_context={"is_cropped": False})
     except Exception as e:
         import traceback
         return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
@@ -267,7 +269,7 @@ async def probe_bird_classifier_runtime(
         pil_image = Image.open(io.BytesIO(contents))
 
     try:
-        return classifier_service.probe_bird_runtime(
+        return get_classifier().probe_bird_runtime(
             device=device,
             image=pil_image,
             synthetic_image=synthetic_image,
@@ -283,7 +285,7 @@ async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
     from PIL import Image
 
     try:
-        wildlife = classifier_service._get_wildlife_model()
+        wildlife = get_classifier()._get_wildlife_model()
 
         if not wildlife or not wildlife.loaded:
             return {"error": "Wildlife model not loaded"}
@@ -347,7 +349,7 @@ async def test_wildlife_classifier(
         contents = await image.read()
         pil_image = Image.open(io.BytesIO(contents))
 
-        results = classifier_service.classify_wildlife(pil_image, input_context={"is_cropped": False})
+        results = get_classifier().classify_wildlife(pil_image, input_context={"is_cropped": False})
 
         return {
             "status": "ok",
@@ -455,7 +457,7 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
                     f.write(f"{label}\n")
 
             # Reload the classifier service to pick up the new model
-            classifier_service.reload_wildlife_model()
+            get_classifier().reload_wildlife_model()
 
             log.info("Wildlife model downloaded and ready",
                      labels_count=len(processed_labels),
@@ -568,7 +570,7 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
                 f.write(f"{label}\n")
 
         # Reload the classifier
-        classifier_service._load_model()
+        get_classifier()._load_model()
 
         log.info("Model downloaded and loaded successfully")
         return {

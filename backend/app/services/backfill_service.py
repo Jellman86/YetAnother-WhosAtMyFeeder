@@ -10,6 +10,7 @@ from app.config import settings
 from app.services.classifier_service import (
     BackgroundImageClassificationUnavailableError,
     ClassifierService,
+    resolve_live_classifier,
 )
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
@@ -48,9 +49,19 @@ class BackfillResult:
 class BackfillService:
     """Service to fetch and process historical detections from Frigate."""
 
-    def __init__(self, classifier: ClassifierService):
-        self.classifier = classifier
-        self.detection_service = DetectionService(classifier)
+    def __init__(self, classifier: ClassifierService | None = None):
+        # See EventProcessor docstring for context (issue #50): the `classifier`
+        # property re-resolves against the singleton on every access so a
+        # settings-driven reload doesn't leave us with a closed instance.
+        self._classifier_ref: ClassifierService | None = classifier
+        self.detection_service = DetectionService(self.classifier)
+
+    @property
+    def classifier(self) -> ClassifierService:
+        refreshed = resolve_live_classifier(self._classifier_ref)
+        if refreshed is not self._classifier_ref:
+            self._classifier_ref = refreshed
+        return refreshed
 
     @staticmethod
     def _oldest_event_cursor(events: list[dict], fallback_before_ts: float) -> float | None:

@@ -26,8 +26,10 @@ from app.utils.tasks import create_background_task
 router = APIRouter()
 log = structlog.get_logger()
 
-# Use shared classifier instance
-backfill_service = BackfillService(get_classifier())
+# Use shared classifier instance — BackfillService resolves it lazily on
+# every access so a settings-driven reload that calls shutdown_classifier()
+# (issue #50) doesn't leave us holding a closed coordinator.
+backfill_service = BackfillService()
 
 class BackfillJobStatus(BaseModel):
     id: str

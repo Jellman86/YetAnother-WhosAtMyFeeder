@@ -334,7 +334,7 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
 async def _start_mqtt_service_task() -> None:
     global event_processor
     if event_processor is None:
-        event_processor = EventProcessor(get_classifier())
+        event_processor = EventProcessor()
     create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
 
 

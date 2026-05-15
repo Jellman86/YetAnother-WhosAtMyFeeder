@@ -108,6 +108,7 @@ BackgroundImageClassificationUnavailableError = getattr(
     RuntimeError,
 )
 get_classifier = classifier_service_module.get_classifier
+resolve_live_classifier = classifier_service_module.resolve_live_classifier
 VideoClassificationWorkerError = classifier_service_module.VideoClassificationWorkerError
 JobSource = Literal["live", "maintenance"]
 
@@ -143,7 +144,11 @@ class AutoVideoClassifierService:
 
     def __init__(self):
         self._active_tasks: Dict[str, asyncio.Task] = {}
-        self._classifier = get_classifier()
+        # `_classifier` is exposed as a property that re-resolves against the
+        # singleton on every access — see issue #50. Tests that overwrite
+        # `service._classifier = mock` use the property setter, which pins the
+        # mock for the lifetime of that test.
+        self._classifier_ref = get_classifier()
         self._breaker_state = _empty_breaker_state()
         self._timeout_state = _empty_timeout_state()
         self._pending_queue: asyncio.Queue[tuple[str, str, bool, bool, JobSource]] = asyncio.Queue(
@@ -164,6 +169,21 @@ class AutoVideoClassifierService:
         # so stop()/reset_state() can cancel them and so we never schedule a
         # second concurrent retry for the same event_id.
         self._precheck_retry_tasks: Dict[str, asyncio.Task] = {}
+
+    @property
+    def _classifier(self):  # type: ignore[override]
+        refreshed = resolve_live_classifier(self._classifier_ref)
+        if refreshed is not self._classifier_ref:
+            self._classifier_ref = refreshed
+        return refreshed
+
+    @_classifier.setter
+    def _classifier(self, value) -> None:
+        # Tests assign directly (e.g. ``service._classifier = fake``).
+        # Pin the value via the same backing field used by the getter so the
+        # next access still routes through resolve_live_classifier (which
+        # leaves non-ClassifierService objects untouched, so mocks survive).
+        self._classifier_ref = value
 
     @staticmethod
     def _maintenance_holder_id(source: JobSource, event_id: str) -> str:

@@ -1346,6 +1346,36 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
+def resolve_live_classifier(stored: Any) -> 'ClassifierService':
+    """Return the current live ClassifierService, repairing a stale cached ref.
+
+    Consumers that cached the classifier singleton at startup (EventProcessor,
+    AutoVideoClassifierService, BackfillService, etc.) would otherwise keep
+    using a closed instance after a settings-driven reload calls
+    ``shutdown_classifier`` and then ``get_classifier()`` creates a fresh
+    singleton (see GitHub issue #50).
+
+    Behaviour:
+      * ``stored is None``         -> create / fetch the singleton.
+      * ``stored`` is a real classifier that has been superseded by a newer
+        singleton -> return the newer singleton.
+      * ``stored`` is a real classifier and still current -> return it.
+      * ``stored`` is anything else (test double, SimpleNamespace, MagicMock)
+        -> return it unchanged so direct ``service._classifier = mock``
+        injection in tests keeps working.
+    """
+    global _classifier_instance
+    if stored is None:
+        return get_classifier()
+    if not isinstance(stored, ClassifierService):
+        return stored
+    if _classifier_instance is not None and _classifier_instance is not stored:
+        return _classifier_instance
+    if _classifier_instance is None:
+        return get_classifier()
+    return stored
+
+
 class ModelInstance:
     """Represents a loaded TFLite model with its labels."""
 

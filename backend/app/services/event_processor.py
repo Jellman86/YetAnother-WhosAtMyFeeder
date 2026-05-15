@@ -12,10 +12,11 @@ from types import SimpleNamespace
 
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
-from app.services.classifier_service import (
+from app.services.classifier_service import (  # type: ignore[attr-defined]
     CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
     ClassifierService,
     LiveImageClassificationOverloadedError,
+    resolve_live_classifier,
 )
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
@@ -111,9 +112,15 @@ class EventData:
 
 
 class EventProcessor:
-    def __init__(self, classifier: ClassifierService):
-        self.classifier = classifier
-        self.detection_service = DetectionService(classifier)
+    def __init__(self, classifier: ClassifierService | None = None):
+        # `classifier` is a starting reference. The `classifier` property
+        # re-resolves against the singleton on every access so a settings-driven
+        # reload (which replaces the singleton) doesn't leave us holding a
+        # closed ClassifierService (issue #50). Tests that inject a MagicMock
+        # via the constructor keep working because resolve_live_classifier()
+        # leaves non-ClassifierService references untouched.
+        self._classifier_ref: ClassifierService | None = classifier
+        self.detection_service = DetectionService(self.classifier)
         self.notification_orchestrator = NotificationOrchestrator()
         self._false_positive_tombstones: dict[str, float] = {}
         self._started_events = 0
@@ -131,6 +138,13 @@ class EventProcessor:
         self._last_critical_failure_monotonic: float | None = None
         self._last_critical_failure: dict[str, Any] | None = None
         self._active_live_event_keys: set[str] = set()
+
+    @property
+    def classifier(self) -> ClassifierService:
+        refreshed = resolve_live_classifier(self._classifier_ref)
+        if refreshed is not self._classifier_ref:
+            self._classifier_ref = refreshed
+        return refreshed
 
     def _utc_now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
