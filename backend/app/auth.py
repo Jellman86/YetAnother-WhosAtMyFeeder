@@ -183,15 +183,17 @@ async def get_auth_context(
             log.debug("Invalid token provided, checking public access")
             pass
 
+    # Check if auth is disabled completely (backward compatibility).
+    # Auth-disabled mode must remain owner-equivalent even when public access
+    # is enabled; otherwise protected settings routes become unreachable.
+    if not settings.auth.enabled:
+        log.debug("Auth disabled - granting owner access")
+        return AuthContext(auth_level=AuthLevel.OWNER, username="unauthenticated")
+
     # No valid token - check if public access allowed
     if settings.public_access.enabled:
         log.debug("Request using public guest access", path=request.url.path)
         return AuthContext(auth_level=AuthLevel.GUEST)
-
-    # Check if auth is disabled completely (backward compatibility)
-    if not settings.auth.enabled:
-        log.debug("Auth disabled - granting owner access")
-        return AuthContext(auth_level=AuthLevel.OWNER, username="unauthenticated")
 
     # Public access disabled and no valid token - require auth
     raise HTTPException(

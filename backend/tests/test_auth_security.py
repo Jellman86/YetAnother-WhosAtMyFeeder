@@ -22,6 +22,7 @@ def reset_auth_config():
     original_hash = settings.auth.password_hash
     original_username = settings.auth.username
     original_initial_setup_complete = settings.auth.initial_setup_complete
+    original_public_access_enabled = settings.public_access.enabled
 
     yield
 
@@ -30,6 +31,7 @@ def reset_auth_config():
     settings.auth.password_hash = original_hash
     settings.auth.username = original_username
     settings.auth.initial_setup_complete = original_initial_setup_complete
+    settings.public_access.enabled = original_public_access_enabled
 
 
 @pytest.fixture
@@ -91,6 +93,16 @@ class TestLoginRateLimiting:
 
 class TestInputValidation:
     """Tests for input validation on auth endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_auth_disabled_grants_owner_even_when_public_access_enabled(self, client: httpx.AsyncClient):
+        """Auth-disabled mode should not be downgraded to guest by public access."""
+        settings.auth.enabled = False
+        settings.public_access.enabled = True
+
+        response = await client.get("/api/settings")
+
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_login_username_validation_special_chars(self, client: httpx.AsyncClient):
