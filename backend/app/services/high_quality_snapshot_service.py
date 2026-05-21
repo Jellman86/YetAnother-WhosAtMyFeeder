@@ -32,6 +32,9 @@ HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
 HQ_MAX_PERSISTED_CANDIDATES = 8
+HQ_TINY_CROP_MIN_SHORT_EDGE = 320
+HQ_TINY_CROP_MIN_FRAME_AREA_RATIO = 0.08
+HQ_TINY_CROP_FULL_FRAME_MARGIN = 0.15
 
 
 class HighQualitySnapshotService:
@@ -319,14 +322,62 @@ class HighQualitySnapshotService:
         if not scored:
             return {"selected_candidate": None, "candidates": []}
 
-        scored.sort(key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
-        persisted = scored[:HQ_MAX_PERSISTED_CANDIDATES]
+        ranked = self._rank_snapshot_candidates(scored)
+        persisted = ranked[:HQ_MAX_PERSISTED_CANDIDATES]
         for index, candidate in enumerate(persisted):
             candidate["selected"] = index == 0
         return {
             "selected_candidate": persisted[0],
             "candidates": persisted,
         }
+
+    def _rank_snapshot_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Rank candidates while avoiding unusably small auto-crops.
+
+        A tiny crop can score marginally higher than a full frame because it
+        removes background, but it makes a poor default event image. Keep the
+        crop available for manual selection while preferring a full-frame HQ
+        candidate unless the crop is clearly stronger.
+        """
+        ranked = sorted(candidates, key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
+        if not ranked:
+            return []
+
+        best = ranked[0]
+        if not self._is_tiny_crop_candidate(best):
+            return ranked
+
+        best_full_frame = next((item for item in ranked if str(item.get("source_mode") or "") == "full_frame"), None)
+        if best_full_frame is None:
+            return ranked
+
+        crop_score = float(best.get("ranking_score") or 0.0)
+        full_score = float(best_full_frame.get("ranking_score") or 0.0)
+        if crop_score > full_score + HQ_TINY_CROP_FULL_FRAME_MARGIN:
+            return ranked
+
+        return [best_full_frame, *[item for item in ranked if item is not best_full_frame]]
+
+    def _is_tiny_crop_candidate(self, candidate: dict[str, Any]) -> bool:
+        source_mode = str(candidate.get("source_mode") or "full_frame")
+        if source_mode == "full_frame":
+            return False
+
+        width = int(candidate.get("image_width") or 0)
+        height = int(candidate.get("image_height") or 0)
+        frame_width = int(candidate.get("frame_width") or 0)
+        frame_height = int(candidate.get("frame_height") or 0)
+        if width <= 0 or height <= 0:
+            return False
+
+        if min(width, height) < HQ_TINY_CROP_MIN_SHORT_EDGE:
+            return True
+        if frame_width > 0 and frame_height > 0:
+            frame_area = frame_width * frame_height
+            crop_area = width * height
+            if frame_area > 0 and (crop_area / frame_area) < HQ_TINY_CROP_MIN_FRAME_AREA_RATIO:
+                return True
+        return False
 
     def _extract_snapshot_candidate_payloads_from_clip_path(
         self,
@@ -399,6 +450,10 @@ class HighQualitySnapshotService:
                             "thumbnail_ref": thumbnail_ref,
                             "image_ref": image_ref,
                             "snapshot_source": f"hq_candidate_{source_mode}",
+                            "image_width": int(candidate_image.width),
+                            "image_height": int(candidate_image.height),
+                            "frame_width": int(base_image.width),
+                            "frame_height": int(base_image.height),
                             "image_bytes": image_bytes,
                             "thumbnail_bytes": self._thumbnail_bytes_for_candidate(candidate_image),
                         }

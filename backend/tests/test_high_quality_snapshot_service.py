@@ -361,6 +361,65 @@ def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
     assert indices[:3] == [24, 23, 25]
 
 
+def test_rank_snapshot_candidates_prefers_full_frame_over_marginal_tiny_crop():
+    service = hq_module.HighQualitySnapshotService()
+
+    ranked = service._rank_snapshot_candidates(
+        [
+            {
+                "candidate_id": "tiny-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.245,
+                "image_width": 129,
+                "image_height": 257,
+                "frame_width": 2560,
+                "frame_height": 1920,
+            },
+            {
+                "candidate_id": "full-frame",
+                "source_mode": "full_frame",
+                "ranking_score": 0.183,
+                "image_width": 2560,
+                "image_height": 1920,
+                "frame_width": 2560,
+                "frame_height": 1920,
+            },
+        ]
+    )
+
+    assert ranked[0]["candidate_id"] == "full-frame"
+    assert ranked[1]["candidate_id"] == "tiny-crop"
+
+
+def test_rank_snapshot_candidates_keeps_tiny_crop_when_score_is_clearly_stronger():
+    service = hq_module.HighQualitySnapshotService()
+
+    ranked = service._rank_snapshot_candidates(
+        [
+            {
+                "candidate_id": "tiny-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.92,
+                "image_width": 180,
+                "image_height": 260,
+                "frame_width": 2560,
+                "frame_height": 1920,
+            },
+            {
+                "candidate_id": "full-frame",
+                "source_mode": "full_frame",
+                "ranking_score": 0.40,
+                "image_width": 2560,
+                "image_height": 1920,
+                "frame_width": 2560,
+                "frame_height": 1920,
+            },
+        ]
+    )
+
+    assert ranked[0]["candidate_id"] == "tiny-crop"
+
+
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
