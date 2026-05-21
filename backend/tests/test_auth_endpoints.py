@@ -26,6 +26,7 @@ def reset_auth_config():
     original_enabled = settings.auth.enabled
     original_hash = settings.auth.password_hash
     original_username = settings.auth.username
+    original_initial_setup_complete = settings.auth.initial_setup_complete
     original_public = settings.public_access.enabled
     original_weather_unit_system = settings.location.weather_unit_system
 
@@ -34,6 +35,7 @@ def reset_auth_config():
     settings.auth.enabled = original_enabled
     settings.auth.password_hash = original_hash
     settings.auth.username = original_username
+    settings.auth.initial_setup_complete = original_initial_setup_complete
     settings.public_access.enabled = original_public
     settings.location.weather_unit_system = original_weather_unit_system
 
@@ -41,6 +43,7 @@ def reset_auth_config():
 @pytest.mark.asyncio
 async def test_auth_status_no_auth(client: httpx.AsyncClient):
     settings.auth.enabled = False
+    settings.auth.initial_setup_complete = True
     settings.public_access.enabled = False
 
     response = await client.get("/api/auth/status")
@@ -52,8 +55,22 @@ async def test_auth_status_no_auth(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_auth_status_needs_setup(client: httpx.AsyncClient):
+async def test_auth_status_needs_setup_before_first_run(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.auth.initial_setup_complete = False
+    settings.auth.password_hash = None
+
+    response = await client.get("/api/auth/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["auth_required"] is False
+    assert data["needs_initial_setup"] is True
+
+
+@pytest.mark.asyncio
+async def test_auth_status_needs_setup_when_auth_enabled_without_password(client: httpx.AsyncClient):
     settings.auth.enabled = True
+    settings.auth.initial_setup_complete = False
     settings.auth.password_hash = None
 
     response = await client.get("/api/auth/status")
@@ -66,6 +83,7 @@ async def test_auth_status_needs_setup(client: httpx.AsyncClient):
 @pytest.mark.asyncio
 async def test_auth_status_public_enabled(client: httpx.AsyncClient):
     settings.auth.enabled = True
+    settings.auth.initial_setup_complete = True
     settings.public_access.enabled = True
 
     response = await client.get("/api/auth/status")
@@ -77,6 +95,7 @@ async def test_auth_status_public_enabled(client: httpx.AsyncClient):
 @pytest.mark.asyncio
 async def test_auth_status_exposes_weather_unit_system(client: httpx.AsyncClient):
     settings.auth.enabled = False
+    settings.auth.initial_setup_complete = True
     settings.public_access.enabled = False
     settings.location.weather_unit_system = "imperial"
 
@@ -160,6 +179,7 @@ async def test_login_no_password_set(client: httpx.AsyncClient):
 @pytest.mark.asyncio
 async def test_initial_setup_success(client: httpx.AsyncClient):
     settings.auth.password_hash = None
+    settings.auth.initial_setup_complete = False
 
     response = await client.post("/api/auth/initial-setup", json={
         "username": "newadmin",
@@ -168,6 +188,7 @@ async def test_initial_setup_success(client: httpx.AsyncClient):
     })
     assert response.status_code == 200
     assert response.json()["message"] == "Setup completed successfully"
+    assert settings.auth.initial_setup_complete is True
 
 
 @pytest.mark.asyncio
@@ -186,6 +207,7 @@ async def test_initial_setup_already_configured(client: httpx.AsyncClient):
 @pytest.mark.asyncio
 async def test_initial_setup_skip_auth(client: httpx.AsyncClient):
     settings.auth.password_hash = None
+    settings.auth.initial_setup_complete = False
 
     response = await client.post("/api/auth/initial-setup", json={
         "username": "admin",
@@ -193,6 +215,8 @@ async def test_initial_setup_skip_auth(client: httpx.AsyncClient):
         "enable_auth": False
     })
     assert response.status_code == 200
+    assert settings.auth.enabled is False
+    assert settings.auth.initial_setup_complete is True
 
 
 @pytest.mark.asyncio

@@ -691,6 +691,10 @@ class SystemSettings(BaseModel):
 
 class AuthSettings(BaseModel):
     """Authentication configuration."""
+    initial_setup_complete: bool = Field(
+        default=False,
+        description="Whether the first-run setup wizard has been completed"
+    )
     enabled: bool = Field(
         default=False,
         description="Require authentication for full access (disabled by default for backward compatibility)"

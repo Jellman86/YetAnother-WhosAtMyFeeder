@@ -211,7 +211,10 @@ async def get_auth_status(request: Request):
                 auth_level = AuthLevel.OWNER
                 username = "legacy_api_key"
 
-    needs_setup = settings.auth.enabled and settings.auth.password_hash is None
+    needs_setup = (
+        not settings.auth.initial_setup_complete
+        and settings.auth.password_hash is None
+    )
 
     # Optional proxy header debug logging (rate-limited)
     if os.getenv("DEBUG_PROXY_HEADERS", "").lower() == "true":
@@ -312,6 +315,7 @@ async def set_initial_password(request: InitialPasswordRequest):
         settings.auth.enabled = True
     else:
         settings.auth.enabled = False
+    settings.auth.initial_setup_complete = True
 
     # Save to config.json
     await settings.save()

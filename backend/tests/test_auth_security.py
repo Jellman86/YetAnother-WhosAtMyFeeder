@@ -21,6 +21,7 @@ def reset_auth_config():
     original_enabled = settings.auth.enabled
     original_hash = settings.auth.password_hash
     original_username = settings.auth.username
+    original_initial_setup_complete = settings.auth.initial_setup_complete
 
     yield
 
@@ -28,6 +29,7 @@ def reset_auth_config():
     settings.auth.enabled = original_enabled
     settings.auth.password_hash = original_hash
     settings.auth.username = original_username
+    settings.auth.initial_setup_complete = original_initial_setup_complete
 
 
 @pytest.fixture

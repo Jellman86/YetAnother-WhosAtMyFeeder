@@ -9,22 +9,21 @@
 
   let isDismissed = $state(true); // Start as dismissed, check in onMount
   let isEnabling = $state(false);
+  let wasDismissed = $state(true);
 
   onMount(() => {
-    // Check if banner was previously dismissed
-    const wasDismissed = localStorage.getItem(DISMISSED_KEY) === 'true';
+    wasDismissed = localStorage.getItem(DISMISSED_KEY) === 'true';
+  });
 
-    // Show banner if:
-    // 1. Not previously dismissed
-    // 2. Settings are loaded
-    // 3. Telemetry is disabled
-    if (!wasDismissed && settingsStore.settings && !settingsStore.settings.telemetry_enabled) {
-      isDismissed = false;
-    }
+  $effect(() => {
+    const settings = settingsStore.settings;
+    if (wasDismissed || !settings) return;
+    isDismissed = Boolean(settings.telemetry_enabled);
   });
 
   function dismiss() {
     isDismissed = true;
+    wasDismissed = true;
     localStorage.setItem(DISMISSED_KEY, 'true');
   }
 

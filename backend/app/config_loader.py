@@ -117,6 +117,22 @@ def _infer_notification_species_mode(filters: Any) -> str:
     return "none"
 
 
+def _legacy_config_implies_completed_setup(file_data: Any) -> bool:
+    if not isinstance(file_data, dict):
+        return False
+
+    auth = file_data.get("auth")
+    if isinstance(auth, dict):
+        if auth.get("password_hash"):
+            return True
+        if "enabled" in auth:
+            return True
+
+    # Fresh containers may contain only auto-persisted auth secrets. Older real
+    # configs have at least one app settings section beyond those secrets.
+    return any(key != "auth" for key in file_data)
+
+
 def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # API Key
     api_key = os.environ.get('YA_WAMF_API_KEY', None)
@@ -353,6 +369,10 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     
     # Authentication settings
     auth_data = {
+        'initial_setup_complete': os.environ.get(
+            'AUTH__INITIAL_SETUP_COMPLETE',
+            'false'
+        ).lower() == 'true',
         'enabled': os.environ.get('AUTH__ENABLED', 'false').lower() == 'true',
         'username': os.environ.get('AUTH__USERNAME', 'admin'),
         'password_hash': os.environ.get('AUTH__PASSWORD_HASH', None),
@@ -584,6 +604,13 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                     env_key = f'AUTH__{k.upper()}'
                     if env_key not in os.environ:
                         auth_data[k] = v
+                if (
+                    'initial_setup_complete' not in file_data['auth']
+                    and 'AUTH__INITIAL_SETUP_COMPLETE' not in os.environ
+                ):
+                    auth_data['initial_setup_complete'] = _legacy_config_implies_completed_setup(file_data)
+            elif 'AUTH__INITIAL_SETUP_COMPLETE' not in os.environ:
+                auth_data['initial_setup_complete'] = _legacy_config_implies_completed_setup(file_data)
     
             if 'public_access' in file_data:
                 for k, v in file_data['public_access'].items():
@@ -666,7 +693,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     log.info("Auth config",
              enabled=auth_data['enabled'],
              username=auth_data['username'],
-             has_password=auth_data['password_hash'] is not None)
+             has_password=auth_data['password_hash'] is not None,
+             initial_setup_complete=auth_data['initial_setup_complete'])
     log.info("Public access config",
              enabled=public_access_data['enabled'],
              historical_days=public_access_data['show_historical_days'],
