@@ -308,7 +308,8 @@ All settings are managed through the web UI under **Settings**. Configuration is
 ## Security & Authentication
 
 ### 🔐 Built-in Authentication
-- **Setup Wizard:** On first run, you'll be prompted to set an admin username and password.
+- **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings > Security** and set an admin password before exposing YA-WAMF outside your trusted network.
+- **Initial Setup Wizard:** Shown only when authentication is enabled but no password hash exists, for example after starting with `AUTH__ENABLED=true` on a fresh config volume or after clearing `auth.password_hash` during password recovery.
 - **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
 - **Security:** Includes login rate limiting, session management, and security headers.
 

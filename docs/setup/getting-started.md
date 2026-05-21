@@ -126,10 +126,12 @@ Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once
 
 ![Events List](../images/frontend_events.png)
 
+Authentication is disabled by default for first-time setup and backward compatibility. Before exposing YA-WAMF outside your trusted network, go to **Settings > Security**, set a password, and enable **Require Authentication**. To force the initial setup wizard on a fresh config volume instead, start the container with `AUTH__ENABLED=true`.
+
 ### 5. (Optional) Enable Guest Mode
 If you want to share a read‑only public view:
 
-1. Go to **Settings > Security** and set a password.
+1. Go to **Settings > Security**, set a password, and enable authentication.
 2. Enable **Public Access**.
 3. Configure rate limits and whether camera names are visible.
 

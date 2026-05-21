@@ -17,7 +17,7 @@ By default, authentication is **disabled** to allow easy first-time setup. To en
 3.  Enable **"Require Authentication"**.
 4.  (Optional) Enable **"Public Access"** if you want to share your dashboard.
 
-Alternatively, you can enable it via the `initial-setup` flow if you are accessing the instance for the first time without a configured password.
+Alternatively, you can enable it via the initial setup flow when the backend reports that setup is required. That flow is shown only when authentication is enabled and no password hash is configured. For a fresh Docker deployment, set `AUTH__ENABLED=true` before the first start if you want the browser to show the setup wizard immediately. If authentication remains disabled, YA-WAMF opens directly to the dashboard.
 
 ## Quick Start (Recommended)
 
@@ -35,7 +35,7 @@ Currently, there is no email-based "Forgot Password" flow. If you lose your pass
 3.  Find the `"auth"` section.
 4.  Remove the `"password_hash"` line (or set the value to `null`).
 5.  **Restart** the YA-WAMF container.
-6.  Access the web UI. You will be prompted with the "Initial Setup" screen to create a new password.
+6.  Access the web UI. If `"auth.enabled"` is still `true`, you will be prompted with the "Initial Setup" screen to create a new password.
 
 **Example `config.json` edit:**
 
