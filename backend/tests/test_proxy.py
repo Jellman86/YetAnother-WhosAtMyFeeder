@@ -1198,6 +1198,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
         mock_replace_snapshot.return_value = Path("/tmp/test_event_id.jpg")
         mock_repo = mock_repo_cls.return_value
+        mock_repo.mark_selected_snapshot_candidate = AsyncMock()
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -1234,6 +1235,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
         b"candidate-image",
         source="hq_candidate_model_crop",
     )
+    mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 
 
 @pytest.mark.asyncio

@@ -88,6 +88,15 @@ async def test_snapshot_candidate_repository_replaces_and_selects_candidates():
         assert selected["candidate_id"] == "cand-b"
         assert selected["source_mode"] == "model_crop"
 
+        await repo.mark_selected_snapshot_candidate("evt-1", "cand-a")
+        updated = await repo.list_snapshot_candidates("evt-1")
+        selected_ids = [candidate["candidate_id"] for candidate in updated if candidate["selected"]]
+        assert selected_ids == ["cand-a"]
+
+        await repo.mark_selected_snapshot_candidate("evt-1", None)
+        cleared = await repo.list_snapshot_candidates("evt-1")
+        assert all(not candidate["selected"] for candidate in cleared)
+
         await repo.replace_snapshot_candidates(
             "evt-1",
             [
@@ -122,6 +131,7 @@ async def test_snapshot_candidate_repository_gracefully_handles_missing_table():
 
         assert await repo.list_snapshot_candidates("evt-missing") == []
         assert await repo.get_selected_snapshot_candidate("evt-missing") is None
+        await repo.mark_selected_snapshot_candidate("evt-missing", "cand-a")
 
         await repo.replace_snapshot_candidates(
             "evt-missing",

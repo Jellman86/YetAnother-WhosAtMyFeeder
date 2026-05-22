@@ -261,10 +261,14 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
     current_source = status.source
     current_candidate_id = None
     if current_source and current_source.startswith("hq_candidate_"):
-        for candidate in candidates:
-            if str(candidate.get("snapshot_source") or "") == current_source:
-                current_candidate_id = str(candidate.get("candidate_id") or "")
-                break
+        selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
+        if selected_candidate and str(selected_candidate.get("snapshot_source") or "") == current_source:
+            current_candidate_id = str(selected_candidate.get("candidate_id") or "")
+        else:
+            for candidate in candidates:
+                if str(candidate.get("snapshot_source") or "") == current_source:
+                    current_candidate_id = str(candidate.get("candidate_id") or "")
+                    break
     has_model_crop = any(str(c.get("source_mode") or "") == "model_crop" for c in candidates)
     model_crop_miss_reason: str | None = None
     if not has_model_crop:
@@ -1602,6 +1606,8 @@ async def apply_snapshot_candidate(
         replaced = await media_cache.replace_snapshot(event_id, snapshot_bytes, source="frigate_snapshot")
         if not replaced:
             raise HTTPException(status_code=409, detail="Snapshot apply failed")
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
         after = await _build_snapshot_status(event_id)
         return SnapshotApplyResponse(
             **after.model_dump(),
@@ -1625,12 +1631,15 @@ async def apply_snapshot_candidate(
     replaced = await media_cache.replace_snapshot(event_id, image_bytes, source=snapshot_source)
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
+    applied_candidate_id = str(candidate.get("candidate_id") or "")
+    async with get_db() as db:
+        await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
     after = await _build_snapshot_status(event_id)
     return SnapshotApplyResponse(
         **after.model_dump(),
         status="applied",
         applied_mode=request_body.mode,
-        applied_candidate_id=str(candidate.get("candidate_id") or ""),
+        applied_candidate_id=applied_candidate_id,
     )
 
 

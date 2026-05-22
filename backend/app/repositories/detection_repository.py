@@ -372,6 +372,37 @@ class DetectionRepository:
                 return candidate
         return candidates[0] if candidates else None
 
+    async def mark_selected_snapshot_candidate(
+        self,
+        frigate_event: str,
+        candidate_id: Optional[str],
+    ) -> None:
+        """Mark the currently applied snapshot candidate for an event.
+
+        Passing None clears selection, which is used when reverting to the
+        original Frigate snapshot.
+        """
+        if not await self._table_exists("snapshot_candidates"):
+            return
+        await self.db.execute(
+            """
+            UPDATE snapshot_candidates
+            SET selected = 0, updated_at = CURRENT_TIMESTAMP
+            WHERE frigate_event = ?
+            """,
+            (frigate_event,),
+        )
+        if candidate_id:
+            await self.db.execute(
+                """
+                UPDATE snapshot_candidates
+                SET selected = 1, updated_at = CURRENT_TIMESTAMP
+                WHERE frigate_event = ? AND candidate_id = ?
+                """,
+                (frigate_event, candidate_id),
+            )
+        await self.db.commit()
+
     async def replace_video_top_frames(
         self,
         frigate_event: str,

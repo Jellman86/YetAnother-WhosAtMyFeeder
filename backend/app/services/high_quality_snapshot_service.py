@@ -324,12 +324,29 @@ class HighQualitySnapshotService:
 
         ranked = self._rank_snapshot_candidates(scored)
         persisted = ranked[:HQ_MAX_PERSISTED_CANDIDATES]
-        for index, candidate in enumerate(persisted):
-            candidate["selected"] = index == 0
+        selected_candidate = self._select_canonical_snapshot_candidate(persisted)
+        selected_candidate_id = str((selected_candidate or {}).get("candidate_id") or "")
+        for candidate in persisted:
+            candidate["selected"] = bool(selected_candidate_id) and str(candidate.get("candidate_id") or "") == selected_candidate_id
         return {
-            "selected_candidate": persisted[0],
+            "selected_candidate": selected_candidate,
             "candidates": persisted,
         }
+
+    def _select_canonical_snapshot_candidate(self, candidates: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Choose the default displayed snapshot.
+
+        Crops are useful manual candidates and can classify well because they
+        remove background, but the canonical event snapshot should preserve the
+        high-quality scene when one is available.
+        """
+        if not candidates:
+            return None
+        best_full_frame = next(
+            (item for item in candidates if str(item.get("source_mode") or "") == "full_frame"),
+            None,
+        )
+        return best_full_frame or candidates[0]
 
     def _rank_snapshot_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Rank candidates while avoiding unusably small auto-crops.
