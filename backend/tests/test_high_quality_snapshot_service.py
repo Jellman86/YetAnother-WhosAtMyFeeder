@@ -420,7 +420,7 @@ def test_rank_snapshot_candidates_keeps_tiny_crop_when_score_is_clearly_stronger
     assert ranked[0]["candidate_id"] == "tiny-crop"
 
 
-def test_select_canonical_snapshot_candidate_prefers_full_frame_over_higher_scored_crop():
+def test_select_canonical_snapshot_candidate_prefers_full_frame_by_default():
     service = hq_module.HighQualitySnapshotService()
 
     selected = service._select_canonical_snapshot_candidate(
@@ -444,6 +444,40 @@ def test_select_canonical_snapshot_candidate_prefers_full_frame_over_higher_scor
 
     assert selected is not None
     assert selected["candidate_id"] == "full-frame"
+
+
+def test_select_canonical_snapshot_candidate_prefers_model_crop_when_configured(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_first", raising=False)
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "hint-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 1.1,
+                "image_width": 240,
+                "image_height": 220,
+            },
+            {
+                "candidate_id": "full-frame",
+                "source_mode": "full_frame",
+                "ranking_score": 0.97,
+                "image_width": 2560,
+                "image_height": 1920,
+            },
+            {
+                "candidate_id": "model-crop",
+                "source_mode": "model_crop",
+                "ranking_score": 1.0,
+                "image_width": 198,
+                "image_height": 182,
+            },
+        ]
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "model-crop"
 
 
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):

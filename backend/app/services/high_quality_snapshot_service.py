@@ -336,12 +336,20 @@ class HighQualitySnapshotService:
     def _select_canonical_snapshot_candidate(self, candidates: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
         """Choose the default displayed snapshot.
 
-        Crops are useful manual candidates and can classify well because they
-        remove background, but the canonical event snapshot should preserve the
-        high-quality scene when one is available.
+        The crop source priority controls whether crop-model candidates are
+        promoted to the canonical event snapshot. Otherwise preserve the
+        high-quality scene when one is available and keep crops as alternates.
         """
         if not candidates:
             return None
+        priority = self._bird_crop_source_priority()
+        if priority in {"crop_model_first", "crop_model_only"}:
+            best_model_crop = next(
+                (item for item in candidates if str(item.get("source_mode") or "") == "model_crop"),
+                None,
+            )
+            if best_model_crop is not None:
+                return best_model_crop
         best_full_frame = next(
             (item for item in candidates if str(item.get("source_mode") or "") == "full_frame"),
             None,
