@@ -168,6 +168,68 @@ async def test_settings_allows_enabling_auth_with_password(client: httpx.AsyncCl
 
 
 @pytest.mark.asyncio
+async def test_settings_export_includes_unredacted_config_secrets(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.mqtt_password = "mqtt-secret"
+    settings.llm.api_key = "llm-secret"
+
+    response = await client.get("/api/settings/export")
+    assert response.status_code == 200, response.text
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "yawamf-config-backup" in response.headers["Content-Disposition"]
+
+    payload = response.json()
+    assert payload["format"] == settings_router.CONFIG_BACKUP_FORMAT
+    assert payload["format_version"] == settings_router.CONFIG_BACKUP_FORMAT_VERSION
+    assert payload["includes_secrets"] is True
+    assert payload["config"]["frigate"]["mqtt_password"] == "mqtt-secret"
+    assert payload["config"]["llm"]["api_key"] == "llm-secret"
+
+
+@pytest.mark.asyncio
+async def test_settings_import_replaces_config_and_persists(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    snapshot = settings.model_copy(deep=True)
+    saved = False
+
+    async def fake_save():
+        nonlocal saved
+        saved = True
+
+    monkeypatch.setattr(settings, "save", fake_save)
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    try:
+        backup = {
+            "format": settings_router.CONFIG_BACKUP_FORMAT,
+            "format_version": settings_router.CONFIG_BACKUP_FORMAT_VERSION,
+            "includes_secrets": True,
+            "config": settings.model_dump(mode="json"),
+        }
+        backup["config"]["frigate"]["mqtt_password"] = "imported-mqtt-secret"
+        backup["config"]["llm"]["api_key"] = "imported-llm-secret"
+        backup["config"]["maintenance"]["retention_days"] = 14
+
+        response = await client.post("/api/settings/import", json=backup)
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["status"] == "imported"
+        assert "frigate" in payload["changed_fields"]
+        assert "llm" in payload["changed_fields"]
+        assert "maintenance" in payload["changed_fields"]
+        assert saved is True
+        assert settings.frigate.mqtt_password == "imported-mqtt-secret"
+        assert settings.llm.api_key == "imported-llm-secret"
+        assert settings.maintenance.retention_days == 14
+    finally:
+        settings_router._apply_imported_settings(snapshot)
+
+
+@pytest.mark.asyncio
 async def test_analysis_status_is_not_cacheable(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

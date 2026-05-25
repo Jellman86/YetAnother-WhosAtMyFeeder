@@ -190,6 +190,7 @@ GEMINI.md
 
 # Agents - project documentation and plans
 agents/
+.agents/
 .worktrees/
 
 # Models and data

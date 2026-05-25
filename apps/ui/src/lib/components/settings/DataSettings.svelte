@@ -47,6 +47,8 @@
         weatherBackfillTotal = $bindable(0),
         resettingDatabase,
         clearingFeedback,
+        exportingConfigBackup,
+        importingConfigBackup,
         analyzingUnknowns,
         analysisStatus,
         analysisTotal,
@@ -59,6 +61,8 @@
         handleApplyTimezoneRepair,
         handleBackfill,
         handleWeatherBackfill,
+        handleExportConfigBackup,
+        handleImportConfigBackup,
         handleAnalyzeUnknowns,
         handleResetDatabase,
         handleClearFeedback,
@@ -100,6 +104,8 @@
         weatherBackfillTotal: number;
         resettingDatabase: boolean;
         clearingFeedback: boolean;
+        exportingConfigBackup: boolean;
+        importingConfigBackup: boolean;
         analyzingUnknowns: boolean;
         analysisStatus: AnalysisStatus | null;
         analysisTotal: number;
@@ -112,10 +118,14 @@
         handleApplyTimezoneRepair: () => Promise<void>;
         handleBackfill: () => Promise<void>;
         handleWeatherBackfill: () => Promise<void>;
+        handleExportConfigBackup: () => Promise<void>;
+        handleImportConfigBackup: (file: File) => Promise<void>;
         handleAnalyzeUnknowns: () => Promise<void>;
         handleResetDatabase: () => Promise<void>;
         handleClearFeedback: () => Promise<void>;
     } = $props();
+
+    let configImportInput: HTMLInputElement | null = null;
 
     const safeCount = (value: unknown): number => {
         const parsed = Number(value ?? 0);
@@ -170,6 +180,18 @@
     const clearCustomRange = () => {
         backfillStartDate = '';
         backfillEndDate = todayDateOnly();
+    };
+
+    const openConfigImportPicker = () => {
+        configImportInput?.click();
+    };
+
+    const handleConfigImportChange = async (event: Event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        await handleImportConfigBackup(file);
     };
 
     $effect(() => {
@@ -432,6 +454,59 @@
             {/if}
         </SettingsCard>
     </div>
+
+    <SettingsCard
+        icon="💾"
+        title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
+        description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
+    >
+        <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 px-4 py-3">
+            <p class="text-xs font-bold leading-relaxed text-amber-800 dark:text-amber-200">
+                {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+                type="button"
+                onclick={handleExportConfigBackup}
+                disabled={exportingConfigBackup || importingConfigBackup}
+                aria-label={$_('settings.data.config_backup_export', { default: 'Export config JSON' })}
+                class="w-full {buttonNeutralClass}"
+            >
+                {#if exportingConfigBackup}{@render spinner()}{/if}
+                {exportingConfigBackup
+                    ? $_('settings.data.config_backup_exporting', { default: 'Exporting...' })
+                    : $_('settings.data.config_backup_export', { default: 'Export config JSON' })}
+            </button>
+
+            <button
+                type="button"
+                onclick={openConfigImportPicker}
+                disabled={exportingConfigBackup || importingConfigBackup}
+                aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
+                class="w-full {buttonAmberClass}"
+            >
+                {#if importingConfigBackup}{@render spinner()}{/if}
+                {importingConfigBackup
+                    ? $_('settings.data.config_backup_importing', { default: 'Importing...' })
+                    : $_('settings.data.config_backup_import', { default: 'Import config JSON' })}
+            </button>
+        </div>
+
+        <input
+            bind:this={configImportInput}
+            type="file"
+            accept="application/json,.json"
+            class="sr-only"
+            onchange={handleConfigImportChange}
+            aria-label={$_('settings.data.config_backup_import_file', { default: 'Select YA-WAMF config backup JSON' })}
+        />
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            {$_('settings.data.config_backup_restore_note', { default: 'After importing on a fresh install, run a detection backfill to rebuild the event history from Frigate.' })}
+        </p>
+    </SettingsCard>
 
     <SettingsCard
         icon="🌳"

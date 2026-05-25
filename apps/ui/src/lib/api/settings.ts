@@ -206,3 +206,31 @@ export async function updateSettings(settings: SettingsUpdate): Promise<{ status
     });
     return handleResponse<{ status: string }>(response);
 }
+
+export interface ConfigBackupImportResult {
+    status: 'imported' | string;
+    changed_fields: string[];
+}
+
+export async function exportConfigBackup(): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiFetch(`${API_BASE}/settings/export`);
+    if (!response.ok) {
+        await handleResponse<never>(response);
+    }
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = /filename="?([^";]+)"?/i.exec(disposition);
+    const filename = filenameMatch?.[1] || 'yawamf-config-backup.json';
+    return {
+        blob: await response.blob(),
+        filename,
+    };
+}
+
+export async function importConfigBackup(payload: unknown): Promise<ConfigBackupImportResult> {
+    const response = await apiFetch(`${API_BASE}/settings/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    return handleResponse<ConfigBackupImportResult>(response);
+}

@@ -46,6 +46,8 @@
         disconnectInaturalistOAuth,
         sendTestEmail,
         exportEbirdCsv,
+        exportConfigBackup,
+        importConfigBackup,
         type ClassifierStatus,
         type MaintenanceStats,
         type BackfillResult,
@@ -1962,6 +1964,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
     let resettingDatabase = $state(false);
     let clearingFeedback = $state(false);
+    let exportingConfigBackup = $state(false);
+    let importingConfigBackup = $state(false);
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
@@ -2464,6 +2468,59 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             startBackfillPolling();
         } catch (e: any) {
             message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
+        }
+    }
+
+    async function handleExportConfigBackup() {
+        const confirmed = window.confirm(
+            'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?'
+        );
+        if (!confirmed) return;
+
+        exportingConfigBackup = true;
+        message = null;
+        try {
+            const { blob, filename } = await exportConfigBackup();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            message = { type: 'success', text: 'Configuration backup exported.' };
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to export configuration backup' };
+        } finally {
+            exportingConfigBackup = false;
+        }
+    }
+
+    async function handleImportConfigBackup(file: File) {
+        const confirmed = window.confirm(
+            'Importing this backup will replace the current YA-WAMF configuration, including secrets. Continue?'
+        );
+        if (!confirmed) return;
+
+        importingConfigBackup = true;
+        message = null;
+        try {
+            const payload = JSON.parse(await file.text());
+            const result = await importConfigBackup(payload);
+            await settingsStore.load();
+            await loadSettings(true);
+            message = {
+                type: 'success',
+                text: `Configuration backup imported (${result.changed_fields.length} sections changed). Run a backfill when you are ready.`
+            };
+        } catch (e: any) {
+            const text = e instanceof SyntaxError
+                ? 'Selected file is not valid JSON'
+                : e.message || 'Failed to import configuration backup';
+            message = { type: 'error', text };
+        } finally {
+            importingConfigBackup = false;
         }
     }
 
@@ -3692,6 +3749,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {applyingTimezoneRepair}
                     {resettingDatabase}
                     {clearingFeedback}
+                    {exportingConfigBackup}
+                    {importingConfigBackup}
                     {analyzingUnknowns}
                     {analysisStatus}
                     {analysisTotal}
@@ -3704,6 +3763,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {handleApplyTimezoneRepair}
                     {handleBackfill}
                     {handleWeatherBackfill}
+                    {handleExportConfigBackup}
+                    {handleImportConfigBackup}
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}

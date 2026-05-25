@@ -1,15 +1,15 @@
 import platform
 import re
 import asyncio
-from typing import List, Optional, Literal
+from typing import Any, List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, create_model, field_validator
+from pydantic import BaseModel, Field, ValidationError, create_model, field_validator
 import structlog
 
-from app.config import settings
+from app.config import CONFIG_PATH, Settings as AppSettings, settings
 from app.auth import require_owner, AuthContext, hash_password
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -51,6 +51,8 @@ BATCH_ANALYSIS_MAX_QUEUE_PER_RUN = 50
 BATCH_ANALYSIS_MAX_SCAN_PER_RUN = 200
 BATCH_ANALYSIS_RETRY_AFTER_SECONDS = 120
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
+CONFIG_BACKUP_FORMAT = "yawamf.config.backup"
+CONFIG_BACKUP_FORMAT_VERSION = 1
 
 
 def _maintenance_guardrail_status() -> dict:
@@ -709,6 +711,102 @@ _settings_response_fields.update(
     }
 )
 SettingsResponse = create_model("SettingsResponse", **_settings_response_fields)
+
+
+def _config_backup_payload() -> dict[str, Any]:
+    return {
+        "format": CONFIG_BACKUP_FORMAT,
+        "format_version": CONFIG_BACKUP_FORMAT_VERSION,
+        "app": "YA-WAMF",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "includes_secrets": True,
+        "config_path": str(CONFIG_PATH),
+        "config": settings.model_dump(mode="json"),
+    }
+
+
+def _extract_import_config(payload: dict[str, Any]) -> dict[str, Any]:
+    config = payload.get("config")
+    if isinstance(config, dict):
+        return config
+    if "frigate" in payload and "classification" in payload:
+        return payload
+    raise HTTPException(status_code=422, detail="Invalid YA-WAMF config backup")
+
+
+def _apply_imported_settings(imported: AppSettings) -> list[str]:
+    changed_fields: list[str] = []
+    for field_name in AppSettings.model_fields:
+        old_value = getattr(settings, field_name)
+        new_value = getattr(imported, field_name)
+        if old_value != new_value:
+            changed_fields.append(field_name)
+        setattr(settings, field_name, new_value)
+    return changed_fields
+
+
+async def _broadcast_settings_imported(changed_fields: list[str], username: str) -> None:
+    try:
+        from app.services.broadcaster import broadcaster
+
+        await broadcaster.broadcast({
+            "type": "settings_updated",
+            "data": {
+                "changed_fields": sorted(changed_fields),
+                "updated_by": username,
+                "source": "config_import",
+            }
+        })
+    except Exception as e:
+        log.warning("Failed to broadcast settings import", error=str(e))
+
+
+@router.get("/settings/export")
+async def export_settings(auth: AuthContext = Depends(require_owner)):
+    """Export the full persisted configuration, including secrets. Owner only."""
+    payload = _config_backup_payload()
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return JSONResponse(
+        content=payload,
+        headers={
+            "Content-Disposition": f'attachment; filename="yawamf-config-backup-{timestamp}.json"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/settings/import")
+async def import_settings(
+    background_tasks: BackgroundTasks,
+    payload: dict[str, Any] = Body(...),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Import a full configuration backup. Owner only."""
+    config = _extract_import_config(payload)
+    try:
+        imported = AppSettings.model_validate(config)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors()) from e
+
+    if imported.auth.enabled and not imported.auth.password_hash:
+        raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
+
+    changed_fields = _apply_imported_settings(imported)
+    await settings.save()
+    await _broadcast_settings_imported(changed_fields, auth.username)
+
+    if settings.telemetry.enabled:
+        background_tasks.add_task(telemetry_service.force_heartbeat)
+    if settings.telemetry.health_enabled:
+        background_tasks.add_task(telemetry_service.force_health_report)
+
+    log.info(
+        "AUTH_AUDIT: Config backup imported",
+        event_type="config_imported",
+        username=auth.username,
+        changed_fields=changed_fields,
+    )
+    return {"status": "imported", "changed_fields": changed_fields}
 
 
 @router.get("/settings", response_model=SettingsResponse)
