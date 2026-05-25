@@ -195,11 +195,11 @@ async def test_settings_import_replaces_config_and_persists(
     snapshot = settings.model_copy(deep=True)
     saved = False
 
-    async def fake_save():
+    async def fake_save(self=None):
         nonlocal saved
         saved = True
 
-    monkeypatch.setattr(settings, "save", fake_save)
+    monkeypatch.setattr(Settings, "save", fake_save)
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
