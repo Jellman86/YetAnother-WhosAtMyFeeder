@@ -677,6 +677,15 @@ class AppearanceSettings(BaseModel):
         default="bluetit",
         description="UI color theme: default, bluetit"
     )
+    color_theme_default_migrated: bool = Field(
+        default=False,
+        description=(
+            "Internal one-time migration marker. The colour theme default changed "
+            "from 'default' (teal) to 'bluetit'; legacy configs persisted the old "
+            "default even when unchosen. Once set, a deliberate later 'default' "
+            "selection is preserved and never re-migrated."
+        ),
+    )
 
 class SystemSettings(BaseModel):
     """System-level performance and resource settings"""

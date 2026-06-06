@@ -413,7 +413,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # Appearance settings
     appearance_data = {
         'font_theme': os.environ.get('APPEARANCE__FONT_THEME', 'classic'),
-        'color_theme': os.environ.get('APPEARANCE__COLOR_THEME', 'default'),
+        'color_theme': os.environ.get('APPEARANCE__COLOR_THEME', 'bluetit'),
     }
     
     species_info_source = os.environ.get('SPECIES_INFO__SOURCE', 'auto')
@@ -647,6 +647,21 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             log.info("Loaded config from file", path=str(config_path))
         except Exception as e:
             log.warning("Failed to load config from file", path=str(config_path), error=str(e))
+
+    # One-time migration: the colour theme default changed from "default" (teal)
+    # to "bluetit". Configs written under the old default have color_theme="default"
+    # persisted even though the user never chose it, leaving existing installs stuck
+    # on teal. Migrate that legacy value to bluetit once, guarded by a marker so a
+    # deliberate later choice of the teal "default" theme is preserved (the marker is
+    # persisted via Settings.save). An explicit APPEARANCE__COLOR_THEME env var is
+    # always authoritative and never migrated.
+    if (
+        'APPEARANCE__COLOR_THEME' not in os.environ
+        and not appearance_data.get('color_theme_default_migrated')
+    ):
+        if appearance_data.get('color_theme') == 'default':
+            appearance_data['color_theme'] = 'bluetit'
+        appearance_data['color_theme_default_migrated'] = True
 
     if not auth_data.get('oauth_token_secret'):
         generated_oauth_secret = secrets_lib.token_urlsafe(32)

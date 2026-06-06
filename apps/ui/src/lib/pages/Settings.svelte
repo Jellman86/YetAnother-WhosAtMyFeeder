@@ -1748,7 +1748,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
             { key: 'fontTheme', val: currentFontTheme, store: (s.appearance_font_theme ?? 'classic') as any },
-            { key: 'colorTheme', val: currentColorTheme, store: (s.appearance_color_theme ?? 'default') as any },
+            { key: 'colorTheme', val: currentColorTheme, store: (s.appearance_color_theme ?? 'bluetit') as any },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
@@ -3061,7 +3061,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             // Appearance (persisted)
             themeStore.setFontTheme((settings.appearance_font_theme ?? 'classic') as any);
-            themeStore.setColorTheme((settings.appearance_color_theme ?? 'default') as any);
+            themeStore.setColorTheme((settings.appearance_color_theme ?? 'bluetit') as any);
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
