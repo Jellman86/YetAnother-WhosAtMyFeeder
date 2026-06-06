@@ -372,8 +372,8 @@ async def test_llm(
     )
 
 class SettingsUpdate(BaseModel):
-    frigate_url: str = Field(..., min_length=1, description="Frigate instance URL")
-    mqtt_server: str = Field(..., min_length=1, description="MQTT server hostname")
+    frigate_url: str = Field("", min_length=1, description="Frigate instance URL")
+    mqtt_server: str = Field("", min_length=1, description="MQTT server hostname")
     mqtt_port: int = Field(1883, ge=1, le=65535, description="MQTT server port")
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
     mqtt_username: Optional[str] = Field(None, description="MQTT username")
@@ -391,7 +391,7 @@ class SettingsUpdate(BaseModel):
     recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
     recording_clip_before_seconds: int = Field(30, ge=0, le=3600, description="Seconds before detection for full-visit clip")
     recording_clip_after_seconds: int = Field(90, ge=0, le=3600, description="Seconds after detection for full-visit clip")
-    classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
+    classification_threshold: float = Field(0.7, ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
