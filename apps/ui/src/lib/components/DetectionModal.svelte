@@ -34,6 +34,7 @@
         type SnapshotCandidate
     } from '../api';
     import type { Detection } from '../api';
+    import { withAuthParams } from '../api/core';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -387,14 +388,17 @@
             (a, b) => Math.abs(a.offset_seconds) - Math.abs(b.offset_seconds)
         )[0];
     });
+    // Spectrogram <img> and audio clip cannot send auth headers, so append the
+    // JWT as a query param (mirrors Frigate media URLs) to avoid 401s when
+    // authentication is enabled.
     const matchedSpectrogramUrl = $derived(
         matchedAudioEntry?.birdnet_id != null
-            ? `/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`
+            ? withAuthParams(`/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`)
             : null
     );
     const matchedAudioClipUrl = $derived(
         matchedAudioEntry?.birdnet_id != null
-            ? `/api/audio/clip/${matchedAudioEntry.birdnet_id}`
+            ? withAuthParams(`/api/audio/clip/${matchedAudioEntry.birdnet_id}`)
             : null
     );
     // Playback state bound to the hidden <audio> element. Reset whenever
