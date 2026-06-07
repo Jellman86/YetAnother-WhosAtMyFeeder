@@ -145,7 +145,13 @@
                 >
                 {#snippet body()}
                     {#if spec}
-                        <div class="absolute inset-0 bg-cover bg-center opacity-50 dark:opacity-40 transition-opacity" style="background-image: url('{spec}');"></div>
+                        <img
+                            src={spec}
+                            alt=""
+                            aria-hidden="true"
+                            loading="lazy"
+                            class="absolute inset-0 w-full h-full object-cover opacity-55 dark:opacity-45 transition-opacity pointer-events-none select-none"
+                        />
                         <div class="absolute inset-0 bg-gradient-to-r from-white/90 via-white/55 to-white/15 dark:from-slate-900/90 dark:via-slate-900/55 dark:to-slate-900/15"></div>
                     {/if}
                     <div class="relative">
