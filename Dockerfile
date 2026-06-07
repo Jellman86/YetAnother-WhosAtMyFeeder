@@ -57,7 +57,7 @@ RUN set -eux; \
         tini; \
     if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
         install -d -m 0755 /etc/apt/keyrings; \
-        curl -fsSL --retry 5 --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
+        curl -fsSL --retry 5 --retry-delay 2 https://repositories.intel.com/graphics/intel-graphics.key \
             | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg; \
         echo "deb [signed-by=/etc/apt/keyrings/intel-graphics.gpg arch=amd64] https://repositories.intel.com/gpu/ubuntu ${INTEL_GPU_APT_CHANNEL} unified" \
             > /etc/apt/sources.list.d/intel-gpu.list; \
