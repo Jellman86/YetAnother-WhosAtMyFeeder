@@ -23,11 +23,13 @@ async def client():
 def reset_auth_config():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
+    original_telemetry_enabled = settings.telemetry.enabled
     original_video_classification_max_concurrent = settings.classification.video_classification_max_concurrent
     original_maintenance_max_concurrent = settings.maintenance.max_concurrent
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
+    settings.telemetry.enabled = original_telemetry_enabled
     settings.classification.video_classification_max_concurrent = original_video_classification_max_concurrent
     settings.maintenance.max_concurrent = original_maintenance_max_concurrent
 
@@ -63,6 +65,21 @@ async def test_settings_roundtrip_personalized_rerank_enabled(client: httpx.Asyn
     assert get_after.status_code == 200, get_after.text
     after_payload = get_after.json()
     assert after_payload["personalized_rerank_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_settings_accepts_telemetry_only_partial_update(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.telemetry.enabled = False
+
+    post_resp = await client.post("/api/settings", json={"telemetry_enabled": True})
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["telemetry_enabled"] is True
 
 
 @pytest.mark.asyncio
