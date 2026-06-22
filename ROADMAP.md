@@ -9,7 +9,7 @@ This roadmap outlines planned features and improvements for the YA-WAMF bird cla
 These are the top maintenance-mode improvements to prioritize before broader feature expansion.
 
 ### 0. Classifier Inference-Health Refactor 🩺
-**Priority:** P0 | **Effort:** Complete | **Status:** All consolidation phases shipped on `dev`; field validation on `v2.10.0+` retests remains
+**Priority:** P0 | **Effort:** Complete | **Status:** All consolidation phases shipped in `v2.11.0`; field validation retests remain
 
 Issue `#33` had accumulated many overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout, and live-queue pressure handling). Each was correct in isolation, but the cumulative surface meant any new bundle risked adding another mitigation layer rather than simplifying the model. The consolidation pass is now complete.
 
@@ -35,7 +35,7 @@ Issue `#33` had accumulated many overlapping mitigation layers (admission lease 
 **Success criteria:**
 - ✅ A single `ml.inference_health` payload tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
 - ✅ Grep count for legacy fields collapsed: `last_runtime_recovery` in `classifier_service.py` went from 18+ refs to 1 (docstring); the `_RECOVERY_REASON` sentinels and `_last_runtime_recovery` field are removed entirely.
-- 🔄 The `#33` reporter retest on `v2.10.0+` remains; ask reporters to retest before closing.
+- 🔄 The `#33` reporter retest on `v2.11.0+` remains; ask reporters to retest before closing.
 - ✅ The classifier failure model fits in one paragraph: `InferenceHealth` records every inference outcome and produces one verdict per runtime; recoveries publish into the same object; the rest of the system reads from there.
 
 See the full plan for module structure, migration phases, test strategy, risks, and out-of-scope boundaries.
@@ -610,9 +610,10 @@ Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps)
 If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
 
 ### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **May 14, 2026**: only `#33` and `#49` are open. `v2.10.0` shipped on 2026-05-09; the inference-health consolidation (legacy aliases removed, recovery context unified, anonymous telemetry + Cloudflare dashboard panels added) landed on `dev` on 2026-05-14 (`Unreleased`).
-- 🔄 `#33` remains open for field validation. The maintenance-mode consolidation pass on item 0 is complete on `dev`; ask reporters to retest on the next monolithic `dev` build (or the next tagged release after `v2.10.0`) before closing.
-- 🔄 `#49` (HAOS add-on?) — see Phase 4.5; assigned and design captured, implementation deferred.
+- Snapshot as of **June 22, 2026**: `#33` is the remaining open issue. `v2.11.0` includes the inference-health consolidation, telemetry dashboard, settings backup/import, media authentication, and high-quality snapshot improvements.
+- 🔄 `#33` remains open for field validation. The maintenance-mode consolidation pass on item 0 is complete in `v2.11.0`; ask the reporter to retest on the tagged monolithic image before closing.
+- ✅ `#49` (HAOS add-on?) closed as a roadmap-tracked P3 feature; see Phase 4.5.
+- ✅ `#51` (Home Assistant event-loop warning) reviewed against Home Assistant async I/O guidance and closed as resolved.
 - ✅ `#42` BirdNET-Go MQTT/source mapping follow-up closed since the previous roadmap snapshot.
 - ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
 - ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
@@ -831,7 +832,7 @@ Add support for self-hosted LLMs via Ollama for privacy-conscious users.
 **Status:** ✅ CSV Export for eBird added. ❌ Full DB backup/restore tool pending.
 
 ### 4.5 Home Assistant OS Add-on 🏠
-**Priority:** P3 | **Effort:** M (3–5 days) | **Status:** Proposed (issue #49)
+**Priority:** P3 | **Effort:** M (3–5 days) | **Status:** Proposed
 
 YA-WAMF currently ships as a Docker container intended for `docker compose` deployment. Home Assistant OS users can run it today via the Portainer add-on or any other path that lets them schedule a third-party container alongside HA, but there is no first-class HA add-on listing — installing YA-WAMF from the HA add-on store with a button-click is not possible.
 
@@ -1060,5 +1061,5 @@ Have a feature idea not on this list? Open an issue on [GitHub](https://github.c
 
 ---
 
-**Last Updated:** 2026-05-14
-**Version:** 2.10.0 (Unreleased follow-up: #33 consolidation + telemetry dashboard)
+**Last Updated:** 2026-06-22
+**Version:** 2.11.0
