@@ -1141,6 +1141,7 @@
     "species_info": "Info Specie",
     "delete_detection": "Elimina Rilevamento",
     "hide_detection": "Nascondi Rilevamento",
+    "unhide_detection": "Mostra Rilevamento",
     "read_more_wikipedia": "Leggi altro su Wikipedia",
     "read_more_source": "Leggi altro su {source}",
     "delete_selected": "Elimina selezionati",
@@ -1415,6 +1416,8 @@
       "audio_confirmed": "Corrispondenze audio",
       "audio_confirmed_only": "Solo confermati audio",
       "favorites": "Preferiti",
+      "hidden": "Nascosti",
+      "hidden_detections": "Mostra rilevamenti nascosti",
       "refresh_options": "Aggiorna opzioni",
       "refreshing_options": "Aggiornamento opzioni..."
     },

@@ -1133,6 +1133,7 @@
     "species_info": "Spezies-Info",
     "delete_detection": "Erkennung löschen",
     "hide_detection": "Erkennung ausblenden",
+    "unhide_detection": "Erkennung einblenden",
     "read_more_wikipedia": "Mehr auf Wikipedia lesen",
     "read_more_source": "Mehr auf {source} lesen",
     "delete_selected": "Auswahl löschen",
@@ -1407,6 +1408,8 @@
       "audio_confirmed": "Audio-Übereinstimmungen",
       "audio_confirmed_only": "Nur Audio-bestätigt",
       "favorites": "Favoriten",
+      "hidden": "Ausgeblendet",
+      "hidden_detections": "Ausgeblendete Erkennungen anzeigen",
       "refresh_options": "Optionen aktualisieren",
       "refreshing_options": "Optionen werden aktualisiert..."
     },

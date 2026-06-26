@@ -1141,6 +1141,7 @@
     "species_info": "Info da Espécie",
     "delete_detection": "Excluir Detecção",
     "hide_detection": "Ocultar Detecção",
+    "unhide_detection": "Mostrar Detecção",
     "read_more_wikipedia": "Leia mais na Wikipedia",
     "read_more_source": "Leia mais em {source}",
     "delete_selected": "Excluir selecionados",
@@ -1415,6 +1416,8 @@
       "audio_confirmed": "Correspondências de áudio",
       "audio_confirmed_only": "Somente confirmados por áudio",
       "favorites": "Favoritos",
+      "hidden": "Ocultos",
+      "hidden_detections": "Mostrar detecções ocultas",
       "refresh_options": "Atualizar opções",
       "refreshing_options": "Atualizando opções..."
     },

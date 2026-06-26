@@ -1133,6 +1133,7 @@
     "species_info": "種の情報",
     "delete_detection": "検出を削除",
     "hide_detection": "検出を非表示",
+    "unhide_detection": "検出を再表示",
     "read_more_wikipedia": "ウィキペディアで続きを読む",
     "read_more_source": "{source}で続きを読む",
     "delete_selected": "選択項目を削除",
@@ -1407,6 +1408,8 @@
       "audio_confirmed": "オーディオ一致",
       "audio_confirmed_only": "オーディオ確認済みのみ",
       "favorites": "お気に入り",
+      "hidden": "非表示",
+      "hidden_detections": "非表示の検出を表示",
       "refresh_options": "オプションを更新",
       "refreshing_options": "オプションを更新中..."
     },

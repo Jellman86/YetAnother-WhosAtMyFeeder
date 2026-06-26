@@ -1133,6 +1133,7 @@
     "species_info": "Información de la Especie",
     "delete_detection": "Eliminar Detección",
     "hide_detection": "Ocultar Detección",
+    "unhide_detection": "Mostrar Detección",
     "read_more_wikipedia": "Leer más en Wikipedia",
     "read_more_source": "Leer más en {source}",
     "delete_selected": "Eliminar seleccionados",
@@ -1407,6 +1408,8 @@
       "audio_confirmed": "Coincidencias de audio",
       "audio_confirmed_only": "Solo confirmados por audio",
       "favorites": "Favoritos",
+      "hidden": "Ocultos",
+      "hidden_detections": "Mostrar detecciones ocultas",
       "refresh_options": "Actualizar opciones",
       "refreshing_options": "Actualizando opciones..."
     },

@@ -612,13 +612,23 @@
         hiding = true;
         try {
             const result = await hideDetection(selectedEvent.frigate_event);
+            const eventId = selectedEvent.frigate_event;
+            const detectionTime = selectedEvent.detection_time;
             if (result.is_hidden) {
-                events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
-                detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+                if (showHidden) {
+                    events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: true } : e);
+                } else {
+                    events = events.filter(e => e.frigate_event !== eventId);
+                    detectionsStore.removeDetection(eventId, detectionTime);
+                }
                 selectedEvent = null;
                 hiddenCount++;
-                await refreshEventMetadata(true, false);
+            } else {
+                events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
+                hiddenCount = Math.max(0, hiddenCount - 1);
+                selectedEvent = null;
             }
+            await refreshEventMetadata(true, false);
         } catch {} finally { hiding = false; }
     }
 
@@ -1089,6 +1099,37 @@
             </svg>
             <span>{$_('events.filters.audio_confirmed', { default: 'Audio Matches' })}</span>
             </button>
+            {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                        {showHidden
+                            ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
+                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+                    onclick={() => {
+                        showHidden = !showHidden;
+                        currentPage = 1;
+                        void loadEvents();
+                    }}
+                    aria-pressed={showHidden}
+                    title={$_('events.filters.hidden_detections', { default: 'Show hidden detections' })}
+                >
+                    {#if showHidden}
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.457 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.543-7z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    {:else}
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                    {/if}
+                    <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
+                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
+                        {hiddenCount}
+                    </span>
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -1228,11 +1269,20 @@
             selectedEvent = null;
             await refreshEventMetadata(true, false);
         }}
-        onHideSuccess={async (hiddenEventId: string, detectionTime?: string) => {
-            events = events.filter((event) => event.frigate_event !== hiddenEventId);
-            detectionsStore.removeDetection(hiddenEventId, detectionTime);
+        onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
+            if (isHidden) {
+                if (showHidden) {
+                    events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
+                } else {
+                    events = events.filter((event) => event.frigate_event !== hiddenEventId);
+                    detectionsStore.removeDetection(hiddenEventId, detectionTime);
+                }
+                hiddenCount++;
+            } else {
+                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+                hiddenCount = Math.max(0, hiddenCount - 1);
+            }
             selectedEvent = null;
-            hiddenCount++;
             await refreshEventMetadata(true, false);
         }}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {

@@ -1141,6 +1141,7 @@
     "species_info": "Информация о виде",
     "delete_detection": "Удалить обнаружение",
     "hide_detection": "Скрыть обнаружение",
+    "unhide_detection": "Показать обнаружение",
     "read_more_wikipedia": "Читать больше в Википедии",
     "read_more_source": "Читать больше на {source}",
     "delete_selected": "Удалить выбранные",
@@ -1415,6 +1416,8 @@
       "audio_confirmed": "Совпадения аудио",
       "audio_confirmed_only": "Только подтверждённые аудио",
       "favorites": "Избранное",
+      "hidden": "Скрытые",
+      "hidden_detections": "Показать скрытые обнаружения",
       "refresh_options": "Обновить параметры",
       "refreshing_options": "Обновление параметров..."
     },

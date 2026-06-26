@@ -1133,6 +1133,7 @@
     "species_info": "物种信息",
     "delete_detection": "删除检测",
     "hide_detection": "隐藏检测",
+    "unhide_detection": "取消隐藏检测",
     "read_more_wikipedia": "在维基百科上阅读更多",
     "read_more_source": "在 {source} 上阅读更多",
     "delete_selected": "删除所选",
@@ -1407,6 +1408,8 @@
       "audio_confirmed": "音频匹配",
       "audio_confirmed_only": "仅音频确认",
       "favorites": "收藏夹",
+      "hidden": "已隐藏",
+      "hidden_detections": "显示隐藏的检测",
       "refresh_options": "刷新选项",
       "refreshing_options": "正在刷新选项..."
     },

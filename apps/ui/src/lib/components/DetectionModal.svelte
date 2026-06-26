@@ -74,7 +74,7 @@
         onPlayVideo?: (frigateEvent: string, playIntent?: 'auto' | 'user') => void;
         onFetchFullVisit?: (detection: Detection) => void;
         onDeleteSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
-        onHideSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
+        onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
@@ -100,6 +100,11 @@
         fullVisitFetchState = 'idle'
     }: Props = $props();
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
+    let hideActionLabel = $derived(
+        detection.is_hidden
+            ? $_('actions.unhide_detection', { default: 'Unhide Detection' })
+            : $_('actions.hide_detection')
+    );
 
     // True when video classification completed with a real species but did not
     // match any current primary identity field, so owner confirmation is needed.
@@ -1099,11 +1104,12 @@
         if (!detection) return;
         try {
             const result = await hideDetection(detection.frigate_event);
+            detection.is_hidden = result.is_hidden;
             if (result.is_hidden) {
                 detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
-                await onHideSuccess?.(detection.frigate_event, detection.detection_time);
-                onClose();
             }
+            await onHideSuccess?.(detection.frigate_event, detection.detection_time, result.is_hidden);
+            onClose();
         } catch (e: any) {
             alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
         }
@@ -3146,12 +3152,22 @@
                     </button>
                     <button
                         onclick={handleHide}
-                        class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 transition-colors"
-                        title={$_('actions.hide_detection')}
+                        class="p-3 rounded-xl transition-colors {detection.is_hidden
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'}"
+                        title={hideActionLabel}
+                        aria-label={hideActionLabel}
                     >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
+                        {#if detection.is_hidden}
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.457 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.543-7z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        {:else}
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                        {/if}
                     </button>
                 {/if}
                 <button

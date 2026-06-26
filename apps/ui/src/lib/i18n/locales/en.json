@@ -1141,6 +1141,7 @@
     "species_info": "Species Info",
     "delete_detection": "Delete Detection",
     "hide_detection": "Hide Detection",
+    "unhide_detection": "Unhide Detection",
     "read_more_wikipedia": "Read more on Wikipedia",
     "read_more_source": "Read more on {source}",
     "delete_selected": "Delete Selected",
@@ -1415,6 +1416,8 @@
       "favorites": "Favorites",
       "audio_confirmed": "Audio Matches",
       "audio_confirmed_only": "Audio Confirmed Only",
+      "hidden": "Hidden",
+      "hidden_detections": "Show hidden detections",
       "refresh_options": "Refresh options",
       "refreshing_options": "Refreshing options..."
     },

@@ -33,6 +33,12 @@ describe('Explorer page layout', () => {
 
     it('wires modal delete and hide success back into page refresh logic', () => {
         expect(eventsSource).toContain('onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {');
-        expect(eventsSource).toContain('onHideSuccess={async (hiddenEventId: string, detectionTime?: string) => {');
+        expect(eventsSource).toContain('onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {');
+    });
+
+    it('exposes hidden detections through an owner-only filter chip', () => {
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}');
+        expect(eventsSource).toContain("$_('events.filters.hidden', { default: 'Hidden' })");
+        expect(eventsSource).toContain("showHidden = !showHidden;");
     });
 });
