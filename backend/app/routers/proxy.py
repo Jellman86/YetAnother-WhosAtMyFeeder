@@ -1859,6 +1859,11 @@ async def check_clip_exists(
         )
 
 
+# Cache for HEAD responses to avoid repeated Frigate checks
+_head_response_cache: dict[str, tuple[float, int]] = {}
+HEAD_CACHE_TTL = 300  # 5 minutes
+
+
 @router.head("/frigate/{event_id}/recording-clip.mp4")
 @guest_rate_limit()
 async def check_recording_clip_exists(
@@ -1867,6 +1872,14 @@ async def check_recording_clip_exists(
     auth: AuthContext = Depends(get_proxy_auth_context),
 ):
     lang = get_user_language(request)
+
+    # Check cache first
+    import time
+    now = time.time()
+    if event_id in _head_response_cache:
+        cached_time, cached_status = _head_response_cache[event_id]
+        if now - cached_time < HEAD_CACHE_TTL:
+            return Response(status_code=cached_status, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
 
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(
@@ -1900,11 +1913,13 @@ async def check_recording_clip_exists(
                 detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
             )
         if resp.status_code == 404:
+            _head_response_cache[event_id] = (now, 404)
             raise HTTPException(
                 status_code=404,
                 detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
             )
         resp.raise_for_status()
+        _head_response_cache[event_id] = (now, 200)
         return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "available"})
     except HTTPException:
         raise

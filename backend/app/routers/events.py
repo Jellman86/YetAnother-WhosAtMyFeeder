@@ -443,6 +443,7 @@ _LIST_FIELDS = {
     "id", "detection_time", "detection_index", "score", "display_name",
     "category_name", "camera_name", "frigate_event", "is_hidden", "is_favorite",
     "has_clip", "has_snapshot", "has_frigate_event",
+    "audio_species", "audio_score", "audio_confirmed", "audio_context_species",
 }
 _DETAIL_FIELDS = set()  # Empty = all fields
 
