@@ -438,7 +438,27 @@ async def get_event_filters(
         return result
 
 
-@router.get("/events", response_model=List[DetectionResponse])
+# Field presets for the events API
+_LIST_FIELDS = {
+    "id", "detection_time", "detection_index", "score", "display_name",
+    "category_name", "camera_name", "frigate_event", "is_hidden", "is_favorite",
+    "has_clip", "has_snapshot", "has_frigate_event",
+    "audio_species", "audio_score", "audio_confirmed", "audio_context_species",
+}
+_DETAIL_FIELDS = set()  # Empty = all fields
+
+
+def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
+    """Return event dict with only requested fields, ensuring required fields are always included."""
+    if not fields:
+        return event
+    # Always include required fields from Detection model
+    required = {"detection_time", "detection_index", "score", "display_name",
+                "category_name", "frigate_event", "camera_name"}
+    return {k: v for k, v in event.items() if k in fields or k in required}
+
+
+@router.get("/events")
 @guest_rate_limit()
 async def get_events(
     request: Request,
@@ -452,6 +472,7 @@ async def get_events(
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    fields: Optional[str] = Query(default=None, description="Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields."),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get paginated events with optional filters.
@@ -684,6 +705,25 @@ async def get_events(
                 ai_analysis_timestamp=event.ai_analysis_timestamp
             )
             response_events.append(response_event)
+
+        # Apply field filtering if requested
+        if fields:
+            log.info("Field filtering requested", fields=fields)
+            if fields == "list":
+                selected_fields = _LIST_FIELDS
+            elif fields == "detail":
+                selected_fields = None  # Return all fields
+            else:
+                selected_fields = {f.strip() for f in fields.split(",") if f.strip()}
+                # Always include id and frigate_event for navigation
+                selected_fields.update({"id", "frigate_event"})
+
+            if selected_fields:
+                log.info("Filtering fields", count=len(selected_fields))
+                return [
+                    _filter_event_fields(e.model_dump(), selected_fields)
+                    for e in response_events
+                ]
 
         return response_events
 
@@ -1282,6 +1322,39 @@ async def reclassify_event(
 
             results = []
 
+            # Auto-fallback: when video strategy requested, try snapshot first.
+            # Only proceed to video if snapshot yields Unknown or low confidence.
+            skip_snapshot_preflight = False
+            if effective_strategy == "video":
+                snapshot_data_preflight = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+                if snapshot_data_preflight:
+                    image_preflight = Image.open(BytesIO(snapshot_data_preflight))
+                    preflight_results = await classifier.classify_async(
+                        image_preflight,
+                        camera_name=detection.camera_name,
+                        input_context={"is_cropped": True, "event_id": event_id},
+                    )
+                    top_preflight = preflight_results[0] if preflight_results else None
+                    preflight_label = (top_preflight or {}).get("label", "")
+                    preflight_score = (top_preflight or {}).get("score", 0.0)
+                    # Check if label is unknown or low confidence
+                    is_unknown_preflight = (
+                        preflight_label in settings.classification.unknown_bird_labels
+                        or preflight_label.lower() in ("unknown", "unknown bird")
+                        or preflight_score < settings.classification.threshold
+                    )
+
+                    if not is_unknown_preflight:
+                        # Snapshot gave a confident result — skip video, use snapshot
+                        log.info("Snapshot preflight succeeded, skipping video",
+                                 event_id=event_id, label=preflight_label, score=preflight_score)
+                        effective_strategy = "snapshot"
+                        results = preflight_results
+                        skip_snapshot_preflight = True
+                    else:
+                        log.info("Snapshot preflight yielded unknown/low-confidence, proceeding to video",
+                                 event_id=event_id, label=preflight_label, score=preflight_score)
+
             if effective_strategy == "video":
                 await broadcast_video_status("processing", None)
                 # Fetch clip - check cache first
@@ -1483,7 +1556,7 @@ async def reclassify_event(
                                     )
 
             # Snapshot strategy (Default or Fallback)
-            if effective_strategy == "snapshot":
+            if effective_strategy == "snapshot" and not skip_snapshot_preflight:
                 await broadcast_reclassification_started("snapshot")
 
                 snapshot_data = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(event_id, crop=True, quality=95)
