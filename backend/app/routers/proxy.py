@@ -248,11 +248,12 @@ async def _list_snapshot_candidates(event_id: str) -> list[dict]:
 
 
 def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str) -> str:
+    import time
     return request.url_for(
         "get_snapshot_candidate_thumbnail",
         event_id=event_id,
         candidate_id=candidate_id,
-    ).path
+    ).path + f"?v={int(time.time())}"
 
 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
