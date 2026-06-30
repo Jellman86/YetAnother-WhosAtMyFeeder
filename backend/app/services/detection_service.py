@@ -275,10 +275,22 @@ class DetectionService:
         display_name = label
         if should_hide_species_label(label):
             display_name = UNKNOWN_BIRD_DISPLAY_LABEL
-        elif settings.classification.display_common_names and common_name:
-            display_name = common_name
-        elif not settings.classification.display_common_names and scientific_name:
-            display_name = scientific_name
+        else:
+            # Try localized name first if notification_language is non-English
+            display_lang = getattr(settings.notifications, "notification_language", None)
+            localized_name = None
+            if display_lang and display_lang != "en" and taxa_id:
+                try:
+                    localized_name = await taxonomy_service.get_localized_common_name(taxa_id, display_lang)
+                except Exception as exc:
+                    log.debug("Localized display name lookup failed", taxa_id=taxa_id, lang=display_lang, error=str(exc))
+
+            if localized_name:
+                display_name = localized_name
+            elif settings.classification.display_common_names and common_name:
+                display_name = common_name
+            elif not settings.classification.display_common_names and scientific_name:
+                display_name = scientific_name
 
         async with get_db() as db:
             repo = DetectionRepository(db)
@@ -558,13 +570,27 @@ class DetectionService:
                 else:
                     scientific_name = scientific_name or new_species
 
-                display_name = new_species
+                # Determine display name with localized lookup
+                localized_name = None
+                if taxa_id and settings.notifications.notification_language != "en":
+                    try:
+                        localized_name = await taxonomy_service.get_localized_common_name(
+                            taxa_id, settings.notifications.notification_language
+                        )
+                    except Exception as exc:
+                        log.debug("Localized display name lookup failed during reclassify",
+                                  taxa_id=taxa_id, error=str(exc))
+
                 if new_species == UNKNOWN_BIRD_DISPLAY_LABEL:
                     display_name = UNKNOWN_BIRD_DISPLAY_LABEL
+                elif localized_name:
+                    display_name = localized_name
                 elif settings.classification.display_common_names and common_name:
                     display_name = common_name
                 elif not settings.classification.display_common_names and scientific_name:
                     display_name = scientific_name
+                else:
+                    display_name = new_species
 
                 # Re-evaluate audio confirmation against new species (robustly)
                 from app.services.audio.audio_service import audio_service
