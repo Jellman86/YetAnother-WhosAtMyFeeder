@@ -1285,7 +1285,7 @@ async def reclassify_event(
             # Auto-fallback: when video strategy requested, try snapshot first.
             # Only proceed to video if snapshot yields Unknown or low confidence.
             skip_snapshot_preflight = False
-            if effective_strategy == "video" and has_clip:
+            if effective_strategy == "video":
                 snapshot_data_preflight = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(event_id, crop=True, quality=95)
                 if snapshot_data_preflight:
                     image_preflight = Image.open(BytesIO(snapshot_data_preflight))
