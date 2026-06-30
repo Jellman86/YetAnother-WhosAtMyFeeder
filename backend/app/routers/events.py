@@ -1337,7 +1337,12 @@ async def reclassify_event(
                     top_preflight = preflight_results[0] if preflight_results else None
                     preflight_label = (top_preflight or {}).get("label", "")
                     preflight_score = (top_preflight or {}).get("score", 0.0)
-                    is_unknown_preflight = preflight_label in settings.classification.unknown_bird_labels or preflight_score < settings.classification.threshold
+                    # Check if label is unknown or low confidence
+                    is_unknown_preflight = (
+                        preflight_label in settings.classification.unknown_bird_labels
+                        or preflight_label.lower() in ("unknown", "unknown bird")
+                        or preflight_score < settings.classification.threshold
+                    )
 
                     if not is_unknown_preflight:
                         # Snapshot gave a confident result — skip video, use snapshot
