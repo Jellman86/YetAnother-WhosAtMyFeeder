@@ -11,6 +11,7 @@ from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL,
+    rewrite_label,
     should_hide_species_label,
     unknown_species_labels,
     user_facing_species_fields,
@@ -220,7 +221,7 @@ class DetectionService:
         sub_label = normalize_sub_label(sub_label)
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
-        label = classification['label']
+        label = rewrite_label(classification['label'])
         taxonomy: dict = {}
         try:
             taxonomy = await asyncio.wait_for(
@@ -534,7 +535,7 @@ class DetectionService:
                 should_override = bool(video_score >= required_score)
 
             if should_override:
-                new_species = normalize_classifier_label(video_label)
+                new_species = rewrite_label(normalize_classifier_label(video_label))
                 # Relabel unknown birds consistently
                 if hidden_video_label or new_species in settings.classification.unknown_bird_labels:
                     new_species = "Unknown Bird"
