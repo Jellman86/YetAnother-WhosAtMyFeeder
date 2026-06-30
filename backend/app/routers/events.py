@@ -438,7 +438,26 @@ async def get_event_filters(
         return result
 
 
-@router.get("/events", response_model=List[DetectionResponse])
+# Field presets for the events API
+_LIST_FIELDS = {
+    "id", "detection_time", "detection_index", "score", "display_name",
+    "category_name", "camera_name", "frigate_event", "is_hidden", "is_favorite",
+    "has_clip", "has_snapshot", "has_frigate_event",
+}
+_DETAIL_FIELDS = set()  # Empty = all fields
+
+
+def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
+    """Return event dict with only requested fields, ensuring required fields are always included."""
+    if not fields:
+        return event
+    # Always include required fields from Detection model
+    required = {"detection_time", "detection_index", "score", "display_name",
+                "category_name", "frigate_event", "camera_name"}
+    return {k: v for k, v in event.items() if k in fields or k in required}
+
+
+@router.get("/events")
 @guest_rate_limit()
 async def get_events(
     request: Request,
@@ -452,6 +471,7 @@ async def get_events(
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    fields: Optional[str] = Query(default=None, description="Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields."),
     auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get paginated events with optional filters.
@@ -684,6 +704,25 @@ async def get_events(
                 ai_analysis_timestamp=event.ai_analysis_timestamp
             )
             response_events.append(response_event)
+
+        # Apply field filtering if requested
+        if fields:
+            log.info("Field filtering requested", fields=fields)
+            if fields == "list":
+                selected_fields = _LIST_FIELDS
+            elif fields == "detail":
+                selected_fields = None  # Return all fields
+            else:
+                selected_fields = {f.strip() for f in fields.split(",") if f.strip()}
+                # Always include id and frigate_event for navigation
+                selected_fields.update({"id", "frigate_event"})
+
+            if selected_fields:
+                log.info("Filtering fields", count=len(selected_fields))
+                return [
+                    _filter_event_fields(e.model_dump(), selected_fields)
+                    for e in response_events
+                ]
 
         return response_events
 
