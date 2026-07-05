@@ -608,57 +608,6 @@
                         </span>
                     </div>
 
-                    {#if (classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false)}
-                        <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60 space-y-2">
-                            <div class="flex items-start justify-between gap-2 flex-wrap">
-                                <div class="min-w-0">
-                                    <p class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{$_('settings.detection.compat_title', { default: 'Device compatibility check' })}</p>
-                                    <p class="text-[10px] text-slate-500 leading-snug">
-                                        {#if verifiedProviders.length}
-                                            {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} {verifiedProviders.join(', ')}{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
-                                        {:else}
-                                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — iGPU/NPU are only used where verified. Run the check to enable them.' })}
-                                        {/if}
-                                    </p>
-                                </div>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    <label class="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
-                                        <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
-                                        {$_('settings.detection.compat_all_models', { default: 'test all models' })}
-                                    </label>
-                                    <button type="button" onclick={runCompatCheck} disabled={compatRunning}
-                                        class="px-3 py-1.5 rounded-md bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">
-                                        {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
-                                    </button>
-                                </div>
-                            </div>
-                            {#if compatError}<p class="text-[10px] font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
-                            {#if compatRunning && compatProgress}
-                                <p class="text-[10px] text-slate-500">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
-                            {/if}
-                            {#if compatMatrix}
-                                <div class="overflow-x-auto">
-                                    <table class="w-full text-[11px]">
-                                        <thead class="text-[9px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-700">
-                                            <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
-                                        </thead>
-                                        <tbody>
-                                            {#each Object.entries(compatMatrix.models) as [mid, row]}
-                                                <tr class="border-b border-slate-100 dark:border-slate-800">
-                                                    <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
-                                                    {#each compatMatrix.devices as dev}
-                                                        {@const c = compatDeviceCell(row, dev)}
-                                                        <td class="px-2 {c.cls}">{c.label}</td>
-                                                    {/each}
-                                                </tr>
-                                            {/each}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
-
                     <div class="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
                         <span>{$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}</span>
                         <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
@@ -740,6 +689,56 @@
             </AdvancedSection>
         </SettingsCard>
     </div>
+
+    {#if classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))}
+        <SettingsCard icon="🧪" title={$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}>
+            <div class="space-y-3">
+                <div class="flex items-start justify-between gap-3 flex-wrap">
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-snug max-w-md">
+                        {#if verifiedProviders.length}
+                            {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
+                        {:else}
+                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — iGPU/NPU are only used for models verified here. Run the check to enable them.' })}
+                        {/if}
+                    </p>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
+                            <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
+                            {$_('settings.detection.compat_all_models', { default: 'test all models' })}
+                        </label>
+                        <button type="button" onclick={runCompatCheck} disabled={compatRunning}
+                            class="px-3 py-1.5 rounded-md bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">
+                            {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+                        </button>
+                    </div>
+                </div>
+                {#if compatError}<p class="text-[11px] font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                {#if compatRunning && compatProgress}
+                    <p class="text-[11px] text-slate-500">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
+                {/if}
+                {#if compatMatrix}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[11px]">
+                            <thead class="text-[9px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                                <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
+                            </thead>
+                            <tbody>
+                                {#each Object.entries(compatMatrix.models) as [mid, row]}
+                                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                                        <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
+                                        {#each compatMatrix.devices as dev}
+                                            {@const c = compatDeviceCell(row, dev)}
+                                            <td class="px-2 {c.cls}">{c.label}</td>
+                                        {/each}
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                {/if}
+            </div>
+        </SettingsCard>
+    {/if}
 
     <SettingsCard icon="🚫" title={$_('settings.detection.blocked_labels')}>
         <p class="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
