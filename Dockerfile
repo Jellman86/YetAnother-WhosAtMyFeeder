@@ -67,14 +67,25 @@ RUN set -eux; \
             libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
-        # Intel NPU ("AI Boost") Level-Zero driver + compiler, required for the
-        # OpenVINO `intel_npu` provider on Core Ultra. Best-effort: these packages
-        # are not in every channel/arch and the image must still build on hosts
-        # without an NPU, so a miss is non-fatal (intel_npu then falls back).
-        apt-get install -y --no-install-recommends \
-            intel-level-zero-npu \
-            intel-driver-compiler-npu \
-            || echo "WARN: Intel NPU driver packages unavailable in ${INTEL_GPU_APT_CHANNEL}; intel_npu will fall back to CPU/GPU"; \
+        # Intel NPU ("AI Boost") driver for the OpenVINO `intel_npu` provider on
+        # Core Ultra. These are NOT in the intel-graphics apt repo, so install the
+        # release .debs (firmware + Level-Zero driver + compiler). Version validated
+        # against OpenVINO 2025.4.x on Arrow Lake. Best-effort: the image must still
+        # build on non-NPU hosts, so a failure here is non-fatal (intel_npu then
+        # falls back to GPU/CPU).
+        NPU_VER=1.17.0.20250508-14912879441; \
+        NPU_REL=https://github.com/intel/linux-npu-driver/releases/download/v1.17.0; \
+        ( cd /tmp \
+          && for p in intel-fw-npu intel-driver-compiler-npu intel-level-zero-npu; do \
+                 curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                     -O "${NPU_REL}/${p}_${NPU_VER}_ubuntu24.04_amd64.deb"; \
+             done \
+          && apt-get install -y --no-install-recommends \
+                 ./intel-fw-npu_*.deb \
+                 ./intel-driver-compiler-npu_*.deb \
+                 ./intel-level-zero-npu_*.deb \
+          && rm -f /tmp/*.deb ) \
+          || echo "WARN: Intel NPU driver install failed; intel_npu will fall back to GPU/CPU"; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
