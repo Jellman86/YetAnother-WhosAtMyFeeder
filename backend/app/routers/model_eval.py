@@ -24,6 +24,8 @@ class StartRunRequest(BaseModel):
     include_per_image: bool = False
     region_override: Optional[str] = None
     sweep_devices: bool = False
+    compat_only: bool = False          # device sweep only, skip accuracy scoring
+    sweep_all_models: bool = False     # download + test every model (else installed only)
 
 
 class StartRunResponse(BaseModel):
@@ -40,6 +42,8 @@ async def start_run(
             include_per_image=body.include_per_image,
             region_override=body.region_override,
             sweep_devices=body.sweep_devices,
+            compat_only=body.compat_only,
+            sweep_all_models=body.sweep_all_models,
         )
     except ModelEvalAlreadyRunning as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))

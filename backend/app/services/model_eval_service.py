@@ -95,6 +95,8 @@ class ModelEvalRunner:
         include_per_image: bool = False,
         region_override: Optional[str] = None,
         sweep_devices: bool = False,
+        compat_only: bool = False,
+        sweep_all_models: bool = False,
     ) -> str:
         if self.is_running():
             raise ModelEvalAlreadyRunning("a model evaluation run is already in progress")
@@ -115,6 +117,8 @@ class ModelEvalRunner:
                 include_per_image=include_per_image,
                 region_override=region_override,
                 sweep_devices=sweep_devices,
+                compat_only=compat_only,
+                sweep_all_models=sweep_all_models,
             ),
             name=f"model_eval:{run_id}",
         )
@@ -207,6 +211,8 @@ class ModelEvalRunner:
         include_per_image: bool,
         region_override: Optional[str],
         sweep_devices: bool = False,
+        compat_only: bool = False,
+        sweep_all_models: bool = False,
     ) -> None:
         async with self._lock:
             try:
@@ -216,6 +222,8 @@ class ModelEvalRunner:
                     include_per_image=include_per_image,
                     region_override=region_override,
                     sweep_devices=sweep_devices,
+                    compat_only=compat_only,
+                    sweep_all_models=sweep_all_models,
                 )
             except asyncio.CancelledError:
                 log.info("model_eval_run_cancelled", run_id=run_id)
@@ -247,6 +255,8 @@ class ModelEvalRunner:
         include_per_image: bool,
         region_override: Optional[str],
         sweep_devices: bool = False,
+        compat_only: bool = False,
+        sweep_all_models: bool = False,
     ) -> None:
         from app.services.classifier_service import get_classifier
         from app.services.model_manager import model_manager
@@ -300,9 +310,10 @@ class ModelEvalRunner:
         if not usable_panel:
             raise RuntimeError("no species had any retrievable images; aborting")
 
-        # For a device sweep we want the full picture, so make sure every registry
-        # classifier model is installed (auto-downloads any that are missing).
-        if sweep_devices:
+        # Device sweep wants the full picture. A full eval always pulls every
+        # model; a standalone compatibility check only downloads all when asked
+        # (default: test the models already installed — faster, no big downloads).
+        if sweep_devices and (sweep_all_models or not compat_only):
             await self._download_all_classifier_models(run_id)
 
         # Discover classifier models
@@ -317,6 +328,41 @@ class ModelEvalRunner:
             raise RuntimeError("no installed classifier models found")
 
         original_active = model_manager.active_model_id
+
+        # Compatibility-only mode: run just the device sweep (compile + finite +
+        # real-image agreement per device) and skip the full accuracy scoring pass.
+        # This is what the Detection Settings "Run compatibility check" button uses.
+        if compat_only:
+            try:
+                if sweep_devices:
+                    await self._device_sweep(run_id, run_dir, classifiers)
+            finally:
+                if original_active and original_active != model_manager.active_model_id:
+                    try:
+                        await model_manager.activate_model(original_active)
+                        if hasattr(classifier_service, "reload_bird_model"):
+                            await classifier_service.reload_bird_model()
+                    except Exception as e:
+                        log.warning("model_eval_restore_failed", model_id=original_active, error=str(e))
+                try:
+                    cleanup_image_dir(images_root)
+                except Exception as e:
+                    log.warning("model_eval_cleanup_failed", error=str(e))
+            _write_summary(run_dir, _build_summary_envelope(
+                run_id=run_id,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                panel=usable_panel,
+                total_images=total_images,
+                image_sources=image_sources_count,
+                region_label=region_label,
+                models=[],
+                skipped_models=[],
+            ))
+            await self._emit(run_id, phase="complete", progress={
+                "done": len(classifiers), "total": len(classifiers), "label": "complete",
+            })
+            return
 
         # Open per-image jsonl writer once if requested
         results_fp: Optional[io.TextIOWrapper] = None

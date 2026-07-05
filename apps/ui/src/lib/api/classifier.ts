@@ -25,6 +25,12 @@ export interface ClassifierStatus {
     intel_cpu_available?: boolean;
     intel_gpu_available?: boolean;
     intel_npu_available?: boolean;
+    host_device_eligibility?: {
+        verified_providers?: string[];
+        generated_at?: string | null;
+        run_id?: string | null;
+        model_count?: number;
+    };
     dev_dri_present?: boolean;
     dev_accel_present?: boolean;
     dev_dri_entries?: string[];

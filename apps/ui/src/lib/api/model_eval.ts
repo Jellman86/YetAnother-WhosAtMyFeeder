@@ -91,6 +91,8 @@ export async function startModelEvalRun(opts: {
     include_per_image?: boolean;
     region_override?: string | null;
     sweep_devices?: boolean;
+    compat_only?: boolean;
+    sweep_all_models?: boolean;
 } = {}): Promise<{ run_id: string }> {
     const resp = await apiFetch(`${BASE}/runs`, {
         method: 'POST',
@@ -99,6 +101,8 @@ export async function startModelEvalRun(opts: {
             include_per_image: !!opts.include_per_image,
             region_override: opts.region_override ?? null,
             sweep_devices: !!opts.sweep_devices,
+            compat_only: !!opts.compat_only,
+            sweep_all_models: !!opts.sweep_all_models,
         }),
     });
     return handleResponse<{ run_id: string }>(resp);

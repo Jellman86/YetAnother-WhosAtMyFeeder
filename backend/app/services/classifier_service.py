@@ -429,6 +429,31 @@ def _host_validated_providers(model_id: str) -> list[str]:
         return []
 
 
+def _host_device_eligibility_summary() -> dict[str, Any]:
+    """Summary of the per-host compatibility sweep for the UI: the union of
+    providers validated across all models, plus when/what run produced it.
+    Lets the Settings UI show iGPU/NPU as verified vs unverified per host."""
+    try:
+        base = os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval")
+        path = Path(base) / "device_eligibility.json"
+        if not path.is_file():
+            return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
+        data = json.loads(path.read_text())
+        models = data.get("models") or {}
+        union: set[str] = set()
+        for provs in models.values():
+            for p in (provs or []):
+                union.add(str(p).strip().lower())
+        return {
+            "verified_providers": sorted(union),
+            "generated_at": data.get("generated_at"),
+            "run_id": data.get("run_id"),
+            "model_count": len(models),
+        }
+    except Exception:
+        return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
+
+
 def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.ndarray:
     probs = np.asarray(values, dtype=np.float32).reshape(-1)
     if probs.size == 0:
@@ -4085,6 +4110,7 @@ class ClassifierService:
             "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
             "intel_npu_available": bool(self._accel_caps.get("intel_npu_available")),
+            "host_device_eligibility": _host_device_eligibility_summary(),
             "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
             "dev_dri_entries": self._accel_caps.get("dev_dri_entries") or [],
             "dev_accel_present": bool(self._accel_caps.get("dev_accel_present")),

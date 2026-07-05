@@ -4,6 +4,7 @@
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import { searchSpecies, type ClassifierStatus, type SearchResult } from '../../api';
+    import { startModelEvalRun, listModelEvalRuns, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
@@ -80,6 +81,79 @@
     const recommendedFallbackProvider = $derived(
         (classifierStatus?.cuda_available ?? false) ? 'NVIDIA CUDA' : 'CPU'
     );
+
+    // --- Per-host device compatibility check ---
+    const verifiedProviders = $derived(classifierStatus?.host_device_eligibility?.verified_providers ?? []);
+    function providerVerified(p: string): boolean {
+        return verifiedProviders.includes(p);
+    }
+    let compatRunning = $state(false);
+    let compatAllModels = $state(false);
+    let compatPhase = $state<string | null>(null);
+    let compatProgress = $state<{ done: number; total: number; label: string } | null>(null);
+    let compatMatrix = $state<DeviceMatrix | null>(null);
+    let compatError = $state<string | null>(null);
+    let compatPoll: any = null;
+
+    async function runCompatCheck() {
+        compatError = null;
+        compatMatrix = null;
+        compatRunning = true;
+        compatPhase = 'starting';
+        compatProgress = null;
+        let seenActive = false;
+        try {
+            const { run_id } = await startModelEvalRun({
+                sweep_devices: true,
+                compat_only: true,
+                sweep_all_models: compatAllModels,
+            });
+            compatPoll = window.setInterval(async () => {
+                try {
+                    const list = await listModelEvalRuns();
+                    if (list.active && list.active.run_id === run_id) {
+                        seenActive = true;
+                        compatPhase = list.active.phase ?? null;
+                        compatProgress = list.active.progress ?? null;
+                    } else if (seenActive) {
+                        clearInterval(compatPoll);
+                        compatPoll = null;
+                        compatRunning = false;
+                        compatPhase = 'complete';
+                        try {
+                            compatMatrix = await getModelEvalDeviceMatrix(run_id);
+                        } catch {
+                            compatMatrix = null;
+                        }
+                    }
+                } catch {
+                    /* transient — keep polling */
+                }
+            }, 2000);
+        } catch (e) {
+            compatRunning = false;
+            compatError = (e as Error).message;
+        }
+    }
+
+    function compatDeviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+        if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
+        const e = row.devices?.[dev];
+        if (!e) return { label: '—', cls: 'text-slate-400' };
+        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
+        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
+        if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
+        const n = e.images_compared;
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-emerald-600 dark:text-emerald-400' };
+        if (typeof e.top1_match_rate === 'number' && n) {
+            return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
+        return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
+    }
+
+    onDestroy(() => {
+        if (compatPoll) clearInterval(compatPoll);
+    });
 
     let blockedSpeciesSearchQuery = $state('');
     let blockedSpeciesSearchResults = $state<SearchResult[]>([]);
@@ -527,12 +601,64 @@
                             {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                         </span>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
-                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
+                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
-                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
+                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                     </div>
+
+                    {#if (classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false)}
+                        <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60 space-y-2">
+                            <div class="flex items-start justify-between gap-2 flex-wrap">
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{$_('settings.detection.compat_title', { default: 'Device compatibility check' })}</p>
+                                    <p class="text-[10px] text-slate-500 leading-snug">
+                                        {#if verifiedProviders.length}
+                                            {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} {verifiedProviders.join(', ')}{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
+                                        {:else}
+                                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — iGPU/NPU are only used where verified. Run the check to enable them.' })}
+                                        {/if}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <label class="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
+                                        <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
+                                        {$_('settings.detection.compat_all_models', { default: 'test all models' })}
+                                    </label>
+                                    <button type="button" onclick={runCompatCheck} disabled={compatRunning}
+                                        class="px-3 py-1.5 rounded-md bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">
+                                        {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+                                    </button>
+                                </div>
+                            </div>
+                            {#if compatError}<p class="text-[10px] font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                            {#if compatRunning && compatProgress}
+                                <p class="text-[10px] text-slate-500">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
+                            {/if}
+                            {#if compatMatrix}
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-[11px]">
+                                        <thead class="text-[9px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                                            <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
+                                        </thead>
+                                        <tbody>
+                                            {#each Object.entries(compatMatrix.models) as [mid, row]}
+                                                <tr class="border-b border-slate-100 dark:border-slate-800">
+                                                    <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
+                                                    {#each compatMatrix.devices as dev}
+                                                        {@const c = compatDeviceCell(row, dev)}
+                                                        <td class="px-2 {c.cls}">{c.label}</td>
+                                                    {/each}
+                                                </tr>
+                                            {/each}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
                     <div class="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
                         <span>{$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}</span>
                         <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
