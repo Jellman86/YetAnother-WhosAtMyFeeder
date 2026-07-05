@@ -10,7 +10,7 @@ import structlog
 from PIL import Image
 
 from app.database import get_db
-from app.models import DetectionResponse
+from app.models import DetectionListItemResponse, DetectionResponse
 from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
@@ -458,7 +458,19 @@ def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
     return {k: v for k, v in event.items() if k in fields or k in required}
 
 
-@router.get("/events")
+@router.get(
+    "/events",
+    responses={
+        200: {
+            "description": (
+                "Full DetectionResponse[] by default. With fields=list, returns "
+                "DetectionListItemResponse[]. Custom comma-separated fields return "
+                "a partial event projection plus required navigation fields."
+            ),
+            "model": List[DetectionResponse] | List[DetectionListItemResponse],
+        }
+    },
+)
 @guest_rate_limit()
 async def get_events(
     request: Request,
@@ -721,7 +733,7 @@ async def get_events(
             if selected_fields:
                 log.info("Filtering fields", count=len(selected_fields))
                 return [
-                    _filter_event_fields(e.model_dump(), selected_fields)
+                    _filter_event_fields(e.model_dump(mode="json"), selected_fields)
                     for e in response_events
                 ]
 

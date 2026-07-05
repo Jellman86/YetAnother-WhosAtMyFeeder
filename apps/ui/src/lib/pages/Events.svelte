@@ -181,7 +181,8 @@
                     sort: sortOrder,
                     includeHidden: showHidden,
                     favoritesOnly,
-                    audioConfirmedOnly
+                    audioConfirmedOnly,
+                    fields: 'list'
                 }),
                 fetchEventsCount({
                     startDate: range.start,

@@ -1874,14 +1874,6 @@ async def check_recording_clip_exists(
 ):
     lang = get_user_language(request)
 
-    # Check cache first
-    import time
-    now = time.time()
-    if event_id in _head_response_cache:
-        cached_time, cached_status = _head_response_cache[event_id]
-        if now - cached_time < HEAD_CACHE_TTL:
-            return Response(status_code=cached_status, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
-
     if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
         raise HTTPException(
             status_code=403,
@@ -1896,6 +1888,13 @@ async def check_recording_clip_exists(
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    import time
+    now = time.time()
+    if event_id in _head_response_cache:
+        cached_time, cached_status = _head_response_cache[event_id]
+        if now - cached_time < HEAD_CACHE_TTL:
+            return Response(status_code=cached_status, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
 
     if settings.media_cache.enabled:
         cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)

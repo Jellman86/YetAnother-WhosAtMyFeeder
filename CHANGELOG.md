@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Events API:** Added a documented lightweight `fields=list` event-list shape for clients that only need list-card data, preserving the full event response by default.
+
+### Fixed
+- **Security:** Recording-clip HEAD response caching now runs only after feature flags, event-id validation, and event access checks, preventing cached availability from bypassing access rules.
+- **Events API:** Filtered event responses now use JSON-mode serialization so timestamp fields keep the explicit UTC `Z` wire format.
+
 ## [2.11.0] - 2026-06-22
 
 ### Changed

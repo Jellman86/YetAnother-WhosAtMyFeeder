@@ -149,6 +149,31 @@ async def test_events_unknown_alias_filter_token_matches_configured_unknown_labe
 
 
 @pytest.mark.asyncio
+async def test_events_list_fields_preserve_json_datetime_contract(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    camera_name = f"cam-{uuid.uuid4().hex[:6]}"
+    event_id = f"evt-{uuid.uuid4().hex[:10]}"
+    await _insert_detection(event_id, "Blue Tit", camera_name)
+
+    try:
+        response = await client.get(
+            "/api/events",
+            params={"camera": camera_name, "limit": 20, "fields": "list"},
+        )
+        assert response.status_code == 200, response.text
+        rows = response.json()
+        assert len(rows) == 1
+        assert rows[0]["frigate_event"] == event_id
+        assert rows[0]["detection_time"].endswith("Z")
+        assert "ai_analysis" not in rows[0]
+        assert "video_classification_status" not in rows[0]
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
 async def test_events_filters_canonicalize_unknown_aliases_to_single_option(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
