@@ -1,0 +1,58 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/backend"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: "/apps/ui"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+    groups:
+      ui-npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: "/apps/telemetry-worker"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+    groups:
+      telemetry-npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+
+  - package-ecosystem: docker
+    directory: "/backend"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+
+  - package-ecosystem: docker
+    directory: "/apps/ui"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: "dev"
+    groups:
+      github-actions:
+        patterns: ["*"]

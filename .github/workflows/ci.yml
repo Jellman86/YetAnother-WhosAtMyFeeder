@@ -1,0 +1,138 @@
+name: CI
+run-name: "${{ github.ref_name }}: ${{ github.event.pull_request.title || github.event_name }}"
+
+on:
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Migration smoke test
+        run: |
+          cd backend
+          export DB_PATH=/tmp/yawamf-ci-speciesid.db
+          rm -f "$DB_PATH"
+          python -m alembic upgrade head
+          python -m alembic downgrade -1
+          python -m alembic upgrade head
+
+      - name: Migration path matrix
+        run: |
+          cd backend
+          python scripts/ci_migration_path_check.py
+
+      - name: Backend tests
+        run: |
+          cd backend
+          timeout -k 30s 240s python -m pytest tests/ -v --tb=short --durations=20
+
+      - name: Ensure single Alembic head
+        run: |
+          cd backend
+          python - <<'PY'
+          import sys
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+          script = ScriptDirectory.from_config(Config("alembic.ini"))
+          heads = script.get_heads()
+          if len(heads) != 1:
+              print(f"Expected 1 Alembic head, found {len(heads)}: {heads}")
+              sys.exit(1)
+          print(f"Alembic head OK: {heads[0]}")
+          PY
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: apps/ui
+
+      - name: Svelte check
+        run: npm run check
+        working-directory: apps/ui
+
+      - name: Frontend unit tests
+        run: npm test
+        working-directory: apps/ui
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: apps/ui
+
+  telemetry-worker:
+    name: Telemetry worker dependency check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/telemetry-worker/package-lock.json
+
+      - name: Install telemetry worker dependencies
+        run: npm ci
+        working-directory: apps/telemetry-worker
+
+  docs-compose:
+    name: Docs and compose checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Documentation consistency
+        run: python3 backend/scripts/docs_consistency_check.py
+
+      - name: Docker Compose config checks
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.dev.yml config --quiet
+          docker compose -f docker-compose.prod.yml config --quiet
+          bash tests/e2e/monolith_canary_compose_config.sh

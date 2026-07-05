@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
+
 ## [2.11.0] - 2026-06-22
 
 ### Changed
