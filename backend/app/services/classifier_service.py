@@ -4032,8 +4032,10 @@ class ClassifierService:
             "cuda_probe_error": self._accel_caps.get("cuda_probe_error"),
             "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
+            "intel_npu_available": bool(self._accel_caps.get("intel_npu_available")),
             "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
             "dev_dri_entries": self._accel_caps.get("dev_dri_entries") or [],
+            "dev_accel_present": bool(self._accel_caps.get("dev_accel_present")),
             "process_uid": self._accel_caps.get("process_uid"),
             "process_gid": self._accel_caps.get("process_gid"),
             "process_groups": self._accel_caps.get("process_groups") or [],
@@ -4107,7 +4109,7 @@ class ClassifierService:
         synthetic_image: bool = False,
     ) -> dict[str, Any]:
         normalized_device = str(device or "GPU").strip().upper() or "GPU"
-        if normalized_device not in {"CPU", "GPU"}:
+        if normalized_device not in {"CPU", "GPU", "NPU"}:
             raise ValueError(f"Unsupported probe device: {device}")
 
         spec = self._resolve_active_bird_model_spec()
@@ -4130,7 +4132,7 @@ class ClassifierService:
             "synthetic_image": bool(synthetic_image),
             "runtime": {
                 "backend": "openvino",
-                "provider": "intel_gpu" if normalized_device == "GPU" else "intel_cpu",
+                "provider": {"GPU": "intel_gpu", "NPU": "intel_npu"}.get(normalized_device, "intel_cpu"),
             },
             "model": {
                 **self._runtime_model_snapshot(),

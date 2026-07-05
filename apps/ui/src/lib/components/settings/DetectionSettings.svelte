@@ -39,7 +39,7 @@
         cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
         cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
-        inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto'),
+        inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
         videoCircuitOpen = false,
         videoCircuitUntil = null,
@@ -63,7 +63,7 @@
         cropModelOverrides: Record<string, CropModelOverride>;
         cropSourceOverrides: Record<string, CropSourceOverride>;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
-        inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu';
+        inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu';
         classifierStatus: ClassifierStatus | null;
         videoCircuitOpen: boolean;
         videoCircuitUntil: string | null;
@@ -460,9 +460,10 @@
                         { value: 'cpu', label: $_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' }) },
                         { value: 'cuda', label: $_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' }) },
                         { value: 'intel_gpu', label: $_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' }) },
-                        { value: 'intel_cpu', label: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }) }
+                        { value: 'intel_cpu', label: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }) },
+                        { value: 'intel_npu', label: $_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' }) }
                     ]}
-                    onchange={(v) => (inferenceProvider = v as 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu')}
+                    onchange={(v) => (inferenceProvider = v as 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu')}
                 />
             </SettingsRow>
 
@@ -527,6 +528,9 @@
                         </span>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
                             {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? $_('settings.detection.auto_detected', { default: 'Auto-detected' }) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">

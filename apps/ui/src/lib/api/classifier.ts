@@ -24,7 +24,9 @@ export interface ClassifierStatus {
     cuda_probe_error?: string | null;
     intel_cpu_available?: boolean;
     intel_gpu_available?: boolean;
+    intel_npu_available?: boolean;
     dev_dri_present?: boolean;
+    dev_accel_present?: boolean;
     dev_dri_entries?: string[];
     process_uid?: number | null;
     process_gid?: number | null;
