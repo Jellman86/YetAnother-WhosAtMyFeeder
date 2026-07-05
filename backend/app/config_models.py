@@ -295,7 +295,7 @@ class ClassificationSettings(BaseModel):
         default=True,
         description="Reject all-non-finite model output vectors and trigger runtime recovery/fallback",
     )
-    inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
+    inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu")
     image_execution_mode: str = Field(
         default="in_process",
         description="Image inference execution mode: in_process|subprocess",
@@ -336,7 +336,7 @@ class ClassificationSettings(BaseModel):
     @classmethod
     def validate_inference_provider(cls, v: str) -> str:
         normalized = (v or "auto").strip().lower()
-        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
         if normalized not in allowed:
             log.warning("Invalid inference_provider in config; falling back to auto", value=v)
             return "auto"

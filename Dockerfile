@@ -67,6 +67,14 @@ RUN set -eux; \
             libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
+        # Intel NPU ("AI Boost") Level-Zero driver + compiler, required for the
+        # OpenVINO `intel_npu` provider on Core Ultra. Best-effort: these packages
+        # are not in every channel/arch and the image must still build on hosts
+        # without an NPU, so a miss is non-fatal (intel_npu then falls back).
+        apt-get install -y --no-install-recommends \
+            intel-level-zero-npu \
+            intel-driver-compiler-npu \
+            || echo "WARN: Intel NPU driver packages unavailable in ${INTEL_GPU_APT_CHANNEL}; intel_npu will fall back to CPU/GPU"; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 

@@ -35,12 +35,16 @@ services:
     volumes:
       - ./config:/config
       - ./data:/data
-    # Intel iGPU (OpenVINO) example:
+    # Intel iGPU / NPU (OpenVINO) example:
+    #   - /dev/dri     is the integrated GPU (provider: intel_gpu)
+    #   - /dev/accel/* is the Core Ultra NPU / "AI Boost" (provider: intel_npu)
+    # Pass whichever accelerators the host has; check with: ls -l /dev/dri /dev/accel
     # devices:
     #   - /dev/dri:/dev/dri
+    #   - /dev/accel/accel0:/dev/accel/accel0
     # group_add:
     #   - "44"   # video (example)
-    #   - "107"  # render (example)
+    #   - "107"  # render (example — covers both /dev/dri and /dev/accel on most distros)
     # NVIDIA CUDA example (Docker Compose v2.20+):
     # The official image now includes the CUDA/cuDNN userspace runtime for ORT.
     # Your host still needs NVIDIA Container Toolkit (or equivalent).

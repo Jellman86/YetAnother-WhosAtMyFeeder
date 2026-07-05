@@ -425,7 +425,7 @@ class SettingsUpdate(BaseModel):
         True,
         description="Reject all-non-finite inference outputs and trigger runtime recovery/fallback",
     )
-    inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu")
+    inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu")
     bird_crop_detector_tier: Optional[Literal["fast", "accurate"]] = Field(
         "fast",
         description="Bird crop detector tier: fast|accurate",
@@ -661,9 +661,9 @@ class SettingsUpdate(BaseModel):
         if v is None:
             return v
         normalized = v.strip().lower()
-        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+        allowed = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
         if normalized not in allowed:
-            raise ValueError("inference_provider must be one of: auto, cpu, cuda, intel_gpu, intel_cpu")
+            raise ValueError("inference_provider must be one of: auto, cpu, cuda, intel_gpu, intel_cpu, intel_npu")
         return normalized
 
     @field_validator('frigate_url')

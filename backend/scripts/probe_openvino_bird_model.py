@@ -173,7 +173,7 @@ def probe_openvino_bird_model_pair() -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Probe the active bird model with OpenVINO")
-    parser.add_argument("--device", choices=["CPU", "GPU"], default="GPU")
+    parser.add_argument("--device", choices=["CPU", "GPU", "NPU"], default="GPU")
     parser.add_argument("--compare-cpu-gpu", action="store_true")
     args = parser.parse_args()
 

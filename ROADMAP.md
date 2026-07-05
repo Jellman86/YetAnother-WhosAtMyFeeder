@@ -465,6 +465,31 @@ This work should be kept out of the current hardening cycle. The immediate prior
 
 ---
 
+### 10. Intel NPU Inference Support (OpenVINO) 🧠
+**Priority:** P2 | **Effort:** M (plumbing ~1 day + per-model validation) | **Status:** In progress
+
+Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost") alongside the iGPU. OpenVINO already treats `NPU` as a first-class device, and the classifier's Intel path uses native OpenVINO (`core.compile_model(model, device_name)`) — so the NPU slots into the same seams the existing `intel_gpu` provider uses. The goal is to let users run classification on the NPU to free the iGPU/CPU (power/thermal efficiency), **without** destabilising existing installs.
+
+**Motivation & caveats:**
+- Payoff is efficiency, not raw latency: for large 384px classifier models the NPU may be no faster (or slower) than the iGPU, and it is *stricter* on unsupported ops (attention/RoPE/LayerNorm/dynamic shapes). Realistically only the pure-CNN models (ConvNeXt, MogaNet, FocalNet, RegNet, MobileNet) are likely NPU-viable.
+- NPU support must be **empirically validated per model** exactly like the iGPU: compiles → finite output → top-k agreement with the CPU baseline. No blanket enablement.
+
+**Architecture:**
+1. **Provider vocabulary** — add `intel_npu` to `SUPPORTED_INFERENCE_PROVIDERS` and both config validators (`config_models.py`, `routers/settings.py`).
+2. **Capability probe** — add `intel_npu_available` (the OpenVINO device list already enumerates `NPU`), gated behind `/dev/accel/accel0` passthrough.
+3. **Resolver** — `intel_npu` branch mirroring `intel_gpu`, with fallback NPU → OpenVINO-CPU → ONNX-Runtime-CPU, and a registry-support constraint so NPU only activates for validated models.
+4. **Device mapping & `OpenVINOModelInstance.load()`** — map `intel_npu → "NPU"`; NPU requires a static-shape reshape (like the GPU branch) and its own compile/precision handling.
+5. **Runtime health** — NPU benchmarks against the OpenVINO-CPU baseline (mirrors GPU) and participates in the fallback chain.
+6. **Validation harness** — new `tests/test_model_openvino_npu.py` (adapted from `test_model_openvino_gpu.py`); run on real NPU hardware, then set `supported_inference_providers` per model accordingly.
+7. **Image / driver** — the container needs the Intel NPU **Level-Zero driver** (`intel-level-zero-npu` + `intel-driver-compiler-npu`); the base image ships the OpenVINO NPU *plugin* and the ze loader but **not** the NPU user-mode driver (verified on hardware 2026-07-05: with `/dev/accel/accel0` passed, OpenVINO enumerated only `['CPU']`). Added best-effort to the Dockerfile.
+8. **Deploy/UX** — document `/dev/accel/accel0` passthrough in the compose examples and add the NPU option to the Settings accelerator selector.
+
+**Success criteria:**
+- Selecting `intel_npu` runs a validated model on the NPU with predictions matching the CPU baseline; unsupported/unvalidated models fall back cleanly with a clear reason.
+- No regression to CPU/iGPU/CUDA paths.
+
+---
+
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
 **Status:** CI-built ARM64 image available; not yet hardware-validated.

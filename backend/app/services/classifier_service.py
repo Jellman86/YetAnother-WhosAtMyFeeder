@@ -138,7 +138,7 @@ from app.utils.classifier_labels import (  # noqa: E402
 
 log = structlog.get_logger()
 
-SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu"}
+SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
 CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
 CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
     0.05,
@@ -793,7 +793,9 @@ def _detect_acceleration_capabilities() -> dict:
         "openvino_gpu_probe_error": None,
         "intel_gpu_available": False,
         "intel_cpu_available": False,
+        "intel_npu_available": False,
         "openvino_devices": [],
+        "dev_accel_present": os.path.isdir("/dev/accel"),
         "dev_dri_present": os.path.isdir("/dev/dri"),
         "dev_dri_entries": dev_dri_entries,
         "process_uid": None,
@@ -832,6 +834,7 @@ def _detect_acceleration_capabilities() -> dict:
             caps["openvino_devices"] = devices
             caps["intel_gpu_available"] = any(d == "GPU" or str(d).startswith("GPU.") for d in devices)
             caps["intel_cpu_available"] = any(d == "CPU" or str(d).startswith("CPU.") for d in devices)
+            caps["intel_npu_available"] = any(d == "NPU" or str(d).startswith("NPU.") for d in devices)
             caps["openvino_gpu_probe_error"] = probe.get("gpu_probe_error")
         else:
             caps["openvino_probe_error"] = probe.get("error") or "OpenVINO device probe failed"
@@ -1205,6 +1208,37 @@ def _resolve_inference_selection(
                 "Intel GPU requested but OpenVINO GPU is not available",
                 "intel_gpu",
                 "Intel GPU",
+            )
+        )
+
+    if requested == "intel_npu":
+        if caps.get("openvino_available") and caps.get("intel_npu_available") and _provider_allowed("intel_npu"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_npu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "NPU",
+                "fallback_reason": None,
+            }
+        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_cpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "CPU",
+                "fallback_reason": _reason_with_constraint(
+                    "Intel NPU requested but not available; falling back to OpenVINO CPU",
+                    "intel_npu",
+                    "Intel NPU",
+                ),
+            }
+        return _ort_cpu(
+            _reason_with_constraint(
+                "Intel NPU requested but OpenVINO NPU is not available",
+                "intel_npu",
+                "Intel NPU",
             )
         )
 
@@ -1992,12 +2026,17 @@ class OpenVINOModelInstance:
                 "PERFORMANCE_HINT": "LATENCY",
                 "NUM_STREAMS": "1"
             }
-            if self.device_name == "GPU" or str(self.device_name).startswith("GPU."):
+            _is_gpu = self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
+            _is_npu = self.device_name == "NPU" or str(self.device_name).startswith("NPU.")
+            if _is_gpu or _is_npu:
+                # Both the Intel iGPU and the NPU default to reduced precision (f16) and
+                # need a static batch dimension. Un-quantized ONNX activations >65504
+                # overflow f16 → non-finite logits, so hint f32; the NPU compiler in
+                # particular *requires* static shapes. Reshaping dynamic batch to 1 is
+                # accuracy-neutral and also avoids the Intel GPU clWaitForEvents -14 crash.
                 config["INFERENCE_PRECISION_HINT"] = "f32"
-                config.update(_openvino_gpu_optional_compile_properties())
-                # Some Intel GPU drivers crash with clWaitForEvents -14 when the model
-                # has a dynamic batch dimension (e.g. [?,3,224,224]).  Reshaping to a
-                # fixed batch=1 before compile avoids this without affecting accuracy.
+                if _is_gpu:
+                    config.update(_openvino_gpu_optional_compile_properties())
                 try:
                     partial = model.inputs[0].get_partial_shape()
                     if partial.rank.is_static and partial[0].is_dynamic:
@@ -2008,9 +2047,9 @@ class OpenVINOModelInstance:
 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
             self.input_name = self.compiled_model.inputs[0].get_any_name()
-            if self._startup_self_test_enabled and (
-                self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
-            ):
+            if self._startup_self_test_enabled and (_is_gpu or _is_npu):
+                # Reused for the NPU as well — validates the compiled model isn't
+                # producing degenerate / non-finite logits on this accelerator.
                 self._run_gpu_startup_self_test()
             self.loaded = True
             self.error = None
@@ -2486,7 +2525,7 @@ class ClassifierService:
         label_grouping = spec.get("label_grouping")
 
         if backend == "openvino":
-            device_name = "GPU" if provider == "intel_gpu" else "CPU"
+            device_name = {"intel_gpu": "GPU", "intel_npu": "NPU"}.get(provider, "CPU")
             model = OpenVINOModelInstance(
                 "bird",
                 model_path,
@@ -2572,7 +2611,7 @@ class ClassifierService:
     ) -> tuple[str, str] | None:
         normalized_backend = str(backend or "").strip().lower()
         normalized_provider = str(provider or "").strip().lower()
-        if normalized_backend == "openvino" and normalized_provider == "intel_gpu":
+        if normalized_backend == "openvino" and normalized_provider in ("intel_gpu", "intel_npu"):
             return ("openvino", "intel_cpu")
         if normalized_backend == "onnxruntime" and normalized_provider == "cuda":
             return ("onnxruntime", "cpu")
@@ -2583,6 +2622,8 @@ class ClassifierService:
         normalized_provider = str(provider or "").strip().lower()
         if normalized_backend == "openvino" and normalized_provider == "intel_gpu":
             label = "OpenVINO GPU"
+        elif normalized_backend == "openvino" and normalized_provider == "intel_npu":
+            label = "OpenVINO NPU"
         elif normalized_backend == "onnxruntime" and normalized_provider == "cuda":
             label = "ONNX Runtime CUDA"
         else:
@@ -2603,7 +2644,7 @@ class ClassifierService:
         provider: str,
     ) -> ModelType | None:
         if backend == "openvino":
-            device_name = "GPU" if provider == "intel_gpu" else "CPU"
+            device_name = {"intel_gpu": "GPU", "intel_npu": "NPU"}.get(provider, "CPU")
             model = OpenVINOModelInstance(
                 "bird",
                 str(spec.get("model_path") or ""),
@@ -2770,7 +2811,7 @@ class ClassifierService:
                 targets.append(target)
 
         if self._inference_backend == "openvino":
-            if self._active_inference_provider == "intel_gpu" and self._accel_caps.get("intel_cpu_available"):
+            if self._active_inference_provider in ("intel_gpu", "intel_npu") and self._accel_caps.get("intel_cpu_available"):
                 _append("openvino", "intel_cpu")
             if self._accel_caps.get("ort_available"):
                 _append("onnxruntime", "cpu")
