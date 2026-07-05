@@ -1,6 +1,9 @@
 """Camera platform for Yet Another WhosAtMyFeeder."""
 from __future__ import annotations
 
+import io
+import logging
+
 from homeassistant.components.camera import Camera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,6 +13,34 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import YAWAMFDataUpdateCoordinator
+
+_LOGGER = logging.getLogger(__name__)
+
+# Feeder snapshots are full-resolution (often several MB). That's fine for the
+# scaled dashboard thumbnail, but the more-info / live camera view loops the
+# full image and fails to render when it's this large, so downscale it.
+_MAX_EDGE = 1280
+
+
+def _downscale_jpeg(data: bytes) -> bytes:
+    """Downscale a JPEG to a reasonable size. Runs in an executor thread.
+
+    Returns the original bytes unchanged if Pillow is unavailable or the image
+    can't be processed, so the camera degrades gracefully.
+    """
+    try:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(data))
+        if max(img.size) <= _MAX_EDGE:
+            return data
+        img.thumbnail((_MAX_EDGE, _MAX_EDGE))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=85)
+        return buf.getvalue()
+    except Exception:  # noqa: BLE001 - never fail the camera on a resize error
+        return data
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -60,9 +91,10 @@ class YAWAMFLatestBirdCamera(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Cam
 
         try:
             async with self.coordinator.session.get(url, headers=self.coordinator.headers) as resp:
-                if resp.status == 200:
-                    return await resp.read()
+                if resp.status != 200:
+                    return None
+                data = await resp.read()
         except Exception:
             return None
-        
-        return None
+
+        return await self.hass.async_add_executor_job(_downscale_jpeg, data)

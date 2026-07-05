@@ -4,6 +4,10 @@
 # 2. Open the new dashboard, click the pencil (Edit) icon
 # 3. Click the 3 dots > Raw Configuration Editor
 # 4. Paste the content below (overwrite everything)
+#
+# Entity IDs match those created by the integration (prefixed with the device
+# name, e.g. camera.ya_wamf_latest_bird_snapshot). The snapshot camera is a
+# still image, so the picture card uses camera_view: auto (not live).
 
 views:
   - title: Bird Watcher
@@ -12,9 +16,9 @@ views:
     cards:
       # Main Visual: Latest Detection Snapshot
       - type: picture-entity
-        entity: camera.latest_bird_snapshot
+        entity: camera.ya_wamf_latest_bird_snapshot
         name: Latest Visitor
-        camera_view: live
+        camera_view: auto
         show_state: false
         show_name: true
         aspect_ratio: 16x9
@@ -28,37 +32,45 @@ views:
             square: false
             cards:
               - type: entity
-                entity: sensor.last_bird_detected
+                entity: sensor.ya_wamf_last_bird_detected
                 name: Species
                 icon: mdi:bird
               - type: entity
-                entity: sensor.daily_bird_count
+                entity: sensor.ya_wamf_bird_count_24h
                 name: Birds Today
                 icon: mdi:counter
+
+          # Detection summary
+          - type: entities
+            title: Detection
+            entities:
+              - entity: sensor.ya_wamf_last_bird_detected
+                name: Last species
+              - entity: sensor.ya_wamf_last_detection_time
+                name: Last seen
+              - entity: sensor.ya_wamf_last_detection_event
+                name: Event ID
 
           # Detailed Metadata
           - type: markdown
             title: Detection Details
             content: >
-              {% set sensor = 'sensor.last_bird_detected' %}
-              {% if states(sensor) != 'unknown' and states(sensor) != 'unavailable' %}
-                <ha-icon icon="mdi:camera"></ha-icon> **Camera:** {{ state_attr(sensor, 'camera') }}
-                
-                <ha-icon icon="mdi:target"></ha-icon> **Confidence:** {{ (state_attr(sensor, 'score') | float * 100) | round(0) }}%
-                
-                <ha-icon icon="mdi:clock-outline"></ha-icon> **Time:** {{ as_timestamp(state_attr(sensor, 'timestamp')) | timestamp_custom('%H:%M:%S') }}
-                
-                <ha-icon icon="mdi:thermometer"></ha-icon> **Temp:** {{ state_attr(sensor, 'temperature') }}°C
-                
-                <ha-icon icon="mdi:weather-partly-cloudy"></ha-icon> **Weather:** {{ state_attr(sensor, 'weather') }}
+              {% set s = 'sensor.ya_wamf_last_bird_detected' %}
+              {% if states(s) not in ['unknown', 'unavailable', 'none'] %}
+                <ha-icon icon="mdi:camera"></ha-icon> **Camera:** {{ state_attr(s, 'camera') }}
+
+                <ha-icon icon="mdi:target"></ha-icon> **Confidence:** {{ (state_attr(s, 'score') | float(0) * 100) | round(0) }}%
+
+                <ha-icon icon="mdi:thermometer"></ha-icon> **Temp:** {{ state_attr(s, 'temperature') }}°C
+
+                <ha-icon icon="mdi:weather-partly-cloudy"></ha-icon> **Weather:** {{ state_attr(s, 'weather') }}
               {% else %}
-                _No detections yet today._
+                _No detections yet._
               {% endif %}
 
           # History Graph
           - type: history-graph
             title: Activity (24h)
             entities:
-              - entity: sensor.daily_bird_count
+              - entity: sensor.ya_wamf_bird_count_24h
             hours_to_show: 24
-            refresh_interval: 0
