@@ -405,6 +405,30 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
     return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
 
 
+def _host_validated_providers(model_id: str) -> list[str]:
+    """Inference providers this *host* validated for ``model_id`` via the device
+    sweep (``device_eligibility.json``, written by the model-eval harness).
+
+    Device support is hardware-specific — a newer iGPU/NPU can run models the
+    shared registry excludes for older silicon. Merging these host-validated
+    providers into the registry list lets the resolver use them on this machine
+    without weakening the global defaults that protect other hardware. Fail-soft:
+    a missing/unreadable file yields no extra providers.
+    """
+    if not model_id:
+        return []
+    try:
+        base = os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval")
+        path = Path(base) / "device_eligibility.json"
+        if not path.is_file():
+            return []
+        data = json.loads(path.read_text())
+        providers = (data.get("models") or {}).get(model_id) or []
+        return [str(p).strip().lower() for p in providers if str(p).strip()]
+    except Exception:
+        return []
+
+
 def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.ndarray:
     probs = np.asarray(values, dtype=np.float32).reshape(-1)
     if probs.size == 0:
@@ -3279,6 +3303,19 @@ class ClassifierService:
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
+        # Host-aware: add any providers this machine validated for the active model
+        # via the device sweep (device_eligibility.json). Only extends the list —
+        # never removes registry entries — so older hardware still falls back safely.
+        host_validated = _host_validated_providers(self._resolve_active_model_id())
+        newly_allowed = [p for p in host_validated if p not in supported_inference_providers]
+        if newly_allowed:
+            supported_inference_providers.extend(newly_allowed)
+            log.info(
+                "Merged host-validated inference providers",
+                model_id=self._resolve_active_model_id(),
+                host_validated=host_validated,
+                added=newly_allowed,
+            )
         model_config_warnings = [
             str(item).strip() for item in (spec.get("model_config_warnings") or []) if str(item).strip()
         ]

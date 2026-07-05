@@ -768,6 +768,35 @@ class ModelEvalRunner:
             (run_dir / DEVICE_MATRIX_FILENAME).write_text(json.dumps(payload, indent=2))
         except OSError as e:
             log.warning("model_eval_device_matrix_write_failed", error=str(e))
+
+        # Persist a stable, per-host eligibility map the classifier resolver can
+        # consult, so this machine can use accelerators it validated even when the
+        # shared registry excludes them (older iGPUs). A device counts as eligible
+        # only if it compiled, produced finite output, and matched the CPU top-1 on
+        # every real image — CPU is always its own baseline.
+        dev_to_provider = {"CPU": "intel_cpu", "GPU": "intel_gpu", "NPU": "intel_npu"}
+        eligibility: dict[str, list[str]] = {}
+        for mid, row in matrix.items():
+            if not isinstance(row, dict) or row.get("error"):
+                continue
+            passed: list[str] = []
+            for dev, e in (row.get("devices") or {}).items():
+                prov = dev_to_provider.get(dev)
+                if not prov or not e.get("compiles") or e.get("finite") is False:
+                    continue
+                if dev == "CPU" or e.get("matches_cpu"):
+                    passed.append(prov)
+            if passed:
+                eligibility[mid] = passed
+        try:
+            (_eval_runs_root() / "device_eligibility.json").write_text(json.dumps({
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "run_id": run_id,
+                "models": eligibility,
+            }, indent=2))
+        except OSError as e:
+            log.warning("model_eval_eligibility_write_failed", error=str(e))
+
         await self._emit(run_id, phase="device_sweep", progress={
             "done": total, "total": total, "label": "device sweep complete",
         })
