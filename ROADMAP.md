@@ -490,6 +490,31 @@ Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost
 
 ---
 
+### 11. Home Assistant Proxy / Sidebar Panel 🏠
+**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** Requested ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54))
+
+Serve the YA-WAMF web UI **through** Home Assistant (like the Frigate integration does) instead of only as a separate site. The integration would register a sidebar panel and an internal reverse proxy, so the full dashboard is embedded in HA, **authenticated by HA**, and reachable via HA's existing secure external access (Nabu Casa / Cloudflare / NPM) — no need to separately expose or secure `yawamf.pownet.uk`.
+
+**Motivation:**
+- Single sign-on: users already logged into Home Assistant get YA-WAMF; guests don't. No second auth surface to manage.
+- No extra exposed port/host — YA-WAMF rides on HA's already-secured external access.
+- One place (the HA sidebar) for the whole setup.
+
+**Architecture:**
+1. **Reverse-proxy view** — an `aiohttp` `HomeAssistantView` in `custom_components/yawamf` that forwards `/api/yawamf/ingress/…` to the configured YA-WAMF URL. Must proxy **HTTP, the SSE live-update stream, and any WebSockets**, and strip the ingress prefix.
+2. **Sidebar panel** — register a panel (`panel_custom`/iframe or ingress-style) pointing at the proxied path; HA auth gates it.
+3. **Frontend base-path support (the main effort/risk)** — the Svelte app currently hardcodes `API_BASE = '/api'` and builds with Vite `base: '/'`, i.e. it assumes it's served from root. To live under an ingress sub-path it needs a build-time/runtime base (Vite `base` + `import.meta.env.BASE_URL`) and an API base derived from it, so assets and API calls resolve under the proxied path.
+4. **Config** — an opt-in toggle (proxy target defaults to the configured URL); keep the existing standalone access working unchanged.
+
+**Effort notes:** proxy view (HTTP+SSE+WS) ~2 days; frontend base-path refactor ~2–3 days (the variable — currently root-hardcoded); panel + config + auth ~1 day; testing embedded UI, live stream, media, and external access ~1 day. → ~1 week, M–L.
+
+**Success criteria:**
+- A "YA-WAMF" sidebar entry in HA opens the full dashboard, authenticated by HA, with live updates (SSE) and snapshots working through the proxy.
+- Works over HA's external access without separately exposing YA-WAMF.
+- Standalone (direct-port) access still works.
+
+---
+
 ## Raspberry Pi Compatibility (Best-Effort Plan)
 
 **Status:** CI-built ARM64 image available; not yet hardware-validated.
