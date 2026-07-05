@@ -2131,6 +2131,17 @@ class OpenVINOModelInstance:
             return np.array([])
 
         input_tensor = self._preprocess(image)
+        # _preprocess emits NCHW [1,3,H,W]. Some exported models (e.g. MobileNet)
+        # expect NHWC [1,H,W,3]; feed whatever the compiled model declares.
+        try:
+            dims = self.compiled_model.inputs[0].get_partial_shape()
+            if dims.rank.is_static and dims.rank.get_length() == 4:
+                last = dims[3]
+                second = dims[1]
+                if last.is_static and last.get_length() == 3 and not (second.is_static and second.get_length() == 3):
+                    input_tensor = np.ascontiguousarray(np.transpose(input_tensor, (0, 2, 3, 1)))
+        except Exception:
+            pass
         with self._lock:
             infer_request = self.compiled_model.create_infer_request()
             outputs = infer_request.infer({self.input_name: input_tensor})

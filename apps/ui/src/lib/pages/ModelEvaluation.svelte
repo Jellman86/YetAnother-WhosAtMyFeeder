@@ -33,9 +33,14 @@
         if (!e) return { label: '—', cls: 'text-gray-400' };
         if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-gray-600 dark:text-gray-400' };
-        if (e.matches_cpu) return { label: '✓ matches CPU', cls: 'text-emerald-600 dark:text-emerald-400' };
-        if (typeof e.top5_overlap_vs_cpu === 'number') return { label: `⚠ ${e.top5_overlap_vs_cpu}/5 vs CPU`, cls: 'text-amber-600 dark:text-amber-400' };
+        if (dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
+        const n = e.images_compared;
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-emerald-600 dark:text-emerald-400' };
+        if (typeof e.top1_match_rate === 'number' && n) {
+            const hits = Math.round(e.top1_match_rate * n);
+            const ov = e.mean_top5_overlap;
+            return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
         return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
     }
 
@@ -308,7 +313,8 @@
             <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Device compatibility matrix</h3>
             <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
                 Each model compiled on every available accelerator in an isolated subprocess; non-CPU
-                devices are compared to the CPU baseline on a fixed probe image (top-5).
+                devices are compared to the CPU baseline on {deviceMatrix.image_count ?? 0} real bird
+                images — shown as top-1 match rate (and mean top-5 overlap /5).
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">

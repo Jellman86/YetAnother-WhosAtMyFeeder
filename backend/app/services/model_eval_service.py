@@ -685,6 +685,14 @@ class ModelEvalRunner:
         if not devices:
             return
 
+        # Real bird images fetched earlier in the run — compare devices on these
+        # (not just a synthetic gradient) so f16 NPU divergence on real data is caught.
+        exts = {".jpg", ".jpeg", ".png", ".webp"}
+        image_paths = [
+            str(p) for p in sorted((run_dir / IMAGES_SUBDIR).rglob("*"))
+            if p.is_file() and p.suffix.lower() in exts
+        ][:12]
+
         matrix: dict[str, Any] = {}
         total = len(classifiers)
         for m_idx, model in enumerate(classifiers):
@@ -699,18 +707,22 @@ class ModelEvalRunner:
                 matrix[model.id] = {"error": "activation_failed"}
                 continue
 
-            cpu_top: list[int] | None = None
+            cpu_imgs: list[list[int]] | None = None
             per_device: dict[str, Any] = {}
             for dev in devices:
                 started = time.perf_counter()
-                report = await self._run_probe_subprocess(dev, timeout=180.0)
+                report = await self._run_probe_subprocess(dev, timeout=300.0, image_paths=image_paths)
                 elapsed_ms = round((time.perf_counter() - started) * 1000.0, 1)
                 if report is None:
                     per_device[dev] = {"compiles": False, "error": "crashed_or_timed_out", "latency_ms": elapsed_ms}
                     continue
                 compile_info = report.get("compile") or {}
                 out = report.get("output_summary") or {}
-                top = report.get("output_top_indices") or []
+                # per-image top-5 (real images), falling back to the single synthetic probe
+                imgs = report.get("per_image_top_indices")
+                if not imgs:
+                    syn = report.get("output_top_indices")
+                    imgs = [syn] if syn else []
                 compiles = bool(compile_info.get("ok"))
                 finite = None
                 if compiles:
@@ -720,15 +732,28 @@ class ModelEvalRunner:
                     "compiles": compiles,
                     "error": compile_info.get("error"),
                     "finite": finite,
-                    "top5": top,
+                    "images_evaluated": len([t for t in imgs if t]),
                     "latency_ms": elapsed_ms,
                 }
                 if dev == "CPU" and compiles:
-                    cpu_top = top
-                if dev != "CPU" and compiles and cpu_top and top:
-                    overlap = len(set(top) & set(cpu_top))
-                    entry["top5_overlap_vs_cpu"] = overlap
-                    entry["matches_cpu"] = overlap == len(cpu_top)
+                    cpu_imgs = imgs
+                if dev != "CPU" and compiles and cpu_imgs:
+                    overlaps: list[int] = []
+                    top1_hits = 0
+                    n = 0
+                    for i, dtop in enumerate(imgs):
+                        ctop = cpu_imgs[i] if i < len(cpu_imgs) else []
+                        if not dtop or not ctop:
+                            continue
+                        n += 1
+                        overlaps.append(len(set(dtop) & set(ctop)))
+                        if dtop[0] == ctop[0]:
+                            top1_hits += 1
+                    if n:
+                        entry["images_compared"] = n
+                        entry["top1_match_rate"] = round(top1_hits / n, 3)
+                        entry["mean_top5_overlap"] = round(sum(overlaps) / n, 2)
+                        entry["matches_cpu"] = (top1_hits == n)
                 per_device[dev] = entry
             matrix[model.id] = {"devices": per_device}
 
@@ -736,6 +761,7 @@ class ModelEvalRunner:
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "devices": devices,
+            "image_count": len(image_paths),
             "models": matrix,
         }
         try:
@@ -746,18 +772,24 @@ class ModelEvalRunner:
             "done": total, "total": total, "label": "device sweep complete",
         })
 
-    async def _run_probe_subprocess(self, device: str, *, timeout: float) -> Optional[dict[str, Any]]:
+    async def _run_probe_subprocess(
+        self, device: str, *, timeout: float, image_paths: Optional[list[str]] = None
+    ) -> Optional[dict[str, Any]]:
         """Probe the ACTIVE model on `device` in a child process; return the parsed
-        JSON report, or None on crash / timeout / parse failure."""
+        JSON report, or None on crash / timeout / parse failure. When image_paths are
+        given the probe runs those real images; otherwise it uses a synthetic image."""
         import sys as _sys
         try:
             import app as _app_pkg
             backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
         except Exception:
             backend_root = None
+        args = [_sys.executable, "-m", "scripts.probe_openvino_bird_model", "--device", device]
+        if image_paths:
+            args += ["--images", ",".join(image_paths)]
         try:
             proc = await asyncio.create_subprocess_exec(
-                _sys.executable, "-m", "scripts.probe_openvino_bird_model", "--device", device,
+                *args,
                 cwd=backend_root,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,

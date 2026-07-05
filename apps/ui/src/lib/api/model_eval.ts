@@ -108,16 +108,19 @@ export interface DeviceSweepEntry {
     compiles: boolean;
     error?: string | null;
     finite?: boolean | null;
-    top5?: number[];
     latency_ms?: number;
-    top5_overlap_vs_cpu?: number;
-    matches_cpu?: boolean;
+    images_evaluated?: number;
+    images_compared?: number;
+    top1_match_rate?: number;   // vs CPU, over real images (0..1)
+    mean_top5_overlap?: number; // vs CPU, over real images (0..5)
+    matches_cpu?: boolean;      // top-1 matched CPU on every compared image
 }
 
 export interface DeviceMatrix {
     run_id: string;
     generated_at: string;
     devices: string[];
+    image_count?: number;
     models: Record<string, { error?: string; devices?: Record<string, DeviceSweepEntry> }>;
 }
 

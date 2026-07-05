@@ -122,7 +122,7 @@ def _build_probe_image(input_size: int) -> Image.Image:
     return Image.fromarray(rgb, mode="RGB")
 
 
-def probe_openvino_bird_model(device: str = "GPU") -> dict[str, Any]:
+def probe_openvino_bird_model(device: str = "GPU", image_paths: list[str] | None = None) -> dict[str, Any]:
     spec = resolve_active_bird_model_spec()
     model = build_probe_model(spec, device)
     loaded = bool(model.load())
@@ -142,6 +142,27 @@ def probe_openvino_bird_model(device: str = "GPU") -> dict[str, Any]:
         },
     }
     if not loaded:
+        return report
+
+    # Real-image mode: run each provided image and return per-image top-5 indices,
+    # so a sweep can measure device-vs-CPU agreement on actual birds (not just a
+    # synthetic gradient). Falls back to the synthetic probe when no images given.
+    if image_paths:
+        per_image_top: list[list[int]] = []
+        first_output = None
+        for p in image_paths:
+            try:
+                img = Image.open(p).convert("RGB")
+                out = np.asarray(model._infer_logits(img)).reshape(-1)
+                if first_output is None:
+                    first_output = out
+                finite = out[np.isfinite(out)]
+                per_image_top.append([int(i) for i in np.argsort(out)[-5:][::-1]] if finite.size else [])
+            except Exception:
+                per_image_top.append([])
+        report["per_image_top_indices"] = per_image_top
+        if first_output is not None:
+            report["output_summary"] = summarize_array(first_output, name="output_logits")
         return report
 
     image = _build_probe_image(int(spec["input_size"]))
@@ -184,12 +205,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Probe the active bird model with OpenVINO")
     parser.add_argument("--device", choices=["CPU", "GPU", "NPU"], default="GPU")
     parser.add_argument("--compare-cpu-gpu", action="store_true")
+    parser.add_argument("--images", default=None, help="comma-separated image paths for real-image probing")
     args = parser.parse_args()
 
     if args.compare_cpu_gpu:
         report = probe_openvino_bird_model_pair()
     else:
-        report = probe_openvino_bird_model(device=args.device)
+        image_paths = [p for p in args.images.split(",") if p] if args.images else None
+        report = probe_openvino_bird_model(device=args.device, image_paths=image_paths)
 
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
