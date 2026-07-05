@@ -75,6 +75,26 @@ class DetectionResponse(Detection):
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
 
+
+class DetectionListItemResponse(APIModel):
+    id: int | None = None
+    detection_time: datetime
+    detection_index: int
+    score: float
+    display_name: str
+    category_name: str
+    camera_name: str
+    frigate_event: str
+    is_hidden: bool = False
+    is_favorite: bool = False
+    has_clip: bool = False
+    has_snapshot: bool = True
+    has_frigate_event: bool = True
+    audio_species: str | None = None
+    audio_score: float | None = None
+    audio_confirmed: bool = False
+    audio_context_species: list[str] | None = None
+
 class FrigateEvent(APIModel):
     id: str
     camera: str

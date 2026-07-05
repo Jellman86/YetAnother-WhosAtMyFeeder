@@ -438,17 +438,20 @@ class TaxonomyService:
                     # Also refresh if the detection's stored common name is not English-safe
                     must_refresh = row["common_name"] and not is_english_safe(row["common_name"])
 
-                    if not must_refresh and taxonomy and improves(taxonomy):
+                    # When taxa_id is missing, the cached taxonomy for this label
+                    # may contain a stale is_not_found entry.  Force-refresh to
+                    # give iNaturalist another chance to resolve the species.
+                    needs_force = must_refresh or row["taxa_id"] is None
+
+                    if not needs_force and taxonomy and improves(taxonomy):
                         # Use cached taxonomy if it improves the row and we don't need a force-refresh
                         pass
                     else:
                         taxonomy = None
                         for lookup_name in row["lookup_candidates"]:
-                            # Force refresh if we know the current data is non-English
-                            if must_refresh:
-                                candidate_taxonomy = await self.get_names(lookup_name, db=db, force_refresh=True)
-                            else:
-                                candidate_taxonomy = await self.get_names(lookup_name, db=db)
+                            candidate_taxonomy = await self.get_names(
+                                lookup_name, db=db, force_refresh=needs_force,
+                            )
                             if improves(candidate_taxonomy):
                                 taxonomy = candidate_taxonomy
                                 break
