@@ -53,6 +53,7 @@ SUMMARY_FILENAME = "summary.json"
 RUNTIME_FILENAME = "runtime.json"
 RESULTS_FILENAME = "results.jsonl"
 CONFUSIONS_FILENAME = "confusions.csv"
+DEVICE_MATRIX_FILENAME = "device_matrix.json"
 IMAGES_SUBDIR = "images"
 
 
@@ -93,6 +94,7 @@ class ModelEvalRunner:
         *,
         include_per_image: bool = False,
         region_override: Optional[str] = None,
+        sweep_devices: bool = False,
     ) -> str:
         if self.is_running():
             raise ModelEvalAlreadyRunning("a model evaluation run is already in progress")
@@ -112,6 +114,7 @@ class ModelEvalRunner:
                 run_dir=run_dir,
                 include_per_image=include_per_image,
                 region_override=region_override,
+                sweep_devices=sweep_devices,
             ),
             name=f"model_eval:{run_id}",
         )
@@ -168,7 +171,7 @@ class ModelEvalRunner:
         return summary
 
     def artifact_path(self, run_id: str, filename: str) -> Optional[Path]:
-        if filename not in {SUMMARY_FILENAME, RUNTIME_FILENAME, RESULTS_FILENAME, CONFUSIONS_FILENAME}:
+        if filename not in {SUMMARY_FILENAME, RUNTIME_FILENAME, RESULTS_FILENAME, CONFUSIONS_FILENAME, DEVICE_MATRIX_FILENAME}:
             return None
         candidate = _eval_runs_root() / _safe_run_id(run_id) / filename
         return candidate if candidate.is_file() else None
@@ -203,6 +206,7 @@ class ModelEvalRunner:
         run_dir: Path,
         include_per_image: bool,
         region_override: Optional[str],
+        sweep_devices: bool = False,
     ) -> None:
         async with self._lock:
             try:
@@ -211,6 +215,7 @@ class ModelEvalRunner:
                     run_dir=run_dir,
                     include_per_image=include_per_image,
                     region_override=region_override,
+                    sweep_devices=sweep_devices,
                 )
             except asyncio.CancelledError:
                 log.info("model_eval_run_cancelled", run_id=run_id)
@@ -241,6 +246,7 @@ class ModelEvalRunner:
         run_dir: Path,
         include_per_image: bool,
         region_override: Optional[str],
+        sweep_devices: bool = False,
     ) -> None:
         from app.services.classifier_service import get_classifier
         from app.services.model_manager import model_manager
@@ -293,6 +299,11 @@ class ModelEvalRunner:
 
         if not usable_panel:
             raise RuntimeError("no species had any retrievable images; aborting")
+
+        # For a device sweep we want the full picture, so make sure every registry
+        # classifier model is installed (auto-downloads any that are missing).
+        if sweep_devices:
+            await self._download_all_classifier_models(run_id)
 
         # Discover classifier models
         installed = await model_manager.list_installed_models()
@@ -567,6 +578,14 @@ class ModelEvalRunner:
                     skipped_models=skipped_models,
                 ))
                 _write_runtime(run_dir, runtime_payload)
+
+            # Optional per-model x per-device capability sweep (compile / finite /
+            # top-5 agreement vs CPU), each compile isolated in a subprocess.
+            if sweep_devices:
+                try:
+                    await self._device_sweep(run_id, run_dir, classifiers)
+                except Exception as e:
+                    log.exception("model_eval_device_sweep_failed", run_id=run_id, error=str(e))
         finally:
             if results_fp is not None:
                 results_fp.close()
@@ -603,6 +622,165 @@ class ModelEvalRunner:
             "total": len(classifiers),
             "label": "complete",
         })
+
+    async def _download_all_classifier_models(self, run_id: str) -> None:
+        """Install every registry classifier model that isn't present yet.
+
+        The device sweep needs the full set; missing ones are auto-downloaded.
+        Fail-soft: a download failure is logged and skipped, never fatal.
+        """
+        from app.services.model_manager import model_manager
+
+        try:
+            available = await model_manager.list_available_models()
+            installed_ready = {
+                m.id for m in await model_manager.list_installed_models()
+                if getattr(m, "ready", False)
+            }
+        except Exception as e:
+            log.warning("model_eval_list_models_failed", error=str(e))
+            return
+
+        targets = [
+            m for m in available
+            if ((getattr(m, "artifact_kind", None) or "classifier") == "classifier")
+            and m.id not in installed_ready
+        ]
+        total = len(targets)
+        for idx, m in enumerate(targets):
+            await self._emit(run_id, phase="downloading_models", progress={
+                "done": idx, "total": total, "label": f"downloading {m.id}",
+            })
+            try:
+                if not await model_manager.download_model(m.id):
+                    log.warning("model_eval_download_failed", model_id=m.id)
+            except Exception as e:
+                log.warning("model_eval_download_error", model_id=m.id, error=str(e))
+        if total:
+            await self._emit(run_id, phase="downloading_models", progress={
+                "done": total, "total": total, "label": "models downloaded",
+            })
+
+    async def _device_sweep(self, run_id: str, run_dir: Path, classifiers: list) -> None:
+        """Compile + run every model on each available OpenVINO device and compare
+        each device's top-5 to the CPU baseline. Every compile runs in an isolated
+        subprocess so a GPU/NPU driver crash (e.g. CL_OUT_OF_RESOURCES / SIGABRT)
+        cannot take down the app process.
+        """
+        from app.services.model_manager import model_manager
+
+        # Enumerating devices is safe; only compilation can crash, and that is
+        # isolated in the probe subprocess. CPU is the correctness baseline.
+        try:
+            import openvino as _ov
+            avail = list(_ov.Core().available_devices)
+        except Exception as e:
+            log.warning("model_eval_openvino_unavailable", error=str(e))
+            return
+        devices: list[str] = ["CPU"] if any(str(d).split(".")[0] == "CPU" for d in avail) else []
+        for d in avail:
+            base = str(d).split(".")[0]
+            if base in ("GPU", "NPU") and base not in devices:
+                devices.append(base)
+        if not devices:
+            return
+
+        matrix: dict[str, Any] = {}
+        total = len(classifiers)
+        for m_idx, model in enumerate(classifiers):
+            await self._emit(run_id, phase="device_sweep", progress={
+                "done": m_idx, "total": total, "label": f"sweeping {model.id}",
+            })
+            try:
+                activated = await model_manager.activate_model(model.id)
+            except Exception:
+                activated = False
+            if not activated:
+                matrix[model.id] = {"error": "activation_failed"}
+                continue
+
+            cpu_top: list[int] | None = None
+            per_device: dict[str, Any] = {}
+            for dev in devices:
+                started = time.perf_counter()
+                report = await self._run_probe_subprocess(dev, timeout=180.0)
+                elapsed_ms = round((time.perf_counter() - started) * 1000.0, 1)
+                if report is None:
+                    per_device[dev] = {"compiles": False, "error": "crashed_or_timed_out", "latency_ms": elapsed_ms}
+                    continue
+                compile_info = report.get("compile") or {}
+                out = report.get("output_summary") or {}
+                top = report.get("output_top_indices") or []
+                compiles = bool(compile_info.get("ok"))
+                finite = None
+                if compiles:
+                    finite = bool(out.get("finite_count")) and not (out.get("nan_count") or 0) \
+                        and not ((out.get("pos_inf_count") or 0) + (out.get("neg_inf_count") or 0))
+                entry: dict[str, Any] = {
+                    "compiles": compiles,
+                    "error": compile_info.get("error"),
+                    "finite": finite,
+                    "top5": top,
+                    "latency_ms": elapsed_ms,
+                }
+                if dev == "CPU" and compiles:
+                    cpu_top = top
+                if dev != "CPU" and compiles and cpu_top and top:
+                    overlap = len(set(top) & set(cpu_top))
+                    entry["top5_overlap_vs_cpu"] = overlap
+                    entry["matches_cpu"] = overlap == len(cpu_top)
+                per_device[dev] = entry
+            matrix[model.id] = {"devices": per_device}
+
+        payload = {
+            "run_id": run_id,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "devices": devices,
+            "models": matrix,
+        }
+        try:
+            (run_dir / DEVICE_MATRIX_FILENAME).write_text(json.dumps(payload, indent=2))
+        except OSError as e:
+            log.warning("model_eval_device_matrix_write_failed", error=str(e))
+        await self._emit(run_id, phase="device_sweep", progress={
+            "done": total, "total": total, "label": "device sweep complete",
+        })
+
+    async def _run_probe_subprocess(self, device: str, *, timeout: float) -> Optional[dict[str, Any]]:
+        """Probe the ACTIVE model on `device` in a child process; return the parsed
+        JSON report, or None on crash / timeout / parse failure."""
+        import sys as _sys
+        try:
+            import app as _app_pkg
+            backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
+        except Exception:
+            backend_root = None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                _sys.executable, "-m", "scripts.probe_openvino_bird_model", "--device", device,
+                cwd=backend_root,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+        except Exception as e:
+            log.warning("model_eval_probe_spawn_failed", device=device, error=str(e))
+            return None
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            return None
+        if proc.returncode != 0:
+            return None
+        try:
+            text = stdout.decode("utf-8", "replace")
+            start = text.find("{")
+            return json.loads(text[start:]) if start >= 0 else None
+        except Exception:
+            return None
 
 
 # ---------- helpers ----------

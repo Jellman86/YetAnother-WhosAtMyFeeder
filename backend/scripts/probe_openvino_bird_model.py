@@ -149,6 +149,15 @@ def probe_openvino_bird_model(device: str = "GPU") -> dict[str, Any]:
     output = np.asarray(model._infer_logits(image))
     report["input_summary"] = summarize_array(input_tensor, name="input_tensor")
     report["output_summary"] = summarize_array(output, name="output_logits")
+    # Top-5 class indices on the fixed probe image. Deterministic across devices,
+    # so a device's list can be compared to the CPU run to detect silent
+    # precision divergence (right compile, wrong predictions).
+    flat = output.reshape(-1)
+    finite_flat = flat[np.isfinite(flat)]
+    if finite_flat.size:
+        report["output_top_indices"] = [int(i) for i in np.argsort(flat)[-5:][::-1]]
+    else:
+        report["output_top_indices"] = []
     return report
 
 

@@ -7,11 +7,13 @@
         deleteModelEvalRun,
         cancelModelEvalRun,
         modelEvalArtifactUrl,
+        getModelEvalDeviceMatrix,
         type ModelEvalActiveStatus,
         type ModelEvalRunRow,
         type ModelEvalRunSummary,
         type ModelEvalModelSummary,
         type ModelEvalWarning,
+        type DeviceMatrix,
     } from '../api/model_eval';
 
     let runs = $state<ModelEvalRunRow[]>([]);
@@ -21,7 +23,21 @@
     let loading = $state(false);
     let error = $state<string | null>(null);
     let includePerImage = $state(false);
+    let sweepDevices = $state(false);
+    let deviceMatrix = $state<DeviceMatrix | null>(null);
     let pollHandle: number | null = null;
+
+    function deviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+        if (!row || row.error) return { label: '—', cls: 'text-gray-400' };
+        const e = row.devices?.[dev];
+        if (!e) return { label: '—', cls: 'text-gray-400' };
+        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
+        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
+        if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-gray-600 dark:text-gray-400' };
+        if (e.matches_cpu) return { label: '✓ matches CPU', cls: 'text-emerald-600 dark:text-emerald-400' };
+        if (typeof e.top5_overlap_vs_cpu === 'number') return { label: `⚠ ${e.top5_overlap_vs_cpu}/5 vs CPU`, cls: 'text-amber-600 dark:text-amber-400' };
+        return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
+    }
 
     function pct(value: number | null | undefined): string {
         if (value === null || value === undefined || Number.isNaN(value)) return '—';
@@ -55,6 +71,11 @@
                 } catch {
                     selectedRun = null;
                 }
+                try {
+                    deviceMatrix = await getModelEvalDeviceMatrix(selectedRunId);
+                } catch {
+                    deviceMatrix = null;
+                }
             }
         } catch (e) {
             error = (e as Error).message;
@@ -81,7 +102,7 @@
         loading = true;
         error = null;
         try {
-            const { run_id } = await startModelEvalRun({ include_per_image: includePerImage });
+            const { run_id } = await startModelEvalRun({ include_per_image: includePerImage, sweep_devices: sweepDevices });
             selectedRunId = run_id;
             await refresh();
             startPolling();
@@ -145,6 +166,10 @@
             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input type="checkbox" bind:checked={includePerImage} class="rounded" />
                 Include per-image details (results.jsonl)
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300" title="Downloads every registry model, then compiles each on CPU / iGPU / NPU and compares predictions to the CPU baseline. Slower.">
+                <input type="checkbox" bind:checked={sweepDevices} class="rounded" />
+                Sweep all devices (auto-downloads all models; per-model × CPU/GPU/NPU)
             </label>
             <button
                 type="button"
@@ -275,6 +300,39 @@
                     </ul>
                 </div>
             {/if}
+        </section>
+    {/if}
+
+    {#if deviceMatrix}
+        <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Device compatibility matrix</h3>
+            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                Each model compiled on every available accelerator in an isolated subprocess; non-CPU
+                devices are compared to the CPU baseline on a fixed probe image (top-5).
+            </p>
+            <div class="mt-3 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                            <th class="text-left py-2 pr-4">Model</th>
+                            {#each deviceMatrix.devices as dev}
+                                <th class="text-left px-2">{dev}</th>
+                            {/each}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each Object.entries(deviceMatrix.models) as [modelId, row]}
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">{modelId}</td>
+                                {#each deviceMatrix.devices as dev}
+                                    {@const c = deviceCell(row, dev)}
+                                    <td class="px-2 text-xs {c.cls}">{c.label}</td>
+                                {/each}
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
         </section>
     {/if}
 

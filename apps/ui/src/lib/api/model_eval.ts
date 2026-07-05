@@ -90,6 +90,7 @@ const BASE = `${API_BASE}/diagnostics/model-eval`;
 export async function startModelEvalRun(opts: {
     include_per_image?: boolean;
     region_override?: string | null;
+    sweep_devices?: boolean;
 } = {}): Promise<{ run_id: string }> {
     const resp = await apiFetch(`${BASE}/runs`, {
         method: 'POST',
@@ -97,9 +98,33 @@ export async function startModelEvalRun(opts: {
         body: JSON.stringify({
             include_per_image: !!opts.include_per_image,
             region_override: opts.region_override ?? null,
+            sweep_devices: !!opts.sweep_devices,
         }),
     });
     return handleResponse<{ run_id: string }>(resp);
+}
+
+export interface DeviceSweepEntry {
+    compiles: boolean;
+    error?: string | null;
+    finite?: boolean | null;
+    top5?: number[];
+    latency_ms?: number;
+    top5_overlap_vs_cpu?: number;
+    matches_cpu?: boolean;
+}
+
+export interface DeviceMatrix {
+    run_id: string;
+    generated_at: string;
+    devices: string[];
+    models: Record<string, { error?: string; devices?: Record<string, DeviceSweepEntry> }>;
+}
+
+export async function getModelEvalDeviceMatrix(runId: string): Promise<DeviceMatrix | null> {
+    const resp = await apiFetch(modelEvalArtifactUrl(runId, 'device_matrix.json'));
+    if (!resp.ok) return null;
+    return resp.json() as Promise<DeviceMatrix>;
 }
 
 export async function listModelEvalRuns(): Promise<ModelEvalListResponse> {
