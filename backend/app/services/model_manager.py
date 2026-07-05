@@ -407,9 +407,10 @@ REMOTE_REGISTRY = [
         # NOT intel_gpu: harness retest 2026-05-08 confirmed RoPE attention
         # ops still produce non-finite logits on iGPU (OpenVINO startup
         # self-test caught the NaN and fell all the way back to ONNX
-        # Runtime CPU). Stays CPU-only; intel_gpu in the registry would
-        # just waste a compile attempt every model load.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        # Runtime CPU). The NPU, however, compiles this model at its default
+        # (f16) precision and returns finite output whose top-5 matches CPU
+        # exactly (validated 2026-07-05 on Arrow Lake), so intel_npu is enabled.
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -435,7 +436,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "CPU, Intel CPU (OpenVINO), and Intel NPU validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported, but the NPU runs it at f16 with top-5 matching CPU exactly (validated 2026-07-05, Arrow Lake). CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
     },
     {
         "id": "eva02_large_inat21",

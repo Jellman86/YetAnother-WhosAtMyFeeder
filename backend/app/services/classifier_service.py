@@ -2029,14 +2029,18 @@ class OpenVINOModelInstance:
             _is_gpu = self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
             _is_npu = self.device_name == "NPU" or str(self.device_name).startswith("NPU.")
             if _is_gpu or _is_npu:
-                # Both the Intel iGPU and the NPU default to reduced precision (f16) and
-                # need a static batch dimension. Un-quantized ONNX activations >65504
-                # overflow f16 → non-finite logits, so hint f32; the NPU compiler in
-                # particular *requires* static shapes. Reshaping dynamic batch to 1 is
-                # accuracy-neutral and also avoids the Intel GPU clWaitForEvents -14 crash.
-                config["INFERENCE_PRECISION_HINT"] = "f32"
+                # Both the iGPU and NPU need a static batch dimension (the NPU compiler
+                # *requires* it; on the iGPU it avoids the clWaitForEvents -14 crash), so
+                # the dynamic-batch reshape below applies to both accelerators.
                 if _is_gpu:
+                    # Intel GPU defaults to f16; un-quantized ONNX activations >65504
+                    # overflow f16 → non-finite logits, so force f32 on the GPU only.
+                    config["INFERENCE_PRECISION_HINT"] = "f32"
                     config.update(_openvino_gpu_optional_compile_properties())
+                # NPU: only f16/i8 are valid for INFERENCE_PRECISION_HINT (f32 is rejected
+                # at compile — "Wrong value f32 ... Supported values: f16, i8"), so leave
+                # the NPU at its default precision. Validated to give finite, CPU-matching
+                # output (rope_vit_b14: top-5 identical to CPU).
                 try:
                     partial = model.inputs[0].get_partial_shape()
                     if partial.rank.is_static and partial[0].is_dynamic:
