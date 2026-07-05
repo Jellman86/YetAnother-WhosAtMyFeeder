@@ -72,7 +72,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["rope_vit_b14_inat21"].download_url != "pending"
     assert by_id["rope_vit_b14_inat21"].labels_url != "pending"
     assert by_id["rope_vit_b14_inat21"].advanced_only is False
-    assert "CPU and Intel CPU" in by_id["rope_vit_b14_inat21"].notes
+    assert "Intel CPU" in by_id["rope_vit_b14_inat21"].notes
+    assert "Intel NPU" in by_id["rope_vit_b14_inat21"].notes
     assert "Intel GPU" in by_id["rope_vit_b14_inat21"].notes
     assert "not supported" in by_id["rope_vit_b14_inat21"].notes
     assert by_id["rope_vit_b14_inat21"].model_config_url
