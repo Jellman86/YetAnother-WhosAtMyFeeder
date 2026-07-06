@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from fastapi.responses import Response
 import httpx
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import structlog
 from pydantic import BaseModel
@@ -27,6 +27,27 @@ class AudioSourceResponse(BaseModel):
     last_seen: str
     sample_source_id: str | None = None
     seen_count: int = 1
+
+
+class AudioHistoryQuery(BaseModel):
+    start_date: datetime | None
+    end_date: datetime | None
+
+
+def _history_window(days: int, start_date: datetime | None, end_date: datetime | None) -> AudioHistoryQuery:
+    resolved_end = end_date
+    if resolved_end is None:
+        resolved_end = datetime.now(timezone.utc)
+    elif resolved_end.tzinfo is None:
+        resolved_end = resolved_end.replace(tzinfo=timezone.utc)
+
+    resolved_start = start_date
+    if resolved_start is None:
+        resolved_start = resolved_end - timedelta(days=days)
+    elif resolved_start.tzinfo is None:
+        resolved_start = resolved_start.replace(tzinfo=timezone.utc)
+
+    return AudioHistoryQuery(start_date=resolved_start, end_date=resolved_end)
 
 
 def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | None) -> tuple[str | None, str | None]:
@@ -92,6 +113,92 @@ async def get_recent_audio(
         for detection in detections:
             detection["sensor_id"] = None
     return detections
+
+
+@router.get("/history")
+@guest_rate_limit()
+async def get_audio_history(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=3650),
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+    species: str | None = Query(default=None, max_length=120),
+    source: str | None = Query(default=None, max_length=120),
+    min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Browse persisted BirdNET-Go detections separately from visual detections."""
+    window = _history_window(days, start_date, end_date)
+    lang = get_user_language(request) or "en"
+    hide_sensor = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        result = await repo.get_audio_history(
+            start_date=window.start_date,
+            end_date=window.end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+            limit=limit,
+            offset=offset,
+        )
+        await localize_audio_detections(result["items"], lang, db)
+
+    for detection in result["items"]:
+        detection.pop("scientific_name", None)
+        if hide_sensor:
+            detection["sensor_id"] = None
+            detection["source_name"] = None
+
+    return result
+
+
+@router.get("/summary")
+@guest_rate_limit()
+async def get_audio_summary(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=3650),
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+    species: str | None = Query(default=None, max_length=120),
+    source: str | None = Query(default=None, max_length=120),
+    min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Summarise persisted BirdNET-Go detection history."""
+    window = _history_window(days, start_date, end_date)
+    lang = get_user_language(request) or "en"
+    hide_sensor = (
+        not auth.is_owner
+        and settings.public_access.enabled
+        and not settings.public_access.show_camera_names
+    )
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        result = await repo.get_audio_history_summary(
+            start_date=window.start_date,
+            end_date=window.end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+        )
+        await localize_audio_detections(result["top_species"], lang, db)
+
+    for item in result["top_species"]:
+        item.pop("scientific_name", None)
+    if hide_sensor:
+        result["sources"] = []
+        result["source_count"] = 0
+
+    return result
 
 @router.get("/spectrogram/{birdnet_id}")
 async def get_audio_spectrogram(

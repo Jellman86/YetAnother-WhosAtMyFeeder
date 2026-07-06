@@ -11,6 +11,8 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
 
+    let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
+
     const RECENT_AUDIO_LIMIT = 10;
 
     function detectionKey(d: AudioDetection, index: number): string {
@@ -96,6 +98,17 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
+            <button
+                type="button"
+                class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors text-[9px] font-black uppercase tracking-wider"
+                title={$_('dashboard.audio_feed.open_history', { default: 'Open audio history' })}
+                onclick={() => onNavigate?.('/audio')}
+            >
+                <span>History</span>
+                <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
             {#if !loading && audioDetections.length > 0}
                 <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-200">
                     <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>

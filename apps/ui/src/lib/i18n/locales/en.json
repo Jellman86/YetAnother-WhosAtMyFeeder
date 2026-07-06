@@ -9,6 +9,7 @@
     "dashboard": "Dashboard",
     "explorer": "Explorer",
     "leaderboard": "Leaderboard",
+    "audio_history": "Audio History",
     "jobs": "Jobs",
     "settings": "Settings",
     "about": "About",
@@ -94,6 +95,7 @@
       "empty_title": "No audio detections in buffer",
       "empty_subtitle": "Buffer clears every 5 mins",
       "unknown_sensor": "Unknown Sensor",
+      "open_history": "Open audio history",
       "open_birdnet": "Open BirdNET-Go",
       "open_in_birdnet": "Open detection in BirdNET-Go"
     },
@@ -2055,6 +2057,7 @@
     "about": "Version, changelog, contributors, and support links.",
     "dashboard": "Live detections, recent activity, and feeder health at a glance.",
     "events": "Browse, filter, and manage every classified visit.",
+    "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
     "notifications": "Alerts, reminders, and active background jobs.",
     "settings": "Connections, classification, integrations, and personalization.",
     "species": "Leaderboard, totals, and taxonomy details for the birds you have seen."

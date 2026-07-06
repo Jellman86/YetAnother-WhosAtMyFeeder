@@ -404,7 +404,7 @@
             {/if}
             {#if birdnetEnabled}
                 <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
-                    <RecentAudio />
+                    <RecentAudio onNavigate={onnavigate} />
                 </div>
             {/if}
         </div>

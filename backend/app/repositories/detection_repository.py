@@ -173,6 +173,33 @@ def _extract_audio_mapping_keys(sensor_id: str | None, raw_data: str | None) -> 
     return keys
 
 
+def _extract_birdnet_source_name(sensor_id: str | None, raw_data: str | None) -> str | None:
+    """Return the best human-readable BirdNET source label for history views."""
+    if raw_data:
+        try:
+            payload = json.loads(raw_data)
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            source = payload.get("Source")
+            source = source if isinstance(source, dict) else {}
+            for candidate in (
+                payload.get("nm"),
+                payload.get("sourceName"),
+                source.get("displayName"),
+                sensor_id,
+                payload.get("sourceId"),
+                payload.get("src"),
+                source.get("id"),
+            ):
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+
+    if isinstance(sensor_id, str) and sensor_id.strip():
+        return sensor_id.strip()
+    return None
+
+
 def _row_to_detection(row) -> Detection:
     """Convert a database row to a Detection object."""
     d = Detection(
@@ -3498,6 +3525,211 @@ class DetectionRepository:
 
         results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
         return results[:limit]
+
+    def _build_audio_history_filter(
+        self,
+        start_date: Optional[datetime],
+        end_date: Optional[datetime],
+        species: Optional[str],
+        source: Optional[str],
+        min_confidence: Optional[float],
+    ) -> tuple[str, list]:
+        clauses: list[str] = []
+        params: list = []
+
+        if start_date is not None:
+            clauses.append("timestamp >= ?")
+            params.append(start_date.isoformat(sep=' '))
+        if end_date is not None:
+            clauses.append("timestamp <= ?")
+            params.append(end_date.isoformat(sep=' '))
+        if species:
+            clauses.append("LOWER(species) LIKE ?")
+            params.append(f"%{species.strip().casefold()}%")
+        if source:
+            source_like = f"%{source.strip().casefold()}%"
+            clauses.append("(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)")
+            params.extend([source_like, source_like])
+        if min_confidence is not None:
+            clauses.append("confidence >= ?")
+            params.append(float(min_confidence))
+
+        return (" WHERE " + " AND ".join(clauses)) if clauses else "", params
+
+    async def get_audio_history(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        species: Optional[str] = None,
+        source: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        """Return persisted BirdNET detections for history browsing."""
+        where_sql, params = self._build_audio_history_filter(
+            start_date=start_date,
+            end_date=end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+        )
+
+        async with self.db.execute(f"SELECT COUNT(*) FROM audio_detections{where_sql}", params) as cursor:
+            total_row = await cursor.fetchone()
+        total = int(total_row[0] or 0) if total_row else 0
+
+        query = f"""SELECT id, timestamp, species, confidence, sensor_id, scientific_name, raw_data
+                    FROM audio_detections
+                    {where_sql}
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ? OFFSET ?"""
+        async with self.db.execute(query, [*params, limit, offset]) as cursor:
+            rows = await cursor.fetchall()
+
+        from app.services.audio.audio_service import _extract_birdnet_id
+
+        items: list[dict] = []
+        for row in rows:
+            raw_data = row[6]
+            birdnet_id: int | None = None
+            if raw_data:
+                try:
+                    payload = json.loads(raw_data)
+                except Exception:
+                    payload = None
+                if isinstance(payload, dict):
+                    birdnet_id = _extract_birdnet_id(payload)
+
+            items.append({
+                "id": row[0],
+                "timestamp": _parse_datetime(row[1]).isoformat(),
+                "species": row[2],
+                "confidence": row[3],
+                "sensor_id": row[4],
+                "source_name": _extract_birdnet_source_name(row[4], raw_data),
+                "scientific_name": row[5],
+                "birdnet_id": birdnet_id,
+            })
+
+        return {
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    async def get_audio_history_summary(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        species: Optional[str] = None,
+        source: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+    ) -> dict:
+        """Return rollups over persisted BirdNET detections."""
+        where_sql, params = self._build_audio_history_filter(
+            start_date=start_date,
+            end_date=end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+        )
+
+        async with self.db.execute(
+            f"""SELECT COUNT(*), COUNT(DISTINCT COALESCE(NULLIF(scientific_name, ''), species))
+                FROM audio_detections{where_sql}""",
+            params,
+        ) as cursor:
+            totals = await cursor.fetchone()
+
+        async with self.db.execute(
+            f"""SELECT species, scientific_name, COUNT(*) AS count, AVG(confidence), MAX(confidence),
+                       MIN(timestamp), MAX(timestamp)
+                FROM audio_detections
+                {where_sql}
+                GROUP BY COALESCE(NULLIF(scientific_name, ''), species), species, scientific_name
+                ORDER BY count DESC, MAX(timestamp) DESC
+                LIMIT 20""",
+            params,
+        ) as cursor:
+            top_species_rows = await cursor.fetchall()
+
+        async with self.db.execute(
+            f"""SELECT DATE(timestamp), COUNT(*)
+                FROM audio_detections
+                {where_sql}
+                GROUP BY DATE(timestamp)
+                ORDER BY DATE(timestamp) ASC""",
+            params,
+        ) as cursor:
+            daily_rows = await cursor.fetchall()
+
+        async with self.db.execute(
+            f"""SELECT CAST(strftime('%H', timestamp) AS INTEGER), COUNT(*)
+                FROM audio_detections
+                {where_sql}
+                GROUP BY CAST(strftime('%H', timestamp) AS INTEGER)
+                ORDER BY CAST(strftime('%H', timestamp) AS INTEGER) ASC""",
+            params,
+        ) as cursor:
+            hourly_rows = await cursor.fetchall()
+
+        async with self.db.execute(
+            f"""SELECT timestamp, sensor_id, raw_data
+                FROM audio_detections
+                {where_sql}
+                ORDER BY timestamp DESC""",
+            params,
+        ) as cursor:
+            source_rows = await cursor.fetchall()
+
+        source_totals: dict[str, dict] = {}
+        for row in source_rows:
+            source_name = _extract_birdnet_source_name(row[1], row[2])
+            if not source_name:
+                source_name = "Unknown source"
+            if source_name not in source_totals:
+                source_totals[source_name] = {
+                    "source_name": source_name,
+                    "count": 0,
+                    "last_heard": _parse_datetime(row[0]).isoformat(),
+                }
+            source_totals[source_name]["count"] += 1
+
+        top_species = [
+            {
+                "species": row[0],
+                "scientific_name": row[1],
+                "count": int(row[2] or 0),
+                "avg_confidence": float(row[3] or 0),
+                "max_confidence": float(row[4] or 0),
+                "first_heard": _parse_datetime(row[5]).isoformat() if row[5] else None,
+                "last_heard": _parse_datetime(row[6]).isoformat() if row[6] else None,
+            }
+            for row in top_species_rows
+        ]
+
+        sources = sorted(
+            source_totals.values(),
+            key=lambda item: (-int(item["count"]), str(item["source_name"]).casefold()),
+        )
+
+        return {
+            "total": int(totals[0] or 0) if totals else 0,
+            "species_count": int(totals[1] or 0) if totals else 0,
+            "source_count": len(sources),
+            "top_species": top_species,
+            "daily_counts": [
+                {"date": row[0], "count": int(row[1] or 0)}
+                for row in daily_rows
+            ],
+            "hourly_counts": [
+                {"hour": int(row[0] or 0), "count": int(row[1] or 0)}
+                for row in hourly_rows
+            ],
+            "sources": sources,
+        }
 
     async def get_audio_confirmations_count(self, start_date: datetime, end_date: datetime) -> int:
         """Get total audio-confirmed detections in a time range."""

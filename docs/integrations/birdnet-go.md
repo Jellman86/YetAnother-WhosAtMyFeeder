@@ -4,7 +4,7 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
 
 ## How it works
 1. **BirdNET-Go** identifies a bird song and publishes the detection to MQTT.
-2. **YA-WAMF** stores these audio detections in a short-term memory buffer (5 minutes).
+2. **YA-WAMF** stores these audio detections in its recent in-memory correlation buffer and persists them to the audio detection history.
 3. When **Frigate** detects a bird visually, YA-WAMF checks its buffer for a matching timestamp (±30s).
 4. If a match is found, the detection is marked as **"Verified"** in the UI with an audio badge.
 
@@ -41,4 +41,4 @@ YA-WAMF is compatible with multiple BirdNET message formats:
 The system ignores "Sound Level" messages (`birdnet/soundlevel`) and focuses only on valid species identifications.
 
 ## Dashboard Widget
-The dashboard includes a "Recent Audio" widget that shows the most recent standalone detections from BirdNET-Go, even if no visual event occurred. This can be toggled on/off in the settings.
+The dashboard includes a "Recent Audio" widget that shows the live in-memory detections from BirdNET-Go, even if no visual event occurred. The widget includes a **History** link to the full Audio History view, which reads from persisted BirdNET detections and provides date-window, species, source, and confidence filters plus top-species, source, and hourly activity summaries. This audio history is kept separate from the visual feeder leaderboard so "heard" detections do not inflate "seen" detections.

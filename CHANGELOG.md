@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 - **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
+- **BirdNET (#53):** Added a persisted Audio History view backed by the existing BirdNET-Go detection table, including filterable history, confidence/source/species filters, top heard species, source rollups, and hourly activity summaries separate from visual feeder detections.
 
 ## [2.11.0] - 2026-06-22
 

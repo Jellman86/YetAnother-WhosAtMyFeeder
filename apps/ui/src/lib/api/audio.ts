@@ -5,12 +5,91 @@ export interface AudioDetection {
     species: string;
     confidence: number;
     sensor_id: string | null;
+    source_name?: string | null;
     birdnet_id?: number | null;
+}
+
+export interface AudioHistoryDetection extends AudioDetection {
+    id: number;
+}
+
+export interface AudioHistoryParams {
+    days?: number;
+    start_date?: string;
+    end_date?: string;
+    species?: string;
+    source?: string;
+    min_confidence?: number;
+    limit?: number;
+    offset?: number;
+}
+
+export interface AudioHistoryResponse {
+    items: AudioHistoryDetection[];
+    total: number;
+    limit: number;
+    offset: number;
+}
+
+export interface AudioSpeciesSummary {
+    species: string;
+    count: number;
+    avg_confidence: number;
+    max_confidence: number;
+    first_heard?: string | null;
+    last_heard?: string | null;
+}
+
+export interface AudioDailyCount {
+    date: string;
+    count: number;
+}
+
+export interface AudioHourlyCount {
+    hour: number;
+    count: number;
+}
+
+export interface AudioSourceSummary {
+    source_name: string;
+    count: number;
+    last_heard: string;
+}
+
+export interface AudioSummaryResponse {
+    total: number;
+    species_count: number;
+    source_count: number;
+    top_species: AudioSpeciesSummary[];
+    daily_counts: AudioDailyCount[];
+    hourly_counts: AudioHourlyCount[];
+    sources: AudioSourceSummary[];
 }
 
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
     return handleResponse<AudioDetection[]>(response);
+}
+
+function buildAudioHistoryParams(params: AudioHistoryParams = {}): URLSearchParams {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') continue;
+        query.set(key, String(value));
+    }
+    return query;
+}
+
+export async function fetchAudioHistory(params: AudioHistoryParams = {}): Promise<AudioHistoryResponse> {
+    const query = buildAudioHistoryParams(params);
+    const response = await apiFetch(`${API_BASE}/audio/history?${query.toString()}`);
+    return handleResponse<AudioHistoryResponse>(response);
+}
+
+export async function fetchAudioSummary(params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {}): Promise<AudioSummaryResponse> {
+    const query = buildAudioHistoryParams(params);
+    const response = await apiFetch(`${API_BASE}/audio/summary?${query.toString()}`);
+    return handleResponse<AudioSummaryResponse>(response);
 }
 
 export interface AudioContextDetection extends AudioDetection {

@@ -14,6 +14,7 @@
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
+  import AudioHistory from './lib/pages/AudioHistory.svelte';
   import Settings from './lib/pages/Settings.svelte';
   import About from './lib/pages/About.svelte';
   import Notifications from './lib/pages/Notifications.svelte';
@@ -62,6 +63,7 @@
       if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
       if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
+      if (currentRoute.startsWith('/audio')) return $_('nav.audio_history', { default: 'Audio History' });
       if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
       if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
       if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Model Evaluation';
@@ -72,6 +74,7 @@
       if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
       if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
       if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
+      if (currentRoute.startsWith('/audio')) return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
       if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
       if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
       if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Benchmark every installed classifier against verified bird images.';
@@ -646,6 +649,8 @@
                   <Events />
               {:else if currentRoute.startsWith('/species')}
                   <Species />
+              {:else if currentRoute.startsWith('/audio')}
+                  <AudioHistory />
               {:else if currentRoute.startsWith('/settings')}
                    {#if authStore.showSettings}
                        <Settings onNavigate={navigate} {currentRoute} />

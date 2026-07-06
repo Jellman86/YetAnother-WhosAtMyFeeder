@@ -164,6 +164,133 @@ async def test_audio_sources_uses_birdnet_source_name(client: httpx.AsyncClient)
 
 
 @pytest.mark.asyncio
+async def test_audio_history_filters_persisted_birdnet_detections(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    rows = [
+        (
+            (now - timedelta(hours=1)).isoformat(sep=" "),
+            "Dunnock",
+            0.92,
+            "BirdCam",
+            json.dumps({"detectionId": 101, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(hours=2)).isoformat(sep=" "),
+            "Blue Tit",
+            0.88,
+            "Garden Mic",
+            json.dumps({"detectionId": 102, "nm": "Garden Mic", "src": "rtsp_garden"}),
+            "Cyanistes caeruleus",
+        ),
+        (
+            (now - timedelta(days=10)).isoformat(sep=" "),
+            "Dunnock",
+            0.7,
+            "BirdCam",
+            json.dumps({"detectionId": 103, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+            "Prunella modularis",
+        ),
+    ]
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get(
+        "/api/audio/history",
+        params={
+            "days": 2,
+            "species": "dun",
+            "source": "BirdCam",
+            "min_confidence": 0.8,
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["total"] == 1
+    assert payload["limit"] == 10
+    assert payload["offset"] == 0
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["species"] == "Dunnock"
+    assert payload["items"][0]["source_name"] == "BirdCam"
+    assert payload["items"][0]["birdnet_id"] == 101
+    assert "scientific_name" not in payload["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_audio_summary_rolls_up_persisted_history(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+    rows = [
+        (
+            (now - timedelta(hours=1)).isoformat(sep=" "),
+            "Dunnock",
+            0.92,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(hours=2)).isoformat(sep=" "),
+            "Dunnock",
+            0.82,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(days=1)).isoformat(sep=" "),
+            "Blue Tit",
+            0.88,
+            "Garden Mic",
+            json.dumps({"Source": {"displayName": "Garden Mic"}}),
+            "Cyanistes caeruleus",
+        ),
+    ]
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get("/api/audio/summary", params={"days": 7})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["total"] == 3
+    assert payload["species_count"] == 2
+    assert payload["source_count"] == 2
+    assert payload["top_species"][0]["species"] == "Dunnock"
+    assert payload["top_species"][0]["count"] == 2
+    assert "scientific_name" not in payload["top_species"][0]
+    assert {item["date"] for item in payload["daily_counts"]} == {
+        now.strftime("%Y-%m-%d"),
+        (now - timedelta(days=1)).strftime("%Y-%m-%d"),
+    }
+    assert any(item["hour"] == 11 and item["count"] == 1 for item in payload["hourly_counts"])
+    assert [item["source_name"] for item in payload["sources"]] == ["BirdCam", "Garden Mic"]
+
+
+@pytest.mark.asyncio
 async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
