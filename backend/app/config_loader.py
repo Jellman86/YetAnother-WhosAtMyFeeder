@@ -153,6 +153,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
         'birdnet_enabled': os.environ.get('FRIGATE__BIRDNET_ENABLED', 'true').lower() == 'true',
         'audio_topic': os.environ.get('FRIGATE__AUDIO_TOPIC', 'birdnet/text'),
+        'birdnet_url': os.environ.get('FRIGATE__BIRDNET_URL', ''),
+        'birdnet_external_url': os.environ.get('FRIGATE__BIRDNET_EXTERNAL_URL', ''),
         'camera_audio_mapping': {},
     }
     
