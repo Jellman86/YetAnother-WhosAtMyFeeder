@@ -7,6 +7,7 @@
     import { fetchRecentAudio, type AudioDetection } from '../api';
     import { withAuthParams } from '../api/core';
     import { fetchSettings } from '../api/settings';
+    import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
@@ -48,6 +49,10 @@
     }
 
     async function loadBirdnetUrl() {
+        if (!authStore.showSettings) {
+            birdnetExternalUrl = '';
+            return;
+        }
         try {
             const settings = await fetchSettings();
             birdnetExternalUrl = settings.birdnet_external_url || settings.birdnet_url || '';

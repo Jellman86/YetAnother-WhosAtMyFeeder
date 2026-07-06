@@ -354,6 +354,10 @@ export class LiveUpdateCoordinator {
                 return;
             }
 
+            if (payload.type === 'heartbeat') {
+                return;
+            }
+
             if (payload.type === 'detection') {
                 if (!payload.data || !payload.data.frigate_event) {
                     this.deps.logger.error('SSE Invalid detection data', undefined, { payload });

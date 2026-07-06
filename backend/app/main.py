@@ -816,8 +816,10 @@ async def sse_endpoint(
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
-                    # Send a heartbeat comment (ignored by clients but keeps connection alive)
-                    yield ": heartbeat\n\n"
+                    # Send a JSON heartbeat rather than a comment-only frame. Some
+                    # browser/proxy combinations are less reliable at keeping SSE
+                    # streams alive when idle traffic is only comments.
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
 
                 message_count += 1
                 # Re-validate token expiry periodically (active traffic and idle both covered)
@@ -828,7 +830,15 @@ async def sse_endpoint(
         finally:
             await broadcaster.unsubscribe(queue)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.get("/api/version")
 async def get_version():
