@@ -251,7 +251,7 @@
         <div class="grid grid-cols-1 gap-3 md:grid-cols-5">
             <label class="space-y-1">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select bind:value={days} class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+                <select bind:value={days} class="select-base font-semibold">
                     <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
                     <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
                     <option value={30}>{$_('audio.filter.30d', { default: '30 days' })}</option>
@@ -261,19 +261,19 @@
             </label>
             <label class="space-y-1">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
-                <input bind:value={speciesFilter} class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" placeholder="Dunnock" />
+                <input bind:value={speciesFilter} class="input-base" placeholder="Dunnock" />
             </label>
             <label class="space-y-1">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
-                <input bind:value={sourceFilter} class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" placeholder="BirdCam" />
+                <input bind:value={sourceFilter} class="input-base" placeholder="BirdCam" />
             </label>
             <label class="space-y-1">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.min_confidence', { default: 'Min confidence' })} · {confidencePercent(minConfidence)}</span>
                 <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="h-10 w-full accent-teal-600" />
             </label>
             <div class="flex items-end gap-2">
-                <button type="button" class="btn-primary flex-1 justify-center" onclick={applyFilters}>{$_('common.apply', { default: 'Apply' })}</button>
-                <button type="button" class="btn-secondary flex-1 justify-center" onclick={clearFilters}>{$_('common.clear', { default: 'Clear' })}</button>
+                <button type="button" class="btn btn-primary flex-1 px-4 py-2.5" onclick={applyFilters}>{$_('common.apply', { default: 'Apply' })}</button>
+                <button type="button" class="btn btn-secondary flex-1 px-4 py-2.5" onclick={clearFilters}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
         </div>
     </section>
@@ -368,7 +368,7 @@
                     <h2 class="text-lg font-black text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
                 </div>
-                <button type="button" class="btn-secondary" onclick={() => void loadAudioHistory()} disabled={loading}>{$_('common.refresh', { default: 'Refresh' })}</button>
+                <button type="button" class="btn btn-secondary px-4 py-2 text-sm" onclick={() => void loadAudioHistory()} disabled={loading}>{$_('common.refresh', { default: 'Refresh' })}</button>
             </div>
 
             {#if loading}
@@ -430,8 +430,8 @@
                 <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <span>{$_('audio.history.showing', { values: { from: offset + 1, to: Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0), total: history?.total ?? 0 }, default: `Showing ${offset + 1}-${Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0)} of ${history?.total ?? 0}` })}</span>
                     <div class="flex gap-2">
-                        <button type="button" class="btn-secondary" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
-                        <button type="button" class="btn-secondary" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
+                        <button type="button" class="btn btn-secondary px-4 py-1.5 text-sm" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
+                        <button type="button" class="btn btn-secondary px-4 py-1.5 text-sm" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
                     </div>
                 </div>
             {/if}
