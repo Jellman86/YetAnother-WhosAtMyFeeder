@@ -26,14 +26,20 @@ class _MemoryWriter:
 
 
 class _SlowProgressWriter(_MemoryWriter):
-    def __init__(self) -> None:
+    """Delays the first progress drain longer than the worker's progress-emit
+    timeout so the timeout path is exercised, without a real-time wait."""
+
+    def __init__(self, slow_drain_seconds: float = 0.2) -> None:
         super().__init__()
         self._slow_next_progress = True
+        self._slow_drain_seconds = slow_drain_seconds
+        self.slow_drain_done = asyncio.Event()
 
     async def drain(self) -> None:
         if self._slow_next_progress and self.messages and self.messages[-1].get("type") == "progress":
             self._slow_next_progress = False
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(self._slow_drain_seconds)
+            self.slow_drain_done.set()
             return None
         return None
 
@@ -409,6 +415,9 @@ async def test_classifier_worker_process_does_not_fail_video_classification_when
         progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
         return [{"label": "Robin", "score": 0.91, "index": 0}]
 
+    # Drain (0.2s) deliberately exceeds the injected progress-emit timeout (0.05s)
+    # so the timeout path runs. Both are small, so the test does not rely on
+    # wall-clock margins that shift under coverage instrumentation.
     process = ClassifierWorkerProcess(
         reader=reader,
         writer=writer,
@@ -416,6 +425,7 @@ async def test_classifier_worker_process_does_not_fail_video_classification_when
         classify_video_fn=_classify_video_fn,
         worker_generation=14,
         heartbeat_interval_seconds=0.5,
+        progress_emit_timeout_seconds=0.05,
     )
 
     task = asyncio.create_task(process.run())
@@ -433,9 +443,19 @@ async def test_classifier_worker_process_does_not_fail_video_classification_when
             )
         )
     )
-    await asyncio.sleep(1.4)
+
+    # Wait for completion by observing the result, not a fixed sleep, so the test
+    # is deterministic regardless of execution speed. Bound the wait so a
+    # regression fails fast instead of hanging.
+    async def _wait_for_result() -> None:
+        while not any(message["type"] == "result" for message in writer.messages):
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(_wait_for_result(), timeout=5)
     reader.feed_eof()
-    await task
+    await asyncio.wait_for(task, timeout=5)
+    # Let the deliberately-slow progress emit finish so it is not left pending.
+    await asyncio.wait_for(writer.slow_drain_done.wait(), timeout=5)
 
     assert any(message["type"] == "progress" for message in writer.messages)
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)

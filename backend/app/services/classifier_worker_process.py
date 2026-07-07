@@ -49,6 +49,7 @@ class ClassifierWorkerProcess:
         classify_video_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]] | None = None,
         worker_generation: int,
         heartbeat_interval_seconds: float = 1.0,
+        progress_emit_timeout_seconds: float = 1.0,
         runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
     ) -> None:
         self.reader = reader
@@ -57,6 +58,11 @@ class ClassifierWorkerProcess:
         self.classify_video_fn = classify_video_fn
         self.worker_generation = int(worker_generation)
         self.heartbeat_interval_seconds = max(0.01, float(heartbeat_interval_seconds))
+        # How long a progress emit may block before the classification thread gives
+        # up waiting for it. Progress delivery is best-effort, so a slow parent must
+        # not stall or fail classification. Injectable so tests can exercise the
+        # timeout path without real-time waits.
+        self.progress_emit_timeout_seconds = max(0.01, float(progress_emit_timeout_seconds))
         self.runtime_recovery_getter = runtime_recovery_getter
         self._closed = False
         self._busy = False
@@ -210,7 +216,7 @@ class ClassifierWorkerProcess:
                     loop,
                 )
                 try:
-                    future.result(timeout=1.0)
+                    future.result(timeout=self.progress_emit_timeout_seconds)
                 except Exception:
                     # Progress delivery is best-effort; do not fail the classification
                     # if the parent process is slow to consume progress updates.
