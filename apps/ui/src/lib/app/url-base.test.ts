@@ -6,6 +6,7 @@ import {
     detectAppBasePath,
     fromAppPath,
     normalizeBackendPath,
+    resolveAppBasePath,
     toAppPath
 } from './url-base';
 
@@ -22,5 +23,11 @@ describe('url-base helpers', () => {
         expect(detectAppBasePath('/events')).toBe('');
         expect(detectAppBasePath(HA_INGRESS_BASE_PATH)).toBe(HA_INGRESS_BASE_PATH);
         expect(detectAppBasePath(`${HA_INGRESS_BASE_PATH}/events`)).toBe(HA_INGRESS_BASE_PATH);
+    });
+
+    it('prefers the injected Home Assistant ingress base path marker', () => {
+        expect(resolveAppBasePath('/', HA_INGRESS_BASE_PATH)).toBe(HA_INGRESS_BASE_PATH);
+        expect(resolveAppBasePath('/api/events', `${HA_INGRESS_BASE_PATH}/`)).toBe(HA_INGRESS_BASE_PATH);
+        expect(resolveAppBasePath(`${HA_INGRESS_BASE_PATH}/events`, null)).toBe(HA_INGRESS_BASE_PATH);
     });
 });

@@ -617,16 +617,32 @@ def test_ingress_rewrites_runtime_icon_assets_and_manifest_paths():
     ingress_module = _load_ingress_module()
 
     body = """
+    <html><head>
     <link rel="icon" href="/favicon.png?v=1" />
+    </head><body>
     <script>const icon = "/pwa-192x192.png?v=1"; const api = '/api/stats/daily-summary';</script>
     {"start_url": "/", "scope": "/", "icons": [{"src": "/pwa-512x512.png?v=1"}]}
+    </body></html>
     """
 
     rewritten = ingress_module._rewrite_root_paths(body)
 
+    assert 'window.__YAWAMF_APP_BASE_PATH="/api/yawamf/ingress";' in rewritten
     assert 'href="/api/yawamf/ingress/favicon.png?v=1"' in rewritten
     assert '"/api/yawamf/ingress/pwa-192x192.png?v=1"' in rewritten
     assert "'/api/yawamf/ingress/api/stats/daily-summary'" in rewritten
     assert '"start_url": "/api/yawamf/ingress/"' in rewritten
     assert '"scope": "/api/yawamf/ingress/"' in rewritten
     assert '"/api/yawamf/ingress/pwa-512x512.png?v=1"' in rewritten
+
+
+def test_ingress_rewrite_does_not_duplicate_app_base_marker():
+    ingress_module = _load_ingress_module()
+    body = (
+        '<html><head><script>window.__YAWAMF_APP_BASE_PATH="/api/yawamf/ingress";'
+        "</script></head><body></body></html>"
+    )
+
+    rewritten = ingress_module._rewrite_root_paths(body)
+
+    assert rewritten.count("__YAWAMF_APP_BASE_PATH") == 1

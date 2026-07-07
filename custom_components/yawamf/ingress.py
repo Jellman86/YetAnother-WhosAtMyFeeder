@@ -250,6 +250,7 @@ def _should_rewrite_response(upstream_headers: Any) -> bool:
 
 
 def _rewrite_root_paths(body: str) -> str:
+    ingress_marker = f'<script>window.__YAWAMF_APP_BASE_PATH="{INGRESS_URL}";</script>'
     replacements = {
         'href="/': f'href="{INGRESS_URL}/',
         'src="/': f'src="{INGRESS_URL}/',
@@ -281,6 +282,9 @@ def _rewrite_root_paths(body: str) -> str:
     duplicate_prefix = f"{INGRESS_URL}{INGRESS_URL}/"
     while duplicate_prefix in rewritten:
         rewritten = rewritten.replace(duplicate_prefix, f"{INGRESS_URL}/")
+
+    if "</head>" in rewritten and "__YAWAMF_APP_BASE_PATH" not in rewritten:
+        rewritten = rewritten.replace("</head>", f"{ingress_marker}</head>", 1)
 
     return rewritten
 
