@@ -1,88 +1,101 @@
 # Contributing to YA-WAMF
 
-First off, thanks for taking the time to contribute! 🎉
+Thanks for helping improve YA-WAMF.
 
-The following is a set of guidelines for contributing to Yet Another WhosAtMyFeeder. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The engineering bar for this repository is defined in [`CLAUDE.md`](CLAUDE.md).
+Read it before opening a pull request. In short: protect user data, work
+test-first, keep migrations reversible, avoid blocking I/O in async code, and
+leave the relevant test and lint commands green.
 
-## 🛠️ Development Setup
+## Development Setup
 
-### Backend (Python)
-1.  Navigate to `backend/`:
-    ```bash
-    cd backend
-    ```
-2.  Create a virtual environment:
-    ```bash
-    python3.12 -m venv .venv
-    source .venv/bin/activate
-    ```
-3.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  Run the dev server:
-    ```bash
-    uvicorn app.main:app --reload
-    ```
+### Backend
 
-### Frontend (Svelte 5)
-1.  Navigate to `apps/ui/`:
-    ```bash
-    cd apps/ui
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run the dev server:
-    ```bash
-    npm run dev
-    ```
-    *Note: You may need to configure the Vite proxy in `vite.config.ts` if your backend is not on port 8000.*
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-## 🧪 Running Tests
+### Frontend
 
-*   **Backend:**
-    ```bash
-    cd backend
-    pytest
-    ```
-*   **Frontend:**
-    ```bash
-    cd apps/ui
-    npm run test  # (Assuming vitest is configured)
-    ```
+```bash
+cd apps/ui
+npm install
+npm run dev
+```
 
-## 📐 Coding Standards
+The Vite development proxy is configured in `apps/ui/vite.config.ts`. Adjust it
+locally if your backend is not reachable at the default development target.
 
-*   **Python:** This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting. Please run `ruff check .` and `ruff format .` before committing.
-*   **TypeScript/Svelte:** Use standard Prettier formatting.
-*   **Commits:** Please write clear, concise commit messages.
+## Required Checks
 
-## 🔔 UI Notification Rules (Toast vs Notification Center)
+Run the checks that match the files you changed before opening a pull request.
 
-*   **Toasts (`toastStore`)** are for short-lived feedback from a direct user action in the current view.
-*   **Notifications (`notificationCenter`)** are for persistent/background/system events and progress users may revisit.
-*   Do not send high-frequency progress updates to toasts.
-*   For long-running jobs, update one stable notification id (`upsert`) instead of creating many cards.
-*   If a completion/error toast is shown for a background job, emit only one deduped terminal toast per job/state.
+Backend:
 
-## 🐛 Reporting Bugs
+```bash
+cd backend
+pytest
+ruff check .
+```
 
-Bugs are tracked as GitHub issues. When filing an issue, please include:
-*   A clear title and description.
-*   Steps to reproduce.
-*   Logs from the backend (`docker compose -f docker-compose.monolith.yml logs yawamf`, or `docker compose logs yawamf-backend` for the legacy split deployment).
-*   Browser console errors (if UI related).
+Frontend:
 
-## 🔐 Security Issues
+```bash
+cd apps/ui
+npm run check
+npm test
+npm run build
+```
 
-Please follow the [Security Policy](SECURITY.md) for responsible disclosure and supported versions.
+Documentation:
 
-## 🚀 Pull Requests
+```bash
+python3 backend/scripts/docs_consistency_check.py
+```
 
-1.  Fork the repo and create your branch from `main`.
-2.  If you've added code that should be tested, add tests.
-3.  Ensure the test suite passes.
-4.  Make sure your code lints.
-5.  Issue that pull request!
+If you change schema, add an Alembic migration in the same commit and prove the
+migration can upgrade, downgrade, and upgrade again.
+
+## Branches and Pull Requests
+
+Everyday work targets `dev`. Create feature branches from `dev` unless a
+maintainer asks for a different base.
+
+Pull requests should:
+
+- describe the behaviour change and why it is needed,
+- include tests for new or changed behaviour,
+- update `CHANGELOG.md` under `Unreleased`,
+- update docs when settings, APIs, integrations, or user-visible behaviour change,
+- keep CI green.
+
+## UI Notification Rules
+
+- Toasts (`toastStore`) are for short-lived feedback from a direct user action in
+  the current view.
+- Notifications (`notificationCenter`) are for persistent background or system
+  events and progress users may revisit.
+- Do not send high-frequency progress updates to toasts.
+- For long-running jobs, update one stable notification id (`upsert`) instead of
+  creating many cards.
+- If a completion/error toast is shown for a background job, emit only one
+  deduped terminal toast per job/state.
+
+## Reporting Bugs
+
+Bugs are tracked as GitHub issues. Please include:
+
+- a clear title and description,
+- steps to reproduce,
+- backend logs (`docker compose -f docker-compose.monolith.yml logs yawamf`, or
+  `docker compose logs yawamf-backend` for the legacy split deployment),
+- browser console errors for UI issues.
+
+## Security Issues
+
+Follow the [Security Policy](SECURITY.md) for responsible disclosure and
+supported versions.

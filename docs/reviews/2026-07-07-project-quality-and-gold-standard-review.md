@@ -33,10 +33,12 @@ mostly about *codifying and enforcing* the quality the project already largely
 practises, and closing a small number of specific, low-risk gaps:
 
 - Codify the standards as a clearing-bar contract (done: [`CLAUDE.md`](../../CLAUDE.md)).
-- Enforce Python lint/format (`ruff`) in CI, matching the Definition of Done.
-- Introduce a coverage floor so testing depth cannot silently regress.
+- Enforce Python lint in CI and keep format enforcement tracked, matching the
+  Definition of Done.
+- Introduce a coverage floor so testing depth cannot silently regress (done in PR
+  CI at the existing 20% floor).
 - Rewrite [`CONTRIBUTING.md`](../../CONTRIBUTING.md) into a real bar and fix its
-  internal contradictions.
+  internal contradictions (done).
 - Keep documentation and this review current as behaviour changes.
 
 ## Current strengths
@@ -114,37 +116,40 @@ bar a change must clear.
 Status: **addressed** — [`CLAUDE.md`](../../CLAUDE.md) now leads with a numbered
 §1–10 contract. This review is its companion.
 
-### 2. Python lint/format is not enforced in CI
+### 2. Python lint/format is not fully enforced in CI
 
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) tells contributors to run `ruff check .`
 and `ruff format .`, and the Definition of Done (§6) requires it, but nothing gates
 it. Style and simple correctness lint can therefore drift.
 
-Gold-standard target: add a `ruff` job (or a step in the backend job) to
-[`ci.yml`](../../.github/workflows/ci.yml) running `ruff check .` and
-`ruff format --check .`, and commit a `ruff` configuration (e.g. `pyproject.toml`
-or `ruff.toml`) so local and CI runs agree. Acceptance: a lint or format violation
-fails CI.
+Status: **partially addressed** — [`ci.yml`](../../.github/workflows/ci.yml) now
+runs `ruff check backend custom_components/yawamf`, backed by the repo-level
+[`pyproject.toml`](../../pyproject.toml) Ruff configuration. Format enforcement is
+still pending because `ruff format --check` currently implies a broad mechanical
+formatting pass across existing Python files.
 
-### 3. There is no coverage floor
+Gold-standard target: add the `ruff format --check` gate after either accepting
+the mechanical format pass or narrowing a deliberate format policy. Acceptance: a
+lint or format violation fails CI.
 
-Coverage tooling exists (`pytest --cov`) but no minimum is enforced, so a large PR
-could quietly lower tested depth without failing CI.
+### 3. Backend coverage floor is now enforced in PR CI
 
-Gold-standard target: measure coverage in CI and fail below an agreed threshold
-(start at the current level and ratchet up). Keep hardware/model-dependent paths
-excluded and clearly labelled rather than faked.
+Coverage tooling exists and PR CI now runs the backend suite under `coverage` with
+the existing 20% floor, so a large PR cannot quietly lower measured backend test
+depth below the current minimum.
 
-### 4. `CONTRIBUTING.md` is loose and internally contradictory
+Gold-standard target: ratchet the floor upward from the current conservative 20%
+baseline as low-coverage modules gain focused tests. Keep hardware/model-dependent
+paths excluded and clearly labelled rather than faked.
 
-It currently says the guidelines are "mostly guidelines, not rules", tells
-contributors to `npm run test` "(Assuming vitest is configured)" when it is, and
-says to "create your branch from `main`" while the actual workflow is trunk-based on
-`dev`.
+### 4. `CONTRIBUTING.md` now points at the contract
 
-Gold-standard target: rewrite `CONTRIBUTING.md` to point at the `CLAUDE.md`
-contract as the bar, fix the branch guidance to `dev`, remove the "assuming"
-hedge, and state the Definition of Done as the merge requirement.
+Status: **addressed** — [`CONTRIBUTING.md`](../../CONTRIBUTING.md) now points at
+[`CLAUDE.md`](../../CLAUDE.md) as the engineering bar, targets everyday work at
+`dev`, removes the Vitest hedge, and states the concrete PR expectations.
+
+Gold-standard target: keep contributor guidance in lock-step with the Definition
+of Done and CI commands.
 
 ### 5. API contract is documented but not generated
 
@@ -173,12 +178,15 @@ This plan is intentionally sequenced from lowest-risk, highest-leverage first. I
 **not** part of this documentation-only change; it is the tracked follow-up.
 
 ### Phase 1: Enforce what the contract already requires
-- Add a `ruff` config and a CI lint/format gate (gap 2).
-- Add coverage measurement and a floor to the backend CI job (gap 3).
-- Rewrite `CONTRIBUTING.md` against the contract and fix its contradictions (gap 4).
+- Add a `ruff` config and a CI lint gate (done); add the format gate after the
+  existing Python tree has an accepted formatting baseline (gap 2).
+- Add coverage measurement and a floor to the backend CI job (done at 20%; ratchet
+  upward as coverage improves).
+- Rewrite `CONTRIBUTING.md` against the contract and fix its contradictions (done).
 
-Acceptance: CI fails on lint/format violations and on coverage regressions;
-`CONTRIBUTING.md` no longer contradicts the workflow.
+Acceptance: CI fails on lint violations and coverage regressions;
+`CONTRIBUTING.md` no longer contradicts the workflow. Format violations remain the
+open Phase 1 enforcement item.
 
 ### Phase 2: Strengthen the API contract
 - Emit a build-time OpenAPI artifact.
@@ -200,12 +208,12 @@ links to the current review.
 | Safety & data integrity | Strong (idempotent ingest, soft delete, secret redaction, constant-time auth) | Preserve as the first invariant |
 | Core domain design | Good; pure decision logic is tested | Keep pushing business rules to pure, tested functions |
 | Migrations | Excellent; reversibility + single head enforced in CI | Preserve; migration-per-commit |
-| Testing | Broad unit + API coverage | Add a coverage floor; keep hardware paths labelled |
-| CI & supply chain | Strong (migration matrix, CodeQL, Dependabot, docs gate) | Add `ruff` + coverage gates |
+| Testing | Broad unit + API coverage; 20% backend coverage floor in PR CI | Ratchet the floor upward; keep hardware paths labelled |
+| CI & supply chain | Strong (migration matrix, CodeQL, Dependabot, docs gate, Ruff lint, coverage floor) | Add Ruff format gate |
 | Security boundary | Reasonable (optional API key, redaction, guest controls) | Keep OWASP-informed endpoint review as surfaces grow |
 | UI honesty | Operational and consistent (shared control kit) | Zero-warning `check`; explicit empty/error states everywhere |
 | Docs | Good and gated for drift | Add documentation standard + generated API contract |
-| Workflow & governance | Trunk-based on `dev`; strict commit rules | Fix `CONTRIBUTING.md`; add missing governance files |
+| Workflow & governance | Trunk-based on `dev`; strict commit rules; CONTRIBUTING aligned | Add missing governance files |
 
 ## Suggested agent prompt
 
@@ -231,6 +239,6 @@ for docs changes; and git diff --check.
 YA-WAMF is already a high-quality, well-tested project with unusually strong
 database and CI discipline. Reaching gold standard is not a rewrite and not a
 testing rescue — it is codifying the bar (done here), enforcing the two Definition
-of Done items CI does not yet gate (`ruff` and coverage), tightening contributor
-guidance, and firming up the API contract and documentation governance. Done in that
-order, YA-WAMF sits comfortably in the top tier of self-hosted tooling.
+of Done item CI does not yet fully gate (Ruff formatting), then firming up the API
+contract and documentation governance. Done in that order, YA-WAMF sits
+comfortably in the top tier of self-hosted tooling.

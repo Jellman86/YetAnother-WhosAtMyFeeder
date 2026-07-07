@@ -37,6 +37,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
+      - name: Python lint
+        run: python -m ruff check backend custom_components/yawamf
+
       - name: Migration smoke test
         run: |
           cd backend
@@ -54,7 +57,8 @@ jobs:
       - name: Backend tests
         run: |
           cd backend
-          timeout -k 30s 240s python -m pytest tests/ -v --tb=short --durations=20
+          timeout -k 30s 240s python -m coverage run -m pytest tests/ -v --tb=short --durations=20
+          python -m coverage report --fail-under=20
 
       - name: Ensure single Alembic head
         run: |
