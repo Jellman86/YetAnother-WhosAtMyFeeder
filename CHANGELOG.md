@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
 - **BirdNET (#53):** Added a persisted Audio History view backed by the existing BirdNET-Go detection table, including filterable history, confidence/source/species filters, top heard species, source rollups, and hourly activity summaries separate from visual feeder detections.
 - **BirdNET (#53):** Polished the audio history surfaces. The Species leaderboard now merges BirdNET-Go "heard" counts alongside camera "seen" counts with a Seen/Heard/Both toggle and surfaces audio-only species (new `GET /api/audio/species` endpoint). The Audio History view gains real charts — a daily activity timeline, time-of-day distribution, species mix donut, richer top-species cards, and per-detection spectrogram thumbnails. The dashboard audio widget adds an at-a-glance strip with today's heard count, species count, and an hourly sparkline.
+- **BirdNET (#53):** The Audio History "Top heard species" cards now show a species recognition thumbnail, reusing the same lazily-loaded species imagery as the visual leaderboard and degrading silently to a placeholder when enrichment is unavailable.
 
 ## [2.11.0] - 2026-06-22
 

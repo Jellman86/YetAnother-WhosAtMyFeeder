@@ -1,12 +1,14 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
     import {
         fetchAudioHistory,
         fetchAudioSummary,
+        fetchSpeciesInfo,
         type AudioHistoryDetection,
         type AudioHistoryResponse,
-        type AudioSummaryResponse
+        type AudioSummaryResponse,
+        type SpeciesInfo
     } from '../api';
     import { chart } from '../actions/apexchart';
     import { themeStore } from '../stores/theme.svelte';
@@ -30,6 +32,46 @@
     let error = $state<string | null>(null);
     let offset = $state(0);
     let birdnetExternalUrl = $state('');
+
+    // Species recognition thumbnails for the "Top heard species" cards, reusing the
+    // same lazy per-species fetch + cache the visual leaderboard uses. These are a
+    // recognition aid (a stock photo of the species), not the bird that was heard —
+    // the spectrogram in the detail table is the honest per-detection artifact.
+    let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
+    let speciesInfoPending = $state<Record<string, boolean>>({});
+    const speciesInfoLocale = $derived((($locale || 'en') as string).split(/[-_]/)[0].toLowerCase());
+
+    function speciesInfoKey(name: string): string {
+        return `${speciesInfoLocale}:${name}`;
+    }
+
+    function cachedSpeciesThumb(name?: string | null): string | null {
+        if (!name) return null;
+        return speciesInfoCache[speciesInfoKey(name)]?.thumbnail_url ?? null;
+    }
+
+    async function loadSpeciesInfo(name: string) {
+        const key = speciesInfoKey(name);
+        if (!name || name === 'Unknown Bird' || speciesInfoCache[key] || speciesInfoPending[key]) {
+            return;
+        }
+        speciesInfoPending = { ...speciesInfoPending, [key]: true };
+        try {
+            const info = await fetchSpeciesInfo(name);
+            speciesInfoCache = { ...speciesInfoCache, [key]: info };
+        } catch {
+            // Enrichment disabled or lookup failed — the card falls back to the 🐦 placeholder.
+        } finally {
+            const { [key]: _discarded, ...rest } = speciesInfoPending;
+            speciesInfoPending = rest;
+        }
+    }
+
+    $effect(() => {
+        for (const item of (summary?.top_species ?? []).slice(0, 9)) {
+            if (item.species) void loadSpeciesInfo(item.species);
+        }
+    });
 
     let detections = $derived<AudioHistoryDetection[]>(history?.items ?? []);
     let canPrevious = $derived(offset > 0);
@@ -337,22 +379,32 @@
             <h2 class="mb-4 text-base font-black text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h2>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {#each (summary?.top_species ?? []).slice(0, 9) as item, index}
+                    {@const thumb = cachedSpeciesThumb(item.species)}
                     <div class="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3 dark:border-slate-700/60 dark:bg-slate-900/30">
                         <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-black text-slate-400 dark:text-slate-500">#{index + 1}</span>
-                                    <span class="truncate font-black text-slate-900 dark:text-white">{item.species}</span>
+                            <div class="flex min-w-0 items-start gap-3">
+                                <div class="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                                    {#if thumb}
+                                        <img src={thumb} alt={item.species} loading="lazy" class="h-full w-full object-cover" />
+                                    {:else}
+                                        <div class="flex h-full w-full items-center justify-center text-base text-slate-400 dark:text-slate-500">🐦</div>
+                                    {/if}
                                 </div>
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                    {$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}
-                                </p>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-black text-slate-400 dark:text-slate-500">#{index + 1}</span>
+                                        <span class="truncate font-black text-slate-900 dark:text-white">{item.species}</span>
+                                    </div>
+                                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}
+                                    </p>
+                                    <div class="mt-1.5 flex items-center gap-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
+                                        <span>{$_('audio.card.max', { default: 'max' })} {confidencePercent(item.max_confidence)}</span>
+                                    </div>
+                                </div>
                             </div>
                             <span class="flex-shrink-0 rounded-full bg-teal-100 px-2.5 py-1 text-sm font-black text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">{item.count}</span>
-                        </div>
-                        <div class="mt-2 flex items-center gap-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                            <span>{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
-                            <span>{$_('audio.card.max', { default: 'max' })} {confidencePercent(item.max_confidence)}</span>
                         </div>
                     </div>
                 {/each}
