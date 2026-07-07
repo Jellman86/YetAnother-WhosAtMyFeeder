@@ -3,11 +3,11 @@ from collections.abc import Iterable
 
 
 def normalize_classifier_label(label: str | None) -> str:
-    text = str(label or '').strip()
+    text = str(label or "").strip()
     if not text:
         return text
 
-    parts = [part for part in text.split('_') if part]
+    parts = [part for part in text.split("_") if part]
     if len(parts) < 2 or not parts[0].isdigit():
         return text
 
@@ -36,7 +36,7 @@ def normalize_classifier_label(label: str | None) -> str:
         return text
 
     genus_idx = species_start - 1
-    normalized = ' '.join(taxonomy_parts[genus_idx:species_end + 1]).strip()
+    normalized = " ".join(taxonomy_parts[genus_idx : species_end + 1]).strip()
     return normalized or text
 
 

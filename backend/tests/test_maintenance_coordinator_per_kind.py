@@ -140,9 +140,7 @@ async def test_total_max_concurrent_zero_means_unlimited(monkeypatch):
     )
 
     coord = MaintenanceCoordinator()
-    for i, kind in enumerate(
-        ["backfill", "weather_backfill", "taxonomy_sync", "timezone_repair", "analyze_unknowns"]
-    ):
+    for i, kind in enumerate(["backfill", "weather_backfill", "taxonomy_sync", "timezone_repair", "analyze_unknowns"]):
         assert await coord.try_acquire(f"h-{i}", kind=kind) is True
 
 

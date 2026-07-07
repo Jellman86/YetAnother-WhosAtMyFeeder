@@ -40,9 +40,13 @@ def upgrade() -> None:
             sa.Column("created_at", sa.TIMESTAMP(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         )
 
-    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_event"):
+    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(
+        conn, "ai_conversation_turns", "idx_ai_conversation_event"
+    ):
         op.create_index("idx_ai_conversation_event", "ai_conversation_turns", ["frigate_event"])
-    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(conn, "ai_conversation_turns", "idx_ai_conversation_created"):
+    if _table_exists(conn, "ai_conversation_turns") and not _index_exists(
+        conn, "ai_conversation_turns", "idx_ai_conversation_created"
+    ):
         op.create_index("idx_ai_conversation_created", "ai_conversation_turns", ["created_at"])
 
 

@@ -7,6 +7,7 @@ are heavy to mock. We test the pieces that don't require a live classifier:
 - artifact path resolution and traversal protection
 - start() rejects when a run is already in progress
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -142,8 +143,10 @@ def test_is_correct_match_rejects_different_species():
 def test_gpu_diagnostic_collects_relevant_signals():
     class _Meta:
         supported_inference_providers = ["openvino", "cpu"]
+
     class _Model:
         metadata = _Meta()
+
     status = {
         "selected_provider": "auto",
         "active_provider": "intel_cpu",
@@ -173,6 +176,7 @@ def test_gpu_diagnostic_collects_relevant_signals():
 def test_gpu_diagnostic_handles_no_metadata():
     class _Model:
         metadata = None
+
     diag = _gpu_diagnostic({}, _Model())
     assert diag["registry_supported_providers"] == []
     assert diag["openvino"]["available"] is False
@@ -181,8 +185,10 @@ def test_gpu_diagnostic_handles_no_metadata():
 def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
     class _Meta:
         supported_inference_providers = ["cpu", "intel_cpu", "intel_gpu"]
+
     class _Model:
         metadata = _Meta()
+
     status = {
         "selected_provider": "auto",
         "active_provider": "intel_gpu",
@@ -233,6 +239,7 @@ def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
 def test_gpu_diagnostic_color_space_defaults_to_rgb():
     class _Model:
         metadata = None
+
     diag = _gpu_diagnostic({}, _Model(), active_spec={"preprocessing": {}})
     assert diag["preprocessing"]["color_space"] == "RGB"
 
@@ -240,8 +247,10 @@ def test_gpu_diagnostic_color_space_defaults_to_rgb():
 def test_gpu_diagnostic_preserves_bgr_when_explicitly_set():
     class _Model:
         metadata = None
+
     diag = _gpu_diagnostic(
-        {}, _Model(),
+        {},
+        _Model(),
         active_spec={"preprocessing": {"color_space": "BGR"}},
     )
     assert diag["preprocessing"]["color_space"] == "BGR"
@@ -268,6 +277,7 @@ def test_build_summary_envelope_counts_panels():
         SpeciesEntry(3, "C c", "C", "regional"),
     ]
     from datetime import datetime, timezone
+
     started = datetime(2026, 5, 7, tzinfo=timezone.utc)
     finished = datetime(2026, 5, 7, 0, 5, tzinfo=timezone.utc)
     envelope = _build_summary_envelope(
@@ -292,13 +302,17 @@ def test_list_runs_reads_summary_briefs(tmp_path: Path, monkeypatch):
     run_b = tmp_path / "20260507-110000"
     run_a.mkdir()
     run_b.mkdir()
-    (run_a / SUMMARY_FILENAME).write_text(json.dumps({
-        "started_at": "a-start",
-        "finished_at": "a-end",
-        "duration_seconds": 100,
-        "test_set": {"total_species": 50, "total_images": 150, "region": "US-CA"},
-        "models": [{"model_id": "m1"}, {"model_id": "m2"}],
-    }))
+    (run_a / SUMMARY_FILENAME).write_text(
+        json.dumps(
+            {
+                "started_at": "a-start",
+                "finished_at": "a-end",
+                "duration_seconds": 100,
+                "test_set": {"total_species": 50, "total_images": 150, "region": "US-CA"},
+                "models": [{"model_id": "m1"}, {"model_id": "m2"}],
+            }
+        )
+    )
     # run_b has no summary yet (in flight or never written)
 
     runner = ModelEvalRunner()

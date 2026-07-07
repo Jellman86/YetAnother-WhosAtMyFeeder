@@ -23,10 +23,12 @@ if config.config_file_name is not None:
 # or we could manually define it if we wanted autogenerate.
 target_metadata = metadata
 
+
 def get_url():
     # In YA-WAMF, we use SQLite
     db_path = os.environ.get("DB_PATH", "/data/speciesid.db")
     return f"sqlite:///{db_path}"
+
 
 def run_migrations_offline() -> None:
     url = get_url()
@@ -40,12 +42,13 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section)
     if configuration is None:
         configuration = {}
     configuration["sqlalchemy.url"] = get_url()
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -53,14 +56,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, 
-            target_metadata=target_metadata,
-            render_as_batch=True
-        )
+        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

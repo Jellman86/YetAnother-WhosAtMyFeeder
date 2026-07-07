@@ -1082,7 +1082,7 @@ async def test_classifier_supervisor_survives_replacement_start_failure():
 @pytest.mark.asyncio
 async def test_classifier_supervisor_aborts_unassigned_request():
     created: list[_FakeWorker] = []
-    
+
     async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
         # We need the worker to start successfully initially so we can block the slot
         worker = _FakeWorker(worker_name, worker_generation)
@@ -1099,7 +1099,7 @@ async def test_classifier_supervisor_aborts_unassigned_request():
         restart_threshold=3,
         breaker_cooldown_seconds=60.0,
     )
-    
+
     # 1. Start a long-running classification to occupy the only slot
     task1 = asyncio.create_task(
         supervisor.classify(
@@ -1111,10 +1111,10 @@ async def test_classifier_supervisor_aborts_unassigned_request():
             model_id="default",
         )
     )
-    
+
     # Allow task to get the slot
     await asyncio.sleep(0.05)
-    
+
     # 2. Try to classify again. This will block in _wait_for_idle_slot
     task2 = asyncio.create_task(
         supervisor.classify(
@@ -1126,19 +1126,19 @@ async def test_classifier_supervisor_aborts_unassigned_request():
             model_id="default",
         )
     )
-    
+
     # Allow task2 to enter _wait_for_idle_slot
     await asyncio.sleep(0.05)
-    
+
     # 3. Abort the unassigned request
     aborted = await supervisor.abort_request(
         priority="live",
         work_id="live-2-aborted",
         lease_token=2,
     )
-    
+
     assert aborted is True
-    
+
     # Task 2 should now raise DeadlineExceededError
     with pytest.raises(ClassifierWorkerDeadlineExceededError, match="worker aborted before assignment"):
         await task2
@@ -1149,14 +1149,15 @@ async def test_classifier_supervisor_aborts_unassigned_request():
         await task1
     except asyncio.CancelledError:
         pass
-        
+
     created[0].killed = True
     await supervisor.shutdown()
+
 
 @pytest.mark.asyncio
 async def test_classifier_supervisor_fails_fast_on_zero_workers():
     start_failures = 0
-    
+
     async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
         nonlocal start_failures
         if start_failures > 0:
@@ -1174,13 +1175,13 @@ async def test_classifier_supervisor_fails_fast_on_zero_workers():
         restart_threshold=3,
         breaker_cooldown_seconds=60.0,
     )
-    
+
     # Pre-start the pool successfully
     await supervisor.start("live")
-    
+
     # Kill the worker
     supervisor._slots["live"][0].worker = None
-    
+
     with pytest.raises(ClassifierWorkerExitedError, match="No active workers available"):
         await supervisor.classify(
             priority="live",
@@ -1192,4 +1193,3 @@ async def test_classifier_supervisor_fails_fast_on_zero_workers():
         )
 
     await supervisor.shutdown()
-

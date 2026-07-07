@@ -80,7 +80,7 @@ async def test_update_settings_reloads_model_when_execution_mode_changes(monkeyp
 
     dummy = _DummyClassifier()
     monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
-    
+
     # Mock shutdown_classifier since it's now called when execution mode changes
     mock_shutdown = MagicMock(return_value=asyncio.Future())
     mock_shutdown.return_value.set_result(None)

@@ -104,10 +104,7 @@ async def test_classifier_worker_process_handles_classify_request():
     await task
 
     assert seen == [("front", "default")]
-    assert any(
-        message["type"] == "result" and message["results"][0]["label"] == "Robin"
-        for message in writer.messages
-    )
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
 
 
 @pytest.mark.asyncio
@@ -150,10 +147,7 @@ async def test_classifier_worker_process_handles_classify_request_with_input_con
     await task
 
     assert seen == [("front", "default")]
-    assert any(
-        message["type"] == "result" and message["results"][0]["label"] == "Robin"
-        for message in writer.messages
-    )
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
 
 
 @pytest.mark.asyncio
@@ -196,10 +190,7 @@ async def test_classifier_worker_process_forwards_input_context_to_new_callback_
     await task
 
     assert seen[0]["is_cropped"] is True
-    assert any(
-        message["type"] == "result" and message["results"][0]["label"] == "Robin"
-        for message in writer.messages
-    )
+    assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
 
 
 @pytest.mark.asyncio
@@ -237,10 +228,7 @@ async def test_classifier_worker_process_emits_structured_error():
     reader.feed_eof()
     await task
 
-    assert any(
-        message["type"] == "error" and message["error"] == "broken"
-        for message in writer.messages
-    )
+    assert any(message["type"] == "error" and message["error"] == "broken" for message in writer.messages)
 
 
 @pytest.mark.asyncio

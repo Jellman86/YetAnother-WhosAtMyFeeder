@@ -546,9 +546,7 @@ async def test_backfill_async_proceeds_when_a_different_kind_is_running(
         },
     )
 
-    acquired = await maintenance_coordinator.try_acquire(
-        "test-video-slot", kind="video_classification"
-    )
+    acquired = await maintenance_coordinator.try_acquire("test-video-slot", kind="video_classification")
     assert acquired is True
     try:
         response = await client.post("/api/backfill/async", json={"date_range": "week"})
@@ -574,9 +572,7 @@ async def test_analyze_unknowns_coalesces_when_same_kind_slot_is_occupied(
 
     monkeypatch.setattr(settings_router, "_run_analyze_unknowns", _unexpected_run)
 
-    acquired = await maintenance_coordinator.try_acquire(
-        "test-maintenance-slot", kind="analyze_unknowns"
-    )
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="analyze_unknowns")
     assert acquired is True
     try:
         response = await client.post("/api/maintenance/analyze-unknowns")
@@ -597,9 +593,7 @@ async def test_timezone_repair_preview_rejects_when_same_kind_slot_is_occupied(
     settings.classification.video_classification_max_concurrent = 2
     settings.maintenance.max_concurrent = 1
 
-    acquired = await maintenance_coordinator.try_acquire(
-        "test-maintenance-slot", kind="timezone_repair"
-    )
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="timezone_repair")
     assert acquired is True
     try:
         response = await client.get("/api/maintenance/timezone-repair/preview")
@@ -618,9 +612,7 @@ async def test_timezone_repair_apply_rejects_when_same_kind_slot_is_occupied(
     settings.classification.video_classification_max_concurrent = 2
     settings.maintenance.max_concurrent = 1
 
-    acquired = await maintenance_coordinator.try_acquire(
-        "test-maintenance-slot", kind="timezone_repair"
-    )
+    acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="timezone_repair")
     assert acquired is True
     try:
         response = await client.post("/api/maintenance/timezone-repair/apply", json={"confirm": True})
@@ -969,8 +961,12 @@ async def test_settings_roundtrip_notification_species_filters(client: httpx.Asy
         "classification_threshold": before_payload["classification_threshold"],
         "notifications_filter_species_mode": before_payload.get("notifications_filter_species_mode", "none"),
         "notifications_filter_species_whitelist": before_payload.get("notifications_filter_species_whitelist", []),
-        "notifications_filter_species_whitelist_structured": before_payload.get("notifications_filter_species_whitelist_structured", []),
-        "notifications_filter_species_blacklist_structured": before_payload.get("notifications_filter_species_blacklist_structured", []),
+        "notifications_filter_species_whitelist_structured": before_payload.get(
+            "notifications_filter_species_whitelist_structured", []
+        ),
+        "notifications_filter_species_blacklist_structured": before_payload.get(
+            "notifications_filter_species_blacklist_structured", []
+        ),
     }
     restore_resp = await client.post("/api/settings", json=restore_payload)
     assert restore_resp.status_code == 200, restore_resp.text
@@ -1064,9 +1060,7 @@ async def test_settings_roundtrip_appearance_color_theme(client: httpx.AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_settings_update_persists_classification_delay_and_env_precedence(
-    client: httpx.AsyncClient, monkeypatch
-):
+async def test_settings_update_persists_classification_delay_and_env_precedence(client: httpx.AsyncClient, monkeypatch):
     settings.auth.enabled = False
     settings.public_access.enabled = False
 

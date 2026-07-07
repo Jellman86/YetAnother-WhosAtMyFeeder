@@ -5,6 +5,7 @@ import structlog
 
 log = structlog.get_logger()
 
+
 class I18nService:
     def __init__(self):
         self.translations: Dict[str, Dict[str, Any]] = {}
@@ -16,7 +17,7 @@ class I18nService:
         for locale_file in locales_dir.glob("*.json"):
             lang = locale_file.stem
             try:
-                with open(locale_file, 'r', encoding='utf-8') as f:
+                with open(locale_file, "r", encoding="utf-8") as f:
                     self.translations[lang] = json.load(f)
                 log.info("loaded_translation", language=lang)
             except Exception as e:
@@ -25,8 +26,8 @@ class I18nService:
     def translate(self, key: str, lang: str = "en", **kwargs) -> str:
         """Get translated string with optional template variables."""
         # Split key by dot for nested dictionary access
-        keys = key.split('.')
-        
+        keys = key.split(".")
+
         # Try to get translation in requested language
         translation = self.translations.get(lang, {})
         for k in keys:
@@ -35,7 +36,7 @@ class I18nService:
             else:
                 translation = None
                 break
-        
+
         # Fallback to English if not found
         if not translation:
             translation = self.translations.get("en", {})
@@ -45,7 +46,7 @@ class I18nService:
                 else:
                     translation = None
                     break
-        
+
         # If still not found, return the key itself
         if not translation or not isinstance(translation, str):
             return key
@@ -55,5 +56,6 @@ class I18nService:
             translation = translation.replace(f"{{{k}}}", str(v))
 
         return translation
+
 
 i18n_service = I18nService()

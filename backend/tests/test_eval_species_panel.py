@@ -1,4 +1,5 @@
 """Tests for backend/app/services/eval/species_panel.py."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -38,9 +39,7 @@ async def test_resolve_shared_core_uses_seed_taxa_id_when_present():
 @pytest.mark.asyncio
 async def test_resolve_shared_core_calls_inat_when_taxa_missing():
     seed = [{"scientific_name": "Passer domesticus", "common_name": "House Sparrow"}]
-    with patch.object(
-        species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock(return_value=12345)
-    ):
+    with patch.object(species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock(return_value=12345)):
         out = await resolve_shared_core(client=MagicMock(), seed=seed, inter_lookup_delay_seconds=0)
     assert len(out) == 1
     assert out[0].taxa_id == 12345
@@ -52,8 +51,10 @@ async def test_resolve_shared_core_skips_unresolvable():
         {"scientific_name": "Real bird", "common_name": "Real"},
         {"scientific_name": "Made up", "common_name": "Fake"},
     ]
+
     async def fake_lookup(name):
         return 1 if name == "Real bird" else None
+
     with patch.object(species_panel, "_resolve_taxa_id_via_taxonomy_service", AsyncMock(side_effect=fake_lookup)):
         out = await resolve_shared_core(client=MagicMock(), seed=seed, inter_lookup_delay_seconds=0)
     assert [s.scientific_name for s in out] == ["Real bird"]
@@ -73,9 +74,7 @@ async def test_fetch_regional_species_parses_payload():
     fake_client = MagicMock()
     fake_client.get = AsyncMock(return_value=fake_resp)
 
-    out = await fetch_regional_species(
-        fake_client, latitude=10.0, longitude=20.0, count=10
-    )
+    out = await fetch_regional_species(fake_client, latitude=10.0, longitude=20.0, count=10)
     assert len(out) == 2
     assert out[0].taxa_id == 11
     assert out[0].common_name == "AB"

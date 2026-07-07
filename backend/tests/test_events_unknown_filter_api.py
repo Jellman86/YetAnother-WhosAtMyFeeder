@@ -224,7 +224,9 @@ async def test_events_filters_exclude_hidden_only_cameras(client: httpx.AsyncCli
     hidden_event = f"evt-{uuid.uuid4().hex[:8]}"
     visible_event = f"evt-{uuid.uuid4().hex[:8]}"
 
-    await _insert_detection(hidden_event, f"Hidden Camera Species {uuid.uuid4().hex[:6]}", "cam-hidden-only", is_hidden=True)
+    await _insert_detection(
+        hidden_event, f"Hidden Camera Species {uuid.uuid4().hex[:6]}", "cam-hidden-only", is_hidden=True
+    )
     await _insert_detection(visible_event, f"Visible Camera Species {uuid.uuid4().hex[:6]}", "cam-visible")
 
     try:

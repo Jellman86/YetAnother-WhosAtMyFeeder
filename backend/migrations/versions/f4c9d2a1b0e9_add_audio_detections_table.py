@@ -19,9 +19,7 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
     exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='audio_detections'"
-        )
+        sa.text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='audio_detections'")
     ).fetchone()
     if not exists:
         op.create_table(
@@ -36,18 +34,14 @@ def upgrade() -> None:
         )
 
     index_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_audio_detections_time'"
-        )
+        sa.text("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_audio_detections_time'")
     ).fetchone()
     if not index_exists:
         with op.batch_alter_table("audio_detections", schema=None) as batch_op:
             batch_op.create_index("idx_audio_detections_time", ["timestamp"], unique=False)
 
     index_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_audio_detections_sensor'"
-        )
+        sa.text("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_audio_detections_sensor'")
     ).fetchone()
     if not index_exists:
         with op.batch_alter_table("audio_detections", schema=None) as batch_op:

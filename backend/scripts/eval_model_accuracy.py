@@ -47,6 +47,7 @@ from PIL import Image
 
 try:
     import onnxruntime as ort
+
     ORT_AVAILABLE = True
 except ImportError:
     ORT_AVAILABLE = False
@@ -55,6 +56,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Preprocessing helpers
 # ---------------------------------------------------------------------------
+
 
 def _resize_center_crop(img: Image.Image, size: int, crop_pct: float) -> Image.Image:
     scale_size = int(size / crop_pct)
@@ -108,6 +110,7 @@ def preprocess_image(img_path: Path, config: dict) -> np.ndarray:
 # Label matching helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalise_label(label: str) -> str:
     """Lowercase, replace underscores/dashes with spaces, strip."""
     return label.lower().replace("_", " ").replace("-", " ").strip()
@@ -133,6 +136,7 @@ def match_ground_truth(gt: str, label_index: dict[str, int]) -> int | None:
 # Dataset loaders
 # ---------------------------------------------------------------------------
 
+
 def _load_cub200(dataset_dir: Path, split: str = "test") -> list[tuple[Path, str]]:
     """Load CUB-200-2011 image paths with class names.
 
@@ -140,9 +144,7 @@ def _load_cub200(dataset_dir: Path, split: str = "test") -> list[tuple[Path, str
     """
     base = dataset_dir / "CUB_200_2011"
     if not base.exists():
-        raise FileNotFoundError(
-            f"CUB-200-2011 not found at {base}. Use --download_cub to download."
-        )
+        raise FileNotFoundError(f"CUB-200-2011 not found at {base}. Use --download_cub to download.")
 
     # Load class names: <class_id> <name>  e.g. 001.Black_footed_Albatross
     class_names: dict[str, str] = {}
@@ -205,6 +207,7 @@ def _load_directory(dataset_dir: Path) -> list[tuple[Path, str]]:
 # CUB-200-2011 downloader
 # ---------------------------------------------------------------------------
 
+
 def download_cub200(dest_dir: Path) -> None:
     """Download and extract CUB-200-2011 into dest_dir."""
     url = "https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz"
@@ -239,6 +242,7 @@ def download_cub200(dest_dir: Path) -> None:
 # Evaluation core
 # ---------------------------------------------------------------------------
 
+
 class ModelEvaluator:
     def __init__(self, model_dir: Path) -> None:
         self.model_dir = model_dir
@@ -254,9 +258,7 @@ class ModelEvaluator:
             raise FileNotFoundError(f"model.onnx not found in {model_dir}")
 
         self.config: dict[str, Any] = json.loads(config_path.read_text())
-        self.labels: list[str] = [
-            label.strip() for label in labels_path.read_text().splitlines() if label.strip()
-        ]
+        self.labels: list[str] = [label.strip() for label in labels_path.read_text().splitlines() if label.strip()]
         self.label_index = build_label_index(self.labels)
 
         providers = ["CPUExecutionProvider"]
@@ -351,9 +353,7 @@ class ModelEvaluator:
                 top5_correct += 1
 
             if verbose and not top1_hit:
-                print(
-                    f"  WRONG {img_path.name}: pred={pred_label} ({top1_score:.3f}) | GT: {gt_label}"
-                )
+                print(f"  WRONG {img_path.name}: pred={pred_label} ({top1_score:.3f}) | GT: {gt_label}")
 
         evaluated = matched_total - unknown_count
         top1_acc = top1_correct / evaluated if evaluated > 0 else 0.0
@@ -386,16 +386,10 @@ class ModelEvaluator:
             "median_inference_ms": round(median_inf * 1000, 2),
             "p95_inference_ms": round(p95_inf * 1000, 2),
             "threshold_used": threshold,
-            "unmatched_ground_truth_labels": dict(sorted(
-                unmatched_gts.items(), key=lambda x: -x[1]
-            )[:20]),
-            "worst_10_classes": [
-                {"class": c, "accuracy": round(a, 3), "count": n}
-                for c, a, n in class_accs[:10]
-            ],
+            "unmatched_ground_truth_labels": dict(sorted(unmatched_gts.items(), key=lambda x: -x[1])[:20]),
+            "worst_10_classes": [{"class": c, "accuracy": round(a, 3), "count": n} for c, a, n in class_accs[:10]],
             "best_10_classes": [
-                {"class": c, "accuracy": round(a, 3), "count": n}
-                for c, a, n in class_accs[-10:][::-1]
+                {"class": c, "accuracy": round(a, 3), "count": n} for c, a, n in class_accs[-10:][::-1]
             ],
         }
 
@@ -448,10 +442,18 @@ def save_csv(sweep_results: list[dict[str, Any]], out_path: Path) -> None:
     if not sweep_results:
         return
     fieldnames = [
-        "threshold_used", "top1_accuracy", "top5_accuracy", "unknown_rate",
-        "mean_confidence", "median_inference_ms", "p95_inference_ms",
-        "top1_correct", "top5_correct", "evaluated_above_threshold",
-        "unknown_count", "matched_to_model",
+        "threshold_used",
+        "top1_accuracy",
+        "top5_accuracy",
+        "unknown_rate",
+        "mean_confidence",
+        "median_inference_ms",
+        "p95_inference_ms",
+        "top1_correct",
+        "top5_correct",
+        "evaluated_above_threshold",
+        "unknown_count",
+        "matched_to_model",
     ]
     with open(out_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
@@ -464,11 +466,14 @@ def save_csv(sweep_results: list[dict[str, Any]], out_path: Path) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Evaluate ONNX bird model accuracy against a labelled dataset"
+    parser = argparse.ArgumentParser(description="Evaluate ONNX bird model accuracy against a labelled dataset")
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to model directory (must contain model.onnx, labels.txt, model_config.json)",
     )
-    parser.add_argument("--model_dir", required=True, help="Path to model directory (must contain model.onnx, labels.txt, model_config.json)")
     parser.add_argument("--dataset_dir", required=True, help="Dataset directory")
     parser.add_argument(
         "--dataset_format",
@@ -476,10 +481,19 @@ def main() -> int:
         choices=["cub200", "directory"],
         help="Dataset format: cub200 or directory (default: directory)",
     )
-    parser.add_argument("--split", default="test", choices=["train", "test"], help="CUB-200-2011 split to use (default: test)")
+    parser.add_argument(
+        "--split", default="test", choices=["train", "test"], help="CUB-200-2011 split to use (default: test)"
+    )
     parser.add_argument("--download_cub", action="store_true", help="Download CUB-200-2011 into dataset_dir")
-    parser.add_argument("--threshold", type=float, default=None, help="Confidence threshold (default: use model recommended_threshold or 0.0)")
-    parser.add_argument("--sweep", action="store_true", help="Sweep multiple thresholds (0.0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Confidence threshold (default: use model recommended_threshold or 0.0)",
+    )
+    parser.add_argument(
+        "--sweep", action="store_true", help="Sweep multiple thresholds (0.0, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)"
+    )
     parser.add_argument("--max_samples", type=int, default=None, help="Limit number of images evaluated")
     parser.add_argument("--verbose", action="store_true", help="Print per-image wrong predictions")
     parser.add_argument("--output_json", type=str, default=None, help="Write full results to JSON")

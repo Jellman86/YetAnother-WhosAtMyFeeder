@@ -20,15 +20,16 @@ async def test_process_mqtt_message_valid_bird():
     classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
 
     # Mock dependencies
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.DetectionService") as MockDetectionService, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.audio_service") as mock_audio, \
-         patch("app.services.event_processor.weather_service") as mock_weather, \
-         patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.event_processor.Image.open"):
-
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.DetectionService") as MockDetectionService,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.audio_service") as mock_audio,
+        patch("app.services.event_processor.weather_service") as mock_weather,
+        patch("app.services.event_processor.notification_service") as mock_notif,
+        patch("app.services.event_processor.taxonomy_service") as mock_taxonomy,
+        patch("app.services.event_processor.Image.open"),
+    ):
         # Mock EventProcessor with dependencies already patched
         processor = EventProcessor(classifier)
 
@@ -37,7 +38,9 @@ async def test_process_mqtt_message_valid_bird():
 
         mock_cache.cache_snapshot = AsyncMock()
 
-        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
+        mock_taxonomy.get_names = AsyncMock(
+            return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"}
+        )
 
         mock_det_service = MockDetectionService.return_value
         mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
@@ -67,22 +70,25 @@ async def test_process_mqtt_message_skips_frigate_write_back_when_disabled():
     classifier = MagicMock()
     classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.DetectionService") as MockDetectionService, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.audio_service") as mock_audio, \
-         patch("app.services.event_processor.weather_service") as mock_weather, \
-         patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.event_processor.Image.open"), \
-         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True):
-
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.DetectionService") as MockDetectionService,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.audio_service") as mock_audio,
+        patch("app.services.event_processor.weather_service") as mock_weather,
+        patch("app.services.event_processor.notification_service") as mock_notif,
+        patch("app.services.event_processor.taxonomy_service") as mock_taxonomy,
+        patch("app.services.event_processor.Image.open"),
+        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
+    ):
         processor = EventProcessor(classifier)
 
         mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
-        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
+        mock_taxonomy.get_names = AsyncMock(
+            return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"}
+        )
 
         mock_det_service = MockDetectionService.return_value
         mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
@@ -99,58 +105,65 @@ async def test_process_mqtt_message_skips_frigate_write_back_when_disabled():
         mock_det_service.save_detection.assert_called_once()
         mock_frigate.set_sublabel.assert_not_called()
 
+
 @pytest.mark.asyncio
 async def test_process_mqtt_message_ignore_non_bird():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
-    
+
     payload = b'{"after": {"id": "124", "label": "person", "camera": "cam1"}}'
     await processor.process_mqtt_message(payload)
-    
+
     classifier.classify_async.assert_not_called()
 
 
 def test_parse_event_skips_update_events():
     processor = EventProcessor(MagicMock())
-    event = processor._parse_and_validate_event({
-        "type": "update",
-        "after": {
-            "id": "evt-update-1",
-            "label": "bird",
-            "camera": "cam1",
-            "start_time": 1700000000,
-        },
-    })
+    event = processor._parse_and_validate_event(
+        {
+            "type": "update",
+            "after": {
+                "id": "evt-update-1",
+                "label": "bird",
+                "camera": "cam1",
+                "start_time": 1700000000,
+            },
+        }
+    )
     assert event is None
 
 
 def test_parse_event_accepts_end_events():
     processor = EventProcessor(MagicMock())
-    event = processor._parse_and_validate_event({
-        "type": "end",
-        "after": {
-            "id": "evt-end-1",
-            "label": "bird",
-            "camera": "cam1",
-            "start_time": 1700000000,
-        },
-    })
+    event = processor._parse_and_validate_event(
+        {
+            "type": "end",
+            "after": {
+                "id": "evt-end-1",
+                "label": "bird",
+                "camera": "cam1",
+                "start_time": 1700000000,
+            },
+        }
+    )
     assert event is not None
     assert event.type == "end"
 
 
 def test_parse_event_accepts_false_positive_updates():
     processor = EventProcessor(MagicMock())
-    event = processor._parse_and_validate_event({
-        "type": "update",
-        "after": {
-            "id": "evt-fp-1",
-            "label": "bird",
-            "camera": "cam1",
-            "false_positive": True,
-            "start_time": 1700000000,
-        },
-    })
+    event = processor._parse_and_validate_event(
+        {
+            "type": "update",
+            "after": {
+                "id": "evt-fp-1",
+                "label": "bird",
+                "camera": "cam1",
+                "false_positive": True,
+                "start_time": 1700000000,
+            },
+        }
+    )
     assert event is not None
     assert event.is_false_positive is True
 
@@ -179,11 +192,15 @@ async def test_process_mqtt_message_skips_end_event_classification():
     )
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
 
-    end_payload = b'{"type":"end","after":{"id":"evt-end-skip-1","label":"bird","camera":"cam1","start_time":1700000000}}'
-    with patch("app.services.event_processor.settings.frigate.clips_enabled", True, create=True), \
-         patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.enabled", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True):
+    end_payload = (
+        b'{"type":"end","after":{"id":"evt-end-skip-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    with (
+        patch("app.services.event_processor.settings.frigate.clips_enabled", True, create=True),
+        patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True),
+    ):
         await processor.process_mqtt_message(end_payload)
 
     processor._classify_snapshot.assert_not_called()
@@ -199,21 +216,25 @@ async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_eve
     processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
         return_value={"audio_match": None, "weather_data": {}}
     )
-    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
-        "label": "Cardinal",
-        "score": 0.9,
-        "index": 1,
-        "audio_confirmed": False,
-        "audio_species": None,
-        "audio_score": None,
-    })
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Cardinal",
+            "score": 0.9,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
     )
 
-    new_payload = b'{"type":"new","after":{"id":"evt-new-no-full-visit","label":"bird","camera":"cam1","start_time":1700000000}}'
+    new_payload = (
+        b'{"type":"new","after":{"id":"evt-new-no-full-visit","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
     await processor.process_mqtt_message(new_payload)
 
     processor._trigger_auto_full_visit_generation.assert_not_called()
@@ -227,7 +248,9 @@ async def test_process_mqtt_message_end_event_skips_auto_full_visit_when_recordi
     )
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
 
-    end_payload = b'{"type":"end","after":{"id":"evt-end-disabled","label":"bird","camera":"cam1","start_time":1700000000}}'
+    end_payload = (
+        b'{"type":"end","after":{"id":"evt-end-disabled","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
     with patch("app.services.event_processor.settings.frigate.recording_clip_enabled", False, create=True):
         await processor.process_mqtt_message(end_payload)
 
@@ -280,11 +303,13 @@ async def test_handle_detection_save_and_notify_uses_dispatcher_queue():
     processor.detection_service.save_detection = AsyncMock(return_value=(True, True))  # type: ignore[attr-defined]
     processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
 
-    with patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher, \
-         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True), \
-         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True), \
-         patch("app.services.event_processor.settings.media_cache.enabled", False, create=True), \
-         patch("app.services.event_processor.settings.media_cache.cache_snapshots", False, create=True):
+    with (
+        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
+        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
+        patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
+        patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
+        patch("app.services.event_processor.settings.media_cache.cache_snapshots", False, create=True),
+    ):
         mock_dispatcher.enqueue = AsyncMock(return_value=True)
 
         await processor._handle_detection_save_and_notify(
@@ -324,14 +349,16 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
     processor.detection_service.save_detection = AsyncMock(return_value=(True, True))  # type: ignore[attr-defined]
     processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
 
-    with patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq, \
-         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True), \
-         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True), \
-         patch("app.services.event_processor.settings.media_cache.enabled", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True):
+    with (
+        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
+        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
+        patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
+        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
+    ):
         mock_dispatcher.enqueue = AsyncMock(return_value=True)
         mock_cache.cache_snapshot = AsyncMock()
         mock_hq.schedule_replacement = MagicMock(return_value=True)
@@ -375,14 +402,16 @@ async def test_handle_detection_save_and_notify_skips_high_quality_snapshot_repl
     processor.detection_service.save_detection = AsyncMock(return_value=(False, False))  # type: ignore[attr-defined]
     processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
 
-    with patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq, \
-         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True), \
-         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True), \
-         patch("app.services.event_processor.settings.media_cache.enabled", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True), \
-         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True):
+    with (
+        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
+        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
+        patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
+        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
+        patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
+    ):
         mock_dispatcher.enqueue = AsyncMock(return_value=True)
         mock_cache.cache_snapshot = AsyncMock()
         mock_hq.schedule_replacement = MagicMock(return_value=True)
@@ -440,8 +469,10 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     processor._classify_snapshot = _slow_classify  # type: ignore[method-assign]
     payload = b'{"type":"new","after":{"id":"evt-timeout-1","label":"bird","camera":"cam1","start_time":1700000000}}'
 
-    with patch("app.services.event_processor.log") as mock_log, \
-         patch("app.services.event_processor.EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", 0.01):
+    with (
+        patch("app.services.event_processor.log") as mock_log,
+        patch("app.services.event_processor.EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", 0.01),
+    ):
         await processor.process_mqtt_message(payload)
 
     processor._handle_detection_save_and_notify.assert_not_called()
@@ -481,20 +512,24 @@ async def test_process_mqtt_message_caps_live_queue_timeout_to_remaining_freshne
     classifier = MagicMock()
     classifier.classify_async_live = AsyncMock(return_value=[{"label": "Cardinal", "score": 0.95, "index": 1}])
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.DetectionService") as MockDetectionService, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.audio_service") as mock_audio, \
-         patch("app.services.event_processor.weather_service") as mock_weather, \
-         patch("app.services.event_processor.notification_service") as mock_notif, \
-         patch("app.services.event_processor.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.event_processor.Image.open"):
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.DetectionService") as MockDetectionService,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.audio_service") as mock_audio,
+        patch("app.services.event_processor.weather_service") as mock_weather,
+        patch("app.services.event_processor.notification_service") as mock_notif,
+        patch("app.services.event_processor.taxonomy_service") as mock_taxonomy,
+        patch("app.services.event_processor.Image.open"),
+    ):
         processor = EventProcessor(classifier)
 
         mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
-        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"})
+        mock_taxonomy.get_names = AsyncMock(
+            return_value={"scientific_name": "Cardinalis cardinalis", "common_name": "Northern Cardinal"}
+        )
 
         mock_det_service = MockDetectionService.return_value
         mock_det_service.filter_and_label.return_value = ({"label": "Cardinal", "score": 0.95}, None)
@@ -555,12 +590,16 @@ async def test_process_mqtt_message_preserves_live_overload_from_classifier_serv
         side_effect=LiveImageClassificationOverloadedError("classify_snapshot_overloaded")
     )
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.Image.open", return_value=MagicMock()):
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+    ):
         processor = EventProcessor(classifier)
         mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
 
-        payload = b'{"type":"new","after":{"id":"evt-overload-live","label":"bird","camera":"cam1","start_time":1700000000}}'
+        payload = (
+            b'{"type":"new","after":{"id":"evt-overload-live","label":"bird","camera":"cam1","start_time":1700000000}}'
+        )
         await processor.process_mqtt_message(payload)
 
     status = processor.get_status()
@@ -585,13 +624,17 @@ async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
         )
     )
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.error_diagnostics_history") as mock_diagnostics, \
-         patch("app.services.event_processor.Image.open", return_value=MagicMock()):
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.error_diagnostics_history") as mock_diagnostics,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+    ):
         processor = EventProcessor(classifier)
         mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
 
-        payload = b'{"type":"new","after":{"id":"evt-lease-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
+        payload = (
+            b'{"type":"new","after":{"id":"evt-lease-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
+        )
         await processor.process_mqtt_message(payload)
 
     status = processor.get_status()
@@ -632,11 +675,15 @@ async def test_process_mqtt_message_audio_taxonomy_lookup_timeout_falls_back():
         await asyncio.sleep(0.05)
         return {"scientific_name": "columba palumbus", "common_name": "Common Wood-Pigeon"}
 
-    payload = b'{"type":"new","after":{"id":"evt-audio-tax-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
+    payload = (
+        b'{"type":"new","after":{"id":"evt-audio-tax-timeout","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
 
-    with patch("app.services.event_processor.log") as mock_log, \
-         patch("app.services.event_processor.taxonomy_service.get_names", new=AsyncMock(side_effect=_slow_taxonomy)), \
-         patch("app.services.event_processor.EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", 0.01):
+    with (
+        patch("app.services.event_processor.log") as mock_log,
+        patch("app.services.event_processor.taxonomy_service.get_names", new=AsyncMock(side_effect=_slow_taxonomy)),
+        patch("app.services.event_processor.EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", 0.01),
+    ):
         await processor.process_mqtt_message(payload)
 
     processor._handle_detection_save_and_notify.assert_called_once()
@@ -658,14 +705,16 @@ async def test_process_mqtt_message_status_tracks_completed_event():
     processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
         return_value={"audio_match": None, "weather_data": {}}
     )
-    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
-        "label": "Sparrow",
-        "score": 0.95,
-        "index": 1,
-        "audio_confirmed": False,
-        "audio_species": None,
-        "audio_score": None,
-    })
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Sparrow",
+            "score": 0.95,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
@@ -690,8 +739,10 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
 
     payload = b'{"type":"new","after":{"id":"evt-stale-live-1","label":"bird","camera":"cam1","start_time":1700000000},"__received_at_ts":1700000000.0}'
 
-    with patch("app.services.event_processor.time.time", return_value=1700000100.0), \
-         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0):
+    with (
+        patch("app.services.event_processor.time.time", return_value=1700000100.0),
+        patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
+    ):
         await processor.process_mqtt_message(payload)
 
     processor._classify_snapshot.assert_not_called()
@@ -711,14 +762,16 @@ async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_re
     processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
         return_value={"audio_match": None, "weather_data": {}}
     )
-    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
-        "label": "Sparrow",
-        "score": 0.95,
-        "index": 1,
-        "audio_confirmed": False,
-        "audio_species": None,
-        "audio_score": None,
-    })
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Sparrow",
+            "score": 0.95,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
@@ -726,8 +779,10 @@ async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_re
 
     payload = b'{"type":"new","after":{"id":"evt-backlog-live-1","label":"bird","camera":"cam1","start_time":1700000000},"__received_at_ts":1700000099.5}'
 
-    with patch("app.services.event_processor.time.time", return_value=1700000100.0), \
-         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0):
+    with (
+        patch("app.services.event_processor.time.time", return_value=1700000100.0),
+        patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
+    ):
         await processor.process_mqtt_message(payload)
 
     processor._classify_snapshot.assert_awaited_once()
@@ -752,20 +807,24 @@ async def test_process_mqtt_message_coalesces_duplicate_live_event_while_active(
     processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
         return_value={"audio_match": None, "weather_data": {}}
     )
-    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
-        "label": "Sparrow",
-        "score": 0.95,
-        "index": 1,
-        "audio_confirmed": False,
-        "audio_species": None,
-        "audio_score": None,
-    })
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Sparrow",
+            "score": 0.95,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
 
-    payload = b'{"type":"new","after":{"id":"evt-coalesce-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    payload = (
+        b'{"type":"new","after":{"id":"evt-coalesce-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
 
     first_task = asyncio.create_task(processor.process_mqtt_message(payload))
     await classify_started.wait()
@@ -809,20 +868,24 @@ async def test_process_mqtt_message_allows_retry_after_classification_when_first
     processor._gather_context_data = AsyncMock(  # type: ignore[method-assign]
         return_value={"audio_match": None, "weather_data": {}}
     )
-    processor._correlate_audio = AsyncMock(return_value={  # type: ignore[method-assign]
-        "label": "Sparrow",
-        "score": 0.95,
-        "index": 1,
-        "audio_confirmed": False,
-        "audio_species": None,
-        "audio_score": None,
-    })
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Sparrow",
+            "score": 0.95,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
     processor._handle_detection_save_and_notify = _save  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
 
-    payload = b'{"type":"new","after":{"id":"evt-save-retry-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    payload = (
+        b'{"type":"new","after":{"id":"evt-save-retry-live-1","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
 
     first_task = asyncio.create_task(processor.process_mqtt_message(payload))
     await first_save_started.wait()
@@ -844,8 +907,10 @@ def test_event_processor_status_recovers_after_stale_critical_failure():
     processor._stage_timeouts["classify_snapshot"] = 1
     processor._last_critical_failure_monotonic = 10.0
 
-    with patch("app.services.event_processor.time.monotonic", return_value=20.0), \
-         patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0):
+    with (
+        patch("app.services.event_processor.time.monotonic", return_value=20.0),
+        patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0),
+    ):
         status = processor.get_status()
 
     assert status["critical_failures"] == 1
@@ -860,8 +925,10 @@ def test_event_processor_status_stays_degraded_when_incomplete_events_remain_aft
     processor._dropped_events = 1
     processor._last_critical_failure_monotonic = 10.0
 
-    with patch("app.services.event_processor.time.monotonic", return_value=20.0), \
-         patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0):
+    with (
+        patch("app.services.event_processor.time.monotonic", return_value=20.0),
+        patch("app.services.event_processor.EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", 5.0),
+    ):
         status = processor.get_status()
 
     assert status["critical_failures"] == 1
@@ -883,10 +950,12 @@ async def test_classify_snapshot_extends_retry_budget_during_frigate_stall_recov
         received_at_ts=1700000001.0,
     )
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.Image.open", return_value=MagicMock()), \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),
@@ -927,9 +996,11 @@ async def test_classify_snapshot_keeps_single_retry_without_frigate_recovery_sig
         received_at_ts=1700000001.0,
     )
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),
@@ -994,11 +1065,13 @@ async def test_classify_snapshot_caps_retry_sleep_to_remaining_freshness():
         received_at_ts=1700000001.0,
     )
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep, \
-         patch("app.services.event_processor.time.time", return_value=1700000045.2), \
-         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 45.0):
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch("app.services.event_processor.time.time", return_value=1700000045.2),
+        patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 45.0),
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),
@@ -1041,11 +1114,13 @@ async def test_classify_snapshot_falls_back_to_uncropped_snapshot_when_cropped_m
     image_mock = MagicMock()
     image_mock.convert.return_value = image_mock
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.Image.open", return_value=image_mock), \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.Image.open", return_value=image_mock),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),
@@ -1094,11 +1169,13 @@ async def test_classify_snapshot_falls_back_to_thumbnail_before_drop():
     image_mock = MagicMock()
     image_mock.convert.return_value = image_mock
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.Image.open", return_value=image_mock), \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.Image.open", return_value=image_mock),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),
@@ -1142,11 +1219,13 @@ async def test_classify_snapshot_falls_back_to_cached_snapshot_before_drop():
     image_mock = MagicMock()
     image_mock.convert.return_value = image_mock
 
-    with patch("app.services.event_processor.frigate_client") as mock_frigate, \
-         patch("app.services.event_processor.mqtt_service") as mock_mqtt, \
-         patch("app.services.event_processor.media_cache") as mock_cache, \
-         patch("app.services.event_processor.Image.open", return_value=image_mock), \
-         patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.Image.open", return_value=image_mock),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
         mock_frigate.get_snapshot_with_error = AsyncMock(
             side_effect=[
                 (None, "snapshot_not_found"),

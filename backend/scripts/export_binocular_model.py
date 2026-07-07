@@ -38,13 +38,12 @@ if torch is not None:
             super().__init__()
             encoder = encoder_loader("facebookresearch/dinov2", encoder_name)
             self.encoder = BinocularEncoderWrapper(encoder)
-            self.classifier = BinocularClassifierWrapper(
-                nn.Sequential(nn.Linear(768, num_classes))
-            )
+            self.classifier = BinocularClassifierWrapper(nn.Sequential(nn.Linear(768, num_classes)))
 
         def forward(self, x):
             return self.classifier.classifier(self.encoder.model(x))
 else:
+
     class BinocularEncoderWrapper:
         def __init__(self, encoder):
             self.model = encoder

@@ -1,4 +1,5 @@
 """Config flow for Yet Another WhosAtMyFeeder integration."""
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
@@ -45,7 +47,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     username = (data.get(CONF_USERNAME) or "").strip() or None
     password = data.get(CONF_PASSWORD) or None
     api_key = (data.get(CONF_API_KEY) or "").strip() or None
-    
+
     try:
         session = async_get_clientsession(hass)
         async with session.get(f"{url}/health") as response:
@@ -83,7 +85,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                     protected_resp.raise_for_status()
             else:
                 raise InvalidAuth
-            
+
     except InvalidAuth:
         raise
     except Exception:
@@ -99,14 +101,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         if user_input is None:
-            return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
-            )
+            return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA)
 
         errors = {}
 
@@ -124,9 +122,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title=info["title"], data=user_input)
 
-        return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors)
 
     @staticmethod
     @callback
@@ -146,9 +142,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Store the entry on a private attribute instead.
         self._config_entry = config_entry
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
@@ -183,9 +177,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     ): str,
                     vol.Optional(
                         CONF_POLLING_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
-                        ),
+                        default=self.config_entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600)),
                     vol.Optional(
                         CONF_ENABLE_INGRESS,

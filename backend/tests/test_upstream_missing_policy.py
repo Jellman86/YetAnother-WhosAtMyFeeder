@@ -53,9 +53,15 @@ async def test_purge_missing_media_marks_detection_when_behavior_is_mark_missing
     error_diagnostics_history.clear()
     await _insert_detection("evt-purge-mark")
 
-    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
-         patch.object(settings_router.frigate_client, "get_event_with_error", new=AsyncMock(return_value=(None, "event_not_found"))), \
-         patch.object(settings_router.media_cache, "delete_cached_media", new=AsyncMock()) as delete_cached_media:
+    with (
+        patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")),
+        patch.object(
+            settings_router.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=(None, "event_not_found")),
+        ),
+        patch.object(settings_router.media_cache, "delete_cached_media", new=AsyncMock()) as delete_cached_media,
+    ):
         result = await settings_router._purge_missing_media("clip")
 
     assert result["status"] == "completed"
@@ -72,8 +78,7 @@ async def test_purge_missing_media_marks_detection_when_behavior_is_mark_missing
     assert detection.frigate_last_error == "event_not_found"
     history = error_diagnostics_history.snapshot(limit=10)
     assert any(
-        event.get("reason_code") == "frigate_missing_marked"
-        and event.get("event_id") == "evt-purge-mark"
+        event.get("reason_code") == "frigate_missing_marked" and event.get("event_id") == "evt-purge-mark"
         for event in history["events"]
     )
 
@@ -85,9 +90,15 @@ async def test_purge_missing_media_deletes_detection_when_behavior_is_delete():
     error_diagnostics_history.clear()
     await _insert_detection("evt-purge-delete")
 
-    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
-         patch.object(settings_router.frigate_client, "get_event_with_error", new=AsyncMock(return_value=(None, "event_not_found"))), \
-         patch.object(settings_router.media_cache, "delete_cached_media", new=AsyncMock()) as delete_cached_media:
+    with (
+        patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")),
+        patch.object(
+            settings_router.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=(None, "event_not_found")),
+        ),
+        patch.object(settings_router.media_cache, "delete_cached_media", new=AsyncMock()) as delete_cached_media,
+    ):
         result = await settings_router._purge_missing_media("clip")
 
     assert result["status"] == "completed"
@@ -102,8 +113,7 @@ async def test_purge_missing_media_deletes_detection_when_behavior_is_delete():
     assert detection is None
     history = error_diagnostics_history.snapshot(limit=10)
     assert any(
-        event.get("reason_code") == "frigate_missing_deleted"
-        and event.get("event_id") == "evt-purge-delete"
+        event.get("reason_code") == "frigate_missing_deleted" and event.get("event_id") == "evt-purge-delete"
         for event in history["events"]
     )
 
@@ -121,12 +131,14 @@ async def test_purge_missing_all_media_marks_if_either_clip_or_snapshot_is_missi
     settings.maintenance.frigate_missing_behavior = "mark_missing"
     await _insert_detection("evt-purge-all")
 
-    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
-         patch.object(
-             settings_router.frigate_client,
-             "get_event_with_error",
-             new=AsyncMock(return_value=(event_data, None)),
-         ):
+    with (
+        patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")),
+        patch.object(
+            settings_router.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=(event_data, None)),
+        ),
+    ):
         result = await settings_router._purge_missing_all_media()
 
     assert result["status"] == "completed"
@@ -152,12 +164,14 @@ async def test_purge_missing_all_media_clears_stale_missing_state_when_media_ret
         repo = DetectionRepository(db)
         await repo.mark_frigate_missing("evt-purge-all-restored", error="clip_unavailable")
 
-    with patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")), \
-         patch.object(
-             settings_router.frigate_client,
-             "get_event_with_error",
-             new=AsyncMock(return_value=({"has_clip": True, "has_snapshot": True}, None)),
-         ):
+    with (
+        patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17.1")),
+        patch.object(
+            settings_router.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True, "has_snapshot": True}, None)),
+        ),
+    ):
         result = await settings_router._purge_missing_all_media()
 
     assert result["status"] == "completed"

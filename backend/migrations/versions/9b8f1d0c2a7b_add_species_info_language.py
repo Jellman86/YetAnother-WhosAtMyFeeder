@@ -5,6 +5,7 @@ Revises: 7f4b5c1b1b77
 Create Date: 2026-01-18 13:52:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9b8f1d0c2a7b'
-down_revision: Union[str, None] = '7f4b5c1b1b77'
+revision: str = "9b8f1d0c2a7b"
+down_revision: Union[str, None] = "7f4b5c1b1b77"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -43,34 +44,34 @@ def upgrade() -> None:
     inspector = sa.inspect(bind)
     tables = inspector.get_table_names()
 
-    if 'species_info_cache' not in tables:
+    if "species_info_cache" not in tables:
         return
 
     # Clean up any leftover tables from previous failed migration attempts
-    if 'species_info_cache_new' in tables:
-        op.drop_table('species_info_cache_new')
+    if "species_info_cache_new" in tables:
+        op.drop_table("species_info_cache_new")
 
     # Create a new table with language column + composite unique key
     op.create_table(
-        'species_info_cache_new',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('species_name', sa.String(), nullable=False),
-        sa.Column('language', sa.String(), nullable=False, server_default='en'),
-        sa.Column('title', sa.String(), nullable=True),
-        sa.Column('taxa_id', sa.Integer(), nullable=True),
-        sa.Column('source', sa.String(), nullable=True),
-        sa.Column('source_url', sa.String(), nullable=True),
-        sa.Column('summary_source', sa.String(), nullable=True),
-        sa.Column('summary_source_url', sa.String(), nullable=True),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column('extract', sa.String(), nullable=True),
-        sa.Column('thumbnail_url', sa.String(), nullable=True),
-        sa.Column('wikipedia_url', sa.String(), nullable=True),
-        sa.Column('scientific_name', sa.String(), nullable=True),
-        sa.Column('conservation_status', sa.String(), nullable=True),
-        sa.Column('cached_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('species_name', 'language', name='uq_species_info_name_lang')
+        "species_info_cache_new",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("species_name", sa.String(), nullable=False),
+        sa.Column("language", sa.String(), nullable=False, server_default="en"),
+        sa.Column("title", sa.String(), nullable=True),
+        sa.Column("taxa_id", sa.Integer(), nullable=True),
+        sa.Column("source", sa.String(), nullable=True),
+        sa.Column("source_url", sa.String(), nullable=True),
+        sa.Column("summary_source", sa.String(), nullable=True),
+        sa.Column("summary_source_url", sa.String(), nullable=True),
+        sa.Column("description", sa.String(), nullable=True),
+        sa.Column("extract", sa.String(), nullable=True),
+        sa.Column("thumbnail_url", sa.String(), nullable=True),
+        sa.Column("wikipedia_url", sa.String(), nullable=True),
+        sa.Column("scientific_name", sa.String(), nullable=True),
+        sa.Column("conservation_status", sa.String(), nullable=True),
+        sa.Column("cached_at", sa.TIMESTAMP(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("species_name", "language", name="uq_species_info_name_lang"),
     )
 
     # Copy existing data as English
@@ -85,12 +86,12 @@ def upgrade() -> None:
         """
     )
 
-    op.drop_table('species_info_cache')
-    op.rename_table('species_info_cache_new', 'species_info_cache')
+    op.drop_table("species_info_cache")
+    op.rename_table("species_info_cache_new", "species_info_cache")
     if not _index_exists(bind, "idx_species_info_name"):
-        op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+        op.create_index("idx_species_info_name", "species_info_cache", ["species_name"])
     if not _index_exists(bind, "idx_species_info_taxa_id"):
-        op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
+        op.create_index("idx_species_info_taxa_id", "species_info_cache", ["taxa_id"])
 
 
 def downgrade() -> None:
@@ -98,32 +99,32 @@ def downgrade() -> None:
     inspector = sa.inspect(bind)
     tables = inspector.get_table_names()
 
-    if 'species_info_cache' not in tables:
+    if "species_info_cache" not in tables:
         return
 
     # Clean up any leftovers from partial downgrade attempts.
-    if 'species_info_cache_old' in tables:
-        op.drop_table('species_info_cache_old')
+    if "species_info_cache_old" in tables:
+        op.drop_table("species_info_cache_old")
 
     op.create_table(
-        'species_info_cache_old',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('species_name', sa.String(), nullable=False, unique=True),
-        sa.Column('title', sa.String(), nullable=True),
-        sa.Column('taxa_id', sa.Integer(), nullable=True),
-        sa.Column('source', sa.String(), nullable=True),
-        sa.Column('source_url', sa.String(), nullable=True),
-        sa.Column('summary_source', sa.String(), nullable=True),
-        sa.Column('summary_source_url', sa.String(), nullable=True),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column('extract', sa.String(), nullable=True),
-        sa.Column('thumbnail_url', sa.String(), nullable=True),
-        sa.Column('wikipedia_url', sa.String(), nullable=True),
-        sa.Column('scientific_name', sa.String(), nullable=True),
-        sa.Column('conservation_status', sa.String(), nullable=True),
-        sa.Column('cached_at', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('species_name')
+        "species_info_cache_old",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("species_name", sa.String(), nullable=False, unique=True),
+        sa.Column("title", sa.String(), nullable=True),
+        sa.Column("taxa_id", sa.Integer(), nullable=True),
+        sa.Column("source", sa.String(), nullable=True),
+        sa.Column("source_url", sa.String(), nullable=True),
+        sa.Column("summary_source", sa.String(), nullable=True),
+        sa.Column("summary_source_url", sa.String(), nullable=True),
+        sa.Column("description", sa.String(), nullable=True),
+        sa.Column("extract", sa.String(), nullable=True),
+        sa.Column("thumbnail_url", sa.String(), nullable=True),
+        sa.Column("wikipedia_url", sa.String(), nullable=True),
+        sa.Column("scientific_name", sa.String(), nullable=True),
+        sa.Column("conservation_status", sa.String(), nullable=True),
+        sa.Column("cached_at", sa.TIMESTAMP(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("species_name"),
     )
     # During downgrade we collapse language variants back to a unique species_name row.
     # Prefer English rows, then most recently cached, then highest id as tie-breaker.
@@ -148,10 +149,10 @@ def downgrade() -> None:
         """
     )
 
-    if _table_exists(bind, 'species_info_cache'):
-        op.drop_table('species_info_cache')
-    op.rename_table('species_info_cache_old', 'species_info_cache')
+    if _table_exists(bind, "species_info_cache"):
+        op.drop_table("species_info_cache")
+    op.rename_table("species_info_cache_old", "species_info_cache")
     if not _index_exists(bind, "idx_species_info_name"):
-        op.create_index('idx_species_info_name', 'species_info_cache', ['species_name'])
+        op.create_index("idx_species_info_name", "species_info_cache", ["species_name"])
     if not _index_exists(bind, "idx_species_info_taxa_id"):
-        op.create_index('idx_species_info_taxa_id', 'species_info_cache', ['taxa_id'])
+        op.create_index("idx_species_info_taxa_id", "species_info_cache", ["taxa_id"])

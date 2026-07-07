@@ -13,11 +13,13 @@ from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
+
 class AIService:
     """Service to interact with LLMs for behavioral analysis."""
-    
+
     async def _record_usage(self, provider: str, model: str, feature: str, input_tokens: int, output_tokens: int):
         """Record usage to database asynchronously via background task."""
+
         async def _save():
             try:
                 async with get_db() as db:
@@ -25,7 +27,7 @@ class AIService:
                     await repo.record_usage(provider, model, feature, input_tokens, output_tokens)
             except Exception as e:
                 log.error("Failed to record AI usage in background", error=str(e))
-        
+
         create_background_task(_save(), name=f"ai_usage_log:{provider}")
 
     def _render_prompt(self, template: str, context: dict) -> str:
@@ -54,7 +56,7 @@ class AIService:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 16}
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 16},
                 }
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, json=payload)
@@ -83,15 +85,11 @@ class AIService:
 
             if provider == "claude":
                 url = "https://api.anthropic.com/v1/messages"
-                headers = {
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json"
-                }
+                headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
                 payload = {
                     "model": model,
                     "max_tokens": 16,
-                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
                 }
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, headers=headers, json=payload)
@@ -139,7 +137,7 @@ class AIService:
         metadata: dict,
         image_list: Optional[list[bytes]] = None,
         language: Optional[str] = None,
-        mime_type: str = "image/jpeg"
+        mime_type: str = "image/jpeg",
     ) -> Optional[str]:
         """Send image(s) and metadata to LLM for analysis."""
         if not settings.llm.enabled or not settings.llm.api_key:
@@ -163,7 +161,9 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def analyze_chart(self, image_data: bytes, metadata: dict, language: Optional[str] = None, mime_type: str = "image/png") -> Optional[str]:
+    async def analyze_chart(
+        self, image_data: bytes, metadata: dict, language: Optional[str] = None, mime_type: str = "image/png"
+    ) -> Optional[str]:
         """Analyze a leaderboard chart image for trends."""
         if not settings.llm.enabled or not settings.llm.api_key:
             return "AI Analysis is disabled or API key is missing."
@@ -184,10 +184,7 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def chat_detection(
-        self,
-        prompt: str
-    ) -> Optional[str]:
+    async def chat_detection(self, prompt: str) -> Optional[str]:
         """Send a text-only prompt for follow-up conversation."""
         if not settings.llm.enabled or not settings.llm.api_key:
             return "AI Analysis is disabled or API key is missing."
@@ -203,39 +200,32 @@ class AIService:
 
         return "Unsupported AI provider."
 
-    async def _analyze_gemini_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
+    async def _analyze_gemini_prompt(
+        self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
+    ) -> Optional[str]:
         """Analyze using Google Gemini API."""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
-        
+
         parts = [{"text": prompt}]
         for image_data, mime_type in images:
-            image_base64 = base64.b64encode(image_data).decode('utf-8')
-            parts.append({
-                "inline_data": {
-                    "mime_type": mime_type,
-                    "data": image_base64
-                }
-            })
+            image_base64 = base64.b64encode(image_data).decode("utf-8")
+            parts.append({"inline_data": {"mime_type": mime_type, "data": image_base64}})
 
         payload = {
-            "contents": [
-                {
-                    "parts": parts
-                }
-            ],
+            "contents": [{"parts": parts}],
             "generationConfig": {
                 "temperature": 0.4,
                 "topK": 32,
                 "topP": 1,
                 "maxOutputTokens": 1024,
-            }
+            },
         }
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
-                
+
                 data = resp.json()
                 # Extract text from response
                 candidates = data.get("candidates", [])
@@ -248,14 +238,14 @@ class AIService:
                             model=settings.llm.model,
                             feature=feature,
                             input_tokens=usage.get("promptTokenCount", 0),
-                            output_tokens=usage.get("candidatesTokenCount", 0)
+                            output_tokens=usage.get("candidatesTokenCount", 0),
                         )
 
                     content = candidates[0].get("content", {})
                     parts = content.get("parts", [])
                     if parts:
                         return parts[0].get("text")
-                
+
                 log.warning("Gemini returned no candidates", response=resp.text)
                 return "AI returned an empty response."
         except Exception as e:
@@ -265,17 +255,13 @@ class AIService:
     async def _generate_gemini_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
         payload = {
-            "contents": [
-                {
-                    "parts": [{"text": prompt}]
-                }
-            ],
+            "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.4,
                 "topK": 32,
                 "topP": 1,
                 "maxOutputTokens": 1024,
-            }
+            },
         }
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -292,7 +278,7 @@ class AIService:
                             model=settings.llm.model,
                             feature=feature,
                             input_tokens=usage.get("promptTokenCount", 0),
-                            output_tokens=usage.get("candidatesTokenCount", 0)
+                            output_tokens=usage.get("candidatesTokenCount", 0),
                         )
 
                     content = candidates[0].get("content", {})
@@ -305,42 +291,27 @@ class AIService:
             log.error("Gemini text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_openai_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
+    async def _analyze_openai_prompt(
+        self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
+    ) -> Optional[str]:
         """Analyze using OpenAI API (GPT-4o)."""
         url = "https://api.openai.com/v1/chat/completions"
-        
+
         content = [{"type": "text", "text": prompt}]
         for image_data, mime_type in images:
-            image_base64 = base64.b64encode(image_data).decode('utf-8')
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{mime_type};base64,{image_base64}"
-                }
-            })
+            image_base64 = base64.b64encode(image_data).decode("utf-8")
+            content.append({"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}})
 
-        headers = {
-            "Authorization": f"Bearer {settings.llm.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {settings.llm.api_key}", "Content-Type": "application/json"}
 
-        payload = {
-            "model": settings.llm.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ],
-            "max_tokens": 500
-        }
+        payload = {"model": settings.llm.model, "messages": [{"role": "user", "content": content}], "max_tokens": 500}
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
-                
+
                 # Log usage
                 usage = data.get("usage", {})
                 if usage:
@@ -349,13 +320,13 @@ class AIService:
                         model=settings.llm.model,
                         feature=feature,
                         input_tokens=usage.get("prompt_tokens", 0),
-                        output_tokens=usage.get("completion_tokens", 0)
+                        output_tokens=usage.get("completion_tokens", 0),
                     )
 
                 choices = data.get("choices", [])
                 if choices:
                     return choices[0].get("message", {}).get("content")
-                
+
                 return "AI returned an empty response."
         except Exception as e:
             log.error("OpenAI analysis failed", error=str(e))
@@ -363,15 +334,8 @@ class AIService:
 
     async def _generate_openai_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {settings.llm.api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": settings.llm.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 500
-        }
+        headers = {"Authorization": f"Bearer {settings.llm.api_key}", "Content-Type": "application/json"}
+        payload = {"model": settings.llm.model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 500}
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, headers=headers, json=payload)
@@ -386,7 +350,7 @@ class AIService:
                         model=settings.llm.model,
                         feature=feature,
                         input_tokens=usage.get("prompt_tokens", 0),
-                        output_tokens=usage.get("completion_tokens", 0)
+                        output_tokens=usage.get("completion_tokens", 0),
                     )
 
                 choices = data.get("choices", [])
@@ -397,42 +361,27 @@ class AIService:
             log.error("OpenAI text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_claude_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
+    async def _analyze_claude_prompt(
+        self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
+    ) -> Optional[str]:
         """Analyze using Anthropic Claude API."""
         url = "https://api.anthropic.com/v1/messages"
 
         content = []
         for image_data, mime_type in images:
-            image_base64 = base64.b64encode(image_data).decode('utf-8')
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": mime_type,
-                    "data": image_base64
-                }
-            })
-        content.append({
-            "type": "text",
-            "text": prompt
-        })
+            image_base64 = base64.b64encode(image_data).decode("utf-8")
+            content.append(
+                {"type": "image", "source": {"type": "base64", "media_type": mime_type, "data": image_base64}}
+            )
+        content.append({"type": "text", "text": prompt})
 
         headers = {
             "x-api-key": settings.llm.api_key,
             "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
-        payload = {
-            "model": settings.llm.model,
-            "max_tokens": 1024,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ]
-        }
+        payload = {"model": settings.llm.model, "max_tokens": 1024, "messages": [{"role": "user", "content": content}]}
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -448,7 +397,7 @@ class AIService:
                         model=settings.llm.model,
                         feature=feature,
                         input_tokens=usage.get("input_tokens", 0),
-                        output_tokens=usage.get("output_tokens", 0)
+                        output_tokens=usage.get("output_tokens", 0),
                     )
 
                 content = data.get("content", [])
@@ -465,14 +414,12 @@ class AIService:
         headers = {
             "x-api-key": settings.llm.api_key,
             "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
             "model": settings.llm.model,
             "max_tokens": 1024,
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ]
+            "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
         }
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -488,7 +435,7 @@ class AIService:
                         model=settings.llm.model,
                         feature=feature,
                         input_tokens=usage.get("input_tokens", 0),
-                        output_tokens=usage.get("output_tokens", 0)
+                        output_tokens=usage.get("output_tokens", 0),
                     )
 
                 content = data.get("content", [])
@@ -499,19 +446,16 @@ class AIService:
             log.error("Claude text generation failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
 
-    async def _analyze_openrouter_prompt(self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis") -> Optional[str]:
+    async def _analyze_openrouter_prompt(
+        self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
+    ) -> Optional[str]:
         """Analyze using OpenRouter (OpenAI-compatible API with vision support)."""
         url = "https://openrouter.ai/api/v1/chat/completions"
 
         content = [{"type": "text", "text": prompt}]
         for image_data, mime_type in images:
-            image_base64 = base64.b64encode(image_data).decode('utf-8')
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{mime_type};base64,{image_base64}"
-                }
-            })
+            image_base64 = base64.b64encode(image_data).decode("utf-8")
+            content.append({"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_base64}"}})
 
         headers = {
             "Authorization": f"Bearer {settings.llm.api_key}",
@@ -552,7 +496,12 @@ class AIService:
                 detail = e.response.json().get("error", {}).get("message") or e.response.text
             except Exception:
                 detail = e.response.text if e.response is not None else str(e)
-            log.error("OpenRouter analysis failed", status=e.response.status_code if e.response else None, model=settings.llm.model, error=detail)
+            log.error(
+                "OpenRouter analysis failed",
+                status=e.response.status_code if e.response else None,
+                model=settings.llm.model,
+                error=detail,
+            )
             return f"AI analysis failed: {detail}"
         except Exception as e:
             log.error("OpenRouter analysis failed", error=str(e))
@@ -597,7 +546,12 @@ class AIService:
                 detail = e.response.json().get("error", {}).get("message") or e.response.text
             except Exception:
                 detail = e.response.text if e.response is not None else str(e)
-            log.error("OpenRouter text generation failed", status=e.response.status_code if e.response else None, model=settings.llm.model, error=detail)
+            log.error(
+                "OpenRouter text generation failed",
+                status=e.response.status_code if e.response else None,
+                model=settings.llm.model,
+                error=detail,
+            )
             return f"AI analysis failed: {detail}"
         except Exception as e:
             log.error("OpenRouter text generation failed", error=str(e))
@@ -619,7 +573,7 @@ class AIService:
                 else "I am showing you a snapshot of a bird detected at my feeder."
             )
         )
-        
+
         if temp is not None:
             temp_unit = metadata.get("temp_unit", "celsius")
             if temp_unit == "fahrenheit":
@@ -632,21 +586,19 @@ class AIService:
 
         language_note = f"Respond in {language}." if language else ""
         template = settings.llm.analysis_prompt_template
-        return self._render_prompt(template, {
-            "frame_note": frame_note,
-            "species": species,
-            "time": time or "Unknown",
-            "weather_str": weather_str,
-            "language_note": language_note,
-        })
+        return self._render_prompt(
+            template,
+            {
+                "frame_note": frame_note,
+                "species": species,
+                "time": time or "Unknown",
+                "weather_str": weather_str,
+                "language_note": language_note,
+            },
+        )
 
     def build_conversation_prompt(
-        self,
-        species: str,
-        analysis: Optional[str],
-        history: list[dict],
-        question: str,
-        language: Optional[str] = None
+        self, species: str, analysis: Optional[str], history: list[dict], question: str, language: Optional[str] = None
     ) -> str:
         """Build a prompt for a follow-up conversation."""
         language_note = f"Respond in {language}." if language else ""
@@ -658,13 +610,16 @@ class AIService:
         history_block = "\n".join(history_lines) if history_lines else "No prior conversation."
         analysis_block = analysis or "No prior analysis available."
         template = settings.llm.conversation_prompt_template
-        return self._render_prompt(template, {
-            "species": species,
-            "analysis": analysis_block,
-            "history": history_block,
-            "question": question,
-            "language_note": language_note,
-        })
+        return self._render_prompt(
+            template,
+            {
+                "species": species,
+                "analysis": analysis_block,
+                "history": history_block,
+                "question": question,
+                "language_note": language_note,
+            },
+        )
 
     def _build_chart_prompt(self, metadata: dict, language: Optional[str] = None) -> str:
         """Construct a prompt for leaderboard trend analysis."""
@@ -680,15 +635,18 @@ class AIService:
         notes = metadata.get("notes", "")
         language_note = f"Respond in {language}." if language else ""
         template = settings.llm.chart_prompt_template
-        return self._render_prompt(template, {
-            "timeframe": timeframe,
-            "total_count": total_count,
-            "series": series,
-            "weather_notes": weather_notes,
-            "sun_notes": sun_notes,
-            "language_note": language_note,
-            "notes": notes,
-        })
+        return self._render_prompt(
+            template,
+            {
+                "timeframe": timeframe,
+                "total_count": total_count,
+                "series": series,
+                "weather_notes": weather_notes,
+                "sun_notes": sun_notes,
+                "language_note": language_note,
+                "notes": notes,
+            },
+        )
 
     def extract_frames_from_clip(
         self,
@@ -728,5 +686,6 @@ class AIService:
             finally:
                 cap.release()
         return frames
+
 
 ai_service = AIService()

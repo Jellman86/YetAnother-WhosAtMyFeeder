@@ -72,12 +72,7 @@ class GeocodingService:
         address = payload.get("address") if isinstance(payload, dict) else None
         address = address if isinstance(address, dict) else {}
 
-        state = (
-            address.get("state")
-            or address.get("region")
-            or address.get("province")
-            or address.get("county")
-        )
+        state = address.get("state") or address.get("region") or address.get("province") or address.get("county")
         country = address.get("country")
 
         place_parts = [

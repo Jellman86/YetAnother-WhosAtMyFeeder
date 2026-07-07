@@ -22,6 +22,7 @@ api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 class TokenData(BaseModel):
     """JWT token payload."""
+
     username: str
     exp: datetime
     auth_level: str  # "owner" or "guest"
@@ -29,6 +30,7 @@ class TokenData(BaseModel):
 
 class AuthLevel:
     """Authorization levels."""
+
     OWNER = "owner"
     GUEST = "guest"
 
@@ -58,7 +60,7 @@ def hash_password(password: str) -> str:
     Returns:
         Bcrypt hash string
     """
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
@@ -72,7 +74,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         True if password matches hash
     """
     try:
-        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except Exception as e:
         log.error("Password verification failed", error=str(e))
         return False
@@ -91,12 +93,7 @@ def create_access_token(username: str, auth_level: str = AuthLevel.OWNER) -> str
     from app.config import settings
 
     expiry = datetime.now(timezone.utc) + timedelta(hours=settings.auth.session_expiry_hours)
-    payload = {
-        "username": username,
-        "auth_level": auth_level,
-        "exp": expiry,
-        "iat": datetime.now(timezone.utc)
-    }
+    payload = {"username": username, "auth_level": auth_level, "exp": expiry, "iat": datetime.now(timezone.utc)}
 
     return jwt.encode(payload, settings.auth.session_secret, algorithm="HS256")
 
@@ -123,19 +120,18 @@ def verify_token(token: str) -> TokenData:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired. Please log in again.",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 
 async def get_auth_context(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> AuthContext:
     """Extract authentication context from request.
 
@@ -172,10 +168,7 @@ async def get_auth_context(
     if token:
         try:
             token_data = verify_token(token)
-            context = AuthContext(
-                auth_level=token_data.auth_level,
-                username=token_data.username
-            )
+            context = AuthContext(auth_level=token_data.auth_level, username=token_data.username)
             log.debug("Authenticated request", username=token_data.username, level=token_data.auth_level)
             return context
         except HTTPException:
@@ -199,13 +192,12 @@ async def get_auth_context(
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication required. Please log in.",
-        headers={"WWW-Authenticate": "Bearer"}
+        headers={"WWW-Authenticate": "Bearer"},
     )
 
 
 async def verify_api_key_legacy(
-    header_key: str = Security(api_key_header),
-    query_key: str = Security(api_key_query)
+    header_key: str = Security(api_key_header), query_key: str = Security(api_key_query)
 ) -> bool:
     """Validate legacy API key credentials for backward compatibility."""
     from app.config import settings
@@ -221,10 +213,7 @@ async def verify_api_key_legacy(
     if secrets.compare_digest(api_key, legacy_api_key):
         log.warning(
             "Using deprecated API key authentication",
-            notice=(
-                "Migrate to password-based auth in Settings. "
-                "API key support will be removed in v3.0"
-            ),
+            notice=("Migrate to password-based auth in Settings. API key support will be removed in v3.0"),
         )
         return True
 
@@ -275,7 +264,6 @@ def require_owner(auth: AuthContext = Depends(get_auth_context)) -> AuthContext:
     """
     if not auth.is_owner:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Owner privileges required for this operation"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Owner privileges required for this operation"
         )
     return auth

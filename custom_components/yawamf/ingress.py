@@ -1,4 +1,5 @@
 """Home Assistant sidebar proxy for YA-WAMF."""
+
 from __future__ import annotations
 
 import logging
@@ -229,7 +230,11 @@ def _response_headers(upstream_headers: Any) -> dict[str, str]:
     headers: dict[str, str] = {}
     for key, value in upstream_headers.items():
         lower = key.lower()
-        if lower in _HOP_BY_HOP_HEADERS or lower in _INGRESS_BLOCKED_RESPONSE_HEADERS or lower in {"content-length", "content-encoding"}:
+        if (
+            lower in _HOP_BY_HOP_HEADERS
+            or lower in _INGRESS_BLOCKED_RESPONSE_HEADERS
+            or lower in {"content-length", "content-encoding"}
+        ):
             continue
         headers[key] = value
     return headers
@@ -255,7 +260,7 @@ def _rewrite_root_paths(body: str) -> str:
         'href="/': f'href="{INGRESS_URL}/',
         'src="/': f'src="{INGRESS_URL}/',
         'content="/': f'content="{INGRESS_URL}/',
-        'url(/': f'url({INGRESS_URL}/',
+        "url(/": f"url({INGRESS_URL}/",
         '"start_url": "/"': f'"start_url": "{INGRESS_URL}/"',
         '"scope": "/"': f'"scope": "{INGRESS_URL}/"',
     }

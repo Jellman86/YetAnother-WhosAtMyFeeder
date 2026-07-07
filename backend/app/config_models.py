@@ -38,6 +38,7 @@ def normalize_crop_override_map(
         normalized[key] = value_normalizer(raw_override)
     return normalized
 
+
 LEGACY_DEFAULT_AI_ANALYSIS_PROMPT = """
 You are an expert ornithologist and naturalist.
 {frame_note}
@@ -138,6 +139,7 @@ DEFAULT_TRUSTED_PROXY_HOSTS = [
     "cloudflare-tunnel",
 ]
 
+
 def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
     """Expand hostnames to IPs for ProxyHeadersMiddleware matching."""
     expanded: list[str] = []
@@ -175,6 +177,7 @@ def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
             seen.add(host)
             result.append(host)
     return result
+
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
@@ -215,7 +218,7 @@ class FrigateSettings(BaseModel):
     audio_topic: str = "birdnet/text"
     camera_audio_mapping: dict[str, str] = Field(
         default_factory=dict,
-        description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})"
+        description="Map Frigate camera name to BirdNET-Go sensor ID (e.g. {'front_feeder': 'front_mic'})",
     )
     camera_roles: dict[str, Literal["feeder", "nest"]] = Field(
         default_factory=dict,
@@ -227,13 +230,23 @@ class FrigateSettings(BaseModel):
         le=720,
         description="For cameras with role='nest', collapse repeat detections of the same species within this many minutes into a single recorded detection.",
     )
-    audio_buffer_hours: int = Field(default=24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
-    audio_correlation_window_seconds: int = Field(default=300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
+    audio_buffer_hours: int = Field(
+        default=24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)"
+    )
+    audio_correlation_window_seconds: int = Field(
+        default=300,
+        ge=5,
+        le=3600,
+        description="Time window in seconds for audio-visual correlation (±N seconds from detection)",
+    )
+
 
 class ClassificationSettings(BaseModel):
     model: str = "rope_vit_b14_inat21"
     threshold: float = 0.7
-    min_confidence: float = Field(default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)")
+    min_confidence: float = Field(
+        default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)"
+    )
     bird_crop_detector_tier: Literal["fast", "accurate"] = Field(
         default="fast",
         description="Bird crop detector tier: fast|accurate",
@@ -247,70 +260,103 @@ class ClassificationSettings(BaseModel):
         default="frigate_hints_first",
         description="Bird crop source priority: frigate_hints_first|crop_model_first|crop_model_only|frigate_hints_only",
     )
-    blocked_labels: list[str] = Field(
-        default=[],
-        description="Labels to filter out completely (won't be saved)"
-    )
+    blocked_labels: list[str] = Field(default=[], description="Labels to filter out completely (won't be saved)")
     blocked_species: list["BlockedSpeciesEntry"] = Field(
         default_factory=list,
         description="Structured blocked species entries keyed by taxonomy identity",
     )
     unknown_bird_labels: list[str] = Field(
         default=["background", "Background"],
-        description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
+        description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)",
     )
     trust_frigate_sublabel: bool = Field(
-        default=True,
-        description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
+        default=True, description="Fall back to Frigate sublabel when YA-WAMF classification fails threshold"
     )
     write_frigate_sublabel: bool = Field(
-        default=True,
-        description="Write YA-WAMF species labels back to Frigate as event sublabels"
+        default=True, description="Write YA-WAMF species labels back to Frigate as event sublabels"
     )
     display_common_names: bool = Field(
-        default=True,
-        description="Display common names instead of scientific names when available"
+        default=True, description="Display common names instead of scientific names when available"
     )
-    scientific_name_primary: bool = Field(
-        default=False,
-        description="Show scientific name as the primary label in UI"
-    )
+    scientific_name_primary: bool = Field(default=False, description="Show scientific name as the primary label in UI")
     personalized_rerank_enabled: bool = Field(
-        default=False,
-        description="Enable personalized camera/model-aware reranking from manual tags"
+        default=False, description="Enable personalized camera/model-aware reranking from manual tags"
     )
     # Auto Video Classification
-    auto_video_classification: bool = Field(default=False, description="Automatically classify video clips when available")
-    video_classification_delay: int = Field(default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)")
+    auto_video_classification: bool = Field(
+        default=False, description="Automatically classify video clips when available"
+    )
+    video_classification_delay: int = Field(
+        default=30, description="Seconds to wait before checking for clip (allow Frigate to finalize)"
+    )
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
-    video_classification_max_concurrent: int = Field(default=1, ge=1, le=20, description="Maximum concurrent video classification tasks")
-    video_classification_failure_threshold: int = Field(default=5, ge=1, description="Failures in window to open circuit breaker")
-    video_classification_failure_window_minutes: int = Field(default=10, ge=1, description="Failure window size in minutes")
-    video_classification_failure_cooldown_minutes: int = Field(default=15, ge=1, description="Cooldown minutes when circuit breaker is open")
-    video_classification_timeout_seconds: int = Field(default=180, ge=30, description="Timeout for a single video classification run")
-    video_classification_stale_minutes: int = Field(default=15, ge=1, description="Mark pending/processing as failed after this many minutes")
-    video_classification_frames: int = Field(default=15, ge=5, le=100, description="Number of frames to sample for video classification")
+    video_classification_max_concurrent: int = Field(
+        default=1, ge=1, le=20, description="Maximum concurrent video classification tasks"
+    )
+    video_classification_failure_threshold: int = Field(
+        default=5, ge=1, description="Failures in window to open circuit breaker"
+    )
+    video_classification_failure_window_minutes: int = Field(
+        default=10, ge=1, description="Failure window size in minutes"
+    )
+    video_classification_failure_cooldown_minutes: int = Field(
+        default=15, ge=1, description="Cooldown minutes when circuit breaker is open"
+    )
+    video_classification_timeout_seconds: int = Field(
+        default=180, ge=30, description="Timeout for a single video classification run"
+    )
+    video_classification_stale_minutes: int = Field(
+        default=15, ge=1, description="Mark pending/processing as failed after this many minutes"
+    )
+    video_classification_frames: int = Field(
+        default=15, ge=5, le=100, description="Number of frames to sample for video classification"
+    )
     strict_non_finite_output: bool = Field(
         default=True,
         description="Reject all-non-finite model output vectors and trigger runtime recovery/fallback",
     )
-    inference_provider: str = Field(default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu")
+    inference_provider: str = Field(
+        default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu"
+    )
     image_execution_mode: str = Field(
         default="in_process",
         description="Image inference execution mode: in_process|subprocess",
     )
     live_worker_count: int = Field(default=2, ge=1, le=8, description="Live classifier worker process count")
-    background_worker_count: int = Field(default=1, ge=1, le=4, description="Background classifier worker process count")
-    worker_heartbeat_timeout_seconds: float = Field(default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds")
-    worker_hard_deadline_seconds: float = Field(default=60.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker")
-    background_worker_hard_deadline_seconds: float = Field(default=120.0, ge=1.0, le=600.0, description="Hard deadline before killing a stuck background classifier worker")
-    worker_ready_timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0, description="Timeout while waiting for a classifier worker to load and report ready")
-    worker_restart_window_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Rolling window for classifier worker restart budget")
-    worker_restart_threshold: int = Field(default=3, ge=1, le=100, description="Restart count in window before classifier circuit breaker opens")
-    worker_breaker_cooldown_seconds: float = Field(default=60.0, ge=1.0, le=3600.0, description="Cooldown while classifier worker circuit breaker is open")
-    live_event_stale_drop_seconds: float = Field(default=30.0, ge=1.0, le=3600.0, description="Drop live events older than this before classifier admission")
-    live_event_coalescing_enabled: bool = Field(default=True, description="Coalesce duplicate live image classification requests before admission")
+    background_worker_count: int = Field(
+        default=1, ge=1, le=4, description="Background classifier worker process count"
+    )
+    worker_heartbeat_timeout_seconds: float = Field(
+        default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds"
+    )
+    worker_hard_deadline_seconds: float = Field(
+        default=60.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker"
+    )
+    background_worker_hard_deadline_seconds: float = Field(
+        default=120.0, ge=1.0, le=600.0, description="Hard deadline before killing a stuck background classifier worker"
+    )
+    worker_ready_timeout_seconds: float = Field(
+        default=60.0,
+        ge=1.0,
+        le=300.0,
+        description="Timeout while waiting for a classifier worker to load and report ready",
+    )
+    worker_restart_window_seconds: float = Field(
+        default=60.0, ge=1.0, le=3600.0, description="Rolling window for classifier worker restart budget"
+    )
+    worker_restart_threshold: int = Field(
+        default=3, ge=1, le=100, description="Restart count in window before classifier circuit breaker opens"
+    )
+    worker_breaker_cooldown_seconds: float = Field(
+        default=60.0, ge=1.0, le=3600.0, description="Cooldown while classifier worker circuit breaker is open"
+    )
+    live_event_stale_drop_seconds: float = Field(
+        default=30.0, ge=1.0, le=3600.0, description="Drop live events older than this before classifier admission"
+    )
+    live_event_coalescing_enabled: bool = Field(
+        default=True, description="Coalesce duplicate live image classification requests before admission"
+    )
     ai_pricing_json: str = Field(default="[]", description="JSON string containing AI pricing overrides")
     bird_model_region_override: str = Field(
         default="auto",
@@ -326,7 +372,9 @@ class ClassificationSettings(BaseModel):
     )
 
     # Classification output settings
-    max_classification_results: int = Field(default=5, ge=1, le=20, description="Maximum number of top results to return from classifier")
+    max_classification_results: int = Field(
+        default=5, ge=1, le=20, description="Maximum number of top results to return from classifier"
+    )
 
     # Wildlife/general animal model settings
     wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
@@ -370,6 +418,7 @@ class ClassificationSettings(BaseModel):
     def validate_crop_source_overrides(cls, value: Any) -> dict[str, str]:
         return normalize_crop_override_map(value, value_normalizer=normalize_crop_source_override)
 
+
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
     cleanup_enabled: bool = Field(default=True, description="Enable automatic cleanup")
@@ -381,7 +430,7 @@ class MaintenanceSettings(BaseModel):
     )
     per_kind_capacity: dict[str, int] = Field(
         default_factory=dict,
-        description="Optional per-kind capacity overrides (e.g. {\"video_classification\": 2}). Kinds not listed use max_concurrent.",
+        description='Optional per-kind capacity overrides (e.g. {"video_classification": 2}). Kinds not listed use max_concurrent.',
     )
     total_max_concurrent: int = Field(
         default=3,
@@ -390,24 +439,20 @@ class MaintenanceSettings(BaseModel):
         description="Overall cap on concurrent maintenance holders across all kinds (0 = unlimited). Default 3 gives ~2x headroom over steady-state load (1 continuous video_classification + occasional user-triggered kind) while preventing the 6-way pile-up that could saturate the DB pool.",
     )
     auto_delete_missing_clips: bool = Field(
-        default=False,
-        description="Auto-delete detections when the Frigate event/clip is missing"
+        default=False, description="Auto-delete detections when the Frigate event/clip is missing"
     )
     frigate_missing_behavior: FrigateMissingBehavior = Field(
         default="mark_missing",
         description="How YA-WAMF should react when Frigate no longer has an event or retained media",
     )
     auto_purge_missing_clips: bool = Field(
-        default=False,
-        description="Purge detections without clips during scheduled cleanup"
+        default=False, description="Purge detections without clips during scheduled cleanup"
     )
     auto_purge_missing_snapshots: bool = Field(
-        default=False,
-        description="Purge detections without snapshots during scheduled cleanup"
+        default=False, description="Purge detections without snapshots during scheduled cleanup"
     )
     auto_analyze_unknowns: bool = Field(
-        default=False,
-        description="Analyze unknown detections during scheduled cleanup"
+        default=False, description="Analyze unknown detections during scheduled cleanup"
     )
 
     @model_validator(mode="before")
@@ -445,7 +490,10 @@ class MediaCacheSettings(BaseModel):
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
     )
-    retention_days: int = Field(default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)")
+    retention_days: int = Field(
+        default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)"
+    )
+
 
 class LocationSettings(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude for weather/sun data")
@@ -490,9 +538,11 @@ class LocationSettings(BaseModel):
         normalized = (value or "celsius").strip().lower()
         self.weather_unit_system = "imperial" if normalized == "fahrenheit" else "metric"
 
+
 class BirdWeatherSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable BirdWeather reporting")
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+
 
 class EbirdSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable eBird enrichment")
@@ -502,6 +552,7 @@ class EbirdSettings(BaseModel):
     max_results: int = Field(default=25, ge=1, le=200, description="Maximum results to return")
     locale: str = Field(default="en", description="Locale for species common names")
 
+
 class InaturalistSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable iNaturalist submissions")
     client_id: Optional[str] = Field(default=None, description="iNaturalist OAuth Client ID")
@@ -509,6 +560,7 @@ class InaturalistSettings(BaseModel):
     default_latitude: Optional[float] = Field(default=None, description="Default latitude for submissions")
     default_longitude: Optional[float] = Field(default=None, description="Default longitude for submissions")
     default_place_guess: Optional[str] = Field(default=None, description="Default place guess for submissions")
+
 
 class EnrichmentSettings(BaseModel):
     mode: str = Field(default="per_enrichment", description="Enrichment source mode: single or per_enrichment")
@@ -575,16 +627,29 @@ class LLMSettings(BaseModel):
     provider: str = Field(default="gemini", description="AI provider (gemini, openai, claude, openrouter)")
     api_key: Optional[str] = Field(default=None, description="API Key for the provider")
     model: str = Field(default=DEFAULT_LLM_MODEL, description="Model name to use")
-    analysis_prompt_template: str = Field(default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis")
-    conversation_prompt_template: str = Field(default=DEFAULT_AI_CONVERSATION_PROMPT, description="Prompt template for follow-up conversation")
-    chart_prompt_template: str = Field(default=DEFAULT_AI_CHART_PROMPT, description="Prompt template for chart analysis")
+    analysis_prompt_template: str = Field(
+        default=DEFAULT_AI_ANALYSIS_PROMPT, description="Prompt template for detection analysis"
+    )
+    conversation_prompt_template: str = Field(
+        default=DEFAULT_AI_CONVERSATION_PROMPT, description="Prompt template for follow-up conversation"
+    )
+    chart_prompt_template: str = Field(
+        default=DEFAULT_AI_CHART_PROMPT, description="Prompt template for chart analysis"
+    )
+
 
 class TelemetrySettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable anonymous usage statistics")
-    url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL")
+    url: Optional[str] = Field(
+        default="https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat", description="Telemetry endpoint URL"
+    )
     installation_id: Optional[str] = Field(default=None, description="Unique anonymous installation ID")
     health_enabled: bool = Field(default=False, description="Enable anonymous health issue diagnostics")
-    health_url: Optional[str] = Field(default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues", description="Health issue diagnostics endpoint URL")
+    health_url: Optional[str] = Field(
+        default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues",
+        description="Health issue diagnostics endpoint URL",
+    )
+
 
 class DiscordSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Discord notifications")
@@ -592,19 +657,24 @@ class DiscordSettings(BaseModel):
     username: str = Field(default="YA-WAMF", description="Username for the bot")
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
 
+
 class PushoverSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Pushover notifications")
     user_key: Optional[str] = Field(default=None, description="Pushover User Key")
     api_token: Optional[str] = Field(default=None, description="Pushover API Token")
     priority: int = Field(default=0, ge=-2, le=2, description="Notification priority (-2 to 2)")
-    device: Optional[str] = Field(default=None, description="Target device name(s), comma-separated. Leave blank to send to all devices.")
+    device: Optional[str] = Field(
+        default=None, description="Target device name(s), comma-separated. Leave blank to send to all devices."
+    )
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
 
 class TelegramSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Telegram notifications")
     bot_token: Optional[str] = Field(default=None, description="Telegram Bot Token")
     chat_id: Optional[str] = Field(default=None, description="Telegram Chat ID")
     include_snapshot: bool = Field(default=True, description="Include snapshot image")
+
 
 class EmailSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable Email notifications")
@@ -628,6 +698,7 @@ class EmailSettings(BaseModel):
     include_snapshot: bool = Field(default=True, description="Include bird snapshot image")
     dashboard_url: Optional[str] = Field(default=None, description="Dashboard URL for email links")
 
+
 class NotificationFilterSettings(BaseModel):
     species_mode: Literal["none", "blacklist", "whitelist"] = Field(
         default="none",
@@ -646,19 +717,29 @@ class NotificationFilterSettings(BaseModel):
     audio_confirmed_only: bool = Field(default=False, description="Only notify if audio confirmed")
     camera_filters: dict[str, dict] = Field(default={}, description="Per-camera overrides")
 
+
 class NotificationSettings(BaseModel):
     discord: DiscordSettings = DiscordSettings()
     pushover: PushoverSettings = PushoverSettings()
     telegram: TelegramSettings = TelegramSettings()
     email: EmailSettings = EmailSettings()
     filters: NotificationFilterSettings = NotificationFilterSettings()
-    notification_language: str = Field(default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)")
+    notification_language: str = Field(
+        default="en", description="Language for notifications (en, es, fr, de, ja, ru, pt, it)"
+    )
     mode: str = Field(default="standard", description="Notification mode: silent, final, standard, realtime, custom")
     notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")
-    delay_until_video: bool = Field(default=False, description="Delay notifications until video analysis completes (if enabled)")
-    video_fallback_timeout: int = Field(default=45, description="Seconds to wait for video before falling back to snapshot notification")
-    notification_cooldown_minutes: int = Field(default=0, description="Global cooldown between notifications in minutes (0 = disabled)")
+    delay_until_video: bool = Field(
+        default=False, description="Delay notifications until video analysis completes (if enabled)"
+    )
+    video_fallback_timeout: int = Field(
+        default=45, description="Seconds to wait for video before falling back to snapshot notification"
+    )
+    notification_cooldown_minutes: int = Field(
+        default=0, description="Global cooldown between notifications in minutes (0 = disabled)"
+    )
+
 
 class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
@@ -667,16 +748,11 @@ class AccessibilitySettings(BaseModel):
     zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
     live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
+
 class AppearanceSettings(BaseModel):
     # Mirrors the frontend font themes. Email clients may fall back to system fonts.
-    font_theme: str = Field(
-        default="classic",
-        description="UI font theme: default, clean, studio, classic, compact"
-    )
-    color_theme: str = Field(
-        default="bluetit",
-        description="UI color theme: default, bluetit"
-    )
+    font_theme: str = Field(default="classic", description="UI font theme: default, clean, studio, classic, compact")
+    color_theme: str = Field(default="bluetit", description="UI color theme: default, bluetit")
     color_theme_default_migrated: bool = Field(
         default=False,
         description=(
@@ -687,10 +763,16 @@ class AppearanceSettings(BaseModel):
         ),
     )
 
+
 class SystemSettings(BaseModel):
     """System-level performance and resource settings"""
-    broadcaster_max_queue_size: int = Field(default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber")
-    broadcaster_max_consecutive_full: int = Field(default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures")
+
+    broadcaster_max_queue_size: int = Field(
+        default=100, ge=10, le=1000, description="Maximum SSE message queue size per subscriber"
+    )
+    broadcaster_max_consecutive_full: int = Field(
+        default=10, ge=1, le=100, description="Remove subscriber after this many consecutive backpressure failures"
+    )
     trusted_proxy_hosts: list[str] = Field(
         default_factory=lambda: DEFAULT_TRUSTED_PROXY_HOSTS.copy(),
         description="Trusted proxy hosts for X-Forwarded-* headers",
@@ -700,83 +782,51 @@ class SystemSettings(BaseModel):
 
 class AuthSettings(BaseModel):
     """Authentication configuration."""
+
     initial_setup_complete: bool = Field(
-        default=False,
-        description="Whether the first-run setup wizard has been completed"
+        default=False, description="Whether the first-run setup wizard has been completed"
     )
     enabled: bool = Field(
         default=False,
-        description="Require authentication for full access (disabled by default for backward compatibility)"
+        description="Require authentication for full access (disabled by default for backward compatibility)",
     )
-    username: str = Field(
-        default="admin",
-        description="Admin username"
-    )
+    username: str = Field(default="admin", description="Admin username")
     password_hash: Optional[str] = Field(
-        default=None,
-        description="Bcrypt hashed password (set via Settings UI or auth/initial-setup endpoint)"
+        default=None, description="Bcrypt hashed password (set via Settings UI or auth/initial-setup endpoint)"
     )
     session_secret: str = Field(
-        default_factory=lambda: secrets_lib.token_urlsafe(32),
-        description="Secret key for JWT tokens (auto-generated)"
+        default_factory=lambda: secrets_lib.token_urlsafe(32), description="Secret key for JWT tokens (auto-generated)"
     )
     oauth_token_secret: Optional[str] = Field(
         default=None,
-        description="Secret key for encrypting persisted OAuth tokens; falls back to session_secret if unset"
+        description="Secret key for encrypting persisted OAuth tokens; falls back to session_secret if unset",
     )
     session_expiry_hours: int = Field(
         default=168,  # 7 days
         ge=1,
         le=720,  # 30 days max
-        description="Session token validity in hours"
+        description="Session token validity in hours",
     )
 
 
 class PublicAccessSettings(BaseModel):
     """Public/guest access configuration."""
-    enabled: bool = Field(
-        default=False,
-        description="Allow unauthenticated public access to view detections"
-    )
-    show_camera_names: bool = Field(
-        default=True,
-        description="Show camera names to public visitors"
-    )
+
+    enabled: bool = Field(default=False, description="Allow unauthenticated public access to view detections")
+    show_camera_names: bool = Field(default=True, description="Show camera names to public visitors")
     show_ai_conversation: bool = Field(
-        default=False,
-        description="Allow public visitors to view AI conversation threads"
+        default=False, description="Allow public visitors to view AI conversation threads"
     )
-    allow_clip_downloads: bool = Field(
-        default=False,
-        description="Allow public visitors to download clip files"
-    )
-    historical_days_mode: str = Field(
-        default="retention",
-        description="History window mode: retention or custom"
-    )
+    allow_clip_downloads: bool = Field(default=False, description="Allow public visitors to download clip files")
+    historical_days_mode: str = Field(default="retention", description="History window mode: retention or custom")
     show_historical_days: int = Field(
-        default=7,
-        ge=0,
-        le=365,
-        description="Days of historical data visible to public (0 = live only)"
+        default=7, ge=0, le=365, description="Days of historical data visible to public (0 = live only)"
     )
-    media_days_mode: str = Field(
-        default="retention",
-        description="Media window mode: retention or custom"
-    )
+    media_days_mode: str = Field(default="retention", description="Media window mode: retention or custom")
     media_historical_days: int = Field(
-        default=7,
-        ge=0,
-        le=365,
-        description="Days of media (snapshots/clips) visible to public (0 = live only)"
+        default=7, ge=0, le=365, description="Days of media (snapshots/clips) visible to public (0 = live only)"
     )
-    rate_limit_per_minute: int = Field(
-        default=30,
-        ge=1,
-        le=100,
-        description="API calls per minute for public users"
-    )
+    rate_limit_per_minute: int = Field(default=30, ge=1, le=100, description="API calls per minute for public users")
     external_base_url: Optional[str] = Field(
-        default=None,
-        description="Public-facing base URL used when generating share links"
+        default=None, description="Public-facing base URL used when generating share links"
     )

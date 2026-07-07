@@ -47,7 +47,7 @@ class VideoClassificationWaiter:
         *,
         label: Optional[str] = None,
         score: Optional[float] = None,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         now = time.time()
         async with self._lock:

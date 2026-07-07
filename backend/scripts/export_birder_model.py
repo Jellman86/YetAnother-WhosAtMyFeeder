@@ -11,18 +11,18 @@ except ImportError:  # pragma: no cover - exercised only in lightweight test env
     torch = None
 
 
-_SMALL_VIT_MODEL_ID = 'vit_reg4_m16_rms_avg_i-jepa-inat21-256px'
+_SMALL_VIT_MODEL_ID = "vit_reg4_m16_rms_avg_i-jepa-inat21-256px"
 
 
 def normalize_birder_model_id(model_id: str) -> str:
-    if model_id.startswith('birder-project/'):
-        return model_id.split('/', 1)[1]
+    if model_id.startswith("birder-project/"):
+        return model_id.split("/", 1)[1]
     return model_id
 
 
 def default_birder_cache_path(output_dir: str | Path, model_id: str) -> Path:
     normalized = normalize_birder_model_id(model_id)
-    return Path(output_dir).parent / '.birder-cache' / f'{normalized}.pt'
+    return Path(output_dir).parent / ".birder-cache" / f"{normalized}.pt"
 
 
 def load_birder_model(model_id: str, *, cache_dir: str | Path | None = None):
@@ -69,19 +69,19 @@ def _build_export_kwargs(model_id: str) -> dict:
     normalized = normalize_birder_model_id(model_id)
     if normalized == _SMALL_VIT_MODEL_ID:
         return {
-            'input_names': ['input'],
-            'output_names': ['output'],
-            'opset_version': 20,
-            'dynamo': True,
-            'external_data': True,
+            "input_names": ["input"],
+            "output_names": ["output"],
+            "opset_version": 20,
+            "dynamo": True,
+            "external_data": True,
         }
 
     return {
-        'input_names': ['input'],
-        'output_names': ['output'],
-        'opset_version': 18,
-        'dynamo': False,
-        'dynamic_axes': {'input': {0: 'batch'}, 'output': {0: 'batch'}},
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "opset_version": 18,
+        "dynamo": False,
+        "dynamic_axes": {"input": {0: "batch"}, "output": {0: "batch"}},
     }
 
 
@@ -95,23 +95,23 @@ def export_birder_model(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    model_path = output_path / 'model.onnx'
-    labels_path = output_path / 'labels.txt'
+    model_path = output_path / "model.onnx"
+    labels_path = output_path / "labels.txt"
 
     normalized_model_id = normalize_birder_model_id(model_id)
     cache_path = default_birder_cache_path(output_path, normalized_model_id)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     model, labels = loader(normalized_model_id, cache_dir=cache_path)
-    if hasattr(model, 'eval'):
+    if hasattr(model, "eval"):
         model = model.eval()
 
     labels = normalize_classifier_labels(str(label).strip() for label in labels if str(label).strip())
     if not labels:
         raise RuntimeError(f"No labels were provided for Birder model: {model_id}")
 
-    with labels_path.open('w', encoding='utf-8') as handle:
+    with labels_path.open("w", encoding="utf-8") as handle:
         for label in labels:
-            handle.write(f'{label}\n')
+            handle.write(f"{label}\n")
 
     export_callable = export_fn or _default_export_fn()
     dummy_input = _build_dummy_input(input_size)
@@ -123,28 +123,28 @@ def export_birder_model(
     )
 
     report = {
-        'model_path': str(model_path),
-        'labels_path': str(labels_path),
+        "model_path": str(model_path),
+        "labels_path": str(labels_path),
     }
-    external_data_path = Path(f'{model_path}.data')
+    external_data_path = Path(f"{model_path}.data")
     if external_data_path.exists():
-        report['external_data_path'] = str(external_data_path)
+        report["external_data_path"] = str(external_data_path)
 
     return report
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Export Birder model to ONNX')
-    parser.add_argument('--model', required=True, help='Birder or Hugging Face model id')
-    parser.add_argument('--output_dir', required=True, help='Output directory for model.onnx and labels.txt')
-    parser.add_argument('--size', type=int, required=True, help='Input image size')
+    parser = argparse.ArgumentParser(description="Export Birder model to ONNX")
+    parser.add_argument("--model", required=True, help="Birder or Hugging Face model id")
+    parser.add_argument("--output_dir", required=True, help="Output directory for model.onnx and labels.txt")
+    parser.add_argument("--size", type=int, required=True, help="Input image size")
     args = parser.parse_args()
 
     report = export_birder_model(args.model, args.output_dir, args.size)
     for key, value in report.items():
-        print(f'{key}: {value}')
+        print(f"{key}: {value}")
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

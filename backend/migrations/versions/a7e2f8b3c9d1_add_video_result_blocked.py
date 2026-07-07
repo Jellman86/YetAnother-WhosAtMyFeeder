@@ -13,6 +13,7 @@ Create Date: 2026-04-06
 Risk: Low — additive schema only, nullable column with safe default.
 Downgrade: fully reversible (column drop, data loss of blocked flag only).
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -20,8 +21,8 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 
-revision: str = 'a7e2f8b3c9d1'
-down_revision: Union[str, None] = 'f1a2b3c4d5e6'
+revision: str = "a7e2f8b3c9d1"
+down_revision: Union[str, None] = "f1a2b3c4d5e6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

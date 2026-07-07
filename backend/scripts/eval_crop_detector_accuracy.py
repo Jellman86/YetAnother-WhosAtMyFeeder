@@ -120,9 +120,8 @@ def evaluate_case(
     for candidate in candidates:
         confidence = float(candidate.confidence)
         candidate_best_iou = max((compute_iou(candidate.box, gt_box) for gt_box in case.boxes), default=0.0)
-        if (
-            candidate_best_iou > best_iou
-            or (candidate_best_iou == best_iou and (best_confidence is None or confidence > best_confidence))
+        if candidate_best_iou > best_iou or (
+            candidate_best_iou == best_iou and (best_confidence is None or confidence > best_confidence)
         ):
             best_confidence = confidence
             best_iou = candidate_best_iou
@@ -168,7 +167,9 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _load_candidates_for_case(service: BirdCropService, case: CropEvalCase, *, tier: str) -> tuple[list[DetectionCandidate], dict[str, Any]]:
+def _load_candidates_for_case(
+    service: BirdCropService, case: CropEvalCase, *, tier: str
+) -> tuple[list[DetectionCandidate], dict[str, Any]]:
     image = Image.open(case.image_path).convert("RGB")
     model = service._ensure_model_for_tier(tier)
     if model is None:
@@ -212,7 +213,11 @@ def evaluate_cases_for_tier(
         raw_eval = evaluate_case(case, candidates)
         selected_eval = evaluate_case(
             case,
-            [DetectionCandidate(box=tuple(int(round(v)) for v in selected["box"]), confidence=float(selected["confidence"]))]
+            [
+                DetectionCandidate(
+                    box=tuple(int(round(v)) for v in selected["box"]), confidence=float(selected["confidence"])
+                )
+            ]
             if selected.get("box") is not None and selected.get("confidence") is not None
             else [],
         )
@@ -249,7 +254,9 @@ def write_overlays(cases: list[CropEvalCase], results_by_tier: dict[str, dict[st
             result = tier_results.get(case.case_id) or {}
             selected_box = result.get("selected_box")
             if selected_box is not None:
-                _draw_box(draw, tuple(int(round(v)) for v in selected_box), color="red" if tier == "fast" else "blue", width=3)
+                _draw_box(
+                    draw, tuple(int(round(v)) for v in selected_box), color="red" if tier == "fast" else "blue", width=3
+                )
         image.save(output_dir / f"{case.case_id}.jpg", quality=90)
 
 
@@ -282,7 +289,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate crop detector tiers against a labeled manifest.")
     default_manifest = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "crop_detector_manifest.json"
     parser.add_argument("--manifest", default=str(default_manifest), help="Path to crop_detector_manifest.json")
-    parser.add_argument("--tiers", nargs="+", default=["fast", "accurate"], choices=["fast", "accurate"], help="Detector tiers to evaluate")
+    parser.add_argument(
+        "--tiers",
+        nargs="+",
+        default=["fast", "accurate"],
+        choices=["fast", "accurate"],
+        help="Detector tiers to evaluate",
+    )
     parser.add_argument("--confidence-threshold", type=float, default=0.35)
     parser.add_argument("--expand-ratio", type=float, default=0.12)
     parser.add_argument("--min-crop-size", type=int, default=96)

@@ -31,6 +31,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.mqtt_service import mqtt_service
 from app.utils.frigate import normalize_sub_label
+
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
 from app.database import get_db
@@ -38,27 +39,17 @@ from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
-EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(
-    1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60"))
-)
-EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(
-    0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6"))
-)
+EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60")))
+EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6")))
 EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS = max(
     0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS", "4"))
 )
 EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS = max(
     1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS", "6"))
 )
-EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
-    0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2"))
-)
-EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(
-    1.0, float(os.getenv("EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", "300"))
-)
-LIVE_EVENT_STALE_SECONDS = max(
-    1.0, float(os.getenv("LIVE_EVENT_STALE_SECONDS", "45"))
-)
+EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2")))
+EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(1.0, float(os.getenv("EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", "300")))
+LIVE_EVENT_STALE_SECONDS = max(1.0, float(os.getenv("LIVE_EVENT_STALE_SECONDS", "45")))
 LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
     CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
     float(
@@ -93,20 +84,20 @@ class EventData:
     """Data class to hold parsed event information."""
 
     def __init__(self, data: Dict[str, Any]):
-        self.type: str = data.get('type')
-        after = data.get('after', {})
-        self.frigate_event: str = after.get('id', 'unknown')
-        self.camera: str = after.get('camera')
-        self.label: str = after.get('label')
-        self.start_time_ts: float = after.get('start_time', 0.0)
-        self.received_at_ts: float = float(data.get('__received_at_ts') or time.time())
-        self.sub_label: Optional[str] = normalize_sub_label(after.get('sub_label'))
-        self.frigate_score: Optional[float] = after.get('top_score')
-        self.data: Dict[str, Any] = after.get('data') if isinstance(after.get('data'), dict) else {}
-        self.is_false_positive: bool = after.get('false_positive', False)
-        
-        if self.frigate_score is None and 'data' in after:
-            self.frigate_score = after['data'].get('top_score')
+        self.type: str = data.get("type")
+        after = data.get("after", {})
+        self.frigate_event: str = after.get("id", "unknown")
+        self.camera: str = after.get("camera")
+        self.label: str = after.get("label")
+        self.start_time_ts: float = after.get("start_time", 0.0)
+        self.received_at_ts: float = float(data.get("__received_at_ts") or time.time())
+        self.sub_label: Optional[str] = normalize_sub_label(after.get("sub_label"))
+        self.frigate_score: Optional[float] = after.get("top_score")
+        self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
+        self.is_false_positive: bool = after.get("false_positive", False)
+
+        if self.frigate_score is None and "data" in after:
+            self.frigate_score = after["data"].get("top_score")
         # Create timezone-aware datetime (Frigate timestamps are in UTC)
         self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
 
@@ -194,7 +185,11 @@ class EventProcessor:
         }
         payload.update(details)
         self._last_drop = payload
-        severity = "error" if reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"} else "warning"
+        severity = (
+            "error"
+            if reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}
+            else "warning"
+        )
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -587,9 +582,7 @@ class EventProcessor:
             event_id=event.frigate_event,
             stage="save_and_notify",
             timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
-            coro=self._handle_detection_save_and_notify(
-                event, top_with_audio, snapshot_data, context
-            ),
+            coro=self._handle_detection_save_and_notify(event, top_with_audio, snapshot_data, context),
             fallback=None,
         )
         if not save_ok:
@@ -658,16 +651,19 @@ class EventProcessor:
                 if exists:
                     log.info("Deleting false positive detection", event_id=frigate_event_id)
                     await repo.delete(frigate_event_id)
-                    
+
                     # Notify frontend of deletion (if SSE connected)
                     from app.services.broadcaster import broadcaster
-                    await broadcaster.broadcast({
-                        "type": "detection_deleted",
-                        "data": {
-                            "frigate_event": frigate_event_id,
-                            "timestamp": datetime.now(timezone.utc).isoformat()
+
+                    await broadcaster.broadcast(
+                        {
+                            "type": "detection_deleted",
+                            "data": {
+                                "frigate_event": frigate_event_id,
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            },
                         }
-                    })
+                    )
         except Exception as e:
             log.error("Failed to cleanup false positive", event_id=frigate_event_id, error=str(e))
 
@@ -677,19 +673,25 @@ class EventProcessor:
         Returns:
             EventData if valid, None if should be skipped
         """
-        after = data.get('after', {})
+        after = data.get("after", {})
         if not after:
             return None
 
         event = EventData(data)
         event_type = (event.type or "new").lower()
-        
+
         # Log processing start
         if event_type == "new" or event.is_false_positive:
-             log.info("Processing MQTT event", event_id=event.frigate_event, label=event.label, type=event.type, false_positive=event.is_false_positive)
+            log.info(
+                "Processing MQTT event",
+                event_id=event.frigate_event,
+                label=event.label,
+                type=event.type,
+                false_positive=event.is_false_positive,
+            )
 
         # Only process bird events
-        if event.label != 'bird':
+        if event.label != "bird":
             return None
 
         # Ignore routine updates; keep `new` for the main ingest flow and
@@ -720,9 +722,7 @@ class EventProcessor:
 
     def _auto_full_visit_enabled(self) -> bool:
         return bool(
-            settings.frigate.clips_enabled
-            and settings.frigate.recording_clip_enabled
-            and settings.media_cache.enabled
+            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and settings.media_cache.enabled
         )
 
     def _live_event_age_seconds(self, event: EventData) -> float:
@@ -868,14 +868,14 @@ class EventProcessor:
         """
         # Trust Frigate sublabel path
         if settings.classification.trust_frigate_sublabel and event.sub_label:
-            log.info("Using Frigate sublabel (skipping classification)",
-                     event=event.frigate_event, sub_label=event.sub_label, score=event.frigate_score)
+            log.info(
+                "Using Frigate sublabel (skipping classification)",
+                event=event.frigate_event,
+                sub_label=event.sub_label,
+                score=event.frigate_score,
+            )
 
-            results = [{
-                "label": event.sub_label,
-                "score": event.frigate_score or 1.0,
-                "index": -1
-            }]
+            results = [{"label": event.sub_label, "score": event.frigate_score or 1.0, "index": -1}]
             return (results, None)
 
         # Normal classification path
@@ -912,9 +912,7 @@ class EventProcessor:
                     break
                 await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
             if not snapshot_data:
-                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
-                    event.frigate_event
-                )
+                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(event.frigate_event)
             if not snapshot_data:
                 log.info(
                     "Skipping MQTT event - snapshot unavailable after retry",
@@ -927,7 +925,10 @@ class EventProcessor:
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,
-                input_context={"is_cropped": snapshot_source == "frigate_snapshot_cropped", "event_id": event.frigate_event},
+                input_context={
+                    "is_cropped": snapshot_source == "frigate_snapshot_cropped",
+                    "event_id": event.frigate_event,
+                },
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
 
@@ -976,13 +977,14 @@ class EventProcessor:
         Returns:
             Dict with 'audio_match' and 'weather_data' keys
         """
+
         async def fetch_audio():
             """Fetch audio match with error handling."""
             try:
                 return await audio_service.find_match(
                     event.detection_dt,
                     camera_name=event.camera,
-                    window_seconds=settings.frigate.audio_correlation_window_seconds
+                    window_seconds=settings.frigate.audio_correlation_window_seconds,
                 )
             except Exception as e:
                 log.warning("Audio match failed", error=str(e))
@@ -997,16 +999,9 @@ class EventProcessor:
                 return None
 
         # Execute both lookups in parallel
-        audio_match, weather_data = await asyncio.gather(
-            fetch_audio(),
-            fetch_weather(),
-            return_exceptions=False
-        )
+        audio_match, weather_data = await asyncio.gather(fetch_audio(), fetch_weather(), return_exceptions=False)
 
-        return {
-            'audio_match': audio_match,
-            'weather_data': weather_data
-        }
+        return {"audio_match": audio_match, "weather_data": weather_data}
 
     async def _correlate_audio(
         self,
@@ -1022,16 +1017,16 @@ class EventProcessor:
             Updated classification dict
         """
         # Initialize audio fields (only set when confirmed or used for upgrade)
-        classification['audio_confirmed'] = False
-        classification['audio_species'] = None
-        classification['audio_score'] = None
+        classification["audio_confirmed"] = False
+        classification["audio_species"] = None
+        classification["audio_score"] = None
 
         if not audio_match:
             return classification
 
         audio_species = audio_match.species
         audio_score = audio_match.confidence
-        visual_label = classification['label']
+        visual_label = classification["label"]
         visual_label_normalized = str(visual_label or "").strip().lower()
         audio_species_normalized = str(audio_species or "").strip().lower()
         audio_scientific_normalized = str(getattr(audio_match, "scientific_name", "") or "").strip().lower()
@@ -1065,25 +1060,25 @@ class EventProcessor:
 
         # Logic 1: Confirmation - audio matches visual
         if visual_aliases.intersection(audio_aliases):
-            classification['audio_confirmed'] = True
-            classification['audio_species'] = audio_species
-            classification['audio_score'] = audio_score
+            classification["audio_confirmed"] = True
+            classification["audio_species"] = audio_species
+            classification["audio_score"] = audio_score
             # Boost score if audio is more confident
-            if audio_score > classification['score']:
-                classification['score'] = audio_score
-            log.info("Audio confirmed visual detection", species=visual_label, score=classification['score'])
+            if audio_score > classification["score"]:
+                classification["score"] = audio_score
+            log.info("Audio confirmed visual detection", species=visual_label, score=classification["score"])
         else:
             # Mismatch: Attach audio species/score for 'also heard' display, but don't confirm or upgrade
-            classification['audio_confirmed'] = False
-            classification['audio_species'] = audio_species
-            classification['audio_score'] = audio_score
+            classification["audio_confirmed"] = False
+            classification["audio_species"] = audio_species
+            classification["audio_score"] = audio_score
             log.debug("Audio recorded as heard (not confirmed)", visual=visual_label, audio=audio_species)
 
         return classification
 
     def _extract_weather_fields(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Extract weather fields from context payload."""
-        weather = context.get('weather_data') or {}
+        weather = context.get("weather_data") or {}
         return {
             "temperature": weather.get("temperature"),
             "weather_condition": weather.get("condition_text"),
@@ -1096,11 +1091,7 @@ class EventProcessor:
         }
 
     async def _handle_detection_save_and_notify(
-        self,
-        event: EventData,
-        classification: Dict[str, Any],
-        snapshot_data: Optional[bytes],
-        context: Dict[str, Any]
+        self, event: EventData, classification: Dict[str, Any], snapshot_data: Optional[bytes], context: Dict[str, Any]
     ):
         """Save detection to database and send notifications.
 
@@ -1110,8 +1101,8 @@ class EventProcessor:
             snapshot_data: Snapshot image bytes (may be None)
             context: Context data (audio_match, weather_data)
         """
-        label = classification['label']
-        score = classification['score']
+        label = classification["label"]
+        score = classification["score"]
 
         # Nest-mode dedupe: collapse repeat detections of the same species on a
         # nest camera within nest_dedupe_minutes. The detection_service.save
@@ -1153,9 +1144,9 @@ class EventProcessor:
             classification=classification,
             frigate_score=event.frigate_score,
             sub_label=event.sub_label,
-            audio_confirmed=classification['audio_confirmed'],
-            audio_species=classification['audio_species'],
-            audio_score=classification['audio_score'],
+            audio_confirmed=classification["audio_confirmed"],
+            audio_species=classification["audio_species"],
+            audio_score=classification["audio_score"],
             temperature=weather_fields["temperature"],
             weather_condition=weather_fields["weather_condition"],
             weather_cloud_cover=weather_fields["weather_cloud_cover"],
@@ -1163,13 +1154,12 @@ class EventProcessor:
             weather_wind_direction=weather_fields["weather_wind_direction"],
             weather_precipitation=weather_fields["weather_precipitation"],
             weather_rain=weather_fields["weather_rain"],
-            weather_snowfall=weather_fields["weather_snowfall"]
+            weather_snowfall=weather_fields["weather_snowfall"],
         )
 
         # Update Frigate sublabel if confident
-        if (
-            settings.classification.write_frigate_sublabel
-            and (score > settings.classification.threshold or classification['audio_confirmed'])
+        if settings.classification.write_frigate_sublabel and (
+            score > settings.classification.threshold or classification["audio_confirmed"]
         ):
             await frigate_client.set_sublabel(event.frigate_event, label)
 
@@ -1188,6 +1178,7 @@ class EventProcessor:
             # Trigger auto video classification
             if settings.classification.auto_video_classification:
                 from app.services.auto_video_classifier_service import auto_video_classifier
+
                 await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
         else:
             log.debug(

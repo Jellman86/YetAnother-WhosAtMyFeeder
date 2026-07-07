@@ -24,9 +24,7 @@ def test_classifier_worker_protocol_round_trips_ready_message():
 
 
 def test_classifier_worker_protocol_round_trips_heartbeat_message():
-    encoded = encode_protocol_message(
-        build_heartbeat_event(worker_generation=3, request_id="req-1", busy=True)
-    )
+    encoded = encode_protocol_message(build_heartbeat_event(worker_generation=3, request_id="req-1", busy=True))
 
     decoded = decode_protocol_message(encoded)
 

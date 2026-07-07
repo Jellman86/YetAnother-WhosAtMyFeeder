@@ -6,21 +6,22 @@ from app.config import settings
 
 log = structlog.get_logger()
 
+
 class WeatherService:
     """Service to fetch weather data from OpenMeteo."""
-    
+
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
     ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
-    GEO_URL = "http://ip-api.com/json" # Fallback for auto-location
+    GEO_URL = "http://ip-api.com/json"  # Fallback for auto-location
 
     async def get_location(self) -> Tuple[Optional[float], Optional[float]]:
         """Get configured location or detect via IP."""
         lat = settings.location.latitude
         lon = settings.location.longitude
-        
+
         if lat is not None and lon is not None:
             return lat, lon
-            
+
         if settings.location.automatic:
             try:
                 # Use short timeout for auto-location to avoid blocking
@@ -28,12 +29,14 @@ class WeatherService:
                     resp = await client.get(self.GEO_URL)
                     resp.raise_for_status()
                     data = resp.json()
-                    if data.get('status') == 'success':
-                        log.info("Detected location via IP", lat=data.get('lat'), lon=data.get('lon'), city=data.get('city'))
-                        return data.get('lat'), data.get('lon')
+                    if data.get("status") == "success":
+                        log.info(
+                            "Detected location via IP", lat=data.get("lat"), lon=data.get("lon"), city=data.get("city")
+                        )
+                        return data.get("lat"), data.get("lon")
             except Exception as e:
                 log.warning("Failed to detect location via IP", error=str(e))
-                
+
         return None, None
 
     async def get_current_weather(self) -> dict:
@@ -52,15 +55,15 @@ class WeatherService:
                 "latitude": lat,
                 "longitude": lon,
                 "current": "temperature_2m,weather_code,is_day,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation,rain,snowfall",
-                "temperature_unit": "celsius"  # Always store in Celsius
+                "temperature_unit": "celsius",  # Always store in Celsius
             }
-            
+
             # Use short timeout for weather to avoid blocking event processing
             async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.get(self.BASE_URL, params=params)
                 resp.raise_for_status()
                 data = resp.json()
-                
+
                 current = data.get("current", {})
                 return {
                     "temperature": current.get("temperature_2m"),
@@ -72,7 +75,7 @@ class WeatherService:
                     "wind_direction": current.get("wind_direction_10m"),
                     "precipitation": current.get("precipitation"),
                     "rain": current.get("rain"),
-                    "snowfall": current.get("snowfall")
+                    "snowfall": current.get("snowfall"),
                 }
         except httpx.TimeoutException:
             log.warning("Weather API timeout - skipping weather context")
@@ -99,7 +102,7 @@ class WeatherService:
                 "end_date": end_date,
                 "hourly": "temperature_2m,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation,rain,snowfall",
                 "temperature_unit": "celsius",
-                "timezone": "UTC"
+                "timezone": "UTC",
             }
 
             async with httpx.AsyncClient(timeout=6.0) as client:
@@ -123,7 +126,7 @@ class WeatherService:
                     "wind_direction": hourly.get("wind_direction_10m", [None] * len(times))[idx],
                     "precipitation": hourly.get("precipitation", [None] * len(times))[idx],
                     "rain": hourly.get("rain", [None] * len(times))[idx],
-                    "snowfall": hourly.get("snowfall", [None] * len(times))[idx]
+                    "snowfall": hourly.get("snowfall", [None] * len(times))[idx],
                 }
 
             return result
@@ -175,7 +178,7 @@ class WeatherService:
                 "end_date": end_date,
                 "daily": "sunrise,sunset",
                 # Use local timezone for user-facing sunrise/sunset ranges.
-                "timezone": "auto"
+                "timezone": "auto",
             }
 
             async with httpx.AsyncClient(timeout=6.0) as client:
@@ -192,7 +195,7 @@ class WeatherService:
             for idx, date_str in enumerate(dates):
                 sun[date_str] = {
                     "sunrise": daily.get("sunrise", [None] * len(dates))[idx],
-                    "sunset": daily.get("sunset", [None] * len(dates))[idx]
+                    "sunset": daily.get("sunset", [None] * len(dates))[idx],
                 }
             return sun
         except httpx.TimeoutException:
@@ -201,5 +204,6 @@ class WeatherService:
         except Exception as e:
             log.error("Failed to fetch sunrise/sunset", error=str(e))
             return {}
+
 
 weather_service = WeatherService()

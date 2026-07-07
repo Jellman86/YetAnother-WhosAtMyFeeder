@@ -20,11 +20,7 @@ def upgrade() -> None:
     rows = conn.execute(sa.text("PRAGMA index_list(detections)")).fetchall()
     existing = {row[1] for row in rows}
     if "idx_detections_camera_time" not in existing:
-        op.create_index(
-            "idx_detections_camera_time",
-            "detections",
-            ["camera_name", "detection_time"]
-        )
+        op.create_index("idx_detections_camera_time", "detections", ["camera_name", "detection_time"])
 
 
 def downgrade() -> None:

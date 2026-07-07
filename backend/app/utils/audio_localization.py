@@ -4,6 +4,7 @@ BirdNET-Go publishes `comName` in whichever locale it is configured for.
 These helpers canonicalize those strings to the user's display language
 via `taxonomy_cache` — the same transform applied to visual detections.
 """
+
 import structlog
 import aiosqlite
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -109,7 +110,9 @@ async def localize_audio_detections(
             else:
                 resolved = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
         except Exception as exc:
-            log.warning("Audio name localization failed", scientific=scientific, species=species, lang=lang, error=str(exc))
+            log.warning(
+                "Audio name localization failed", scientific=scientific, species=species, lang=lang, error=str(exc)
+            )
             resolved = None
 
         if resolved:

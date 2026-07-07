@@ -81,10 +81,21 @@ async def test_ai_analysis_prefers_cached_recording_clip(client: httpx.AsyncClie
     recording_path.write_bytes(b"recording-bytes")
 
     try:
-        with patch("app.routers.ai._get_valid_cached_recording_clip_path", new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030))), \
-             patch("app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))) as mock_event_clip, \
-             patch("app.routers.ai.ai_service.extract_frames_from_clip", return_value=[b"frame-1", b"frame-2"]) as mock_extract, \
-             patch("app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")) as mock_analyze:
+        with (
+            patch(
+                "app.routers.ai._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
+            ),
+            patch(
+                "app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))
+            ) as mock_event_clip,
+            patch(
+                "app.routers.ai.ai_service.extract_frames_from_clip", return_value=[b"frame-1", b"frame-2"]
+            ) as mock_extract,
+            patch(
+                "app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")
+            ) as mock_analyze,
+        ):
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text
@@ -107,10 +118,21 @@ async def test_ai_analysis_falls_back_to_event_clip_when_recording_missing(clien
     await _insert_detection(event_id, "Robin", "cam1")
 
     try:
-        with patch("app.routers.ai._get_valid_cached_recording_clip_path", new=AsyncMock(return_value=(None, None, None, None))), \
-             patch("app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))) as mock_event_clip, \
-             patch("app.routers.ai.ai_service.extract_frames_from_clip", return_value=[b"frame-1", b"frame-2"]) as mock_extract, \
-             patch("app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")) as mock_analyze:
+        with (
+            patch(
+                "app.routers.ai._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(None, None, None, None)),
+            ),
+            patch(
+                "app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))
+            ) as mock_event_clip,
+            patch(
+                "app.routers.ai.ai_service.extract_frames_from_clip", return_value=[b"frame-1", b"frame-2"]
+            ) as mock_extract,
+            patch(
+                "app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")
+            ) as mock_analyze,
+        ):
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text
@@ -133,11 +155,22 @@ async def test_ai_analysis_falls_back_to_snapshot_when_clip_frames_unavailable(c
     await _insert_detection(event_id, "Robin", "cam1")
 
     try:
-        with patch("app.routers.ai._get_valid_cached_recording_clip_path", new=AsyncMock(return_value=(None, None, None, None))), \
-             patch("app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))), \
-             patch("app.routers.ai.ai_service.extract_frames_from_clip", return_value=[]), \
-             patch("app.routers.ai.frigate_client.get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")) as mock_snapshot, \
-             patch("app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")) as mock_analyze:
+        with (
+            patch(
+                "app.routers.ai._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(None, None, None, None)),
+            ),
+            patch(
+                "app.routers.ai.frigate_client.get_clip_with_error", new=AsyncMock(return_value=(b"event-bytes", None))
+            ),
+            patch("app.routers.ai.ai_service.extract_frames_from_clip", return_value=[]),
+            patch(
+                "app.routers.ai.frigate_client.get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")
+            ) as mock_snapshot,
+            patch(
+                "app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value="analysis")
+            ) as mock_analyze,
+        ):
             response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
 
         assert response.status_code == 200, response.text

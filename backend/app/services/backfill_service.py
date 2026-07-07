@@ -38,6 +38,7 @@ BACKFILL_TRANSIENT_RETRY_REASONS = {
 @dataclass
 class BackfillResult:
     """Result of a backfill operation."""
+
     processed: int = 0
     new_detections: int = 0
     skipped: int = 0
@@ -183,7 +184,7 @@ class BackfillService:
         seen_ids = set()
         unique_events = []
         for event in all_events:
-            event_id = event.get('id')
+            event_id = event.get("id")
             if event_id and event_id not in seen_ids:
                 seen_ids.add(event_id)
                 unique_events.append(event)
@@ -196,9 +197,9 @@ class BackfillService:
         Process a single historical event.
         Returns: ('new'|'skipped'|'error', reason_code)
         """
-        frigate_event = event.get('id')
+        frigate_event = event.get("id")
         if not frigate_event:
-            return 'error', 'missing_id'
+            return "error", "missing_id"
 
         try:
             # Fetch snapshot from Frigate using centralized client
@@ -214,7 +215,7 @@ class BackfillService:
                     event_id=frigate_event,
                     context={"camera": event.get("camera")},
                 )
-                return 'error', 'fetch_snapshot_failed'
+                return "error", "fetch_snapshot_failed"
 
             # Classify the image (async to use thread pool)
             image = Image.open(BytesIO(snapshot_data))
@@ -249,24 +250,26 @@ class BackfillService:
                     event_id=frigate_event,
                     context=context,
                 )
-                return 'error', reason_code
+                return "error", reason_code
 
             # Capture Frigate metadata (needed for fallback)
-            frigate_score = event.get('top_score')
-            if frigate_score is None and 'data' in event:
-                frigate_score = event['data'].get('top_score')
+            frigate_score = event.get("top_score")
+            if frigate_score is None and "data" in event:
+                frigate_score = event["data"].get("top_score")
 
-            sub_label = normalize_sub_label(event.get('sub_label'))
+            sub_label = normalize_sub_label(event.get("sub_label"))
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
-            top, reason = self.detection_service.select_usable_classification(results, frigate_event, sub_label, frigate_score)
+            top, reason = self.detection_service.select_usable_classification(
+                results, frigate_event, sub_label, frigate_score
+            )
             if not top:
                 if reason == "invalid_score":
                     log.warning("Historical event skipped due to invalid classifier score", event_id=frigate_event)
-                return 'skipped', reason
-            
-            camera_name = event.get('camera', 'unknown')
-            start_time = event.get('start_time', datetime.now().timestamp())
+                return "skipped", reason
+
+            camera_name = event.get("camera", "unknown")
+            start_time = event.get("start_time", datetime.now().timestamp())
 
             # Use upsert logic to ensure metadata is updated even if event exists
             changed, _ = await self.detection_service.save_detection(
@@ -275,20 +278,20 @@ class BackfillService:
                 start_time=start_time,
                 classification=top,
                 frigate_score=frigate_score,
-                sub_label=sub_label
+                sub_label=sub_label,
             )
 
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
-                return 'skipped', 'already_exists'
+                return "skipped", "already_exists"
 
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 cached_snapshot = await media_cache.cache_snapshot(frigate_event, snapshot_data)
                 if cached_snapshot and settings.media_cache.high_quality_event_snapshots:
                     high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
-            log.info("Backfilled detection", event_id=frigate_event, species=top['label'], score=top['score'])
-            return 'new', None
+            log.info("Backfilled detection", event_id=frigate_event, species=top["label"], score=top["score"])
+            return "new", None
 
         except BackgroundImageClassificationUnavailableError as e:
             reason = str(getattr(e, "reason_code", "") or str(e) or "background_image_unavailable")
@@ -324,7 +327,7 @@ class BackfillService:
                     "error": str(e) or repr(e),
                 },
             )
-            return 'error', 'exception'
+            return "error", "exception"
 
     async def process_historical_event_with_timeout(
         self,
@@ -369,9 +372,7 @@ class BackfillService:
                     await asyncio.sleep(backoff_seconds)
         except asyncio.TimeoutError:
             log.error(
-                "Historical event processing timed out",
-                event_id=event.get("id"),
-                timeout_seconds=timeout_seconds
+                "Historical event processing timed out", event_id=event.get("id"), timeout_seconds=timeout_seconds
             )
             error_diagnostics_history.record(
                 source="backfill",
@@ -404,9 +405,9 @@ class BackfillService:
         # Process each event
         for event in events:
             status, reason = await self.process_historical_event_with_timeout(event)
-            if status == 'new':
+            if status == "new":
                 result.new_detections += 1
-            elif status == 'skipped':
+            elif status == "skipped":
                 result.skipped += 1
                 if reason:
                     result.skipped_reasons[reason] += 1
@@ -415,11 +416,13 @@ class BackfillService:
                 if reason:
                     result.error_reasons[reason] += 1
 
-        log.info("Backfill complete",
-                 processed=result.processed,
-                 new=result.new_detections,
-                 skipped=result.skipped,
-                 errors=result.errors,
-                 error_reasons=dict(result.error_reasons))
+        log.info(
+            "Backfill complete",
+            processed=result.processed,
+            new=result.new_detections,
+            skipped=result.skipped,
+            errors=result.errors,
+            error_reasons=dict(result.error_reasons),
+        )
 
         return result

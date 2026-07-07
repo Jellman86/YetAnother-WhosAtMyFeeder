@@ -166,7 +166,7 @@ class ClassifierSupervisor:
         self._started = False
         self._pending_requests: dict[tuple[WorkPriority, str, int], asyncio.Future[None]] = {}
 
-        # Global lock to ensure only one worker across all pools can be 
+        # Global lock to ensure only one worker across all pools can be
         # initializing at a time. This prevents RAM/GPU spikes when loading
         # large "Elite" models.
         self._global_init_lock = asyncio.Lock()
@@ -184,11 +184,7 @@ class ClassifierSupervisor:
         previously_started = {current: self._pool_started[current] for current in priorities}
         await asyncio.gather(*(self._ensure_pool_started(current) for current in priorities))
         await asyncio.gather(
-            *(
-                self._restore_unavailable_slots(current)
-                for current in priorities
-                if previously_started[current]
-            )
+            *(self._restore_unavailable_slots(current) for current in priorities if previously_started[current])
         )
         self._started = any(self._pool_started.values())
 
@@ -351,9 +347,7 @@ class ClassifierSupervisor:
         try:
             await slot.worker.send(build_message(slot, request_id))
         except Exception as exc:
-            assignment_error = ClassifierWorkerExitedError(
-                f"worker send failed: {type(exc).__name__}"
-            )
+            assignment_error = ClassifierWorkerExitedError(f"worker send failed: {type(exc).__name__}")
             current_slot = self._find_slot(slot.worker_name)
             if current_slot is not None and current_slot.worker_generation == slot.worker_generation:
                 await self._replace_worker(
@@ -384,7 +378,7 @@ class ClassifierSupervisor:
 
         match: _Assignment | None = None
         slot: _WorkerSlot | None = None
-        
+
         async with self._condition:
             if request_key in self._pending_requests:
                 pending_future = self._pending_requests[request_key]
@@ -458,10 +452,14 @@ class ClassifierSupervisor:
             self._pool_started[priority] = True
             self._metrics[priority]["workers"] = self._active_worker_count(priority)
 
-    async def _wait_for_idle_slot(self, priority: WorkPriority, request_key: tuple[WorkPriority, str, int]) -> _WorkerSlot:
+    async def _wait_for_idle_slot(
+        self, priority: WorkPriority, request_key: tuple[WorkPriority, str, int]
+    ) -> _WorkerSlot:
         while True:
             if request_key in self._pending_requests and self._pending_requests[request_key].done():
-                raise self._pending_requests[request_key].exception() or ClassifierWorkerDeadlineExceededError("worker aborted before assignment")
+                raise self._pending_requests[request_key].exception() or ClassifierWorkerDeadlineExceededError(
+                    "worker aborted before assignment"
+                )
 
             for slot in self._slots[priority]:
                 if slot.worker is not None and slot.worker_name not in self._assignments:
@@ -507,7 +505,7 @@ class ClassifierSupervisor:
                     priority=priority,
                     index=index,
                 )
-            
+
             # Serialize model loading across all pools to prevent RAM/GPU spikes
             async with self._global_init_lock:
                 await worker.start()
@@ -638,8 +636,8 @@ class ClassifierSupervisor:
         while True:
             await asyncio.sleep(self._watchdog_interval_seconds)
             for priority in ("live", "background", "video"):
-                # If a startup or restart operation is in progress, skip watchdog 
-                # checks for this priority to prevent race conditions that could 
+                # If a startup or restart operation is in progress, skip watchdog
+                # checks for this priority to prevent race conditions that could
                 # leak worker processes.
                 if self._start_locks[priority].locked():
                     continue
@@ -715,8 +713,8 @@ class ClassifierSupervisor:
         except Exception:
             self._record_unavailable_slot(priority, index, "startup_failed")
         else:
-            # DEFENSIVE: If another concurrent _replace_worker (e.g. from restart_pool) 
-            # replaced this slot while we were awaiting _spawn_worker, we must kill 
+            # DEFENSIVE: If another concurrent _replace_worker (e.g. from restart_pool)
+            # replaced this slot while we were awaiting _spawn_worker, we must kill
             # the worker we just spawned to prevent a zombie process leak.
             if self._slots[priority][index] is not slot:
                 await new_slot.worker.kill()

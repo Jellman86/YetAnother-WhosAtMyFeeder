@@ -143,13 +143,32 @@ async def test_health_not_degraded_when_mqtt_stall_recovery_warning_is_inactive(
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 0,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
@@ -223,13 +242,32 @@ async def test_health_not_degraded_by_mqtt_critical_pressure_without_backlog_wai
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 0,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
@@ -304,13 +342,32 @@ async def test_health_degraded_when_mqtt_handler_backlog_wait_is_active(
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 0,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
@@ -385,13 +442,32 @@ async def test_health_degraded_when_mqtt_recent_handler_slot_wait_exhaustion_is_
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 0,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
@@ -433,9 +509,7 @@ async def test_health_degraded_when_mqtt_recent_handler_slot_wait_exhaustion_is_
 
 
 @pytest.mark.asyncio
-async def test_health_includes_event_pipeline_status(
-    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
-):
+async def test_health_includes_event_pipeline_status(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
     app.state.startup_warnings = []
     monkeypatch.setattr(
         main_module,
@@ -470,9 +544,7 @@ async def test_health_includes_event_pipeline_status(
 
 
 @pytest.mark.asyncio
-async def test_health_includes_high_quality_snapshot_status(
-    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
-):
+async def test_health_includes_high_quality_snapshot_status(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
     app.state.startup_warnings = []
     monkeypatch.setattr(
         main_module,
@@ -561,13 +633,32 @@ async def test_health_not_degraded_by_historical_event_pipeline_failures(
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 0, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 0,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
@@ -934,13 +1025,32 @@ async def test_health_degraded_when_live_worker_circuit_is_open(
     monkeypatch.setattr(
         main_module,
         "high_quality_snapshot_service",
-        SimpleNamespace(get_status=lambda: {"enabled": True, "active": 0, "scheduled_total": 0, "duplicate_requests": 0, "disabled_requests": 0, "outcomes": {}, "last_result": None}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "enabled": True,
+                "active": 0,
+                "scheduled_total": 0,
+                "duplicate_requests": 0,
+                "disabled_requests": 0,
+                "outcomes": {},
+                "last_result": None,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(
         main_module,
         "notification_dispatcher",
-        SimpleNamespace(get_status=lambda: {"running": True, "workers": 2, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0, "timeout_seconds": 30.0}),
+        SimpleNamespace(
+            get_status=lambda: {
+                "running": True,
+                "workers": 2,
+                "queue_size": 0,
+                "queue_max": 100,
+                "dropped_jobs": 0,
+                "timeout_seconds": 30.0,
+            }
+        ),
         raising=False,
     )
     monkeypatch.setattr(

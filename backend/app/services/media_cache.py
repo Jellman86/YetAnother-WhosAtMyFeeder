@@ -286,7 +286,9 @@ class MediaCacheService:
                 pass
             raise
 
-    async def cache_snapshot(self, event_id: str, image_bytes: bytes, source: str = "frigate_snapshot") -> Optional[Path]:
+    async def cache_snapshot(
+        self, event_id: str, image_bytes: bytes, source: str = "frigate_snapshot"
+    ) -> Optional[Path]:
         """Cache a snapshot image.
 
         Args:
@@ -310,7 +312,9 @@ class MediaCacheService:
             log.error("Failed to cache snapshot", event_id=event_id, error=str(e))
             return None
 
-    async def replace_snapshot(self, event_id: str, image_bytes: bytes, source: str = "high_quality_snapshot") -> Optional[Path]:
+    async def replace_snapshot(
+        self, event_id: str, image_bytes: bytes, source: str = "high_quality_snapshot"
+    ) -> Optional[Path]:
         """Atomically replace a cached snapshot without exposing partial reads."""
         if not self._available:
             log.warning("Media cache unavailable; skipping snapshot replacement", error=self._init_error)
@@ -349,7 +353,9 @@ class MediaCacheService:
             log.debug("Failed to read cached snapshot metadata", event_id=event_id, error=str(e))
             return None
 
-    async def cache_thumbnail(self, event_id: str, image_bytes: bytes, source: str = "frigate_thumbnail") -> Optional[Path]:
+    async def cache_thumbnail(
+        self, event_id: str, image_bytes: bytes, source: str = "frigate_thumbnail"
+    ) -> Optional[Path]:
         """Cache a thumbnail image using a key distinct from the canonical snapshot."""
         if not self._available:
             log.warning("Media cache unavailable; skipping thumbnail cache write", error=self._init_error)
@@ -399,7 +405,7 @@ class MediaCacheService:
         try:
             path = self._snapshot_path(event_id)
             if await aiofiles.os.path.exists(path):
-                async with aiofiles.open(path, 'rb') as f:
+                async with aiofiles.open(path, "rb") as f:
                     data = await f.read()
                 # Update access time for LRU-like behavior
                 self._touch_access_time(path)
@@ -421,7 +427,7 @@ class MediaCacheService:
         try:
             path = self._thumbnail_path(event_id)
             if await aiofiles.os.path.exists(path):
-                async with aiofiles.open(path, 'rb') as f:
+                async with aiofiles.open(path, "rb") as f:
                     data = await f.read()
                 self._touch_access_time(path)
                 return data
@@ -511,7 +517,7 @@ class MediaCacheService:
             return None
         try:
             path = self._clip_path(event_id)
-            async with aiofiles.open(path, 'wb') as f:
+            async with aiofiles.open(path, "wb") as f:
                 await f.write(clip_bytes)
             log.debug("Cached clip", event_id=event_id, size=len(clip_bytes))
             return path
@@ -542,12 +548,12 @@ class MediaCacheService:
         try:
             path = self._clip_path(event_id)
             total_size = 0
-            async with aiofiles.open(path, 'wb') as f:
+            async with aiofiles.open(path, "wb") as f:
                 async for chunk in chunks:
                     if chunk:
                         await f.write(chunk)
                         total_size += len(chunk)
-            
+
             if total_size < _MIN_VALID_CLIP_BYTES:
                 log.warning(
                     "Downloaded clip is too small to be valid (Frigate clip not retained)",
@@ -872,7 +878,7 @@ class MediaCacheService:
                     stats["snapshots_deleted"] += 1
                     log.debug("Removed empty snapshot", path=str(path))
             except FileNotFoundError:
-                pass # Already deleted
+                pass  # Already deleted
             except Exception as e:
                 log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
 
@@ -885,7 +891,7 @@ class MediaCacheService:
                     stats["clips_deleted"] += 1
                     log.debug("Removed empty clip", path=str(path))
             except FileNotFoundError:
-                pass # Already deleted
+                pass  # Already deleted
             except Exception as e:
                 log.warning("Failed to delete empty clip", path=str(path), error=str(e))
 
@@ -1040,7 +1046,7 @@ class MediaCacheService:
     async def clear_all(self) -> dict:
         """Delete ALL cached media files."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
-        
+
         # Clean all snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
@@ -1071,7 +1077,7 @@ class MediaCacheService:
                     stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete preview asset", path=str(path), error=str(e))
-        
+
         log.info("Cleared all media cache", **stats)
         return stats
 

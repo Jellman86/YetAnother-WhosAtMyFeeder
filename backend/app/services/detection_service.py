@@ -22,24 +22,25 @@ from app.utils.tasks import create_background_task
 from app.database import get_db
 
 log = structlog.get_logger()
-TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(
-    0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3"))
-)
+TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
+
 
 class DetectionService:
     """
     Centralized service for processing and saving detections.
-    
+
     Shared logic used by:
     - EventProcessor (real-time MQTT events)
     - BackfillService (historical API events)
     """
+
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
         self.broadcaster = broadcaster
 
-    def filter_and_label(self, classification: dict, frigate_event: str,
-                         frigate_sub_label: str = None, frigate_score: float = None) -> tuple[dict | None, str | None]:
+    def filter_and_label(
+        self, classification: dict, frigate_event: str, frigate_sub_label: str = None, frigate_score: float = None
+    ) -> tuple[dict | None, str | None]:
         """
         Apply filtering and relabeling rules to a classification result.
         Returns (result_dict, reason_code).
@@ -48,16 +49,16 @@ class DetectionService:
         frigate_sub_label = normalize_sub_label(frigate_sub_label)
         top = classification
         try:
-            score = float(top['score'])
+            score = float(top["score"])
         except (KeyError, TypeError, ValueError):
             log.warning("Invalid classification score", event_id=frigate_event, score=top.get("score"))
             return None, "invalid_score"
         if not math.isfinite(score):
             log.warning("Non-finite classification score", event_id=frigate_event, score=score, label=top.get("label"))
             return None, "invalid_score"
-        top = {**top, 'score': score}
-        label = normalize_classifier_label(top['label'])
-        top = {**top, 'label': label}
+        top = {**top, "score": score}
+        label = normalize_classifier_label(top["label"])
+        top = {**top, "label": label}
         original_label = label
         normalized_label = str(label or "").strip().casefold()
         normalized_frigate_sub_label = frigate_sub_label.casefold() if frigate_sub_label else None
@@ -66,7 +67,7 @@ class DetectionService:
         if label in settings.classification.unknown_bird_labels:
             log.info("Relabeled to Unknown Bird", original=label, event_id=frigate_event)
             label = "Unknown Bird"
-            top = {**top, 'label': label}
+            top = {**top, "label": label}
 
         if should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
             log.info("Discarding classifier abstention label", label=label, event_id=frigate_event)
@@ -126,35 +127,43 @@ class DetectionService:
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
             # Use Frigate score if available, otherwise boost current score to threshold to ensure visibility
             # but usually Frigate score is reliable.
-            final_score = frigate_score if (frigate_score and frigate_score > 0) else max(score, settings.classification.threshold)
-            
+            final_score = (
+                frigate_score
+                if (frigate_score and frigate_score > 0)
+                else max(score, settings.classification.threshold)
+            )
+
             # Frigate sublabel exists - use it as fallback regardless of confidence
-            log.info("Using Frigate sublabel as fallback",
-                     frigate_label=frigate_sub_label,
-                     yawamf_label=original_label,
-                     yawamf_score=score,
-                     final_score=final_score,
-                     event_id=frigate_event)
+            log.info(
+                "Using Frigate sublabel as fallback",
+                frigate_label=frigate_sub_label,
+                yawamf_label=original_label,
+                yawamf_score=score,
+                final_score=final_score,
+                event_id=frigate_event,
+            )
             return {
-                'label': frigate_sub_label,
-                'score': final_score,
-                'index': top.get('index', -1),
-                'source': 'frigate_fallback'
+                "label": frigate_sub_label,
+                "score": final_score,
+                "index": top.get("index", -1),
+                "source": "frigate_fallback",
             }, "frigate_fallback"
 
         # Check for "Unknown Bird" catch-all (middle ground between min_confidence and threshold)
         if not below_min_confidence:
-            log.info("Low confidence detection, saving as Unknown", 
-                     original=original_label, 
-                     score=score, 
-                     required_threshold=required_threshold,
-                     sublabel_disagrees=sublabel_disagrees,
-                     event_id=frigate_event)
+            log.info(
+                "Low confidence detection, saving as Unknown",
+                original=original_label,
+                score=score,
+                required_threshold=required_threshold,
+                sublabel_disagrees=sublabel_disagrees,
+                event_id=frigate_event,
+            )
             return {
-                'label': "Unknown Bird",
-                'score': score,
-                'index': top.get('index', -1),
-                'source': 'low_confidence_catchall'
+                "label": "Unknown Bird",
+                "score": score,
+                "index": top.get("index", -1),
+                "source": "low_confidence_catchall",
             }, "unknown_catchall"
 
         # No fallback available or below absolute floor
@@ -164,7 +173,9 @@ class DetectionService:
         else:
             # This branch implies (not below_min and below_threshold) which is handled by catch-all above
             # But just in case logic drifts:
-            log.debug("Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event)
+            log.debug(
+                "Below threshold", score=score, threshold=settings.classification.threshold, event_id=frigate_event
+            )
             return None, "below_threshold"
 
     def select_usable_classification(
@@ -206,13 +217,26 @@ class DetectionService:
             }, "frigate_fallback"
         return None, last_reason
 
-    async def save_detection(self, frigate_event: str, camera: str, start_time: float, 
-                           classification: dict, frigate_score: float = None, sub_label: str = None,
-                           audio_confirmed: bool = False, audio_species: str = None, audio_score: float = None,
-                           temperature: float = None, weather_condition: str = None,
-                           weather_cloud_cover: float = None, weather_wind_speed: float = None,
-                           weather_wind_direction: float = None, weather_precipitation: float = None,
-                           weather_rain: float = None, weather_snowfall: float = None) -> tuple[bool, bool]:
+    async def save_detection(
+        self,
+        frigate_event: str,
+        camera: str,
+        start_time: float,
+        classification: dict,
+        frigate_score: float = None,
+        sub_label: str = None,
+        audio_confirmed: bool = False,
+        audio_species: str = None,
+        audio_score: float = None,
+        temperature: float = None,
+        weather_condition: str = None,
+        weather_cloud_cover: float = None,
+        weather_wind_speed: float = None,
+        weather_wind_direction: float = None,
+        weather_precipitation: float = None,
+        weather_rain: float = None,
+        weather_snowfall: float = None,
+    ) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
@@ -220,7 +244,7 @@ class DetectionService:
         sub_label = normalize_sub_label(sub_label)
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
-        label = classification['label']
+        label = classification["label"]
         taxonomy: dict = {}
         try:
             taxonomy = await asyncio.wait_for(
@@ -241,7 +265,7 @@ class DetectionService:
             )
         if not isinstance(taxonomy, dict):
             taxonomy = {}
-        
+
         scientific_name = taxonomy.get("scientific_name")
         common_name = taxonomy.get("common_name")
         taxa_id = taxonomy.get("taxa_id")
@@ -267,8 +291,12 @@ class DetectionService:
             taxa_id=taxa_id,
             extra_labels=extra_block_labels,
         ):
-            log.debug("Filtered blocked species via taxonomy", label=label,
-                      scientific_name=scientific_name, event_id=frigate_event)
+            log.debug(
+                "Filtered blocked species via taxonomy",
+                label=label,
+                scientific_name=scientific_name,
+                event_id=frigate_event,
+            )
             return False, False
 
         # 2. Determine display name based on user preference
@@ -283,16 +311,16 @@ class DetectionService:
         async with get_db() as db:
             repo = DetectionRepository(db)
 
-            score = float(classification['score'])
+            score = float(classification["score"])
             if not math.isfinite(score):
                 log.warning("Refusing to save detection with non-finite score", event_id=frigate_event, score=score)
                 return False, False
-            category_name = classification['label']
+            category_name = classification["label"]
             timestamp = utc_naive_from_timestamp(start_time)
 
             detection = Detection(
                 detection_time=timestamp,
-                detection_index=classification['index'],
+                detection_index=classification["index"],
                 score=score,
                 display_name=display_name,
                 category_name=category_name,
@@ -313,7 +341,7 @@ class DetectionService:
                 weather_snowfall=weather_snowfall,
                 scientific_name=scientific_name,
                 common_name=common_name,
-                taxa_id=taxa_id
+                taxa_id=taxa_id,
             )
 
             # Atomic upsert: insert or update only if score is higher
@@ -322,14 +350,16 @@ class DetectionService:
 
             if changed:
                 persisted = await repo.get_by_frigate_event(frigate_event)
-                log.info("Saved detection", 
-                         event_id=frigate_event, 
-                         species=display_name, 
-                         scientific=scientific_name,
-                         score=score,
-                         frigate_score=frigate_score,
-                         audio_confirmed=audio_confirmed,
-                         weather=weather_condition)
+                log.info(
+                    "Saved detection",
+                    event_id=frigate_event,
+                    species=display_name,
+                    scientific=scientific_name,
+                    score=score,
+                    frigate_score=frigate_score,
+                    audio_confirmed=audio_confirmed,
+                    weather=weather_condition,
+                )
 
                 public_species = user_facing_species_fields(
                     display_name=display_name,
@@ -342,35 +372,37 @@ class DetectionService:
                 # (potentially non-English from BirdNET-Go). Per-client localization is not
                 # possible here — the broadcast is language-agnostic. Clients should re-fetch
                 # via GET /events for localized names.
-                await self.broadcaster.broadcast({
-                    "type": "detection",
-                    "data": {
-                        "frigate_event": frigate_event,
-                        "display_name": public_species["display_name"],
-                        "category_name": public_species["category_name"],
-                        "scientific_name": public_species["scientific_name"],
-                        "common_name": public_species["common_name"],
-                        "taxa_id": public_species["taxa_id"],
-                        "score": score,
-                        "timestamp": serialize_api_datetime(timestamp),
-                        "camera": camera,
-                        "is_favorite": persisted.is_favorite if persisted else detection.is_favorite,
-                        "frigate_score": frigate_score,
-                        "sub_label": sub_label,
-                        "manual_tagged": persisted.manual_tagged if persisted else detection.manual_tagged,
-                        "audio_confirmed": audio_confirmed,
-                        "audio_species": audio_species,
-                        "audio_score": audio_score,
-                        "temperature": temperature,
-                        "weather_condition": weather_condition,
-                        "weather_cloud_cover": weather_cloud_cover,
-                        "weather_wind_speed": weather_wind_speed,
-                        "weather_wind_direction": weather_wind_direction,
-                        "weather_precipitation": weather_precipitation,
-                        "weather_rain": weather_rain,
-                        "weather_snowfall": weather_snowfall
+                await self.broadcaster.broadcast(
+                    {
+                        "type": "detection",
+                        "data": {
+                            "frigate_event": frigate_event,
+                            "display_name": public_species["display_name"],
+                            "category_name": public_species["category_name"],
+                            "scientific_name": public_species["scientific_name"],
+                            "common_name": public_species["common_name"],
+                            "taxa_id": public_species["taxa_id"],
+                            "score": score,
+                            "timestamp": serialize_api_datetime(timestamp),
+                            "camera": camera,
+                            "is_favorite": persisted.is_favorite if persisted else detection.is_favorite,
+                            "frigate_score": frigate_score,
+                            "sub_label": sub_label,
+                            "manual_tagged": persisted.manual_tagged if persisted else detection.manual_tagged,
+                            "audio_confirmed": audio_confirmed,
+                            "audio_species": audio_species,
+                            "audio_score": audio_score,
+                            "temperature": temperature,
+                            "weather_condition": weather_condition,
+                            "weather_cloud_cover": weather_cloud_cover,
+                            "weather_wind_speed": weather_wind_speed,
+                            "weather_wind_direction": weather_wind_direction,
+                            "weather_precipitation": weather_precipitation,
+                            "weather_rain": weather_rain,
+                            "weather_snowfall": weather_snowfall,
+                        },
                     }
-                })
+                )
 
                 # 3. Report to BirdWeather (if enabled)
                 if scientific_name and scientific_name != "Unknown Bird":
@@ -380,11 +412,11 @@ class DetectionService:
                             scientific_name=scientific_name,
                             common_name=common_name,
                             confidence=score,
-                            timestamp=timestamp
+                            timestamp=timestamp,
                         ),
-                        name=f"birdweather_report:{frigate_event}"
+                        name=f"birdweather_report:{frigate_event}",
                     )
-            
+
             return changed, was_inserted
 
     async def get_detection_by_frigate_event(self, frigate_event: str) -> Detection | None:
@@ -440,7 +472,7 @@ class DetectionService:
                 label=None if hidden_video_label and not manual_tagged else normalized_video_label,
                 score=video_score,
                 index=video_index,
-                status='completed',
+                status="completed",
                 provider=video_provider,
                 backend=video_backend,
                 model_id=video_model_id,
@@ -448,8 +480,11 @@ class DetectionService:
             )
 
             if is_blocked:
-                log.debug("Video result is a blocked species; recorded but not promoted",
-                          label=video_label, event_id=frigate_event)
+                log.debug(
+                    "Video result is a blocked species; recorded but not promoted",
+                    label=video_label,
+                    event_id=frigate_event,
+                )
                 return False
 
             if hidden_video_label and not manual_tagged:
@@ -485,9 +520,7 @@ class DetectionService:
             normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
             normalized_sub_label = normalized_sub_label.casefold() if normalized_sub_label else None
             sublabel_disagrees = bool(
-                normalized_sub_label
-                and normalized_video_label
-                and normalized_sub_label != normalized_video_label
+                normalized_sub_label and normalized_video_label and normalized_sub_label != normalized_video_label
             )
 
             required_score = base_required_score
@@ -496,10 +529,7 @@ class DetectionService:
                 frigate_score = float(getattr(existing, "frigate_score", 0.0) or 0.0)
                 disagreement_min_score = min(0.95, threshold + 0.20)
                 if frigate_score > 0:
-                    disagreement_min_score = max(
-                        disagreement_min_score,
-                        min(0.98, frigate_score + 0.15)
-                    )
+                    disagreement_min_score = max(disagreement_min_score, min(0.98, frigate_score + 0.15))
                 required_score = max(required_score, disagreement_min_score)
                 override_reason = "score_gate_passed_with_sublabel_disagreement"
 
@@ -536,14 +566,16 @@ class DetectionService:
                     )
                     return False
 
-                log.info("Video analysis overriding primary identification", 
-                         event_id=frigate_event, 
-                         old_species=existing.display_name, 
-                         old_score=existing.score,
-                         new_species=new_species, 
-                         new_score=video_score,
-                         required_score=required_score,
-                         reason=override_reason)
+                log.info(
+                    "Video analysis overriding primary identification",
+                    event_id=frigate_event,
+                    old_species=existing.display_name,
+                    old_score=existing.score,
+                    new_species=new_species,
+                    new_score=video_score,
+                    required_score=required_score,
+                    reason=override_reason,
+                )
 
                 # Get taxonomy for new label
                 taxonomy = await taxonomy_service.get_names(new_species)
@@ -568,17 +600,19 @@ class DetectionService:
 
                 # Re-evaluate audio confirmation against new species (robustly)
                 from app.services.audio.audio_service import audio_service
+
                 if scientific_name:
                     audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
                         target_time=existing.detection_time,
                         species_name=scientific_name,
-                        camera_name=existing.camera_name
+                        camera_name=existing.camera_name,
                     )
                 else:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
                 # Update primary fields
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE detections
                     SET display_name = ?,
                         category_name = ?,
@@ -592,20 +626,22 @@ class DetectionService:
                         audio_score = ?,
                         manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
                     WHERE frigate_event = ?
-                """, (
-                    display_name,
-                    new_species,
-                    video_score,
-                    video_index,
-                    scientific_name,
-                    common_name,
-                    taxa_id,
-                    1 if audio_confirmed else 0,
-                    audio_species,
-                    audio_score,
-                    1 if manual_tagged else 0,
-                    frigate_event
-                ))
+                """,
+                    (
+                        display_name,
+                        new_species,
+                        video_score,
+                        video_index,
+                        scientific_name,
+                        common_name,
+                        taxa_id,
+                        1 if audio_confirmed else 0,
+                        audio_species,
+                        audio_score,
+                        1 if manual_tagged else 0,
+                        frigate_event,
+                    ),
+                )
                 await db.commit()
 
                 # Broadcast the update
@@ -619,44 +655,50 @@ class DetectionService:
                         common_name=updated.common_name,
                         taxa_id=updated.taxa_id,
                     )
-                    await self.broadcaster.broadcast({
-                        "type": "detection_updated",
-                        "data": {
-                            "frigate_event": frigate_event,
-                            "display_name": public_species["display_name"],
-                            "category_name": public_species["category_name"],
-                            "score": updated.score,
-                            "timestamp": serialize_api_datetime(updated.detection_time),
-                            "camera": updated.camera_name,
-                            "is_hidden": updated.is_hidden,
-                            "is_favorite": updated.is_favorite,
-                            "manual_tagged": updated.manual_tagged,
-                            "audio_confirmed": updated.audio_confirmed,
-                            "audio_species": updated.audio_species,
-                            "audio_score": updated.audio_score,
-                            "scientific_name": public_species["scientific_name"],
-                            "common_name": public_species["common_name"],
-                            "taxa_id": public_species["taxa_id"],
-                            "video_classification_label": updated.video_classification_label,
-                            "video_classification_score": updated.video_classification_score,
-                            "video_classification_status": updated.video_classification_status,
-                            "video_classification_provider": updated.video_classification_provider,
-                            "video_classification_backend": updated.video_classification_backend,
-                            "video_classification_model_id": updated.video_classification_model_id,
-                            "video_classification_timestamp": serialize_api_datetime(updated.video_classification_timestamp)
+                    await self.broadcaster.broadcast(
+                        {
+                            "type": "detection_updated",
+                            "data": {
+                                "frigate_event": frigate_event,
+                                "display_name": public_species["display_name"],
+                                "category_name": public_species["category_name"],
+                                "score": updated.score,
+                                "timestamp": serialize_api_datetime(updated.detection_time),
+                                "camera": updated.camera_name,
+                                "is_hidden": updated.is_hidden,
+                                "is_favorite": updated.is_favorite,
+                                "manual_tagged": updated.manual_tagged,
+                                "audio_confirmed": updated.audio_confirmed,
+                                "audio_species": updated.audio_species,
+                                "audio_score": updated.audio_score,
+                                "scientific_name": public_species["scientific_name"],
+                                "common_name": public_species["common_name"],
+                                "taxa_id": public_species["taxa_id"],
+                                "video_classification_label": updated.video_classification_label,
+                                "video_classification_score": updated.video_classification_score,
+                                "video_classification_status": updated.video_classification_status,
+                                "video_classification_provider": updated.video_classification_provider,
+                                "video_classification_backend": updated.video_classification_backend,
+                                "video_classification_model_id": updated.video_classification_model_id,
+                                "video_classification_timestamp": serialize_api_datetime(
+                                    updated.video_classification_timestamp
+                                ),
+                            },
                         }
-                    })
+                    )
                 return True
             else:
-                log.debug("Video analysis completed but did not override primary ID", 
-                          event_id=frigate_event, 
-                          current_score=current_score,
-                          required_score=required_score,
-                          threshold=threshold,
-                          existing_is_unknown=existing_is_unknown,
-                          sublabel_disagrees=sublabel_disagrees,
-                          sub_label=normalized_sub_label,
-                          video_label=normalized_video_label,
-                          manual_tagged=manual_tagged,
-                          video_score=video_score)
+                log.debug(
+                    "Video analysis completed but did not override primary ID",
+                    event_id=frigate_event,
+                    current_score=current_score,
+                    required_score=required_score,
+                    threshold=threshold,
+                    existing_is_unknown=existing_is_unknown,
+                    sublabel_disagrees=sublabel_disagrees,
+                    sub_label=normalized_sub_label,
+                    video_label=normalized_video_label,
+                    manual_tagged=manual_tagged,
+                    video_score=video_score,
+                )
                 return False

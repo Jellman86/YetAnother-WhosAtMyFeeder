@@ -36,9 +36,7 @@ def _build_video_classifier_focus(
     health_video = health_video if isinstance(health_video, dict) else {}
 
     recent_events = [
-        _copy_event(event)
-        for event in events
-        if isinstance(event, dict) and _is_video_diagnostic_event(event)
+        _copy_event(event) for event in events if isinstance(event, dict) and _is_video_diagnostic_event(event)
     ][:8]
     recent_events = [event for event in recent_events if event is not None]
 
@@ -99,7 +97,11 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass
         jobs.append(job_dict)
-        if job_dict.get("status") == "running" and isinstance(age_seconds, float) and age_seconds >= _BACKFILL_STALE_JOB_SECONDS:
+        if (
+            job_dict.get("status") == "running"
+            and isinstance(age_seconds, float)
+            and age_seconds >= _BACKFILL_STALE_JOB_SECONDS
+        ):
             stale_jobs.append(job_dict)
 
     running_jobs = [j for j in jobs if j.get("status") == "running"]
@@ -107,9 +109,7 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
 
     events = backend_snapshot.get("events") if isinstance(backend_snapshot, dict) else []
     recent_errors = [
-        _copy_event(ev)
-        for ev in events
-        if isinstance(ev, dict) and str(ev.get("source") or "").lower() == "backfill"
+        _copy_event(ev) for ev in events if isinstance(ev, dict) and str(ev.get("source") or "").lower() == "backfill"
     ][:8]
     recent_errors = [ev for ev in recent_errors if ev is not None]
 

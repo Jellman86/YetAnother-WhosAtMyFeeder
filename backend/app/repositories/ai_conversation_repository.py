@@ -46,7 +46,7 @@ class AIConversationRepository:
     async def add_turn(self, frigate_event: str, role: str, content: str) -> ConversationTurn:
         await self.db.execute(
             "INSERT INTO ai_conversation_turns (frigate_event, role, content) VALUES (?, ?, ?)",
-            (frigate_event, role, content)
+            (frigate_event, role, content),
         )
         await self.db.commit()
         async with self.db.execute(

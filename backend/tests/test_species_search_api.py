@@ -49,13 +49,19 @@ async def test_species_search_hydrates_missing_taxonomy_with_localized_common_na
     common_name = f"Test Common {uuid.uuid4().hex[:6]}"
     localized_common = f"Prueba Comun {uuid.uuid4().hex[:6]}"
 
-    with patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])), patch(
-        "app.routers.species.taxonomy_service.get_names",
-        new=AsyncMock(return_value={"scientific_name": scientific_name, "common_name": common_name, "taxa_id": 1234}),
-    ) as mock_get_names, patch(
-        "app.routers.species.taxonomy_service.get_localized_common_name",
-        new=AsyncMock(return_value=localized_common),
-    ) as mock_localized:
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(
+                return_value={"scientific_name": scientific_name, "common_name": common_name, "taxa_id": 1234}
+            ),
+        ) as mock_get_names,
+        patch(
+            "app.routers.species.taxonomy_service.get_localized_common_name",
+            new=AsyncMock(return_value=localized_common),
+        ) as mock_localized,
+    ):
         response = await client.get(
             "/api/species/search?q=&limit=20&hydrate_missing=true",
             headers={"Accept-Language": "es"},
@@ -77,10 +83,15 @@ async def test_species_search_without_hydration_keeps_missing_names_and_skips_lo
     settings.public_access.enabled = False
     label = f"test-species-{uuid.uuid4().hex[:10]}"
 
-    with patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])), patch(
-        "app.routers.species.taxonomy_service.get_names",
-        new=AsyncMock(return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}),
-    ) as mock_get_names:
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(
+                return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}
+            ),
+        ) as mock_get_names,
+    ):
         response = await client.get("/api/species/search?q=&limit=20")
 
     assert response.status_code == 200, response.text
@@ -98,10 +109,13 @@ async def test_species_search_hydration_failure_is_non_fatal(client: httpx.Async
     settings.public_access.enabled = False
     label = f"test-species-{uuid.uuid4().hex[:10]}"
 
-    with patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])), patch(
-        "app.routers.species.taxonomy_service.get_names",
-        new=AsyncMock(side_effect=RuntimeError("taxonomy unavailable")),
-    ) as mock_get_names:
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(side_effect=RuntimeError("taxonomy unavailable")),
+        ) as mock_get_names,
+    ):
         response = await client.get("/api/species/search?q=&limit=20&hydrate_missing=true")
 
     assert response.status_code == 200, response.text
@@ -119,10 +133,19 @@ async def test_species_search_hydration_strips_parenthetical_classifier_suffix(c
     settings.public_access.enabled = False
     label = "Cassin's Finch (Adult Male)"
 
-    with patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])), patch(
-        "app.routers.species.taxonomy_service.get_names",
-        new=AsyncMock(return_value={"scientific_name": "Haemorhous cassinii", "common_name": "Cassin's Finch", "taxa_id": 4567}),
-    ) as mock_get_names:
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier([label])),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(
+                return_value={
+                    "scientific_name": "Haemorhous cassinii",
+                    "common_name": "Cassin's Finch",
+                    "taxa_id": 4567,
+                }
+            ),
+        ) as mock_get_names,
+    ):
         response = await client.get("/api/species/search?q=&limit=20&hydrate_missing=true")
 
     assert response.status_code == 200, response.text

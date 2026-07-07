@@ -29,9 +29,7 @@ _NONCANONICAL_EXACT = {
     "life",
     "life (life)",
 }
-_NONCANONICAL_SUBSTRINGS = (
-    " and allies",
-)
+_NONCANONICAL_SUBSTRINGS = (" and allies",)
 
 
 def _normalize_label_key(value: str | None) -> str:
@@ -86,10 +84,7 @@ def is_unknown_species_label(value: str | None, *, extra_labels: Iterable[str] |
     normalized = _normalize_label_key(value)
     if not normalized:
         return False
-    return normalized in {
-        _normalize_label_key(label)
-        for label in unknown_species_labels(extra_labels)
-    }
+    return normalized in {_normalize_label_key(label) for label in unknown_species_labels(extra_labels)}
 
 
 def is_noncanonical_species_label(value: str | None) -> bool:

@@ -30,6 +30,7 @@ log = structlog.get_logger()
 # (issue #50) doesn't leave us holding a closed coordinator.
 backfill_service = BackfillService()
 
+
 class BackfillJobStatus(BaseModel):
     id: str
     kind: str
@@ -45,6 +46,7 @@ class BackfillJobStatus(BaseModel):
     message: str = ""
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+
 
 _JOB_STORE: dict[str, BackfillJobStatus] = {}
 _LATEST_JOB_BY_KIND: dict[str, str] = {}
@@ -112,15 +114,19 @@ def start_watchdog() -> None:
 def _maintenance_holder_id(kind: str, job_id: str) -> str:
     return f"{kind}:{job_id}"
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def _track_job(job: BackfillJobStatus):
     _JOB_STORE[job.id] = job
     _LATEST_JOB_BY_KIND[job.kind] = job.id
 
+
 def _job_payload(job: BackfillJobStatus) -> dict:
     return job.model_dump()
+
 
 async def _get_running_job(kind: str) -> Optional[BackfillJobStatus]:
     job_id = _LATEST_JOB_BY_KIND.get(kind)
@@ -170,22 +176,13 @@ def _maintenance_guardrail_status() -> dict:
             return _derive(status)
     return {}
 
+
 class BackfillRequest(BaseModel):
-    date_range: str = Field(
-        default="week",
-        description="Date range preset: 'day', 'week', 'month', or 'custom'"
-    )
-    start_date: Optional[str] = Field(
-        default=None,
-        description="Start date for custom range (YYYY-MM-DD)"
-    )
-    end_date: Optional[str] = Field(
-        default=None,
-        description="End date for custom range (YYYY-MM-DD)"
-    )
+    date_range: str = Field(default="week", description="Date range preset: 'day', 'week', 'month', or 'custom'")
+    start_date: Optional[str] = Field(default=None, description="Start date for custom range (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(default=None, description="End date for custom range (YYYY-MM-DD)")
     cameras: Optional[List[str]] = Field(
-        default=None,
-        description="Optional list of cameras to backfill (defaults to configured cameras)"
+        default=None, description="Optional list of cameras to backfill (defaults to configured cameras)"
     )
 
 
@@ -201,22 +198,10 @@ class BackfillResponse(BaseModel):
 
 
 class WeatherBackfillRequest(BaseModel):
-    date_range: str = Field(
-        default="week",
-        description="Date range preset: 'day', 'week', 'month', or 'custom'"
-    )
-    start_date: Optional[str] = Field(
-        default=None,
-        description="Start date for custom range (YYYY-MM-DD)"
-    )
-    end_date: Optional[str] = Field(
-        default=None,
-        description="End date for custom range (YYYY-MM-DD)"
-    )
-    only_missing: bool = Field(
-        default=True,
-        description="Only fill detections missing weather fields"
-    )
+    date_range: str = Field(default="week", description="Date range preset: 'day', 'week', 'month', or 'custom'")
+    start_date: Optional[str] = Field(default=None, description="Start date for custom range (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(default=None, description="End date for custom range (YYYY-MM-DD)")
+    only_missing: bool = Field(default=True, description="Only fill detections missing weather fields")
 
 
 class WeatherBackfillResponse(BaseModel):
@@ -234,11 +219,7 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
     if skipped <= 0:
         return ""
 
-    reasons = {
-        str(k): int(v)
-        for k, v in (skipped_reasons or {}).items()
-        if k and int(v) > 0
-    }
+    reasons = {str(k): int(v) for k, v in (skipped_reasons or {}).items() if k and int(v) > 0}
     if not reasons:
         return f"{skipped} skipped"
 
@@ -308,11 +289,7 @@ def _build_error_message(errors: int, error_reasons: Optional[dict[str, int]] = 
     if errors <= 0:
         return ""
 
-    reasons = {
-        str(k): int(v)
-        for k, v in (error_reasons or {}).items()
-        if k and int(v) > 0
-    }
+    reasons = {str(k): int(v) for k, v in (error_reasons or {}).items() if k and int(v) > 0}
     if not reasons:
         return f"{errors} error(s)"
 
@@ -340,7 +317,9 @@ def _build_error_message(errors: int, error_reasons: Optional[dict[str, int]] = 
     return ", ".join(parts) if parts else f"{errors} error(s)"
 
 
-def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str) -> tuple[datetime, datetime]:
+def _resolve_date_range(
+    date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str
+) -> tuple[datetime, datetime]:
     now = datetime.now()
     if date_range == "day":
         return now - timedelta(days=1), now
@@ -351,8 +330,7 @@ def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Op
     if date_range == "custom":
         if not start_date or not end_date:
             raise HTTPException(
-                status_code=400,
-                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
         try:
             start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -361,20 +339,13 @@ def _resolve_date_range(date_range: str, start_date: Optional[str], end_date: Op
             return start, end
         except ValueError:
             raise HTTPException(
-                status_code=400,
-                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
-    raise HTTPException(
-        status_code=400,
-        detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
-    )
+    raise HTTPException(status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang))
 
 
 @router.delete("/backfill/reset")
-async def reset_database(
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def reset_database(request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Reset the database: Delete ALL detections and clear media cache. Owner only.
     """
@@ -391,21 +362,19 @@ async def reset_database(
         async with get_db() as db:
             repo = DetectionRepository(db)
             deleted_count = await repo.delete_all()
-            
+
         # Clear media cache
         cache_stats = await media_cache.clear_all()
-        
-        log.warning("Database reset triggered by user", 
-                    deleted_detections=deleted_count, 
-                    cache_stats=cache_stats)
+
+        log.warning("Database reset triggered by user", deleted_detections=deleted_count, cache_stats=cache_stats)
 
         mqtt_service.resume()
-        
+
         return {
             "status": "success",
             "message": f"Deleted {deleted_count} detections and cleared cache ({cache_stats['snapshots_deleted']} snapshots, {cache_stats['clips_deleted']} clips).",
             "deleted_count": deleted_count,
-            "cache_stats": cache_stats
+            "cache_stats": cache_stats,
         }
     except Exception as e:
         mqtt_service.resume()
@@ -415,9 +384,7 @@ async def reset_database(
 
 @router.post("/backfill", response_model=BackfillResponse)
 async def backfill_detections(
-    backfill_request: BackfillRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    backfill_request: BackfillRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """
     Fetch historical bird detections from Frigate and process them. Owner only.
@@ -439,17 +406,13 @@ async def backfill_detections(
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
         start, end = _resolve_date_range(
-            backfill_request.date_range,
-            backfill_request.start_date,
-            backfill_request.end_date,
-            lang
+            backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
         )
 
         # Validate date range
         if start > end:
             raise HTTPException(
-                status_code=400,
-                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
 
         # Run the backfill
@@ -475,7 +438,7 @@ async def backfill_detections(
             errors=result.errors,
             skipped_reasons=result.skipped_reasons,
             error_reasons=result.error_reasons,
-            message=message
+            message=message,
         )
 
     except HTTPException:
@@ -483,8 +446,7 @@ async def backfill_detections(
     except Exception as e:
         log.error("Backfill failed", error=str(e))
         raise HTTPException(
-            status_code=500,
-            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+            status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
     finally:
         await maintenance_coordinator.release(holder_id)
@@ -492,15 +454,15 @@ async def backfill_detections(
 
 @router.post("/backfill/async", response_model=BackfillJobStatus)
 async def backfill_detections_async(
-    backfill_request: BackfillRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    backfill_request: BackfillRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """Run detection backfill in the background and return a job status."""
     lang = get_user_language(request)
     taxonomy_status = canonical_identity_repair_service.get_status()
     if taxonomy_status.get("is_running"):
-        raise HTTPException(status_code=409, detail="Taxonomy repair is currently running. Please wait for it to finish.")
+        raise HTTPException(
+            status_code=409, detail="Taxonomy repair is currently running. Please wait for it to finish."
+        )
 
     guard = _maintenance_guardrail_status()
     if bool(guard.get("reject_new_work")):
@@ -511,12 +473,7 @@ async def backfill_detections_async(
         if running:
             return running
 
-        job = BackfillJobStatus(
-            id=str(uuid4()),
-            kind="detections",
-            status="running",
-            started_at=_now_iso()
-        )
+        job = BackfillJobStatus(id=str(uuid4()), kind="detections", status="running", started_at=_now_iso())
         holder_id = _maintenance_holder_id("backfill_detections", job.id)
         acquired = await maintenance_coordinator.try_acquire(holder_id, kind="backfill")
         if not acquired:
@@ -526,36 +483,24 @@ async def backfill_detections_async(
     async def runner():
         try:
             start, end = _resolve_date_range(
-                backfill_request.date_range,
-                backfill_request.start_date,
-                backfill_request.end_date,
-                lang
+                backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
             )
             if start > end:
                 raise HTTPException(
-                    status_code=400,
-                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                    status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
 
             job.message = "Querying Frigate API for historical events..."
-            await broadcaster.broadcast({
-                "type": "backfill_started",
-                "data": _job_payload(job)
-            })
+            await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
             events = await backfill_service.fetch_frigate_events(
-                start.timestamp(),
-                end.timestamp(),
-                backfill_request.cameras
+                start.timestamp(), end.timestamp(), backfill_request.cameras
             )
             job.total = len(events)
             job.processed = 0
             job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
-            await broadcaster.broadcast({
-                "type": "backfill_progress",
-                "data": _job_payload(job)
-            })
+            await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
 
             for event in events:
                 status, reason = await backfill_service.process_historical_event_with_timeout(event)
@@ -573,10 +518,7 @@ async def backfill_detections_async(
                 if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                     last_broadcast = job.processed
                     job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
-                    await broadcaster.broadcast({
-                        "type": "backfill_progress",
-                        "data": _job_payload(job)
-                    })
+                    await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
             if job.new_detections > 0:
                 message = f"Added {job.new_detections} new detection(s)"
             else:
@@ -588,10 +530,7 @@ async def backfill_detections_async(
             job.message = message
             job.status = "completed"
             job.finished_at = _now_iso()
-            await broadcaster.broadcast({
-                "type": "backfill_complete",
-                "data": _job_payload(job)
-            })
+            await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
 
             # Auto-chain weather backfill for the same period so weather and
             # detection history are filled together. Only-missing keeps it cheap
@@ -604,9 +543,7 @@ async def backfill_detections_async(
                     end_date=backfill_request.end_date,
                     only_missing=True,
                 )
-                chained = await _start_weather_backfill_async(
-                    weather_request, lang, raise_on_busy=False
-                )
+                chained = await _start_weather_backfill_async(weather_request, lang, raise_on_busy=False)
                 if chained is None:
                     log.info(
                         "Skipping chained weather backfill — maintenance lane busy or weather job already running",
@@ -624,10 +561,7 @@ async def backfill_detections_async(
                 job.status = "failed"
                 job.message = "Backfill cancelled"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({
-                    "type": "backfill_failed",
-                    "data": _job_payload(job)
-                })
+                await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
             raise
         except Exception as e:
             log.error("Async backfill failed", error=str(e))
@@ -643,10 +577,7 @@ async def backfill_detections_async(
                 severity="error",
                 context={"job_id": job.id, "error": str(e) or repr(e)},
             )
-            await broadcaster.broadcast({
-                "type": "backfill_failed",
-                "data": _job_payload(job)
-            })
+            await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
         finally:
             await maintenance_coordinator.release(holder_id)
 
@@ -662,9 +593,7 @@ async def backfill_detections_async(
 
 @router.post("/backfill/weather", response_model=WeatherBackfillResponse)
 async def backfill_weather(
-    backfill_request: WeatherBackfillRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    backfill_request: WeatherBackfillRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """Backfill missing weather fields for detections in a date range."""
     lang = get_user_language(request)
@@ -674,24 +603,18 @@ async def backfill_weather(
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
         start, end = _resolve_date_range(
-            backfill_request.date_range,
-            backfill_request.start_date,
-            backfill_request.end_date,
-            lang
+            backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
         )
 
         if start > end:
             raise HTTPException(
-                status_code=400,
-                detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
 
         async with get_db() as db:
             repo = DetectionRepository(db)
             detections = await repo.list_for_weather_backfill(
-                start.strftime("%Y-%m-%d %H:%M:%S"),
-                end.strftime("%Y-%m-%d %H:%M:%S"),
-                backfill_request.only_missing
+                start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S"), backfill_request.only_missing
             )
 
             if not detections:
@@ -701,7 +624,7 @@ async def backfill_weather(
                     updated=0,
                     skipped=0,
                     errors=0,
-                    message="No detections found in range"
+                    message="No detections found in range",
                 )
 
             hourly = await weather_service.get_hourly_weather(start, end)
@@ -712,7 +635,7 @@ async def backfill_weather(
                     updated=0,
                     skipped=len(detections),
                     errors=0,
-                    message="Weather archive unavailable for range"
+                    message="Weather archive unavailable for range",
                 )
 
             updated = 0
@@ -748,7 +671,7 @@ async def backfill_weather(
                         weather.get("wind_direction"),
                         weather.get("precipitation"),
                         weather.get("rain"),
-                        weather.get("snowfall")
+                        weather.get("snowfall"),
                     )
                     updated += 1
                 except Exception as e:
@@ -769,15 +692,14 @@ async def backfill_weather(
                 skipped=skipped,
                 errors=errors,
                 error_reasons=error_reasons,
-                message=message
+                message=message,
             )
     except HTTPException:
         raise
     except Exception as e:
         log.error("Weather backfill failed", error=str(e))
         raise HTTPException(
-            status_code=500,
-            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+            status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
     finally:
         await maintenance_coordinator.release(holder_id)
@@ -798,12 +720,7 @@ async def _start_weather_backfill_async(
         if running:
             return running if raise_on_busy else None
 
-        job = BackfillJobStatus(
-            id=str(uuid4()),
-            kind="weather",
-            status="running",
-            started_at=_now_iso()
-        )
+        job = BackfillJobStatus(id=str(uuid4()), kind="weather", status="running", started_at=_now_iso())
         holder_id = _maintenance_holder_id("backfill_weather", job.id)
         acquired = await maintenance_coordinator.try_acquire(holder_id, kind="weather_backfill")
         if not acquired:
@@ -815,15 +732,11 @@ async def _start_weather_backfill_async(
     async def runner():
         try:
             start, end = _resolve_date_range(
-                backfill_request.date_range,
-                backfill_request.start_date,
-                backfill_request.end_date,
-                lang
+                backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
             )
             if start > end:
                 raise HTTPException(
-                    status_code=400,
-                    detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
+                    status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
 
             async with get_db() as db:
@@ -831,24 +744,18 @@ async def _start_weather_backfill_async(
                 detections = await repo.list_for_weather_backfill(
                     start.strftime("%Y-%m-%d %H:%M:%S"),
                     end.strftime("%Y-%m-%d %H:%M:%S"),
-                    backfill_request.only_missing
+                    backfill_request.only_missing,
                 )
 
                 job.total = len(detections)
                 last_broadcast = 0
                 broadcast_every = max(1, job.total // 20) if job.total else 1
-                await broadcaster.broadcast({
-                    "type": "backfill_started",
-                    "data": _job_payload(job)
-                })
+                await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
                 if not detections:
                     job.status = "completed"
                     job.message = "No detections found in range"
                     job.finished_at = _now_iso()
-                    await broadcaster.broadcast({
-                        "type": "backfill_complete",
-                        "data": _job_payload(job)
-                    })
+                    await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
                     return
 
                 hourly = await weather_service.get_hourly_weather(start, end)
@@ -858,10 +765,7 @@ async def _start_weather_backfill_async(
                     job.status = "completed"
                     job.message = "Weather archive unavailable for range"
                     job.finished_at = _now_iso()
-                    await broadcaster.broadcast({
-                        "type": "backfill_complete",
-                        "data": _job_payload(job)
-                    })
+                    await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
                     return
 
                 for det in detections:
@@ -891,7 +795,7 @@ async def _start_weather_backfill_async(
                                 weather.get("wind_direction"),
                                 weather.get("precipitation"),
                                 weather.get("rain"),
-                                weather.get("snowfall")
+                                weather.get("snowfall"),
                             )
                             job.updated += 1
                     except Exception as e:
@@ -902,10 +806,7 @@ async def _start_weather_backfill_async(
                         job.processed += 1
                         if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                             last_broadcast = job.processed
-                            await broadcaster.broadcast({
-                                "type": "backfill_progress",
-                                "data": _job_payload(job)
-                            })
+                            await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
 
                 message = f"Updated {job.updated} detection(s)"
                 if job.skipped:
@@ -915,20 +816,14 @@ async def _start_weather_backfill_async(
                 job.message = message
                 job.status = "completed"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({
-                    "type": "backfill_complete",
-                    "data": _job_payload(job)
-                })
+                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
         except asyncio.CancelledError:
             log.warning("Async weather backfill cancelled", job_id=job.id)
             if _JOB_STORE.get(job.id) is job:
                 job.status = "failed"
                 job.message = "Weather backfill cancelled"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({
-                    "type": "backfill_failed",
-                    "data": _job_payload(job)
-                })
+                await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
             raise
         except Exception as e:
             log.error("Async weather backfill failed", error=str(e))
@@ -944,10 +839,7 @@ async def _start_weather_backfill_async(
                 severity="error",
                 context={"job_id": job.id, "error": str(e) or repr(e)},
             )
-            await broadcaster.broadcast({
-                "type": "backfill_failed",
-                "data": _job_payload(job)
-            })
+            await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
         finally:
             await maintenance_coordinator.release(holder_id)
 
@@ -963,9 +855,7 @@ async def _start_weather_backfill_async(
 
 @router.post("/backfill/weather/async", response_model=BackfillJobStatus)
 async def backfill_weather_async(
-    backfill_request: WeatherBackfillRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    backfill_request: WeatherBackfillRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """Run weather backfill in the background and return a job status."""
     lang = get_user_language(request)
@@ -978,10 +868,7 @@ async def backfill_weather_async(
 
 
 @router.get("/backfill/status")
-async def get_backfill_status(
-    kind: Optional[str] = None,
-    auth: AuthContext = Depends(require_owner)
-):
+async def get_backfill_status(kind: Optional[str] = None, auth: AuthContext = Depends(require_owner)):
     """Return the latest backfill job status (optionally filtered by kind)."""
     if kind:
         job_id = _LATEST_JOB_BY_KIND.get(kind)
@@ -993,10 +880,7 @@ async def get_backfill_status(
 
 
 @router.get("/backfill/status/{job_id}", response_model=BackfillJobStatus)
-async def get_backfill_status_by_id(
-    job_id: str,
-    auth: AuthContext = Depends(require_owner)
-):
+async def get_backfill_status_by_id(job_id: str, auth: AuthContext = Depends(require_owner)):
     job = _JOB_STORE.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Backfill job not found")

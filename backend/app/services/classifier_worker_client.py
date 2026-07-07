@@ -164,12 +164,13 @@ class ClassifierWorkerClient:
             return
         self._last_stderr_monotonic = time.monotonic()
         self._stderr_tail.extend(data)
-        
+
         # Forward worker stderr to main process log so it's visible in docker logs
         try:
             text = data.decode("utf-8", errors="replace").strip()
             if text:
                 from structlog import get_logger
+
                 log = get_logger()
                 log.info(f"Worker {self.worker_name} stderr", text=text)
         except Exception:

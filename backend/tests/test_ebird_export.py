@@ -432,9 +432,9 @@ async def test_ebird_export_uses_daily_duration_window_per_date(client: httpx.As
     # Two Great Tit detections on the same date/camera aggregate into one checklist row.
     assert len(rows) == 1
     assert rows[0][0] == "Great Tit"
-    assert rows[0][3] == "1"           # conservative checklist export count
-    assert rows[0][9] == "07:05"       # checklist start = earliest detection
-    assert rows[0][14] == "42"         # duration = span from 07:05 to 07:47
+    assert rows[0][3] == "1"  # conservative checklist export count
+    assert rows[0][9] == "07:05"  # checklist start = earliest detection
+    assert rows[0][14] == "42"  # duration = span from 07:05 to 07:47
 
 
 @pytest.mark.asyncio
@@ -582,8 +582,12 @@ async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missi
     # Simulate iNaturalist being unreachable so the enrichment pass finds nothing —
     # the exporter must still fall back to scientific name gracefully.
     with (
-        patch.object(taxonomy_service, "get_names", new_callable=AsyncMock,
-                     return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None}),
+        patch.object(
+            taxonomy_service,
+            "get_names",
+            new_callable=AsyncMock,
+            return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None},
+        ),
         patch.object(taxonomy_service, "get_localized_common_name", new_callable=AsyncMock, return_value=None),
     ):
         response = await client.get("/api/ebird/export")

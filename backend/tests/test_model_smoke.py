@@ -25,6 +25,7 @@ import pytest
 
 try:
     import onnxruntime as ort
+
     ORT_AVAILABLE = True
 except ImportError:
     ORT_AVAILABLE = False
@@ -34,6 +35,7 @@ pytestmark = pytest.mark.skipif(not ORT_AVAILABLE, reason="onnxruntime not insta
 # ---------------------------------------------------------------------------
 # Discover installed models
 # ---------------------------------------------------------------------------
+
 
 def _models_dir() -> Path:
     if os.path.exists("/data/models"):
@@ -133,6 +135,7 @@ class _LazySessionCache:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def ort_session_cache() -> _LazySessionCache:
     """Load ORT sessions lazily so the smoke suite does not pin all models in RAM."""
@@ -143,10 +146,7 @@ def ort_session_cache() -> _LazySessionCache:
         so.intra_op_num_threads = 2
         so.inter_op_num_threads = 1
         so.log_severity_level = 3  # suppress verbose ORT logs
-        return ort.InferenceSession(
-            str(model_path), so,
-            providers=["CPUExecutionProvider"]
-        )
+        return ort.InferenceSession(str(model_path), so, providers=["CPUExecutionProvider"])
 
     cache = _LazySessionCache(model_dirs, session_factory=_build_session)
     try:
@@ -192,12 +192,15 @@ def test_session_cache_loads_models_on_demand(tmp_path: Path) -> None:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("model_id", _MODEL_IDS)
 def test_model_config_is_valid(model_id: str) -> None:
     """model_config.json must exist, be valid JSON, and have required fields.
     Legacy models without a sidecar are marked xfail with a descriptive reason."""
     if not _has_sidecar(model_id):
-        pytest.xfail(f"{model_id}: no model_config.json sidecar — legacy model, run export_and_config_birder_model.py to generate one")
+        pytest.xfail(
+            f"{model_id}: no model_config.json sidecar — legacy model, run export_and_config_birder_model.py to generate one"
+        )
 
     model_dir = _model_dir(model_id)
     config = json.loads((model_dir / "model_config.json").read_text())
@@ -275,9 +278,7 @@ def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) 
     assert logits.ndim == 1, f"{model_id}: output should be 1-D per sample"
     assert len(logits) > 0, f"{model_id}: output should contain at least one class logit"
     if labels:
-        assert len(logits) == len(labels), (
-            f"{model_id}: output length {len(logits)} != labels count {len(labels)}"
-        )
+        assert len(logits) == len(labels), f"{model_id}: output length {len(logits)} != labels count {len(labels)}"
     elif not _has_sidecar(model_id):
         pytest.xfail(
             f"{model_id}: labels.txt missing alongside absent model_config.json — "
@@ -322,9 +323,7 @@ def test_model_softmax_sums_to_one(model_id: str, ort_session_cache: dict) -> No
 
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
-    assert abs(probs.sum() - 1.0) < 1e-4, (
-        f"{model_id}: softmax sum {probs.sum():.6f} not close to 1.0"
-    )
+    assert abs(probs.sum() - 1.0) < 1e-4, f"{model_id}: softmax sum {probs.sum():.6f} not close to 1.0"
 
 
 @pytest.mark.parametrize("model_id", _MODEL_IDS)
@@ -370,6 +369,5 @@ def test_model_inference_top_prediction_is_reasonable(model_id: str, ort_session
 
     top_score = float(probs.max())
     assert top_score > 0.001, (
-        f"{model_id}: top prediction score {top_score:.6f} is suspiciously low — "
-        "model output may be degenerate"
+        f"{model_id}: top prediction score {top_score:.6f} is suspiciously low — model output may be degenerate"
     )

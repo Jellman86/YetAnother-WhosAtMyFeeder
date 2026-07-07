@@ -122,9 +122,7 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
         ),
         inference_health_total_samples=(
             sum(
-                int(runtime.get("samples") or 0)
-                for runtime in inference_runtimes.values()
-                if isinstance(runtime, dict)
+                int(runtime.get("samples") or 0) for runtime in inference_runtimes.values() if isinstance(runtime, dict)
             )
             if inference_health
             else None
@@ -132,7 +130,9 @@ def sample_from_health_payload(payload: dict[str, Any], observed_at: datetime | 
     )
 
 
-def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, health_fetch_failures: int = 0) -> dict[str, Any]:
+def evaluate_soak_run(
+    samples: list[SoakSample], thresholds: SoakThresholds, health_fetch_failures: int = 0
+) -> dict[str, Any]:
     reasons: list[str] = []
     incidents = _detect_stall_incidents(samples, thresholds)
 
@@ -159,9 +159,7 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
     video_circuit_open_observed = any(sample.video_circuit_open is True for sample in samples)
 
     if len(samples) < thresholds.min_samples:
-        reasons.append(
-            f"Insufficient samples captured ({len(samples)} < {thresholds.min_samples})."
-        )
+        reasons.append(f"Insufficient samples captured ({len(samples)} < {thresholds.min_samples}).")
 
     if health_fetch_failures > thresholds.max_health_fetch_failures:
         reasons.append(
@@ -173,34 +171,26 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         reasons.append("Unable to compute Frigate topic message delta from health payload.")
     elif frigate_delta < thresholds.min_frigate_messages_delta:
         reasons.append(
-            "Frigate topic message growth below threshold "
-            f"({frigate_delta} < {thresholds.min_frigate_messages_delta})."
+            f"Frigate topic message growth below threshold ({frigate_delta} < {thresholds.min_frigate_messages_delta})."
         )
 
     if birdnet_delta is None:
         reasons.append("Unable to compute BirdNET topic message delta from health payload.")
     elif birdnet_delta < thresholds.min_birdnet_messages_delta:
         reasons.append(
-            "BirdNET topic message growth below threshold "
-            f"({birdnet_delta} < {thresholds.min_birdnet_messages_delta})."
+            f"BirdNET topic message growth below threshold ({birdnet_delta} < {thresholds.min_birdnet_messages_delta})."
         )
 
     if degraded_ratio > thresholds.max_degraded_ratio:
         reasons.append(
-            "Degraded health ratio exceeded threshold "
-            f"({degraded_ratio:.3f} > {thresholds.max_degraded_ratio:.3f})."
+            f"Degraded health ratio exceeded threshold ({degraded_ratio:.3f} > {thresholds.max_degraded_ratio:.3f})."
         )
 
     if _pressure_rank(max_pressure) > _pressure_rank(thresholds.max_pressure_level):
-        reasons.append(
-            "Pressure level exceeded limit "
-            f"(max={max_pressure}, allowed={thresholds.max_pressure_level})."
-        )
+        reasons.append(f"Pressure level exceeded limit (max={max_pressure}, allowed={thresholds.max_pressure_level}).")
 
     if incidents:
-        reasons.append(
-            f"Frigate stream stalled while BirdNET remained active ({len(incidents)} incident(s))."
-        )
+        reasons.append(f"Frigate stream stalled while BirdNET remained active ({len(incidents)} incident(s)).")
 
     if thresholds.min_topic_liveness_reconnects_delta is not None:
         if reconnect_delta is None:
@@ -217,38 +207,29 @@ def evaluate_soak_run(samples: list[SoakSample], thresholds: SoakThresholds, hea
         and event_started_delta > 0
         and event_completed_delta <= 0
     ):
-        reasons.append(
-            "Event pipeline started processing new MQTT events but completed-events did not advance."
-        )
+        reasons.append("Event pipeline started processing new MQTT events but completed-events did not advance.")
 
     if event_critical_failures_delta is not None and event_critical_failures_delta > 0:
         reasons.append(
-            "Event pipeline critical failures increased during soak run "
-            f"(+{event_critical_failures_delta})."
+            f"Event pipeline critical failures increased during soak run (+{event_critical_failures_delta})."
         )
 
     if live_image_admission_timeouts_delta is not None and live_image_admission_timeouts_delta > 0:
         reasons.append(
-            "Live image admission timeouts increased during soak run "
-            f"(+{live_image_admission_timeouts_delta})."
+            f"Live image admission timeouts increased during soak run (+{live_image_admission_timeouts_delta})."
         )
 
     if live_image_abandoned_delta is not None and live_image_abandoned_delta > 0:
-        reasons.append(
-            "Live image abandoned work increased during soak run "
-            f"(+{live_image_abandoned_delta})."
-        )
+        reasons.append(f"Live image abandoned work increased during soak run (+{live_image_abandoned_delta}).")
 
     if classify_snapshot_timeout_delta is not None and classify_snapshot_timeout_delta > 0:
         reasons.append(
-            "classify_snapshot_timeout drops increased during soak run "
-            f"(+{classify_snapshot_timeout_delta})."
+            f"classify_snapshot_timeout drops increased during soak run (+{classify_snapshot_timeout_delta})."
         )
 
     if classify_snapshot_overloaded_delta is not None and classify_snapshot_overloaded_delta > 0:
         reasons.append(
-            "classify_snapshot_overloaded drops increased during soak run "
-            f"(+{classify_snapshot_overloaded_delta})."
+            f"classify_snapshot_overloaded drops increased during soak run (+{classify_snapshot_overloaded_delta})."
         )
 
     if not thresholds.allow_video_circuit_open and video_circuit_open_observed:

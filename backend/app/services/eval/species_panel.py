@@ -5,6 +5,7 @@ region-aware list of species observed near the user's configured location,
 sourced from iNaturalist's species_counts endpoint (which already returns
 taxon IDs, sidestepping a separate species-code → taxa_id lookup).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,6 +58,7 @@ async def _resolve_taxa_id_via_taxonomy_service(scientific_name: str) -> Optiona
         return None
     try:
         from app.services.taxonomy.taxonomy_service import taxonomy_service
+
         result = await taxonomy_service.get_names(scientific_name)
         return int(result["taxa_id"]) if result and result.get("taxa_id") else None
     except Exception as e:
@@ -89,12 +91,14 @@ async def resolve_shared_core(
         if not taxa_id:
             log.info("eval_panel_skipped_unresolved", scientific_name=sci)
             continue
-        out.append(SpeciesEntry(
-            taxa_id=int(taxa_id),
-            scientific_name=sci,
-            common_name=common,
-            panel="shared_core",
-        ))
+        out.append(
+            SpeciesEntry(
+                taxa_id=int(taxa_id),
+                scientific_name=sci,
+                common_name=common,
+                panel="shared_core",
+            )
+        )
     return out
 
 
@@ -137,12 +141,14 @@ async def fetch_regional_species(
         common = taxon.get("preferred_common_name") or taxon.get("english_common_name") or ""
         if not tid or not sci:
             continue
-        out.append(SpeciesEntry(
-            taxa_id=int(tid),
-            scientific_name=str(sci),
-            common_name=str(common),
-            panel="regional",
-        ))
+        out.append(
+            SpeciesEntry(
+                taxa_id=int(tid),
+                scientific_name=str(sci),
+                common_name=str(common),
+                panel="regional",
+            )
+        )
     return out
 
 

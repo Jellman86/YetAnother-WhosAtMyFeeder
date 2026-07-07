@@ -209,7 +209,9 @@ def _load_coordinator_and_sensor_modules():
             self._response = types.SimpleNamespace(
                 status_code=response.status,
                 _payload=payload,
-                raise_for_status=lambda: None if 200 <= response.status < 400 else (_ for _ in ()).throw(RuntimeError(response.status)),
+                raise_for_status=lambda: (
+                    None if 200 <= response.status < 400 else (_ for _ in ()).throw(RuntimeError(response.status))
+                ),
                 json=lambda: payload,
             )
             return _ResponseWrapper(self._response)
@@ -495,6 +497,7 @@ async def test_component_polling_discards_non_mapping_latest_detection():
 # Malformed daily-summary payload resilience
 # ---------------------------------------------------------------------------
 
+
 def test_sensors_handle_latest_detection_missing_frigate_event():
     """latest_detection with missing frigate_event should not crash sensors."""
     sensor_module = _load_sensor_module()
@@ -639,8 +642,7 @@ def test_ingress_rewrites_runtime_icon_assets_and_manifest_paths():
 def test_ingress_rewrite_does_not_duplicate_app_base_marker():
     ingress_module = _load_ingress_module()
     body = (
-        '<html><head><script>window.__YAWAMF_APP_BASE_PATH="/api/yawamf/ingress";'
-        "</script></head><body></body></html>"
+        '<html><head><script>window.__YAWAMF_APP_BASE_PATH="/api/yawamf/ingress";</script></head><body></body></html>'
     )
 
     rewritten = ingress_module._rewrite_root_paths(body)

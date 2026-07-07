@@ -30,22 +30,14 @@ def test_translate_nested_key():
 
 def test_translate_with_variables():
     """Template variable substitution should work."""
-    result = i18n_service.translate(
-        "errors.proxy.frigate_error",
-        "en",
-        status_code=500
-    )
+    result = i18n_service.translate("errors.proxy.frigate_error", "en", status_code=500)
     assert "500" in result
 
 
 def test_translate_with_multiple_variables():
     """Multiple template variables should work."""
     result = i18n_service.translate(
-        "notification.detection_body",
-        "en",
-        species="Blue Jay",
-        camera="front_feeder",
-        confidence=95
+        "notification.detection_body", "en", species="Blue Jay", camera="front_feeder", confidence=95
     )
     assert "Blue Jay" in result
     assert "front_feeder" in result
@@ -68,11 +60,7 @@ def test_missing_key_returns_key():
 
 def test_all_locales_have_core_notification_keys():
     """All locales should have core notification structure."""
-    core_keys = [
-        "notification.new_detection",
-        "notification.detection_body",
-        "notification.audio_confirmed"
-    ]
+    core_keys = ["notification.new_detection", "notification.detection_body", "notification.audio_confirmed"]
     for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in core_keys:
             result = i18n_service.translate(key, locale)
@@ -89,7 +77,7 @@ def test_all_locales_have_core_error_keys():
         "errors.proxy.frigate_auth_failed",
         "errors.proxy.snapshot_not_found",
         "errors.events.snapshot_fetch_failed",
-        "errors.events.classification_failed"
+        "errors.events.classification_failed",
     ]
     for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in core_keys:
@@ -103,8 +91,9 @@ def test_chinese_locale_exists_and_works():
     result = i18n_service.translate("notification.new_detection", "zh")
     assert result != "notification.new_detection"
     # Check it's actually Chinese characters (basic check - Unicode range for CJK)
-    assert any(ord(char) > 0x4E00 and ord(char) < 0x9FFF for char in result), \
+    assert any(ord(char) > 0x4E00 and ord(char) < 0x9FFF for char in result), (
         "Chinese translation should contain Chinese characters"
+    )
 
 
 def test_spanish_locale_works():
@@ -121,9 +110,9 @@ def test_japanese_locale_works():
     assert result != "notification.new_detection"
     # Check for Japanese characters (Hiragana, Katakana, or Kanji)
     assert any(
-        (ord(char) >= 0x3040 and ord(char) <= 0x309F) or  # Hiragana
-        (ord(char) >= 0x30A0 and ord(char) <= 0x30FF) or  # Katakana
-        (ord(char) >= 0x4E00 and ord(char) <= 0x9FFF)     # Kanji
+        (ord(char) >= 0x3040 and ord(char) <= 0x309F)  # Hiragana
+        or (ord(char) >= 0x30A0 and ord(char) <= 0x30FF)  # Katakana
+        or (ord(char) >= 0x4E00 and ord(char) <= 0x9FFF)  # Kanji
         for char in result
     ), "Japanese translation should contain Japanese characters"
 
@@ -161,7 +150,7 @@ def test_events_error_structure():
         "errors.events.delete_failed",
         "errors.events.update_failed",
         "errors.events.wildlife_model_unavailable",
-        "errors.events.reclassification_failed"
+        "errors.events.reclassification_failed",
     ]
     for key in events_keys:
         result = i18n_service.translate(key, "en")
@@ -175,7 +164,7 @@ def test_ai_error_structure():
         "errors.ai.provider_not_configured",
         "errors.ai.api_key_missing",
         "errors.ai.analysis_failed",
-        "errors.ai.image_fetch_failed"
+        "errors.ai.image_fetch_failed",
     ]
     for key in ai_keys:
         result = i18n_service.translate(key, "en")
@@ -188,7 +177,7 @@ def test_backfill_error_structure():
     backfill_keys = [
         "errors.backfill.no_events",
         "errors.backfill.processing_error",
-        "errors.backfill.invalid_time_range"
+        "errors.backfill.invalid_time_range",
     ]
     for key in backfill_keys:
         result = i18n_service.translate(key, "en")
@@ -219,30 +208,18 @@ def test_none_locale_fallback():
 
 def test_variable_substitution_with_url():
     """Variable substitution should work with URLs."""
-    result = i18n_service.translate(
-        "errors.proxy.connection_failed",
-        "en",
-        url="http://localhost:5000"
-    )
+    result = i18n_service.translate("errors.proxy.connection_failed", "en", url="http://localhost:5000")
     assert "http://localhost:5000" in result or "localhost" in result
 
 
 def test_variable_substitution_preserves_type():
     """Variable substitution should handle different types."""
     # Test with integer
-    result = i18n_service.translate(
-        "errors.proxy.frigate_error",
-        "en",
-        status_code=404
-    )
+    result = i18n_service.translate("errors.proxy.frigate_error", "en", status_code=404)
     assert "404" in result
 
     # Test with string
-    result2 = i18n_service.translate(
-        "errors.backfill.processing_error",
-        "en",
-        error="Connection timeout"
-    )
+    result2 = i18n_service.translate("errors.backfill.processing_error", "en", error="Connection timeout")
     assert "Connection timeout" in result2
 
 
@@ -271,8 +248,7 @@ def test_translation_completeness():
 
         # Check that all English keys exist in this locale
         missing_keys = set(en_keys) - set(locale_keys)
-        assert len(missing_keys) == 0, \
-            f"Locale {locale} is missing keys: {missing_keys}"
+        assert len(missing_keys) == 0, f"Locale {locale} is missing keys: {missing_keys}"
 
 
 def test_no_extra_keys_in_other_locales():
@@ -300,16 +276,12 @@ def test_no_extra_keys_in_other_locales():
         # Allow some flexibility for locale-specific metadata keys
         extra_keys = {k for k in extra_keys if not k.startswith("_")}
 
-        assert len(extra_keys) == 0, \
-            f"Locale {locale} has extra keys not in English: {extra_keys}"
+        assert len(extra_keys) == 0, f"Locale {locale} has extra keys not in English: {extra_keys}"
 
 
 def test_species_errors():
     """Species errors should exist."""
-    species_keys = [
-        "errors.species.unknown_bird",
-        "errors.species.species_not_found"
-    ]
+    species_keys = ["errors.species.unknown_bird", "errors.species.species_not_found"]
     for key in species_keys:
         result = i18n_service.translate(key, "en")
         assert result != key, f"Missing translation for {key}"
@@ -321,7 +293,7 @@ def test_classifier_errors():
     classifier_keys = [
         "errors.classifier.bird_model_not_loaded",
         "errors.classifier.wildlife_model_not_loaded",
-        "errors.classifier.model_load_failed"
+        "errors.classifier.model_load_failed",
     ]
     for key in classifier_keys:
         result = i18n_service.translate(key, "en")
@@ -331,10 +303,7 @@ def test_classifier_errors():
 
 def test_models_errors():
     """Models errors should exist."""
-    models_keys = [
-        "errors.models.not_installed",
-        "errors.models.download_failed"
-    ]
+    models_keys = ["errors.models.not_installed", "errors.models.download_failed"]
     for key in models_keys:
         result = i18n_service.translate(key, "en")
         assert result != key, f"Missing translation for {key}"
@@ -350,7 +319,7 @@ def test_email_errors():
         "errors.email.not_enabled",
         "errors.email.recipient_not_configured",
         "errors.email.smtp_incomplete",
-        "errors.email.send_failed"
+        "errors.email.send_failed",
     ]
     for locale in ["en", "es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
         for key in email_keys:
@@ -361,16 +330,8 @@ def test_email_errors():
 
 def test_email_errors_with_variables():
     """Email errors with variables should work."""
-    result = i18n_service.translate(
-        "errors.email.gmail_oauth_failed",
-        "en",
-        error="Connection timeout"
-    )
+    result = i18n_service.translate("errors.email.gmail_oauth_failed", "en", error="Connection timeout")
     assert "Connection timeout" in result
 
-    result2 = i18n_service.translate(
-        "errors.email.disconnect_error",
-        "en",
-        error="Token expired"
-    )
+    result2 = i18n_service.translate("errors.email.disconnect_error", "en", error="Token expired")
     assert "Token expired" in result2

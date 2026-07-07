@@ -90,10 +90,7 @@ async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytes
 async def test_queue_classification_dedupes_under_concurrent_enqueues():
     service = AutoVideoClassifierService()
 
-    results = await asyncio.gather(*[
-        service.queue_classification("evt-race-1", "cam1")
-        for _ in range(20)
-    ])
+    results = await asyncio.gather(*[service.queue_classification("evt-race-1", "cam1") for _ in range(20)])
 
     assert results.count("queued") == 1
     assert results.count("duplicate") == 19
@@ -327,9 +324,7 @@ async def test_frigate_connectivity_errors_do_not_increment_failure_count():
         service._record_failure(f"evt-frigate-{i}", code)
 
     status = service.get_status()
-    assert status["failure_count"] == 0, (
-        f"Expected 0 failures after Frigate-side errors, got {status['failure_count']}"
-    )
+    assert status["failure_count"] == 0, f"Expected 0 failures after Frigate-side errors, got {status['failure_count']}"
     assert status["circuit_open"] is False
 
 
@@ -446,6 +441,7 @@ async def test_mixed_errors_only_ml_failures_count_toward_circuit(monkeypatch):
 # reset_circuit: lightweight circuit reset without queue drain
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_reset_circuit_clears_circuit_state(monkeypatch):
     """reset_circuit() must clear failure state and reclose the circuit."""
@@ -495,6 +491,7 @@ async def test_reset_circuit_preserves_pending_queue(monkeypatch):
 # get_circuit_status: open_until must be UTC
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_circuit_status_open_until_is_utc(monkeypatch):
     """open_until in get_circuit_status() must carry a UTC offset."""
@@ -511,14 +508,13 @@ async def test_circuit_status_open_until_is_utc(monkeypatch):
     open_until = status["open_until"]
     assert open_until is not None
     # A UTC-aware isoformat string ends with "+00:00".
-    assert open_until.endswith("+00:00"), (
-        f"Expected UTC offset in open_until, got: {open_until!r}"
-    )
+    assert open_until.endswith("+00:00"), f"Expected UTC offset in open_until, got: {open_until!r}"
 
 
 # ---------------------------------------------------------------------------
 # Circuit breaker auto-close after cooldown
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_circuit_auto_closes_after_cooldown_expires(monkeypatch):
@@ -581,6 +577,7 @@ async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_fo
     """When Frigate precheck returns event_not_found but a clip is locally cached,
     _process_event must call _load_preferred_clip instead of aborting at the precheck."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
 
     monkeypatch.setattr(
@@ -618,6 +615,7 @@ async def test_process_event_uses_cached_recording_clip_when_precheck_returns_ev
     the precheck abort and hand off to _load_preferred_clip, which prefers the
     recording clip."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
 
     monkeypatch.setattr(
@@ -658,6 +656,7 @@ async def test_process_event_schedules_precheck_retry_when_recording_clips_enabl
     failed. The recording-clip auto-fetch is asynchronous and often arrives a few
     seconds after auto-classify first runs."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
     service._running = True
 
@@ -702,7 +701,8 @@ async def test_process_event_schedules_precheck_retry_when_recording_clips_enabl
         assert call.args[1] != "failed", "retry path should not mark detection failed"
     service._auto_delete_if_missing.assert_not_called()
     completion_broadcasts = [
-        c for c in auto_video_classifier_module.broadcaster.broadcast.await_args_list
+        c
+        for c in auto_video_classifier_module.broadcaster.broadcast.await_args_list
         if c.args and c.args[0].get("type") == "reclassification_completed"
     ]
     assert completion_broadcasts == [], "retry path must not broadcast reclassification_completed"
@@ -713,6 +713,7 @@ async def test_process_event_aborts_after_max_precheck_retries(monkeypatch):
     """A second precheck-retry attempt must abort permanently — we never want to
     pile up retries indefinitely while Frigate is genuinely missing the event."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
     service._running = True
 
@@ -726,20 +727,14 @@ async def test_process_event_aborts_after_max_precheck_retries(monkeypatch):
     monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
     monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
     monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
-    monkeypatch.setattr(
-        auto_video_classifier_module.media_cache, "has_clip", lambda event_id: False
-    )
-    monkeypatch.setattr(
-        auto_video_classifier_module.media_cache, "has_recording_clip", lambda event_id: False
-    )
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_clip", lambda event_id: False)
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_recording_clip", lambda event_id: False)
     monkeypatch.setattr(auto_video_classifier_module.settings.frigate, "recording_clip_enabled", True)
 
     schedule_calls: list[dict] = []
     monkeypatch.setattr(service, "_schedule_precheck_retry", lambda **kw: schedule_calls.append(kw))
 
-    await service._process_event(
-        "evt-second-attempt", "cam1", skip_delay=True, precheck_retry_attempt=1
-    )
+    await service._process_event("evt-second-attempt", "cam1", skip_delay=True, precheck_retry_attempt=1)
 
     # No further retry scheduled; abort path took over.
     assert schedule_calls == []
@@ -751,6 +746,7 @@ async def test_process_event_skips_retry_when_recording_clips_disabled(monkeypat
     """If the user has not enabled full-visit recording clips, scheduling a retry
     is pointless (the cache will never populate). The abort branch must run."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
     service._running = True
 
@@ -764,12 +760,8 @@ async def test_process_event_skips_retry_when_recording_clips_disabled(monkeypat
     monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
     monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
     monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
-    monkeypatch.setattr(
-        auto_video_classifier_module.media_cache, "has_clip", lambda event_id: False
-    )
-    monkeypatch.setattr(
-        auto_video_classifier_module.media_cache, "has_recording_clip", lambda event_id: False
-    )
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_clip", lambda event_id: False)
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_recording_clip", lambda event_id: False)
     monkeypatch.setattr(auto_video_classifier_module.settings.frigate, "recording_clip_enabled", False)
 
     schedule_calls: list[dict] = []
@@ -797,6 +789,7 @@ async def test_process_event_still_fails_when_precheck_returns_event_not_found_a
     monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
     monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
     import asyncio as _asyncio
+
     monkeypatch.setattr(_asyncio, "sleep", AsyncMock())
     monkeypatch.setattr(
         auto_video_classifier_module.media_cache,
@@ -825,6 +818,7 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
     _wait_for_clip still goes to Frigate, fails, and triggers _auto_delete_if_missing
     — which would delete the cached media we just confirmed was present."""
     import asyncio as _asyncio
+
     service = AutoVideoClassifierService()
 
     valid_clip = b"\x00\x00\x00\x18ftypisomcachedclip"
@@ -859,9 +853,7 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
         AsyncMock(return_value=(None, None, None, None)),
     )
 
-    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip(
-        "evt-cached-event-clip", skip_delay=True
-    )
+    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip("evt-cached-event-clip", skip_delay=True)
 
     assert clip_bytes == valid_clip
     assert clip_error is None

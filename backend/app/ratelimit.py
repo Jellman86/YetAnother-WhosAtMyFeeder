@@ -78,6 +78,7 @@ def login_rate_limit() -> Callable:
     """
     return limiter.limit("5/minute;20/hour", key_func=get_remote_address)
 
+
 def share_create_rate_limit() -> Callable:
     """Rate limit video share-link creation to reduce abuse/noise."""
     return limiter.limit("10/minute;60/hour", key_func=get_remote_address)

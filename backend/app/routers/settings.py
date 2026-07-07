@@ -99,16 +99,15 @@ def _maintenance_busy_message(status: dict | None = None) -> str:
 def _maintenance_holder_id(kind: str) -> str:
     return f"{kind}:{uuid4()}"
 
+
 @router.get("/maintenance/taxonomy/status")
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
     return canonical_identity_repair_service.get_status()
 
+
 @router.post("/maintenance/taxonomy/sync")
-async def start_taxonomy_sync(
-    background_tasks: BackgroundTasks,
-    auth: AuthContext = Depends(require_owner)
-):
+async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Start the background process to normalize all detection names. Owner only."""
     guard = _maintenance_guardrail_status()
     if bool(guard.get("reject_new_work")):
@@ -133,26 +132,25 @@ async def start_taxonomy_sync(
         raise
     return {"status": "started"}
 
+
 @router.post("/settings/birdnet/test")
-async def test_birdnet(
-    background_tasks: BackgroundTasks,
-    auth: AuthContext = Depends(require_owner)
-):
+async def test_birdnet(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
     from app.services.audio.audio_service import audio_service
-    
+
     mock_data = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "species": "Cyanistes caeruleus",
         "common_name": "Eurasian Blue Tit (BirdNET Test)",
         "confidence": 0.95,
-        "sensor_id": "test_mic"
+        "sensor_id": "test_mic",
     }
-    
+
     # Process it directly through audio service as if it came from MQTT
     background_tasks.add_task(audio_service.add_detection, mock_data)
-    
+
     return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
+
 
 @router.post("/settings/mqtt/test-publish")
 async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
@@ -160,25 +158,21 @@ async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
     from app.services.mqtt_service import mqtt_service
-    
+
     try:
         success = await mqtt_service.publish(
-            "yawamf/test", 
-            {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
+            "yawamf/test", {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
         )
         if success:
             return {"status": "ok", "message": "Test message published to 'yawamf/test'"}
         else:
             return JSONResponse(
-                status_code=502,
-                content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
+                status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
             )
     except Exception as e:
         log.error("MQTT Test Publish Failed", error=str(e))
-        return JSONResponse(
-            status_code=502,
-            content={"status": "error", "message": str(e)}
-        )
+        return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
+
 
 class NotificationTestRequest(BaseModel):
     platform: str = Field(..., max_length=32)  # discord, pushover, telegram
@@ -193,27 +187,25 @@ class NotificationTestRequest(BaseModel):
 class TimezoneRepairApplyRequest(BaseModel):
     confirm: bool = False
 
+
 @router.post("/settings/notifications/test")
-async def test_notification(
-    request: NotificationTestRequest,
-    auth: AuthContext = Depends(require_owner)
-):
+async def test_notification(request: NotificationTestRequest, auth: AuthContext = Depends(require_owner)):
     """Test notification platform with optional credential overrides. Owner only."""
-    
+
     # Create mock detection data
     common_name = "Eurasian Blue Tit (Test)"
     confidence = 0.95
     camera = "test_camera"
     timestamp = datetime.now(timezone.utc)
     snapshot_url = "https://placehold.co/600x400.jpg"
-    
+
     try:
         if request.platform == "discord":
             # Temporarily override settings if provided
             original_url = settings.notifications.discord.webhook_url
             if request.webhook_url and request.webhook_url != "***REDACTED***":
                 settings.notifications.discord.webhook_url = request.webhook_url
-            
+
             try:
                 await notification_service._send_discord(
                     common_name,
@@ -223,21 +215,21 @@ async def test_notification(
                     snapshot_url,
                     True,
                     settings.notifications.notification_language,
-                    None
+                    None,
                 )
             finally:
                 if request.webhook_url and request.webhook_url != "***REDACTED***":
                     settings.notifications.discord.webhook_url = original_url
-                    
+
         elif request.platform == "pushover":
             orig_user = settings.notifications.pushover.user_key
             orig_token = settings.notifications.pushover.api_token
-            
-            if request.user_key and request.user_key != "***REDACTED***": 
+
+            if request.user_key and request.user_key != "***REDACTED***":
                 settings.notifications.pushover.user_key = request.user_key
-            if request.api_token and request.api_token != "***REDACTED***": 
+            if request.api_token and request.api_token != "***REDACTED***":
                 settings.notifications.pushover.api_token = request.api_token
-            
+
             try:
                 await notification_service._send_pushover(
                     common_name,
@@ -246,23 +238,23 @@ async def test_notification(
                     timestamp,
                     snapshot_url,
                     None,
-                    settings.notifications.notification_language
+                    settings.notifications.notification_language,
                 )
             finally:
-                if request.user_key and request.user_key != "***REDACTED***": 
+                if request.user_key and request.user_key != "***REDACTED***":
                     settings.notifications.pushover.user_key = orig_user
-                if request.api_token and request.api_token != "***REDACTED***": 
+                if request.api_token and request.api_token != "***REDACTED***":
                     settings.notifications.pushover.api_token = orig_token
 
         elif request.platform == "telegram":
             orig_bot = settings.notifications.telegram.bot_token
             orig_chat = settings.notifications.telegram.chat_id
-            
-            if request.bot_token and request.bot_token != "***REDACTED***": 
+
+            if request.bot_token and request.bot_token != "***REDACTED***":
                 settings.notifications.telegram.bot_token = request.bot_token
-            if request.chat_id and request.chat_id != "***REDACTED***": 
+            if request.chat_id and request.chat_id != "***REDACTED***":
                 settings.notifications.telegram.chat_id = request.chat_id
-            
+
             try:
                 await notification_service._send_telegram(
                     common_name,
@@ -271,27 +263,23 @@ async def test_notification(
                     timestamp,
                     snapshot_url,
                     None,
-                    settings.notifications.notification_language
+                    settings.notifications.notification_language,
                 )
             finally:
-                if request.bot_token and request.bot_token != "***REDACTED***": 
+                if request.bot_token and request.bot_token != "***REDACTED***":
                     settings.notifications.telegram.bot_token = orig_bot
-                if request.chat_id and request.chat_id != "***REDACTED***": 
+                if request.chat_id and request.chat_id != "***REDACTED***":
                     settings.notifications.telegram.chat_id = orig_chat
-        
+
         else:
             return JSONResponse(
-                status_code=400,
-                content={"status": "error", "message": f"Unknown platform: {request.platform}"}
+                status_code=400, content={"status": "error", "message": f"Unknown platform: {request.platform}"}
             )
 
         return {"status": "ok", "message": f"Test notification sent to {request.platform}"}
     except Exception as e:
         log.error("Notification test failed", error=str(e))
-        return JSONResponse(
-            status_code=502,
-            content={"status": "error", "message": str(e)}
-        )
+        return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
 
 
 class BirdWeatherTestRequest(BaseModel):
@@ -299,37 +287,31 @@ class BirdWeatherTestRequest(BaseModel):
 
 
 @router.post("/settings/birdweather/test")
-async def test_birdweather(
-    request: BirdWeatherTestRequest,
-    auth: AuthContext = Depends(require_owner)
-):
+async def test_birdweather(request: BirdWeatherTestRequest, auth: AuthContext = Depends(require_owner)):
     """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
         return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "Missing BirdWeather station token"}
+            status_code=400, content={"status": "error", "message": "Missing BirdWeather station token"}
         )
     if token is None and not settings.birdweather.enabled:
-        return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "BirdWeather is disabled"}
-        )
+        return JSONResponse(status_code=400, content={"status": "error", "message": "BirdWeather is disabled"})
 
     success = await birdweather_service.report_detection(
         scientific_name="Cyanistes caeruleus",
         common_name="Eurasian Blue Tit (Test)",
         confidence=0.95,
         timestamp=datetime.now(),
-        token=token
+        token=token,
     )
 
     if success:
         return {"status": "ok", "message": "BirdWeather test succeeded"}
     return JSONResponse(
         status_code=502,
-        content={"status": "error", "message": "BirdWeather test failed. Check token and station permissions."}
+        content={"status": "error", "message": "BirdWeather test failed. Check token and station permissions."},
     )
+
 
 class LlmTestRequest(BaseModel):
     llm_enabled: Optional[bool] = None
@@ -337,18 +319,13 @@ class LlmTestRequest(BaseModel):
     llm_model: Optional[str] = None
     llm_api_key: Optional[str] = None
 
+
 @router.post("/settings/llm/test")
-async def test_llm(
-    request: LlmTestRequest,
-    auth: AuthContext = Depends(require_owner)
-):
+async def test_llm(request: LlmTestRequest, auth: AuthContext = Depends(require_owner)):
     """Test LLM connectivity with optional overrides. Owner only."""
     enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
     if not enabled:
-        return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "AI insights are disabled."}
-        )
+        return JSONResponse(status_code=400, content={"status": "error", "message": "AI insights are disabled."})
 
     provider = request.llm_provider or settings.llm.provider
     model = request.llm_model or settings.llm.model
@@ -357,19 +334,14 @@ async def test_llm(
         api_key = settings.llm.api_key
 
     if not api_key:
-        return JSONResponse(
-            status_code=400,
-            content={"status": "error", "message": "AI API key is missing."}
-        )
+        return JSONResponse(status_code=400, content={"status": "error", "message": "AI API key is missing."})
 
     service = AIService()
     ok, message, status_hint = await service.test_connection(provider, model, api_key)
     if ok:
         return {"status": "ok", "message": message}
-    return JSONResponse(
-        status_code=status_hint,
-        content={"status": "error", "message": message}
-    )
+    return JSONResponse(status_code=status_hint, content={"status": "error", "message": message})
+
 
 class SettingsUpdate(BaseModel):
     frigate_url: Optional[str] = Field(None, min_length=1, description="Frigate instance URL")
@@ -385,38 +357,63 @@ class SettingsUpdate(BaseModel):
     camera_audio_mapping: dict[str, str] = Field(default_factory=dict, description="Map Frigate camera to BirdNET ID")
     camera_roles: dict[str, Literal["feeder", "nest"]] = Field(default_factory=dict, description="Per-camera role")
     nest_dedupe_minutes: int = Field(30, ge=1, le=720, description="Dedupe window for nest cameras")
-    audio_buffer_hours: int = Field(24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)")
-    audio_correlation_window_seconds: int = Field(300, ge=5, le=3600, description="Time window in seconds for audio-visual correlation (±N seconds from detection)")
+    audio_buffer_hours: int = Field(
+        24, ge=1, le=168, description="Hours to keep audio detections in buffer for correlation (1-168)"
+    )
+    audio_correlation_window_seconds: int = Field(
+        300,
+        ge=5,
+        le=3600,
+        description="Time window in seconds for audio-visual correlation (±N seconds from detection)",
+    )
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
-    recording_clip_before_seconds: int = Field(30, ge=0, le=3600, description="Seconds before detection for full-visit clip")
-    recording_clip_after_seconds: int = Field(90, ge=0, le=3600, description="Seconds after detection for full-visit clip")
-    classification_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
+    recording_clip_before_seconds: int = Field(
+        30, ge=0, le=3600, description="Seconds before detection for full-visit clip"
+    )
+    recording_clip_after_seconds: int = Field(
+        90, ge=0, le=3600, description="Seconds after detection for full-visit clip"
+    )
+    classification_threshold: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Classification confidence threshold (0-1)"
+    )
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
-    maintenance_max_concurrent: Optional[int] = Field(1, ge=1, le=8, description="Maximum concurrent maintenance workflows")
+    maintenance_max_concurrent: Optional[int] = Field(
+        1, ge=1, le=8, description="Maximum concurrent maintenance workflows"
+    )
     auto_delete_missing_clips: bool = Field(False, description="Auto-delete detections when event/clip is missing")
     frigate_missing_behavior: FrigateMissingBehavior = Field(
         "mark_missing",
         description="How YA-WAMF should react when Frigate no longer has the event or retained media",
     )
     auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
-    auto_purge_missing_snapshots: bool = Field(False, description="Purge detections without snapshots during scheduled cleanup")
+    auto_purge_missing_snapshots: bool = Field(
+        False, description="Purge detections without snapshots during scheduled cleanup"
+    )
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
-    blocked_species: List[BlockedSpeciesEntry] = Field(default_factory=list, description="Structured blocked species entries")
+    blocked_species: List[BlockedSpeciesEntry] = Field(
+        default_factory=list, description="Structured blocked species entries"
+    )
     trust_frigate_sublabel: bool = Field(True, description="Trust Frigate sublabels when available")
     write_frigate_sublabel: bool = Field(True, description="Write YA-WAMF labels back to Frigate sublabels")
     display_common_names: bool = Field(True, description="Display common names instead of scientific")
     scientific_name_primary: bool = Field(False, description="Show scientific name as the primary label in UI")
-    personalized_rerank_enabled: Optional[bool] = Field(False, description="Enable personalized reranking using manual tag feedback")
+    personalized_rerank_enabled: Optional[bool] = Field(
+        False, description="Enable personalized reranking using manual tag feedback"
+    )
     # Auto Video Classification
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
-    video_classification_max_concurrent: Optional[int] = Field(1, ge=1, le=20, description="Maximum concurrent video classification jobs")
-    video_classification_frames: Optional[int] = Field(15, ge=5, le=100, description="Number of frames to sample for video classification")
+    video_classification_max_concurrent: Optional[int] = Field(
+        1, ge=1, le=20, description="Maximum concurrent video classification jobs"
+    )
+    video_classification_frames: Optional[int] = Field(
+        15, ge=5, le=100, description="Number of frames to sample for video classification"
+    )
     image_execution_mode: Optional[str] = Field(
         "in_process",
         description="Image inference execution mode: in_process|subprocess",
@@ -425,7 +422,9 @@ class SettingsUpdate(BaseModel):
         True,
         description="Reject all-non-finite inference outputs and trigger runtime recovery/fallback",
     )
-    inference_provider: Optional[str] = Field("auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu")
+    inference_provider: Optional[str] = Field(
+        "auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu"
+    )
     bird_crop_detector_tier: Optional[Literal["fast", "accurate"]] = Field(
         "fast",
         description="Bird crop detector tier: fast|accurate",
@@ -437,8 +436,12 @@ class SettingsUpdate(BaseModel):
         description="Bird crop source priority",
     )
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
-    crop_model_overrides: dict[str, str] = Field(default_factory=dict, description="Crop enablement overrides keyed by model or variant")
-    crop_source_overrides: dict[str, str] = Field(default_factory=dict, description="Crop source overrides keyed by model or variant")
+    crop_model_overrides: dict[str, str] = Field(
+        default_factory=dict, description="Crop enablement overrides keyed by model or variant"
+    )
+    crop_source_overrides: dict[str, str] = Field(
+        default_factory=dict, description="Crop source overrides keyed by model or variant"
+    )
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
     media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
@@ -468,14 +471,18 @@ class SettingsUpdate(BaseModel):
         "metric",
         description="Weather unit system: 'metric', 'imperial', or 'british'",
     )
-    location_temperature_unit: Optional[str] = Field("celsius", description="Temperature unit: 'celsius' or 'fahrenheit'")
+    location_temperature_unit: Optional[str] = Field(
+        "celsius", description="Temperature unit: 'celsius' or 'fahrenheit'"
+    )
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
     # eBird settings
     ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
     ebird_api_key: Optional[str] = Field(None, description="eBird API key")
-    ebird_default_radius_km: Optional[int] = Field(25, ge=1, le=50, description="Default radius in km for eBird queries")
+    ebird_default_radius_km: Optional[int] = Field(
+        25, ge=1, le=50, description="Default radius in km for eBird queries"
+    )
     ebird_default_days_back: Optional[int] = Field(14, ge=1, le=30, description="Days back for eBird queries")
     ebird_max_results: Optional[int] = Field(25, ge=1, le=200, description="Max eBird results to return")
     ebird_locale: Optional[str] = Field("en", description="eBird locale for common names")
@@ -483,28 +490,40 @@ class SettingsUpdate(BaseModel):
     inaturalist_enabled: Optional[bool] = Field(False, description="Enable iNaturalist submissions")
     inaturalist_client_id: Optional[str] = Field(None, description="iNaturalist OAuth Client ID")
     inaturalist_client_secret: Optional[str] = Field(None, description="iNaturalist OAuth Client Secret")
-    inaturalist_default_latitude: Optional[float] = Field(None, description="Default latitude for iNaturalist submissions")
-    inaturalist_default_longitude: Optional[float] = Field(None, description="Default longitude for iNaturalist submissions")
-    inaturalist_default_place_guess: Optional[str] = Field(None, description="Default place guess for iNaturalist submissions")
+    inaturalist_default_latitude: Optional[float] = Field(
+        None, description="Default latitude for iNaturalist submissions"
+    )
+    inaturalist_default_longitude: Optional[float] = Field(
+        None, description="Default longitude for iNaturalist submissions"
+    )
+    inaturalist_default_place_guess: Optional[str] = Field(
+        None, description="Default place guess for iNaturalist submissions"
+    )
     # Enrichment settings
-    enrichment_mode: Optional[str] = Field("per_enrichment", description="Enrichment source mode: single or per_enrichment")
+    enrichment_mode: Optional[str] = Field(
+        "per_enrichment", description="Enrichment source mode: single or per_enrichment"
+    )
     enrichment_single_provider: Optional[str] = Field("wikipedia", description="Provider used when mode=single")
     enrichment_summary_source: Optional[str] = Field("wikipedia", description="Provider for summaries/description")
     enrichment_taxonomy_source: Optional[str] = Field("inaturalist", description="Provider for taxonomy/common names")
     enrichment_sightings_source: Optional[str] = Field("disabled", description="Provider for nearby sightings")
     enrichment_seasonality_source: Optional[str] = Field("disabled", description="Provider for seasonality")
     enrichment_rarity_source: Optional[str] = Field("disabled", description="Provider for rarity indicators")
-    enrichment_links_sources: Optional[List[str]] = Field(default_factory=list, description="Providers for external links")
+    enrichment_links_sources: Optional[List[str]] = Field(
+        default_factory=list, description="Providers for external links"
+    )
     # LLM settings
     llm_enabled: Optional[bool] = Field(False, description="Enable AI behavior analysis")
     llm_provider: Optional[str] = Field("gemini", description="AI provider")
     llm_api_key: Optional[str] = Field(None, description="API key")
     llm_model: Optional[str] = Field(DEFAULT_LLM_MODEL, description="AI model")
     llm_analysis_prompt_template: Optional[str] = Field(None, description="Prompt template for detection analysis")
-    llm_conversation_prompt_template: Optional[str] = Field(None, description="Prompt template for follow-up conversation")
+    llm_conversation_prompt_template: Optional[str] = Field(
+        None, description="Prompt template for follow-up conversation"
+    )
     llm_chart_prompt_template: Optional[str] = Field(None, description="Prompt template for chart analysis")
     ai_pricing_json: Optional[str] = Field(None, description="JSON string containing AI pricing overrides")
-    
+
     # Telemetry
     telemetry_enabled: Optional[bool] = Field(False, description="Enable anonymous usage statistics")
     telemetry_health_enabled: Optional[bool] = Field(False, description="Enable anonymous health issue diagnostics")
@@ -513,13 +532,13 @@ class SettingsUpdate(BaseModel):
     notifications_discord_enabled: Optional[bool] = False
     notifications_discord_webhook_url: Optional[str] = None
     notifications_discord_username: Optional[str] = "YA-WAMF"
-    
+
     notifications_pushover_enabled: Optional[bool] = False
     notifications_pushover_user_key: Optional[str] = None
     notifications_pushover_api_token: Optional[str] = None
     notifications_pushover_priority: Optional[int] = 0
     notifications_pushover_device: Optional[str] = None
-    
+
     notifications_telegram_enabled: Optional[bool] = False
     notifications_telegram_bot_token: Optional[str] = None
     notifications_telegram_chat_id: Optional[str] = None
@@ -541,7 +560,7 @@ class SettingsUpdate(BaseModel):
     notifications_email_to_email: Optional[str] = None
     notifications_email_include_snapshot: Optional[bool] = True
     notifications_email_dashboard_url: Optional[str] = None
-    
+
     notifications_filter_species_mode: Optional[Literal["none", "blacklist", "whitelist"]] = "none"
     notifications_filter_species_whitelist: Optional[List[str]] = []
     notifications_filter_species_whitelist_structured: List[BlockedSpeciesEntry] = Field(default_factory=list)
@@ -576,7 +595,7 @@ class SettingsUpdate(BaseModel):
         """Validate username contains only safe characters."""
         if v is None:
             return v
-        if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
+        if not re.match(r"^[a-zA-Z0-9_.-]+$", v):
             raise ValueError("Username must contain only letters, numbers, underscore, hyphen, and period")
         return v.strip()
 
@@ -591,7 +610,7 @@ class SettingsUpdate(BaseModel):
             raise ValueError("Password must be at least 8 characters long")
 
         # Check for basic complexity (at least one letter and one number)
-        if not re.search(r'[A-Za-z]', v) or not re.search(r'\d', v):
+        if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
             raise ValueError("Password must contain at least one letter and one number")
 
         return v
@@ -613,7 +632,7 @@ class SettingsUpdate(BaseModel):
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
 
-    @field_validator('location_weather_unit_system')
+    @field_validator("location_weather_unit_system")
     @classmethod
     def validate_location_weather_unit_system(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -623,7 +642,7 @@ class SettingsUpdate(BaseModel):
             raise ValueError("location_weather_unit_system must be 'metric', 'imperial', or 'british'")
         return normalized
 
-    @field_validator('location_temperature_unit')
+    @field_validator("location_temperature_unit")
     @classmethod
     def validate_location_temperature_unit(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -633,7 +652,7 @@ class SettingsUpdate(BaseModel):
             raise ValueError("location_temperature_unit must be 'celsius' or 'fahrenheit'")
         return normalized
 
-    @field_validator('notifications_mode')
+    @field_validator("notifications_mode")
     @classmethod
     def validate_notifications_mode(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -644,7 +663,7 @@ class SettingsUpdate(BaseModel):
             raise ValueError("notifications_mode must be one of: silent, final, standard, realtime, custom")
         return normalized
 
-    @field_validator('enrichment_mode')
+    @field_validator("enrichment_mode")
     @classmethod
     def validate_enrichment_mode(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -655,7 +674,7 @@ class SettingsUpdate(BaseModel):
             raise ValueError("enrichment_mode must be 'single' or 'per_enrichment'")
         return normalized
 
-    @field_validator('inference_provider')
+    @field_validator("inference_provider")
     @classmethod
     def validate_inference_provider(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -666,14 +685,14 @@ class SettingsUpdate(BaseModel):
             raise ValueError("inference_provider must be one of: auto, cpu, cuda, intel_gpu, intel_cpu, intel_npu")
         return normalized
 
-    @field_validator('frigate_url')
+    @field_validator("frigate_url")
     @classmethod
     def validate_frigate_url(cls, v: str) -> str:
-        if not v.startswith(('http://', 'https://')):
-            raise ValueError('frigate_url must start with http:// or https://')
-        return v.rstrip('/')
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("frigate_url must start with http:// or https://")
+        return v.rstrip("/")
 
-    @field_validator('date_format')
+    @field_validator("date_format")
     @classmethod
     def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -683,6 +702,7 @@ class SettingsUpdate(BaseModel):
         if normalized not in allowed:
             raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
         return normalized
+
 
 _settings_response_fields = {
     name: (
@@ -749,14 +769,16 @@ async def _broadcast_settings_imported(changed_fields: list[str], username: str)
     try:
         from app.services.broadcaster import broadcaster
 
-        await broadcaster.broadcast({
-            "type": "settings_updated",
-            "data": {
-                "changed_fields": sorted(changed_fields),
-                "updated_by": username,
-                "source": "config_import",
+        await broadcaster.broadcast(
+            {
+                "type": "settings_updated",
+                "data": {
+                    "changed_fields": sorted(changed_fields),
+                    "updated_by": username,
+                    "source": "config_import",
+                },
             }
-        })
+        )
     except Exception as e:
         log.warning("Failed to broadcast settings import", error=str(e))
 
@@ -946,31 +968,31 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "telemetry_installation_id": settings.telemetry.installation_id,
         "telemetry_platform": f"{platform.system()} {platform.machine()}",
         "telemetry_payload_preview": collect_runtime_telemetry_payload(),
-
         # Notifications
         "notifications_discord_enabled": settings.notifications.discord.enabled,
         "notifications_discord_webhook_url": "***REDACTED***" if settings.notifications.discord.webhook_url else None,
         "notifications_discord_username": settings.notifications.discord.username,
-
         "notifications_pushover_enabled": settings.notifications.pushover.enabled,
         "notifications_pushover_user_key": "***REDACTED***" if settings.notifications.pushover.user_key else None,
         "notifications_pushover_api_token": "***REDACTED***" if settings.notifications.pushover.api_token else None,
         "notifications_pushover_priority": settings.notifications.pushover.priority,
         "notifications_pushover_device": settings.notifications.pushover.device,
-
         "notifications_telegram_enabled": settings.notifications.telegram.enabled,
         "notifications_telegram_bot_token": "***REDACTED***" if settings.notifications.telegram.bot_token else None,
         "notifications_telegram_chat_id": "***REDACTED***" if settings.notifications.telegram.chat_id else None,
-
         "notifications_email_enabled": settings.notifications.email.enabled,
         "notifications_email_only_on_end": settings.notifications.email.only_on_end,
         "notifications_email_use_oauth": settings.notifications.email.use_oauth,
         "notifications_email_oauth_provider": connected_provider,
         "notifications_email_connected_email": connected_email,
         "notifications_email_gmail_client_id": settings.notifications.email.gmail_client_id,
-        "notifications_email_gmail_client_secret": "***REDACTED***" if settings.notifications.email.gmail_client_secret else None,
+        "notifications_email_gmail_client_secret": "***REDACTED***"
+        if settings.notifications.email.gmail_client_secret
+        else None,
         "notifications_email_outlook_client_id": settings.notifications.email.outlook_client_id,
-        "notifications_email_outlook_client_secret": "***REDACTED***" if settings.notifications.email.outlook_client_secret else None,
+        "notifications_email_outlook_client_secret": "***REDACTED***"
+        if settings.notifications.email.outlook_client_secret
+        else None,
         "notifications_email_smtp_host": settings.notifications.email.smtp_host,
         "notifications_email_smtp_port": settings.notifications.email.smtp_port,
         "notifications_email_smtp_username": settings.notifications.email.smtp_username,
@@ -980,7 +1002,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_email_to_email": settings.notifications.email.to_email,
         "notifications_email_include_snapshot": settings.notifications.email.include_snapshot,
         "notifications_email_dashboard_url": settings.notifications.email.dashboard_url,
-
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
         "notifications_filter_species_mode": settings.notifications.filters.species_mode,
         "notifications_filter_species_whitelist_structured": settings.notifications.filters.species_whitelist_structured,
@@ -994,7 +1015,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_delay_until_video": settings.notifications.delay_until_video,
         "notifications_video_fallback_timeout": settings.notifications.video_fallback_timeout,
         "notifications_notification_cooldown_minutes": settings.notifications.notification_cooldown_minutes,
-
         # Accessibility
         "accessibility_high_contrast": settings.accessibility.high_contrast,
         "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
@@ -1026,11 +1046,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "date_format": settings.date_format,
     }
 
+
 @router.post("/settings")
 async def update_settings(
-    update: SettingsUpdate,
-    background_tasks: BackgroundTasks,
-    auth: AuthContext = Depends(require_owner)
+    update: SettingsUpdate, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)
 ):
     """Update application settings. Owner only."""
     inference_provider_changed = False
@@ -1039,8 +1058,14 @@ async def update_settings(
         return value not in (None, "", "***REDACTED***")
 
     fields_set = update.model_fields_set
-    auth_enabled_after_update = update.auth_enabled if "auth_enabled" in fields_set and update.auth_enabled is not None else settings.auth.enabled
-    auth_password_will_exist = settings.auth.password_hash is not None or ("auth_password" in fields_set and bool(update.auth_password))
+    auth_enabled_after_update = (
+        update.auth_enabled
+        if "auth_enabled" in fields_set and update.auth_enabled is not None
+        else settings.auth.enabled
+    )
+    auth_password_will_exist = settings.auth.password_hash is not None or (
+        "auth_password" in fields_set and bool(update.auth_password)
+    )
 
     if auth_enabled_after_update and not auth_password_will_exist:
         raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
@@ -1144,7 +1169,7 @@ async def update_settings(
         settings.classification.scientific_name_primary = update.scientific_name_primary
     if "personalized_rerank_enabled" in fields_set and update.personalized_rerank_enabled is not None:
         settings.classification.personalized_rerank_enabled = update.personalized_rerank_enabled
-    
+
     if "auto_video_classification" in fields_set and update.auto_video_classification is not None:
         settings.classification.auto_video_classification = update.auto_video_classification
     if "video_classification_delay" in fields_set and update.video_classification_delay is not None:
@@ -1155,7 +1180,7 @@ async def update_settings(
         settings.classification.video_classification_max_concurrent = update.video_classification_max_concurrent
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
-    
+
     execution_mode_changed = False
     if "image_execution_mode" in fields_set and update.image_execution_mode is not None:
         previous_mode = settings.classification.image_execution_mode
@@ -1173,7 +1198,9 @@ async def update_settings(
     if "bird_crop_source_priority" in fields_set and update.bird_crop_source_priority is not None:
         settings.classification.bird_crop_source_priority = update.bird_crop_source_priority
     if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:
-        settings.classification.bird_model_region_override = normalize_bird_model_region(update.bird_model_region_override)
+        settings.classification.bird_model_region_override = normalize_bird_model_region(
+            update.bird_model_region_override
+        )
     if "crop_model_overrides" in fields_set:
         settings.classification.crop_model_overrides = normalize_crop_override_map(
             update.crop_model_overrides,
@@ -1195,12 +1222,16 @@ async def update_settings(
     if "media_cache_high_quality_event_snapshots" in fields_set:
         settings.media_cache.high_quality_event_snapshots = update.media_cache_high_quality_event_snapshots
     if "media_cache_high_quality_event_snapshot_bird_crop" in fields_set:
-        settings.media_cache.high_quality_event_snapshot_bird_crop = update.media_cache_high_quality_event_snapshot_bird_crop
+        settings.media_cache.high_quality_event_snapshot_bird_crop = (
+            update.media_cache_high_quality_event_snapshot_bird_crop
+        )
     if "media_cache_high_quality_event_snapshot_jpeg_quality" in fields_set:
-        settings.media_cache.high_quality_event_snapshot_jpeg_quality = update.media_cache_high_quality_event_snapshot_jpeg_quality
+        settings.media_cache.high_quality_event_snapshot_jpeg_quality = (
+            update.media_cache_high_quality_event_snapshot_jpeg_quality
+        )
     if "media_cache_retention_days" in fields_set:
         settings.media_cache.retention_days = update.media_cache_retention_days
-    
+
     # Location settings
     if "location_latitude" in fields_set:
         settings.location.latitude = update.location_latitude
@@ -1294,7 +1325,7 @@ async def update_settings(
             settings.llm.chart_prompt_template = template
     if "ai_pricing_json" in fields_set and update.ai_pricing_json is not None:
         settings.classification.ai_pricing_json = update.ai_pricing_json
-    
+
     # Telemetry
     if "telemetry_enabled" in fields_set and update.telemetry_enabled is not None:
         settings.telemetry.enabled = update.telemetry_enabled
@@ -1308,7 +1339,7 @@ async def update_settings(
                 "AUTH_AUDIT: Authentication toggled",
                 event_type="auth_toggled",
                 enabled=update.auth_enabled,
-                username=auth.username
+                username=auth.username,
             )
         settings.auth.enabled = update.auth_enabled
 
@@ -1319,7 +1350,7 @@ async def update_settings(
                 event_type="username_changed",
                 old_username=settings.auth.username,
                 new_username=update.auth_username.strip(),
-                changed_by=auth.username
+                changed_by=auth.username,
             )
         settings.auth.username = update.auth_username.strip()
 
@@ -1329,7 +1360,7 @@ async def update_settings(
             "AUTH_AUDIT: Password changed",
             event_type="password_changed",
             username=settings.auth.username,
-            changed_by=auth.username
+            changed_by=auth.username,
         )
 
     if "auth_session_expiry_hours" in fields_set and update.auth_session_expiry_hours is not None:
@@ -1367,7 +1398,9 @@ async def update_settings(
     if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:
         settings.notifications.discord.enabled = update.notifications_discord_enabled
     # Only update webhook URL if it's not the redacted placeholder
-    if "notifications_discord_webhook_url" in fields_set and should_update_secret(update.notifications_discord_webhook_url):
+    if "notifications_discord_webhook_url" in fields_set and should_update_secret(
+        update.notifications_discord_webhook_url
+    ):
         settings.notifications.discord.webhook_url = update.notifications_discord_webhook_url
     if "notifications_discord_username" in fields_set and update.notifications_discord_username:
         settings.notifications.discord.username = update.notifications_discord_username
@@ -1378,7 +1411,9 @@ async def update_settings(
     # Only update keys/tokens if they're not the redacted placeholder
     if "notifications_pushover_user_key" in fields_set and should_update_secret(update.notifications_pushover_user_key):
         settings.notifications.pushover.user_key = update.notifications_pushover_user_key
-    if "notifications_pushover_api_token" in fields_set and should_update_secret(update.notifications_pushover_api_token):
+    if "notifications_pushover_api_token" in fields_set and should_update_secret(
+        update.notifications_pushover_api_token
+    ):
         settings.notifications.pushover.api_token = update.notifications_pushover_api_token
     if "notifications_pushover_priority" in fields_set and update.notifications_pushover_priority is not None:
         settings.notifications.pushover.priority = update.notifications_pushover_priority
@@ -1389,7 +1424,9 @@ async def update_settings(
     if "notifications_telegram_enabled" in fields_set and update.notifications_telegram_enabled is not None:
         settings.notifications.telegram.enabled = update.notifications_telegram_enabled
     # Only update bot token if it's not the redacted placeholder
-    if "notifications_telegram_bot_token" in fields_set and should_update_secret(update.notifications_telegram_bot_token):
+    if "notifications_telegram_bot_token" in fields_set and should_update_secret(
+        update.notifications_telegram_bot_token
+    ):
         settings.notifications.telegram.bot_token = update.notifications_telegram_bot_token
     # Only update chat ID if it's not the redacted placeholder
     if "notifications_telegram_chat_id" in fields_set and should_update_secret(update.notifications_telegram_chat_id):
@@ -1406,11 +1443,18 @@ async def update_settings(
         settings.notifications.email.oauth_provider = update.notifications_email_oauth_provider
     if "notifications_email_gmail_client_id" in fields_set and update.notifications_email_gmail_client_id is not None:
         settings.notifications.email.gmail_client_id = update.notifications_email_gmail_client_id
-    if "notifications_email_gmail_client_secret" in fields_set and should_update_secret(update.notifications_email_gmail_client_secret):
+    if "notifications_email_gmail_client_secret" in fields_set and should_update_secret(
+        update.notifications_email_gmail_client_secret
+    ):
         settings.notifications.email.gmail_client_secret = update.notifications_email_gmail_client_secret
-    if "notifications_email_outlook_client_id" in fields_set and update.notifications_email_outlook_client_id is not None:
+    if (
+        "notifications_email_outlook_client_id" in fields_set
+        and update.notifications_email_outlook_client_id is not None
+    ):
         settings.notifications.email.outlook_client_id = update.notifications_email_outlook_client_id
-    if "notifications_email_outlook_client_secret" in fields_set and should_update_secret(update.notifications_email_outlook_client_secret):
+    if "notifications_email_outlook_client_secret" in fields_set and should_update_secret(
+        update.notifications_email_outlook_client_secret
+    ):
         settings.notifications.email.outlook_client_secret = update.notifications_email_outlook_client_secret
     if "notifications_email_smtp_host" in fields_set and update.notifications_email_smtp_host is not None:
         settings.notifications.email.smtp_host = update.notifications_email_smtp_host
@@ -1418,7 +1462,9 @@ async def update_settings(
         settings.notifications.email.smtp_port = update.notifications_email_smtp_port
     if "notifications_email_smtp_username" in fields_set and update.notifications_email_smtp_username is not None:
         settings.notifications.email.smtp_username = update.notifications_email_smtp_username
-    if "notifications_email_smtp_password" in fields_set and should_update_secret(update.notifications_email_smtp_password):
+    if "notifications_email_smtp_password" in fields_set and should_update_secret(
+        update.notifications_email_smtp_password
+    ):
         settings.notifications.email.smtp_password = update.notifications_email_smtp_password
     if "notifications_email_smtp_use_tls" in fields_set and update.notifications_email_smtp_use_tls is not None:
         settings.notifications.email.smtp_use_tls = update.notifications_email_smtp_use_tls
@@ -1430,11 +1476,14 @@ async def update_settings(
         settings.notifications.email.include_snapshot = update.notifications_email_include_snapshot
     if "notifications_email_dashboard_url" in fields_set and update.notifications_email_dashboard_url is not None:
         settings.notifications.email.dashboard_url = update.notifications_email_dashboard_url
-    
+
     # Notifications - Filters
     if "notifications_filter_species_mode" in fields_set and update.notifications_filter_species_mode is not None:
         settings.notifications.filters.species_mode = update.notifications_filter_species_mode
-    if "notifications_filter_species_whitelist" in fields_set and update.notifications_filter_species_whitelist is not None:
+    if (
+        "notifications_filter_species_whitelist" in fields_set
+        and update.notifications_filter_species_whitelist is not None
+    ):
         settings.notifications.filters.species_whitelist = update.notifications_filter_species_whitelist
     if "notifications_filter_species_whitelist_structured" in fields_set:
         settings.notifications.filters.species_whitelist_structured = normalize_blocked_species_entries(
@@ -1446,7 +1495,10 @@ async def update_settings(
         )
     if "notifications_filter_min_confidence" in fields_set and update.notifications_filter_min_confidence is not None:
         settings.notifications.filters.min_confidence = update.notifications_filter_min_confidence
-    if "notifications_filter_audio_confirmed_only" in fields_set and update.notifications_filter_audio_confirmed_only is not None:
+    if (
+        "notifications_filter_audio_confirmed_only" in fields_set
+        and update.notifications_filter_audio_confirmed_only is not None
+    ):
         settings.notifications.filters.audio_confirmed_only = update.notifications_filter_audio_confirmed_only
 
     if "notification_language" in fields_set and update.notification_language:
@@ -1463,7 +1515,10 @@ async def update_settings(
         settings.notifications.delay_until_video = update.notifications_delay_until_video
     if "notifications_video_fallback_timeout" in fields_set and update.notifications_video_fallback_timeout is not None:
         settings.notifications.video_fallback_timeout = update.notifications_video_fallback_timeout
-    if "notifications_notification_cooldown_minutes" in fields_set and update.notifications_notification_cooldown_minutes is not None:
+    if (
+        "notifications_notification_cooldown_minutes" in fields_set
+        and update.notifications_notification_cooldown_minutes is not None
+    ):
         settings.notifications.notification_cooldown_minutes = update.notifications_notification_cooldown_minutes
 
     # Accessibility
@@ -1494,27 +1549,31 @@ async def update_settings(
     await settings.save()
     if inference_provider_changed or execution_mode_changed:
         from app.services.classifier_service import get_classifier, shutdown_classifier
-        
+
         async def full_reload():
             if execution_mode_changed:
                 log.info("Execution mode changed, performing full classifier service restart")
                 await shutdown_classifier()
             await get_classifier().reload_bird_model()
-            
+
         background_tasks.add_task(full_reload)
 
     try:
         from app.services.broadcaster import broadcaster
-        await broadcaster.broadcast({
-            "type": "settings_updated",
-            "data": {
-                "changed_fields": sorted(list(fields_set)),
-                "updated_by": auth.username,
+
+        await broadcaster.broadcast(
+            {
+                "type": "settings_updated",
+                "data": {
+                    "changed_fields": sorted(list(fields_set)),
+                    "updated_by": auth.username,
+                },
             }
-        })
+        )
     except Exception as e:
         log.warning("Failed to broadcast settings_updated event", error=str(e))
     return {"status": "updated"}
+
 
 @router.get("/maintenance/stats")
 async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
@@ -1534,7 +1593,7 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
             "total_detections": total_count,
             "oldest_detection": oldest_date.isoformat() if oldest_date else None,
             "retention_days": settings.maintenance.retention_days,
-            "detections_to_cleanup": to_delete
+            "detections_to_cleanup": to_delete,
         }
 
 
@@ -1568,15 +1627,12 @@ async def apply_timezone_repair(
     finally:
         await maintenance_coordinator.release(holder_id)
 
+
 @router.post("/maintenance/cleanup")
 async def run_cleanup(auth: AuthContext = Depends(require_owner)):
     """Manually trigger cleanup of old detections. Owner only."""
     if settings.maintenance.retention_days <= 0:
-        return {
-            "status": "skipped",
-            "message": "Retention is set to unlimited (0 days)",
-            "deleted_count": 0
-        }
+        return {"status": "skipped", "message": "Retention is set to unlimited (0 days)", "deleted_count": 0}
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=settings.maintenance.retention_days)
 
@@ -1586,11 +1642,7 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
     log.info("Manual cleanup completed", deleted_count=deleted_count, cutoff=cutoff.isoformat())
 
-    return {
-        "status": "completed",
-        "deleted_count": deleted_count,
-        "cutoff_date": cutoff.isoformat()
-    }
+    return {"status": "completed", "deleted_count": deleted_count, "cutoff_date": cutoff.isoformat()}
 
 
 @router.post("/maintenance/favorites/clear")
@@ -1617,7 +1669,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
             "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
-            "message": "Clip fetching is disabled in settings."
+            "message": "Clip fetching is disabled in settings.",
         }
 
     async with get_db() as db:
@@ -1633,7 +1685,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
             "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
-            "message": "No detections found"
+            "message": "No detections found",
         }
 
     # Check Frigate availability before performing mass purge.
@@ -1650,7 +1702,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
             "cleared_missing_count": 0,
             "checked": 0,
             "missing": 0,
-            "message": "Frigate is not reachable. Aborting purge."
+            "message": "Frigate is not reachable. Aborting purge.",
         }
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
@@ -1702,7 +1754,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         "kept_count": kept_count,
         "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
-        "missing": missing_count
+        "missing": missing_count,
     }
 
 
@@ -1796,6 +1848,7 @@ async def _purge_missing_all_media() -> dict:
         "checked": len(event_ids),
         "missing": missing_count,
     }
+
 
 def _get_camera_retention_days(frigate_config: object, camera_name: str) -> float | None:
     return get_camera_retention_days(frigate_config, camera_name)
@@ -1920,8 +1973,7 @@ async def _run_analyze_unknowns() -> dict:
 
                 async with semaphore:
                     event_data, event_error = await frigate_client.get_event_with_error(
-                        detection.frigate_event,
-                        timeout=8.0
+                        detection.frigate_event, timeout=8.0
                     )
 
                 if not event_data:
@@ -1939,34 +1991,22 @@ async def _run_analyze_unknowns() -> dict:
             for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
                 if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
                     break
-                batch = unknowns[offset:offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
+                batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
                 prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
 
                 for state, d in prechecked:
                     processed_candidates += 1
                     if state == "outside_retention":
                         skipped_outside_retention += 1
-                        await repo.update_video_status(
-                            d.frigate_event,
-                            "failed",
-                            error="frigate_retention_expired"
-                        )
+                        await repo.update_video_status(d.frigate_event, "failed", error="frigate_retention_expired")
                         continue
                     if state == "missing_event":
                         skipped_missing_event += 1
-                        await repo.update_video_status(
-                            d.frigate_event,
-                            "failed",
-                            error="event_not_found"
-                        )
+                        await repo.update_video_status(d.frigate_event, "failed", error="event_not_found")
                         continue
                     if state == "no_clip":
                         skipped_no_clip += 1
-                        await repo.update_video_status(
-                            d.frigate_event,
-                            "failed",
-                            error="clip_not_retained"
-                        )
+                        await repo.update_video_status(d.frigate_event, "failed", error="clip_not_retained")
                         continue
                     if state == "precheck_error":
                         precheck_errors += 1
@@ -2038,7 +2078,7 @@ async def _run_analyze_unknowns() -> dict:
         "pending_maintenance": pending_maintenance,
         "active_maintenance": active_maintenance,
         "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS if remaining_candidates > 0 else 0,
-        "message": msg
+        "message": msg,
     }
 
 
@@ -2088,6 +2128,7 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 # Media Cache Endpoints
 # =============================================================================
 
+
 @router.get("/cache/stats")
 async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     """Get media cache statistics. Owner only."""
@@ -2104,7 +2145,7 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
         "cache_snapshots": settings.media_cache.cache_snapshots,
         "cache_clips": settings.media_cache.cache_clips,
         "retention_days": retention,
-        "retention_source": "media_cache" if settings.media_cache.retention_days > 0 else "detection"
+        "retention_source": "media_cache" if settings.media_cache.retention_days > 0 else "detection",
     }
 
 
@@ -2133,17 +2174,13 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     valid_ids.update(protected_ids)
 
     orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
-        
+
     # Merge stats
     stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
     stats["clips_deleted"] += orphan_stats["clips_deleted"]
     stats["bytes_freed"] += orphan_stats["bytes_freed"]
 
-    return {
-        "status": "completed",
-        **stats,
-        "retention_days": retention
-    }
+    return {"status": "completed", **stats, "retention_days": retention}
 
 
 @router.post("/maintenance/video-classification/reset-circuit")
@@ -2166,10 +2203,7 @@ async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
 
 
 @router.delete("/maintenance/feedback/clear")
-async def clear_classification_feedback(
-    background_tasks: BackgroundTasks,
-    auth: AuthContext = Depends(require_owner)
-):
+async def clear_classification_feedback(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Clear all personalized re-ranking classification feedback. Owner only."""
     from app.services.classifier_service import get_classifier
 
@@ -2179,7 +2213,8 @@ async def clear_classification_feedback(
 
     background_tasks.add_task(get_classifier().reload_bird_model)
 
-    return {        "status": "success",
+    return {
+        "status": "success",
         "message": f"Cleared {deleted_count} feedback records.",
-        "deleted_count": deleted_count
+        "deleted_count": deleted_count,
     }

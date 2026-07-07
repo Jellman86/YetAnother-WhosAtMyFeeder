@@ -6,6 +6,7 @@ from app.config import settings
 
 log = structlog.get_logger()
 
+
 class Broadcaster:
     def __init__(self):
         self.queues: Set[asyncio.Queue] = set()
@@ -51,16 +52,20 @@ class Broadcaster:
                 self._full_counts[queue] += 1
                 max_consecutive = settings.system.broadcaster_max_consecutive_full
                 if self._full_counts[queue] >= max_consecutive:
-                    log.warning("Removing subscriber due to persistent backpressure",
-                               queue_size=queue.qsize(),
-                               consecutive_failures=self._full_counts[queue],
-                               threshold=max_consecutive)
+                    log.warning(
+                        "Removing subscriber due to persistent backpressure",
+                        queue_size=queue.qsize(),
+                        consecutive_failures=self._full_counts[queue],
+                        threshold=max_consecutive,
+                    )
                     queues_to_remove.append(queue)
                 else:
-                    log.warning("Dropping SSE message for slow subscriber",
-                               queue_size=queue.qsize(),
-                               consecutive_failures=self._full_counts[queue],
-                               threshold=max_consecutive)
+                    log.warning(
+                        "Dropping SSE message for slow subscriber",
+                        queue_size=queue.qsize(),
+                        consecutive_failures=self._full_counts[queue],
+                        threshold=max_consecutive,
+                    )
             except Exception as e:
                 # Queue may have been closed or is in bad state, remove it
                 log.warning("Removing subscriber due to error", error=str(e))
@@ -72,5 +77,6 @@ class Broadcaster:
                 for queue in queues_to_remove:
                     self.queues.discard(queue)
                     self._full_counts.pop(queue, None)
+
 
 broadcaster = Broadcaster()

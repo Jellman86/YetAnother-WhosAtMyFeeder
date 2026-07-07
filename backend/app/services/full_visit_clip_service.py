@@ -34,9 +34,7 @@ class FullVisitClipService:
 
     def _auto_generation_enabled(self) -> bool:
         return bool(
-            settings.frigate.clips_enabled
-            and settings.frigate.recording_clip_enabled
-            and settings.media_cache.enabled
+            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and settings.media_cache.enabled
         )
 
     def _lock_for_event(self, event_id: str) -> asyncio.Lock:

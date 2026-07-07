@@ -124,14 +124,7 @@ def test_get_user_language_french():
 
 def test_get_user_language_all_supported():
     """Test all supported languages."""
-    supported = {
-        "en-US": "en",
-        "es-ES": "es",
-        "fr-FR": "fr",
-        "de-DE": "de",
-        "ja-JP": "ja",
-        "zh-CN": "zh"
-    }
+    supported = {"en-US": "en", "es-ES": "es", "fr-FR": "fr", "de-DE": "de", "ja-JP": "ja", "zh-CN": "zh"}
 
     for header, expected in supported.items():
         request = MagicMock()

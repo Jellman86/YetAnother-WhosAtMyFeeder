@@ -86,9 +86,7 @@ def check_documented_endpoints(actual_routes: set[tuple[str, str]]) -> list[str]
         if clean_path.endswith("*"):
             prefix = clean_path[:-1]
             if not any(m == method and p.startswith(prefix) for m, p in actual_routes):
-                errors.append(
-                    f"Documented endpoint pattern not found: {method} {clean_path}"
-                )
+                errors.append(f"Documented endpoint pattern not found: {method} {clean_path}")
             continue
 
         clean_path = normalize_path(clean_path)

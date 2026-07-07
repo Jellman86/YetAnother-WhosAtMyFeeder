@@ -1,4 +1,5 @@
 """Tests for backend/app/services/eval/sanity_checks.py — pure functions."""
+
 from __future__ import annotations
 
 from app.services.eval import sanity_checks
@@ -50,13 +51,17 @@ def test_incomplete_install_when_not_ready():
 
 
 def test_incomplete_install_silent_when_ready():
-    assert sanity_checks.incomplete_install({
-        "ready": True, "labels_file_present": True, "model_config_present": True
-    }) is None
+    assert (
+        sanity_checks.incomplete_install({"ready": True, "labels_file_present": True, "model_config_present": True})
+        is None
+    )
 
 
 def test_inference_health_unhealthy_triggers():
-    assert sanity_checks.inference_health_unhealthy({"inference_health_verdict": "unhealthy"})["code"] == "inference_health_unhealthy"
+    assert (
+        sanity_checks.inference_health_unhealthy({"inference_health_verdict": "unhealthy"})["code"]
+        == "inference_health_unhealthy"
+    )
 
 
 def test_inference_health_unhealthy_silent_when_healthy():

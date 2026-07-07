@@ -123,6 +123,7 @@ def export_and_config(
     if input_size == 224:
         # Fall back to manifest resolution
         from birder.model_registry.model_registry import registry
+
         meta = registry.get_pretrained_metadata(normalized_id)
         if meta and hasattr(meta, "resolution"):
             res = meta.resolution
@@ -183,7 +184,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Export a Birder pretrained model to ONNX with model_config.json sidecar"
     )
-    parser.add_argument("--model", required=True, help="Birder model alias (e.g. focalnet_b_lrf_intermediate-eu-common)")
+    parser.add_argument(
+        "--model", required=True, help="Birder model alias (e.g. focalnet_b_lrf_intermediate-eu-common)"
+    )
     parser.add_argument("--output_dir", required=True, help="Output directory")
     parser.add_argument(
         "--taxonomy_scope",

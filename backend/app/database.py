@@ -23,13 +23,10 @@ DB_POOL_WAIT_WINDOW_SECONDS = float(os.environ.get("DB_POOL_WAIT_WINDOW_SECONDS"
 # Hard cap on in-memory samples to bound memory under sustained load.
 DB_POOL_WAIT_SAMPLE_CAP = int(os.environ.get("DB_POOL_WAIT_SAMPLE_CAP", "4096"))
 
+
 def _is_testing() -> bool:
     # PYTEST_CURRENT_TEST is only set while a test is executing (not during collection/import).
-    return (
-        "pytest" in sys.modules
-        or bool(os.getenv("PYTEST_CURRENT_TEST"))
-        or os.getenv("YA_WAMF_TESTING") == "1"
-    )
+    return "pytest" in sys.modules or bool(os.getenv("PYTEST_CURRENT_TEST")) or os.getenv("YA_WAMF_TESTING") == "1"
 
 
 def _get_db_path() -> str:
@@ -62,8 +59,7 @@ def _assert_db_path_writable(db_path: str) -> None:
     parent = Path(db_path).expanduser().resolve().parent
     if not parent.exists():
         raise RuntimeError(
-            f"DB_PATH directory does not exist: {parent}. "
-            f"Set DB_PATH to a writable location (current: {db_path})."
+            f"DB_PATH directory does not exist: {parent}. Set DB_PATH to a writable location (current: {db_path})."
         )
 
     # Explicitly check directory access before sqlite connect so errors are actionable.
@@ -93,6 +89,7 @@ def _assert_db_path_writable(db_path: str) -> None:
             f"Set DB_PATH to a writable location (current: {db_path})."
         ) from e
 
+
 REQUIRED_COLUMNS = {
     "detections": {
         "video_classification_error",
@@ -116,7 +113,7 @@ REQUIRED_COLUMNS = {
     },
     "taxonomy_cache": {
         "thumbnail_url",
-    }
+    },
 }
 
 
@@ -254,7 +251,7 @@ class DatabasePool:
         conn = await aiosqlite.connect(
             self.database_path,
             timeout=max(1.0, DEFAULT_DB_BUSY_TIMEOUT_MS / 1000.0),
-            check_same_thread=False  # Required for connection pool
+            check_same_thread=False,  # Required for connection pool
         )
         # Enable WAL mode for better concurrency
         await conn.execute("PRAGMA journal_mode=WAL;")
@@ -274,9 +271,7 @@ class DatabasePool:
             if self._initialized:
                 return
 
-            log.info("Initializing database connection pool",
-                     pool_size=self.pool_size,
-                     db_path=self.database_path)
+            log.info("Initializing database connection pool", pool_size=self.pool_size, db_path=self.database_path)
 
             # Create initial pool of connections
             for _ in range(self.pool_size):
@@ -380,11 +375,7 @@ class DatabasePool:
         return max(w for _, w in samples)
 
     def get_status(self) -> dict:
-        avg_wait_ms = (
-            (self._acquire_wait_total_ms / self._acquire_count)
-            if self._acquire_count > 0
-            else 0.0
-        )
+        avg_wait_ms = (self._acquire_wait_total_ms / self._acquire_count) if self._acquire_count > 0 else 0.0
         return {
             "initialized": self._initialized,
             "pool_size": self.pool_size,
@@ -431,7 +422,7 @@ async def init_db():
     global _db_pool
     if _db_pool is not None and _db_pool._initialized:
         await close_db()
-        
+
     db_path = _get_db_path()
     _assert_db_path_writable(db_path)
 
@@ -453,6 +444,7 @@ async def init_db():
         log.info("Running database migrations...")
         try:
             import subprocess
+
             env = os.environ.copy()
             env["DB_PATH"] = db_path
 
@@ -462,7 +454,7 @@ async def init_db():
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=60  # 60 second timeout to prevent indefinite hangs
+                timeout=60,  # 60 second timeout to prevent indefinite hangs
             )
 
             if result.returncode == 0:
@@ -486,10 +478,9 @@ async def init_db():
                     # _db_is_ahead_of_codebase with accurate data.
                     try:
                         import aiosqlite as _aiosqlite
+
                         async with _aiosqlite.connect(db_path) as _db:
-                            async with _db.execute(
-                                "SELECT version_num FROM alembic_version"
-                            ) as _cur:
+                            async with _db.execute("SELECT version_num FROM alembic_version") as _cur:
                                 _rows = await _cur.fetchall()
                         db_versions = {r[0] for r in _rows if r and r[0]}
                     except Exception:

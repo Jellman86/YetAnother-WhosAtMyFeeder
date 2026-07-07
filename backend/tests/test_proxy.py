@@ -13,6 +13,7 @@ import httpx
 import time
 from PIL import Image
 
+
 @pytest_asyncio.fixture
 async def client():
     transport = httpx.ASGITransport(app=app)
@@ -66,16 +67,14 @@ async def test_proxy_clip_invalid_event_id(client: httpx.AsyncClient):
 @pytest.fixture
 def mock_frigate_response():
     """Create a properly mocked async response for streaming."""
+
     async def async_iter_bytes():
         yield b"fake video data chunk 1"
         yield b"fake video data chunk 2"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.headers = {
-        "content-type": "video/mp4",
-        "content-length": "12345"
-    }
+    mock_response.headers = {"content-type": "video/mp4", "content-length": "12345"}
     mock_response.aiter_bytes = async_iter_bytes
     mock_response.aclose = AsyncMock()
     return mock_response
@@ -84,6 +83,7 @@ def mock_frigate_response():
 @pytest.fixture
 def mock_frigate_partial_response():
     """Create a mocked 206 Partial Content response for Range requests."""
+
     async def async_iter_bytes():
         yield b"partial video data"
 
@@ -92,7 +92,7 @@ def mock_frigate_partial_response():
     mock_response.headers = {
         "content-type": "video/mp4",
         "content-length": "1000",
-        "content-range": "bytes 0-999/12345"
+        "content-range": "bytes 0-999/12345",
     }
     mock_response.aiter_bytes = async_iter_bytes
     mock_response.aclose = AsyncMock()
@@ -104,11 +104,12 @@ async def test_proxy_clip_enabled(client: httpx.AsyncClient, mock_frigate_respon
     """Test that clips are proxied when clips_enabled is True."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False # Disable cache for this test
+    settings.media_cache.enabled = False  # Disable cache for this test
 
-    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
-        
+    with (
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -132,11 +133,12 @@ async def test_proxy_clip_range_header_forwarded(client: httpx.AsyncClient, mock
     """Test that Range headers are forwarded to Frigate and 206 responses are returned."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False # Disable cache for this test
+    settings.media_cache.enabled = False  # Disable cache for this test
 
-    with patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
-        
+    with (
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -147,10 +149,7 @@ async def test_proxy_clip_range_header_forwarded(client: httpx.AsyncClient, mock
         MockClient.return_value = mock_client
 
         try:
-            response = await client.get(
-                "/api/frigate/test_event_id/clip.mp4",
-                headers={"Range": "bytes=0-999"}
-            )
+            response = await client.get("/api/frigate/test_event_id/clip.mp4", headers={"Range": "bytes=0-999"})
             assert response.status_code == 206
             assert response.headers.get("content-range") == "bytes 0-999/12345"
         finally:
@@ -182,9 +181,11 @@ async def test_proxy_recording_clip_enabled(client: httpx.AsyncClient, mock_frig
     settings.frigate.recording_clip_enabled = True
     settings.media_cache.enabled = False
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -221,9 +222,11 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
     mock_response.text = '{"message":"No recordings found for the specified time range"}'
     mock_response.aclose = AsyncMock()
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -245,7 +248,9 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
 
 
 @pytest.mark.asyncio
-async def test_proxy_recording_clip_allows_valid_share_token_without_auth(client: httpx.AsyncClient, mock_frigate_response):
+async def test_proxy_recording_clip_allows_valid_share_token_without_auth(
+    client: httpx.AsyncClient, mock_frigate_response
+):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
     original_cache = settings.media_cache.enabled
@@ -258,10 +263,12 @@ async def test_proxy_recording_clip_allows_valid_share_token_without_auth(client
     settings.auth.enabled = True
     settings.public_access.enabled = False
 
-    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share, \
-         patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_share.return_value = {
             "frigate_event": "test_event_id",
             "watermark_label": "Shared",
@@ -307,9 +314,11 @@ async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.As
     mock_client.build_request = MagicMock(return_value=object())
     mock_client.send = AsyncMock(return_value=mock_response)
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.get_http_client", return_value=mock_client),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -338,10 +347,12 @@ async def test_check_recording_clip_exists_returns_404_for_streamed_no_recording
     mock_response = MagicMock()
     mock_response.status_code = 404
     mock_response.headers = {"content-type": "application/json"}
-    mock_response.json = MagicMock(side_effect=[
-        ValueError("response not read yet"),
-        {"message": "No recordings found for the specified time range"},
-    ])
+    mock_response.json = MagicMock(
+        side_effect=[
+            ValueError("response not read yet"),
+            {"message": "No recordings found for the specified time range"},
+        ]
+    )
     mock_response.aread = AsyncMock(return_value=b'{"message":"No recordings found for the specified time range"}')
     mock_response.text = '{"message":"No recordings found for the specified time range"}'
     mock_response.aclose = AsyncMock()
@@ -350,9 +361,11 @@ async def test_check_recording_clip_exists_returns_404_for_streamed_no_recording
     mock_client.build_request = MagicMock(return_value=object())
     mock_client.send = AsyncMock(return_value=mock_response)
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.get_http_client", return_value=mock_client),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -380,8 +393,15 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
     settings.media_cache.enabled = True
     settings.media_cache.cache_clips = True
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=Path("/tmp/test_recording.mp4")), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))):
+    with (
+        patch(
+            "app.services.media_cache.media_cache.get_recording_clip_path", return_value=Path("/tmp/test_recording.mp4")
+        ),
+        patch(
+            "app.routers.proxy._get_recording_clip_context",
+            new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120)),
+        ),
+    ):
         try:
             response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
             assert response.status_code == 200
@@ -404,9 +424,13 @@ async def test_get_recording_clip_context_prefers_event_id_timestamp_without_fri
     mock_repo = MagicMock()
     mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
 
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
-         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})) as mock_get_event:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository", return_value=mock_repo),
+        patch(
+            "app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})
+        ) as mock_get_event,
+    ):
         mock_get_db.return_value.__aenter__.return_value = mock_db
 
         camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
@@ -431,9 +455,13 @@ async def test_get_recording_clip_context_uses_frigate_event_start_time_for_non_
     mock_repo = MagicMock()
     mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
 
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
-         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})) as mock_get_event:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository", return_value=mock_repo),
+        patch(
+            "app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 1774887411.753024})
+        ) as mock_get_event,
+    ):
         mock_get_db.return_value.__aenter__.return_value = mock_db
 
         camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
@@ -458,9 +486,13 @@ async def test_get_recording_clip_context_prefers_aware_detection_time_without_f
     mock_repo = MagicMock()
     mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
 
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
-         patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 123})) as mock_get_event:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository", return_value=mock_repo),
+        patch(
+            "app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value={"start_time": 123})
+        ) as mock_get_event,
+    ):
         mock_get_db.return_value.__aenter__.return_value = mock_db
 
         camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
@@ -491,9 +523,11 @@ async def test_get_recording_clip_context_falls_back_to_local_timezone_for_naive
     mock_repo.get_by_frigate_event = AsyncMock(return_value=detection)
 
     try:
-        with patch("app.routers.proxy.get_db") as mock_get_db, \
-             patch("app.routers.proxy.DetectionRepository", return_value=mock_repo), \
-             patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value=None)):
+        with (
+            patch("app.routers.proxy.get_db") as mock_get_db,
+            patch("app.routers.proxy.DetectionRepository", return_value=mock_repo),
+            patch("app.routers.proxy.frigate_client.get_event", new=AsyncMock(return_value=None)),
+        ):
             mock_get_db.return_value.__aenter__.return_value = mock_db
 
             camera, start_ts, end_ts = await proxy_module._get_recording_clip_context(
@@ -524,11 +558,15 @@ async def test_recording_clip_fetch_warms_cache_when_available(client: httpx.Asy
     settings.media_cache.enabled = True
     settings.media_cache.cache_clips = True
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate, \
-         patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
-         patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None),
+        patch(
+            "app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock
+        ) as mock_cache,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -573,11 +611,15 @@ async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: ht
     mock_response.text = '{"message":"No recordings found for the specified time range"}'
     mock_response.aclose = AsyncMock()
 
-    with patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context, \
-         patch("app.routers.proxy.httpx.AsyncClient") as MockClient, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate, \
-         patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
-         patch("app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock) as mock_cache:
+    with (
+        patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None),
+        patch(
+            "app.services.media_cache.media_cache.cache_recording_clip_streaming", new_callable=AsyncMock
+        ) as mock_cache,
+    ):
         mock_context.return_value = ("front_feeder", 1700000000, 1700000120)
         mock_frigate.get_camera_recording_clip_url = MagicMock(
             return_value="http://frigate/api/front_feeder/start/1700000000/end/1700000120/clip.mp4"
@@ -614,10 +656,15 @@ async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: 
         tmp.write(b"0" * 1024)
         recording_path = Path(tmp.name)
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
-         patch("app.services.media_cache.media_cache.get_clip_path", return_value=None) as mock_clip_path, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path),
+        patch(
+            "app.routers.proxy._get_recording_clip_context",
+            new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120)),
+        ),
+        patch("app.services.media_cache.media_cache.get_clip_path", return_value=None) as mock_clip_path,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
         try:
@@ -646,9 +693,11 @@ async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_mi
         tmp.write(b"1" * 1024)
         clip_path = Path(tmp.name)
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None), \
-         patch("app.services.media_cache.media_cache.get_clip_path", return_value=clip_path) as mock_clip_path, \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=None),
+        patch("app.services.media_cache.media_cache.get_clip_path", return_value=clip_path) as mock_clip_path,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
         try:
@@ -665,7 +714,9 @@ async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_mi
 
 
 @pytest.mark.asyncio
-async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_clip_caching_disabled(client: httpx.AsyncClient):
+async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_clip_caching_disabled(
+    client: httpx.AsyncClient,
+):
     original_clips = settings.frigate.clips_enabled
     original_cache_enabled = settings.media_cache.enabled
     original_cache_clips = settings.media_cache.cache_clips
@@ -677,9 +728,14 @@ async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_cli
         tmp.write(b"0" * 1024)
         recording_path = Path(tmp.name)
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path),
+        patch(
+            "app.routers.proxy._get_recording_clip_context",
+            new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120)),
+        ),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
         try:
@@ -706,9 +762,14 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
         tmp.write(b"2" * 1024)
         recording_path = Path(tmp.name)
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path),
+        patch(
+            "app.routers.proxy._get_recording_clip_context",
+            new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120)),
+        ),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
         try:
@@ -723,7 +784,9 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
 
 
 @pytest.mark.asyncio
-async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exists_even_if_regular_clip_caching_disabled(client: httpx.AsyncClient):
+async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exists_even_if_regular_clip_caching_disabled(
+    client: httpx.AsyncClient,
+):
     original_clips = settings.frigate.clips_enabled
     original_cache_enabled = settings.media_cache.enabled
     original_cache_clips = settings.media_cache.cache_clips
@@ -735,9 +798,14 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
         tmp.write(b"2" * 1024)
         recording_path = Path(tmp.name)
 
-    with patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path), \
-         patch("app.routers.proxy._get_recording_clip_context", new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120))), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_recording_clip_path", return_value=recording_path),
+        patch(
+            "app.routers.proxy._get_recording_clip_context",
+            new=AsyncMock(return_value=("front_feeder", 1700000000, 1700000120)),
+        ),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
 
         try:
@@ -762,9 +830,11 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
         '"cues":[{"start":0.0,"end":2.0,"x":0,"y":0,"w":160,"h":90}]}'
     )
 
-    with patch("app.routers.proxy.frigate_client") as mock_frigate, \
-         patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure, \
-         patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest:
+    with (
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure,
+        patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
         mock_manifest.return_value = manifest_json
         mock_ensure.return_value = None
@@ -824,13 +894,17 @@ async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(clie
     mock_client = MagicMock()
     mock_client.get = AsyncMock(return_value=mock_response)
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-         patch("app.services.media_cache.media_cache.delete_snapshot", new_callable=AsyncMock) as mock_delete_snapshot, \
-         patch("app.services.media_cache.media_cache.delete_thumbnail", new_callable=AsyncMock) as mock_delete_thumbnail, \
-         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
-         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+        patch("app.services.media_cache.media_cache.delete_snapshot", new_callable=AsyncMock) as mock_delete_snapshot,
+        patch("app.services.media_cache.media_cache.delete_thumbnail", new_callable=AsyncMock) as mock_delete_thumbnail,
+        patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot,
+        patch("app.routers.proxy.get_http_client", return_value=mock_client),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_get_snapshot.return_value = hq_snapshot
         mock_get_metadata.return_value = {"source": "high_quality_bird_crop"}
         mock_frigate._get_headers = MagicMock(return_value={})
@@ -894,10 +968,12 @@ async def test_proxy_thumbnail_ignores_legacy_cached_thumbnail_when_snapshot_exi
     legacy_wide.save(legacy_wide_buffer, format="JPEG", quality=88)
     legacy_wide_thumb = legacy_wide_buffer.getvalue()
 
-    with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.cache_thumbnail", new_callable=AsyncMock) as mock_cache_thumbnail, \
-         patch("app.routers.proxy.get_http_client") as mock_http_client:
+    with (
+        patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch("app.services.media_cache.media_cache.cache_thumbnail", new_callable=AsyncMock) as mock_cache_thumbnail,
+        patch("app.routers.proxy.get_http_client") as mock_http_client,
+    ):
         mock_get_thumbnail.return_value = legacy_wide_thumb
         mock_get_snapshot.return_value = high_res_bytes
 
@@ -927,9 +1003,11 @@ async def test_proxy_thumbnail_keeps_known_frigate_thumbnail_without_snapshot(cl
 
     cached_frigate_thumbnail = b"frigate-thumbnail"
 
-    with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.routers.proxy.get_http_client") as mock_http_client:
+    with (
+        patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_get_thumbnail,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch("app.routers.proxy.get_http_client") as mock_http_client,
+    ):
         mock_get_thumbnail.return_value = cached_frigate_thumbnail
         mock_get_snapshot.return_value = None
 
@@ -965,10 +1043,12 @@ async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(
     mock_client = MagicMock()
     mock_client.get = AsyncMock(return_value=mock_response)
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
-         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot,
+        patch("app.routers.proxy.get_http_client", return_value=mock_client),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_get_snapshot.return_value = tiny_cached_jpeg
         mock_frigate._get_headers = MagicMock(return_value={})
 
@@ -1005,10 +1085,12 @@ async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client
     mock_client = MagicMock()
     mock_client.get = AsyncMock(return_value=mock_response)
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot, \
-         patch("app.routers.proxy.get_http_client", return_value=mock_client), \
-         patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch("app.services.media_cache.media_cache.cache_snapshot", new_callable=AsyncMock) as mock_cache_snapshot,
+        patch("app.routers.proxy.get_http_client", return_value=mock_client),
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_get_snapshot.return_value = None
         mock_frigate._get_headers = MagicMock(return_value={"Authorization": "Bearer token"})
 
@@ -1038,10 +1120,17 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
     settings.media_cache.high_quality_event_snapshots = True
     settings.media_cache.high_quality_event_snapshot_bird_crop = True
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
-         patch("app.routers.proxy._bird_crop_runtime_available", return_value=True):
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(b"orig-snapshot", None)),
+        ),
+        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
+    ):
         mock_get_snapshot.return_value = b"cached-hq-frame"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
 
@@ -1072,9 +1161,16 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
     try:
-        with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-             patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-             patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(None, "snapshot_not_found"))):
+        with (
+            patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+            patch(
+                "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+            ) as mock_get_metadata,
+            patch(
+                "app.routers.proxy.frigate_client.get_snapshot_with_error",
+                new=AsyncMock(return_value=(None, "snapshot_not_found")),
+            ),
+        ):
             mock_get_snapshot.return_value = b"cached-hq-frame"
             mock_get_metadata.return_value = {"source": "hq_candidate_full_frame"}
 
@@ -1102,11 +1198,18 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
     settings.media_cache.high_quality_event_snapshots = True
     settings.media_cache.high_quality_event_snapshot_bird_crop = True
 
-    with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
-         patch("app.routers.proxy._bird_crop_runtime_available", return_value=True), \
-         patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process:
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(b"orig-snapshot", None)),
+        ),
+        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
+        patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process,
+    ):
         mock_get_snapshot.return_value = b"cached-hq-frame"
         mock_get_metadata.side_effect = [
             {"source": "high_quality_snapshot"},
@@ -1136,10 +1239,14 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     original_cache_snapshots = settings.media_cache.cache_snapshots
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+    ):
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_get_snapshot.return_value = b"snapshot"
@@ -1178,19 +1285,29 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert body["current_source"] == "hq_candidate_model_crop"
     assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
-    assert body["candidates"][0]["thumbnail_url"].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg")
+    assert body["candidates"][0]["thumbnail_url"].endswith(
+        "/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg"
+    )
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(client: httpx.AsyncClient):
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata, \
-         patch("app.routers.proxy.frigate_client.get_snapshot_with_error", new=AsyncMock(return_value=(b"orig-snapshot", None))), \
-         patch("app.services.media_cache.media_cache.replace_snapshot", new_callable=AsyncMock) as mock_replace_snapshot:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(b"orig-snapshot", None)),
+        ),
+        patch("app.services.media_cache.media_cache.replace_snapshot", new_callable=AsyncMock) as mock_replace_snapshot,
+    ):
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
+
         async def fake_get_snapshot(key):
             return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
 
@@ -1258,8 +1375,10 @@ async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
         tmp.write(b"fake-jpeg")
         sprite_path = Path(tmp.name)
 
-    with patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure, \
-         patch("app.services.media_cache.media_cache.get_preview_sprite_path") as mock_sprite:
+    with (
+        patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure,
+        patch("app.services.media_cache.media_cache.get_preview_sprite_path") as mock_sprite,
+    ):
         mock_ensure.return_value = None
         mock_sprite.return_value = sprite_path
 
@@ -1328,7 +1447,11 @@ async def test_proxy_clip_allows_valid_share_token_without_auth(client: httpx.As
     settings.auth.enabled = True
     settings.public_access.enabled = False
 
-    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,          patch("app.routers.proxy.httpx.AsyncClient") as MockClient,          patch("app.routers.proxy.frigate_client") as mock_frigate:
+    with (
+        patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,
+        patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+    ):
         mock_share.return_value = {
             "frigate_event": "test_event_id",
             "watermark_label": "Shared",
@@ -1392,7 +1515,12 @@ async def test_proxy_clip_thumbnails_vtt_preserves_share_query(client: httpx.Asy
         '"cues":[{"start":0.0,"end":2.0,"x":0,"y":0,"w":160,"h":90}]}'
     )
 
-    with patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,          patch("app.routers.proxy.frigate_client") as mock_frigate,          patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure,          patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest:
+    with (
+        patch("app.routers.proxy._resolve_video_share_token", new_callable=AsyncMock) as mock_share,
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.routers.proxy._ensure_preview_assets", new_callable=AsyncMock) as mock_ensure,
+        patch("app.services.media_cache.media_cache.get_preview_manifest", new_callable=AsyncMock) as mock_manifest,
+    ):
         mock_share.return_value = {
             "frigate_event": "test_event_id",
             "watermark_label": "Shared",
@@ -1499,9 +1627,16 @@ async def test_recording_clip_capability_reports_unsupported_config(client: http
 @pytest.mark.asyncio
 async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
     """Create endpoint should return link_id alongside share token metadata."""
-    with patch("app.routers.proxy.frigate_client") as mock_frigate,          patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+    with (
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
-        mock_create.return_value = (42, "share_token_abcdefghijklmnopqrstuvwxyz", datetime.utcnow() + timedelta(hours=1))
+        mock_create.return_value = (
+            42,
+            "share_token_abcdefghijklmnopqrstuvwxyz",
+            datetime.utcnow() + timedelta(hours=1),
+        )
 
         response = await client.post(
             "/api/video-share",
@@ -1521,9 +1656,11 @@ async def test_video_share_create_returns_link_id(client: httpx.AsyncClient):
 
 @pytest.mark.asyncio
 async def test_video_share_create_allows_recording_variant_without_event_clip(client: httpx.AsyncClient):
-    with patch("app.routers.proxy.frigate_client") as mock_frigate, \
-         patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create, \
-         patch("app.routers.proxy._recording_clip_exists_for_share", new_callable=AsyncMock) as mock_recording_exists:
+    with (
+        patch("app.routers.proxy.frigate_client") as mock_frigate,
+        patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create,
+        patch("app.routers.proxy._recording_clip_exists_for_share", new_callable=AsyncMock) as mock_recording_exists,
+    ):
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": False})
         mock_recording_exists.return_value = True
         mock_create.return_value = (43, "share_token_recording_variant", datetime.utcnow() + timedelta(hours=1))
@@ -1550,8 +1687,10 @@ async def test_video_share_create_uses_configured_external_base_url(client: http
     original_base_url = settings.public_access.external_base_url
     settings.public_access.external_base_url = "https://public.example.com/app/"
     try:
-        with patch("app.routers.proxy.frigate_client") as mock_frigate, \
-             patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+        with (
+            patch("app.routers.proxy.frigate_client") as mock_frigate,
+            patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create,
+        ):
             mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
             mock_create.return_value = (
                 77,
@@ -1581,8 +1720,10 @@ async def test_video_share_create_falls_back_on_invalid_external_base_url(client
     original_base_url = settings.public_access.external_base_url
     settings.public_access.external_base_url = "not-a-valid-url"
     try:
-        with patch("app.routers.proxy.frigate_client") as mock_frigate, \
-             patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create:
+        with (
+            patch("app.routers.proxy.frigate_client") as mock_frigate,
+            patch("app.routers.proxy._create_video_share_token", new_callable=AsyncMock) as mock_create,
+        ):
             mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
             mock_create.return_value = (
                 78,
@@ -1681,12 +1822,18 @@ async def test_video_share_revoke_link_success(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when_no_model_crop(client: httpx.AsyncClient):
+async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when_no_model_crop(
+    client: httpx.AsyncClient,
+):
     """When no model_crop candidates are persisted, the response includes a miss reason."""
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+    ):
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_get_snapshot.return_value = b"snapshot"
@@ -1726,12 +1873,18 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
 
 
 @pytest.mark.asyncio
-async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model_crop_present(client: httpx.AsyncClient):
+async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model_crop_present(
+    client: httpx.AsyncClient,
+):
     """When model_crop candidates exist, model_crop_miss_reason is None."""
-    with patch("app.routers.proxy.get_db") as mock_get_db, \
-         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls, \
-         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot, \
-         patch("app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock) as mock_get_metadata:
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
+        ) as mock_get_metadata,
+    ):
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_get_snapshot.return_value = b"snapshot"

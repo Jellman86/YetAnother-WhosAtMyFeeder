@@ -38,17 +38,17 @@ def download_file(url: str, dest: Path, desc: str) -> bool:
 
     # Add User-Agent header to avoid 403 errors from Google Cloud Storage
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
     try:
         request = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(request) as response:
-            total_size = int(response.headers.get('Content-Length', 0))
+            total_size = int(response.headers.get("Content-Length", 0))
             downloaded = 0
             chunk_size = 8192
 
-            with open(dest, 'wb') as f:
+            with open(dest, "wb") as f:
                 while True:
                     chunk = response.read(chunk_size)
                     if not chunk:
@@ -73,7 +73,7 @@ def process_labels(labels_path: Path) -> bool:
     """Process the labels file to extract just the common names."""
     print("Processing labels file...")
     try:
-        with open(labels_path, 'r') as f:
+        with open(labels_path, "r") as f:
             lines = f.readlines()
 
         processed_labels = []
@@ -83,22 +83,22 @@ def process_labels(labels_path: Path) -> bool:
                 continue
 
             # Format is: "index Scientific name (Common Name)" or just "background"
-            if '(' in line and ')' in line:
+            if "(" in line and ")" in line:
                 # Extract common name from parentheses
-                start = line.rfind('(') + 1
-                end = line.rfind(')')
+                start = line.rfind("(") + 1
+                end = line.rfind(")")
                 common_name = line[start:end].strip()
                 processed_labels.append(common_name)
             else:
                 # Handle entries without parentheses (like "background")
-                parts = line.split(' ', 1)
+                parts = line.split(" ", 1)
                 if len(parts) > 1:
                     processed_labels.append(parts[1])
                 else:
                     processed_labels.append(line)
 
         # Write processed labels
-        with open(labels_path, 'w') as f:
+        with open(labels_path, "w") as f:
             for label in processed_labels:
                 f.write(f"{label}\n")
 
@@ -121,7 +121,7 @@ def main():
     # Check if model already exists
     if MODEL_PATH.exists():
         response = input(f"Model already exists at {MODEL_PATH}. Overwrite? [y/N]: ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             print("Skipping model download.")
         else:
             if not download_file(MODEL_URL, MODEL_PATH, "bird classifier model"):

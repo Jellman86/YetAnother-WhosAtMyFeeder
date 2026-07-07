@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
+
 class YAWAMFBaseModel(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
@@ -31,8 +32,8 @@ class ModelMetadata(YAWAMFBaseModel):
     architecture: str  # e.g., "MobileNetV2", "EfficientNet-Lite4"
     artifact_kind: str = "classifier"
     file_size_mb: float
-    accuracy_tier: str # "High", "Medium", "Low"
-    inference_speed: str # "Fast", "Medium", "Slow"
+    accuracy_tier: str  # "High", "Medium", "Low"
+    inference_speed: str  # "Fast", "Medium", "Slow"
     download_url: str
     weights_url: Optional[str] = None
     labels_url: str
@@ -67,7 +68,8 @@ class ModelMetadata(YAWAMFBaseModel):
             return CropGeneratorConfig.model_validate(value)
         except Exception:
             return CropGeneratorConfig()
-    
+
+
 class InstalledModel(YAWAMFBaseModel):
     id: str
     path: str
@@ -77,12 +79,14 @@ class InstalledModel(YAWAMFBaseModel):
     reason: str = "ready"
     metadata: Optional[ModelMetadata] = None
 
+
 class DownloadProgress(YAWAMFBaseModel):
     model_id: str
-    status: str # "pending", "downloading", "completed", "error"
-    progress: float # 0-100
+    status: str  # "pending", "downloading", "completed", "error"
+    progress: float  # 0-100
     message: Optional[str] = None
     error: Optional[str] = None
+
 
 class AIUsageLog(YAWAMFBaseModel):
     id: Optional[int] = None

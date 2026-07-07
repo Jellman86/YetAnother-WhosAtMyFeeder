@@ -53,12 +53,8 @@ async def test_acquire_wait_max_ms_is_windowed_and_lifetime_is_preserved(tmp_pat
     pool._record_wait_sample(waited_ms=50.0)
 
     status = pool.get_status()
-    assert status["acquire_wait_max_ms"] == 50.0, (
-        "Stale sample should have aged out of the live windowed max"
-    )
-    assert status["acquire_wait_lifetime_max_ms"] == 10_000.0, (
-        "Lifetime max must be preserved for diagnostics"
-    )
+    assert status["acquire_wait_max_ms"] == 50.0, "Stale sample should have aged out of the live windowed max"
+    assert status["acquire_wait_lifetime_max_ms"] == 10_000.0, "Lifetime max must be preserved for diagnostics"
 
     await pool.close_all()
 

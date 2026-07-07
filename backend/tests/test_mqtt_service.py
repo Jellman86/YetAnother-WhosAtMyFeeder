@@ -703,19 +703,25 @@ def test_stall_recovery_stops_reconnecting_at_cap(monkeypatch):
 
     # Under the cap — should still reconnect.
     service._stall_recovery_consecutive_no_frigate_reconnects = 2
-    assert service._should_reconnect_for_stalled_frigate_topic(
-        frigate_topic="frigate/events",
-        birdnet_topic="birdnet/detections",
-        now=400.0,
-    ) is True
+    assert (
+        service._should_reconnect_for_stalled_frigate_topic(
+            frigate_topic="frigate/events",
+            birdnet_topic="birdnet/detections",
+            now=400.0,
+        )
+        is True
+    )
 
     # At the cap — should stop.
     service._stall_recovery_consecutive_no_frigate_reconnects = 3
-    assert service._should_reconnect_for_stalled_frigate_topic(
-        frigate_topic="frigate/events",
-        birdnet_topic="birdnet/detections",
-        now=400.0,
-    ) is False
+    assert (
+        service._should_reconnect_for_stalled_frigate_topic(
+            frigate_topic="frigate/events",
+            birdnet_topic="birdnet/detections",
+            now=400.0,
+        )
+        is False
+    )
 
 
 def test_note_stall_reconnect_records_abandoned_diagnostic_at_cap(monkeypatch):
@@ -832,12 +838,14 @@ def test_handle_frigate_availability_online_sets_state(monkeypatch):
     assert service._frigate_availability == "online"
     assert service._frigate_availability_monotonic == 500.0
 
+
 def test_handle_frigate_availability_offline_sets_state(monkeypatch):
     service = MQTTService("test+abc123")
     monkeypatch.setattr(service, "_now_monotonic", lambda: 501.0)
     service._handle_frigate_availability(b"offline")
     assert service._frigate_availability == "offline"
     assert service._frigate_availability_monotonic == 501.0
+
 
 def test_handle_frigate_availability_online_clears_stall_counter(monkeypatch):
     service = MQTTService("test+abc123")
@@ -846,49 +854,52 @@ def test_handle_frigate_availability_online_clears_stall_counter(monkeypatch):
     service._handle_frigate_availability(b"online")
     assert service._stall_recovery_consecutive_no_frigate_reconnects == 0
 
+
 def test_handle_frigate_availability_offline_records_diagnostic(monkeypatch):
     import app.services.mqtt_service as mqtt_module
+
     service = MQTTService("test+abc123")
     recorded: list[dict] = []
-    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
-                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(service, "_now_monotonic", lambda: 503.0)
     service._handle_frigate_availability(b"offline")
     assert len(recorded) == 1
     assert recorded[0]["reason_code"] == "frigate_went_offline"
     assert recorded[0]["severity"] == "warning"
 
+
 def test_handle_frigate_availability_online_after_offline_records_came_online(monkeypatch):
     import app.services.mqtt_service as mqtt_module
+
     service = MQTTService("test+abc123")
     service._frigate_availability = "offline"
     recorded: list[dict] = []
-    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
-                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(service, "_now_monotonic", lambda: 504.0)
     service._handle_frigate_availability(b"online")
     assert len(recorded) == 1
     assert recorded[0]["reason_code"] == "frigate_came_online"
     assert recorded[0]["severity"] == "info"
 
+
 def test_handle_frigate_availability_online_when_already_online_does_not_record(monkeypatch):
     import app.services.mqtt_service as mqtt_module
+
     service = MQTTService("test+abc123")
     service._frigate_availability = "online"
     recorded: list[dict] = []
-    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
-                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(service, "_now_monotonic", lambda: 505.0)
     service._handle_frigate_availability(b"online")
     assert len(recorded) == 0
+
 
 def test_handle_frigate_availability_offline_when_already_offline_does_not_record(monkeypatch):
     """Repeated 'offline' (e.g. retained re-delivery) must not spam diagnostics."""
     service = MQTTService("test+abc123")
     service._frigate_availability = "offline"
     recorded: list[dict] = []
-    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record",
-                        lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(mqtt_module.error_diagnostics_history, "record", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(service, "_now_monotonic", lambda: 507.0)
     service._handle_frigate_availability(b"offline")
     assert len(recorded) == 0
@@ -914,6 +925,7 @@ def test_should_reconnect_independent_suppressed_when_frigate_confirmed_online(m
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
     assert service._should_reconnect_independent("frigate/events", now=3000.0) is False
 
+
 def test_should_reconnect_independent_still_fires_when_availability_none(monkeypatch):
     """Fallback: no availability seen → existing stall logic unchanged."""
     service = MQTTService("test+abc123")
@@ -927,6 +939,7 @@ def test_should_reconnect_independent_still_fires_when_availability_none(monkeyp
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
     assert service._should_reconnect_independent("frigate/events", now=3000.0) is True
 
+
 def test_should_reconnect_independent_still_fires_when_availability_offline(monkeypatch):
     service = MQTTService("test+abc123")
     service.running = True
@@ -938,6 +951,7 @@ def test_should_reconnect_independent_still_fires_when_availability_offline(monk
     monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
     assert service._should_reconnect_independent("frigate/events", now=3000.0) is True
+
 
 def test_stalled_frigate_topic_suppressed_when_frigate_confirmed_online(monkeypatch):
     service = MQTTService("test+abc123")
@@ -953,9 +967,10 @@ def test_stalled_frigate_topic_suppressed_when_frigate_confirmed_online(monkeypa
     monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 20, raising=False)
-    assert service._should_reconnect_for_stalled_frigate_topic(
-        "frigate/events", "birdnet/detections", now=3000.0
-    ) is False
+    assert (
+        service._should_reconnect_for_stalled_frigate_topic("frigate/events", "birdnet/detections", now=3000.0) is False
+    )
+
 
 def test_stalled_frigate_topic_still_fires_when_availability_none(monkeypatch):
     service = MQTTService("test+abc123")
@@ -971,9 +986,9 @@ def test_stalled_frigate_topic_still_fires_when_availability_none(monkeypatch):
     monkeypatch.setattr(mqtt_module, "MQTT_FRIGATE_TOPIC_STALE_SECONDS", 300.0, raising=False)
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_GRACE_SECONDS", 60.0, raising=False)
     monkeypatch.setattr(mqtt_module, "MQTT_TOPIC_STALL_MIN_BIRDNET_MESSAGES", 20, raising=False)
-    assert service._should_reconnect_for_stalled_frigate_topic(
-        "frigate/events", "birdnet/detections", now=3000.0
-    ) is True
+    assert (
+        service._should_reconnect_for_stalled_frigate_topic("frigate/events", "birdnet/detections", now=3000.0) is True
+    )
 
 
 def test_availability_state_reset_on_each_reconnect_cycle():
@@ -1002,6 +1017,7 @@ def test_availability_state_cleared_in_stop():
 
 
 # --- get_status frigate_availability tests ---
+
 
 def test_get_status_includes_frigate_availability_unknown(monkeypatch):
     service = MQTTService("test+abc123")

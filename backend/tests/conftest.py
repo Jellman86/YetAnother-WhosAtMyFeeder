@@ -1,4 +1,5 @@
 """Pytest configuration and fixtures for all tests."""
+
 import os
 import tempfile
 import pytest
@@ -33,19 +34,20 @@ def pytest_configure(config):
 
     # Initialize test database schema using Alembic
     backend_dir = Path(__file__).parent.parent.resolve()
-    
+
     # We must ensure the backend_dir is in sys.path so alembic's env.py can find 'app'
     if str(backend_dir) not in sys.path:
         sys.path.insert(0, str(backend_dir))
 
     print(f"\nInitializing test database schema at {db_path}...")
-    
+
     # Use synchronous subprocess to run alembic upgrade
     import subprocess
+
     env = os.environ.copy()
     env["PYTHONPATH"] = str(backend_dir)
     env["DB_PATH"] = db_path
-    
+
     # Alembic usually looks for 'alembic.ini' in the current dir.
     # We'll run it from backend_dir.
     result = subprocess.run(
@@ -53,7 +55,7 @@ def pytest_configure(config):
         cwd=str(backend_dir),
         env=env,
         capture_output=True,
-        text=True
+        text=True,
     )
     if result.returncode != 0:
         print(f"FAILED to initialize test database: {result.stderr}")
@@ -70,6 +72,7 @@ def pytest_configure(config):
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter
+
     old_enabled = limiter.enabled
     limiter.enabled = False
     yield
@@ -82,7 +85,6 @@ async def cleanup_async_singletons():
     from app.services.notification_dispatcher import notification_dispatcher
 
     await notification_dispatcher.stop()
-
 
 
 # All previously skipped tests have been fixed:

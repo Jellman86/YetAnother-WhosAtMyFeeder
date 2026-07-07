@@ -36,10 +36,16 @@ async def test_available_models_expose_tiered_metadata():
     assert {"eu", "na"} <= set(by_id["small_birds"].region_variants.keys())
     assert by_id["small_birds"].default_region == "na"
     assert by_id["small_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
+    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
     assert by_id["small_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
-    assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])
+    assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx(
+        [0.5248, 0.5372, 0.5086]
+    )
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2135, 0.2103, 0.2622])
     assert by_id["small_birds"].region_variants["na"]["model_config_url"]
     assert by_id["small_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
@@ -53,11 +59,19 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["eu"]["region_scope"] == "eu"
     assert by_id["medium_birds"].region_variants["na"]["region_scope"] == "na"
     assert by_id["medium_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
+    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
     assert by_id["medium_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
-    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx([0.5191, 0.5306, 0.4877])
-    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx([0.2316, 0.2304, 0.2588])
+    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["mean"] == pytest.approx(
+        [0.5191, 0.5306, 0.4877]
+    )
+    assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["std"] == pytest.approx(
+        [0.2316, 0.2304, 0.2588]
+    )
     assert by_id["medium_birds"].region_variants["na"]["model_config_url"]
     assert by_id["medium_birds"].region_variants["na"]["preprocessing"]["resize_mode"] == "direct_resize"
     assert by_id["medium_birds"].region_variants["na"]["crop_generator"]["enabled"] is True

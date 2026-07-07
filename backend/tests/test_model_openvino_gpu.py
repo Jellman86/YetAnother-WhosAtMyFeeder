@@ -36,6 +36,7 @@ from PIL import Image
 
 try:
     import openvino as ov
+
     OPENVINO_AVAILABLE = True
 except ImportError:
     OPENVINO_AVAILABLE = False
@@ -88,7 +89,7 @@ GPU_VALIDATED: set[str] = {
 # longjmp) on GPU inference — not merely wrong output.  These must NOT be
 # attempted inside the test runner; the gpu-unsupported test skips them.
 GPU_CRASH_RISK: set[str] = {
-    "eva02_large_inat21",   # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
+    "eva02_large_inat21",  # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
 }
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
@@ -142,7 +143,7 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "Do NOT attempt GPU inference; test runner skips this model to prevent abort."
     ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
-    "bird_crop_detector":  "Crop detector — CPU-only by design",
+    "bird_crop_detector": "Crop detector — CPU-only by design",
     # small_birds NA (EfficientNet-B0): non-deterministic on Intel GPU. Probed 22 March 2026.
 }
 
@@ -169,7 +170,7 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.48145466, 0.4578275, 0.40821073],
-        "std":  [0.26862954, 0.26130258, 0.27577711],
+        "std": [0.26862954, 0.26130258, 0.27577711],
     },
     "eva02_large_inat21": {
         "input_size": 336,
@@ -177,7 +178,7 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.48145466, 0.4578275, 0.40821073],
-        "std":  [0.26862954, 0.26130258, 0.27577711],
+        "std": [0.26862954, 0.26130258, 0.27577711],
     },
     "rope_vit_b14_inat21": {
         "input_size": 224,
@@ -185,7 +186,7 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.5248, 0.5372, 0.5086],
-        "std":  [0.2135, 0.2103, 0.2622],
+        "std": [0.2135, 0.2103, 0.2622],
     },
     "eu_medium_focalnet_b": {
         "input_size": 384,
@@ -193,7 +194,7 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.5, 0.5, 0.5],
-        "std":  [0.5, 0.5, 0.5],
+        "std": [0.5, 0.5, 0.5],
     },
     "flexivit_il_all": {
         "input_size": 240,
@@ -201,7 +202,7 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.5, 0.5, 0.5],
-        "std":  [0.5, 0.5, 0.5],
+        "std": [0.5, 0.5, 0.5],
     },
     # Family models — effective values after region selection
     "small_birds_eu": {
@@ -210,14 +211,14 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.5248, 0.5372, 0.5086],
-        "std":  [0.2135, 0.2103, 0.2622],
+        "std": [0.2135, 0.2103, 0.2622],
     },
     "small_birds_na": {
         "input_size": 224,
         "resize_mode": "direct_resize",
         "interpolation": "bilinear",
         "mean": [0.485, 0.456, 0.406],
-        "std":  [0.229, 0.224, 0.225],
+        "std": [0.229, 0.224, 0.225],
     },
     "medium_birds_eu": {
         "input_size": 256,
@@ -225,20 +226,21 @@ EXPECTED_PREPROCESSING: dict[str, dict[str, Any]] = {
         "crop_pct": 1.0,
         "interpolation": "bicubic",
         "mean": [0.5191, 0.5306, 0.4877],
-        "std":  [0.2316, 0.2304, 0.2588],
+        "std": [0.2316, 0.2304, 0.2588],
     },
     "medium_birds_na": {
         "input_size": 224,
         "resize_mode": "direct_resize",
         "interpolation": "bilinear",
         "mean": [0.485, 0.456, 0.406],
-        "std":  [0.229, 0.224, 0.225],
+        "std": [0.229, 0.224, 0.225],
     },
 }
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _models_dir() -> Path:
     if os.path.exists("/data/models"):
@@ -258,11 +260,7 @@ def _installed_onnx_models() -> list[tuple[str, Path]]:
     base = _models_dir()
     if not base.exists():
         return []
-    return [
-        (d.name, d)
-        for d in sorted(base.iterdir())
-        if d.is_dir() and (d / "model.onnx").exists()
-    ]
+    return [(d.name, d) for d in sorted(base.iterdir()) if d.is_dir() and (d / "model.onnx").exists()]
 
 
 def _make_test_image(size: int) -> Image.Image:
@@ -409,7 +407,7 @@ def _spearman_r(a: np.ndarray, b: np.ndarray) -> float:
     rank_a = np.argsort(np.argsort(a)).astype(float)
     rank_b = np.argsort(np.argsort(b)).astype(float)
     d = rank_a - rank_b
-    return float(1.0 - 6.0 * np.sum(d ** 2) / (n * (n ** 2 - 1)))
+    return float(1.0 - 6.0 * np.sum(d**2) / (n * (n**2 - 1)))
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +436,7 @@ def openvino_version() -> str:
         return "unknown"
     try:
         import openvino
+
         return str(getattr(openvino, "__version__", "unknown"))
     except Exception:
         return "unknown"
@@ -457,7 +456,7 @@ def test_preprocessing_config_matches_ground_truth(model_id: str, expected: dict
     """
     # Map family model IDs to their installed directory names
     dir_map = {
-        "small_birds_eu": None,   # checked via family dir name patterns below
+        "small_birds_eu": None,  # checked via family dir name patterns below
         "small_birds_na": None,
         "medium_birds_eu": None,
         "medium_birds_na": None,
@@ -470,12 +469,9 @@ def test_preprocessing_config_matches_ground_truth(model_id: str, expected: dict
     # Resolve directory name
     if model_id in dir_map:
         # Family variants: scan for matching dir
-        region = model_id.split("_")[-1]   # "eu" or "na"
+        region = model_id.split("_")[-1]  # "eu" or "na"
         family = "_".join(model_id.split("_")[:-1])  # "small_birds" or "medium_birds"
-        candidates = [
-            d for d in sorted(base.iterdir())
-            if d.is_dir() and family in d.name and region in d.name
-        ]
+        candidates = [d for d in sorted(base.iterdir()) if d.is_dir() and family in d.name and region in d.name]
         if not candidates:
             pytest.skip(f"No installed variant for {model_id} — download it first")
         model_dir = candidates[0]
@@ -504,10 +500,8 @@ def test_preprocessing_config_matches_ground_truth(model_id: str, expected: dict
     actual_std = preproc.get("std")
     assert actual_mean is not None, f"{model_id}: missing mean in preprocessing"
     assert actual_std is not None, f"{model_id}: missing std in preprocessing"
-    np.testing.assert_allclose(actual_mean, expected["mean"], rtol=0.005,
-        err_msg=f"{model_id}: mean mismatch")
-    np.testing.assert_allclose(actual_std, expected["std"], rtol=0.005,
-        err_msg=f"{model_id}: std mismatch")
+    np.testing.assert_allclose(actual_mean, expected["mean"], rtol=0.005, err_msg=f"{model_id}: mean mismatch")
+    np.testing.assert_allclose(actual_std, expected["std"], rtol=0.005, err_msg=f"{model_id}: std mismatch")
 
 
 @pytest.mark.parametrize("model_id,expected", sorted(EXPECTED_PREPROCESSING.items()))
@@ -532,14 +526,12 @@ def test_preprocessing_tensor_shape_and_range(model_id: str, expected: dict[str,
     h = w = expected["input_size"]
 
     assert tensor.dtype == np.float32, f"{model_id}: tensor dtype={tensor.dtype}"
-    assert tensor.shape == (1, 3, h, w), (
-        f"{model_id}: tensor shape={tensor.shape}, expected (1, 3, {h}, {w})"
-    )
+    assert tensor.shape == (1, 3, h, w), f"{model_id}: tensor shape={tensor.shape}, expected (1, 3, {h}, {w})"
     assert np.isfinite(tensor).all(), f"{model_id}: tensor contains non-finite values"
 
     # Normalised values should be roughly in [-5, 5] for all reasonable mean/std combos
     assert tensor.min() > -6.0, f"{model_id}: tensor min={tensor.min():.2f} unexpectedly low"
-    assert tensor.max() < 6.0,  f"{model_id}: tensor max={tensor.max():.2f} unexpectedly high"
+    assert tensor.max() < 6.0, f"{model_id}: tensor max={tensor.max():.2f} unexpectedly high"
 
 
 # ---------------------------------------------------------------------------
@@ -548,9 +540,7 @@ def test_preprocessing_tensor_shape_and_range(model_id: str, expected: dict[str,
 
 
 @pytest.mark.parametrize("model_id", sorted(GPU_VALIDATED))
-def test_gpu_validated_model_compiles_and_produces_finite_output(
-    model_id: str, gpu_available: bool
-) -> None:
+def test_gpu_validated_model_compiles_and_produces_finite_output(model_id: str, gpu_available: bool) -> None:
     """Models in GPU_VALIDATED must compile on OpenVINO GPU and output finite logits."""
     if not gpu_available:
         pytest.skip("No Intel GPU available")
@@ -591,6 +581,7 @@ def test_gpu_unsupported_model_is_not_in_validated_set(model_id: str) -> None:
 def test_registry_intel_gpu_matches_validation_matrix() -> None:
     """Every model in the registry that lists intel_gpu must be in GPU_VALIDATED."""
     import sys
+
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from app.services.model_manager import REMOTE_REGISTRY
 
@@ -616,9 +607,8 @@ def test_registry_intel_gpu_matches_validation_matrix() -> None:
             if not variant_claims_gpu and variant_id in GPU_VALIDATED:
                 mismatches.append(f"{variant_id}: is in GPU_VALIDATED but does not list intel_gpu")
 
-    assert not mismatches, (
-        "Registry and GPU validation matrix are out of sync:\n"
-        + "\n".join(f"  - {m}" for m in mismatches)
+    assert not mismatches, "Registry and GPU validation matrix are out of sync:\n" + "\n".join(
+        f"  - {m}" for m in mismatches
     )
 
 
@@ -645,10 +635,7 @@ def test_gpu_unsupported_model_fails_or_produces_degenerate_output(
         pytest.skip("No Intel GPU available")
 
     if model_id in GPU_CRASH_RISK:
-        pytest.skip(
-            f"{model_id} is in GPU_CRASH_RISK — skipped to prevent process abort. "
-            f"Reason: {reason}"
-        )
+        pytest.skip(f"{model_id} is in GPU_CRASH_RISK — skipped to prevent process abort. Reason: {reason}")
 
     models = dict(_installed_onnx_models())
     if model_id not in models:
@@ -659,9 +646,7 @@ def test_gpu_unsupported_model_fails_or_produces_degenerate_output(
         pytest.skip(f"{model_id} has no model.onnx — not an ONNX model")
 
     config = _load_config(model_dir)
-    compile_ok, compile_error, compiled = _compile_on_device(
-        model_dir / "model.onnx", config, "GPU"
-    )
+    compile_ok, compile_error, compiled = _compile_on_device(model_dir / "model.onnx", config, "GPU")
 
     if not compile_ok:
         # Some models fail to compile on GPU (e.g. architecture plugin incompatibility)
@@ -740,9 +725,7 @@ def test_gpu_cpu_comparison(model_id: str, gpu_available: bool, openvino_version
     _, _, cpu_compiled = _compile_on_device(model_dir / "model.onnx", config, "CPU")
     assert cpu_compiled is not None, f"{model_id}: failed to compile on CPU"
 
-    compile_ok, compile_error, gpu_compiled = _compile_on_device(
-        model_dir / "model.onnx", config, "GPU"
-    )
+    compile_ok, compile_error, gpu_compiled = _compile_on_device(model_dir / "model.onnx", config, "GPU")
     assert compile_ok, f"{model_id}: GPU compile failed: {compile_error}"
     assert gpu_compiled is not None
 
@@ -814,14 +797,13 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
         pytest.skip("No models installed")
 
     rows: list[str] = []
-    rows.append(f"\n{'='*90}")
+    rows.append(f"\n{'=' * 90}")
     rows.append(f"GPU Diagnostic Report — OpenVINO {openvino_version}")
-    rows.append(f"{'='*90}")
+    rows.append(f"{'=' * 90}")
     rows.append(
-        f"{'Model':<35} {'CPU range':>10} {'GPU range':>10} "
-        f"{'ratio':>6} {'spearman':>9} {'top5 ∩':>7} {'status'}"
+        f"{'Model':<35} {'CPU range':>10} {'GPU range':>10} {'ratio':>6} {'spearman':>9} {'top5 ∩':>7} {'status'}"
     )
-    rows.append(f"{'-'*90}")
+    rows.append(f"{'-' * 90}")
 
     img_cache: dict[int, Image.Image] = {}
 
@@ -855,23 +837,17 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
         cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
 
         # GPU
-        compile_ok, compile_error, gpu_compiled = _compile_on_device(
-            model_dir / "model.onnx", config, "GPU"
-        )
+        compile_ok, compile_error, gpu_compiled = _compile_on_device(model_dir / "model.onnx", config, "GPU")
         if not compile_ok:
             rows.append(
-                f"{model_id:<35} {cpu_range:>10.2f} {'COMPILE FAIL':>10} "
-                f"{'':>6} {'':>9} {'':>7} {compile_error[:30]}"
+                f"{model_id:<35} {cpu_range:>10.2f} {'COMPILE FAIL':>10} {'':>6} {'':>9} {'':>7} {compile_error[:30]}"
             )
             continue
 
         try:
             gpu_out = _run_inference(gpu_compiled, tensor)
         except Exception as e:
-            rows.append(
-                f"{model_id:<35} {cpu_range:>10.2f} {'CRASH':>10} "
-                f"{'':>6} {'':>9} {'':>7} {str(e)[:30]}"
-            )
+            rows.append(f"{model_id:<35} {cpu_range:>10.2f} {'CRASH':>10} {'':>6} {'':>9} {'':>7} {str(e)[:30]}")
             continue
 
         gpu_finite = gpu_out[np.isfinite(gpu_out)]
@@ -898,7 +874,7 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
             f"{ratio:>6.2f} {spearman:>9.3f} {overlap:>7d} {status}"
         )
 
-    rows.append(f"{'='*90}")
+    rows.append(f"{'=' * 90}")
     print("\n".join(rows))
     # Always pass — this is purely diagnostic
 
@@ -922,7 +898,8 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
     # ConvNeXt is deliberately included here even though it doesn't produce NaN —
     # it produces wrong predictions, which the same set of strategies may fix.
     nan_candidates = {
-        m for m in GPU_NOT_SUPPORTED
+        m
+        for m in GPU_NOT_SUPPORTED
         if m not in GPU_CRASH_RISK
         and m not in ("mobilenet_v2_birds", "bird_crop_detector")
         and ("NaN" in GPU_NOT_SUPPORTED[m] or "Wrong predictions" in GPU_NOT_SUPPORTED[m])
@@ -938,19 +915,40 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
         pytest.skip("No Intel GPU device available")
 
     rows: list[str] = []
-    rows.append(f"\n{'='*100}")
+    rows.append(f"\n{'=' * 100}")
     rows.append(f"NaN Fix Probe — OpenVINO {openvino_version}")
-    rows.append(f"{'='*100}")
+    rows.append(f"{'=' * 100}")
     rows.append(
-        f"{'Model':<35} {'Strategy':<20} {'GPU range':>10} {'ratio':>6} "
-        f"{'spearman':>9} {'top5 ∩':>7} {'result'}"
+        f"{'Model':<35} {'Strategy':<20} {'GPU range':>10} {'ratio':>6} {'spearman':>9} {'top5 ∩':>7} {'result'}"
     )
-    rows.append(f"{'-'*100}")
+    rows.append(f"{'-' * 100}")
 
     strategies: list[tuple[str, str, dict[str, str]]] = [
-        ("HETERO",       "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
-        ("SDPA off",     "GPU",            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_ENABLE_SDPA_OPTIMIZATION": "NO"}),
-        ("HETERO+SDPA-", "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_ENABLE_SDPA_OPTIMIZATION": "NO"}),
+        (
+            "HETERO",
+            "HETERO:GPU,CPU",
+            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"},
+        ),
+        (
+            "SDPA off",
+            "GPU",
+            {
+                "INFERENCE_PRECISION_HINT": "f32",
+                "NUM_STREAMS": "1",
+                "PERFORMANCE_HINT": "LATENCY",
+                "GPU_ENABLE_SDPA_OPTIMIZATION": "NO",
+            },
+        ),
+        (
+            "HETERO+SDPA-",
+            "HETERO:GPU,CPU",
+            {
+                "INFERENCE_PRECISION_HINT": "f32",
+                "NUM_STREAMS": "1",
+                "PERFORMANCE_HINT": "LATENCY",
+                "GPU_ENABLE_SDPA_OPTIMIZATION": "NO",
+            },
+        ),
     ]
 
     for model_id, model_dir in candidates:
@@ -983,9 +981,7 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
                 compiled = core.compile_model(model2, device, config=cfg)
                 out = _run_inference(compiled, tensor)
             except Exception as e:
-                rows.append(
-                    f"{model_id:<35} {strategy_name:<20} {'FAIL':>10} {'':>6} {'':>9} {'':>7} {str(e)[:30]}"
-                )
+                rows.append(f"{model_id:<35} {strategy_name:<20} {'FAIL':>10} {'':>6} {'':>9} {'':>7} {str(e)[:30]}")
                 continue
 
             finite = out[np.isfinite(out)]
@@ -1012,9 +1008,9 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
                 f"{spearman:>9.3f} {overlap:>7d} {result}"
             )
 
-        rows.append(f"{'-'*100}")
+        rows.append(f"{'-' * 100}")
 
-    rows.append(f"{'='*100}")
+    rows.append(f"{'=' * 100}")
     print("\n".join(rows))
 
 
@@ -1062,19 +1058,48 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
 
     strategies: list[tuple[str, str, dict[str, str]]] = [
         # Current production config — expected to show degraded logit range
-        ("f32/LATENCY (baseline)",  "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        (
+            "f32/LATENCY (baseline)",
+            "GPU",
+            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"},
+        ),
         # Native iGPU precision — f16 is hardware-native; avoids f32-emulation artefacts
         # in depthwise conv accumulation.  ConvNeXt activations are small enough that
         # f16 overflow (>65504) is unlikely.
-        ("f16/LATENCY",             "GPU",            {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        ("f16/LATENCY", "GPU", {"INFERENCE_PRECISION_HINT": "f16", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
         # ACCURACY hint selects slower but numerically more stable GPU algorithms
-        ("f32/ACCURACY",            "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"}),
-        ("f16/ACCURACY",            "GPU",            {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"}),
+        (
+            "f32/ACCURACY",
+            "GPU",
+            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"},
+        ),
+        (
+            "f16/ACCURACY",
+            "GPU",
+            {"INFERENCE_PRECISION_HINT": "f16", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "ACCURACY"},
+        ),
         # Winograd is fast but accumulates error; disabling forces direct conv
-        ("f32/noWinograd",          "GPU",            {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY", "GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES"}),
+        (
+            "f32/noWinograd",
+            "GPU",
+            {
+                "INFERENCE_PRECISION_HINT": "f32",
+                "NUM_STREAMS": "1",
+                "PERFORMANCE_HINT": "LATENCY",
+                "GPU_DISABLE_WINOGRAD_CONVOLUTION": "YES",
+            },
+        ),
         # HETERO routes precision-sensitive ops to CPU automatically
-        ("f32/HETERO",              "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f32",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
-        ("f16/HETERO",              "HETERO:GPU,CPU", {"INFERENCE_PRECISION_HINT": "f16",  "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"}),
+        (
+            "f32/HETERO",
+            "HETERO:GPU,CPU",
+            {"INFERENCE_PRECISION_HINT": "f32", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"},
+        ),
+        (
+            "f16/HETERO",
+            "HETERO:GPU,CPU",
+            {"INFERENCE_PRECISION_HINT": "f16", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"},
+        ),
     ]
 
     # CPU reference
@@ -1089,15 +1114,17 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
     top5_cpu = set(np.argsort(cpu_out)[-5:])
 
     rows: list[str] = []
-    rows.append(f"\n{'='*110}")
+    rows.append(f"\n{'=' * 110}")
     rows.append(f"ConvNeXt Large GPU Precision Probe — OpenVINO {openvino_version}")
-    rows.append(f"CPU logit range: {cpu_range:.2f}  |  target: GPU range ≥ 0.5×CPU  AND  Spearman ≥ 0.50  AND  top-5 ∩ ≥ 1")
-    rows.append(f"{'='*110}")
+    rows.append(
+        f"CPU logit range: {cpu_range:.2f}  |  target: GPU range ≥ 0.5×CPU  AND  Spearman ≥ 0.50  AND  top-5 ∩ ≥ 1"
+    )
+    rows.append(f"{'=' * 110}")
     rows.append(
         f"{'Strategy':<28} {'device':<16} {'GPU range':>10} {'ratio':>6} "
         f"{'spearman':>9} {'top5 ∩':>7} {'NaN?':>6} {'result'}"
     )
-    rows.append(f"{'-'*110}")
+    rows.append(f"{'-' * 110}")
 
     for strategy_name, device, cfg in strategies:
         try:
@@ -1137,6 +1164,6 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
             f"{spearman:>9.3f} {overlap:>7d} {nan_flag:>6} {result}"
         )
 
-    rows.append(f"{'='*110}")
+    rows.append(f"{'=' * 110}")
     print("\n".join(rows))
     # Always pass — diagnostic only

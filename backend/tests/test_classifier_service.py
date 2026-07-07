@@ -58,10 +58,12 @@ if _original_model_manager_module is not None:
 else:
     sys.modules.pop("app.services.model_manager", None)
 
+
 @pytest.fixture
 def mock_tflite():
     with patch("app.services.classifier_service.tflite") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_os_path_exists():
@@ -178,18 +180,20 @@ class _SingleSlotBlockingSupervisor:
             "late_results_ignored": 0,
         }
 
+
 def test_model_instance_load(mock_tflite, mock_os_path_exists):
     # Mock labels file content
     m = mock_open(read_data="Bird A\nBird B\n")
     with patch("builtins.open", m):
         model = ModelInstance("test", "model.tflite", "labels.txt")
         success = model.load()
-        
+
     assert success is True
     assert model.loaded is True
     assert len(model.labels) == 2
     assert model.labels[0] == "Bird A"
     mock_tflite.Interpreter.assert_called_with(model_path="model.tflite")
+
 
 def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     # Mock labels and interpreter
@@ -197,24 +201,24 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     with patch("builtins.open", m):
         model = ModelInstance("test", "model.tflite", "labels.txt")
         model.load()
-    
+
     # Mock interpreter behavior
     interpreter = mock_tflite.Interpreter.return_value
-    interpreter.get_input_details.return_value = [{'shape': [1, 224, 224, 3], 'dtype': np.float32, 'index': 0}]
-    interpreter.get_output_details.return_value = [{'dtype': np.float32, 'index': 0}]
-    
+    interpreter.get_input_details.return_value = [{"shape": [1, 224, 224, 3], "dtype": np.float32, "index": 0}]
+    interpreter.get_output_details.return_value = [{"dtype": np.float32, "index": 0}]
+
     # Mock output tensor (probabilities)
     # [Bird A score, Bird B score]
     mock_output = np.array([[0.8, 0.2]], dtype=np.float32)
     interpreter.get_tensor.return_value = mock_output
-    
+
     # Test image
-    img = Image.new('RGB', (100, 100))
+    img = Image.new("RGB", (100, 100))
     results = model.classify(img)
-    
+
     assert len(results) > 0
-    assert results[0]['label'] == "Bird A"
-    assert results[0]['score'] == pytest.approx(0.8)
+    assert results[0]["label"] == "Bird A"
+    assert results[0]["score"] == pytest.approx(0.8)
 
 
 def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
@@ -230,9 +234,7 @@ def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
 
     mock_session = MagicMock()
     mock_session.get_inputs.return_value = [types.SimpleNamespace(name="input")]
-    mock_session.run.return_value = [
-        np.array([[np.log(0.4), np.log(0.35), np.log(0.25)]], dtype=np.float32)
-    ]
+    mock_session.run.return_value = [np.array([[np.log(0.4), np.log(0.35), np.log(0.25)]], dtype=np.float32)]
     model.session = mock_session
 
     results = model.classify(Image.new("RGB", (32, 32), color="white"), top_k=5)
@@ -254,11 +256,13 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
     mock_session_options = MagicMock()
     mock_session = MagicMock()
 
-    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
-         patch("app.services.classifier_service.os.path.exists", return_value=True), \
-         patch("builtins.open", mock_open(read_data="Bird A\n")), \
-         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
-         patch("app.services.classifier_service.ort") as mock_ort:
+    with (
+        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch("app.services.classifier_service.os.path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data="Bird A\n")),
+        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.classifier_service.ort") as mock_ort,
+    ):
         mock_ort.SessionOptions.return_value = mock_session_options
         mock_ort.GraphOptimizationLevel.ORT_ENABLE_ALL = "ALL"
         mock_ort.InferenceSession.return_value = mock_session
@@ -524,8 +528,12 @@ async def test_classifier_service_caches_acceleration_probe_results():
         "process_groups": [44],
     }
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch.object(classifier_service_module, "_detect_acceleration_capabilities", return_value=dict(caps)) as mock_detect:
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch.object(
+            classifier_service_module, "_detect_acceleration_capabilities", return_value=dict(caps)
+        ) as mock_detect,
+    ):
         service = ClassifierService()
         service.get_status()
         service.get_status()
@@ -672,9 +680,7 @@ async def test_classifier_service_subprocess_live_queue_saturation_raises_fast(
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_subprocess_status_tracks_live_in_flight_requests(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_subprocess_status_tracks_live_in_flight_requests(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.image_execution_mode = "subprocess"
@@ -771,8 +777,10 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
     supervisor = _FakeSupervisor()
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
-             patch.object(ClassifierService, "classify_video", side_effect=AssertionError("should use supervisor")):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model),
+            patch.object(ClassifierService, "classify_video", side_effect=AssertionError("should use supervisor")),
+        ):
             service = ClassifierService(supervisor=supervisor)
             results = await service.classify_video_async(
                 "/tmp/demo.mp4",
@@ -791,9 +799,7 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_forwards_video_input_context_through_supervisor(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_forwards_video_input_context_through_supervisor(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -845,8 +851,10 @@ async def test_classifier_service_uses_extended_video_deadline_for_supervisor_wo
     settings.classification.video_classification_timeout_seconds = 180
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
-             patch("app.services.classifier_service.ClassifierSupervisor") as mock_supervisor:
+        with (
+            patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model),
+            patch("app.services.classifier_service.ClassifierSupervisor") as mock_supervisor,
+        ):
             service = ClassifierService()
 
             kwargs = mock_supervisor.call_args.kwargs
@@ -909,7 +917,9 @@ async def test_classifier_service_maps_supervisor_circuit_open_to_live_overload(
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_heartbeat_timeout_to_live_lease_expiry(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_maps_supervisor_heartbeat_timeout_to_live_lease_expiry(
+    mock_tflite, mock_os_path_exists
+):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -949,7 +959,9 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_live_overlo
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_background_results(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_background_results(
+    mock_tflite, mock_os_path_exists
+):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -961,7 +973,9 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
         with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="purple")
-            with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"):
+            with pytest.raises(
+                BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"
+            ):
                 await service.classify_async_background(img, camera_name="garden")
             await service.shutdown()
     finally:
@@ -969,7 +983,9 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_exit_during_send_to_background_unavailable(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_maps_supervisor_exit_during_send_to_background_unavailable(
+    mock_tflite, mock_os_path_exists
+):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -981,11 +997,14 @@ async def test_classifier_service_maps_supervisor_exit_during_send_to_background
         with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="purple")
-            with pytest.raises(BackgroundImageClassificationUnavailableError, match="background_image_worker_unavailable"):
+            with pytest.raises(
+                BackgroundImageClassificationUnavailableError, match="background_image_worker_unavailable"
+            ):
                 await service.classify_async_background(img, camera_name="garden")
             await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
+
 
 @pytest.mark.asyncio
 async def test_classifier_service_init(mock_tflite, mock_os_path_exists):
@@ -1048,9 +1067,11 @@ async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(mo
     monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: openvino_model)
     monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: onnx_fallback_model)
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
-         patch.object(ClassifierService, "_build_bird_model_for_backend", _fake_build):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh),
+        patch.object(ClassifierService, "_build_bird_model_for_backend", _fake_build),
+    ):
         service = ClassifierService()
 
     try:
@@ -1082,8 +1103,10 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
     bird_model.error = None
     bird_model.labels = []
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_build_bird_model_for_backend", return_value=bird_model):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_build_bird_model_for_backend", return_value=bird_model),
+    ):
         service = ClassifierService()
 
     try:
@@ -1154,9 +1177,11 @@ async def test_init_bird_model_refuses_slow_openvino_gpu_runtime_and_exposes_ben
         "reason": "gpu_latency_ratio_exceeded",
     }
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
-         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh),
+        patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark),
+    ):
         service = ClassifierService()
 
     try:
@@ -1229,9 +1254,11 @@ async def test_init_bird_model_mounts_openvino_gpu_when_runtime_benchmark_passes
         "max_ratio": 5.0,
     }
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
-         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh),
+        patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark),
+    ):
         service = ClassifierService()
 
     try:
@@ -1308,9 +1335,11 @@ async def test_init_bird_model_refuses_slow_onnxruntime_cuda_and_exposes_benchma
         "reason": "accelerated_latency_ratio_exceeded",
     }
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
-         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh),
+        patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark),
+    ):
         service = ClassifierService()
 
     try:
@@ -1378,9 +1407,11 @@ async def test_init_bird_model_mounts_onnxruntime_cuda_when_runtime_benchmark_pa
         "max_ratio": 5.0,
     }
 
-    with patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec), \
-         patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh), \
-         patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark):
+    with (
+        patch.object(ClassifierService, "_resolve_active_bird_model_spec", return_value=spec),
+        patch.object(ClassifierService, "_refresh_accel_caps", _fake_refresh),
+        patch.object(ClassifierService, "_benchmark_runtime_candidate_against_cpu", return_value=benchmark),
+    ):
         service = ClassifierService()
 
     try:
@@ -1430,10 +1461,14 @@ async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, moc
     fake_model = _FakeBirdModel()
     seen_progress_labels = []
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture), \
-         patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame), \
-         patch.object(ClassifierService, "_classify_raw_with_runtime_recovery", return_value=(np.array([0.91, 0.09]), fake_model)):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture),
+        patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame),
+        patch.object(
+            ClassifierService, "_classify_raw_with_runtime_recovery", return_value=(np.array([0.91, 0.09]), fake_model)
+        ),
+    ):
         service = ClassifierService()
         service._models["bird"] = fake_model
 
@@ -1464,8 +1499,10 @@ async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mo
         service._active_inference_provider = "intel_gpu"
         service._inference_backend = "openvino"
 
-        with patch.object(service, "_classify_raw_with_runtime_recovery", return_value=(fake_probs, fake_model)), \
-             patch("cv2.VideoCapture") as mock_capture:
+        with (
+            patch.object(service, "_classify_raw_with_runtime_recovery", return_value=(fake_probs, fake_model)),
+            patch("cv2.VideoCapture") as mock_capture,
+        ):
             capture = mock_capture.return_value
             capture.isOpened.return_value = True
             capture.get.side_effect = lambda prop: 20 if prop == 7 else 10  # 7 is cv2.CAP_PROP_FRAME_COUNT
@@ -1543,15 +1580,16 @@ async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
 
 @pytest.mark.asyncio
 async def test_classifier_service_classify_async(mock_tflite, mock_os_path_exists):
-    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
-         patch.object(ClassifierService, "classify") as mock_classify:
-        
+    with (
+        patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model),
+        patch.object(ClassifierService, "classify") as mock_classify,
+    ):
         mock_classify.return_value = [{"label": "Robin", "score": 0.9}]
         service = ClassifierService()
-        
-        img = Image.new('RGB', (100, 100))
+
+        img = Image.new("RGB", (100, 100))
         results = await service.classify_async(img)
-        
+
         assert results[0]["label"] == "Robin"
         mock_classify.assert_called_once()
         await service.shutdown()
@@ -1603,19 +1641,22 @@ async def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock
             "ort_available": True,
         }
 
-        with patch.object(
-            service,
-            "_load_runtime_fallback_bird_model",
-            return_value=(
-                recovered,
-                "openvino",
-                "intel_cpu",
-                "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
+        with (
+            patch.object(
+                service,
+                "_load_runtime_fallback_bird_model",
+                return_value=(
+                    recovered,
+                    "openvino",
+                    "intel_cpu",
+                    "Runtime fallback after invalid openvino/intel_gpu output: invalid logits; using openvino/intel_cpu",
+                ),
+            ) as mock_load,
+            patch.object(
+                service,
+                "_attempt_gpu_retry_after_invalid_output",
+                return_value=False,
             ),
-        ) as mock_load, patch.object(
-            service,
-            "_attempt_gpu_retry_after_invalid_output",
-            return_value=False,
         ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
 
@@ -1673,23 +1714,27 @@ async def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tfli
             "ort_available": True,
         }
 
-        with patch.object(
-            service,
-            "_build_bird_model_for_backend",
-            return_value=recovered_gpu,
-        ) as mock_build, patch.object(
-            service,
-            "_load_runtime_fallback_bird_model",
-        ) as mock_fallback, patch.object(
-            service,
-            "_resolve_active_bird_model_spec",
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 384,
-                "preprocessing": None,
-                "runtime": "onnx",
-            },
+        with (
+            patch.object(
+                service,
+                "_build_bird_model_for_backend",
+                return_value=recovered_gpu,
+            ) as mock_build,
+            patch.object(
+                service,
+                "_load_runtime_fallback_bird_model",
+            ) as mock_fallback,
+            patch.object(
+                service,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/model.onnx",
+                    "labels_path": "/tmp/labels.txt",
+                    "input_size": 384,
+                    "preprocessing": None,
+                    "runtime": "onnx",
+                },
+            ),
         ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
 
@@ -1724,20 +1769,23 @@ async def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(
         original_provider = settings.classification.inference_provider
         settings.classification.inference_provider = "auto"
         try:
-            with patch.object(
-                service,
-                "_build_bird_model_for_backend",
-                return_value=gpu_model,
-            ) as mock_build, patch.object(
-                service,
-                "_resolve_active_bird_model_spec",
-                return_value={
-                    "model_path": "/tmp/model.onnx",
-                    "labels_path": "/tmp/labels.txt",
-                    "input_size": 384,
-                    "preprocessing": None,
-                    "runtime": "onnx",
-                },
+            with (
+                patch.object(
+                    service,
+                    "_build_bird_model_for_backend",
+                    return_value=gpu_model,
+                ) as mock_build,
+                patch.object(
+                    service,
+                    "_resolve_active_bird_model_spec",
+                    return_value={
+                        "model_path": "/tmp/model.onnx",
+                        "labels_path": "/tmp/labels.txt",
+                        "input_size": 384,
+                        "preprocessing": None,
+                        "runtime": "onnx",
+                    },
+                ),
             ):
                 results = service.classify(Image.new("RGB", (32, 32), color="white"))
         finally:
@@ -1774,20 +1822,23 @@ async def test_classifier_service_auto_restore_gpu_skips_artifacts_that_disallow
         original_provider = settings.classification.inference_provider
         settings.classification.inference_provider = "auto"
         try:
-            with patch.object(
-                service,
-                "_build_bird_model_for_backend",
-            ) as mock_build, patch.object(
-                service,
-                "_resolve_active_bird_model_spec",
-                return_value={
-                    "model_path": "/tmp/model.onnx",
-                    "labels_path": "/tmp/labels.txt",
-                    "input_size": 224,
-                    "preprocessing": None,
-                    "runtime": "onnx",
-                    "supported_inference_providers": ["cpu", "intel_cpu"],
-                },
+            with (
+                patch.object(
+                    service,
+                    "_build_bird_model_for_backend",
+                ) as mock_build,
+                patch.object(
+                    service,
+                    "_resolve_active_bird_model_spec",
+                    return_value={
+                        "model_path": "/tmp/model.onnx",
+                        "labels_path": "/tmp/labels.txt",
+                        "input_size": 224,
+                        "preprocessing": None,
+                        "runtime": "onnx",
+                        "supported_inference_providers": ["cpu", "intel_cpu"],
+                    },
+                ),
             ):
                 results = service.classify(Image.new("RGB", (32, 32), color="white"))
         finally:
@@ -1867,19 +1918,21 @@ async def test_classifier_service_recovers_raw_classification_from_invalid_openv
                 "reason": "selected",
             }
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+    ):
         service = ClassifierService()
         broken = _BrokenOpenVINOModel()
         recovered = _RecoveredRawModel([])
@@ -1967,19 +2020,21 @@ def test_openvino_model_load_fails_when_gpu_startup_self_test_is_non_finite(mock
     fake_core.read_model.return_value = object()
     fake_core.compile_model.return_value = MagicMock()
 
-    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
-         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
-         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
-         patch.object(
-             OpenVINOModelInstance,
-             "_run_gpu_startup_self_test",
-             side_effect=InvalidInferenceOutputError(
-                 backend="openvino",
-                 provider="GPU",
-                 detail="bird inference produced no finite probabilities during startup self-test",
-                 diagnostics={"output_summary": {"nan_count": 10000, "finite_count": 0}},
-             ),
-         ):
+    with (
+        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
+        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
+        patch.object(
+            OpenVINOModelInstance,
+            "_run_gpu_startup_self_test",
+            side_effect=InvalidInferenceOutputError(
+                backend="openvino",
+                provider="GPU",
+                detail="bird inference produced no finite probabilities during startup self-test",
+                diagnostics={"output_summary": {"nan_count": 10000, "finite_count": 0}},
+            ),
+        ),
+    ):
         model = OpenVINOModelInstance(
             "bird",
             "/tmp/model.onnx",
@@ -2002,10 +2057,12 @@ def test_openvino_model_load_skips_gpu_startup_self_test_when_disabled(mock_os_p
     fake_compiled_model.inputs = [MagicMock(get_any_name=MagicMock(return_value="input"))]
     fake_core.compile_model.return_value = fake_compiled_model
 
-    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
-         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
-         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
-         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test") as mock_self_test:
+    with (
+        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
+        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
+        patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test") as mock_self_test,
+    ):
         model = OpenVINOModelInstance(
             "bird",
             "/tmp/model.onnx",
@@ -2067,7 +2124,10 @@ def test_extract_model_artifact_metadata_reports_hashes_and_onnx_metadata(tmp_pa
     fake_onnx = types.SimpleNamespace(load=lambda *_args, **_kwargs: fake_model)
     original_import_module = importlib.import_module
 
-    with patch("importlib.import_module", side_effect=lambda name: fake_onnx if name == "onnx" else original_import_module(name)):
+    with patch(
+        "importlib.import_module",
+        side_effect=lambda name: fake_onnx if name == "onnx" else original_import_module(name),
+    ):
         metadata = classifier_service_module._extract_model_artifact_metadata(str(model_path))
 
     assert metadata["model_sha256"]
@@ -2084,10 +2144,12 @@ def test_openvino_model_load_applies_optional_gpu_debug_properties(mock_os_path_
     monkeypatch.setenv("OPENVINO_GPU_EXECUTION_MODE_HINT", "ACCURACY")
     monkeypatch.setenv("OPENVINO_GPU_ACTIVATIONS_SCALE_FACTOR", "8.0")
 
-    with patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
-         patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core), \
-         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")), \
-         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test", return_value=None):
+    with (
+        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
+        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
+        patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test", return_value=None),
+    ):
         model = OpenVINOModelInstance(
             "bird",
             "/tmp/model.onnx",
@@ -2150,20 +2212,22 @@ async def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mo
     original_provider = settings.classification.inference_provider
     settings.classification.inference_provider = "auto"
     try:
-        with patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps), \
-             patch.object(
-                 ClassifierService,
-                 "_resolve_active_bird_model_spec",
-                 return_value={
-                     "model_path": "/tmp/model.onnx",
-                     "labels_path": "/tmp/labels.txt",
-                     "input_size": 384,
-                     "preprocessing": None,
-                     "runtime": "onnx",
-                 },
-             ), \
-             patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel), \
-             patch("app.services.classifier_service.ONNXModelInstance", _FakeONNXModel):
+        with (
+            patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps),
+            patch.object(
+                ClassifierService,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/model.onnx",
+                    "labels_path": "/tmp/labels.txt",
+                    "input_size": 384,
+                    "preprocessing": None,
+                    "runtime": "onnx",
+                },
+            ),
+            patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel),
+            patch("app.services.classifier_service.ONNXModelInstance", _FakeONNXModel),
+        ):
             service = ClassifierService()
     finally:
         settings.classification.inference_provider = original_provider
@@ -2178,43 +2242,46 @@ async def test_classifier_service_falls_back_when_gpu_startup_self_test_fails(mo
 async def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_reaches_tflite(
     mock_tflite, mock_os_path_exists
 ):
-    with patch.object(
-        classifier_service_module,
-        "_detect_acceleration_capabilities",
-        return_value={
-            "openvino_available": False,
-            "ort_available": True,
-            "intel_cpu_available": False,
-            "intel_gpu_available": False,
-        },
-    ), patch.object(
-        classifier_service_module,
-        "_resolve_inference_selection",
-        return_value={
-            "backend": "onnxruntime",
-            "active_provider": "cpu",
-            "ort_providers": ["CPUExecutionProvider"],
-            "fallback_reason": None,
-        },
-    ), patch.object(
-        ClassifierService,
-        "_resolve_active_bird_model_spec",
-        return_value={
-            "model_path": "/tmp/active/model.onnx",
-            "labels_path": "/tmp/active/labels.txt",
-            "input_size": 384,
-            "preprocessing": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
-            "runtime": "onnx",
-        },
-    ), patch.object(
-        ClassifierService,
-        "_get_model_paths",
-        return_value=("/tmp/fallback/model.tflite", "/tmp/fallback/labels.txt"),
-    ), patch(
-        "app.services.classifier_service.ONNXModelInstance"
-    ) as mock_onnx_model, patch(
-        "app.services.classifier_service.ModelInstance"
-    ) as mock_tflite_model:
+    with (
+        patch.object(
+            classifier_service_module,
+            "_detect_acceleration_capabilities",
+            return_value={
+                "openvino_available": False,
+                "ort_available": True,
+                "intel_cpu_available": False,
+                "intel_gpu_available": False,
+            },
+        ),
+        patch.object(
+            classifier_service_module,
+            "_resolve_inference_selection",
+            return_value={
+                "backend": "onnxruntime",
+                "active_provider": "cpu",
+                "ort_providers": ["CPUExecutionProvider"],
+                "fallback_reason": None,
+            },
+        ),
+        patch.object(
+            ClassifierService,
+            "_resolve_active_bird_model_spec",
+            return_value={
+                "model_path": "/tmp/active/model.onnx",
+                "labels_path": "/tmp/active/labels.txt",
+                "input_size": 384,
+                "preprocessing": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+                "runtime": "onnx",
+            },
+        ),
+        patch.object(
+            ClassifierService,
+            "_get_model_paths",
+            return_value=("/tmp/fallback/model.tflite", "/tmp/fallback/labels.txt"),
+        ),
+        patch("app.services.classifier_service.ONNXModelInstance") as mock_onnx_model,
+        patch("app.services.classifier_service.ModelInstance") as mock_tflite_model,
+    ):
         mock_onnx_model.return_value.load.return_value = False
         mock_tflite_model.return_value.load.return_value = True
         mock_tflite_model.return_value.loaded = True
@@ -2239,13 +2306,15 @@ async def test_classifier_health_reports_error_when_invalid_output_recovery_fail
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
         service._models["bird"] = _FallbackReadyModel([{"label": "Robin", "score": 0.9, "index": 0}])
-        service._publish_runtime_recovery({
-            "status": "failed",
-            "failed_backend": "openvino",
-            "failed_provider": "intel_gpu",
-            "detail": "bird inference produced no finite probabilities",
-            "at": 123.0,
-        })
+        service._publish_runtime_recovery(
+            {
+                "status": "failed",
+                "failed_backend": "openvino",
+                "failed_provider": "intel_gpu",
+                "detail": "bird inference produced no finite probabilities",
+                "at": 123.0,
+            }
+        )
 
         health = service.check_health()
 
@@ -2259,10 +2328,11 @@ async def test_classifier_service_classify_async_applies_personalization_when_en
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = True
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
-             patch.object(ClassifierService, "classify") as mock_classify, \
-             patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
-
+        with (
+            patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model),
+            patch.object(ClassifierService, "classify") as mock_classify,
+            patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank,
+        ):
             mock_classify.return_value = [
                 {"label": "Robin", "score": 0.8, "index": 0},
                 {"label": "Sparrow", "score": 0.2, "index": 1},
@@ -2291,10 +2361,11 @@ async def test_classifier_service_classify_async_skips_personalization_when_disa
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model), \
-             patch.object(ClassifierService, "classify") as mock_classify, \
-             patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank:
-
+        with (
+            patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model),
+            patch.object(ClassifierService, "classify") as mock_classify,
+            patch("app.services.classifier_service.personalization_service.rerank", new=AsyncMock()) as mock_rerank,
+        ):
             mock_classify.return_value = [{"label": "Robin", "score": 0.9, "index": 0}]
             service = ClassifierService()
 
@@ -2323,8 +2394,10 @@ async def test_classifier_service_classify_async_returns_empty_when_image_queue_
         return [{"label": "Robin", "score": 0.9, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_MAX_CONCURRENT",
@@ -2368,8 +2441,10 @@ async def test_classifier_service_classify_async_live_raises_when_live_queue_sat
         return [{"label": "Robin", "score": 0.9, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_MAX_CONCURRENT",
@@ -2413,9 +2488,11 @@ async def test_classifier_service_classify_async_live_keeps_capacity_reserved_un
         return [{"label": "Robin", "score": 0.9, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             service = ClassifierService()
             img = Image.new("RGB", (100, 100))
 
@@ -2440,9 +2517,7 @@ async def test_classifier_service_classify_async_live_keeps_capacity_reserved_un
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_classify_async_live_isolated_from_non_live_executor(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_classify_async_live_isolated_from_non_live_executor(mock_tflite, mock_os_path_exists):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
     shared_started = threading.Event()
@@ -2459,8 +2534,10 @@ async def test_classifier_service_classify_async_live_isolated_from_non_live_exe
         return [{"label": "Robin", "score": 0.91, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+        ):
             service = ClassifierService()
             service._image_executor.shutdown(wait=False, cancel_futures=True)
             service._image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="test_shared_image_worker")
@@ -2503,9 +2580,11 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
         return [{"label": "Robin", "score": 0.9, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_MAX_CONCURRENT",
@@ -2531,7 +2610,9 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
             release.set()
             await asyncio.sleep(0.05)
 
-            with patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.92, "index": 0}]):
+            with patch.object(
+                ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.92, "index": 0}]
+            ):
                 results = await service.classify_async_live(img, camera_name="front")
 
             assert results[0]["label"] == "Robin"
@@ -2555,9 +2636,11 @@ async def test_classifier_service_live_abandoned_outcomes_include_runtime_contex
         return [{"label": "Robin", "score": 0.9, "index": 0}]
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_MAX_CONCURRENT",
@@ -2589,7 +2672,8 @@ async def test_classifier_service_live_abandoned_outcomes_include_runtime_contex
 
             status = service.get_status()
             abandoned = [
-                outcome for outcome in status["admission_recent_outcomes"]
+                outcome
+                for outcome in status["admission_recent_outcomes"]
                 if outcome.get("priority") == "live" and outcome.get("outcome") == "abandoned"
             ]
 
@@ -2626,9 +2710,11 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
     fallback_model = MagicMock(loaded=True, error=None)
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(ClassifierService, "classify", side_effect=_blocking_classify):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+            patch.object(ClassifierService, "classify", side_effect=_blocking_classify),
+        ):
             monkeypatch.setattr(
                 classifier_service_module,
                 "CLASSIFIER_IMAGE_MAX_CONCURRENT",
@@ -2848,9 +2934,7 @@ async def test_register_gpu_unhealthy_signal_does_not_double_count_live_lease_ex
 
 
 @pytest.mark.asyncio
-async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(
-    mock_tflite, mock_os_path_exists, monkeypatch
-):
+async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(mock_tflite, mock_os_path_exists, monkeypatch):
     """Signals from non-OpenVINO-GPU runtimes must not trigger a model swap."""
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
@@ -2892,20 +2976,22 @@ async def test_live_image_gpu_fallback_cooldown_comes_from_inference_health(
         )
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
         service._inference_health.record(runtime_key, outcome="lease_expired", latency_seconds=1.0)
-        service._publish_runtime_recovery({
-            "status": "recovered",
-            "failed_backend": "openvino",
-            "failed_provider": "intel_gpu",
-            "failed_runtime": {
-                "backend": "openvino",
-                "provider": "intel_gpu",
-                "model_id": service._resolve_active_model_id(),
-            },
-            "recovered_backend": "openvino",
-            "recovered_provider": "intel_cpu",
-            "reason": "live_gpu_lease_expiry_fallback",
-            "at": 123.0,
-        })
+        service._publish_runtime_recovery(
+            {
+                "status": "recovered",
+                "failed_backend": "openvino",
+                "failed_provider": "intel_gpu",
+                "failed_runtime": {
+                    "backend": "openvino",
+                    "provider": "intel_gpu",
+                    "model_id": service._resolve_active_model_id(),
+                },
+                "recovered_backend": "openvino",
+                "recovered_provider": "intel_cpu",
+                "reason": "live_gpu_lease_expiry_fallback",
+                "at": 123.0,
+            }
+        )
 
         status = service.get_status()
         last_recovery = status["inference_health"]["last_recovery"]
@@ -2926,9 +3012,7 @@ async def test_live_image_gpu_fallback_cooldown_comes_from_inference_health(
 
 
 @pytest.mark.asyncio
-async def test_classifier_status_exposes_additive_inference_health(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_status_exposes_additive_inference_health(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", _stub_init_bird_model):
         service = ClassifierService()
         service._inference_backend = "openvino"
@@ -2943,9 +3027,7 @@ async def test_classifier_status_exposes_additive_inference_health(
 
 
 @pytest.mark.asyncio
-async def test_classifier_health_exposes_additive_inference_health(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_health_exposes_additive_inference_health(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", _stub_init_bird_model):
         service = ClassifierService()
 
@@ -2996,17 +3078,19 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     service._inference_backend = "onnxruntime"
     service._active_inference_provider = "cpu"
     service._gpu_restore_not_before_monotonic = 0.0
-    service._publish_runtime_recovery({
-        "status": "recovered",
-        "failed_backend": "openvino",
-        "failed_provider": "intel_gpu",
-        "recovered_backend": "onnxruntime",
-        "recovered_provider": "cpu",
-        "detail": "Live OpenVINO Intel GPU inference exceeded lease repeatedly; using a safer live-image fallback during cooldown",
-        "reason": "live_gpu_lease_expiry_fallback",
-        "at": 123.0,
-        "cooldown_seconds": 600,
-    })
+    service._publish_runtime_recovery(
+        {
+            "status": "recovered",
+            "failed_backend": "openvino",
+            "failed_provider": "intel_gpu",
+            "recovered_backend": "onnxruntime",
+            "recovered_provider": "cpu",
+            "detail": "Live OpenVINO Intel GPU inference exceeded lease repeatedly; using a safer live-image fallback during cooldown",
+            "reason": "live_gpu_lease_expiry_fallback",
+            "at": 123.0,
+            "cooldown_seconds": 600,
+        }
+    )
     service._accel_caps = {
         "openvino_available": True,
         "intel_gpu_available": True,
@@ -3017,21 +3101,24 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     original_provider = settings.classification.inference_provider
     settings.classification.inference_provider = "auto"
     try:
-        with patch.object(
-            service,
-            "_build_bird_model_for_backend",
-            return_value=gpu_model,
-        ) as mock_build, patch.object(
-            service,
-            "_resolve_active_bird_model_spec",
-            return_value={
-                "model_path": "/tmp/model.onnx",
-                "labels_path": "/tmp/labels.txt",
-                "input_size": 384,
-                "preprocessing": None,
-                "runtime": "onnx",
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
-            },
+        with (
+            patch.object(
+                service,
+                "_build_bird_model_for_backend",
+                return_value=gpu_model,
+            ) as mock_build,
+            patch.object(
+                service,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/model.onnx",
+                    "labels_path": "/tmp/labels.txt",
+                    "input_size": 384,
+                    "preprocessing": None,
+                    "runtime": "onnx",
+                    "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                },
+            ),
         ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
     finally:
@@ -3048,19 +3135,19 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
 
 
 @pytest.mark.asyncio
-async def test_runtime_benchmark_seeds_inference_health_baseline(
-    mock_tflite, mock_os_path_exists
-):
+async def test_runtime_benchmark_seeds_inference_health_baseline(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
-    benchmark = service._record_runtime_benchmark({
-        "key": "openvino/intel_gpu",
-        "backend": "openvino",
-        "provider": "intel_gpu",
-        "status": "passed",
-        "candidate_latency_seconds": 0.125,
-    })
+    benchmark = service._record_runtime_benchmark(
+        {
+            "key": "openvino/intel_gpu",
+            "backend": "openvino",
+            "provider": "intel_gpu",
+            "status": "passed",
+            "candidate_latency_seconds": 0.125,
+        }
+    )
     runtime_key = classifier_service_module.RuntimeKey.from_values(
         "openvino",
         "intel_gpu",
@@ -3076,9 +3163,7 @@ async def test_runtime_benchmark_seeds_inference_health_baseline(
 
 
 @pytest.mark.asyncio
-async def test_coordinated_inference_marks_latency_load_affected_under_pressure(
-    mock_tflite, mock_os_path_exists
-):
+async def test_coordinated_inference_marks_latency_load_affected_under_pressure(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
@@ -3122,19 +3207,23 @@ async def test_coordinated_inference_marks_latency_load_affected_under_pressure(
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_classify_async_live_passes_custom_queue_timeout(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_classify_async_live_passes_custom_queue_timeout(mock_tflite, mock_os_path_exists):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+        ):
             service = ClassifierService()
             img = Image.new("RGB", (100, 100))
 
-            with patch.object(service, "_run_live_image_inference", new=AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 0}])) as mock_run:
+            with patch.object(
+                service,
+                "_run_live_image_inference",
+                new=AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 0}]),
+            ) as mock_run:
                 results = await service.classify_async_live(
                     img,
                     camera_name="front",
@@ -3169,12 +3258,15 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
     settings.classification.personalized_rerank_enabled = False
     try:
         real_loop = asyncio.get_running_loop()
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.ModelInstance.load", return_value=True), \
-             patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
-             patch.object(ClassifierService, "classify_video", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]), \
-             patch("app.services.classifier_service.asyncio.get_running_loop") as mock_get_loop:
-
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.ModelInstance.load", return_value=True),
+            patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]),
+            patch.object(
+                ClassifierService, "classify_video", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]
+            ),
+            patch("app.services.classifier_service.asyncio.get_running_loop") as mock_get_loop,
+        ):
             fake_loop = _FakeLoop(real_loop)
             mock_get_loop.return_value = fake_loop
             service = ClassifierService()
@@ -3339,19 +3431,21 @@ async def test_classifier_service_applies_crop_when_enabled_and_input_is_not_cro
                 "reason": "selected",
             }
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3389,19 +3483,21 @@ async def test_classifier_service_skips_crop_when_input_is_already_cropped(mock_
             self.calls.append(image)
             return {"crop_image": Image.new("RGB", (8, 8), color="green"), "box": (1, 1, 9, 9), "reason": "selected"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3438,19 +3534,21 @@ async def test_classifier_service_skips_crop_when_manifest_disables_it(mock_tfli
             self.calls.append(image)
             return {"crop_image": Image.new("RGB", (8, 8), color="green"), "box": (1, 1, 9, 9), "reason": "selected"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": False},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": False},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3489,19 +3587,21 @@ async def test_classifier_service_falls_back_to_original_image_when_crop_service
             self.calls.append(image)
             return {"crop_image": None, "reason": "no_candidate"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3540,19 +3640,21 @@ async def test_classifier_service_continues_with_original_image_when_crop_genera
             self.calls.append(image)
             raise RuntimeError("crop boom")
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _ExplodingCropService()
@@ -3569,9 +3671,7 @@ async def test_classifier_service_continues_with_original_image_when_crop_genera
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_prefers_high_quality_source_before_crop_generation(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_prefers_high_quality_source_before_crop_generation(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):
             self.loaded = True
@@ -3610,19 +3710,21 @@ async def test_classifier_service_prefers_high_quality_source_before_crop_genera
             )
             return Image.new("RGB", (48, 48), color="blue"), {"source_reason": "high_quality"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3679,19 +3781,21 @@ async def test_classifier_service_falls_back_to_original_image_when_high_quality
             )
             raise RuntimeError("hq source boom")
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3747,19 +3851,21 @@ async def test_classifier_service_uses_original_image_when_high_quality_source_h
             )
             return Image.new("RGB", (48, 48), color="blue"), {"source_reason": "high_quality_snapshot"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3778,9 +3884,7 @@ async def test_classifier_service_uses_original_image_when_high_quality_source_h
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_prefers_frigate_box_hint_before_detector(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_prefers_frigate_box_hint_before_detector(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):
             self.loaded = True
@@ -3806,19 +3910,21 @@ async def test_classifier_service_prefers_frigate_box_hint_before_detector(
         def resolve(self, image, *, input_context, source_preference):
             return Image.new("RGB", (400, 400), color="blue"), {"source_reason": "high_quality_snapshot"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
-             },
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+            },
+        ),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3843,9 +3949,7 @@ async def test_classifier_service_prefers_frigate_box_hint_before_detector(
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(
-    mock_tflite, mock_os_path_exists
-):
+async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):
             self.loaded = True
@@ -3875,20 +3979,22 @@ async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(
         def resolve(self, image, *, input_context, source_preference):
             return Image.new("RGB", (400, 400), color="blue"), {"source_reason": "high_quality_snapshot"}
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/model.onnx",
-                 "labels_path": "/tmp/labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True, "source_preference": "high_quality"},
-             },
-         ), \
-         patch("app.services.classifier_service.settings.classification.bird_crop_source_priority", "crop_model_first"):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/model.onnx",
+                "labels_path": "/tmp/labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True, "source_preference": "high_quality"},
+            },
+        ),
+        patch("app.services.classifier_service.settings.classification.bird_crop_source_priority", "crop_model_first"),
+    ):
         service = ClassifierService()
         bird_model = _CropAwareBirdModel()
         crop_service = _FakeCropService()
@@ -3917,28 +4023,30 @@ async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(
 async def test_classifier_service_resets_crop_generator_when_active_model_path_missing(
     mock_tflite, mock_os_path_exists
 ):
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch(
-             "app.services.model_manager.model_manager.get_active_model_spec",
-             return_value={
-                 "model_path": "/tmp/missing-model.onnx",
-                 "labels_path": "/tmp/missing-labels.txt",
-                 "input_size": 224,
-                 "preprocessing": {},
-                 "label_grouping": {},
-                 "runtime": "onnx",
-                 "crop_generator": {"enabled": True},
-             },
-         ), \
-         patch.object(
-             ClassifierService,
-             "_get_model_paths",
-             return_value=("/tmp/bundled/model.tflite", "/tmp/bundled/labels.txt"),
-         ), \
-         patch(
-             "os.path.exists",
-             side_effect=lambda path: False if path == "/tmp/missing-model.onnx" else True,
-         ):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.model_manager.model_manager.get_active_model_spec",
+            return_value={
+                "model_path": "/tmp/missing-model.onnx",
+                "labels_path": "/tmp/missing-labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "label_grouping": {},
+                "runtime": "onnx",
+                "crop_generator": {"enabled": True},
+            },
+        ),
+        patch.object(
+            ClassifierService,
+            "_get_model_paths",
+            return_value=("/tmp/bundled/model.tflite", "/tmp/bundled/labels.txt"),
+        ),
+        patch(
+            "os.path.exists",
+            side_effect=lambda path: False if path == "/tmp/missing-model.onnx" else True,
+        ),
+    ):
         service = ClassifierService()
 
         spec = service._resolve_active_bird_model_spec()
@@ -3950,7 +4058,9 @@ async def test_classifier_service_resets_crop_generator_when_active_model_path_m
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_forwards_input_context_through_subprocess_supervisor(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_forwards_input_context_through_subprocess_supervisor(
+    mock_tflite, mock_os_path_exists
+):
     class _FakeSupervisor:
         def __init__(self):
             self.calls = []
@@ -4001,7 +4111,9 @@ async def test_classifier_service_classify_wildlife_async_forwards_input_context
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_video_progress_callback_failure_does_not_drop_results(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_video_progress_callback_failure_does_not_drop_results(
+    mock_tflite, mock_os_path_exists
+):
     original_toggle = settings.classification.personalized_rerank_enabled
     settings.classification.personalized_rerank_enabled = False
 
@@ -4036,10 +4148,16 @@ async def test_classifier_service_video_progress_callback_failure_does_not_drop_
             return None
 
     try:
-        with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-             patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture), \
-             patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame), \
-             patch.object(ClassifierService, "_classify_raw_with_runtime_recovery", return_value=(np.array([0.91, 0.09]), _LoadedBirdModel())):
+        with (
+            patch.object(ClassifierService, "_init_bird_model", return_value=None),
+            patch("app.services.classifier_service.cv2.VideoCapture", _FakeCapture),
+            patch("app.services.classifier_service.cv2.cvtColor", side_effect=lambda frame, _code: frame),
+            patch.object(
+                ClassifierService,
+                "_classify_raw_with_runtime_recovery",
+                return_value=(np.array([0.91, 0.09]), _LoadedBirdModel()),
+            ),
+        ):
             service = ClassifierService()
             service._models["bird"] = _LoadedBirdModel()
 
@@ -4433,28 +4551,32 @@ async def test_classifier_service_respects_artifact_provider_constraints(mock_os
             return {"loaded": self.loaded, "error": self.error}
 
     try:
-        with patch.object(
-            classifier_service_module,
-            "_detect_acceleration_capabilities",
-            return_value={
-                "openvino_available": True,
-                "ort_available": True,
-                "intel_cpu_available": True,
-                "intel_gpu_available": True,
-                "cuda_available": False,
-            },
-        ), patch.object(
-            ClassifierService,
-            "_resolve_active_bird_model_spec",
-            return_value={
-                "model_path": "/tmp/active/model.onnx",
-                "labels_path": "/tmp/active/labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "runtime": "onnx",
-                "supported_inference_providers": ["cpu", "intel_cpu"],
-            },
-        ), patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel):
+        with (
+            patch.object(
+                classifier_service_module,
+                "_detect_acceleration_capabilities",
+                return_value={
+                    "openvino_available": True,
+                    "ort_available": True,
+                    "intel_cpu_available": True,
+                    "intel_gpu_available": True,
+                    "cuda_available": False,
+                },
+            ),
+            patch.object(
+                ClassifierService,
+                "_resolve_active_bird_model_spec",
+                return_value={
+                    "model_path": "/tmp/active/model.onnx",
+                    "labels_path": "/tmp/active/labels.txt",
+                    "input_size": 224,
+                    "preprocessing": {},
+                    "runtime": "onnx",
+                    "supported_inference_providers": ["cpu", "intel_cpu"],
+                },
+            ),
+            patch("app.services.classifier_service.OpenVINOModelInstance", _FakeOpenVINOModel),
+        ):
             service = ClassifierService()
     finally:
         settings.classification.inference_provider = original_provider
@@ -4467,10 +4589,12 @@ async def test_classifier_service_respects_artifact_provider_constraints(mock_os
 
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_without_nvidia_device():
-    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
-         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
-         patch("app.services.classifier_service.ort") as mock_ort, \
-         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False):
+    with (
+        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False),
+    ):
         mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
         caps = _detect_acceleration_capabilities()
@@ -4482,14 +4606,16 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_without
 
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_when_probe_fails():
-    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
-         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload, \
-         patch("app.services.classifier_service.ort") as mock_ort, \
-         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=True), \
-         patch(
-             "app.services.classifier_service._probe_onnxruntime_cuda_provider_safe",
-             return_value={"ok": False, "error": "OSError: libcublasLt.so.12: cannot open shared object file"},
-         ):
+    with (
+        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=True),
+        patch(
+            "app.services.classifier_service._probe_onnxruntime_cuda_provider_safe",
+            return_value={"ok": False, "error": "OSError: libcublasLt.so.12: cannot open shared object file"},
+        ),
+    ):
         mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
         caps = _detect_acceleration_capabilities()
@@ -4512,10 +4638,14 @@ def test_detect_acceleration_capabilities_preloads_onnxruntime_cuda_runtime_befo
         events.append("providers")
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
-    with patch("app.services.classifier_service.ONNX_AVAILABLE", True), \
-         patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries", side_effect=_record_preload), \
-         patch("app.services.classifier_service.ort") as mock_ort, \
-         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False):
+    with (
+        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch(
+            "app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries", side_effect=_record_preload
+        ),
+        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False),
+    ):
         mock_ort.get_available_providers.side_effect = _record_provider_check
         _detect_acceleration_capabilities()
 
@@ -4603,18 +4733,23 @@ def test_preload_onnxruntime_cuda_runtime_libraries_noops_without_preload_api():
 
 
 def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():
-    with patch("app.services.classifier_service.ONNX_AVAILABLE", False), \
-         patch("app.services.classifier_service.OPENVINO_AVAILABLE", True), \
-         patch("app.services.classifier_service.OpenVINOCore", side_effect=AssertionError("must not instantiate OpenVINO Core in-process")), \
-         patch(
-             "app.services.classifier_service._probe_openvino_devices_safe",
-             return_value={
-                 "ok": True,
-                 "devices": ["CPU", "GPU"],
-                 "error": None,
-                 "gpu_probe_error": None,
-             },
-         ):
+    with (
+        patch("app.services.classifier_service.ONNX_AVAILABLE", False),
+        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
+        patch(
+            "app.services.classifier_service.OpenVINOCore",
+            side_effect=AssertionError("must not instantiate OpenVINO Core in-process"),
+        ),
+        patch(
+            "app.services.classifier_service._probe_openvino_devices_safe",
+            return_value={
+                "ok": True,
+                "devices": ["CPU", "GPU"],
+                "error": None,
+                "gpu_probe_error": None,
+            },
+        ),
+    ):
         caps = _detect_acceleration_capabilities()
 
     assert caps["openvino_available"] is True
@@ -4677,8 +4812,10 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
         "process_groups": [44, 992],
     }
 
-    with patch.object(ClassifierService, "_init_bird_model", return_value=None), \
-         patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps):
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch("app.services.classifier_service._detect_acceleration_capabilities", return_value=caps),
+    ):
         service = ClassifierService()
 
     service._openvino_model_compile_ok = False
@@ -4701,25 +4838,27 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     service._image_execution_mode = "in_process"
     service._active_inference_provider = "intel_gpu"
     service._inference_backend = "openvino"
-    service._publish_runtime_recovery({
-        "status": "recovered",
-        "failed_backend": "openvino",
-        "failed_provider": "GPU",
-        "recovered_backend": "openvino",
-        "recovered_provider": "intel_cpu",
-        "detail": "non-finite logits",
-        "at": 123.0,
-        "diagnostics": {
-            "compile_properties": {
-                "INFERENCE_PRECISION_HINT": "f32",
-                "NUM_STREAMS": "1",
+    service._publish_runtime_recovery(
+        {
+            "status": "recovered",
+            "failed_backend": "openvino",
+            "failed_provider": "GPU",
+            "recovered_backend": "openvino",
+            "recovered_provider": "intel_cpu",
+            "detail": "non-finite logits",
+            "at": 123.0,
+            "diagnostics": {
+                "compile_properties": {
+                    "INFERENCE_PRECISION_HINT": "f32",
+                    "NUM_STREAMS": "1",
+                },
+                "output_summary": {
+                    "nan_count": 10000,
+                    "finite_count": 0,
+                },
             },
-            "output_summary": {
-                "nan_count": 10000,
-                "finite_count": 0,
-            },
-        },
-    })
+        }
+    )
     service._models["bird"] = MagicMock()
     service._models["bird"].get_status.return_value = {
         "loaded": True,
@@ -4728,13 +4867,15 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
         "model_path": "/models/bird.onnx",
         "input_size": 384,
     }
-    service._resolve_active_bird_model_spec = MagicMock(return_value={
-        "model_path": "/models/bird.onnx",
-        "labels_path": "/models/labels.txt",
-        "input_size": 384,
-        "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
-        "runtime": "onnx",
-    })
+    service._resolve_active_bird_model_spec = MagicMock(
+        return_value={
+            "model_path": "/models/bird.onnx",
+            "labels_path": "/models/labels.txt",
+            "input_size": 384,
+            "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
+            "runtime": "onnx",
+        }
+    )
     service._bird_model_artifact_metadata = {
         "model_sha256": "abc123",
         "weights_sha256": "def456",
@@ -4790,13 +4931,15 @@ async def test_probe_bird_runtime_updates_compatibility_state_from_probe_result(
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
-    service._resolve_active_bird_model_spec = MagicMock(return_value={
-        "model_path": "/models/bird.onnx",
-        "labels_path": "/models/labels.txt",
-        "input_size": 384,
-        "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
-        "runtime": "onnx",
-    })
+    service._resolve_active_bird_model_spec = MagicMock(
+        return_value={
+            "model_path": "/models/bird.onnx",
+            "labels_path": "/models/labels.txt",
+            "input_size": 384,
+            "preprocessing": {"mean": [0.1, 0.2, 0.3], "std": [0.4, 0.5, 0.6]},
+            "runtime": "onnx",
+        }
+    )
 
     fake_model = MagicMock()
     fake_model.load.return_value = True
@@ -4917,32 +5060,34 @@ async def test_classifier_check_health_exposes_live_image_pressure():
         service = ClassifierService()
 
     service._live_image_admission_timeouts = 4
-    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
-        "live": {
-            "capacity": 2,
-            "queued": 0,
-            "running": 1,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": 1.0,
-        },
-        "background": {
-            "capacity": 1,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "late_completions_ignored": 0,
-        "recent_outcomes": [],
-        "background_throttled": False,
-        "closed": False,
-    })
+    service._classification_admission.get_metrics = MagicMock(
+        return_value={  # type: ignore[method-assign]
+            "live": {
+                "capacity": 2,
+                "queued": 0,
+                "running": 1,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": 1.0,
+            },
+            "background": {
+                "capacity": 1,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "late_completions_ignored": 0,
+            "recent_outcomes": [],
+            "background_throttled": False,
+            "closed": False,
+        }
+    )
     health = service.check_health()
 
     assert health["live_image"]["max_concurrent"] >= 1
@@ -4956,32 +5101,34 @@ async def test_classifier_check_health_keeps_transient_live_saturation_out_of_de
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
-    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
-        "live": {
-            "capacity": 2,
-            "queued": 1,
-            "running": 2,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": 1.0,
-        },
-        "background": {
-            "capacity": 1,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "late_completions_ignored": 0,
-        "recent_outcomes": [],
-        "background_throttled": True,
-        "closed": False,
-    })
+    service._classification_admission.get_metrics = MagicMock(
+        return_value={  # type: ignore[method-assign]
+            "live": {
+                "capacity": 2,
+                "queued": 1,
+                "running": 2,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": 1.0,
+            },
+            "background": {
+                "capacity": 1,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "late_completions_ignored": 0,
+            "recent_outcomes": [],
+            "background_throttled": True,
+            "closed": False,
+        }
+    )
 
     health = service.check_health()
 
@@ -4995,36 +5142,41 @@ async def test_classifier_get_admission_status_is_lightweight_and_exposes_thrott
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()
 
-    service._classification_admission.get_metrics = MagicMock(return_value={  # type: ignore[method-assign]
-        "live": {
-            "capacity": 2,
-            "queued": 0,
-            "running": 1,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": 0.5,
-        },
-        "background": {
-            "capacity": 1,
-            "queued": 3,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_queued_age_seconds": 12.5,
-            "oldest_running_age_seconds": None,
-        },
-        "late_completions_ignored": 0,
-        "recent_outcomes": [],
-        "background_throttled": True,
-        "background_starvation_relief_active": True,
-        "closed": False,
-    })
+    service._classification_admission.get_metrics = MagicMock(
+        return_value={  # type: ignore[method-assign]
+            "live": {
+                "capacity": 2,
+                "queued": 0,
+                "running": 1,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": 0.5,
+            },
+            "background": {
+                "capacity": 1,
+                "queued": 3,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_queued_age_seconds": 12.5,
+                "oldest_running_age_seconds": None,
+            },
+            "late_completions_ignored": 0,
+            "recent_outcomes": [],
+            "background_throttled": True,
+            "background_starvation_relief_active": True,
+            "closed": False,
+        }
+    )
 
-    with patch("app.services.classifier_service._detect_acceleration_capabilities", side_effect=AssertionError("should not probe runtimes")):
+    with patch(
+        "app.services.classifier_service._detect_acceleration_capabilities",
+        side_effect=AssertionError("should not probe runtimes"),
+    ):
         status = service.get_admission_status()
 
     assert status["background_throttled"] is True
@@ -5106,32 +5258,34 @@ async def test_classifier_check_health_uses_worker_runtime_state_in_subprocess_m
         "late_results_ignored": 0,
     }
     service._image_execution_mode = "subprocess"
-    service._classification_admission.get_metrics = MagicMock(return_value={
-        "live": {
-            "capacity": 2,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "background": {
-            "capacity": 1,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "late_completions_ignored": 0,
-        "recent_outcomes": [],
-        "background_throttled": False,
-        "closed": False,
-    })
+    service._classification_admission.get_metrics = MagicMock(
+        return_value={
+            "live": {
+                "capacity": 2,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "background": {
+                "capacity": 1,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "late_completions_ignored": 0,
+            "recent_outcomes": [],
+            "background_throttled": False,
+            "closed": False,
+        }
+    )
 
     health = service.check_health()
     status = service.get_status()
@@ -5230,32 +5384,34 @@ async def test_classifier_check_health_is_ok_before_lazy_subprocess_workers_star
         "late_results_ignored": 0,
     }
     service._image_execution_mode = "subprocess"
-    service._classification_admission.get_metrics = MagicMock(return_value={
-        "live": {
-            "capacity": 2,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "background": {
-            "capacity": 1,
-            "queued": 0,
-            "running": 0,
-            "completed": 0,
-            "failed": 0,
-            "abandoned": 0,
-            "rejected": 0,
-            "oldest_running_age_seconds": None,
-        },
-        "late_completions_ignored": 0,
-        "recent_outcomes": [],
-        "background_throttled": False,
-        "closed": False,
-    })
+    service._classification_admission.get_metrics = MagicMock(
+        return_value={
+            "live": {
+                "capacity": 2,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "background": {
+                "capacity": 1,
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "abandoned": 0,
+                "rejected": 0,
+                "oldest_running_age_seconds": None,
+            },
+            "late_completions_ignored": 0,
+            "recent_outcomes": [],
+            "background_throttled": False,
+            "closed": False,
+        }
+    )
 
     health = service.check_health()
 

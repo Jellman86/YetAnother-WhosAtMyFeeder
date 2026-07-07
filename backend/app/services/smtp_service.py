@@ -71,7 +71,7 @@ class SMTPService:
         html_body: str,
         plain_body: Optional[str] = None,
         from_email: Optional[str] = None,
-        image_data: Optional[bytes] = None
+        image_data: Optional[bytes] = None,
     ) -> bool:
         """
         Send email using OAuth2 authentication
@@ -110,7 +110,7 @@ class SMTPService:
                 subject=subject,
                 html_body=html_body,
                 plain_body=plain_body,
-                image_data=image_data
+                image_data=image_data,
             )
 
             # Send via appropriate provider
@@ -145,7 +145,7 @@ class SMTPService:
         html_body: str,
         plain_body: Optional[str] = None,
         use_tls: bool = True,
-        image_data: Optional[bytes] = None
+        image_data: Optional[bytes] = None,
     ) -> bool:
         """
         Send email using traditional SMTP authentication
@@ -183,7 +183,7 @@ class SMTPService:
                 subject=subject,
                 html_body=html_body,
                 plain_body=plain_body,
-                image_data=image_data
+                image_data=image_data,
             )
 
             # Send via SMTP.
@@ -260,60 +260,55 @@ class SMTPService:
         subject: str,
         html_body: str,
         plain_body: Optional[str] = None,
-        image_data: Optional[bytes] = None
+        image_data: Optional[bytes] = None,
     ) -> MIMEMultipart:
         """Build MIME email message with HTML and optional image"""
-        message = MIMEMultipart('alternative')
-        message['Subject'] = subject
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
         from_name, from_addr = parseaddr(from_email)
         to_name, to_addr = parseaddr(to_email)
-        message['From'] = formataddr((from_name or "YA-WAMF", from_addr))
-        message['To'] = formataddr((to_name or "Recipient", to_addr))
-        message['Date'] = formatdate(localtime=True)
-        message['Message-ID'] = make_msgid(domain=(from_addr.split("@")[-1] if "@" in from_addr else None))
+        message["From"] = formataddr((from_name or "YA-WAMF", from_addr))
+        message["To"] = formataddr((to_name or "Recipient", to_addr))
+        message["Date"] = formatdate(localtime=True)
+        message["Message-ID"] = make_msgid(domain=(from_addr.split("@")[-1] if "@" in from_addr else None))
 
         # Add plain text part
         if plain_body:
-            text_part = MIMEText(plain_body, 'plain')
+            text_part = MIMEText(plain_body, "plain")
             message.attach(text_part)
 
         # Add HTML part with inline image if provided
         if image_data:
             # Create a multipart/related container for HTML + embedded image
-            msg_related = MIMEMultipart('related')
+            msg_related = MIMEMultipart("related")
 
             # Add HTML part to the related container
-            html_part = MIMEText(html_body, 'html')
+            html_part = MIMEText(html_body, "html")
             msg_related.attach(html_part)
 
             # Add embedded image with Content-ID
             image = MIMEImage(image_data)
-            image.add_header('Content-ID', '<bird_snapshot>')
-            image.add_header('Content-Disposition', 'inline', filename='bird.jpg')
+            image.add_header("Content-ID", "<bird_snapshot>")
+            image.add_header("Content-Disposition", "inline", filename="bird.jpg")
             msg_related.attach(image)
 
             # Attach the related container to the alternative message
             message.attach(msg_related)
         else:
             # No image, just add HTML part directly
-            html_part = MIMEText(html_body, 'html')
+            html_part = MIMEText(html_body, "html")
             message.attach(html_part)
 
         return message
 
-    async def _send_via_gmail_oauth(
-        self,
-        token_data: Dict[str, Any],
-        message: MIMEMultipart,
-        to_email: str
-    ) -> bool:
+    async def _send_via_gmail_oauth(self, token_data: Dict[str, Any], message: MIMEMultipart, to_email: str) -> bool:
         """Send email via Gmail using OAuth2"""
         try:
             self.logger.info("smtp_send_gmail_oauth_start", timeout_seconds=self.smtp_timeout_seconds)
             # Create XOAUTH2 string
             auth_string = f"user={token_data['email']}\1auth=Bearer {token_data['access_token']}\1\1"
-            auth_bytes = auth_string.encode('utf-8')
-            auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
+            auth_bytes = auth_string.encode("utf-8")
+            auth_b64 = base64.b64encode(auth_bytes).decode("utf-8")
 
             # Connect to Gmail SMTP
             smtp = aiosmtplib.SMTP(
@@ -352,19 +347,14 @@ class SMTPService:
             self.logger.error("gmail_oauth_send_error", error=str(e), error_type=type(e).__name__)
             return False
 
-    async def _send_via_outlook_oauth(
-        self,
-        token_data: Dict[str, Any],
-        message: MIMEMultipart,
-        to_email: str
-    ) -> bool:
+    async def _send_via_outlook_oauth(self, token_data: Dict[str, Any], message: MIMEMultipart, to_email: str) -> bool:
         """Send email via Outlook/Office 365 using OAuth2"""
         try:
             self.logger.info("smtp_send_outlook_oauth_start", timeout_seconds=self.smtp_timeout_seconds)
             # Create XOAUTH2 string
             auth_string = f"user={token_data['email']}\1auth=Bearer {token_data['access_token']}\1\1"
-            auth_bytes = auth_string.encode('utf-8')
-            auth_b64 = base64.b64encode(auth_bytes).decode('utf-8')
+            auth_bytes = auth_string.encode("utf-8")
+            auth_b64 = base64.b64encode(auth_bytes).decode("utf-8")
 
             # Connect to Outlook SMTP
             smtp = aiosmtplib.SMTP(
@@ -410,7 +400,7 @@ class SMTPService:
                 cursor = await db.execute(
                     """SELECT provider, email, access_token, refresh_token, expires_at, scope, created_at, updated_at
                        FROM oauth_tokens WHERE provider = ?""",
-                    (provider,)
+                    (provider,),
                 )
                 row = await cursor.fetchone()
 
@@ -419,9 +409,7 @@ class SMTPService:
 
                 access_token = decrypt_oauth_token(row[2])
                 refresh_token = decrypt_oauth_token(row[3])
-                needs_upgrade = (
-                    bool(row[2]) and not is_encrypted_token(row[2])
-                ) or (
+                needs_upgrade = (bool(row[2]) and not is_encrypted_token(row[2])) or (
                     bool(row[3]) and not is_encrypted_token(row[3])
                 )
 
@@ -447,7 +435,7 @@ class SMTPService:
                     "expires_at": row[4],
                     "scope": row[5],
                     "created_at": row[6],
-                    "updated_at": row[7]
+                    "updated_at": row[7],
                 }
 
         except Exception as e:
@@ -476,11 +464,7 @@ class SMTPService:
         # Add 5 minute buffer
         return datetime.utcnow() + timedelta(minutes=5) >= expires_at
 
-    async def _refresh_oauth_token(
-        self,
-        provider: str,
-        token_data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    async def _refresh_oauth_token(self, provider: str, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Refresh expired OAuth token"""
         try:
             if provider == "gmail":
@@ -501,8 +485,7 @@ class SMTPService:
             # Note: This requires OAuth client credentials from config
             from app.config import settings
 
-            if (not settings.notifications.email.gmail_client_id or
-                not settings.notifications.email.gmail_client_secret):
+            if not settings.notifications.email.gmail_client_id or not settings.notifications.email.gmail_client_secret:
                 self.logger.error("gmail_oauth_credentials_missing")
                 return None
             if not token_data.get("refresh_token"):
@@ -514,7 +497,7 @@ class SMTPService:
                 refresh_token=token_data.get("refresh_token"),
                 token_uri="https://oauth2.googleapis.com/token",
                 client_id=settings.notifications.email.gmail_client_id,
-                client_secret=settings.notifications.email.gmail_client_secret
+                client_secret=settings.notifications.email.gmail_client_secret,
             )
 
             # Refresh the token
@@ -532,7 +515,7 @@ class SMTPService:
                 await db.execute(
                     """UPDATE oauth_tokens SET access_token = ?, expires_at = ?, updated_at = ?
                        WHERE provider = ?""",
-                    (encrypt_oauth_token(creds.token), new_expires_at, datetime.utcnow(), "gmail")
+                    (encrypt_oauth_token(creds.token), new_expires_at, datetime.utcnow(), "gmail"),
                 )
                 await db.commit()
 
@@ -552,8 +535,10 @@ class SMTPService:
         try:
             from app.config import settings
 
-            if (not settings.notifications.email.outlook_client_id or
-                not settings.notifications.email.outlook_client_secret):
+            if (
+                not settings.notifications.email.outlook_client_id
+                or not settings.notifications.email.outlook_client_secret
+            ):
                 self.logger.error("outlook_oauth_credentials_missing")
                 return None
 
@@ -573,7 +558,7 @@ class SMTPService:
                         # Include the SMTP delegated scope; offline_access is implied by the refresh token grant,
                         # but keeping scopes consistent avoids surprises.
                         "scope": "offline_access openid email https://outlook.office.com/SMTP.Send",
-                    }
+                    },
                 )
                 resp.raise_for_status()
                 result = resp.json()
@@ -591,8 +576,13 @@ class SMTPService:
                 await db.execute(
                     """UPDATE oauth_tokens SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = ?
                        WHERE provider = ?""",
-                    (encrypt_oauth_token(access_token), encrypt_oauth_token(new_refresh),
-                     new_expires_at, datetime.utcnow(), "outlook")
+                    (
+                        encrypt_oauth_token(access_token),
+                        encrypt_oauth_token(new_refresh),
+                        new_expires_at,
+                        datetime.utcnow(),
+                        "outlook",
+                    ),
                 )
                 await db.commit()
 
@@ -616,7 +606,7 @@ class SMTPService:
         access_token: str,
         refresh_token: Optional[str],
         expires_in: Optional[int],
-        scope: Optional[str] = None
+        scope: Optional[str] = None,
     ) -> bool:
         """Store or update OAuth token in database"""
         try:
@@ -640,7 +630,7 @@ class SMTPService:
                             scope,
                             datetime.utcnow(),
                             provider,
-                        )
+                        ),
                     )
                 else:
                     # Insert new token
@@ -657,7 +647,7 @@ class SMTPService:
                             scope,
                             datetime.utcnow(),
                             datetime.utcnow(),
-                        )
+                        ),
                     )
                 await db.commit()
             self.logger.info("oauth_token_stored", provider=provider, email=email)
@@ -671,10 +661,7 @@ class SMTPService:
         """Delete OAuth token from database"""
         try:
             async with get_db() as db:
-                await db.execute(
-                    "DELETE FROM oauth_tokens WHERE provider = ?",
-                    (provider,)
-                )
+                await db.execute("DELETE FROM oauth_tokens WHERE provider = ?", (provider,))
                 await db.commit()
             self.logger.info("oauth_token_deleted", provider=provider)
             return True

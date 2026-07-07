@@ -179,8 +179,8 @@ def _label_matches_qualified_variant(expected_label: str, predicted_label: str) 
             and predicted_tokens[1] == expected_tokens[0]
         )
     return (
-        predicted_tokens[-len(expected_tokens):] == expected_tokens
-        or predicted_tokens[:len(expected_tokens)] == expected_tokens
+        predicted_tokens[-len(expected_tokens) :] == expected_tokens
+        or predicted_tokens[: len(expected_tokens)] == expected_tokens
     )
 
 
@@ -284,9 +284,9 @@ def _select_detection_rows(
     order_by = "detection_time DESC" if "detection_time" in columns else "id DESC"
     params.append(max(1, int(scan_limit)))
     sql = f"""
-        SELECT {', '.join(projections)}
+        SELECT {", ".join(projections)}
         FROM detections
-        WHERE {' AND '.join(filters)}
+        WHERE {" AND ".join(filters)}
         ORDER BY {order_by}
         LIMIT ?
     """
@@ -346,11 +346,9 @@ def generate_manifest_from_detections(
         stats["scanned"] += 1
         event_id = _clean(row["frigate_event"])
         common_name, scientific_name, taxa_id = _manifest_label_from_detection(row)
-        if (
-            not common_name
-            and not scientific_name
-            and not taxa_id
-        ) or (not include_unknown and (_is_unknown_label(common_name) or _is_unknown_label(scientific_name))):
+        if (not common_name and not scientific_name and not taxa_id) or (
+            not include_unknown and (_is_unknown_label(common_name) or _is_unknown_label(scientific_name))
+        ):
             stats["skipped_unlabeled"] += 1
             continue
 
@@ -427,9 +425,7 @@ def score_predictions(
             continue
         seen_abstentions.add(normalized)
         abstention_labels.append(label)
-    high_confidence_unknown = bool(
-        unknown_top1 and top1_score >= float(high_confidence_unknown_threshold)
-    )
+    high_confidence_unknown = bool(unknown_top1 and top1_score >= float(high_confidence_unknown_threshold))
 
     failure_kind = ""
     if not top1_correct:
@@ -509,12 +505,7 @@ def aggregate_results(rows: list[FeederEvalResult]) -> dict[str, Any]:
                 sum(1 for row in model_rows if row.abstention_topk_count > 0),
                 total,
             ),
-            "abstention_labels": sorted({
-                label
-                for row in model_rows
-                for label in row.abstention_labels
-                if label
-            }),
+            "abstention_labels": sorted({label for row in model_rows for label in row.abstention_labels if label}),
             "median_inference_ms": round(sorted(inference_ms)[len(inference_ms) // 2], 3) if inference_ms else 0.0,
             "failure_kinds": dict(sorted(failures.items())),
             "per_species": {
@@ -625,11 +616,7 @@ def _write_outputs(rows: list[FeederEvalResult], output_dir: Path) -> None:
         payload["crop_diagnostics"] = json.dumps(row.crop_diagnostics, sort_keys=True)
         result_rows.append(payload)
 
-    fieldnames = (
-        list(result_rows[0].keys())
-        if result_rows
-        else list(FeederEvalResult.__dataclass_fields__.keys())
-    )
+    fieldnames = list(result_rows[0].keys()) if result_rows else list(FeederEvalResult.__dataclass_fields__.keys())
     with (output_dir / "results.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -714,7 +701,9 @@ async def _resolve_model_ids(models_arg: str) -> list[str]:
         model_ids.remove(active_model_id)
         model_ids.insert(0, active_model_id)
     if not model_ids:
-        raise RuntimeError("no ready installed classifier models found; repair downloads or pass --models to select explicit model IDs")
+        raise RuntimeError(
+            "no ready installed classifier models found; repair downloads or pass --models to select explicit model IDs"
+        )
     return model_ids
 
 

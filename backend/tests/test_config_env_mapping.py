@@ -314,11 +314,7 @@ def test_classification_env_override_matrix(
 
 def test_classification_override_matrix_covers_all_mapped_env_keys():
     covered_env_keys = {case[1] for case in CLASSIFICATION_ENV_PRECEDENCE_CASES}
-    mapped_env_keys = {
-        env_key
-        for env_keys in CLASSIFICATION_ENV_OVERRIDES.values()
-        for env_key in env_keys
-    }
+    mapped_env_keys = {env_key for env_keys in CLASSIFICATION_ENV_OVERRIDES.values() for env_key in env_keys}
     assert covered_env_keys == mapped_env_keys
 
 

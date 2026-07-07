@@ -114,12 +114,14 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
     classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("cv2.VideoCapture", _GoodVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(
                 return_value=(
                     {
@@ -180,17 +182,19 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
     recording_path.write_bytes(b"\x00\x00\x00\x18ftypisomrecording-bad")
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch(
-                 "app.routers.events._get_valid_cached_recording_clip_path",
-                 new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
-             ), \
-             patch("app.services.media_cache.media_cache.get_clip_path", return_value=None), \
-             patch("cv2.VideoCapture", _ContentAwareVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch(
+                "app.routers.events._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
+            ),
+            patch("app.services.media_cache.media_cache.get_clip_path", return_value=None),
+            patch("cv2.VideoCapture", _ContentAwareVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
@@ -227,17 +231,19 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
     classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch(
-                 "app.routers.events._get_valid_cached_recording_clip_path",
-                 new=AsyncMock(return_value=(None, "cam1", 1700000000, 1700000030)),
-             ), \
-             patch("app.services.media_cache.media_cache.get_clip_path", return_value=None), \
-             patch("cv2.VideoCapture", _GoodVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch(
+                "app.routers.events._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(None, "cam1", 1700000000, 1700000030)),
+            ),
+            patch("app.services.media_cache.media_cache.get_clip_path", return_value=None),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
@@ -274,17 +280,19 @@ async def test_reclassify_video_prefers_cached_recording_clip_when_available(cli
     recording_path.write_bytes(recording_bytes)
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch(
-                 "app.routers.events._get_valid_cached_recording_clip_path",
-                 new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
-             ), \
-             patch("app.services.media_cache.media_cache.get_clip_path", return_value=None), \
-             patch("cv2.VideoCapture", _GoodVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch(
+                "app.routers.events._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
+            ),
+            patch("app.services.media_cache.media_cache.get_clip_path", return_value=None),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
@@ -318,12 +326,14 @@ async def test_reclassify_video_fallback_to_snapshot_does_not_trigger_snapshot_u
     classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.Image.open", return_value=MagicMock()):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.Image.open", return_value=MagicMock()),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
             mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
@@ -349,12 +359,14 @@ async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_fails(client: 
     classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("cv2.VideoCapture", _GoodVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="frame_extract_failed")
@@ -381,12 +393,14 @@ async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_raises(client:
     classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("cv2.VideoCapture", _GoodVideoCapture):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
             mock_hq.replace_from_clip_bytes = AsyncMock(side_effect=RuntimeError("boom"))
@@ -413,12 +427,14 @@ async def test_reclassify_video_falls_back_to_snapshot_when_clip_not_retained(cl
     classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.Image.open", return_value=MagicMock()):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.high_quality_snapshot_service", create=True) as mock_hq,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.Image.open", return_value=MagicMock()),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "clip_not_retained"))
             mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
@@ -449,11 +465,13 @@ async def test_reclassify_snapshot_passes_cropped_input_context(client: httpx.As
     classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.Image.open", return_value=MagicMock()):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.Image.open", return_value=MagicMock()),
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
             mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
@@ -547,11 +565,13 @@ async def test_reclassify_snapshot_uses_cached_snapshot_when_frigate_event_not_f
     classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.media_cache") as mock_cache:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.media_cache") as mock_cache,
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_cache.get_snapshot = AsyncMock(return_value=cached_snapshot_bytes)
@@ -584,11 +604,13 @@ async def test_reclassify_snapshot_falls_back_to_cached_snapshot_when_frigate_fe
     classifier.classify_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.88, "index": 1}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.services.detection_service.DetectionService") as mock_detection_service, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.media_cache") as mock_cache:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.media_cache") as mock_cache,
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_cache.get_snapshot = AsyncMock(return_value=cached_snapshot_bytes)
@@ -613,9 +635,11 @@ async def test_reclassify_snapshot_returns_502_when_both_frigate_and_cache_empty
     await _insert_detection(event_id, "Unknown Bird", "cam1")
 
     try:
-        with patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock), \
-             patch("app.routers.events.media_cache") as mock_cache:
+        with (
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch("app.routers.events.media_cache") as mock_cache,
+        ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
             mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_cache.get_snapshot = AsyncMock(return_value=None)
@@ -636,14 +660,14 @@ async def test_events_classify_wildlife_passes_cropped_input_context(client: htt
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
 
     classifier = MagicMock()
-    classifier.classify_wildlife_async = AsyncMock(
-        return_value=[{"label": "Mammal", "score": 0.94, "index": 2}]
-    )
+    classifier.classify_wildlife_async = AsyncMock(return_value=[{"label": "Mammal", "score": 0.94, "index": 2}])
 
     try:
-        with patch("app.routers.events.get_classifier", return_value=classifier), \
-             patch("app.routers.events.frigate_client") as mock_frigate, \
-             patch("app.routers.events.Image.open", return_value=MagicMock()):
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.routers.events.Image.open", return_value=MagicMock()),
+        ):
             mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
 
             response = await client.post(f"/api/events/{event_id}/classify-wildlife")

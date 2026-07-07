@@ -45,7 +45,9 @@ def matches_species_filter(
         return True
 
     structured_entries = normalize_blocked_species_list(species_entries)
-    if taxa_id is not None and any(entry.taxa_id == taxa_id for entry in structured_entries if entry.taxa_id is not None):
+    if taxa_id is not None and any(
+        entry.taxa_id == taxa_id for entry in structured_entries if entry.taxa_id is not None
+    ):
         return True
 
     for entry in structured_entries:

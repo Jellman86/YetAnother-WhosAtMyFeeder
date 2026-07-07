@@ -138,7 +138,9 @@ def export_birds_only_model(
         model = model.eval()
 
     resolved_labels = list(labels) if labels is not None else _extract_labels(model)
-    normalized_labels = normalize_classifier_labels(str(label).strip() for label in resolved_labels if str(label).strip())
+    normalized_labels = normalize_classifier_labels(
+        str(label).strip() for label in resolved_labels if str(label).strip()
+    )
     if not normalized_labels:
         raise RuntimeError(f"No labels were provided for birds-only model: {model_name}")
 
@@ -188,9 +190,7 @@ def main() -> int:
         labels = Path(args.labels_file).read_text(encoding="utf-8").splitlines()
     model_config_overrides = None
     if args.model_config_overrides_file:
-        model_config_overrides = json.loads(
-            Path(args.model_config_overrides_file).read_text(encoding="utf-8")
-        )
+        model_config_overrides = json.loads(Path(args.model_config_overrides_file).read_text(encoding="utf-8"))
 
     report = export_birds_only_model(
         model_name=args.model,

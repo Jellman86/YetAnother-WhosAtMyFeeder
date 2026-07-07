@@ -185,6 +185,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
     original_health_check = main_module.health_check
     original_get_status = classifier_router.classifier_service.get_status
     try:
+
         async def fake_health_check():
             return {
                 "status": "degraded",

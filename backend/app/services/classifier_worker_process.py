@@ -369,6 +369,7 @@ async def run_worker_main(
 
 def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
     if os.getenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE") == "1":
+
         def _test_classify_fn(**_kwargs: Any) -> list[dict[str, Any]]:
             return [{"label": "WorkerTest", "score": 0.99}]
 

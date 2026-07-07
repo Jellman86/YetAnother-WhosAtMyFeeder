@@ -69,7 +69,9 @@ class VideoPreviewService:
                 if not ok or frame is None:
                     continue
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pil_image = Image.fromarray(frame_rgb).resize((self.tile_width, self.tile_height), Image.Resampling.LANCZOS)
+                pil_image = Image.fromarray(frame_rgb).resize(
+                    (self.tile_width, self.tile_height), Image.Resampling.LANCZOS
+                )
                 rgb_frames.append(pil_image)
                 accepted_timestamps.append(t)
 

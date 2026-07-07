@@ -55,6 +55,7 @@ async def test_cleanup_old_media_preserves_protected_event_ids(tmp_path, monkeyp
         Path(path).touch()
         Path(path).chmod(0o644)
         import os
+
         os.utime(path, (old_time, old_time))
 
     stats = await service.cleanup_old_media(retention_days=1, protected_event_ids={protected})

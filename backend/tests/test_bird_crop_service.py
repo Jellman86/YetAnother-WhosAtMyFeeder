@@ -229,7 +229,11 @@ def test_candidate_model_paths_include_managed_detector_install(monkeypatch):
         def get_crop_detector_spec(self):
             return {"model_path": "/data/models/bird_crop_detector/model.onnx"}
 
-    monkeypatch.setitem(__import__("sys").modules, "app.services.model_manager", types.SimpleNamespace(model_manager=_FakeModelManager()))
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "app.services.model_manager",
+        types.SimpleNamespace(model_manager=_FakeModelManager()),
+    )
 
     paths = service._candidate_model_paths()
 

@@ -89,7 +89,7 @@ async def test_detection_repository():
         await db.commit()
 
         repo = DetectionRepository(db)
-        
+
         # Test Create
         dt = datetime(2023, 1, 1, 12, 0, 0)
         detection = Detection(
@@ -99,10 +99,10 @@ async def test_detection_repository():
             display_name="Bird",
             category_name="Bird",
             frigate_event="evt_1",
-            camera_name="cam_1"
+            camera_name="cam_1",
         )
         await repo.create(detection)
-        
+
         # Test Get
         fetched = await repo.get_by_frigate_event("evt_1")
         assert fetched is not None
@@ -110,11 +110,11 @@ async def test_detection_repository():
         assert fetched.score == 0.9
         # Check datetime handling if sqlite returns string
         # assert fetched.detection_time == dt # Might fail if format differs slightly, but checks object presence
-        
+
         # Test Update
         detection.score = 0.95
         await repo.update(detection)
-        
+
         fetched_updated = await repo.get_by_frigate_event("evt_1")
         assert fetched_updated.score == 0.95
         assert fetched_updated.frigate_status == "present"
@@ -211,24 +211,28 @@ async def test_species_rollup_metrics():
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.9,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event="evt_r1",
-            camera_name="cam_1"
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.8,
-            display_name="Sparrow",
-            category_name="Bird",
-            frigate_event="evt_s1",
-            camera_name="cam_2"
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.9,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event="evt_r1",
+                camera_name="cam_1",
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.8,
+                display_name="Sparrow",
+                category_name="Bird",
+                frigate_event="evt_s1",
+                camera_name="cam_2",
+            )
+        )
         await repo.ensure_recent_rollups(30)
         metrics = await repo.get_rollup_metrics()
 
@@ -258,15 +262,17 @@ async def test_upsert_daily_rollups_is_idempotent_for_existing_dates():
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.9,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event="evt_rollup_repeat",
-            camera_name="cam_1"
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.9,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event="evt_rollup_repeat",
+                camera_name="cam_1",
+            )
+        )
 
         rollup_date = now.date()
         await repo.upsert_daily_rollups(rollup_date, rollup_date)
@@ -294,30 +300,34 @@ async def test_timebucket_metrics_unifies_common_and_scientific_variants():
         start = ts - timedelta(hours=1)
         end = ts + timedelta(hours=1)
 
-        await repo.create(Detection(
-            detection_time=ts,
-            detection_index=1,
-            score=0.91,
-            display_name="Blue Tit",
-            category_name="Bird",
-            frigate_event="evt_bt_common",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
-        await repo.create(Detection(
-            detection_time=ts,
-            detection_index=2,
-            score=0.93,
-            display_name="Cyanistes caeruleus",
-            category_name="Bird",
-            frigate_event="evt_bt_sci",
-            camera_name="cam_2",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=ts,
+                detection_index=1,
+                score=0.91,
+                display_name="Blue Tit",
+                category_name="Bird",
+                frigate_event="evt_bt_common",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=ts,
+                detection_index=2,
+                score=0.93,
+                display_name="Cyanistes caeruleus",
+                category_name="Bird",
+                frigate_event="evt_bt_sci",
+                camera_name="cam_2",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         metrics = await repo.get_timebucket_metrics(start, end, "day")
         key = ts.date().isoformat() + "T00:00:00Z"
@@ -343,30 +353,34 @@ async def test_taxonomy_lookup_and_alias_resolution_support_localized_common_nam
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.9,
-            display_name="Blue Tit",
-            category_name="Bird",
-            frigate_event="evt_alias_1",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.88,
-            display_name="Cyanistes caeruleus",
-            category_name="Bird",
-            frigate_event="evt_alias_2",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.9,
+                display_name="Blue Tit",
+                category_name="Bird",
+                frigate_event="evt_alias_1",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.88,
+                display_name="Cyanistes caeruleus",
+                category_name="Bird",
+                frigate_event="evt_alias_2",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         taxonomy = await repo.get_taxonomy_names("Herrerillo comun", language="es")
         assert taxonomy["taxa_id"] == 1234
@@ -424,30 +438,34 @@ async def test_get_all_and_count_filter_by_canonical_species_identity():
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.92,
-            display_name="Blue Tit",
-            category_name="Bird",
-            frigate_event="evt_filter_common",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.95,
-            display_name="Cyanistes caeruleus",
-            category_name="Bird",
-            frigate_event="evt_filter_sci",
-            camera_name="cam_2",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.92,
+                display_name="Blue Tit",
+                category_name="Bird",
+                frigate_event="evt_filter_common",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.95,
+                display_name="Cyanistes caeruleus",
+                category_name="Bird",
+                frigate_event="evt_filter_sci",
+                camera_name="cam_2",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         filtered = await repo.get_all(species="Blue Tit")
         count = await repo.get_count(species="Blue Tit")
@@ -478,30 +496,34 @@ async def test_rollup_metrics_collapse_common_and_scientific_aliases():
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.91,
-            display_name="Blue Tit",
-            category_name="Bird",
-            frigate_event="evt_rollup_common",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.94,
-            display_name="Cyanistes caeruleus",
-            category_name="Bird",
-            frigate_event="evt_rollup_sci",
-            camera_name="cam_2",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.91,
+                display_name="Blue Tit",
+                category_name="Bird",
+                frigate_event="evt_rollup_common",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.94,
+                display_name="Cyanistes caeruleus",
+                category_name="Bird",
+                frigate_event="evt_rollup_sci",
+                camera_name="cam_2",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         await repo.ensure_recent_rollups(30)
         metrics = await repo.get_rollup_metrics()
@@ -523,30 +545,34 @@ async def test_species_detail_helpers_use_canonical_identity():
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.91,
-            display_name="Blue Tit",
-            category_name="Bird",
-            frigate_event="evt_detail_common",
-            camera_name="cam_1",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.94,
-            display_name="Cyanistes caeruleus",
-            category_name="Bird",
-            frigate_event="evt_detail_sci",
-            camera_name="cam_2",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.91,
+                display_name="Blue Tit",
+                category_name="Bird",
+                frigate_event="evt_detail_common",
+                camera_name="cam_1",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.94,
+                display_name="Cyanistes caeruleus",
+                category_name="Bird",
+                frigate_event="evt_detail_sci",
+                camera_name="cam_2",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         basic_stats = await repo.get_species_basic_stats("Blue Tit")
         camera_breakdown = await repo.get_camera_breakdown("Blue Tit")
@@ -577,18 +603,20 @@ async def test_unified_species_window_metrics_combines_alias_variants():
         repo = DetectionRepository(db)
         now = datetime.utcnow()
         for i, display_name in enumerate(["Blue Tit", "Cyanistes caeruleus"], start=1):
-            await repo.create(Detection(
-                detection_time=now,
-                detection_index=i,
-                score=0.9,
-                display_name=display_name,
-                category_name="Bird",
-                frigate_event=f"evt_unified_{i}",
-                camera_name="cam_1",
-                scientific_name="Cyanistes caeruleus",
-                common_name="Blue Tit",
-                taxa_id=1234,
-            ))
+            await repo.create(
+                Detection(
+                    detection_time=now,
+                    detection_index=i,
+                    score=0.9,
+                    display_name=display_name,
+                    category_name="Bird",
+                    frigate_event=f"evt_unified_{i}",
+                    camera_name="cam_1",
+                    scientific_name="Cyanistes caeruleus",
+                    common_name="Blue Tit",
+                    taxa_id=1234,
+                )
+            )
 
         metrics = await repo.get_unified_species_window_metrics()
         assert metrics["1234"]["count_7d"] >= 2
@@ -607,18 +635,20 @@ async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_sc
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.84,
-            display_name="House Sparrow",
-            category_name="Bird",
-            frigate_event="evt_house_sparrow_unified",
-            camera_name="cam_1",
-            scientific_name=None,
-            common_name=None,
-            taxa_id=None,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.84,
+                display_name="House Sparrow",
+                category_name="Bird",
+                frigate_event="evt_house_sparrow_unified",
+                camera_name="cam_1",
+                scientific_name=None,
+                common_name=None,
+                taxa_id=None,
+            )
+        )
 
         metrics = await repo.get_unified_species_window_metrics()
         assert "house sparrow" in metrics
@@ -633,15 +663,17 @@ async def test_delete_methods_report_exact_row_changes():
         repo = DetectionRepository(db)
 
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.9,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event="evt_delete",
-            camera_name="cam_1"
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.9,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event="evt_delete",
+                camera_name="cam_1",
+            )
+        )
 
         row = await repo.get_by_frigate_event("evt_delete")
         assert row is not None
@@ -762,7 +794,7 @@ async def test_insert_if_not_exists_reports_conflicts_correctly():
             display_name="Sparrow",
             category_name="Bird",
             frigate_event="evt_insert_once",
-            camera_name="cam_2"
+            camera_name="cam_2",
         )
         assert await repo.insert_if_not_exists(detection) is True
         assert await repo.insert_if_not_exists(detection) is False
@@ -783,7 +815,7 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
             category_name="Bird",
             frigate_event="evt_upsert",
             camera_name="cam_3",
-            audio_confirmed=False
+            audio_confirmed=False,
         )
         assert await repo.upsert_if_higher_score(base) == (True, False)
 
@@ -795,7 +827,7 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
             category_name="Bird",
             frigate_event="evt_upsert",
             camera_name="cam_3",
-            audio_confirmed=False
+            audio_confirmed=False,
         )
         assert await repo.upsert_if_higher_score(lower) == (False, False)
 
@@ -820,7 +852,7 @@ async def test_upsert_if_higher_score_normalizes_list_sublabel():
             category_name="Parus major",
             frigate_event="evt_list_sublabel",
             camera_name="cam_4",
-            sub_label=["Parus major", None]  # type: ignore[arg-type]
+            sub_label=["Parus major", None],  # type: ignore[arg-type]
         )
 
         assert await repo.upsert_if_higher_score(detection) == (True, False)
@@ -837,24 +869,28 @@ async def test_favorite_detection_idempotent_and_filterable():
         repo = DetectionRepository(db)
 
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.9,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event="evt_fav_1",
-            camera_name="cam_1"
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.8,
-            display_name="Sparrow",
-            category_name="Bird",
-            frigate_event="evt_fav_2",
-            camera_name="cam_1"
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.9,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event="evt_fav_1",
+                camera_name="cam_1",
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.8,
+                display_name="Sparrow",
+                category_name="Bird",
+                frigate_event="evt_fav_2",
+                camera_name="cam_1",
+            )
+        )
 
         assert await repo.favorite_detection("evt_fav_1", created_by="owner") is True
         # idempotent second call should still succeed without duplicate
@@ -908,33 +944,39 @@ async def test_delete_older_than_preserves_favorites_when_enabled():
         old_regular_event = "evt_old_regular"
         recent_event = "evt_recent"
 
-        await repo.create(Detection(
-            detection_time=old_time,
-            detection_index=1,
-            score=0.9,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event=old_favorite_event,
-            camera_name="cam_1",
-        ))
-        await repo.create(Detection(
-            detection_time=old_time,
-            detection_index=2,
-            score=0.85,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event=old_regular_event,
-            camera_name="cam_1",
-        ))
-        await repo.create(Detection(
-            detection_time=recent_time,
-            detection_index=3,
-            score=0.88,
-            display_name="Robin",
-            category_name="Bird",
-            frigate_event=recent_event,
-            camera_name="cam_1",
-        ))
+        await repo.create(
+            Detection(
+                detection_time=old_time,
+                detection_index=1,
+                score=0.9,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event=old_favorite_event,
+                camera_name="cam_1",
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=old_time,
+                detection_index=2,
+                score=0.85,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event=old_regular_event,
+                camera_name="cam_1",
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=recent_time,
+                detection_index=3,
+                score=0.88,
+                display_name="Robin",
+                category_name="Bird",
+                frigate_event=recent_event,
+                camera_name="cam_1",
+            )
+        )
 
         assert await repo.favorite_detection(old_favorite_event, created_by="owner") is True
 

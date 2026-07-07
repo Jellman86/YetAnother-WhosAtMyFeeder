@@ -59,9 +59,7 @@ def _build_service(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "app.services.error_diagnostics",
-        types.SimpleNamespace(
-            error_diagnostics_history=types.SimpleNamespace(record=lambda **kwargs: None)
-        ),
+        types.SimpleNamespace(error_diagnostics_history=types.SimpleNamespace(record=lambda **kwargs: None)),
     )
     monkeypatch.setitem(sys.modules, "app.database", types.SimpleNamespace(get_db=lambda: None))
     monkeypatch.setitem(
@@ -175,7 +173,9 @@ def test_mqtt_and_live_pressure_are_reported_separately(monkeypatch):
         {"get_admission_status": lambda self: {"live": {"queued": 0, "running": 0}}},
     )()
 
-    with patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("high", in_flight=9, capacity=10)):
+    with patch(
+        "app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("high", in_flight=9, capacity=10)
+    ):
         state = service._get_mqtt_throttle_state(configured_max=6)
 
     assert state["throttled"] is True
@@ -199,8 +199,10 @@ def test_starved_maintenance_queue_gets_single_video_slot_under_live_pressure(mo
         }
     }
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")),
+    ):
         state = service._get_mqtt_throttle_state(configured_max=4)
 
     assert state["throttled"] is True
@@ -223,8 +225,10 @@ def test_starved_maintenance_queue_stays_paused_when_mqtt_pressure_is_critical(m
         }
     }
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=10.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")),
+    ):
         state = service._get_mqtt_throttle_state(configured_max=4)
 
     assert state["maintenance_starvation_relief_active"] is False
@@ -244,8 +248,10 @@ def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):
         "evt-maint-2": {"source": "maintenance", "queued_at": 5.0},
     }
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=20.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=20.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")),
+    ):
         status = service.get_maintenance_guardrail_status()
 
     assert status["pending_maintenance"] == 2
@@ -268,8 +274,10 @@ def test_maintenance_guardrail_status_rejects_when_queue_is_stalled(monkeypatch)
         "evt-maint-starved": {"source": "maintenance", "queued_at": 0.0},
     }
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("critical")),
+    ):
         status = service.get_maintenance_guardrail_status()
 
     assert status["maintenance_state"] == "stalled"
@@ -290,8 +298,10 @@ def test_maintenance_guardrail_status_shows_queued_during_starvation_relief(monk
         "evt-maint-starved": {"source": "maintenance", "queued_at": 0.0},
     }
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=95.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")),
+    ):
         status = service.get_maintenance_guardrail_status()
 
     assert status["maintenance_state"] == "queued"
@@ -307,8 +317,10 @@ def test_maintenance_guardrail_status_keeps_active_work_running_without_false_st
     }
     service._maintenance_last_progress_at = 0.0
 
-    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=180.0), \
-         patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")):
+    with (
+        patch("app.services.auto_video_classifier_service.time.monotonic", return_value=180.0),
+        patch("app.services.mqtt_service.mqtt_service.get_status", return_value=_mqtt_status("normal")),
+    ):
         status = service.get_maintenance_guardrail_status()
 
     assert status["pending_maintenance"] == 0
@@ -339,6 +351,7 @@ def test_maintenance_guardrail_status_counts_external_maintenance_slots(monkeypa
 # bundle data: maintenance_coordinator={capacity:1, available:0} with
 # seconds_since_progress=919, active_maintenance=1.
 # ---------------------------------------------------------------------------
+
 
 def test_cancel_stuck_tasks_cancels_task_past_age_limit(monkeypatch):
     """A task held longer than _MAX_JOB_AGE_SECONDS is cancelled to release the coordinator."""
@@ -413,9 +426,7 @@ def test_cancel_stuck_tasks_skips_already_done_tasks(monkeypatch):
             cancelled.append("evt-done")
 
     service._active_tasks = {"evt-done": DoneTask()}
-    service._active_metadata = {
-        "evt-done": {"source": "maintenance", "started_at": 0.0}
-    }
+    service._active_metadata = {"evt-done": {"source": "maintenance", "started_at": 0.0}}
 
     module = importlib.import_module("app.services.auto_video_classifier_service")
     max_age = module._MAX_JOB_AGE_SECONDS

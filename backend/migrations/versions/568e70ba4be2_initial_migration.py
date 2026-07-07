@@ -5,6 +5,7 @@ Revises: None
 Create Date: 2026-01-04 16:40:42.038074
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '568e70ba4be2'
+revision: str = "568e70ba4be2"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -32,54 +33,56 @@ def upgrade() -> None:
     inspector = sa.inspect(bind)
     tables = inspector.get_table_names()
 
-    if 'detections' not in tables:
-        op.create_table('detections',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('detection_time', sa.TIMESTAMP(), nullable=False),
-        sa.Column('detection_index', sa.Integer(), nullable=False),
-        sa.Column('score', sa.Float(), nullable=False),
-        sa.Column('display_name', sa.String(), nullable=False),
-        sa.Column('category_name', sa.String(), nullable=False),
-        sa.Column('frigate_event', sa.String(), nullable=False),
-        sa.Column('camera_name', sa.String(), nullable=False),
-        sa.Column('is_hidden', sa.Boolean(), server_default='0', nullable=True),
-        sa.Column('frigate_score', sa.Float(), nullable=True),
-        sa.Column('sub_label', sa.String(), nullable=True),
-        sa.Column('audio_confirmed', sa.Boolean(), server_default='0', nullable=True),
-        sa.Column('audio_species', sa.String(), nullable=True),
-        sa.Column('audio_score', sa.Float(), nullable=True),
-        sa.Column('temperature', sa.Float(), nullable=True),
-        sa.Column('weather_condition', sa.String(), nullable=True),
-        sa.Column('scientific_name', sa.String(), nullable=True),
-        sa.Column('common_name', sa.String(), nullable=True),
-        sa.Column('taxa_id', sa.Integer(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('frigate_event')
+    if "detections" not in tables:
+        op.create_table(
+            "detections",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("detection_time", sa.TIMESTAMP(), nullable=False),
+            sa.Column("detection_index", sa.Integer(), nullable=False),
+            sa.Column("score", sa.Float(), nullable=False),
+            sa.Column("display_name", sa.String(), nullable=False),
+            sa.Column("category_name", sa.String(), nullable=False),
+            sa.Column("frigate_event", sa.String(), nullable=False),
+            sa.Column("camera_name", sa.String(), nullable=False),
+            sa.Column("is_hidden", sa.Boolean(), server_default="0", nullable=True),
+            sa.Column("frigate_score", sa.Float(), nullable=True),
+            sa.Column("sub_label", sa.String(), nullable=True),
+            sa.Column("audio_confirmed", sa.Boolean(), server_default="0", nullable=True),
+            sa.Column("audio_species", sa.String(), nullable=True),
+            sa.Column("audio_score", sa.Float(), nullable=True),
+            sa.Column("temperature", sa.Float(), nullable=True),
+            sa.Column("weather_condition", sa.String(), nullable=True),
+            sa.Column("scientific_name", sa.String(), nullable=True),
+            sa.Column("common_name", sa.String(), nullable=True),
+            sa.Column("taxa_id", sa.Integer(), nullable=True),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("frigate_event"),
         )
-        with op.batch_alter_table('detections', schema=None) as batch_op:
-            batch_op.create_index('idx_detections_camera', ['camera_name'], unique=False)
-            batch_op.create_index('idx_detections_common', ['common_name'], unique=False)
-            batch_op.create_index('idx_detections_frigate_event', ['frigate_event'], unique=False)
-            batch_op.create_index('idx_detections_hidden', ['is_hidden'], unique=False)
-            batch_op.create_index('idx_detections_scientific', ['scientific_name'], unique=False)
-            batch_op.create_index('idx_detections_species', ['display_name'], unique=False)
-            batch_op.create_index('idx_detections_taxa_id', ['taxa_id'], unique=False)
-            batch_op.create_index('idx_detections_time', ['detection_time'], unique=False)
+        with op.batch_alter_table("detections", schema=None) as batch_op:
+            batch_op.create_index("idx_detections_camera", ["camera_name"], unique=False)
+            batch_op.create_index("idx_detections_common", ["common_name"], unique=False)
+            batch_op.create_index("idx_detections_frigate_event", ["frigate_event"], unique=False)
+            batch_op.create_index("idx_detections_hidden", ["is_hidden"], unique=False)
+            batch_op.create_index("idx_detections_scientific", ["scientific_name"], unique=False)
+            batch_op.create_index("idx_detections_species", ["display_name"], unique=False)
+            batch_op.create_index("idx_detections_taxa_id", ["taxa_id"], unique=False)
+            batch_op.create_index("idx_detections_time", ["detection_time"], unique=False)
 
-    if 'taxonomy_cache' not in tables:
-        op.create_table('taxonomy_cache',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('scientific_name', sa.String(), nullable=False),
-        sa.Column('common_name', sa.String(), nullable=True),
-        sa.Column('taxa_id', sa.Integer(), nullable=True),
-        sa.Column('is_not_found', sa.Boolean(), server_default='0', nullable=True),
-        sa.Column('last_updated', sa.TIMESTAMP(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('scientific_name')
+    if "taxonomy_cache" not in tables:
+        op.create_table(
+            "taxonomy_cache",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("scientific_name", sa.String(), nullable=False),
+            sa.Column("common_name", sa.String(), nullable=True),
+            sa.Column("taxa_id", sa.Integer(), nullable=True),
+            sa.Column("is_not_found", sa.Boolean(), server_default="0", nullable=True),
+            sa.Column("last_updated", sa.TIMESTAMP(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=True),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("scientific_name"),
         )
-        with op.batch_alter_table('taxonomy_cache', schema=None) as batch_op:
-            batch_op.create_index('idx_taxonomy_common', ['common_name'], unique=False)
-            batch_op.create_index('idx_taxonomy_scientific', ['scientific_name'], unique=False)
+        with op.batch_alter_table("taxonomy_cache", schema=None) as batch_op:
+            batch_op.create_index("idx_taxonomy_common", ["common_name"], unique=False)
+            batch_op.create_index("idx_taxonomy_scientific", ["scientific_name"], unique=False)
 
     # ### end Alembic commands ###
 
@@ -89,32 +92,32 @@ def downgrade() -> None:
     bind = op.get_bind()
     if _table_exists(bind, "taxonomy_cache"):
         taxonomy_indexes = _index_names(bind, "taxonomy_cache")
-        with op.batch_alter_table('taxonomy_cache', schema=None) as batch_op:
-            if 'idx_taxonomy_scientific' in taxonomy_indexes:
-                batch_op.drop_index('idx_taxonomy_scientific')
-            if 'idx_taxonomy_common' in taxonomy_indexes:
-                batch_op.drop_index('idx_taxonomy_common')
-        op.drop_table('taxonomy_cache')
+        with op.batch_alter_table("taxonomy_cache", schema=None) as batch_op:
+            if "idx_taxonomy_scientific" in taxonomy_indexes:
+                batch_op.drop_index("idx_taxonomy_scientific")
+            if "idx_taxonomy_common" in taxonomy_indexes:
+                batch_op.drop_index("idx_taxonomy_common")
+        op.drop_table("taxonomy_cache")
 
     if _table_exists(bind, "detections"):
         detection_indexes = _index_names(bind, "detections")
-        with op.batch_alter_table('detections', schema=None) as batch_op:
-            if 'idx_detections_time' in detection_indexes:
-                batch_op.drop_index('idx_detections_time')
-            if 'idx_detections_taxa_id' in detection_indexes:
-                batch_op.drop_index('idx_detections_taxa_id')
-            if 'idx_detections_species' in detection_indexes:
-                batch_op.drop_index('idx_detections_species')
-            if 'idx_detections_scientific' in detection_indexes:
-                batch_op.drop_index('idx_detections_scientific')
-            if 'idx_detections_hidden' in detection_indexes:
-                batch_op.drop_index('idx_detections_hidden')
-            if 'idx_detections_frigate_event' in detection_indexes:
-                batch_op.drop_index('idx_detections_frigate_event')
-            if 'idx_detections_common' in detection_indexes:
-                batch_op.drop_index('idx_detections_common')
-            if 'idx_detections_camera' in detection_indexes:
-                batch_op.drop_index('idx_detections_camera')
+        with op.batch_alter_table("detections", schema=None) as batch_op:
+            if "idx_detections_time" in detection_indexes:
+                batch_op.drop_index("idx_detections_time")
+            if "idx_detections_taxa_id" in detection_indexes:
+                batch_op.drop_index("idx_detections_taxa_id")
+            if "idx_detections_species" in detection_indexes:
+                batch_op.drop_index("idx_detections_species")
+            if "idx_detections_scientific" in detection_indexes:
+                batch_op.drop_index("idx_detections_scientific")
+            if "idx_detections_hidden" in detection_indexes:
+                batch_op.drop_index("idx_detections_hidden")
+            if "idx_detections_frigate_event" in detection_indexes:
+                batch_op.drop_index("idx_detections_frigate_event")
+            if "idx_detections_common" in detection_indexes:
+                batch_op.drop_index("idx_detections_common")
+            if "idx_detections_camera" in detection_indexes:
+                batch_op.drop_index("idx_detections_camera")
 
-        op.drop_table('detections')
+        op.drop_table("detections")
     # ### end Alembic commands ###

@@ -22,9 +22,7 @@ from alembic.script import ScriptDirectory
 def _run(cmd: list[str], cwd: Path, env: dict[str, str]) -> None:
     result = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Command failed: {' '.join(cmd)}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        )
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}")
 
 
 def _verify_sqlite(db_path: str) -> None:

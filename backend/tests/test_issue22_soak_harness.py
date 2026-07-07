@@ -107,8 +107,22 @@ def test_evaluate_soak_run_fails_when_frigate_stalls_while_birdnet_advances():
 def test_evaluate_soak_run_fails_when_pressure_exceeds_limit():
     start = datetime(2026, 3, 5, 10, 0, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=1, birdnet_count=1, frigate_age=1.0, birdnet_age=1.0, pressure="normal"),
-        _sample(start + timedelta(seconds=10), frigate_count=2, birdnet_count=2, frigate_age=1.0, birdnet_age=1.0, pressure="critical"),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=1,
+            birdnet_count=1,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            pressure="normal",
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=2,
+            birdnet_count=2,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            pressure="critical",
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=2,
@@ -130,9 +144,33 @@ def test_evaluate_soak_run_fails_when_pressure_exceeds_limit():
 def test_evaluate_soak_run_fails_when_event_pipeline_starts_but_never_completes():
     start = datetime(2026, 3, 5, 10, 30, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=100, birdnet_count=200, frigate_age=1.0, birdnet_age=1.0, event_started=50, event_completed=50),
-        _sample(start + timedelta(seconds=10), frigate_count=101, birdnet_count=201, frigate_age=1.2, birdnet_age=1.1, event_started=52, event_completed=50),
-        _sample(start + timedelta(seconds=20), frigate_count=102, birdnet_count=202, frigate_age=1.1, birdnet_age=1.0, event_started=54, event_completed=50),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=100,
+            birdnet_count=200,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            event_started=50,
+            event_completed=50,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=101,
+            birdnet_count=201,
+            frigate_age=1.2,
+            birdnet_age=1.1,
+            event_started=52,
+            event_completed=50,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=102,
+            birdnet_count=202,
+            frigate_age=1.1,
+            birdnet_age=1.0,
+            event_started=54,
+            event_completed=50,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -156,9 +194,36 @@ def test_evaluate_soak_run_fails_when_event_pipeline_starts_but_never_completes(
 def test_evaluate_soak_run_fails_when_critical_failures_grow_during_ingress():
     start = datetime(2026, 3, 5, 11, 0, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=200, birdnet_count=300, frigate_age=1.0, birdnet_age=1.0, event_started=120, event_completed=120, event_critical_failures=0),
-        _sample(start + timedelta(seconds=10), frigate_count=204, birdnet_count=304, frigate_age=1.1, birdnet_age=1.0, event_started=124, event_completed=122, event_critical_failures=2),
-        _sample(start + timedelta(seconds=20), frigate_count=208, birdnet_count=308, frigate_age=1.0, birdnet_age=1.1, event_started=128, event_completed=124, event_critical_failures=4),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=200,
+            birdnet_count=300,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            event_started=120,
+            event_completed=120,
+            event_critical_failures=0,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=204,
+            birdnet_count=304,
+            frigate_age=1.1,
+            birdnet_age=1.0,
+            event_started=124,
+            event_completed=122,
+            event_critical_failures=2,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=208,
+            birdnet_count=308,
+            frigate_age=1.0,
+            birdnet_age=1.1,
+            event_started=128,
+            event_completed=124,
+            event_critical_failures=4,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -183,9 +248,30 @@ def test_evaluate_soak_run_fails_when_critical_failures_grow_during_ingress():
 def test_evaluate_soak_run_fails_when_live_admission_timeouts_increase():
     start = datetime(2026, 3, 5, 11, 30, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=300, birdnet_count=400, frigate_age=1.0, birdnet_age=1.0, live_image_admission_timeouts=0),
-        _sample(start + timedelta(seconds=10), frigate_count=304, birdnet_count=404, frigate_age=1.0, birdnet_age=1.1, live_image_admission_timeouts=2),
-        _sample(start + timedelta(seconds=20), frigate_count=308, birdnet_count=408, frigate_age=1.1, birdnet_age=1.0, live_image_admission_timeouts=5),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=300,
+            birdnet_count=400,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            live_image_admission_timeouts=0,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=304,
+            birdnet_count=404,
+            frigate_age=1.0,
+            birdnet_age=1.1,
+            live_image_admission_timeouts=2,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=308,
+            birdnet_count=408,
+            frigate_age=1.1,
+            birdnet_age=1.0,
+            live_image_admission_timeouts=5,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -208,9 +294,30 @@ def test_evaluate_soak_run_fails_when_live_admission_timeouts_increase():
 def test_evaluate_soak_run_fails_when_live_image_abandoned_increases():
     start = datetime(2026, 4, 23, 12, 0, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=300, birdnet_count=400, frigate_age=1.0, birdnet_age=1.0, live_image_abandoned=0),
-        _sample(start + timedelta(seconds=10), frigate_count=304, birdnet_count=404, frigate_age=1.0, birdnet_age=1.1, live_image_abandoned=2),
-        _sample(start + timedelta(seconds=20), frigate_count=308, birdnet_count=408, frigate_age=1.1, birdnet_age=1.0, live_image_abandoned=5),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=300,
+            birdnet_count=400,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            live_image_abandoned=0,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=304,
+            birdnet_count=404,
+            frigate_age=1.0,
+            birdnet_age=1.1,
+            live_image_abandoned=2,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=308,
+            birdnet_count=408,
+            frigate_age=1.1,
+            birdnet_age=1.0,
+            live_image_abandoned=5,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -233,9 +340,33 @@ def test_evaluate_soak_run_fails_when_live_image_abandoned_increases():
 def test_evaluate_soak_run_fails_when_classify_snapshot_drop_reasons_increase():
     start = datetime(2026, 4, 23, 12, 30, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=300, birdnet_count=400, frigate_age=1.0, birdnet_age=1.0, classify_snapshot_timeouts=0, classify_snapshot_overloaded=0),
-        _sample(start + timedelta(seconds=10), frigate_count=304, birdnet_count=404, frigate_age=1.0, birdnet_age=1.1, classify_snapshot_timeouts=2, classify_snapshot_overloaded=1),
-        _sample(start + timedelta(seconds=20), frigate_count=308, birdnet_count=408, frigate_age=1.1, birdnet_age=1.0, classify_snapshot_timeouts=5, classify_snapshot_overloaded=3),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=300,
+            birdnet_count=400,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            classify_snapshot_timeouts=0,
+            classify_snapshot_overloaded=0,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=304,
+            birdnet_count=404,
+            frigate_age=1.0,
+            birdnet_age=1.1,
+            classify_snapshot_timeouts=2,
+            classify_snapshot_overloaded=1,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=308,
+            birdnet_count=408,
+            frigate_age=1.1,
+            birdnet_age=1.0,
+            classify_snapshot_timeouts=5,
+            classify_snapshot_overloaded=3,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -260,9 +391,30 @@ def test_evaluate_soak_run_fails_when_classify_snapshot_drop_reasons_increase():
 def test_evaluate_soak_run_fails_when_expected_stall_reconnect_does_not_happen():
     start = datetime(2026, 3, 5, 12, 0, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=10, birdnet_count=30, frigate_age=1.0, birdnet_age=1.0, reconnects=0),
-        _sample(start + timedelta(seconds=10), frigate_count=10, birdnet_count=31, frigate_age=70.0, birdnet_age=1.0, reconnects=0),
-        _sample(start + timedelta(seconds=20), frigate_count=10, birdnet_count=32, frigate_age=80.0, birdnet_age=1.0, reconnects=0),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=10,
+            birdnet_count=30,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            reconnects=0,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=10,
+            birdnet_count=31,
+            frigate_age=70.0,
+            birdnet_age=1.0,
+            reconnects=0,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=10,
+            birdnet_count=32,
+            frigate_age=80.0,
+            birdnet_age=1.0,
+            reconnects=0,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,
@@ -286,9 +438,36 @@ def test_evaluate_soak_run_fails_when_expected_stall_reconnect_does_not_happen()
 def test_evaluate_soak_run_fails_when_video_circuit_opens():
     start = datetime(2026, 3, 5, 12, 30, tzinfo=timezone.utc)
     samples = [
-        _sample(start + timedelta(seconds=0), frigate_count=20, birdnet_count=40, frigate_age=1.0, birdnet_age=1.0, video_pending=4, video_failure_count=0, video_circuit_open=False),
-        _sample(start + timedelta(seconds=10), frigate_count=21, birdnet_count=41, frigate_age=1.0, birdnet_age=1.0, video_pending=18, video_failure_count=2, video_circuit_open=True),
-        _sample(start + timedelta(seconds=20), frigate_count=22, birdnet_count=42, frigate_age=1.0, birdnet_age=1.0, video_pending=12, video_failure_count=3, video_circuit_open=False),
+        _sample(
+            start + timedelta(seconds=0),
+            frigate_count=20,
+            birdnet_count=40,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            video_pending=4,
+            video_failure_count=0,
+            video_circuit_open=False,
+        ),
+        _sample(
+            start + timedelta(seconds=10),
+            frigate_count=21,
+            birdnet_count=41,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            video_pending=18,
+            video_failure_count=2,
+            video_circuit_open=True,
+        ),
+        _sample(
+            start + timedelta(seconds=20),
+            frigate_count=22,
+            birdnet_count=42,
+            frigate_age=1.0,
+            birdnet_age=1.0,
+            video_pending=12,
+            video_failure_count=3,
+            video_circuit_open=False,
+        ),
     ]
     thresholds = SoakThresholds(
         min_samples=3,

@@ -111,10 +111,7 @@ async def test_login_success(client: httpx.AsyncClient):
     settings.auth.username = "admin"
     settings.auth.password_hash = hash_password("testpass123")
 
-    response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "testpass123"
-    })
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": "testpass123"})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -129,10 +126,7 @@ async def test_login_invalid_username(client: httpx.AsyncClient):
     settings.auth.username = "admin"
     settings.auth.password_hash = hash_password("testpass123")
 
-    response = await client.post("/api/auth/login", json={
-        "username": "wronguser",
-        "password": "testpass123"
-    })
+    response = await client.post("/api/auth/login", json={"username": "wronguser", "password": "testpass123"})
     assert response.status_code == 401
     assert "Invalid credentials" in response.json()["detail"]
 
@@ -143,10 +137,7 @@ async def test_login_invalid_password(client: httpx.AsyncClient):
     settings.auth.username = "admin"
     settings.auth.password_hash = hash_password("testpass123")
 
-    response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "wrongpass"
-    })
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": "wrongpass"})
     assert response.status_code == 401
     assert "Invalid credentials" in response.json()["detail"]
 
@@ -155,10 +146,7 @@ async def test_login_invalid_password(client: httpx.AsyncClient):
 async def test_login_auth_disabled(client: httpx.AsyncClient):
     settings.auth.enabled = False
 
-    response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "testpass123"
-    })
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": "testpass123"})
     assert response.status_code == 400
     assert "not enabled" in response.json()["detail"]
 
@@ -168,10 +156,7 @@ async def test_login_no_password_set(client: httpx.AsyncClient):
     settings.auth.enabled = True
     settings.auth.password_hash = None
 
-    response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "testpass123"
-    })
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": "testpass123"})
     assert response.status_code == 500
     assert "not configured" in response.json()["detail"]
 
@@ -181,11 +166,9 @@ async def test_initial_setup_success(client: httpx.AsyncClient):
     settings.auth.password_hash = None
     settings.auth.initial_setup_complete = False
 
-    response = await client.post("/api/auth/initial-setup", json={
-        "username": "newadmin",
-        "password": "newpass123",
-        "enable_auth": True
-    })
+    response = await client.post(
+        "/api/auth/initial-setup", json={"username": "newadmin", "password": "newpass123", "enable_auth": True}
+    )
     assert response.status_code == 200
     assert response.json()["message"] == "Setup completed successfully"
     assert settings.auth.initial_setup_complete is True
@@ -195,11 +178,9 @@ async def test_initial_setup_success(client: httpx.AsyncClient):
 async def test_initial_setup_already_configured(client: httpx.AsyncClient):
     settings.auth.password_hash = hash_password("existing")
 
-    response = await client.post("/api/auth/initial-setup", json={
-        "username": "admin",
-        "password": "newpass123",
-        "enable_auth": True
-    })
+    response = await client.post(
+        "/api/auth/initial-setup", json={"username": "admin", "password": "newpass123", "enable_auth": True}
+    )
     assert response.status_code == 403
     assert "already configured" in response.json()["detail"]
 
@@ -209,11 +190,9 @@ async def test_initial_setup_skip_auth(client: httpx.AsyncClient):
     settings.auth.password_hash = None
     settings.auth.initial_setup_complete = False
 
-    response = await client.post("/api/auth/initial-setup", json={
-        "username": "admin",
-        "password": None,
-        "enable_auth": False
-    })
+    response = await client.post(
+        "/api/auth/initial-setup", json={"username": "admin", "password": None, "enable_auth": False}
+    )
     assert response.status_code == 200
     assert settings.auth.enabled is False
     assert settings.auth.initial_setup_complete is True
@@ -235,15 +214,10 @@ async def test_logout_with_valid_token(client: httpx.AsyncClient):
     settings.auth.username = "admin"
     settings.auth.password_hash = hash_password("testpass123")
 
-    login_response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "testpass123"
-    })
+    login_response = await client.post("/api/auth/login", json={"username": "admin", "password": "testpass123"})
     token = login_response.json()["access_token"]
 
-    response = await client.post("/api/auth/logout", headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = await client.post("/api/auth/logout", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert "message" in response.json()
 
@@ -254,15 +228,10 @@ async def test_protected_endpoint_with_valid_token(client: httpx.AsyncClient):
     settings.auth.username = "admin"
     settings.auth.password_hash = hash_password("testpass123")
 
-    login_response = await client.post("/api/auth/login", json={
-        "username": "admin",
-        "password": "testpass123"
-    })
+    login_response = await client.post("/api/auth/login", json={"username": "admin", "password": "testpass123"})
     token = login_response.json()["access_token"]
 
-    response = await client.get("/api/auth/status", headers={
-        "Authorization": f"Bearer {token}"
-    })
+    response = await client.get("/api/auth/status", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     data = response.json()
     assert data["is_authenticated"] is True

@@ -165,12 +165,16 @@ class HighQualitySnapshotService:
             try:
                 return await asyncio.to_thread(cached_path.read_bytes)
             except Exception as e:
-                log.warning("Failed to read cached recording clip for HQ snapshot fallback", event_id=event_id, error=str(e))
+                log.warning(
+                    "Failed to read cached recording clip for HQ snapshot fallback", event_id=event_id, error=str(e)
+                )
 
         try:
             from app.routers.proxy import _fetch_recording_clip_ready, _get_valid_cached_recording_clip_path
         except Exception as e:
-            log.warning("Failed to import recording clip helpers for HQ snapshot fallback", event_id=event_id, error=str(e))
+            log.warning(
+                "Failed to import recording clip helpers for HQ snapshot fallback", event_id=event_id, error=str(e)
+            )
             return None
 
         try:
@@ -211,7 +215,9 @@ class HighQualitySnapshotService:
 
         self._active_ids.add(event_id)
         try:
-            crop_event_data = event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
+            crop_event_data = (
+                event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
+            )
             selected_candidate = None
             try:
                 candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
@@ -327,7 +333,9 @@ class HighQualitySnapshotService:
         selected_candidate = self._select_canonical_snapshot_candidate(persisted)
         selected_candidate_id = str((selected_candidate or {}).get("candidate_id") or "")
         for candidate in persisted:
-            candidate["selected"] = bool(selected_candidate_id) and str(candidate.get("candidate_id") or "") == selected_candidate_id
+            candidate["selected"] = (
+                bool(selected_candidate_id) and str(candidate.get("candidate_id") or "") == selected_candidate_id
+            )
         return {
             "selected_candidate": selected_candidate,
             "candidates": persisted,
@@ -471,7 +479,9 @@ class HighQualitySnapshotService:
                             "source_mode": source_mode,
                             "clip_variant": clip_variant,
                             "crop_box": (crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
-                            "crop_confidence": (crop_result or {}).get("confidence") if isinstance(crop_result, dict) else None,
+                            "crop_confidence": (crop_result or {}).get("confidence")
+                            if isinstance(crop_result, dict)
+                            else None,
                             "thumbnail_ref": thumbnail_ref,
                             "image_ref": image_ref,
                             "snapshot_source": f"hq_candidate_{source_mode}",
@@ -499,7 +509,10 @@ class HighQualitySnapshotService:
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
-        if bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)) and self._bird_crop_model_available():
+        if (
+            bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False))
+            and self._bird_crop_model_available()
+        ):
             model_result = self._crop_from_bird_model(image, event_id=event_id)
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
@@ -519,7 +532,9 @@ class HighQualitySnapshotService:
         classifier_label = None
         try:
             classifier_module = sys.modules.get("app.services.classifier_service")
-            classifier = getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
+            classifier = (
+                getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
+            )
             if classifier is not None:
                 results = classifier.classify(
                     image,
@@ -529,7 +544,9 @@ class HighQualitySnapshotService:
                     classifier_label = results[0].get("label")
                     classifier_score = float(results[0].get("score") or 0.0)
         except Exception as e:
-            log.debug("Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e))
+            log.debug(
+                "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
+            )
 
         crop_confidence = float(candidate.get("crop_confidence") or 0.0)
         source_mode = str(candidate.get("source_mode") or "full_frame")
@@ -632,7 +649,9 @@ class HighQualitySnapshotService:
         """Cancel and clear all active tasks for tests or shutdown."""
         current_loop = asyncio.get_running_loop()
         tasks = list(self._worker_tasks)
-        cancellable_tasks = [t for t in tasks if self._task_belongs_to_current_open_loop(t, current_loop) and not t.done()]
+        cancellable_tasks = [
+            t for t in tasks if self._task_belongs_to_current_open_loop(t, current_loop) and not t.done()
+        ]
         for task in cancellable_tasks:
             task.cancel()
         # Only await tasks that belong to the current event loop; tasks from a
@@ -918,7 +937,11 @@ class HighQualitySnapshotService:
             return image_bytes, False
 
     def _bird_crop_source_priority(self) -> str:
-        configured = str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "").strip().lower()
+        configured = (
+            str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "")
+            .strip()
+            .lower()
+        )
         if configured in {
             "frigate_hints_first",
             "crop_model_first",
@@ -941,7 +964,9 @@ class HighQualitySnapshotService:
         if priority == "frigate_hints_only":
             return self._crop_from_event_hints(image, event_data)
         if priority == "crop_model_first":
-            crop_result = self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+            crop_result = (
+                self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+            )
             if self._has_crop_image(crop_result):
                 return crop_result
             hint_result = self._crop_from_event_hints(image, event_data)
@@ -949,7 +974,9 @@ class HighQualitySnapshotService:
         hint_result = self._crop_from_event_hints(image, event_data)
         if self._has_crop_image(hint_result):
             return hint_result
-        crop_result = self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+        crop_result = (
+            self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
+        )
         return crop_result or hint_result
 
     def _crop_from_bird_model(self, image: Image.Image, *, event_id: Optional[str] = None) -> Optional[dict[str, Any]]:
@@ -1048,12 +1075,7 @@ class HighQualitySnapshotService:
             return None
 
         image_width, image_height = image_size
-        normalized = (
-            0.0 <= left <= 1.0
-            and 0.0 <= top <= 1.0
-            and 0.0 <= width <= 1.0
-            and 0.0 <= height <= 1.0
-        )
+        normalized = 0.0 <= left <= 1.0 and 0.0 <= top <= 1.0 and 0.0 <= width <= 1.0 and 0.0 <= height <= 1.0
         if normalized:
             left *= float(image_width)
             top *= float(image_height)
@@ -1233,10 +1255,7 @@ class HighQualitySnapshotService:
         box_center = self._normalized_box_center(payload)
         if box_center is not None:
             center_x, center_y = box_center
-            normalized_points = [
-                item for item in path_points
-                if 0.0 <= item[1] <= 1.0 and 0.0 <= item[2] <= 1.0
-            ]
+            normalized_points = [item for item in path_points if 0.0 <= item[1] <= 1.0 and 0.0 <= item[2] <= 1.0]
             for timestamp, _x, _y in sorted(
                 normalized_points,
                 key=lambda item: ((item[1] - center_x) ** 2 + (item[2] - center_y) ** 2, item[0]),
@@ -1313,9 +1332,7 @@ class HighQualitySnapshotService:
                     if crop_frames_scored < HQ_MAX_CROP_SCORING_FRAMES:
                         crop_frames_scored += 1
                         crop_score = self._score_frame_for_bird_crop(frame, frame_order=crop_frames_scored)
-                        if crop_score is not None and (
-                            best_crop_frame is None or crop_score > best_crop_frame[0]
-                        ):
+                        if crop_score is not None and (best_crop_frame is None or crop_score > best_crop_frame[0]):
                             best_crop_frame = (crop_score, encoded_bytes)
                     if crop_frames_scored >= HQ_MAX_CROP_SCORING_FRAMES and first_readable is not None:
                         break
@@ -1405,8 +1422,7 @@ class HighQualitySnapshotService:
         background = status.get("background") if isinstance(status.get("background"), dict) else {}
         live_busy = self._safe_status_int(live.get("queued")) > 0 or self._safe_status_int(live.get("running")) > 0
         background_busy = (
-            self._safe_status_int(background.get("queued")) > 0
-            or self._safe_status_int(background.get("running")) > 0
+            self._safe_status_int(background.get("queued")) > 0 or self._safe_status_int(background.get("running")) > 0
         )
         if live_busy or background_busy:
             return False

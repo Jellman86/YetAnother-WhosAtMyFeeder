@@ -21,7 +21,9 @@ def test_swap_model_dirs_rolls_back_on_rename_failure(tmp_path, monkeypatch):
     staged_to_target_seen = {"value": False}
 
     def flaky_rename(src, dst):
-        if os.path.abspath(src) == os.path.abspath(str(staged_dir)) and os.path.abspath(dst) == os.path.abspath(str(target_dir)):
+        if os.path.abspath(src) == os.path.abspath(str(staged_dir)) and os.path.abspath(dst) == os.path.abspath(
+            str(target_dir)
+        ):
             staged_to_target_seen["value"] = True
             raise OSError("injected rename failure")
         return real_rename(src, dst)
@@ -212,7 +214,9 @@ def test_maybe_migrate_legacy_models_dir_moves_packaged_default_into_persistent_
 
     monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
     monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
-    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+    monkeypatch.setattr(
+        model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)}
+    )
 
     model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
 
@@ -236,7 +240,9 @@ def test_maybe_migrate_legacy_models_dir_does_not_override_conflicting_entries(t
 
     monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
     monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
-    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+    monkeypatch.setattr(
+        model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)}
+    )
 
     model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
 
@@ -259,7 +265,9 @@ def test_maybe_migrate_legacy_models_dir_merges_missing_entries_without_overwrit
 
     monkeypatch.setenv("MODEL_DIR", str(legacy_dir))
     monkeypatch.setattr(model_manager_module, "_PACKAGED_DEFAULT_MODEL_DIR", str(legacy_dir))
-    monkeypatch.setattr(model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)})
+    monkeypatch.setattr(
+        model_manager_module.os.path, "isdir", lambda path: str(path) in {"/data", str(legacy_dir), str(target_dir)}
+    )
 
     model_manager_module._maybe_migrate_legacy_models_dir(str(target_dir))
 
@@ -333,7 +341,9 @@ def test_get_active_model_spec_applies_family_crop_override_over_manifest_defaul
     settings.location.country = "US"
     settings.classification.bird_model_region_override = "auto"
     monkeypatch.setattr(settings.classification, "crop_model_overrides", {"small_birds": "off"}, raising=False)
-    monkeypatch.setattr(settings.classification, "crop_source_overrides", {"small_birds": "high_quality"}, raising=False)
+    monkeypatch.setattr(
+        settings.classification, "crop_source_overrides", {"small_birds": "high_quality"}, raising=False
+    )
     try:
         spec = manager.get_active_model_spec()
 
@@ -617,7 +627,9 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
     ]
 
 
-def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(tmp_path, monkeypatch):
+def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     model_dir = tmp_path / "eva02_large_inat21"
@@ -799,21 +811,33 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "eva02_large_inat21",
     ]
     assert [model.sort_order for model in models] == [
-        5, 6, 10, 13, 14, 17, 18, 19, 20, 22, 23, 24, 27, 30,
+        5,
+        6,
+        10,
+        13,
+        14,
+        17,
+        18,
+        19,
+        20,
+        22,
+        23,
+        24,
+        27,
+        30,
     ]
 
 
 def test_build_download_progress_is_monotonic_across_onnx_phases():
     manager = ModelManager()
 
-    model_progress = manager._build_download_progress('model', downloaded=100, total=100)
-    weights_progress = manager._build_download_progress('weights', downloaded=0, total=100)
-    labels_progress = manager._build_download_progress('labels', downloaded=1, total=1)
+    model_progress = manager._build_download_progress("model", downloaded=100, total=100)
+    weights_progress = manager._build_download_progress("weights", downloaded=0, total=100)
+    labels_progress = manager._build_download_progress("labels", downloaded=1, total=1)
 
     assert model_progress == 80.0
     assert weights_progress == 80.0
     assert labels_progress == 99.0
-
 
 
 @pytest.mark.asyncio
@@ -892,7 +916,10 @@ async def test_download_payload_writes_model_config(tmp_path):
     )
 
     assert (staged_dir / "model_config.json").exists()
-    assert json.loads((staged_dir / "model_config.json").read_text(encoding="utf-8"))["preprocessing"]["resize_mode"] == "center_crop"
+    assert (
+        json.loads((staged_dir / "model_config.json").read_text(encoding="utf-8"))["preprocessing"]["resize_mode"]
+        == "center_crop"
+    )
     assert updates
 
 

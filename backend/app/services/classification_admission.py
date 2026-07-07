@@ -20,9 +20,7 @@ class ClassificationAdmissionTimeoutError(ClassificationAdmissionError):
     """Raised when queued work cannot be admitted in time."""
 
     def __init__(self, priority: WorkPriority, kind: str, timeout_seconds: float):
-        super().__init__(
-            f"classification_admission_timeout priority={priority} kind={kind} timeout={timeout_seconds}"
-        )
+        super().__init__(f"classification_admission_timeout priority={priority} kind={kind} timeout={timeout_seconds}")
         self.priority = priority
         self.kind = kind
         self.timeout_seconds = timeout_seconds
@@ -39,9 +37,7 @@ class ClassificationLeaseExpiredError(ClassificationAdmissionError):
         *,
         context: dict[str, Any] | None = None,
     ):
-        super().__init__(
-            f"classification_lease_expired priority={priority} kind={kind} timeout={timeout_seconds}"
-        )
+        super().__init__(f"classification_lease_expired priority={priority} kind={kind} timeout={timeout_seconds}")
         self.priority = priority
         self.kind = kind
         self.timeout_seconds = timeout_seconds
@@ -134,11 +130,7 @@ class ClassificationAdmissionCoordinator:
         loop = asyncio.get_running_loop()
         queue_timeout = max(
             0.01,
-            float(
-                queue_timeout_seconds
-                if queue_timeout_seconds is not None
-                else self._default_queue_timeout_seconds
-            ),
+            float(queue_timeout_seconds if queue_timeout_seconds is not None else self._default_queue_timeout_seconds),
         )
         lease_timeout = max(
             0.01,
@@ -277,10 +269,7 @@ class ClassificationAdmissionCoordinator:
         while (
             self._pending["background"]
             and self._running["background"] < self._background_capacity
-            and (
-                not self._is_live_pressure_active()
-                or self._is_background_starvation_relief_active()
-            )
+            and (not self._is_live_pressure_active() or self._is_background_starvation_relief_active())
         ):
             item = self._pending["background"].popleft()
             self._admit_locked(item)
@@ -312,11 +301,7 @@ class ClassificationAdmissionCoordinator:
         except Exception as exc:
             async with self._condition:
                 active = self._active.get(item.work_id)
-                if (
-                    active is not item
-                    or item.state != "running"
-                    or item.lease_token != token
-                ):
+                if active is not item or item.state != "running" or item.lease_token != token:
                     self._late_completions_ignored += 1
                     self._record_recent_outcome_locked(item, "late_failure_ignored", error=str(exc))
                     return
@@ -335,11 +320,7 @@ class ClassificationAdmissionCoordinator:
 
         async with self._condition:
             active = self._active.get(item.work_id)
-            if (
-                active is not item
-                or item.state != "running"
-                or item.lease_token != token
-            ):
+            if active is not item or item.state != "running" or item.lease_token != token:
                 self._late_completions_ignored += 1
                 self._record_recent_outcome_locked(item, "late_completion_ignored")
                 return

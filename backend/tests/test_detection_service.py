@@ -6,41 +6,46 @@ from datetime import datetime
 from app.services.detection_service import DetectionService
 from app.repositories.detection_repository import Detection
 
+
 @pytest.fixture
 def mock_deps():
-    with patch("app.services.detection_service.get_db") as mock_get_db, \
-         patch("app.services.detection_service.DetectionRepository") as MockRepo, \
-         patch("app.services.detection_service.taxonomy_service") as mock_taxonomy, \
-         patch("app.services.detection_service.broadcaster") as mock_broadcaster, \
-         patch("app.services.detection_service.birdweather_service") as mock_birdweather, \
-         patch("app.services.audio.audio_service.audio_service") as mock_audio:
-        
+    with (
+        patch("app.services.detection_service.get_db") as mock_get_db,
+        patch("app.services.detection_service.DetectionRepository") as MockRepo,
+        patch("app.services.detection_service.taxonomy_service") as mock_taxonomy,
+        patch("app.services.detection_service.broadcaster") as mock_broadcaster,
+        patch("app.services.detection_service.birdweather_service") as mock_birdweather,
+        patch("app.services.audio.audio_service.audio_service") as mock_audio,
+    ):
         mock_db = AsyncMock()
         mock_db.commit = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
-        
+
         mock_repo = MockRepo.return_value
         mock_repo.update_video_classification = AsyncMock()
-        mock_taxonomy.get_names = AsyncMock(return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123})
-        
+        mock_taxonomy.get_names = AsyncMock(
+            return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123}
+        )
+
         mock_broadcaster.broadcast = AsyncMock()
         mock_birdweather.report_detection = AsyncMock(return_value=True)
         mock_audio.correlate_species = AsyncMock(return_value=(False, None, None))
-        
+
         yield {
             "db": mock_db,
             "repo": mock_repo,
             "taxonomy": mock_taxonomy,
             "broadcaster": mock_broadcaster,
             "birdweather": mock_birdweather,
-            "audio": mock_audio
+            "audio": mock_audio,
         }
+
 
 @pytest.mark.asyncio
 async def test_apply_video_result_overrides_lower_score(mock_deps):
     classifier = MagicMock()
     service = DetectionService(classifier)
-    
+
     # Mock existing detection with lower score
     existing = MagicMock(spec=Detection)
     existing.score = 0.5
@@ -55,25 +60,26 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
     existing.video_classification_label = "New Species"
     existing.video_classification_score = 0.9
     existing.video_classification_status = "completed"
-    
+
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
-    
+
     await service.apply_video_result("event1", "New Species", 0.9, 5)
-    
+
     # Verify update_video_classification was called
     mock_deps["repo"].update_video_classification.assert_called_once()
-    
+
     # Verify primary fields were updated (using execute on db)
     assert mock_deps["db"].execute.called
     # One of the calls should be the primary UPDATE
     update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call[0][0]]
     assert len(update_call) > 0
 
+
 @pytest.mark.asyncio
 async def test_apply_video_result_re_evaluates_audio(mock_deps):
     classifier = MagicMock()
     service = DetectionService(classifier)
-    
+
     # Mock existing detection with audio that didn't match old ID
     # But WILL match the new video ID
     existing = MagicMock(spec=Detection)
@@ -89,24 +95,24 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     existing.video_classification_label = "Blue Jay"
     existing.video_classification_score = 0.8
     existing.video_classification_status = "completed"
-    
+
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
-    
+
     # Mock successful audio correlation
     mock_deps["audio"].correlate_species = AsyncMock(return_value=(True, "Blue Jay", 0.9))
-    
+
     await service.apply_video_result("event1", "Blue Jay", 0.8, 10)
-    
+
     # Verify audio correlation was called with the scientific name
     mock_deps["audio"].correlate_species.assert_called_once()
-    
+
     # Verify the update query set audio_confirmed to 1
     update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     args = update_call[0].args
     params = args[1]
-    
+
     # Find the index of audio_confirmed in the query
-    assert params[7] == 1 # audio_confirmed should be True (1)
+    assert params[7] == 1  # audio_confirmed should be True (1)
 
 
 @pytest.mark.asyncio
@@ -131,7 +137,9 @@ async def test_apply_video_result_normalizes_birder_taxonomy_labels(mock_deps):
     existing.video_classification_status = "pending"
 
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
-    mock_deps["taxonomy"].get_names = AsyncMock(return_value={"scientific_name": "Panthera tigris", "common_name": "Tiger", "taxa_id": 321})
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Panthera tigris", "common_name": "Tiger", "taxa_id": 321}
+    )
 
     await service.apply_video_result(
         "event1",
@@ -361,9 +369,13 @@ async def test_save_detection_falls_back_when_taxonomy_lookup_times_out(mock_dep
     mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, False))
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
 
-    with patch("app.services.detection_service.TAXONOMY_LOOKUP_TIMEOUT_SECONDS", 0.01), \
-         patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()), \
-         patch("app.services.detection_service.log") as mock_log:
+    with (
+        patch("app.services.detection_service.TAXONOMY_LOOKUP_TIMEOUT_SECONDS", 0.01),
+        patch(
+            "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+        ),
+        patch("app.services.detection_service.log") as mock_log,
+    ):
         changed, inserted = await service.save_detection(
             frigate_event="evt-tax-timeout",
             camera="cam1",
@@ -472,8 +484,12 @@ async def test_save_detection_skips_structured_blocked_species_by_taxa_id(mock_d
     classifier = MagicMock()
     service = DetectionService(classifier)
 
-    with patch("app.services.detection_service.settings") as mock_settings, \
-         patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+    with (
+        patch("app.services.detection_service.settings") as mock_settings,
+        patch(
+            "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+        ),
+    ):
         mock_settings.classification.blocked_labels = []
         mock_settings.classification.blocked_species = [
             {
@@ -514,7 +530,9 @@ async def test_save_detection_treats_noncanonical_model_labels_as_unknown_bird(m
     mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, True))
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
 
-    with patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+    with patch(
+        "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+    ):
         changed, inserted = await service.save_detection(
             frigate_event="evt-life-label",
             camera="cam1",
@@ -553,7 +571,9 @@ async def test_save_detection_broadcasts_explicit_utc_timestamp(mock_deps):
     mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, True))
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
 
-    with patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+    with patch(
+        "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+    ):
         changed, inserted = await service.save_detection(
             frigate_event="evt-timestamp-z",
             camera="cam1",
@@ -618,7 +638,9 @@ async def test_apply_video_result_does_not_override_known_species_with_hidden_no
     existing.video_classification_status = "pending"
 
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
-    mock_deps["taxonomy"].get_names = AsyncMock(return_value={"scientific_name": "Life", "common_name": "Life", "taxa_id": 1})
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Life", "common_name": "Life", "taxa_id": 1}
+    )
 
     await service.apply_video_result("event1", "Life (life)", 0.95, 2)
 
@@ -689,8 +711,12 @@ async def test_apply_video_result_records_blocked_flag_and_skips_promotion(mock_
 
     mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
 
-    with patch("app.services.detection_service.settings") as mock_settings, \
-         patch("app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()):
+    with (
+        patch("app.services.detection_service.settings") as mock_settings,
+        patch(
+            "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+        ),
+    ):
         mock_settings.classification.blocked_labels = ["House Sparrow"]
         mock_settings.classification.blocked_species = []
         mock_settings.classification.min_detection_confidence = 0.6

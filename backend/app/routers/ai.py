@@ -23,15 +23,18 @@ from app.routers.proxy import _get_valid_cached_recording_clip_path
 router = APIRouter()
 log = structlog.get_logger()
 
+
 class AIAnalysisResponse(BaseModel):
     analysis: str
     analysis_timestamp: str
+
 
 class LeaderboardAnalysisRequest(BaseModel):
     config: dict
     image_base64: str
     force: bool = False
     config_key: str | None = None
+
 
 class LeaderboardAnalysisResponse(BaseModel):
     analysis: str
@@ -66,7 +69,9 @@ async def _load_ai_analysis_frames(
 ) -> tuple[list[bytes], str | None]:
     if settings.frigate.recording_clip_enabled:
         try:
-            recording_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
+            recording_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+                event_id, lang
+            )
         except HTTPException:
             recording_path = None
 
@@ -101,6 +106,7 @@ async def _load_ai_analysis_frames(
 
     return [], None
 
+
 @router.post("/events/{event_id}/analyze", response_model=AIAnalysisResponse)
 async def analyze_event(
     event_id: str,
@@ -108,7 +114,7 @@ async def analyze_event(
     force: bool = False,
     use_clip: bool = True,
     frame_count: int = 5,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Run AI analysis on a specific detection.
 
@@ -122,10 +128,7 @@ async def analyze_event(
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         # Check if analysis already exists and force is not set
         if detection.ai_analysis and not force:
@@ -136,10 +139,7 @@ async def analyze_event(
             )
 
         if not auth.is_owner:
-            raise HTTPException(
-                status_code=403,
-                detail="Owner access required to generate AI analysis."
-            )
+            raise HTTPException(status_code=403, detail="Owner access required to generate AI analysis.")
 
         # If regenerating analysis, clear any existing AI chat thread so the new
         # analysis starts with a fresh conversation context.
@@ -162,8 +162,7 @@ async def analyze_event(
             image_data = await frigate_client.get_snapshot(event_id, crop=True, quality=90)
             if not image_data:
                 raise HTTPException(
-                    status_code=502,
-                    detail=i18n_service.translate("errors.ai.image_fetch_failed", lang)
+                    status_code=502, detail=i18n_service.translate("errors.ai.image_fetch_failed", lang)
                 )
 
         # Metadata for prompt
@@ -174,7 +173,7 @@ async def analyze_event(
             "temperature": detection.temperature,
             "temp_unit": temp_unit,
             "weather_condition": detection.weather_condition,
-            "time": local_time.strftime("%H:%M")
+            "time": local_time.strftime("%H:%M"),
         }
         if frames:
             metadata["frame_count"] = len(frames)
@@ -190,7 +189,7 @@ async def analyze_event(
             metadata=metadata,
             image_list=frames if frames else None,
             language=lang,
-            mime_type="image/jpeg"
+            mime_type="image/jpeg",
         )
 
         # Save analysis to database
@@ -201,11 +200,10 @@ async def analyze_event(
             analysis_timestamp=_serialize_timestamp(analysis_timestamp),
         )
 
+
 @router.get("/leaderboard/analysis", response_model=LeaderboardAnalysisResponse)
 async def get_leaderboard_analysis(
-    request: Request,
-    config_key: str,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    request: Request, config_key: str, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     if not auth.is_owner:
         raise HTTPException(status_code=403, detail="Owner access required.")
@@ -217,15 +215,13 @@ async def get_leaderboard_analysis(
             # console/network errors (e.g. first load before any analysis is generated).
             return Response(status_code=204)
         return LeaderboardAnalysisResponse(
-            analysis=entry.analysis,
-            analysis_timestamp=_serialize_timestamp(entry.analysis_timestamp)
+            analysis=entry.analysis, analysis_timestamp=_serialize_timestamp(entry.analysis_timestamp)
         )
+
 
 @router.post("/leaderboard/analyze", response_model=LeaderboardAnalysisResponse)
 async def analyze_leaderboard(
-    request: Request,
-    body: LeaderboardAnalysisRequest,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    request: Request, body: LeaderboardAnalysisRequest, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     if not auth.is_owner:
         raise HTTPException(status_code=403, detail="Owner access required.")
@@ -238,8 +234,7 @@ async def analyze_leaderboard(
         existing = await repo.get_by_config_key(config_key)
         if existing and not body.force:
             return LeaderboardAnalysisResponse(
-                analysis=existing.analysis,
-                analysis_timestamp=_serialize_timestamp(existing.analysis_timestamp)
+                analysis=existing.analysis, analysis_timestamp=_serialize_timestamp(existing.analysis_timestamp)
             )
 
         try:
@@ -261,21 +256,13 @@ async def analyze_leaderboard(
         now = datetime.now(timezone.utc)
         await repo.upsert_analysis(config_key, body.config, analysis, now)
 
-        return LeaderboardAnalysisResponse(
-            analysis=analysis,
-            analysis_timestamp=_serialize_timestamp(now)
-        )
+        return LeaderboardAnalysisResponse(analysis=analysis, analysis_timestamp=_serialize_timestamp(now))
 
 
 @router.get("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
-async def get_event_conversation(
-    event_id: str,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
-):
+async def get_event_conversation(event_id: str, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     is_guest_allowed = (
-        settings.public_access.enabled
-        and settings.public_access.show_ai_conversation
-        and (not auth.is_owner)
+        settings.public_access.enabled and settings.public_access.show_ai_conversation and (not auth.is_owner)
     )
     if not auth.is_owner and not is_guest_allowed:
         raise HTTPException(status_code=403, detail="Owner access required to view AI conversation.")
@@ -283,11 +270,7 @@ async def get_event_conversation(
         repo = AIConversationRepository(db)
         turns = await repo.list_turns(event_id)
     return [
-        ConversationTurnResponse(
-            role=turn.role,
-            content=turn.content,
-            created_at=_serialize_timestamp(turn.created_at)
-        )
+        ConversationTurnResponse(role=turn.role, content=turn.content, created_at=_serialize_timestamp(turn.created_at))
         for turn in turns
     ]
 
@@ -297,7 +280,7 @@ async def post_event_conversation(
     event_id: str,
     request: Request,
     body: ConversationRequest,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     if not auth.is_owner:
         raise HTTPException(status_code=403, detail="Owner access required to chat with AI.")
@@ -307,10 +290,7 @@ async def post_event_conversation(
         detection_repo = DetectionRepository(db)
         detection = await detection_repo.get_by_frigate_event(event_id)
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         convo_repo = AIConversationRepository(db)
         history = await convo_repo.list_turns(event_id)
@@ -322,7 +302,7 @@ async def post_event_conversation(
             analysis=detection.ai_analysis,
             history=[{"role": t.role, "content": t.content} for t in history],
             question=body.message,
-            language=lang
+            language=lang,
         )
         reply = await ai_service.chat_detection(prompt)
         if reply:
@@ -331,9 +311,7 @@ async def post_event_conversation(
         turns = await convo_repo.list_turns(event_id)
         return [
             ConversationTurnResponse(
-                role=turn.role,
-                content=turn.content,
-                created_at=_serialize_timestamp(turn.created_at)
+                role=turn.role, content=turn.content, created_at=_serialize_timestamp(turn.created_at)
             )
             for turn in turns
         ]

@@ -3,13 +3,14 @@
 Kept separate from the service so the rules can be unit-tested without any
 classifier or HTTP dependencies.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 
 # Thresholds. Centralized so they can be tuned in one place.
-LATENCY_DRIFT_FACTOR = 5.0          # measured mean / startup benchmark
+LATENCY_DRIFT_FACTOR = 5.0  # measured mean / startup benchmark
 HIGH_ABSTENTION_RATE = 0.10
 LOW_SHARED_CORE_TOP1 = 0.50
 
@@ -24,8 +25,7 @@ def latency_drift(model: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "code": "latency_drift_high",
         "message": (
-            f"measured mean {measured:.0f} ms is {measured / benchmark:.1f}× "
-            f"the startup benchmark ({benchmark:.0f} ms)"
+            f"measured mean {measured:.0f} ms is {measured / benchmark:.1f}× the startup benchmark ({benchmark:.0f} ms)"
         ),
         "severity": "critical",
     }

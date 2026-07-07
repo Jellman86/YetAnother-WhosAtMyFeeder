@@ -87,8 +87,7 @@ def _sanitize_health_context(value: Any, *, depth: int = 0) -> Any:
         return _safe_text(value)
     if isinstance(value, list):
         sanitized_list = [
-            _sanitize_health_context(item, depth=depth + 1)
-            for item in value[:HEALTH_CONTEXT_MAX_LIST_ITEMS]
+            _sanitize_health_context(item, depth=depth + 1) for item in value[:HEALTH_CONTEXT_MAX_LIST_ITEMS]
         ]
         return [item for item in sanitized_list if item is not None]
     if isinstance(value, dict):
@@ -146,7 +145,11 @@ def build_runtime_telemetry_payload(
         if str(health_recovery.get("status") or "").lower() == "recovered":
             failed_provider = str(health_recovery.get("failed_provider") or "").lower()
             recovered_provider = str(health_recovery.get("recovered_provider") or "").lower()
-            if failed_provider in {"intel_gpu", "cuda"} and recovered_provider and recovered_provider != failed_provider:
+            if (
+                failed_provider in {"intel_gpu", "cuda"}
+                and recovered_provider
+                and recovered_provider != failed_provider
+            ):
                 explicit_gpu_fallback_active = True
     if explicit_gpu_fallback_active is None:
         legacy_top = status.get("live_image_gpu_fallback_active")
@@ -236,9 +239,7 @@ def build_runtime_telemetry_payload(
         },
         "hardware": {
             "cuda_available": _safe_bool(status.get("cuda_available")),
-            "nvidia_gpu_detected": _safe_bool(
-                status.get("cuda_hardware_available") or status.get("cuda_available")
-            ),
+            "nvidia_gpu_detected": _safe_bool(status.get("cuda_hardware_available") or status.get("cuda_available")),
             "openvino_available": _safe_bool(status.get("openvino_available")),
             "intel_gpu_available": _safe_bool(status.get("intel_gpu_available")),
             "openvino_gpu_compile_ok": openvino_compile_ok,
@@ -246,9 +247,7 @@ def build_runtime_telemetry_payload(
             "openvino_gpu_fallback_active": bool(explicit_gpu_fallback_active),
         },
         "deployment": {
-            "mode": _safe_optional_text(
-                env.get("YAWAMF_DEPLOYMENT_MODE") or env.get("DEPLOYMENT_MODE") or "unknown"
-            ),
+            "mode": _safe_optional_text(env.get("YAWAMF_DEPLOYMENT_MODE") or env.get("DEPLOYMENT_MODE") or "unknown"),
             "image_flavor": _safe_optional_text(image_flavor),
             "image_arch": _safe_optional_text(machine),
             "app_branch": _safe_optional_text(env.get("APP_BRANCH")),
@@ -378,6 +377,7 @@ def build_health_issue_report(
         "issues": issues,
     }
 
+
 class TelemetryService:
     def __init__(self):
         self._running = False
@@ -412,20 +412,22 @@ class TelemetryService:
                 log.info("Installation ID persisted to config", attempt=attempt)
                 return True
             except asyncio.TimeoutError:
-                log.warning("Config save timed out, will retry",
-                           attempt=attempt, max_retries=max_retries)
+                log.warning("Config save timed out, will retry", attempt=attempt, max_retries=max_retries)
             except Exception as e:
-                log.warning("Failed to save installation ID to config",
-                           error=str(e), attempt=attempt, max_retries=max_retries)
+                log.warning(
+                    "Failed to save installation ID to config", error=str(e), attempt=attempt, max_retries=max_retries
+                )
 
             # Wait before retry (exponential backoff: 1s, 2s, 4s)
             if attempt < max_retries:
                 await asyncio.sleep(2 ** (attempt - 1))
 
         # All retries failed - continue with in-memory ID
-        log.warning("Using in-memory installation ID (config save failed)",
-                   id=new_id[:8] + "...",
-                   note="Telemetry will work but ID may change on restart")
+        log.warning(
+            "Using in-memory installation ID (config save failed)",
+            id=new_id[:8] + "...",
+            note="Telemetry will work but ID may change on restart",
+        )
         return False
 
     async def start(self):
@@ -449,9 +451,11 @@ class TelemetryService:
 
         self._running = True
         self._task = create_background_task(self._report_loop(), name="telemetry_report_loop")
-        log.info("Telemetry service started",
-                enabled=settings.telemetry.enabled,
-                has_persistent_id=bool(settings.telemetry.installation_id))
+        log.info(
+            "Telemetry service started",
+            enabled=settings.telemetry.enabled,
+            has_persistent_id=bool(settings.telemetry.installation_id),
+        )
 
     async def stop(self):
         """Stop the background reporter."""
@@ -479,24 +483,24 @@ class TelemetryService:
         """Periodically send heartbeat."""
         # Initial delay to let app startup
         try:
-            await asyncio.sleep(60) 
+            await asyncio.sleep(60)
         except asyncio.CancelledError:
             return
-        
+
         while self._running:
             try:
                 if settings.telemetry.enabled:
                     await self._send_heartbeat()
                 if settings.telemetry.health_enabled:
                     await self._send_health_report()
-                
+
                 # Report every 24 hours
                 await asyncio.sleep(24 * 3600)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 log.error("Telemetry loop error", error=str(e))
-                await asyncio.sleep(3600) # Retry in an hour on error
+                await asyncio.sleep(3600)  # Retry in an hour on error
 
     async def _send_heartbeat(self):
         """Gather stats and send to the telemetry endpoint."""
@@ -526,7 +530,7 @@ class TelemetryService:
                 "access": {
                     "auth_enabled": settings.auth.enabled,
                     "public_access_enabled": settings.public_access.enabled,
-                }
+                },
             }
 
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -535,7 +539,7 @@ class TelemetryService:
                     log.info("Telemetry heartbeat sent successfully", url=settings.telemetry.url)
                 else:
                     log.warning("Telemetry server returned error", status=resp.status_code)
-                    
+
         except Exception as e:
             # Fail silently-ish to not spam logs too hard
             log.warning("Failed to send telemetry heartbeat", error=str(e), url=settings.telemetry.url)
@@ -570,5 +574,6 @@ class TelemetryService:
                     log.warning("Health issue telemetry server returned error", status=resp.status_code)
         except Exception as e:
             log.warning("Failed to send health issue telemetry", error=str(e), url=settings.telemetry.health_url)
+
 
 telemetry_service = TelemetryService()

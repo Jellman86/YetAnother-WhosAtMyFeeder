@@ -92,9 +92,7 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
 @router.get("/recent")
 @guest_rate_limit()
 async def get_recent_audio(
-    request: Request,
-    limit: int = 10,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    request: Request, limit: int = 10, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get the most recent audio detections from the memory buffer."""
     detections = await audio_service.get_recent_detections(limit=limit)
@@ -105,11 +103,7 @@ async def get_recent_audio(
     # and is not part of the public Recent Audio contract.
     for detection in detections:
         detection.pop("scientific_name", None)
-    hide_sensor = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
-    )
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
@@ -133,11 +127,7 @@ async def get_audio_history(
     """Browse persisted BirdNET-Go detections separately from visual detections."""
     window = _history_window(days, start_date, end_date)
     lang = get_user_language(request) or "en"
-    hide_sensor = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
-    )
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -176,11 +166,7 @@ async def get_audio_summary(
     """Summarise persisted BirdNET-Go detection history."""
     window = _history_window(days, start_date, end_date)
     lang = get_user_language(request) or "en"
-    hide_sensor = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
-    )
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -200,6 +186,7 @@ async def get_audio_summary(
         result["source_count"] = 0
 
     return result
+
 
 def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:
     """Rolling window + prior window for the audio leaderboard, aligned to the
@@ -258,16 +245,18 @@ async def get_audio_species_leaderboard(
         prev_count = row["prev_count"]
         delta = row["window_count"] - prev_count
         percent = (delta / prev_count) * 100.0 if prev_count > 0 else 0.0
-        species.append({
-            "species": name,
-            "scientific_name": row.get("scientific_name"),
-            "heard_count": row["window_count"],
-            "heard_prev_count": prev_count,
-            "heard_delta": delta,
-            "heard_percent": percent,
-            "avg_confidence": row.get("window_avg_confidence", 0.0),
-            "last_heard": serialize_api_datetime(row.get("window_last_heard")),
-        })
+        species.append(
+            {
+                "species": name,
+                "scientific_name": row.get("scientific_name"),
+                "heard_count": row["window_count"],
+                "heard_prev_count": prev_count,
+                "heard_delta": delta,
+                "heard_percent": percent,
+                "avg_confidence": row.get("window_avg_confidence", 0.0),
+                "last_heard": serialize_api_datetime(row.get("window_last_heard")),
+            }
+        )
 
     species.sort(key=lambda x: int(x.get("heard_count") or 0), reverse=True)
 
@@ -337,7 +326,7 @@ async def get_audio_clip(
         raise HTTPException(status_code=400, detail="Invalid detection id")
     target = f"{base_url}/api/v2/audio/{birdnet_id}"
     forward_headers: dict[str, str] = {}
-    if (range_header := request.headers.get("range")):
+    if range_header := request.headers.get("range"):
         forward_headers["Range"] = range_header
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -373,7 +362,7 @@ async def get_audio_context(
     camera: str | None = Query(default=None, description="Camera name for sensor mapping"),
     window_seconds: int = Query(default=300, ge=5, le=3600),
     limit: int = Query(default=5, ge=1, le=20),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get audio detections near a specific detection time."""
     target_time = timestamp
@@ -388,17 +377,10 @@ async def get_audio_context(
     async with get_db() as db:
         repo = DetectionRepository(db)
         detections = await repo.get_audio_context(
-            target_time=target_time,
-            window_seconds=window_seconds,
-            mapping_value=mapping_value,
-            limit=limit
+            target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
         )
         await localize_audio_detections(detections, lang, db)
-    hide_sensor = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
-    )
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
@@ -413,11 +395,7 @@ async def get_audio_sources(
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get recently observed BirdNET source names for camera mapping."""
-    hide_sensor = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
-    )
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
     async with get_db() as db:
         repo = DetectionRepository(db)

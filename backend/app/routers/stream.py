@@ -10,6 +10,7 @@ router = APIRouter()
 
 HEARTBEAT_INTERVAL = 30  # seconds
 
+
 @router.get("/sse")
 async def sse_stream(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     async def event_generator():
@@ -38,5 +39,5 @@ async def sse_stream(auth: AuthContext = Depends(get_auth_context_with_legacy)):
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
-        }
+        },
     )

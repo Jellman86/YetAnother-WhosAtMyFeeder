@@ -95,11 +95,11 @@ def test_infer_candidates_decodes_official_yolox_raw_output_grid():
     raw = np.zeros((1, 3549, 85), dtype=np.float32)
 
     # First prediction belongs to stride-8 grid cell (0,0).
-    raw[0, 0, 0] = 10.0   # center x offset
-    raw[0, 0, 1] = 12.0   # center y offset
+    raw[0, 0, 0] = 10.0  # center x offset
+    raw[0, 0, 1] = 12.0  # center y offset
     raw[0, 0, 2] = np.log(4.0)  # width factor
     raw[0, 0, 3] = np.log(6.0)  # height factor
-    raw[0, 0, 4] = 0.9    # objectness
+    raw[0, 0, 4] = 0.9  # objectness
     raw[0, 0, 5 + 14] = 0.8  # COCO bird class index
 
     class _FakeSession:

@@ -95,35 +95,41 @@ async def test_canonical_identity_repair_service_repairs_missing_taxonomy_and_re
 
         repo = DetectionRepository(db)
         now = datetime.utcnow()
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=1,
-            score=0.90,
-            display_name="Blue Tit",
-            category_name="Blue Tit",
-            frigate_event="evt_repair_missing",
-            camera_name="cam_1",
-            scientific_name=None,
-            common_name=None,
-            taxa_id=None,
-        ))
-        await repo.create(Detection(
-            detection_time=now,
-            detection_index=2,
-            score=0.93,
-            display_name="Cyanistes caeruleus",
-            category_name="Cyanistes caeruleus",
-            frigate_event="evt_repair_existing",
-            camera_name="cam_2",
-            scientific_name="Cyanistes caeruleus",
-            common_name="Blue Tit",
-            taxa_id=1234,
-        ))
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=1,
+                score=0.90,
+                display_name="Blue Tit",
+                category_name="Blue Tit",
+                frigate_event="evt_repair_missing",
+                camera_name="cam_1",
+                scientific_name=None,
+                common_name=None,
+                taxa_id=None,
+            )
+        )
+        await repo.create(
+            Detection(
+                detection_time=now,
+                detection_index=2,
+                score=0.93,
+                display_name="Cyanistes caeruleus",
+                category_name="Cyanistes caeruleus",
+                frigate_event="evt_repair_existing",
+                camera_name="cam_2",
+                scientific_name="Cyanistes caeruleus",
+                common_name="Blue Tit",
+                taxa_id=1234,
+            )
+        )
 
         service = CanonicalIdentityRepairService()
         with patch(
             "app.services.canonical_identity_repair_service.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}),
+            new=AsyncMock(
+                return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}
+            ),
         ):
             first_run = await service.run(db=db, batch_size=100)
             second_run = await service.run(db=db, batch_size=100)
@@ -187,7 +193,9 @@ async def test_canonical_identity_repair_service_preserves_localized_common_name
         service = CanonicalIdentityRepairService()
         with patch(
             "app.services.canonical_identity_repair_service.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}),
+            new=AsyncMock(
+                return_value={"scientific_name": "Cyanistes caeruleus", "common_name": "Blue Tit", "taxa_id": 1234}
+            ),
         ) as mock_get_names:
             result = await service.run(db=db, batch_size=100)
 

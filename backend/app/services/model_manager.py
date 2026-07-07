@@ -42,7 +42,7 @@ REMOTE_REGISTRY = [
             "color_space": "RGB",
             "resize_mode": "direct_resize",
             "interpolation": "bilinear",
-            "normalization": "uint8"
+            "normalization": "uint8",
         },
         "tier": "fast",
         "taxonomy_scope": "system",
@@ -51,7 +51,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 5,
         "status": "stable",
-        "notes": "Install this once to enable crop-assisted classification for models that opt into bird cropping."
+        "notes": "Install this once to enable crop-assisted classification for models that opt into bird cropping.",
     },
     {
         "id": "bird_crop_detector_accurate_yolox_tiny",
@@ -90,7 +90,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 6,
         "status": "experimental",
-        "notes": "Experimental accurate crop-detector tier. Falls back to the fast SSD detector when unavailable."
+        "notes": "Experimental accurate crop-detector tier. Falls back to the fast SSD detector when unavailable.",
     },
     {
         "id": "mobilenet_v2_birds",
@@ -111,7 +111,7 @@ REMOTE_REGISTRY = [
             "resize_mode": "letterbox",
             "interpolation": "bicubic",
             "padding_color": 0,
-            "normalization": "uint8"
+            "normalization": "uint8",
         },
         "tier": "cpu_only",
         "taxonomy_scope": "birds_only",
@@ -121,7 +121,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 10,
         "status": "stable",
-        "notes": "Legacy TFLite model — lower accuracy than the ONNX models. Kept for CPU-only environments with very limited RAM."
+        "notes": "Legacy TFLite model — lower accuracy than the ONNX models. Kept for CPU-only environments with very limited RAM.",
     },
     {
         "id": "small_birds",
@@ -198,7 +198,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload."
+        "notes": "Regional birds-only family. Assets pending validation and release upload.",
     },
     {
         "id": "convnext_large_inat21",
@@ -226,7 +226,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 0.95,
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "CC-BY-NC-4.0",
         "tier": "large",
@@ -240,7 +240,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
     },
     {
         "id": "eu_medium_focalnet_b",
@@ -263,7 +263,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -277,7 +277,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU, Intel CPU (OpenVINO), and Intel GPU validated (OpenVINO 2025.4.1, static-batch reshape required). CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input."
+        "notes": "CPU, Intel CPU (OpenVINO), and Intel GPU validated (OpenVINO 2025.4.1, static-batch reshape required). CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
     },
     {
         "id": "flexivit_il_all",
@@ -301,7 +301,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "small",
@@ -315,7 +315,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file."
+        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file.",
     },
     {
         "id": "medium_birds",
@@ -393,7 +393,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload."
+        "notes": "Regional birds-only family. Assets pending validation and release upload.",
     },
     {
         "id": "rope_vit_b14_inat21",
@@ -422,7 +422,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5248, 0.5372, 0.5086],
             "std": [0.2135, 0.2103, 0.2622],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -436,7 +436,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU, Intel CPU (OpenVINO), and Intel NPU validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported, but the NPU runs it at f16 with top-5 matching CPU exactly (validated 2026-07-05, Arrow Lake). CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "CPU, Intel CPU (OpenVINO), and Intel NPU validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported, but the NPU runs it at f16 with top-5 matching CPU exactly (validated 2026-07-05, Arrow Lake). CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "eva02_large_inat21",
@@ -466,7 +466,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.48145466, 0.4578275, 0.40821073],
             "std": [0.26862954, 0.26130258, 0.27577711],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "CC-BY-NC-4.0",
         "tier": "advanced",
@@ -480,7 +480,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45."
+        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "moganet_s_eu_common",
@@ -505,7 +505,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -517,7 +517,7 @@ REMOTE_REGISTRY = [
         "sort_order": 22,
         "status": "experimental",
         "crop_generator": {"enabled": True},
-        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Empirically validated on Intel iGPU 2026-05-08: top-5 overlap with CPU = 5/5 (best of any tested candidate), range_ratio 1.03."
+        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Empirically validated on Intel iGPU 2026-05-08: top-5 overlap with CPU = 5/5 (best of any tested candidate), range_ratio 1.03.",
     },
     {
         "id": "convnext_v1_tiny_eu_common",
@@ -542,7 +542,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -554,7 +554,7 @@ REMOTE_REGISTRY = [
         "sort_order": 23,
         "status": "experimental",
         "crop_generator": {"enabled": True},
-        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. iGPU produces precision-degraded output (range ratio ~0.53) — registry excludes intel_gpu."
+        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. iGPU produces precision-degraded output (range ratio ~0.53) — registry excludes intel_gpu.",
     },
     {
         "id": "regnet_y_8g_eu_common",
@@ -579,7 +579,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -591,7 +591,7 @@ REMOTE_REGISTRY = [
         "sort_order": 24,
         "status": "experimental",
         "crop_generator": {"enabled": True},
-        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. iGPU output finite but predictions don't agree with CPU — registry excludes intel_gpu."
+        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. iGPU output finite but predictions don't agree with CPU — registry excludes intel_gpu.",
     },
     {
         "id": "uniformer_s_eu_common",
@@ -616,7 +616,7 @@ REMOTE_REGISTRY = [
             "crop_pct": 1.0,
             "mean": [0.5, 0.5, 0.5],
             "std": [0.5, 0.5, 0.5],
-            "normalization": "float32"
+            "normalization": "float32",
         },
         "license": "Apache-2.0",
         "tier": "medium",
@@ -628,9 +628,10 @@ REMOTE_REGISTRY = [
         "sort_order": 27,
         "status": "experimental",
         "crop_generator": {"enabled": True},
-        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. iGPU produces NaN logits — registry excludes intel_gpu."
-    }
+        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. iGPU produces NaN logits — registry excludes intel_gpu.",
+    },
 ]
+
 
 def _configured_models_dir() -> str:
     return str(os.getenv("MODEL_DIR") or "").strip()
@@ -743,12 +744,14 @@ _maybe_migrate_legacy_models_dir(MODELS_DIR)
 _PERSISTENT_MODELS_PREFIX = _PERSISTENT_MODELS_DIR
 if not MODELS_DIR.startswith(_PERSISTENT_MODELS_PREFIX):
     import warnings
+
     warnings.warn(
         f"Model directory resolved to '{MODELS_DIR}' which is inside the container "
         f"image filesystem. Downloaded models will be lost on container restart. "
         f"Mount a persistent volume at /data or set MODEL_DIR to a writable host path.",
         stacklevel=2,
     )
+
 
 class ModelManager:
     def __init__(self):
@@ -768,7 +771,7 @@ class ModelManager:
         config_path = os.path.join(MODELS_DIR, "active_model.json")
         if os.path.exists(config_path):
             try:
-                with open(config_path, 'r') as f:
+                with open(config_path, "r") as f:
                     data = json.load(f)
                     model_id = data.get("active_model_id", "")
                     result = str(model_id or "").strip()
@@ -784,7 +787,7 @@ class ModelManager:
         """Save the active model ID (thread-safe)."""
         config_path = os.path.join(MODELS_DIR, "active_model.json")
         with self._active_model_lock:
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 json.dump({"active_model_id": model_id}, f)
             self.active_model_id = model_id
 
@@ -792,11 +795,9 @@ class ModelManager:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
 
     def _crop_detector_id_for_tier(self, tier: Optional[str] = None) -> str:
-        normalized = str(
-            tier
-            or getattr(settings.classification, "bird_crop_detector_tier", "fast")
-            or "fast"
-        ).strip().lower()
+        normalized = (
+            str(tier or getattr(settings.classification, "bird_crop_detector_tier", "fast") or "fast").strip().lower()
+        )
         return "bird_crop_detector_accurate_yolox_tiny" if normalized == "accurate" else "bird_crop_detector"
 
     def get_crop_detector_meta(self, tier: Optional[str] = None) -> Optional[dict[str, Any]]:
@@ -818,7 +819,9 @@ class ModelManager:
         complete, _reason = self._model_install_status(model_meta, model_dir)
         return complete
 
-    def _build_crop_detector_spec(self, model_id: str, *, selected_tier: str, resolved_tier: str, reason_override: Optional[str] = None) -> dict[str, Any]:
+    def _build_crop_detector_spec(
+        self, model_id: str, *, selected_tier: str, resolved_tier: str, reason_override: Optional[str] = None
+    ) -> dict[str, Any]:
         meta = dict(self._get_registry_model_meta(model_id) or {})
         model_dir = os.path.join(MODELS_DIR, model_id)
         model_path = os.path.join(model_dir, "model.onnx")
@@ -842,11 +845,11 @@ class ModelManager:
         }
 
     def get_crop_detector_spec(self, selected_tier: Optional[str] = None) -> dict[str, Any]:
-        normalized_selected_tier = str(
-            selected_tier
-            or getattr(settings.classification, "bird_crop_detector_tier", "fast")
-            or "fast"
-        ).strip().lower()
+        normalized_selected_tier = (
+            str(selected_tier or getattr(settings.classification, "bird_crop_detector_tier", "fast") or "fast")
+            .strip()
+            .lower()
+        )
         if normalized_selected_tier not in {"fast", "accurate"}:
             normalized_selected_tier = "fast"
 
@@ -878,11 +881,7 @@ class ModelManager:
         override: Optional[str] = None,
     ) -> tuple[Optional[str], Optional[str]]:
         resolved_country = settings.location.country if country is None else country
-        resolved_override = (
-            settings.classification.bird_model_region_override
-            if override is None
-            else override
-        )
+        resolved_override = settings.classification.bird_model_region_override if override is None else override
         return resolved_country, resolved_override
 
     def _model_filename_for_runtime(self, runtime: str) -> str:
@@ -934,11 +933,7 @@ class ModelManager:
 
         family_crop_override = model_overrides.get(family_id) or model_overrides.get(model_id) or "default"
         variant_crop_override = model_overrides.get(variant_id, "default") if variant_id else "default"
-        effective_crop_override = (
-            variant_crop_override
-            if variant_crop_override != "default"
-            else family_crop_override
-        )
+        effective_crop_override = variant_crop_override if variant_crop_override != "default" else family_crop_override
         if effective_crop_override == "on":
             crop_generator["enabled"] = True
         elif effective_crop_override == "off":
@@ -947,9 +942,7 @@ class ModelManager:
         family_source_override = source_overrides.get(family_id) or source_overrides.get(model_id) or "default"
         variant_source_override = source_overrides.get(variant_id, "default") if variant_id else "default"
         effective_source_override = (
-            variant_source_override
-            if variant_source_override != "default"
-            else family_source_override
+            variant_source_override if variant_source_override != "default" else family_source_override
         )
         if effective_source_override != "default":
             crop_generator["source_preference"] = effective_source_override
@@ -974,9 +967,7 @@ class ModelManager:
         merged["preprocessing"] = dict(variant.get("preprocessing") or model_meta.get("preprocessing") or {})
         merged["label_grouping"] = dict(variant.get("label_grouping") or model_meta.get("label_grouping") or {})
         merged["supported_inference_providers"] = list(
-            variant.get("supported_inference_providers")
-            or model_meta.get("supported_inference_providers")
-            or []
+            variant.get("supported_inference_providers") or model_meta.get("supported_inference_providers") or []
         )
         if "crop_generator" in variant:
             merged["crop_generator"] = self._normalize_crop_generator_block(variant.get("crop_generator"))
@@ -1113,7 +1104,9 @@ class ModelManager:
             try:
                 merged["input_size"] = int(input_size)
             except (TypeError, ValueError):
-                log.warning("Ignoring invalid input_size in installed model config", model_dir=model_dir, value=input_size)
+                log.warning(
+                    "Ignoring invalid input_size in installed model config", model_dir=model_dir, value=input_size
+                )
         preprocessing = dict(spec.get("preprocessing") or {})
         raw_preprocessing = config.get("preprocessing")
         if isinstance(raw_preprocessing, dict):
@@ -1195,12 +1188,16 @@ class ModelManager:
         for region in candidate_regions:
             merged = self._merge_family_variant_meta(model_meta, region=region)
             variant_dir = os.path.join(target_dir, region)
-            model_path = os.path.join(variant_dir, self._model_filename_for_runtime(str(merged.get("runtime") or "tflite")))
+            model_path = os.path.join(
+                variant_dir, self._model_filename_for_runtime(str(merged.get("runtime") or "tflite"))
+            )
             labels_path = os.path.join(variant_dir, "labels.txt")
             if os.path.exists(model_path):
                 spec = {
                     "model_id": str(model_meta.get("id") or model_meta.get("family_id") or ""),
-                    "family_id": str(merged.get("family_id") or model_meta.get("family_id") or model_meta.get("id") or ""),
+                    "family_id": str(
+                        merged.get("family_id") or model_meta.get("family_id") or model_meta.get("id") or ""
+                    ),
                     "model_path": model_path,
                     "labels_path": labels_path,
                     "input_size": int(merged.get("input_size", 224) or 224),
@@ -1213,9 +1210,7 @@ class ModelManager:
                     "model_config_url": merged.get("model_config_url"),
                     "crop_generator": self._normalize_crop_generator_block(merged.get("crop_generator")),
                 }
-                return self._apply_crop_overrides(
-                    self._apply_installed_model_config(spec, model_dir=variant_dir)
-                )
+                return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=variant_dir))
         return None
 
     def get_active_model_spec(
@@ -1258,9 +1253,7 @@ class ModelManager:
                     "model_config_url": model_meta.get("model_config_url"),
                     "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
                 }
-                return self._apply_crop_overrides(
-                    self._apply_installed_model_config(spec, model_dir=target_dir)
-                )
+                return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=target_dir))
             if os.path.exists(model_path):
                 log.warning(
                     "Active model install is incomplete, falling back to bundled TFLite model",
@@ -1273,28 +1266,26 @@ class ModelManager:
             "Active model not found in registry or on disk, falling back to bundled TFLite model",
             active_model_id=model_id,
         )
-        return self._apply_crop_overrides({
-            "model_id": "mobilenet_v2_birds",
-            "model_path": "model.tflite",
-            "labels_path": "labels.txt",
-            "input_size": 224,
-            "preprocessing": {},
-            "runtime": "tflite",
-            "label_grouping": {},
-            "supported_inference_providers": ["cpu"],
-            "weights_url": None,
-            "crop_generator": self._normalize_crop_generator_block(None),
-        })
+        return self._apply_crop_overrides(
+            {
+                "model_id": "mobilenet_v2_birds",
+                "model_path": "model.tflite",
+                "labels_path": "labels.txt",
+                "input_size": 224,
+                "preprocessing": {},
+                "runtime": "tflite",
+                "label_grouping": {},
+                "supported_inference_providers": ["cpu"],
+                "weights_url": None,
+                "crop_generator": self._normalize_crop_generator_block(None),
+            }
+        )
 
     async def list_available_models(self) -> List[ModelMetadata]:
         """Fetch list of available models from remote registry."""
         resolved_models: list[ModelMetadata] = []
         for model in sorted(REMOTE_REGISTRY, key=lambda item: item.get("sort_order", 0)):
-            payload = (
-                self._resolve_family_variant_meta(model)
-                if self._is_family_model(model)
-                else dict(model)
-            )
+            payload = self._resolve_family_variant_meta(model) if self._is_family_model(model) else dict(model)
             payload = self._apply_crop_overrides(payload)
             resolved_models.append(ModelMetadata(**payload))
         return resolved_models
@@ -1330,10 +1321,10 @@ class ModelManager:
         installed = []
         available = await self.list_available_models()
         available_map = {m.id: m for m in available}
-        
+
         # Paths to check
         paths_to_check = [MODELS_DIR]
-        
+
         # Add bundled assets path
         # backend/app/services/model_manager.py -> backend/app/assets
         assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
@@ -1351,7 +1342,7 @@ class ModelManager:
             for item in os.listdir(base_dir):
                 if item in seen_ids:
                     continue
-                    
+
                 model_dir = os.path.join(base_dir, item)
                 if os.path.isdir(model_dir):
                     metadata = available_map.get(item)
@@ -1361,60 +1352,66 @@ class ModelManager:
                             metadata.model_dump(),
                         )
                         if resolved:
-                            installed.append(InstalledModel(
-                                id=item,
-                                path=str(resolved["model_path"]),
-                                labels_path=str(resolved["labels_path"]),
-                                is_active=(item == self.active_model_id),
-                                metadata=metadata,
-                            ))
+                            installed.append(
+                                InstalledModel(
+                                    id=item,
+                                    path=str(resolved["model_path"]),
+                                    labels_path=str(resolved["labels_path"]),
+                                    is_active=(item == self.active_model_id),
+                                    metadata=metadata,
+                                )
+                            )
                             seen_ids.add(item)
                             continue
 
                     tflite_path = os.path.join(model_dir, "model.tflite")
                     onnx_path = os.path.join(model_dir, "model.onnx")
                     labels_path = os.path.join(model_dir, "labels.txt")
-                    
+
                     if os.path.exists(tflite_path) or os.path.exists(onnx_path):
                         ready = True
                         reason = "ready"
                         if metadata:
                             ready, reason = self._model_install_status(metadata.model_dump(), model_dir)
-                        installed.append(InstalledModel(
-                            id=item,
-                            path=tflite_path if os.path.exists(tflite_path) else onnx_path,
-                            labels_path=labels_path,
-                            is_active=(item == self.active_model_id),
-                            ready=ready,
-                            reason=reason,
-                            metadata=metadata
-                        ))
+                        installed.append(
+                            InstalledModel(
+                                id=item,
+                                path=tflite_path if os.path.exists(tflite_path) else onnx_path,
+                                labels_path=labels_path,
+                                is_active=(item == self.active_model_id),
+                                ready=ready,
+                                reason=reason,
+                                metadata=metadata,
+                            )
+                        )
                         seen_ids.add(item)
-            
+
             # Check for flat-file models (legacy/bundled structure: /assets/model.tflite)
             # We map "model.tflite" in root of assets to the default ID "mobilenet_v2_birds"
             default_id = "mobilenet_v2_birds"
             if default_id not in seen_ids:
                 flat_model = os.path.join(base_dir, "model.tflite")
                 flat_labels = os.path.join(base_dir, "labels.txt")
-                
+
                 if os.path.exists(flat_model):
                     metadata = available_map.get(default_id)
-                    installed.append(InstalledModel(
-                        id=default_id,
-                        path=flat_model,
-                        labels_path=flat_labels,
-                        is_active=(default_id == self.active_model_id),
-                        metadata=metadata
-                    ))
+                    installed.append(
+                        InstalledModel(
+                            id=default_id,
+                            path=flat_model,
+                            labels_path=flat_labels,
+                            is_active=(default_id == self.active_model_id),
+                            metadata=metadata,
+                        )
+                    )
                     seen_ids.add(default_id)
 
         # Check persistent storage first (overrides bundled)
         check_dir(MODELS_DIR)
-        
+
         # Check bundled assets
         check_dir(assets_dir, is_bundled=True)
-        
+
         return installed
 
     def _cleanup_downloads(self):
@@ -1422,9 +1419,9 @@ class ModelManager:
         now = datetime.now()
         to_remove = []
         for model_id, (_, timestamp) in self.active_downloads.items():
-            if (now - timestamp).total_seconds() > 600: # 10 minutes
+            if (now - timestamp).total_seconds() > 600:  # 10 minutes
                 to_remove.append(model_id)
-        
+
         for model_id in to_remove:
             del self.active_downloads[model_id]
 
@@ -1437,14 +1434,14 @@ class ModelManager:
         self.active_downloads[model_id] = (progress, datetime.now())
 
     def _build_download_progress(self, phase: str, downloaded: int, total: int, *, has_weights: bool = True) -> float:
-        if phase == 'model':
+        if phase == "model":
             start, end = 0.0, (80.0 if has_weights else 98.0)
-        elif phase == 'weights':
+        elif phase == "weights":
             start, end = 80.0, 98.0
-        elif phase == 'labels':
+        elif phase == "labels":
             return 99.0
         else:
-            raise ValueError(f'Unknown download phase: {phase}')
+            raise ValueError(f"Unknown download phase: {phase}")
 
         if total <= 0:
             return start
@@ -1472,8 +1469,7 @@ class ModelManager:
         actual = h.hexdigest()
         if actual != expected_sha256.lower():
             raise RuntimeError(
-                f"Checksum mismatch for {os.path.basename(file_path)}: "
-                f"expected {expected_sha256.lower()}, got {actual}"
+                f"Checksum mismatch for {os.path.basename(file_path)}: expected {expected_sha256.lower()}, got {actual}"
             )
 
     def _validate_download_payload(self, model_meta: dict, staged_dir: str, model_filename: str) -> None:
@@ -1593,16 +1589,18 @@ class ModelManager:
             total_header = response.headers.get("content-length")
             total = int(total_header) if total_header else 0
             downloaded = 0
-            async with aiofiles.open(os.path.join(staged_dir, model_filename), 'wb') as f:
+            async with aiofiles.open(os.path.join(staged_dir, model_filename), "wb") as f:
                 async for chunk in response.aiter_bytes():
                     await f.write(chunk)
                     downloaded += len(chunk)
                     if total > 0:
-                        raw_progress = self._build_download_progress('model', downloaded, total, has_weights=has_weights)
+                        raw_progress = self._build_download_progress(
+                            "model", downloaded, total, has_weights=has_weights
+                        )
                         progress.progress = self._scale_progress(raw_progress, start=progress_start, end=progress_end)
                         self._update_download_status(progress_model_id, progress)
         progress.progress = self._scale_progress(
-            self._build_download_progress('model', 1, 1, has_weights=has_weights),
+            self._build_download_progress("model", 1, 1, has_weights=has_weights),
             start=progress_start,
             end=progress_end,
         )
@@ -1617,16 +1615,18 @@ class ModelManager:
                 total_header = response.headers.get("content-length")
                 total = int(total_header) if total_header else 0
                 downloaded = 0
-                async with aiofiles.open(os.path.join(staged_dir, weights_filename), 'wb') as f:
+                async with aiofiles.open(os.path.join(staged_dir, weights_filename), "wb") as f:
                     async for chunk in response.aiter_bytes():
                         await f.write(chunk)
                         downloaded += len(chunk)
                         if total > 0:
-                            raw_progress = self._build_download_progress('weights', downloaded, total)
-                            progress.progress = self._scale_progress(raw_progress, start=progress_start, end=progress_end)
+                            raw_progress = self._build_download_progress("weights", downloaded, total)
+                            progress.progress = self._scale_progress(
+                                raw_progress, start=progress_start, end=progress_end
+                            )
                             self._update_download_status(progress_model_id, progress)
             progress.progress = self._scale_progress(
-                self._build_download_progress('weights', 1, 1),
+                self._build_download_progress("weights", 1, 1),
                 start=progress_start,
                 end=progress_end,
             )
@@ -1636,10 +1636,10 @@ class ModelManager:
         log.info("Downloading labels", url=model_meta["labels_url"], staged_dir=staged_dir)
         resp = await client.get(model_meta["labels_url"], follow_redirects=True)
         resp.raise_for_status()
-        async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), 'wb') as f:
+        async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), "wb") as f:
             await f.write(resp.content)
         progress.progress = self._scale_progress(
-            self._build_download_progress('labels', 1, 1, has_weights=has_weights),
+            self._build_download_progress("labels", 1, 1, has_weights=has_weights),
             start=progress_start,
             end=progress_end,
         )
@@ -1695,32 +1695,27 @@ class ModelManager:
                     return False
                 download_units.append((region, variant_meta))
         else:
-            if model_meta.get('download_url') == 'pending':
+            if model_meta.get("download_url") == "pending":
                 log.error("Model download URL not configured yet", model_id=model_id)
                 progress = DownloadProgress(
-                    model_id=model_id,
-                    status="error",
-                    progress=0.0,
-                    error="Model download URL not configured yet"
+                    model_id=model_id, status="error", progress=0.0, error="Model download URL not configured yet"
                 )
                 self._update_download_status(model_id, progress)
                 return False
             download_units.append(("", dict(model_meta)))
 
         # Initialize progress
-        progress = DownloadProgress(
-            model_id=model_id,
-            status="downloading",
-            progress=0.0
-        )
+        progress = DownloadProgress(model_id=model_id, status="downloading", progress=0.0)
         self._update_download_status(model_id, progress)
 
         target_dir = os.path.join(MODELS_DIR, model_id)
         staged_dir = self._create_staging_dir(model_id)
 
         try:
-            max_runtime = "onnx" if any(str(meta.get("runtime", "")) == "onnx" for _, meta in download_units) else "tflite"
-            timeout = httpx.Timeout(30.0, read=300.0) if max_runtime == 'onnx' else httpx.Timeout(30.0)
+            max_runtime = (
+                "onnx" if any(str(meta.get("runtime", "")) == "onnx" for _, meta in download_units) else "tflite"
+            )
+            timeout = httpx.Timeout(30.0, read=300.0) if max_runtime == "onnx" else httpx.Timeout(30.0)
 
             async with httpx.AsyncClient(timeout=timeout) as client:
                 total_units = max(1, len(download_units))
@@ -1752,6 +1747,7 @@ class ModelManager:
             if model_id == self.active_model_id:
                 try:
                     from app.services.classifier_service import get_classifier
+
                     classifier = get_classifier()
                     log.info("Active model downloaded; reloading classifier", model_id=model_id)
                     await classifier.reload_bird_model()
@@ -1823,11 +1819,7 @@ class ModelManager:
                     if not os.path.isdir(variant_dir):
                         continue
                     # Only act on variants that have the model weights on disk
-                    runtime = str(
-                        (variants[region] or {}).get("runtime")
-                        or model_meta.get("runtime")
-                        or "tflite"
-                    )
+                    runtime = str((variants[region] or {}).get("runtime") or model_meta.get("runtime") or "tflite")
                     if not os.path.exists(os.path.join(variant_dir, self._model_filename_for_runtime(runtime))):
                         continue
                     if not os.path.exists(os.path.join(variant_dir, "model_config.json")):
@@ -1873,7 +1865,7 @@ class ModelManager:
             if os.path.exists(os.path.join(MODELS_DIR, "model.tflite")):
                 self._save_active_model_id(model_id)
                 return True
-            
+
             # Check bundled assets
             assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
             if os.path.exists(os.path.join(assets_dir, "model.tflite")):
@@ -1891,5 +1883,6 @@ class ModelManager:
             str(spec.get("labels_path") or "labels.txt"),
             int(spec.get("input_size") or 224),
         )
+
 
 model_manager = ModelManager()

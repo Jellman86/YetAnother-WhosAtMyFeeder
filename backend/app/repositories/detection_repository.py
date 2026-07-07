@@ -28,6 +28,7 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error"""
 
+
 @dataclass
 class Detection:
     detection_time: datetime
@@ -128,10 +129,7 @@ def _normalize_mapping_key(value: str | None) -> str:
 def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
     if not isinstance(mapping_value, str):
         return True, set()
-    tokens = {
-        _normalize_mapping_key(token)
-        for token in re.split(r"[,\n;|]+", mapping_value)
-    }
+    tokens = {_normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", mapping_value)}
     tokens.discard("")
     if not tokens or "*" in tokens:
         return True, set()
@@ -227,9 +225,9 @@ def _row_to_detection(row) -> Detection:
         weather_snowfall=row[21] if len(row) > 21 else None,
         scientific_name=row[22] if len(row) > 22 else None,
         common_name=row[23] if len(row) > 23 else None,
-        taxa_id=row[24] if len(row) > 24 else None
+        taxa_id=row[24] if len(row) > 24 else None,
     )
-    
+
     # Optional video fields (might not be in row if using older query)
     if len(row) > 25:
         d.video_classification_score = row[25]
@@ -529,16 +527,10 @@ class DetectionRepository:
         has_taxonomy_cache: bool,
     ) -> tuple[str, list]:
         if should_hide_species_label(species_name):
-            exact_labels = [
-                str(label).strip().lower()
-                for label in hidden_species_exact_labels()
-                if str(label).strip()
-            ]
+            exact_labels = [str(label).strip().lower() for label in hidden_species_exact_labels() if str(label).strip()]
             exact_labels = list(dict.fromkeys(exact_labels))
             fragments = [
-                str(fragment).strip().lower()
-                for fragment in hidden_species_substrings()
-                if str(fragment).strip()
+                str(fragment).strip().lower() for fragment in hidden_species_substrings() if str(fragment).strip()
             ]
             columns = (
                 f"LOWER({detection_alias}.display_name)",
@@ -579,7 +571,9 @@ class DetectionRepository:
         scientific_name = alias_info.get("scientific_name")
         if scientific_name:
             if has_taxonomy_cache:
-                clauses.append(f"LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) = LOWER(?)")
+                clauses.append(
+                    f"LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) = LOWER(?)"
+                )
             else:
                 clauses.append(f"LOWER({detection_alias}.scientific_name) = LOWER(?)")
             params.append(scientific_name)
@@ -660,16 +654,18 @@ class DetectionRepository:
         self._table_exists_cache[table_name] = exists
         return exists
 
-    _ALLOWED_PRAGMA_TABLES: frozenset[str] = frozenset({
-        "detections",
-        "taxonomy_cache",
-        "species_daily_rollup",
-        "species_info_cache",
-        "classification_feedback",
-        "oauth_tokens",
-        "snapshot_candidates",
-        "video_classification_top_frames",
-    })
+    _ALLOWED_PRAGMA_TABLES: frozenset[str] = frozenset(
+        {
+            "detections",
+            "taxonomy_cache",
+            "species_daily_rollup",
+            "species_info_cache",
+            "classification_feedback",
+            "oauth_tokens",
+            "snapshot_candidates",
+            "video_classification_top_frames",
+        }
+    )
 
     async def _table_columns(self, table_name: str) -> set[str]:
         if table_name not in self._ALLOWED_PRAGMA_TABLES:
@@ -686,7 +682,7 @@ class DetectionRepository:
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
                WHERE d.frigate_event = ?""",
-            (frigate_event,)
+            (frigate_event,),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
@@ -819,7 +815,7 @@ class DetectionRepository:
         label: Optional[str],
         score: float,
         index: int,
-        status: str = 'completed',
+        status: str = "completed",
         provider: Optional[str] = None,
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
@@ -827,7 +823,8 @@ class DetectionRepository:
     ):
         """Update video classification results for an event."""
         now = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET video_classification_label = ?,
                 video_classification_score = ?,
@@ -840,25 +837,31 @@ class DetectionRepository:
                 video_classification_model_id = ?,
                 video_result_blocked = ?
             WHERE frigate_event = ?
-        """, (label, score, index, now, status, provider, backend, model_id, blocked, frigate_event))
+        """,
+            (label, score, index, now, status, provider, backend, model_id, blocked, frigate_event),
+        )
         await self.db.commit()
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
         """Update just the video classification status."""
         now = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET video_classification_status = ?,
                 video_classification_error = ?,
                 video_classification_timestamp = ?
             WHERE frigate_event = ?
-        """, (status, error, now, frigate_event))
+        """,
+            (status, error, now, frigate_event),
+        )
         await self.db.commit()
 
     async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
         """Mark pending/processing video classifications as failed if they are too old."""
         now = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET video_classification_status = 'failed',
                 video_classification_error = 'stale_timeout',
@@ -866,7 +869,9 @@ class DetectionRepository:
             WHERE video_classification_status IN ('pending', 'processing')
               AND (video_classification_timestamp IS NULL
                    OR video_classification_timestamp < datetime('now', ?))
-        """, (now, f'-{max_age_minutes} minutes'))
+        """,
+            (now, f"-{max_age_minutes} minutes"),
+        )
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed
@@ -876,8 +881,7 @@ class DetectionRepository:
         if timestamp is None:
             timestamp = utc_naive_now()
         await self.db.execute(
-            "UPDATE detections SET notified_at = ? WHERE frigate_event = ?",
-            (timestamp, frigate_event)
+            "UPDATE detections SET notified_at = ? WHERE frigate_event = ?", (timestamp, frigate_event)
         )
         await self.db.commit()
 
@@ -940,12 +944,15 @@ class DetectionRepository:
     async def update_ai_analysis(self, frigate_event: str, analysis: str) -> datetime:
         """Update AI naturalist analysis for an event."""
         now = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET ai_analysis = ?,
                 ai_analysis_timestamp = ?
             WHERE frigate_event = ?
-        """, (analysis, now, frigate_event))
+        """,
+            (analysis, now, frigate_event),
+        )
         await self.db.commit()
         return now
 
@@ -957,8 +964,7 @@ class DetectionRepository:
 
         new_status = not detection.is_hidden
         await self.db.execute(
-            "UPDATE detections SET is_hidden = ? WHERE frigate_event = ?",
-            (1 if new_status else 0, frigate_event)
+            "UPDATE detections SET is_hidden = ? WHERE frigate_event = ?", (1 if new_status else 0, frigate_event)
         )
         await self.db.commit()
         return new_status
@@ -971,7 +977,7 @@ class DetectionRepository:
 
         await self.db.execute(
             "INSERT OR IGNORE INTO detection_favorites (detection_id, created_by) VALUES (?, ?)",
-            (detection.id, created_by)
+            (detection.id, created_by),
         )
         await self.db.commit()
         return True
@@ -982,10 +988,7 @@ class DetectionRepository:
         if not detection or detection.id is None:
             return None
 
-        await self.db.execute(
-            "DELETE FROM detection_favorites WHERE detection_id = ?",
-            (detection.id,)
-        )
+        await self.db.execute("DELETE FROM detection_favorites WHERE detection_id = ?", (detection.id,))
         await self.db.commit()
         return True
 
@@ -1000,7 +1003,7 @@ class DetectionRepository:
         """Remove all personalized re-ranking classification feedback and return number of removed rows."""
         if not await self._table_exists("classification_feedback"):
             return 0
-            
+
         async with self.db.execute("DELETE FROM classification_feedback") as cursor:
             deleted = cursor.rowcount or 0
         await self.db.commit()
@@ -1008,9 +1011,7 @@ class DetectionRepository:
 
     async def get_hidden_count(self) -> int:
         """Get count of hidden detections."""
-        async with self.db.execute(
-            "SELECT COUNT(*) FROM detections WHERE is_hidden = 1"
-        ) as cursor:
+        async with self.db.execute("SELECT COUNT(*) FROM detections WHERE is_hidden = 1") as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
 
@@ -1032,10 +1033,43 @@ class DetectionRepository:
         sub_label = normalize_sub_label(detection.sub_label)
         checked_at = utc_naive_now()
         try:
-            await self.db.execute("""
+            await self.db.execute(
+                """
                 INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_event, detection.camera_name, 1 if detection.is_hidden else 0, detection.frigate_score, sub_label, 1 if detection.audio_confirmed else 0, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, "present", None, checked_at, None))
+            """,
+                (
+                    detection.detection_time,
+                    detection.detection_index,
+                    detection.score,
+                    detection.display_name,
+                    detection.category_name,
+                    detection.frigate_event,
+                    detection.camera_name,
+                    1 if detection.is_hidden else 0,
+                    detection.frigate_score,
+                    sub_label,
+                    1 if detection.audio_confirmed else 0,
+                    detection.audio_species,
+                    detection.audio_score,
+                    detection.temperature,
+                    detection.weather_condition,
+                    detection.weather_cloud_cover,
+                    detection.weather_wind_speed,
+                    detection.weather_wind_direction,
+                    detection.weather_precipitation,
+                    detection.weather_rain,
+                    detection.weather_snowfall,
+                    detection.scientific_name,
+                    detection.common_name,
+                    detection.taxa_id,
+                    1 if detection.manual_tagged else 0,
+                    "present",
+                    None,
+                    checked_at,
+                    None,
+                ),
+            )
             await self.db.commit()
         except aiosqlite.IntegrityError as e:
             if "UNIQUE constraint failed: detections.frigate_event" in str(e):
@@ -1049,11 +1083,39 @@ class DetectionRepository:
     async def update(self, detection: Detection):
         sub_label = normalize_sub_label(detection.sub_label)
         checked_at = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL
             WHERE frigate_event = ?
-        """, (detection.detection_time, detection.detection_index, detection.score, detection.display_name, detection.category_name, detection.frigate_score, sub_label, detection.audio_confirmed, detection.audio_species, detection.audio_score, detection.temperature, detection.weather_condition, detection.weather_cloud_cover, detection.weather_wind_speed, detection.weather_wind_direction, detection.weather_precipitation, detection.weather_rain, detection.weather_snowfall, detection.scientific_name, detection.common_name, detection.taxa_id, 1 if detection.manual_tagged else 0, checked_at, detection.frigate_event))
+        """,
+            (
+                detection.detection_time,
+                detection.detection_index,
+                detection.score,
+                detection.display_name,
+                detection.category_name,
+                detection.frigate_score,
+                sub_label,
+                detection.audio_confirmed,
+                detection.audio_species,
+                detection.audio_score,
+                detection.temperature,
+                detection.weather_condition,
+                detection.weather_cloud_cover,
+                detection.weather_wind_speed,
+                detection.weather_wind_direction,
+                detection.weather_precipitation,
+                detection.weather_rain,
+                detection.weather_snowfall,
+                detection.scientific_name,
+                detection.common_name,
+                detection.taxa_id,
+                1 if detection.manual_tagged else 0,
+                checked_at,
+                detection.frigate_event,
+            ),
+        )
         await self.db.commit()
 
     async def list_for_weather_backfill(self, start: str, end: str, only_missing: bool = True) -> list[dict]:
@@ -1091,7 +1153,7 @@ class DetectionRepository:
                 "weather_wind_direction": row[6],
                 "weather_precipitation": row[7],
                 "weather_rain": row[8],
-                "weather_snowfall": row[9]
+                "weather_snowfall": row[9],
             }
             for row in rows
         ]
@@ -1106,9 +1168,10 @@ class DetectionRepository:
         wind_direction: float | None,
         precipitation: float | None,
         rain: float | None,
-        snowfall: float | None
+        snowfall: float | None,
     ) -> None:
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET temperature = ?,
                 weather_condition = ?,
@@ -1119,17 +1182,19 @@ class DetectionRepository:
                 weather_rain = ?,
                 weather_snowfall = ?
             WHERE frigate_event = ?
-        """, (
-            temperature,
-            weather_condition,
-            cloud_cover,
-            wind_speed,
-            wind_direction,
-            precipitation,
-            rain,
-            snowfall,
-            frigate_event
-        ))
+        """,
+            (
+                temperature,
+                weather_condition,
+                cloud_cover,
+                wind_speed,
+                wind_direction,
+                precipitation,
+                rain,
+                snowfall,
+                frigate_event,
+            ),
+        )
         await self.db.commit()
 
     async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
@@ -1162,9 +1227,9 @@ class DetectionRepository:
             detection.weather_precipitation,
             detection.weather_rain,
             detection.weather_snowfall,
-            getattr(detection, 'scientific_name', None),
-            getattr(detection, 'common_name', None),
-            getattr(detection, 'taxa_id', None),
+            getattr(detection, "scientific_name", None),
+            getattr(detection, "common_name", None),
+            getattr(detection, "taxa_id", None),
             1 if detection.manual_tagged else 0,
             "present",
             None,
@@ -1173,18 +1238,22 @@ class DetectionRepository:
         )
 
         # Attempt insert first.
-        await self.db.execute("""
+        await self.db.execute(
+            """
             INSERT OR IGNORE INTO detections
             (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, insert_params)
+        """,
+            insert_params,
+        )
         inserted = await self._last_statement_changes() > 0
         if inserted:
             await self.db.commit()
             return (True, False)
 
         # Existing row: update only when it improves quality.
-        await self.db.execute("""
+        await self.db.execute(
+            """
             UPDATE detections
             SET detection_time = ?,
                 detection_index = ?,
@@ -1214,33 +1283,35 @@ class DetectionRepository:
                 frigate_last_error = NULL
             WHERE frigate_event = ?
               AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
-        """, (
-            detection.detection_time,
-            detection.detection_index,
-            detection.score,
-            detection.display_name,
-            detection.category_name,
-            detection.frigate_score,
-            sub_label,
-            1 if detection.audio_confirmed else 0,
-            detection.audio_species,
-            detection.audio_score,
-            detection.temperature,
-            detection.weather_condition,
-            detection.weather_cloud_cover,
-            detection.weather_wind_speed,
-            detection.weather_wind_direction,
-            detection.weather_precipitation,
-            detection.weather_rain,
-            detection.weather_snowfall,
-            getattr(detection, 'scientific_name', None),
-            getattr(detection, 'common_name', None),
-            getattr(detection, 'taxa_id', None),
-            checked_at,
-            detection.frigate_event,
-            detection.score,
-            1 if detection.audio_confirmed else 0
-        ))
+        """,
+            (
+                detection.detection_time,
+                detection.detection_index,
+                detection.score,
+                detection.display_name,
+                detection.category_name,
+                detection.frigate_score,
+                sub_label,
+                1 if detection.audio_confirmed else 0,
+                detection.audio_species,
+                detection.audio_score,
+                detection.temperature,
+                detection.weather_condition,
+                detection.weather_cloud_cover,
+                detection.weather_wind_speed,
+                detection.weather_wind_direction,
+                detection.weather_precipitation,
+                detection.weather_rain,
+                detection.weather_snowfall,
+                getattr(detection, "scientific_name", None),
+                getattr(detection, "common_name", None),
+                getattr(detection, "taxa_id", None),
+                checked_at,
+                detection.frigate_event,
+                detection.score,
+                1 if detection.audio_confirmed else 0,
+            ),
+        )
         updated = await self._last_statement_changes() > 0
         await self.db.commit()
         return (False, updated)
@@ -1259,41 +1330,44 @@ class DetectionRepository:
         """
         sub_label = normalize_sub_label(detection.sub_label)
         checked_at = utc_naive_now()
-        await self.db.execute("""
+        await self.db.execute(
+            """
             INSERT OR IGNORE INTO detections
             (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            detection.detection_time,
-            detection.detection_index,
-            detection.score,
-            detection.display_name,
-            detection.category_name,
-            detection.frigate_event,
-            detection.camera_name,
-            1 if detection.is_hidden else 0,
-            detection.frigate_score,
-            sub_label,
-            1 if detection.audio_confirmed else 0,
-            detection.audio_species,
-            detection.audio_score,
-            detection.temperature,
-            detection.weather_condition,
-            detection.weather_cloud_cover,
-            detection.weather_wind_speed,
-            detection.weather_wind_direction,
-            detection.weather_precipitation,
-            detection.weather_rain,
-            detection.weather_snowfall,
-            detection.scientific_name,
-            detection.common_name,
-            detection.taxa_id,
-            1 if detection.manual_tagged else 0,
-            "present",
-            None,
-            checked_at,
-            None,
-        ))
+        """,
+            (
+                detection.detection_time,
+                detection.detection_index,
+                detection.score,
+                detection.display_name,
+                detection.category_name,
+                detection.frigate_event,
+                detection.camera_name,
+                1 if detection.is_hidden else 0,
+                detection.frigate_score,
+                sub_label,
+                1 if detection.audio_confirmed else 0,
+                detection.audio_species,
+                detection.audio_score,
+                detection.temperature,
+                detection.weather_condition,
+                detection.weather_cloud_cover,
+                detection.weather_wind_speed,
+                detection.weather_wind_direction,
+                detection.weather_precipitation,
+                detection.weather_rain,
+                detection.weather_snowfall,
+                detection.scientific_name,
+                detection.common_name,
+                detection.taxa_id,
+                1 if detection.manual_tagged else 0,
+                "present",
+                None,
+                checked_at,
+                None,
+            ),
+        )
         changes = await self._last_statement_changes()
         await self.db.commit()
         return changes > 0
@@ -1311,14 +1385,18 @@ class DetectionRepository:
         sort: str = "newest",
         include_hidden: bool = False,
         favorite_only: bool = False,
-        audio_confirmed_only: bool = False
+        audio_confirmed_only: bool = False,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        query = """
-            SELECT """ + DETECTION_SELECT_COLUMNS + """
+        query = (
+            """
+            SELECT """
+            + DETECTION_SELECT_COLUMNS
+            + """
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
+        )
         if has_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
@@ -1335,10 +1413,10 @@ class DetectionRepository:
 
         if start_date:
             conditions.append("d.detection_time >= ?")
-            params.append(start_date.isoformat(sep=' '))
+            params.append(start_date.isoformat(sep=" "))
         if end_date:
             conditions.append("d.detection_time <= ?")
-            params.append(end_date.isoformat(sep=' '))
+            params.append(end_date.isoformat(sep=" "))
         if species:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
@@ -1429,10 +1507,10 @@ class DetectionRepository:
 
         if start_date:
             conditions.append("d.detection_time >= ?")
-            params.append(start_date.isoformat(sep=' '))
+            params.append(start_date.isoformat(sep=" "))
         if end_date:
             conditions.append("d.detection_time <= ?")
-            params.append(end_date.isoformat(sep=' '))
+            params.append(end_date.isoformat(sep=" "))
         if species:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
@@ -1470,7 +1548,7 @@ class DetectionRepository:
             conditions.append("f.detection_id IS NOT NULL")
         elif exclude_favorites:
             conditions.append("f.detection_id IS NULL")
-            
+
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
 
@@ -1483,9 +1561,7 @@ class DetectionRepository:
 
     async def get_unique_species(self) -> list[str]:
         """Get list of unique species names, sorted alphabetically."""
-        async with self.db.execute(
-            "SELECT DISTINCT display_name FROM detections ORDER BY display_name ASC"
-        ) as cursor:
+        async with self.db.execute("SELECT DISTINCT display_name FROM detections ORDER BY display_name ASC") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
@@ -1591,7 +1667,7 @@ class DetectionRepository:
         total_deleted = 0
         chunk_size = 500
         for i in range(0, len(event_ids), chunk_size):
-            chunk = event_ids[i:i + chunk_size]
+            chunk = event_ids[i : i + chunk_size]
             placeholders = ",".join(["?"] * len(chunk))
             query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
             async with self.db.execute(query, chunk) as cursor:
@@ -1660,13 +1736,18 @@ class DetectionRepository:
 
         async with self.db.execute(
             "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-            (name, name)
+            (name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
                 result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
 
-        if result["taxa_id"] is None and language and language != "en" and await self._table_exists("taxonomy_translations"):
+        if (
+            result["taxa_id"] is None
+            and language
+            and language != "en"
+            and await self._table_exists("taxonomy_translations")
+        ):
             async with self.db.execute(
                 """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
                    FROM taxonomy_translations tt
@@ -1674,7 +1755,7 @@ class DetectionRepository:
                    WHERE tt.language_code = ?
                      AND LOWER(tt.common_name) = LOWER(?)
                    LIMIT 1""",
-                (language, name)
+                (language, name),
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
@@ -1695,7 +1776,7 @@ class DetectionRepository:
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?""",
-                (language,)
+                (language,),
             ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
@@ -1705,11 +1786,7 @@ class DetectionRepository:
 
         # Language-agnostic localized fallback for repair/maintenance paths that
         # do not know the source language of the stored display name.
-        if (
-            result["taxa_id"] is None
-            and normalized_lookup
-            and await self._table_exists("taxonomy_translations")
-        ):
+        if result["taxa_id"] is None and normalized_lookup and await self._table_exists("taxonomy_translations"):
             async with self.db.execute(
                 """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
                    FROM taxonomy_translations tt
@@ -1722,9 +1799,7 @@ class DetectionRepository:
                     return result
 
         if result["taxa_id"] is None and normalized_lookup:
-            async with self.db.execute(
-                "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache"
-            ) as cursor:
+            async with self.db.execute("SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache") as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if (
@@ -1734,12 +1809,17 @@ class DetectionRepository:
                     result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
                     break
 
-        if result["taxa_id"] is not None and language and language != "en" and await self._table_exists("taxonomy_translations"):
+        if (
+            result["taxa_id"] is not None
+            and language
+            and language != "en"
+            and await self._table_exists("taxonomy_translations")
+        ):
             async with self.db.execute(
                 """SELECT common_name FROM taxonomy_translations
                    WHERE taxa_id = ? AND language_code = ?
                    LIMIT 1""",
-                (result["taxa_id"], language)
+                (result["taxa_id"], language),
             ) as cursor:
                 row = await cursor.fetchone()
                 if row and row[0]:
@@ -1772,8 +1852,7 @@ class DetectionRepository:
         # so display-label queries can match historical rows when label style changes.
         if taxa_id is not None:
             async with self.db.execute(
-                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE taxa_id = ? LIMIT 1",
-                (taxa_id,)
+                "SELECT scientific_name, common_name FROM taxonomy_cache WHERE taxa_id = ? LIMIT 1", (taxa_id,)
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
@@ -1798,7 +1877,12 @@ class DetectionRepository:
                            OR LOWER(scientific_name) IN ({placeholders})
                            OR LOWER(common_name) IN ({placeholders})
                         ORDER BY display_name ASC""",
-                    (taxa_id, *[n.lower() for n in lowered_names], *[n.lower() for n in lowered_names], *[n.lower() for n in lowered_names])
+                    (
+                        taxa_id,
+                        *[n.lower() for n in lowered_names],
+                        *[n.lower() for n in lowered_names],
+                        *[n.lower() for n in lowered_names],
+                    ),
                 ) as cursor:
                     display_labels = [row[0] for row in await cursor.fetchall() if row and row[0]]
         elif match_names:
@@ -1811,7 +1895,7 @@ class DetectionRepository:
                        OR LOWER(scientific_name) IN ({placeholders})
                        OR LOWER(common_name) IN ({placeholders})
                     ORDER BY display_name ASC""",
-                (*lowered, *lowered, *lowered)
+                (*lowered, *lowered, *lowered),
             ) as cursor:
                 display_labels = [row[0] for row in await cursor.fetchall() if row and row[0]]
 
@@ -1834,8 +1918,8 @@ class DetectionRepository:
     ) -> int:
         """Delete detections older than the cutoff date in chunks to avoid locking."""
         total_deleted = 0
-        cutoff_str = cutoff_date.isoformat(sep=' ')
-        
+        cutoff_str = cutoff_date.isoformat(sep=" ")
+
         while True:
             # Delete a chunk of rows
             # We use the rowid (implicit or explicit) or limit if supported by the build
@@ -1877,7 +1961,7 @@ class DetectionRepository:
         mirror ``delete_older_than`` and avoid long write locks.
         """
         total_deleted = 0
-        cutoff_str = cutoff_date.isoformat(sep=' ')
+        cutoff_str = cutoff_date.isoformat(sep=" ")
 
         while True:
             query = """
@@ -1932,9 +2016,7 @@ class DetectionRepository:
 
     async def get_oldest_detection_date(self) -> datetime | None:
         """Get the date of the oldest detection."""
-        async with self.db.execute(
-            "SELECT MIN(detection_time) FROM detections"
-        ) as cursor:
+        async with self.db.execute("SELECT MIN(detection_time) FROM detections") as cursor:
             row = await cursor.fetchone()
             if row and row[0]:
                 return _parse_datetime(row[0])
@@ -2483,11 +2565,11 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [
                 {
-                    "species": row[4], 
+                    "species": row[4],
                     "count": row[1],
                     "scientific_name": row[2],
                     "common_name": row[3],
-                    "taxa_id": row[5]
+                    "taxa_id": row[5],
                 }
                 for row in rows
             ]
@@ -2568,13 +2650,20 @@ class DetectionRepository:
             GROUP BY unified_id
         """
         params = (
-            window_start, window_end,
-            prev_start, prev_end,
-            window_start, window_end,
-            window_start, window_end,
-            window_start, window_end,
-            window_start, window_end,
-            prev_start, window_end,
+            window_start,
+            window_end,
+            prev_start,
+            prev_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
+            prev_start,
+            window_end,
         )
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
@@ -2622,14 +2711,21 @@ class DetectionRepository:
               AND detection_time < ?
         """
         params = (
-            window_start, window_end,
-            prev_start, prev_end,
-            window_start, window_end,
-            window_start, window_end,
-            window_start, window_end,
-            window_start, window_end,
+            window_start,
+            window_end,
+            prev_start,
+            prev_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
             *labels,
-            prev_start, window_end,
+            prev_start,
+            window_end,
         )
         async with self.db.execute(query, params) as cursor:
             row = await cursor.fetchone()
@@ -2649,9 +2745,7 @@ class DetectionRepository:
             }
 
     async def get_latest_rollup_date(self) -> date | None:
-        async with self.db.execute(
-            "SELECT MAX(rollup_date) FROM species_daily_rollup"
-        ) as cursor:
+        async with self.db.execute("SELECT MAX(rollup_date) FROM species_daily_rollup") as cursor:
             row = await cursor.fetchone()
             if row and row[0]:
                 return datetime.strptime(row[0], "%Y-%m-%d").date()
@@ -2815,10 +2909,7 @@ class DetectionRepository:
                 rows,
             )
         else:
-            legacy_rows = [
-                (row[0], row[2], row[6], row[7], row[8], row[9], row[10], row[11], row[12])
-                for row in rows
-            ]
+            legacy_rows = [(row[0], row[2], row[6], row[7], row[8], row[9], row[10], row[11], row[12]) for row in rows]
             conflict_sql = ""
             if upsert:
                 conflict_sql = """
@@ -2952,7 +3043,7 @@ class DetectionRepository:
                     "count_prev_7d": row[5] or 0,
                     "days_seen_14d": row[6] or 0,
                     "days_seen_30d": row[7] or 0,
-                    "last_seen_recent": _parse_datetime(row[8]) if row[8] else None
+                    "last_seen_recent": _parse_datetime(row[8]) if row[8] else None,
                 }
         else:
             for row in rows:
@@ -2963,7 +3054,7 @@ class DetectionRepository:
                     "count_prev_7d": row[4] or 0,
                     "days_seen_14d": row[5] or 0,
                     "days_seen_30d": row[6] or 0,
-                    "last_seen_recent": _parse_datetime(row[7]) if row[7] else None
+                    "last_seen_recent": _parse_datetime(row[7]) if row[7] else None,
                 }
         return metrics
 
@@ -3231,13 +3322,20 @@ class DetectionRepository:
                   AND {species_condition}
             """,
             [
-                window_start, window_end,
-                prev_start, prev_end,
-                window_start, window_end,
-                window_start, window_end,
-                window_start, window_end,
-                window_start, window_end,
-                window_start, window_end,
+                window_start,
+                window_end,
+                prev_start,
+                prev_end,
+                window_start,
+                window_end,
+                window_start,
+                window_end,
+                window_start,
+                window_end,
+                window_start,
+                window_end,
+                window_start,
+                window_end,
                 *params,
             ],
         ) as cursor:
@@ -3274,11 +3372,7 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             total = sum(row[1] for row in rows)
             return [
-                {
-                    "camera_name": row[0],
-                    "count": row[1],
-                    "percentage": (row[1] / total * 100) if total > 0 else 0.0
-                }
+                {"camera_name": row[0], "count": row[1], "percentage": (row[1] / total * 100) if total > 0 else 0.0}
                 for row in rows
             ]
 
@@ -3353,7 +3447,7 @@ class DetectionRepository:
                WHERE detection_time >= ? AND detection_time <= ?
                AND (is_hidden = 0 OR is_hidden IS NULL)
                GROUP BY hour""",
-            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
+            (start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")),
         ) as cursor:
             rows = await cursor.fetchall()
             distribution = [0] * 24
@@ -3444,17 +3538,17 @@ class DetectionRepository:
              AND filtered_latest.frigate_event = ranked.frigate_event
             ORDER BY counts.count DESC
         """
-        async with self.db.execute(query, (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))) as cursor:
+        async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
-                    "species": row[6], 
+                    "species": row[6],
                     "count": row[1],
                     "latest_event": row[2],
                     "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
                     "scientific_name": row[4],
                     "common_name": row[5],
-                    "taxa_id": row[7]
+                    "taxa_id": row[7],
                 }
                 for row in rows
             ]
@@ -3466,13 +3560,13 @@ class DetectionRepository:
         confidence: float,
         sensor_id: Optional[str],
         raw_data: Optional[dict],
-        scientific_name: Optional[str] = None
+        scientific_name: Optional[str] = None,
     ) -> None:
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
         await self.db.execute(
             """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (timestamp.isoformat(sep=' '), species, confidence, sensor_id, payload, scientific_name)
+            (timestamp.isoformat(sep=" "), species, confidence, sensor_id, payload, scientific_name),
         )
         await self.db.commit()
 
@@ -3497,11 +3591,7 @@ class DetectionRepository:
         ]
 
     async def get_audio_context(
-        self,
-        target_time: datetime,
-        window_seconds: int,
-        mapping_value: Optional[str],
-        limit: int
+        self, target_time: datetime, window_seconds: int, mapping_value: Optional[str], limit: int
     ) -> list[dict]:
         if target_time.tzinfo is None:
             target_time = target_time.replace(tzinfo=timezone.utc)
@@ -3511,7 +3601,7 @@ class DetectionRepository:
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
                    WHERE timestamp >= ? AND timestamp <= ?"""
-        params: list = [start_dt.isoformat(sep=' '), end_dt.isoformat(sep=' ')]
+        params: list = [start_dt.isoformat(sep=" "), end_dt.isoformat(sep=" ")]
         query += " ORDER BY timestamp DESC"
 
         async with self.db.execute(query, params) as cursor:
@@ -3547,15 +3637,17 @@ class DetectionRepository:
                 if isinstance(payload, dict):
                     birdnet_id = _extract_birdnet_id(payload)
 
-            results.append({
-                "timestamp": det_time.isoformat(),
-                "species": row[1],
-                "confidence": row[2],
-                "sensor_id": row[3],
-                "scientific_name": row[4],
-                "birdnet_id": birdnet_id,
-                "offset_seconds": offset_seconds
-            })
+            results.append(
+                {
+                    "timestamp": det_time.isoformat(),
+                    "species": row[1],
+                    "confidence": row[2],
+                    "sensor_id": row[3],
+                    "scientific_name": row[4],
+                    "birdnet_id": birdnet_id,
+                    "offset_seconds": offset_seconds,
+                }
+            )
 
         results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
         return results[:limit]
@@ -3573,10 +3665,10 @@ class DetectionRepository:
 
         if start_date is not None:
             clauses.append("timestamp >= ?")
-            params.append(start_date.isoformat(sep=' '))
+            params.append(start_date.isoformat(sep=" "))
         if end_date is not None:
             clauses.append("timestamp <= ?")
-            params.append(end_date.isoformat(sep=' '))
+            params.append(end_date.isoformat(sep=" "))
         if species:
             clauses.append("LOWER(species) LIKE ?")
             params.append(f"%{species.strip().casefold()}%")
@@ -3635,16 +3727,18 @@ class DetectionRepository:
                 if isinstance(payload, dict):
                     birdnet_id = _extract_birdnet_id(payload)
 
-            items.append({
-                "id": row[0],
-                "timestamp": _parse_datetime(row[1]).isoformat(),
-                "species": row[2],
-                "confidence": row[3],
-                "sensor_id": row[4],
-                "source_name": _extract_birdnet_source_name(row[4], raw_data),
-                "scientific_name": row[5],
-                "birdnet_id": birdnet_id,
-            })
+            items.append(
+                {
+                    "id": row[0],
+                    "timestamp": _parse_datetime(row[1]).isoformat(),
+                    "species": row[2],
+                    "confidence": row[3],
+                    "sensor_id": row[4],
+                    "source_name": _extract_birdnet_source_name(row[4], raw_data),
+                    "scientific_name": row[5],
+                    "birdnet_id": birdnet_id,
+                }
+            )
 
         return {
             "items": items,
@@ -3754,14 +3848,8 @@ class DetectionRepository:
             "species_count": int(totals[1] or 0) if totals else 0,
             "source_count": len(sources),
             "top_species": top_species,
-            "daily_counts": [
-                {"date": row[0], "count": int(row[1] or 0)}
-                for row in daily_rows
-            ],
-            "hourly_counts": [
-                {"hour": int(row[0] or 0), "count": int(row[1] or 0)}
-                for row in hourly_rows
-            ],
+            "daily_counts": [{"date": row[0], "count": int(row[1] or 0)} for row in daily_rows],
+            "hourly_counts": [{"hour": int(row[0] or 0), "count": int(row[1] or 0)} for row in hourly_rows],
             "sources": sources,
         }
 
@@ -3781,10 +3869,11 @@ class DetectionRepository:
         formatted the same way they are stored (``isoformat(sep=' ')``) so the string
         comparison lines up with the ``idx_audio_detections_time`` index.
         """
+
         def _fmt(dt: datetime) -> str:
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
-            return dt.isoformat(sep=' ')
+            return dt.isoformat(sep=" ")
 
         ws, we = _fmt(window_start), _fmt(window_end)
         ps, pe = _fmt(prev_start), _fmt(prev_end)
@@ -3812,14 +3901,16 @@ class DetectionRepository:
             prev_count = int(row[4] or 0)
             if window_count == 0 and prev_count == 0:
                 continue
-            results.append({
-                "species": row[1],
-                "scientific_name": row[2],
-                "window_count": window_count,
-                "prev_count": prev_count,
-                "window_avg_confidence": float(row[5] or 0.0),
-                "window_last_heard": _parse_datetime(row[6]) if row[6] else None,
-            })
+            results.append(
+                {
+                    "species": row[1],
+                    "scientific_name": row[2],
+                    "window_count": window_count,
+                    "prev_count": prev_count,
+                    "window_avg_confidence": float(row[5] or 0.0),
+                    "window_last_heard": _parse_datetime(row[6]) if row[6] else None,
+                }
+            )
         return results
 
     async def get_audio_confirmations_count(self, start_date: datetime, end_date: datetime) -> int:
@@ -3830,12 +3921,14 @@ class DetectionRepository:
                WHERE detection_time >= ? AND detection_time <= ?
                AND audio_confirmed = 1
                AND (is_hidden = 0 OR is_hidden IS NULL)""",
-            (start_date.isoformat(sep=' '), end_date.isoformat(sep=' '))
+            (start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")),
         ) as cursor:
             row = await cursor.fetchone()
             return int(row[0] or 0)
 
-    async def get_recent_by_species(self, species_name: str, limit: int = 5, include_hidden: bool = False) -> list[Detection]:
+    async def get_recent_by_species(
+        self, species_name: str, limit: int = 5, include_hidden: bool = False
+    ) -> list[Detection]:
         """Get most recent detections for a species."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",

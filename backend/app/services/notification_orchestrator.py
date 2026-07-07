@@ -25,18 +25,13 @@ class NotificationOrchestrator:
         max_retries = max(0, int(settings.classification.video_classification_max_retries or 0))
         retry_interval = max(0, int(settings.classification.video_classification_retry_interval or 0))
         runtime_timeout = max(0, int(settings.classification.video_classification_timeout_seconds or 0))
-        clip_retry_budget = sum(retry_interval * (2 ** attempt) for attempt in range(max_retries))
+        clip_retry_budget = sum(retry_interval * (2**attempt) for attempt in range(max_retries))
         derived_minimum = delay + clip_retry_budget + runtime_timeout + self._VIDEO_WAIT_BUFFER_SECONDS
         manual_timeout = max(0, int(settings.notifications.video_fallback_timeout or 0))
         return max(manual_timeout, derived_minimum)
 
     def _should_notify(
-        self,
-        event_type: str,
-        notify_mode: str,
-        changed: bool,
-        was_inserted: bool,
-        already_notified: bool
+        self, event_type: str, notify_mode: str, changed: bool, was_inserted: bool, already_notified: bool
     ) -> tuple[bool, bool]:
         """Determine notification behavior for an event."""
         was_updated = changed and not was_inserted
@@ -72,15 +67,15 @@ class NotificationOrchestrator:
         audio_confirmed: bool,
         audio_species: Optional[str],
         snapshot_data: Optional[bytes],
-        channels: Optional[list[str]] = None
+        channels: Optional[list[str]] = None,
     ) -> bool:
         snapshot_url = f"{settings.frigate.frigate_url}/api/events/{event.frigate_event}/snapshot.jpg"
 
         needs_snapshot = (
-            (settings.notifications.pushover.enabled and settings.notifications.pushover.include_snapshot) or
-            (settings.notifications.telegram.enabled and settings.notifications.telegram.include_snapshot) or
-            (settings.notifications.discord.enabled and settings.notifications.discord.include_snapshot) or
-            (settings.notifications.email.enabled and settings.notifications.email.include_snapshot)
+            (settings.notifications.pushover.enabled and settings.notifications.pushover.include_snapshot)
+            or (settings.notifications.telegram.enabled and settings.notifications.telegram.include_snapshot)
+            or (settings.notifications.discord.enabled and settings.notifications.discord.include_snapshot)
+            or (settings.notifications.email.enabled and settings.notifications.email.include_snapshot)
         )
 
         if snapshot_data is None and needs_snapshot:
@@ -109,7 +104,7 @@ class NotificationOrchestrator:
             audio_confirmed=audio_confirmed,
             audio_species=audio_species,
             snapshot_data=snapshot_data,
-            weather=getattr(event, 'weather_condition', None)
+            weather=getattr(event, "weather_condition", None),
         )
 
     async def _send_and_mark_notified(
@@ -117,53 +112,50 @@ class NotificationOrchestrator:
         event: Any,
         classification: Dict[str, Any],
         snapshot_data: Optional[bytes],
-        channels: Optional[list[str]] = None
+        channels: Optional[list[str]] = None,
     ) -> None:
         sent = await self._send_notification(
             event,
-            label=classification['label'],
-            score=classification['score'],
-            audio_confirmed=classification['audio_confirmed'],
-            audio_species=classification['audio_species'],
+            label=classification["label"],
+            score=classification["score"],
+            audio_confirmed=classification["audio_confirmed"],
+            audio_species=classification["audio_species"],
             snapshot_data=snapshot_data,
-            channels=channels
+            channels=channels,
         )
         if sent:
             await self._mark_notified(event.frigate_event)
 
     async def _notify_after_video(
-        self,
-        event: Any,
-        classification: Dict[str, Any],
-        audio_confirmed: bool,
-        audio_species: Optional[str]
+        self, event: Any, classification: Dict[str, Any], audio_confirmed: bool, audio_species: Optional[str]
     ):
         timeout = self._effective_video_wait_timeout()
         snapshot_confirmed = (
-            classification['score'] >= settings.classification.threshold
-            or classification['audio_confirmed']
+            classification["score"] >= settings.classification.threshold or classification["audio_confirmed"]
         )
         if timeout <= 0:
             if snapshot_confirmed:
                 sent = await self._send_notification(
                     event,
-                    label=classification['label'],
-                    score=classification['score'],
+                    label=classification["label"],
+                    score=classification["score"],
                     audio_confirmed=audio_confirmed,
                     audio_species=audio_species,
-                    snapshot_data=None
+                    snapshot_data=None,
                 )
                 if sent:
                     await self._mark_notified(event.frigate_event)
             else:
-                log.info("Notification skipped: snapshot not confirmed",
-                         event_id=event.frigate_event,
-                         label=classification['label'],
-                         score=classification['score'])
+                log.info(
+                    "Notification skipped: snapshot not confirmed",
+                    event_id=event.frigate_event,
+                    label=classification["label"],
+                    score=classification["score"],
+                )
             return
 
-        label = classification['label']
-        score = classification['score']
+        label = classification["label"]
+        score = classification["score"]
         video_confirmed = False
         final_status = None
 
@@ -171,17 +163,19 @@ class NotificationOrchestrator:
         if det and det.video_classification_status in {"completed", "failed"}:
             final_status = det.video_classification_status
         else:
-            waiter_state = await video_classification_waiter.wait_for_final_status(
-                event.frigate_event,
-                timeout=timeout
-            )
+            waiter_state = await video_classification_waiter.wait_for_final_status(event.frigate_event, timeout=timeout)
             if waiter_state:
                 final_status = waiter_state.get("status")
             det = await self._get_detection(event.frigate_event)
             if det and det.video_classification_status in {"completed", "failed"}:
                 final_status = det.video_classification_status
 
-        if final_status == "completed" and det and det.video_classification_label and det.video_classification_score is not None:
+        if (
+            final_status == "completed"
+            and det
+            and det.video_classification_label
+            and det.video_classification_score is not None
+        ):
             label = det.video_classification_label
             score = det.video_classification_score
             video_confirmed = det.video_classification_score >= settings.classification.threshold
@@ -193,15 +187,17 @@ class NotificationOrchestrator:
                 score=score,
                 audio_confirmed=audio_confirmed,
                 audio_species=audio_species,
-                snapshot_data=None
+                snapshot_data=None,
             )
             if sent:
                 await self._mark_notified(event.frigate_event)
         else:
-            log.info("Notification skipped: video/snapshot not confirmed",
-                     event_id=event.frigate_event,
-                     label=label,
-                     score=score)
+            log.info(
+                "Notification skipped: video/snapshot not confirmed",
+                event_id=event.frigate_event,
+                label=label,
+                score=score,
+            )
 
     async def handle_notifications(
         self,
@@ -209,7 +205,7 @@ class NotificationOrchestrator:
         classification: Dict[str, Any],
         snapshot_data: Optional[bytes],
         changed: bool,
-        was_inserted: bool
+        was_inserted: bool,
     ) -> None:
         event_type = (event.type or "new").lower()
         detection = await self._get_detection(event.frigate_event)
@@ -221,7 +217,7 @@ class NotificationOrchestrator:
             notify_mode=notify_mode,
             changed=changed,
             was_inserted=was_inserted,
-            already_notified=already_notified
+            already_notified=already_notified,
         )
 
         email_only_on_end = (
@@ -234,37 +230,42 @@ class NotificationOrchestrator:
 
         if should_notify:
             snapshot_confirmed = (
-                classification['score'] >= settings.classification.threshold
-                or classification['audio_confirmed']
+                classification["score"] >= settings.classification.threshold or classification["audio_confirmed"]
             )
             delay_until_video = settings.notifications.delay_until_video
             if notify_mode == "final":
                 delay_until_video = settings.classification.auto_video_classification
 
             if delay_until_video and settings.classification.auto_video_classification:
-                create_background_task(self._notify_after_video(
-                    event,
-                    classification,
-                    audio_confirmed=classification['audio_confirmed'],
-                    audio_species=classification['audio_species']
-                ), name=f"notify_after_video:{event.frigate_event}")
+                create_background_task(
+                    self._notify_after_video(
+                        event,
+                        classification,
+                        audio_confirmed=classification["audio_confirmed"],
+                        audio_species=classification["audio_species"],
+                    ),
+                    name=f"notify_after_video:{event.frigate_event}",
+                )
             else:
                 if snapshot_confirmed:
                     await self._send_and_mark_notified(event, classification, snapshot_data)
                 else:
-                    log.info("Notification skipped: snapshot not confirmed",
-                             event_id=event.frigate_event,
-                             label=classification['label'],
-                             score=classification['score'])
+                    log.info(
+                        "Notification skipped: snapshot not confirmed",
+                        event_id=event.frigate_event,
+                        label=classification["label"],
+                        score=classification["score"],
+                    )
         elif email_only_on_end:
             snapshot_confirmed = (
-                classification['score'] >= settings.classification.threshold
-                or classification['audio_confirmed']
+                classification["score"] >= settings.classification.threshold or classification["audio_confirmed"]
             )
             if snapshot_confirmed:
                 await self._send_and_mark_notified(event, classification, snapshot_data, channels=["email"])
             else:
-                log.info("Email notification skipped: snapshot not confirmed",
-                         event_id=event.frigate_event,
-                         label=classification['label'],
-                         score=classification['score'])
+                log.info(
+                    "Email notification skipped: snapshot not confirmed",
+                    event_id=event.frigate_event,
+                    label=classification["label"],
+                    score=classification["score"],
+                )

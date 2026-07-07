@@ -14,6 +14,7 @@ from app.database import get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
 
@@ -169,7 +170,7 @@ def _is_exportable_ebird_detection(
 
     if normalized_display == "unknown bird" or normalized_common == "unknown bird":
         return False
-        
+
     if not _resolve_export_common_name(
         display_name=display_name,
         common_name=common_name,
@@ -196,7 +197,9 @@ def _parse_detection_time(value: object) -> datetime | None:
 
 @router.get("/export")
 async def export_ebird_csv(
-    from_date: Optional[str] = Query(None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"),
+    from_date: Optional[str] = Query(
+        None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"
+    ),
     to_date: Optional[str] = Query(None, alias="to", description="Optional inclusive export end date in YYYY-MM-DD"),
     auth=Depends(get_auth_context_with_legacy),
 ):
@@ -227,11 +230,13 @@ async def export_ebird_csv(
     async def iter_csv():
         f = io.StringIO()
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-        parsed_rows: list[tuple[str, str | None, datetime, float, str | None, str | None, str | None, str | None, str | None, date]] = []
+        parsed_rows: list[
+            tuple[str, str | None, datetime, float, str | None, str | None, str | None, str | None, str | None, date]
+        ] = []
 
         # eBird spreadsheet import is strict about column order and often treats headers as data,
         # so this endpoint emits headerless rows in the standard 19-column record format.
-        
+
         async with get_db() as db:
             async with db.execute(
                 f"""
@@ -376,7 +381,11 @@ async def export_ebird_csv(
                             # taxonomy_cache common_name as fallback (already English
                             # when populated by _lookup_inaturalist with locale=en)
                             common = tax.get("common_name")
-                            if common and _is_english_safe_name(common) and common.strip().lower() != sci.strip().lower():
+                            if (
+                                common
+                                and _is_english_safe_name(common)
+                                and common.strip().lower() != sci.strip().lower()
+                            ):
                                 return sci, common
                         except Exception as exc:
                             log.warning("eBird export enrichment failed", scientific_name=sci, error=str(exc))
@@ -485,10 +494,7 @@ async def export_ebird_csv(
 
                 # Detect when the export name is a scientific name fallback.
                 sci_lower = str(scientific_name or "").strip().lower()
-                is_sci_fallback = bool(
-                    sci_lower
-                    and export_name.strip().lower() == sci_lower
-                )
+                is_sci_fallback = bool(sci_lower and export_name.strip().lower() == sci_lower)
 
                 writer.writerow(
                     _format_ebird_row(
@@ -514,9 +520,7 @@ async def export_ebird_csv(
 
     filename = f"ebird_export_{datetime.now().strftime('%Y%m%d')}.csv"
     return StreamingResponse(
-        iter_csv(),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        iter_csv(), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
@@ -529,7 +533,7 @@ async def get_nearby_observations(
     dist_km: Optional[int] = Query(None, ge=1, le=50, description="Search radius in km"),
     days_back: Optional[int] = Query(None, ge=1, le=30, description="Days back to search"),
     max_results: Optional[int] = Query(None, ge=1, le=200, description="Max results"),
-    auth=Depends(get_auth_context_with_legacy)
+    auth=Depends(get_auth_context_with_legacy),
 ):
     _require_ebird_api()
     if lat is None or lng is None:
@@ -546,7 +550,7 @@ async def get_nearby_observations(
     warning = None
     if species_name:
         species_code = await ebird_service.resolve_species_code(species_name)
-        
+
     if not species_code and scientific_name:
         species_code = await ebird_service.resolve_species_code(scientific_name)
 
@@ -555,27 +559,18 @@ async def get_nearby_observations(
 
     try:
         items = await ebird_service.get_recent_observations(
-            lat=lat,
-            lng=lng,
-            dist_km=dist,
-            back_days=back,
-            max_results=max_results,
-            species_code=species_code
+            lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, species_code=species_code
         )
     except Exception as e:
         log.error("eBird nearby search failed", error=str(e))
-        return {
-            "status": "error",
-            "message": str(e),
-            "results": []
-        }
+        return {"status": "error", "message": str(e), "results": []}
 
     return {
         "status": "ok",
         "species_name": species_name,
         "species_code": species_code,
         "warning": warning,
-        "results": ebird_service.simplify_observations(items)
+        "results": ebird_service.simplify_observations(items),
     }
 
 
@@ -586,7 +581,7 @@ async def get_notable_observations(
     dist_km: Optional[int] = Query(None, ge=1, le=50, description="Search radius in km"),
     days_back: Optional[int] = Query(None, ge=1, le=30, description="Days back to search"),
     max_results: Optional[int] = Query(None, ge=1, le=200, description="Max results"),
-    auth=Depends(get_auth_context_with_legacy)
+    auth=Depends(get_auth_context_with_legacy),
 ):
     _require_ebird_api()
     if lat is None or lng is None:
@@ -601,21 +596,12 @@ async def get_notable_observations(
 
     try:
         items = await ebird_service.get_recent_observations(
-            lat=lat,
-            lng=lng,
-            dist_km=dist,
-            back_days=back,
-            max_results=max_results,
-            notable=True
+            lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, notable=True
         )
     except Exception as e:
         log.error("eBird notable search failed", error=str(e))
-        return {
-            "status": "error",
-            "message": str(e),
-            "results": []
-        }
-    
+        return {"status": "error", "message": str(e), "results": []}
+
     results = ebird_service.simplify_observations(items)
 
     async def enrich(item):
@@ -633,7 +619,4 @@ async def get_notable_observations(
     # Enrich concurrently (cached lookups are fast, uncached hit iNat)
     await asyncio.gather(*(enrich(item) for item in results))
 
-    return {
-        "status": "ok",
-        "results": results
-    }
+    return {"status": "ok", "results": results}

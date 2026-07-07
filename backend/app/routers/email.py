@@ -32,10 +32,12 @@ log = structlog.get_logger()
 _oauth_state_cache: dict[str, datetime] = {}
 OAUTH_STATE_TTL = timedelta(minutes=10)
 
+
 def _decode_jwt_payload(token: str) -> dict:
     """Best-effort decode of a JWT payload without verification (for display only)."""
     try:
         import base64
+
         parts = token.split(".")
         if len(parts) < 2:
             return {}
@@ -59,10 +61,7 @@ class TestEmailRequest(BaseModel):
 
 
 @router.get("/oauth/gmail/authorize")
-async def gmail_oauth_authorize(
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def gmail_oauth_authorize(request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Initiate Gmail OAuth2 authorization flow. Owner only.
 
@@ -71,7 +70,9 @@ async def gmail_oauth_authorize(
     lang = get_user_language(request)
     try:
         if not settings.notifications.email.gmail_client_id or not settings.notifications.email.gmail_client_secret:
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.gmail_oauth_not_configured", lang))
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.gmail_oauth_not_configured", lang)
+            )
 
         # Create OAuth flow
         flow = Flow.from_client_config(
@@ -81,12 +82,12 @@ async def gmail_oauth_authorize(
                     "client_secret": settings.notifications.email.gmail_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
+                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"],
                 }
             },
             # NOTE: XOAUTH2 for SMTP requires the full mail scope; openid/email allows us to
             # resolve the user's email address for UI display.
-            scopes=["openid", "email", "https://mail.google.com/"]
+            scopes=["openid", "email", "https://mail.google.com/"],
         )
 
         # Set redirect URI
@@ -95,9 +96,9 @@ async def gmail_oauth_authorize(
 
         # Generate authorization URL
         authorization_url, state = flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            prompt='consent'  # Force consent to get refresh token
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",  # Force consent to get refresh token
         )
         _oauth_state_cache[state] = datetime.utcnow() + OAUTH_STATE_TTL
 
@@ -109,7 +110,9 @@ async def gmail_oauth_authorize(
         raise
     except Exception as e:
         log.error("gmail_oauth_authorize_error", error=str(e))
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.gmail_oauth_failed", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.email.gmail_oauth_failed", lang, error=str(e))
+        )
 
 
 @router.get("/oauth/gmail/callback")
@@ -120,11 +123,15 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
     try:
         # Validate state to reduce CSRF risk (best-effort in-memory cache).
         if not state or state not in _oauth_state_cache:
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.invalid_state", get_user_language(request)))
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.invalid_state", get_user_language(request))
+            )
         expires_at = _oauth_state_cache.get(state)
         if expires_at and expires_at < datetime.utcnow():
             _oauth_state_cache.pop(state, None)
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.state_expired", get_user_language(request)))
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.state_expired", get_user_language(request))
+            )
         _oauth_state_cache.pop(state, None)
 
         # Create OAuth flow
@@ -135,11 +142,11 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                     "client_secret": settings.notifications.email.gmail_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"]
+                    "redirect_uris": [f"{str(request.base_url)}api/email/oauth/gmail/callback"],
                 }
             },
             scopes=["openid", "email", "https://mail.google.com/"],
-            state=state
+            state=state,
         )
 
         flow.redirect_uri = f"{str(request.base_url)}api/email/oauth/gmail/callback"
@@ -151,16 +158,20 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
 
         # Get user email from token info
         import httpx
+
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 "https://www.googleapis.com/oauth2/v1/userinfo",
-                headers={"Authorization": f"Bearer {credentials.token}"}
+                headers={"Authorization": f"Bearer {credentials.token}"},
             )
             response.raise_for_status()
             user_info = response.json()
             email = user_info.get("email")
             if not email:
-                raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.email_missing", get_user_language(request)))
+                raise HTTPException(
+                    status_code=400,
+                    detail=i18n_service.translate("errors.email.email_missing", get_user_language(request)),
+                )
 
         # Store tokens in database
         expires_in = 3600
@@ -178,13 +189,14 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
             access_token=credentials.token,
             refresh_token=credentials.refresh_token,
             expires_in=expires_in,
-            scope=" ".join(credentials.scopes) if credentials.scopes else None
+            scope=" ".join(credentials.scopes) if credentials.scopes else None,
         )
 
         log.info("gmail_oauth_completed", email=email)
 
         # Return success HTML page
-        return HTMLResponse(content="""
+        return HTMLResponse(
+            content="""
         <html>
             <head><title>Gmail Connected</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -197,11 +209,13 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                 </script>
             </body>
         </html>
-        """.format(email=email))
+        """.format(email=email)
+        )
 
     except Exception as e:
         log.error("gmail_oauth_callback_error", error=str(e))
-        return HTMLResponse(content=f"""
+        return HTMLResponse(
+            content=f"""
         <html>
             <head><title>Gmail Connection Failed</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -210,21 +224,22 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                 <p><a href="javascript:window.close()">Close Window</a></p>
             </body>
         </html>
-        """, status_code=500)
+        """,
+            status_code=500,
+        )
 
 
 @router.get("/oauth/outlook/authorize")
-async def outlook_oauth_authorize(
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def outlook_oauth_authorize(request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Initiate Outlook/Office 365 OAuth2 authorization flow. Owner only.
     """
     lang = get_user_language(request)
     try:
         if not settings.notifications.email.outlook_client_id or not settings.notifications.email.outlook_client_secret:
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.outlook_oauth_not_configured", lang))
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.outlook_oauth_not_configured", lang)
+            )
 
         # Generate authorization URL (Microsoft identity platform v2.0).
         # We request offline_access so we can obtain refresh tokens for long-lived setups.
@@ -250,7 +265,9 @@ async def outlook_oauth_authorize(
         raise
     except Exception as e:
         log.error("outlook_oauth_authorize_error", error=str(e))
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.outlook_oauth_failed", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.email.outlook_oauth_failed", lang, error=str(e))
+        )
 
 
 @router.get("/oauth/outlook/callback")
@@ -289,7 +306,9 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
 
         access_token = result.get("access_token")
         if not access_token:
-            error_desc = result.get("error_description", i18n_service.translate("errors.email.access_token_failed", lang))
+            error_desc = result.get(
+                "error_description", i18n_service.translate("errors.email.access_token_failed", lang)
+            )
             raise HTTPException(status_code=400, detail=error_desc)
 
         # Best-effort email extraction from id_token for display and SMTP user.
@@ -308,13 +327,14 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
             access_token=access_token,
             refresh_token=result.get("refresh_token"),
             expires_in=result.get("expires_in", 3600),
-            scope=result.get("scope")
+            scope=result.get("scope"),
         )
 
         log.info("outlook_oauth_completed", email=email)
 
         # Return success HTML page
-        return HTMLResponse(content=f"""
+        return HTMLResponse(
+            content=f"""
         <html>
             <head><title>Outlook Connected</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -326,11 +346,13 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
                 </script>
             </body>
         </html>
-        """)
+        """
+        )
 
     except Exception as e:
         log.error("outlook_oauth_callback_error", error=str(e))
-        return HTMLResponse(content=f"""
+        return HTMLResponse(
+            content=f"""
         <html>
             <head><title>Outlook Connection Failed</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
@@ -339,15 +361,13 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
                 <p><a href="javascript:window.close()">Close Window</a></p>
             </body>
         </html>
-        """, status_code=500)
+        """,
+            status_code=500,
+        )
 
 
 @router.delete("/oauth/{provider}/disconnect")
-async def disconnect_oauth(
-    provider: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def disconnect_oauth(provider: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Disconnect OAuth email provider and delete stored tokens. Owner only.
     """
@@ -368,15 +388,13 @@ async def disconnect_oauth(
         raise
     except Exception as e:
         log.error("oauth_disconnect_error", error=str(e), provider=provider)
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.disconnect_error", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.email.disconnect_error", lang, error=str(e))
+        )
 
 
 @router.post("/test")
-async def send_test_email(
-    test_request: TestEmailRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def send_test_email(test_request: TestEmailRequest, request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Send a test email to verify configuration. Owner only.
     """
@@ -402,13 +420,15 @@ async def send_test_email(
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.not_enabled", lang))
 
         if not email_config.to_email:
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.recipient_not_configured", lang))
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.recipient_not_configured", lang)
+            )
 
         # Prepare email content using the notification-style template
         template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
-        async with aiofiles.open(os.path.join(template_dir, "test_email.html"), 'r') as f:
+        async with aiofiles.open(os.path.join(template_dir, "test_email.html"), "r") as f:
             html_template = Template(await f.read())
-        async with aiofiles.open(os.path.join(template_dir, "test_email.txt"), 'r') as f:
+        async with aiofiles.open(os.path.join(template_dir, "test_email.txt"), "r") as f:
             text_template = Template(await f.read())
 
         template_data = {
@@ -424,8 +444,10 @@ async def send_test_email(
             "weather": "Clear skies",
             "dashboard_url": email_config.dashboard_url,
             "font_family": get_email_font_family(
-                getattr(settings, "appearance", None).font_theme if getattr(settings, "appearance", None) else "classic",
-                settings.accessibility.dyslexia_font
+                getattr(settings, "appearance", None).font_theme
+                if getattr(settings, "appearance", None)
+                else "classic",
+                settings.accessibility.dyslexia_font,
             ),
         }
 
@@ -440,14 +462,16 @@ async def send_test_email(
                     to_email=email_config.to_email,
                     subject=test_request.test_subject,
                     html_body=html_body,
-                    plain_body=plain_body
+                    plain_body=plain_body,
                 ),
                 timeout=30,
             )
         else:
             # Traditional SMTP
             if not email_config.smtp_host or not email_config.from_email:
-                raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.smtp_incomplete", lang))
+                raise HTTPException(
+                    status_code=400, detail=i18n_service.translate("errors.email.smtp_incomplete", lang)
+                )
 
             success = await asyncio.wait_for(
                 smtp_service.send_email_password(
@@ -460,7 +484,7 @@ async def send_test_email(
                     subject=test_request.test_subject,
                     html_body=html_body,
                     plain_body=plain_body,
-                    use_tls=email_config.smtp_use_tls
+                    use_tls=email_config.smtp_use_tls,
                 ),
                 timeout=30,
             )
@@ -481,4 +505,6 @@ async def send_test_email(
         )
     except Exception as e:
         log.error("test_email_error", error=str(e), error_type=type(e).__name__, mode=send_mode)
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e))
+        )

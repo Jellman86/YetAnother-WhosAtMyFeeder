@@ -49,14 +49,9 @@ SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT = 1.5
 SCIENTIFIC_NAME_PATTERN = re.compile(r"^[A-Z][a-z]+(?: [a-z][a-z-]+){1,3}$")
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
-SKIP_WIKIPEDIA_LOOKUP = {
-    "Unknown Bird",
-    "Background",
-    "Unknown",
-    "No Detection",
-    "Unidentified"
-}
+SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "Background", "Unknown", "No Detection", "Unidentified"}
 SKIP_LOOKUP_NORMALIZED = {name.lower() for name in SKIP_WIKIPEDIA_LOOKUP}
+
 
 def _parse_cached_at(value: object) -> datetime | None:
     if isinstance(value, datetime):
@@ -67,6 +62,7 @@ def _parse_cached_at(value: object) -> datetime | None:
         except ValueError:
             return None
     return None
+
 
 def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None) -> bool:
     if not cached_at:
@@ -101,6 +97,7 @@ def _resolve_summary_sources() -> list[str]:
     fallback = "wikipedia" if primary != "wikipedia" else "inaturalist"
     return [primary, fallback]
 
+
 async def _get_gbif_taxon_key(name: str) -> int | None:
     if not name:
         return None
@@ -128,6 +125,7 @@ async def _get_gbif_taxon_key(name: str) -> int | None:
 
     _gbif_cache[normalized] = (key, datetime.now())
     return key
+
 
 async def _lookup_taxa_id(species_name: str, language: str | None = None) -> int | None:
     async with get_db() as db:
@@ -377,7 +375,9 @@ def _accumulate_local_distributions(
         monthly[local_dt.month - 1] += count
 
 
-async def _get_cached_species_info(species_name: str, taxa_id: int | None, language: str, refresh: bool) -> SpeciesInfo | None:
+async def _get_cached_species_info(
+    species_name: str, taxa_id: int | None, language: str, refresh: bool
+) -> SpeciesInfo | None:
     if refresh:
         return None
 
@@ -395,14 +395,14 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
                           summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE taxa_id = ? AND language = ?
                    ORDER BY cached_at DESC LIMIT 1""",
-                (taxa_id, language)
+                (taxa_id, language),
             )
         else:
             cursor = await db.execute(
                 """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
                           summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
                    FROM species_info_cache WHERE species_name = ? AND language = ?""",
-                (species_name, language)
+                (species_name, language),
             )
         row = await cursor.fetchone()
 
@@ -423,7 +423,7 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
         scientific_name=row[9],
         conservation_status=row[10],
         cached_at=cached_at,
-        taxa_id=row[12]
+        taxa_id=row[12],
     )
 
     if _is_cache_valid(info, cached_at):
@@ -433,14 +433,14 @@ async def _get_cached_species_info(species_name: str, taxa_id: int | None, langu
 
     return None
 
+
 async def _save_species_info(species_name: str, taxa_id: int | None, language: str, info: SpeciesInfo) -> None:
     cached_at = datetime.now()
     info.cached_at = cached_at
     async with get_db() as db:
         if taxa_id:
             cursor = await db.execute(
-                "SELECT id FROM species_info_cache WHERE taxa_id = ? AND language = ? LIMIT 1",
-                (taxa_id, language)
+                "SELECT id FROM species_info_cache WHERE taxa_id = ? AND language = ? LIMIT 1", (taxa_id, language)
             )
             existing = await cursor.fetchone()
         else:
@@ -449,14 +449,11 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         if existing:
             cursor = await db.execute(
                 "SELECT id FROM species_info_cache WHERE species_name = ? AND language = ? LIMIT 1",
-                (species_name, language)
+                (species_name, language),
             )
             name_row = await cursor.fetchone()
             if name_row and name_row[0] != existing[0]:
-                await db.execute(
-                    "DELETE FROM species_info_cache WHERE id = ?",
-                    (name_row[0],)
-                )
+                await db.execute("DELETE FROM species_info_cache WHERE id = ?", (name_row[0],))
             await db.execute(
                 """UPDATE species_info_cache SET
                      species_name = ?,
@@ -491,8 +488,8 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
                     info.scientific_name,
                     info.conservation_status,
                     cached_at,
-                    existing[0]
-                )
+                    existing[0],
+                ),
             )
         else:
             await db.execute(
@@ -530,10 +527,11 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
                     info.summary_source_url,
                     info.scientific_name,
                     info.conservation_status,
-                    cached_at
-                )
+                    cached_at,
+                ),
             )
         await db.commit()
+
 
 @router.get("/species/search")
 @guest_rate_limit()
@@ -542,7 +540,7 @@ async def search_species(
     q: str = "",
     limit: int = 50,
     hydrate_missing: bool = Query(False, description="Best-effort hydrate missing taxonomy/common names"),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Search classifier labels plus cached/stored taxa and return taxonomy info."""
     q = (q or "").strip()
@@ -550,11 +548,7 @@ async def search_species(
 
     q_lower = q.lower() if q else ""
     classifier = get_classifier()
-    labels = [
-        label
-        for label in classifier.labels
-        if not should_hide_species_label(label)
-    ]
+    labels = [label for label in classifier.labels if not should_hide_species_label(label)]
     lang = get_user_language(request)
 
     async with get_db() as db:
@@ -567,7 +561,7 @@ async def search_species(
                    FROM taxonomy_cache
                    WHERE LOWER(scientific_name) LIKE ?
                       OR LOWER(common_name) LIKE ?""",
-                (f"%{q_lower}%", f"%{q_lower}%")
+                (f"%{q_lower}%", f"%{q_lower}%"),
             ) as cursor:
                 cached_rows = await cursor.fetchall()
 
@@ -585,7 +579,7 @@ async def search_species(
                        JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                        WHERE tt.language_code = ?
                          AND LOWER(tt.common_name) LIKE ?""",
-                    (lang, f"%{q_lower}%")
+                    (lang, f"%{q_lower}%"),
                 ) as cursor:
                     localized_rows = await cursor.fetchall()
 
@@ -610,7 +604,7 @@ async def search_species(
                     OR LOWER(COALESCE(common_name, '')) LIKE ?
                   )
                 """,
-                (f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%")
+                (f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%"),
             ) as cursor:
                 detection_rows = await cursor.fetchall()
 
@@ -651,6 +645,7 @@ async def search_species(
         await _hydrate_species_search_results(results, lang)
 
     return results
+
 
 def _is_bird_article(data: dict) -> bool:
     return _bird_relevance_score(data) >= 2
@@ -785,7 +780,9 @@ def _bird_relevance_score(data: dict) -> int:
         score += 2 + min(2, taxonomy_hits - 1)
 
     # Russian pages often use "вид рода ..." plus bird clues in extract.
-    if "вид рода" in description and any(term in combined for term in ("птиц", "птица", "воробьинообраз", "paridae", "aves")):
+    if "вид рода" in description and any(
+        term in combined for term in ("птиц", "птица", "воробьинообраз", "paridae", "aves")
+    ):
         score += 2
 
     return score
@@ -1020,7 +1017,7 @@ async def get_species_list(request: Request):
             common_name = s.get("common_name")
             taxa_id = s.get("taxa_id")
             if taxa_id:
-                if lang != 'en':
+                if lang != "en":
                     localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                     if localized:
                         common_name = localized
@@ -1029,30 +1026,32 @@ async def get_species_list(request: Request):
                     if canonical:
                         common_name = canonical
 
-            filtered_stats.append({
-                "species": _canonical_species_response_name(
-                    s["species"],
-                    common_name,
-                    s.get("scientific_name"),
-                ),
-                "count": s["count"],
-                "scientific_name": s.get("scientific_name"),
-                "common_name": common_name,
-                "taxa_id": taxa_id,
-                "first_seen": s.get("first_seen"),
-                "last_seen": s.get("last_seen"),
-                "avg_confidence": s.get("avg_confidence"),
-                "max_confidence": s.get("max_confidence"),
-                "min_confidence": s.get("min_confidence"),
-                "camera_count": s.get("camera_count"),
-                "count_1d": metrics.get("count_1d", 0),
-                "count_7d": metrics.get("count_7d", 0),
-                "count_30d": metrics.get("count_30d", 0),
-                "days_seen_14d": metrics.get("days_seen_14d", 0),
-                "days_seen_30d": metrics.get("days_seen_30d", 0),
-                "trend_delta": trend_delta,
-                "trend_percent": trend_pct,
-            })
+            filtered_stats.append(
+                {
+                    "species": _canonical_species_response_name(
+                        s["species"],
+                        common_name,
+                        s.get("scientific_name"),
+                    ),
+                    "count": s["count"],
+                    "scientific_name": s.get("scientific_name"),
+                    "common_name": common_name,
+                    "taxa_id": taxa_id,
+                    "first_seen": s.get("first_seen"),
+                    "last_seen": s.get("last_seen"),
+                    "avg_confidence": s.get("avg_confidence"),
+                    "max_confidence": s.get("max_confidence"),
+                    "min_confidence": s.get("min_confidence"),
+                    "camera_count": s.get("camera_count"),
+                    "count_1d": metrics.get("count_1d", 0),
+                    "count_7d": metrics.get("count_7d", 0),
+                    "count_30d": metrics.get("count_30d", 0),
+                    "days_seen_14d": metrics.get("days_seen_14d", 0),
+                    "days_seen_30d": metrics.get("days_seen_30d", 0),
+                    "trend_delta": trend_delta,
+                    "trend_percent": trend_pct,
+                }
+            )
 
         # Add aggregated "Unknown Bird" entry if any were found
         unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird")
@@ -1063,25 +1062,27 @@ async def get_species_list(request: Request):
             prev = unknown_rollup.get("count_prev_7d", 0)
             if prev > 0:
                 trend_pct = (trend_delta / prev) * 100.0
-            filtered_stats.append({
-                "species": "Unknown Bird", 
-                "count": unknown_stats["count"],
-                "scientific_name": None,
-                "common_name": None,
-                "first_seen": unknown_stats.get("first_seen"),
-                "last_seen": unknown_stats.get("last_seen"),
-                "avg_confidence": unknown_stats.get("avg_confidence"),
-                "max_confidence": unknown_stats.get("max_confidence"),
-                "min_confidence": unknown_stats.get("min_confidence"),
-                "camera_count": unknown_stats.get("camera_count"),
-                "count_1d": unknown_rollup.get("count_1d", 0),
-                "count_7d": unknown_rollup.get("count_7d", 0),
-                "count_30d": unknown_rollup.get("count_30d", 0),
-                "days_seen_14d": unknown_rollup.get("days_seen_14d", 0),
-                "days_seen_30d": unknown_rollup.get("days_seen_30d", 0),
-                "trend_delta": trend_delta,
-                "trend_percent": trend_pct,
-            })
+            filtered_stats.append(
+                {
+                    "species": "Unknown Bird",
+                    "count": unknown_stats["count"],
+                    "scientific_name": None,
+                    "common_name": None,
+                    "first_seen": unknown_stats.get("first_seen"),
+                    "last_seen": unknown_stats.get("last_seen"),
+                    "avg_confidence": unknown_stats.get("avg_confidence"),
+                    "max_confidence": unknown_stats.get("max_confidence"),
+                    "min_confidence": unknown_stats.get("min_confidence"),
+                    "camera_count": unknown_stats.get("camera_count"),
+                    "count_1d": unknown_rollup.get("count_1d", 0),
+                    "count_7d": unknown_rollup.get("count_7d", 0),
+                    "count_30d": unknown_rollup.get("count_30d", 0),
+                    "days_seen_14d": unknown_rollup.get("days_seen_14d", 0),
+                    "days_seen_30d": unknown_rollup.get("days_seen_30d", 0),
+                    "trend_delta": trend_delta,
+                    "trend_percent": trend_pct,
+                }
+            )
             # Re-sort by count descending
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)
 
@@ -1151,24 +1152,26 @@ async def get_leaderboard_species(
             if r["prev_count"] > 0:
                 pct = (delta / r["prev_count"]) * 100.0
 
-            filtered.append({
-                "species": _canonical_species_response_name(
-                    r["species"],
-                    common_name,
-                    r.get("scientific_name"),
-                ),
-                "scientific_name": r.get("scientific_name"),
-                "common_name": common_name,
-                "taxa_id": taxa_id,
-                "window_count": r["window_count"],
-                "window_prev_count": r["prev_count"],
-                "window_delta": delta,
-                "window_percent": pct,
-                "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
-                "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
-                "window_avg_confidence": r.get("window_avg_confidence", 0.0),
-                "window_camera_count": r.get("window_camera_count", 0),
-            })
+            filtered.append(
+                {
+                    "species": _canonical_species_response_name(
+                        r["species"],
+                        common_name,
+                        r.get("scientific_name"),
+                    ),
+                    "scientific_name": r.get("scientific_name"),
+                    "common_name": common_name,
+                    "taxa_id": taxa_id,
+                    "window_count": r["window_count"],
+                    "window_prev_count": r["prev_count"],
+                    "window_delta": delta,
+                    "window_percent": pct,
+                    "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
+                    "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
+                    "window_avg_confidence": r.get("window_avg_confidence", 0.0),
+                    "window_camera_count": r.get("window_camera_count", 0),
+                }
+            )
 
         unknown = await repo.get_species_leaderboard_window_for_name(
             species_name="Unknown Bird",
@@ -1182,20 +1185,22 @@ async def get_leaderboard_species(
             pct = 0.0
             if unknown["prev_count"] > 0:
                 pct = (delta / unknown["prev_count"]) * 100.0
-            filtered.append({
-                "species": "Unknown Bird",
-                "scientific_name": None,
-                "common_name": None,
-                "taxa_id": None,
-                "window_count": unknown["window_count"],
-                "window_prev_count": unknown["prev_count"],
-                "window_delta": delta,
-                "window_percent": pct,
-                "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
-                "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
-                "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
-                "window_camera_count": unknown.get("window_camera_count", 0),
-            })
+            filtered.append(
+                {
+                    "species": "Unknown Bird",
+                    "scientific_name": None,
+                    "common_name": None,
+                    "taxa_id": None,
+                    "window_count": unknown["window_count"],
+                    "window_prev_count": unknown["prev_count"],
+                    "window_delta": delta,
+                    "window_percent": pct,
+                    "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
+                    "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
+                    "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
+                    "window_camera_count": unknown.get("window_camera_count", 0),
+                }
+            )
 
         # Sort by selected window count desc.
         filtered.sort(key=lambda x: int(x.get("window_count") or 0), reverse=True)
@@ -1207,19 +1212,16 @@ async def get_leaderboard_species(
             "species": filtered,
         }
 
+
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
 @guest_rate_limit()
 async def get_species_stats(
-    species_name: str,
-    request: Request,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    species_name: str, request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get comprehensive statistics for a species."""
     lang = get_user_language(request)
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     user_tz = get_user_timezone(request)
     async with get_db() as db:
@@ -1239,8 +1241,14 @@ async def get_species_stats(
             query_labels = [species_name]
 
         # Get all stats - aggregate if multiple labels
-        total_stats = {"total": 0, "first_seen": None, "last_seen": None,
-                       "avg_confidence": 0.0, "max_confidence": 0.0, "min_confidence": 1.0}
+        total_stats = {
+            "total": 0,
+            "first_seen": None,
+            "last_seen": None,
+            "avg_confidence": 0.0,
+            "max_confidence": 0.0,
+            "min_confidence": 1.0,
+        }
         all_camera_stats = []
         hourly = [0] * 24
         daily = [0] * 7
@@ -1285,10 +1293,7 @@ async def get_species_stats(
                 recent.extend(label_recent)
 
         if total_stats["total"] == 0:
-            raise HTTPException(
-                status_code=404, 
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         # Calculate average confidence
         if confidence_count > 0:
@@ -1308,7 +1313,11 @@ async def get_species_stats(
             )
         else:
             camera_breakdown = [
-                {"camera_name": cam, "count": count, "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0}
+                {
+                    "camera_name": cam,
+                    "count": count,
+                    "percentage": (count / total_cam_count * 100) if total_cam_count > 0 else 0.0,
+                }
                 for cam, count in sorted(camera_counts.items(), key=lambda x: x[1], reverse=True)
             ]
 
@@ -1325,7 +1334,7 @@ async def get_species_stats(
         for d in recent:
             common_name = d.common_name
             if d.taxa_id:
-                if lang != 'en':
+                if lang != "en":
                     localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
                     if localized:
                         common_name = localized
@@ -1345,39 +1354,45 @@ async def get_species_stats(
 
             audio_species = d.audio_species
             if audio_species:
-                confirmed_taxa_id = int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
-                resolved = await localize_audio_species_name(audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id)
+                confirmed_taxa_id = (
+                    int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
+                )
+                resolved = await localize_audio_species_name(
+                    audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id
+                )
                 if resolved:
                     audio_species = resolved
 
-            recent_detections.append(Detection(
-                id=d.id,
-                detection_time=d.detection_time,
-                detection_index=d.detection_index,
-                score=d.score,
-                display_name=str(public_species["display_name"]),
-                category_name=public_species["category_name"],
-                frigate_event=d.frigate_event,
-                camera_name="Hidden" if hide_camera_names else d.camera_name,
-                is_hidden=d.is_hidden,
-                is_favorite=d.is_favorite,
-                frigate_score=d.frigate_score,
-                sub_label=d.sub_label,
-                audio_confirmed=d.audio_confirmed,
-                audio_species=audio_species,
-                audio_score=d.audio_score,
-                temperature=d.temperature,
-                weather_condition=d.weather_condition,
-                weather_cloud_cover=d.weather_cloud_cover,
-                weather_wind_speed=d.weather_wind_speed,
-                weather_wind_direction=d.weather_wind_direction,
-                weather_precipitation=d.weather_precipitation,
-                weather_rain=d.weather_rain,
-                weather_snowfall=d.weather_snowfall,
-                scientific_name=public_species["scientific_name"],
-                common_name=public_species["common_name"],
-                taxa_id=public_species["taxa_id"]
-            ))
+            recent_detections.append(
+                Detection(
+                    id=d.id,
+                    detection_time=d.detection_time,
+                    detection_index=d.detection_index,
+                    score=d.score,
+                    display_name=str(public_species["display_name"]),
+                    category_name=public_species["category_name"],
+                    frigate_event=d.frigate_event,
+                    camera_name="Hidden" if hide_camera_names else d.camera_name,
+                    is_hidden=d.is_hidden,
+                    is_favorite=d.is_favorite,
+                    frigate_score=d.frigate_score,
+                    sub_label=d.sub_label,
+                    audio_confirmed=d.audio_confirmed,
+                    audio_species=audio_species,
+                    audio_score=d.audio_score,
+                    temperature=d.temperature,
+                    weather_condition=d.weather_condition,
+                    weather_cloud_cover=d.weather_cloud_cover,
+                    weather_wind_speed=d.weather_wind_speed,
+                    weather_wind_direction=d.weather_wind_direction,
+                    weather_precipitation=d.weather_precipitation,
+                    weather_rain=d.weather_rain,
+                    weather_snowfall=d.weather_snowfall,
+                    scientific_name=public_species["scientific_name"],
+                    common_name=public_species["common_name"],
+                    taxa_id=public_species["taxa_id"],
+                )
+            )
 
         # Get taxonomy names for the main species
         if alias_info:
@@ -1394,10 +1409,10 @@ async def get_species_stats(
         taxa_id = taxonomy.get("taxa_id")
         if not taxa_id and recent:
             taxa_id = recent[0].taxa_id
-        
+
         # Normalize/localize main common name
         if taxa_id:
-            if lang != 'en':
+            if lang != "en":
                 localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                 if localized:
                     common_name = localized
@@ -1421,14 +1436,12 @@ async def get_species_stats(
             avg_confidence=total_stats["avg_confidence"],
             max_confidence=total_stats["max_confidence"],
             min_confidence=total_stats["min_confidence"],
-            recent_sightings=recent_detections
+            recent_sightings=recent_detections,
         )
 
+
 @router.delete("/species/{species_name}/cache")
-async def clear_species_cache(
-    species_name: str,
-    auth: AuthContext = Depends(require_owner)
-):
+async def clear_species_cache(species_name: str, auth: AuthContext = Depends(require_owner)):
     """Clear the Wikipedia cache for a species."""
     cache_prefix = f"{species_name}:"
     for cache_key in list(_wiki_cache):
@@ -1438,14 +1451,10 @@ async def clear_species_cache(
     async with get_db() as db:
         if taxa_id:
             await db.execute(
-                "DELETE FROM species_info_cache WHERE species_name = ? OR taxa_id = ?",
-                (species_name, taxa_id)
+                "DELETE FROM species_info_cache WHERE species_name = ? OR taxa_id = ?", (species_name, taxa_id)
             )
         else:
-            await db.execute(
-                "DELETE FROM species_info_cache WHERE species_name = ?",
-                (species_name,)
-            )
+            await db.execute("DELETE FROM species_info_cache WHERE species_name = ?", (species_name,))
         await db.commit()
     log.info("Cleared species cache", species=species_name)
     return {"status": "cleared", "species": species_name}
@@ -1457,7 +1466,7 @@ async def get_species_info(
     species_name: str,
     request: Request,
     refresh: bool = False,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get species information for a species. Use refresh=true to bypass cache."""
     lang = get_user_language(request) or "en"
@@ -1476,7 +1485,7 @@ async def get_species_info(
             source_url=None,
             scientific_name=None,
             conservation_status=None,
-            cached_at=datetime.now()
+            cached_at=datetime.now(),
         )
 
     taxa_id = await _lookup_taxa_id(species_name, language=lang)
@@ -1510,11 +1519,11 @@ async def get_species_info(
                 info.scientific_name = inat_info.scientific_name
     elif primary == "ebird":
         info = await _fetch_ebird_info(species_name, lang)
-        
+
         # eBird rarely provides text/images via API, so we almost always need fallbacks
         # Use the eBird-resolved common name for better fallback lookup success
         search_name = info.title if info.title and info.title != species_name else species_name
-        
+
         # Fallback to Wikipedia for text/images
         if not info.extract or not info.thumbnail_url:
             wiki_info = await _fetch_wikipedia_info(
@@ -1614,7 +1623,7 @@ async def get_species_info(
         success=is_success,
         source=info.source,
         has_thumbnail=bool(info.thumbnail_url),
-        has_extract=bool(info.extract)
+        has_extract=bool(info.extract),
     )
 
     return info
@@ -1626,7 +1635,7 @@ async def get_species_range(
     species_name: str,
     request: Request,
     scientific_name: str | None = None,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     query_name = scientific_name or species_name
     if not query_name:
@@ -1636,17 +1645,15 @@ async def get_species_range(
     if not taxon_key:
         return SpeciesRangeMap(status="error", message="GBIF match not found")
 
-    tile_url = (
-        f"{GBIF_TILE_URL}?srs=EPSG:3857&taxonKey={taxon_key}"
-        "&bin=hex&hexPerTile=57&style=classic.poly"
-    )
+    tile_url = f"{GBIF_TILE_URL}?srs=EPSG:3857&taxonKey={taxon_key}&bin=hex&hexPerTile=57&style=classic.poly"
     return SpeciesRangeMap(
         status="ok",
         taxon_key=taxon_key,
         map_tile_url=tile_url,
         source="GBIF",
-        source_url=f"https://www.gbif.org/species/{taxon_key}"
+        source_url=f"https://www.gbif.org/species/{taxon_key}",
     )
+
 
 async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     """Fetch species information from eBird API."""
@@ -1654,30 +1661,30 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
         # Resolve name to code
         code = await ebird_service.resolve_species_code(species_name, locale=lang)
         if code:
-             # Find item in taxonomy (pass locale to get localized common name)
-             # eBird locales use hyphens (e.g. pt-BR) but app might use underscores or just code
-             # We pass it as is, eBird service handles defaults
-             taxonomy = await ebird_service.get_taxonomy(locale=lang)
-             item = next((i for i in taxonomy if i.get("speciesCode") == code), None)
-             
-             if item:
-                 return SpeciesInfo(
-                     title=item.get("comName") or species_name,
-                     description=None, # eBird doesn't provide descriptions
-                     extract=None,
-                     thumbnail_url=None,
-                     wikipedia_url=None,
-                     source="eBird",
-                     source_url=f"https://ebird.org/species/{code}",
-                     summary_source=None,
-                     summary_source_url=None,
-                     scientific_name=item.get("sciName"),
-                     conservation_status=None,
-                     cached_at=datetime.now()
-                 )
+            # Find item in taxonomy (pass locale to get localized common name)
+            # eBird locales use hyphens (e.g. pt-BR) but app might use underscores or just code
+            # We pass it as is, eBird service handles defaults
+            taxonomy = await ebird_service.get_taxonomy(locale=lang)
+            item = next((i for i in taxonomy if i.get("speciesCode") == code), None)
+
+            if item:
+                return SpeciesInfo(
+                    title=item.get("comName") or species_name,
+                    description=None,  # eBird doesn't provide descriptions
+                    extract=None,
+                    thumbnail_url=None,
+                    wikipedia_url=None,
+                    source="eBird",
+                    source_url=f"https://ebird.org/species/{code}",
+                    summary_source=None,
+                    summary_source_url=None,
+                    scientific_name=item.get("sciName"),
+                    conservation_status=None,
+                    cached_at=datetime.now(),
+                )
     except Exception as e:
         log.error("eBird info fetch failed", species=species_name, error=str(e))
-    
+
     # Return minimal info if eBird lookup failed
     return SpeciesInfo(
         title=species_name,
@@ -1689,7 +1696,7 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
         source_url=None,
         scientific_name=None,
         conservation_status=None,
-        cached_at=datetime.now()
+        cached_at=datetime.now(),
     )
 
 
@@ -1706,11 +1713,7 @@ async def _fetch_wikipedia_info(
     }
 
     try:
-        async with httpx.AsyncClient(
-            timeout=15.0,
-            follow_redirects=True,
-            headers=headers
-        ) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
             # Try multiple strategies to find the Wikipedia article
             article_title = await _find_wikipedia_article(
                 client,
@@ -1730,7 +1733,9 @@ async def _fetch_wikipedia_info(
     except httpx.RequestError as e:
         log.error("Wikipedia API request error", species=species_name, error=str(e))
     except Exception as e:
-        log.error("Unexpected error fetching Wikipedia info", species=species_name, error=str(e), error_type=type(e).__name__)
+        log.error(
+            "Unexpected error fetching Wikipedia info", species=species_name, error=str(e), error_type=type(e).__name__
+        )
 
     # Return minimal info if Wikipedia lookup failed
     return SpeciesInfo(
@@ -1743,7 +1748,7 @@ async def _fetch_wikipedia_info(
         source_url=None,
         scientific_name=None,
         conservation_status=None,
-        cached_at=datetime.now()
+        cached_at=datetime.now(),
     )
 
 
@@ -1773,18 +1778,19 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, 
     }
 
     try:
-        async with httpx.AsyncClient(
-            timeout=15.0,
-            follow_redirects=True,
-            headers=headers
-        ) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
             return await _get_wikipedia_summary(client, title, species_name, url_lang)
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
     except httpx.RequestError as e:
         log.error("Wikipedia API request error (direct)", species=species_name, error=str(e))
     except Exception as e:
-        log.error("Unexpected error fetching Wikipedia info (direct)", species=species_name, error=str(e), error_type=type(e).__name__)
+        log.error(
+            "Unexpected error fetching Wikipedia info (direct)",
+            species=species_name,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
     return None
 
@@ -1817,7 +1823,9 @@ async def _inaturalist_query_candidates(
             if isinstance(results, list):
                 merged.extend([r for r in results if isinstance(r, dict)])
         except Exception as e:
-            log.warning("iNaturalist candidate query failed", species=species_name, locale=locale, url=url, error=str(e))
+            log.warning(
+                "iNaturalist candidate query failed", species=species_name, locale=locale, url=url, error=str(e)
+            )
 
     return _dedupe_inaturalist_candidates(merged)
 
@@ -1828,10 +1836,7 @@ async def _inaturalist_fetch_taxon_details(
     locale: str,
 ) -> dict | None:
     try:
-        response = await client.get(
-            f"https://api.inaturalist.org/v1/taxa/{taxa_id}",
-            params={"locale": locale}
-        )
+        response = await client.get(f"https://api.inaturalist.org/v1/taxa/{taxa_id}", params={"locale": locale})
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
@@ -1880,7 +1885,7 @@ async def _fetch_inaturalist_info(
                     source_url=None,
                     scientific_name=None,
                     conservation_status=None,
-                    cached_at=datetime.now()
+                    cached_at=datetime.now(),
                 )
 
             # Enrich with full taxon details when autocomplete payload is sparse.
@@ -1904,7 +1909,9 @@ async def _fetch_inaturalist_info(
             thumbnail_url = None
             default_photo = taxon.get("default_photo")
             if isinstance(default_photo, dict):
-                thumbnail_url = default_photo.get("medium_url") or default_photo.get("square_url") or default_photo.get("url")
+                thumbnail_url = (
+                    default_photo.get("medium_url") or default_photo.get("square_url") or default_photo.get("url")
+                )
 
             log.info(
                 "Selected iNaturalist taxon",
@@ -1928,14 +1935,19 @@ async def _fetch_inaturalist_info(
                 scientific_name=scientific_name,
                 conservation_status=None,
                 taxa_id=taxa_id if isinstance(taxa_id, int) else None,
-                cached_at=datetime.now()
+                cached_at=datetime.now(),
             )
     except httpx.TimeoutException:
         log.error("iNaturalist API timeout", species=species_name)
     except httpx.RequestError as e:
         log.error("iNaturalist API request error", species=species_name, error=str(e))
     except Exception as e:
-        log.error("Unexpected error fetching iNaturalist info", species=species_name, error=str(e), error_type=type(e).__name__)
+        log.error(
+            "Unexpected error fetching iNaturalist info",
+            species=species_name,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
     return SpeciesInfo(
         title=species_name,
@@ -1947,7 +1959,7 @@ async def _fetch_inaturalist_info(
         source_url=None,
         scientific_name=None,
         conservation_status=None,
-        cached_at=datetime.now()
+        cached_at=datetime.now(),
     )
 
 
@@ -2049,7 +2061,9 @@ async def _find_wikipedia_article(
             requested_name=species_name,
             expected_scientific_name=expected_scientific_name,
         )
-        if expected_scientific_name and _normalize_lookup_text(title) == _normalize_lookup_text(expected_scientific_name):
+        if expected_scientific_name and _normalize_lookup_text(title) == _normalize_lookup_text(
+            expected_scientific_name
+        ):
             # Explicit scientific-name lookup is a strong signal even on localized pages.
             score = max(score, 1000 + _bird_relevance_score(data))
         if score <= 0:
@@ -2168,7 +2182,9 @@ async def _find_wikipedia_article(
     return None
 
 
-async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, original_name: str, lang: str) -> SpeciesInfo:
+async def _get_wikipedia_summary(
+    client: httpx.AsyncClient, article_title: str, original_name: str, lang: str
+) -> SpeciesInfo:
     """Fetch the summary for a Wikipedia article."""
     import re
 
@@ -2191,7 +2207,7 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
             elif "thumbnail" in data:
                 thumb_url = data["thumbnail"].get("source", "")
                 if "/thumb/" in thumb_url and "px-" in thumb_url:
-                    thumbnail_url = re.sub(r'/\d+px-', '/800px-', thumb_url)
+                    thumbnail_url = re.sub(r"/\d+px-", "/800px-", thumb_url)
                 else:
                     thumbnail_url = thumb_url
 
@@ -2208,7 +2224,7 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
                 summary_source_url=wikipedia_url if extract else None,
                 scientific_name=None,
                 conservation_status=None,
-                cached_at=datetime.now()
+                cached_at=datetime.now(),
             )
     except Exception as e:
         log.error("Error fetching Wikipedia summary", error=str(e), article=article_title)
@@ -2223,5 +2239,5 @@ async def _get_wikipedia_summary(client: httpx.AsyncClient, article_title: str, 
         source_url=None,
         scientific_name=None,
         conservation_status=None,
-        cached_at=datetime.now()
+        cached_at=datetime.now(),
     )

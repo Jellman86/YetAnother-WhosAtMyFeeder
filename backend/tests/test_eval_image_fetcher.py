@@ -3,6 +3,7 @@
 Mocks the two private HTTP helpers (_get_json, _download_bytes) rather than
 the underlying httpx.AsyncClient, keeping tests stable across httpx versions.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,18 +34,24 @@ def test_inat_photo_url_passthrough_when_no_square():
 async def test_inat_path_writes_files(tmp_path: Path):
     inat_payload = {
         "results": [
-            {"photos": [{
-                "url": "https://x/photos/1/square.jpg",
-                "attribution": "(c) someone",
-                "license_code": "cc-by",
-            }]},
+            {
+                "photos": [
+                    {
+                        "url": "https://x/photos/1/square.jpg",
+                        "attribution": "(c) someone",
+                        "license_code": "cc-by",
+                    }
+                ]
+            },
             {"photos": [{"url": "https://x/photos/2/square.jpg"}]},
             {"photos": [{"url": "https://x/photos/3/square.jpg"}]},
         ]
     }
     fake_bytes = b"\xff\xd8fakejpg"
-    with patch.object(image_fetcher, "_get_json", AsyncMock(return_value=inat_payload)), \
-         patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=fake_bytes)):
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=inat_payload)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=fake_bytes)),
+    ):
         async with __import__("httpx").AsyncClient() as client:
             images = await fetch_images_for_species(
                 client=client,
@@ -71,8 +78,10 @@ async def test_inat_dedupes_identical_urls(tmp_path: Path):
             {"photos": [{"url": "https://x/photos/1/square.jpg"}]},
         ]
     }
-    with patch.object(image_fetcher, "_get_json", AsyncMock(return_value=payload)), \
-         patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=b"x")):
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=payload)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=b"x")),
+    ):
         async with __import__("httpx").AsyncClient() as client:
             images = await fetch_images_for_species(
                 client=client,
@@ -87,30 +96,42 @@ async def test_inat_dedupes_identical_urls(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_falls_back_to_wikimedia_when_inat_short(tmp_path: Path):
-    inat_payload = {"results": [
-        {"photos": [{"url": "https://x/photos/1/square.jpg"}]},
-    ]}
+    inat_payload = {
+        "results": [
+            {"photos": [{"url": "https://x/photos/1/square.jpg"}]},
+        ]
+    }
     wiki_summary = {"originalimage": {"source": "https://wiki/lead.jpg"}}
     wiki_commons = {
         "query": {
             "pages": {
-                "1": {"imageinfo": [{
-                    "thumburl": "https://wiki/file1.jpg",
-                    "extmetadata": {
-                        "Artist": {"value": "Photographer A"},
-                        "LicenseShortName": {"value": "CC BY-SA 4.0"},
-                    },
-                }]},
-                "2": {"imageinfo": [{
-                    "url": "https://wiki/file2.jpg",
-                    "extmetadata": {},
-                }]},
+                "1": {
+                    "imageinfo": [
+                        {
+                            "thumburl": "https://wiki/file1.jpg",
+                            "extmetadata": {
+                                "Artist": {"value": "Photographer A"},
+                                "LicenseShortName": {"value": "CC BY-SA 4.0"},
+                            },
+                        }
+                    ]
+                },
+                "2": {
+                    "imageinfo": [
+                        {
+                            "url": "https://wiki/file2.jpg",
+                            "extmetadata": {},
+                        }
+                    ]
+                },
             }
         }
     }
     json_responses = iter([inat_payload, wiki_summary, wiki_commons])
-    with patch.object(image_fetcher, "_get_json", AsyncMock(side_effect=lambda *a, **k: next(json_responses))), \
-         patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=b"img")):
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(side_effect=lambda *a, **k: next(json_responses))),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=b"img")),
+    ):
         async with __import__("httpx").AsyncClient() as client:
             images = await fetch_images_for_species(
                 client=client,
@@ -129,8 +150,10 @@ async def test_falls_back_to_wikimedia_when_inat_short(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_returns_empty_when_inat_returns_none(tmp_path: Path):
-    with patch.object(image_fetcher, "_get_json", AsyncMock(return_value=None)), \
-         patch.object(image_fetcher, "_download_bytes", AsyncMock()):
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=None)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock()),
+    ):
         async with __import__("httpx").AsyncClient() as client:
             images = await fetch_images_for_species(
                 client=client,
@@ -174,8 +197,12 @@ def test_cleanup_image_dir_missing_path_is_ok(tmp_path: Path):
 
 def test_fetched_image_to_dict_round_trip():
     img = FetchedImage(
-        taxa_id=1, scientific_name="A b", common_name="A",
-        source="inat", source_url="u", local_path="/p",
+        taxa_id=1,
+        scientific_name="A b",
+        common_name="A",
+        source="inat",
+        source_url="u",
+        local_path="/p",
     )
     assert img.to_dict()["taxa_id"] == 1
     assert img.to_dict()["source"] == "inat"

@@ -145,7 +145,7 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
             "box": [0.1, 0.2, 0.3, 0.4],
             "region": ["10", "20", "30", "40"],
             "path_data": [[[0.5, 0.6], 100.1]],
-        }
+        },
     }
     assert service._extract_crop_event_hints({"data": {"box": [1, 2, 3]}}) is None
     assert service._extract_crop_event_hints({"data": "bad"}) is None
@@ -1192,7 +1192,9 @@ async def test_replace_from_clip_bytes_preserves_original_on_extraction_failure(
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_worker_processing(tmp_path, monkeypatch):
+async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_worker_processing(
+    tmp_path, monkeypatch
+):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_queued", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -1375,6 +1377,7 @@ async def test_worker_loop_tracks_task_done_against_original_queue_when_service_
 # Top-frame preference tests (Task 4)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path, monkeypatch):
     """When persisted top frames exist for an event, those frame indices must be used."""
@@ -1382,8 +1385,24 @@ async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path,
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
 
     stored_frames = [
-        {"frame_index": 42, "frame_offset_seconds": 1.68, "frame_score": 0.91, "top_label": "Robin", "top_score": 0.91, "rank": 1, "clip_variant": "event"},
-        {"frame_index": 38, "frame_offset_seconds": 1.52, "frame_score": 0.83, "top_label": "Robin", "top_score": 0.83, "rank": 2, "clip_variant": "event"},
+        {
+            "frame_index": 42,
+            "frame_offset_seconds": 1.68,
+            "frame_score": 0.91,
+            "top_label": "Robin",
+            "top_score": 0.91,
+            "rank": 1,
+            "clip_variant": "event",
+        },
+        {
+            "frame_index": 38,
+            "frame_offset_seconds": 1.52,
+            "frame_score": 0.83,
+            "top_label": "Robin",
+            "top_score": 0.83,
+            "rank": 2,
+            "clip_variant": "event",
+        },
     ]
 
     async def fake_load_preferred(event_id, *, clip_variant):

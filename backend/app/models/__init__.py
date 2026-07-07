@@ -70,10 +70,12 @@ class Detection(APIModel):
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None
 
+
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
+
 
 class FrigateEvent(APIModel):
     id: str
@@ -83,11 +85,13 @@ class FrigateEvent(APIModel):
     top_score: float | None = None
     false_positive: bool | None = None
 
+
 # Species detail models
 class CameraStats(APIModel):
     camera_name: str
     count: int
     percentage: float
+
 
 class SpeciesStats(APIModel):
     species_name: str
@@ -99,12 +103,13 @@ class SpeciesStats(APIModel):
     last_seen: datetime | None
     cameras: list[CameraStats]
     hourly_distribution: list[int]  # 24 elements (0-23 hours)
-    daily_distribution: list[int]   # 7 elements (0=Sunday, 6=Saturday)
-    monthly_distribution: list[int] # 12 elements (1-12 months)
+    daily_distribution: list[int]  # 7 elements (0=Sunday, 6=Saturday)
+    monthly_distribution: list[int]  # 12 elements (1-12 months)
     avg_confidence: float
     max_confidence: float
     min_confidence: float
     recent_sightings: list[Detection]
+
 
 class SpeciesInfo(APIModel):
     title: str
@@ -120,6 +125,7 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+
 
 class SpeciesRangeMap(APIModel):
     status: str

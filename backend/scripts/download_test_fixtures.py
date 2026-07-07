@@ -69,15 +69,17 @@ def fetch_observation_photos(
         for photo in obs.get("photos", []):
             url_medium = (photo.get("url") or "").replace("square", "medium")
             if url_medium and url_medium not in seen_urls:
-                photos.append({
-                    "photo_id": photo.get("id"),
-                    "url": url_medium,
-                    "license": photo.get("license_code", "unknown"),
-                    "attribution": photo.get("attribution", ""),
-                    "obs_id": obs.get("id"),
-                    "obs_url": f"https://www.inaturalist.org/observations/{obs.get('id')}",
-                    "taxon": obs.get("taxon", {}).get("name", ""),
-                })
+                photos.append(
+                    {
+                        "photo_id": photo.get("id"),
+                        "url": url_medium,
+                        "license": photo.get("license_code", "unknown"),
+                        "attribution": photo.get("attribution", ""),
+                        "obs_id": obs.get("id"),
+                        "obs_url": f"https://www.inaturalist.org/observations/{obs.get('id')}",
+                        "taxon": obs.get("taxon", {}).get("name", ""),
+                    }
+                )
                 seen_urls.add(url_medium)
             if len(photos) >= count:
                 break
@@ -117,11 +119,11 @@ def download_case(
 
     downloaded = []
     for i, photo in enumerate(photos):
-        dest = case_dir / f"{case_id}_{i+1:02d}.jpg"
+        dest = case_dir / f"{case_id}_{i + 1:02d}.jpg"
         if dest.exists() and skip_existing:
             downloaded.append({"path": str(dest), **photo})
             continue
-        print(f"    [{i+1}/{len(photos)}] {photo['url'][:70]}...")
+        print(f"    [{i + 1}/{len(photos)}] {photo['url'][:70]}...")
         if _download_file(photo["url"], dest):
             downloaded.append({"path": str(dest), **photo})
         time.sleep(0.3)  # be polite to iNat API

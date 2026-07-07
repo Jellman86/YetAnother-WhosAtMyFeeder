@@ -9,6 +9,7 @@ Usage:
     python scripts/export_openapi.py            # write backend/openapi.json
     python scripts/export_openapi.py --check     # exit non-zero if the artifact is stale
 """
+
 from __future__ import annotations
 
 import argparse

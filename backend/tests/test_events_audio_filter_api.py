@@ -4,6 +4,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.database import get_db, init_db, close_db
 
+
 @pytest_asyncio.fixture(autouse=True)
 async def setup_test_db():
     await init_db()
@@ -22,6 +23,7 @@ async def setup_test_db():
     finally:
         await close_db()
 
+
 @pytest.mark.asyncio
 async def test_get_events_with_audio_filter():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -29,7 +31,7 @@ async def test_get_events_with_audio_filter():
         res = await client.get("/api/events")
         assert res.status_code == 200
         assert len(res.json()) == 3
-        
+
         # With filter
         res = await client.get("/api/events?audio_confirmed_only=true")
         assert res.status_code == 200
@@ -38,6 +40,7 @@ async def test_get_events_with_audio_filter():
         for item in data:
             assert item["audio_confirmed"] is True
 
+
 @pytest.mark.asyncio
 async def test_get_events_count_with_audio_filter():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -45,7 +48,7 @@ async def test_get_events_count_with_audio_filter():
         res = await client.get("/api/events/count")
         assert res.status_code == 200
         assert res.json()["count"] == 3
-        
+
         # With filter
         res = await client.get("/api/events/count?audio_confirmed_only=true")
         assert res.status_code == 200

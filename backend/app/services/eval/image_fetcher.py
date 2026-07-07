@@ -7,6 +7,7 @@ Used by the model-evaluation harness. Images are taxonomy-verified by source:
 The caller controls concurrency and lifecycle. Files are written under
 <dest_root>/<taxa_id>/<idx>.<ext>; cleanup is the caller's responsibility.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -313,6 +314,7 @@ async def fetch_panel_images(
     done = 0
 
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT, headers=DEFAULT_HEADERS) as client:
+
         async def _one(entry: dict[str, Any]) -> None:
             nonlocal done
             taxa_id = entry.get("taxa_id")

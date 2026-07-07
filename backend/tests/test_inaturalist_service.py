@@ -25,7 +25,7 @@ async def test_delete_token_reports_exact_row_changes(monkeypatch):
         """)
         await db.execute(
             "INSERT INTO oauth_tokens (provider, email, access_token) VALUES (?, ?, ?)",
-            ("inaturalist", "bird@example.com", "token")
+            ("inaturalist", "bird@example.com", "token"),
         )
         await db.commit()
 

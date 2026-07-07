@@ -54,7 +54,7 @@ def test_expired_token():
     payload = {
         "username": "admin",
         "auth_level": AuthLevel.OWNER,
-        "exp": datetime.utcnow() - timedelta(hours=1)  # Already expired
+        "exp": datetime.utcnow() - timedelta(hours=1),  # Already expired
     }
     expired_token = jwt.encode(payload, settings.auth.session_secret, algorithm="HS256")
 

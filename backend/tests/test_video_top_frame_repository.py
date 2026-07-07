@@ -90,8 +90,24 @@ async def test_video_top_frame_replace_removes_stale_rows():
         await repo.replace_video_top_frames(
             "evt-1",
             [
-                {"clip_variant": "event", "frame_index": 5, "frame_offset_seconds": 0.2, "frame_score": 0.6, "top_label": "Sparrow", "top_score": 0.6, "rank": 1},
-                {"clip_variant": "event", "frame_index": 10, "frame_offset_seconds": 0.4, "frame_score": 0.55, "top_label": "Sparrow", "top_score": 0.55, "rank": 2},
+                {
+                    "clip_variant": "event",
+                    "frame_index": 5,
+                    "frame_offset_seconds": 0.2,
+                    "frame_score": 0.6,
+                    "top_label": "Sparrow",
+                    "top_score": 0.6,
+                    "rank": 1,
+                },
+                {
+                    "clip_variant": "event",
+                    "frame_index": 10,
+                    "frame_offset_seconds": 0.4,
+                    "frame_score": 0.55,
+                    "top_label": "Sparrow",
+                    "top_score": 0.55,
+                    "rank": 2,
+                },
             ],
         )
         first = await repo.list_video_top_frames("evt-1")
@@ -100,7 +116,15 @@ async def test_video_top_frame_replace_removes_stale_rows():
         await repo.replace_video_top_frames(
             "evt-1",
             [
-                {"clip_variant": "recording", "frame_index": 20, "frame_offset_seconds": 0.8, "frame_score": 0.88, "top_label": "Blue Tit", "top_score": 0.88, "rank": 1},
+                {
+                    "clip_variant": "recording",
+                    "frame_index": 20,
+                    "frame_offset_seconds": 0.8,
+                    "frame_score": 0.88,
+                    "top_label": "Blue Tit",
+                    "top_score": 0.88,
+                    "rank": 1,
+                },
             ],
         )
         replaced = await repo.list_video_top_frames("evt-1")
@@ -121,9 +145,33 @@ async def test_video_top_frame_list_ordered_by_rank():
         await repo.replace_video_top_frames(
             "evt-2",
             [
-                {"clip_variant": "event", "frame_index": 3, "frame_offset_seconds": 0.12, "frame_score": 0.5, "top_label": None, "top_score": None, "rank": 3},
-                {"clip_variant": "event", "frame_index": 1, "frame_offset_seconds": 0.04, "frame_score": 0.9, "top_label": None, "top_score": None, "rank": 1},
-                {"clip_variant": "event", "frame_index": 2, "frame_offset_seconds": 0.08, "frame_score": 0.7, "top_label": None, "top_score": None, "rank": 2},
+                {
+                    "clip_variant": "event",
+                    "frame_index": 3,
+                    "frame_offset_seconds": 0.12,
+                    "frame_score": 0.5,
+                    "top_label": None,
+                    "top_score": None,
+                    "rank": 3,
+                },
+                {
+                    "clip_variant": "event",
+                    "frame_index": 1,
+                    "frame_offset_seconds": 0.04,
+                    "frame_score": 0.9,
+                    "top_label": None,
+                    "top_score": None,
+                    "rank": 1,
+                },
+                {
+                    "clip_variant": "event",
+                    "frame_index": 2,
+                    "frame_offset_seconds": 0.08,
+                    "frame_score": 0.7,
+                    "top_label": None,
+                    "top_score": None,
+                    "rank": 2,
+                },
             ],
         )
 
@@ -142,6 +190,16 @@ async def test_video_top_frame_gracefully_handles_missing_table():
         # replace should not raise when table is absent
         await repo.replace_video_top_frames(
             "evt-missing",
-            [{"clip_variant": "event", "frame_index": 1, "frame_offset_seconds": 0.04, "frame_score": 0.9, "top_label": None, "top_score": None, "rank": 1}],
+            [
+                {
+                    "clip_variant": "event",
+                    "frame_index": 1,
+                    "frame_offset_seconds": 0.04,
+                    "frame_score": 0.9,
+                    "top_label": None,
+                    "top_score": None,
+                    "rank": 1,
+                }
+            ],
         )
         assert await repo.list_video_top_frames("evt-missing") == []

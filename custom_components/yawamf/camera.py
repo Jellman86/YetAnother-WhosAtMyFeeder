@@ -1,4 +1,5 @@
 """Camera platform for Yet Another WhosAtMyFeeder."""
+
 from __future__ import annotations
 
 import io
@@ -51,6 +52,7 @@ async def async_setup_entry(
     coordinator: YAWAMFDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([YAWAMFLatestBirdCamera(coordinator)])
 
+
 class YAWAMFLatestBirdCamera(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Camera):
     """Camera that shows the latest bird detection snapshot."""
 
@@ -78,9 +80,7 @@ class YAWAMFLatestBirdCamera(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Cam
             configuration_url=self.coordinator.url,
         )
 
-    async def async_camera_image(
-        self, width: int | None = None, height: int | None = None
-    ) -> bytes | None:
+    async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         """Return a still image response from the camera."""
         latest = self.coordinator.data.get("latest")
         if not latest:

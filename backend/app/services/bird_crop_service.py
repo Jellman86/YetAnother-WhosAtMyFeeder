@@ -190,10 +190,7 @@ class BirdCropService:
             "preferred_input_height": preferred_input_size,
             "preferred_input_width": preferred_input_size,
             "preprocessing": preprocessing,
-            "output_names": [
-                str(getattr(output, "name", "") or "")
-                for output in (session_outputs or [])
-            ],
+            "output_names": [str(getattr(output, "name", "") or "") for output in (session_outputs or [])],
             "detector_tier": "accurate" if str(tier or "").strip().lower() == "accurate" else "fast",
             "detector_config": detector_config,
             "model_path": str(model_path),
@@ -330,7 +327,7 @@ class BirdCropService:
             detector_tier=str(model.get("detector_tier") or self._requested_detector_tier()),
             detector_config=detector_config,
         )
- 
+
     def _import_onnxruntime(self):
         return importlib.import_module("onnxruntime")
 
@@ -674,8 +671,18 @@ class BirdCropService:
         img_h = int(round(float(transform.get("input_height") or 0.0)))
         img_w = int(round(float(transform.get("input_width") or 0.0)))
         if img_h <= 0 or img_w <= 0:
-            img_h = int(round(float(transform.get("scale_y") or transform.get("scale") or 1.0) * float(image_size[1]) + float(transform.get("pad_y") or 0.0) * 2.0))
-            img_w = int(round(float(transform.get("scale_x") or transform.get("scale") or 1.0) * float(image_size[0]) + float(transform.get("pad_x") or 0.0) * 2.0))
+            img_h = int(
+                round(
+                    float(transform.get("scale_y") or transform.get("scale") or 1.0) * float(image_size[1])
+                    + float(transform.get("pad_y") or 0.0) * 2.0
+                )
+            )
+            img_w = int(
+                round(
+                    float(transform.get("scale_x") or transform.get("scale") or 1.0) * float(image_size[0])
+                    + float(transform.get("pad_x") or 0.0) * 2.0
+                )
+            )
         decoded = self._decode_yolox_predictions(arr.copy(), input_size=(img_h, img_w))
         if decoded is None:
             return []
@@ -847,7 +854,11 @@ class BirdCropService:
             left, top, right, bottom = [float(value) for value in box[:4]]
         except Exception:
             return None
-        box_format = str((detector_config or {}).get("box_format") or os.getenv("BIRD_CROP_BOX_FORMAT") or "xyxy").strip().lower()
+        box_format = (
+            str((detector_config or {}).get("box_format") or os.getenv("BIRD_CROP_BOX_FORMAT") or "xyxy")
+            .strip()
+            .lower()
+        )
         if box_format == "cxcywh":
             center_x, center_y, width, height = left, top, right, bottom
             left = center_x - (width / 2.0)

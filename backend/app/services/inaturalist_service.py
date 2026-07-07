@@ -30,17 +30,14 @@ class InaturalistService:
         refresh_token: Optional[str],
         token_type: Optional[str],
         expires_in: Optional[int],
-        scope: Optional[str]
+        scope: Optional[str],
     ) -> None:
         expires_at = None
         if expires_in:
             expires_at = datetime.utcnow() + timedelta(seconds=int(expires_in))
 
         async with get_db() as db:
-            cursor = await db.execute(
-                "SELECT id FROM oauth_tokens WHERE provider = ?",
-                ("inaturalist",)
-            )
+            cursor = await db.execute("SELECT id FROM oauth_tokens WHERE provider = ?", ("inaturalist",))
             row = await cursor.fetchone()
             if row:
                 await db.execute(
@@ -58,7 +55,7 @@ class InaturalistService:
                         expires_at,
                         scope,
                         "inaturalist",
-                    )
+                    ),
                 )
             else:
                 await db.execute(
@@ -76,7 +73,7 @@ class InaturalistService:
                         token_type,
                         expires_at,
                         scope,
-                    )
+                    ),
                 )
             await db.commit()
             self._connected_user = email
@@ -88,16 +85,14 @@ class InaturalistService:
                 SELECT email, access_token, refresh_token, token_type, expires_at, scope
                 FROM oauth_tokens WHERE provider = ?
                 """,
-                ("inaturalist",)
+                ("inaturalist",),
             )
             row = await cursor.fetchone()
             if not row:
                 return None
             access_token = decrypt_oauth_token(row[1])
             refresh_token = decrypt_oauth_token(row[2])
-            needs_upgrade = (
-                bool(row[1]) and not is_encrypted_token(row[1])
-            ) or (
+            needs_upgrade = (bool(row[1]) and not is_encrypted_token(row[1])) or (
                 bool(row[2]) and not is_encrypted_token(row[2])
             )
             if needs_upgrade:
@@ -120,14 +115,14 @@ class InaturalistService:
                 "refresh_token": refresh_token,
                 "token_type": row[3],
                 "expires_at": row[4],
-                "scope": row[5]
+                "scope": row[5],
             }
 
     async def get_valid_token(self) -> Optional[dict]:
         token = await self.get_token()
         if not token:
             return None
-            
+
         expires_at = token.get("expires_at")
         if expires_at:
             expires_dt = None
@@ -147,12 +142,12 @@ class InaturalistService:
                         return await self.refresh_token(token)
             else:
                 expires_dt = expires_at
-                
+
             # If expiring within 5 minutes, refresh
             if expires_dt and datetime.utcnow() >= expires_dt - timedelta(minutes=5):
                 log.info("inat_token_expired_refreshing", expires_at=expires_dt)
                 return await self.refresh_token(token)
-                
+
         return token
 
     async def refresh_token(self, token: dict) -> Optional[dict]:
@@ -162,32 +157,32 @@ class InaturalistService:
             return None
 
         from app.config import settings
-        
+
         payload = {
             "client_id": settings.inaturalist.client_id,
             "client_secret": settings.inaturalist.client_secret,
             "grant_type": "refresh_token",
-            "refresh_token": refresh_token
+            "refresh_token": refresh_token,
         }
-        
+
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(INAT_TOKEN_URL, data=payload)
                 resp.raise_for_status()
                 new_token_data = resp.json()
-                
+
                 email = token.get("email")
                 new_refresh = new_token_data.get("refresh_token") or refresh_token
-                
+
                 await self.store_token(
                     email=email,
                     access_token=new_token_data["access_token"],
                     refresh_token=new_refresh,
                     token_type=new_token_data.get("token_type"),
                     expires_in=new_token_data.get("expires_in"),
-                    scope=new_token_data.get("scope")
+                    scope=new_token_data.get("scope"),
                 )
-                
+
                 log.info("inat_token_refreshed_success")
                 return await self.get_token()
         except Exception as e:
@@ -217,8 +212,7 @@ class InaturalistService:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
-                    f"{INAT_BASE_URL}/users/me",
-                    headers={"Authorization": f"Bearer {access_token}"}
+                    f"{INAT_BASE_URL}/users/me", headers={"Authorization": f"Bearer {access_token}"}
                 )
                 resp.raise_for_status()
                 data = resp.json()
@@ -238,9 +232,7 @@ class InaturalistService:
     async def create_observation(self, access_token: str, payload: dict) -> dict:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                f"{INAT_BASE_URL}/observations",
-                headers={"Authorization": f"Bearer {access_token}"},
-                data=payload
+                f"{INAT_BASE_URL}/observations", headers={"Authorization": f"Bearer {access_token}"}, data=payload
             )
             resp.raise_for_status()
             return resp.json()
@@ -249,12 +241,10 @@ class InaturalistService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             files = {
                 "file": ("snapshot.jpg", image_bytes, "image/jpeg"),
-                "observation_photo[observation_id]": (None, str(observation_id))
+                "observation_photo[observation_id]": (None, str(observation_id)),
             }
             resp = await client.post(
-                f"{INAT_BASE_URL}/observation_photos",
-                headers={"Authorization": f"Bearer {access_token}"},
-                files=files
+                f"{INAT_BASE_URL}/observation_photos", headers={"Authorization": f"Bearer {access_token}"}, files=files
             )
             resp.raise_for_status()
 

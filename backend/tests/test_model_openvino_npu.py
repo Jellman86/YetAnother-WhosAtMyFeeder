@@ -20,6 +20,7 @@ which models earn ``intel_npu`` in ``model_manager`` ``supported_inference_provi
 ``NPU_NOT_SUPPORTED`` documents models known to fail on the NPU (populate from
 hardware runs), analogous to ``GPU_NOT_SUPPORTED`` in the GPU harness.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -82,9 +83,7 @@ def _compile_on_npu(model_path, config) -> tuple[bool, str, object]:
         model = core.read_model(str(model_path))
         partial = model.inputs[0].get_partial_shape()
         if partial.rank.is_static and partial[0].is_dynamic:
-            static_shape = [1] + [
-                partial[d].get_length() for d in range(1, partial.rank.get_length())
-            ]
+            static_shape = [1] + [partial[d].get_length() for d in range(1, partial.rank.get_length())]
             model.reshape(static_shape)
     except Exception as e:  # pragma: no cover - hardware/model dependent
         return False, f"model read/reshape failed: {e}", None
@@ -129,9 +128,7 @@ def test_installed_models_compile_and_agree_on_npu(npu_available: bool) -> None:
             continue
         config = _load_config(model_dir)
         model_path = model_dir / "model.onnx"
-        tensor = _preprocess_image(
-            _make_test_image(int(config.get("input_size", 224))), config=config
-        )
+        tensor = _preprocess_image(_make_test_image(int(config.get("input_size", 224))), config=config)
 
         ok, err, npu_compiled = _compile_on_npu(model_path, config)
         if not ok:
@@ -143,9 +140,7 @@ def test_installed_models_compile_and_agree_on_npu(npu_available: bool) -> None:
             continue
 
         cpu_model = core.read_model(str(model_path))
-        cpu_compiled = core.compile_model(
-            cpu_model, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
-        )
+        cpu_compiled = core.compile_model(cpu_model, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"})
         cpu_logits = _run_inference(cpu_compiled, tensor)
 
         cpu_range = float(cpu_logits.max() - cpu_logits.min())
@@ -156,22 +151,18 @@ def test_installed_models_compile_and_agree_on_npu(npu_available: bool) -> None:
         npu_top5 = set(np.argsort(npu_logits)[-5:].tolist())
         overlap = len(cpu_top5 & npu_top5)
 
-        summary = (
-            f"{model_id}: range_ratio={range_ratio:.2f}, "
-            f"spearman={spearman:.3f}, top5_overlap={overlap}/5"
-        )
-        if (
-            range_ratio >= MIN_LOGIT_RANGE_RATIO
-            and spearman >= MIN_SPEARMAN_R
-            and overlap >= MIN_TOP5_OVERLAP
-        ):
+        summary = f"{model_id}: range_ratio={range_ratio:.2f}, spearman={spearman:.3f}, top5_overlap={overlap}/5"
+        if range_ratio >= MIN_LOGIT_RANGE_RATIO and spearman >= MIN_SPEARMAN_R and overlap >= MIN_TOP5_OVERLAP:
             passed.append(summary)
         else:
             findings.append(f"{model_id}: NPU disagrees with CPU ({summary})")
 
-    report = "NPU validation sweep\nPASSED (NPU-viable):\n  " + (
-        "\n  ".join(passed) or "(none)"
-    ) + "\nFINDINGS (exclude from intel_npu):\n  " + ("\n  ".join(findings) or "(none)")
+    report = (
+        "NPU validation sweep\nPASSED (NPU-viable):\n  "
+        + ("\n  ".join(passed) or "(none)")
+        + "\nFINDINGS (exclude from intel_npu):\n  "
+        + ("\n  ".join(findings) or "(none)")
+    )
     # Discovery mode: surface the full report without hard-failing on
     # hardware/model-specific issues (those become NPU_NOT_SUPPORTED + registry).
     pytest.skip(report)

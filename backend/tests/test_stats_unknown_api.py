@@ -342,7 +342,13 @@ async def test_daily_summary_unknown_rollup_uses_latest_detection_time_for_lates
     async with get_db() as db:
         await db.execute(
             "UPDATE detections SET display_name = ?, category_name = ?, scientific_name = ?, common_name = ?, taxa_id = NULL WHERE frigate_event = ?",
-            ("Great tit and allies", "Great tit and allies", "Great tit and allies", "Great tit and allies", older_event_id),
+            (
+                "Great tit and allies",
+                "Great tit and allies",
+                "Great tit and allies",
+                "Great tit and allies",
+                older_event_id,
+            ),
         )
         await db.execute(
             """

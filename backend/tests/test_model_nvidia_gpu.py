@@ -77,6 +77,7 @@ from PIL import Image
 
 try:
     import onnxruntime as ort
+
     ORT_AVAILABLE = True
 except ImportError:
     ORT_AVAILABLE = False
@@ -89,6 +90,7 @@ pytestmark = [
 # ---------------------------------------------------------------------------
 # Helpers — mirrored from test_model_openvino_gpu.py for standalone use
 # ---------------------------------------------------------------------------
+
 
 def _models_dir() -> Path:
     if os.path.exists("/data/models"):
@@ -108,11 +110,7 @@ def _installed_onnx_models() -> list[tuple[str, Path]]:
     base = _models_dir()
     if not base.exists():
         return []
-    return [
-        (d.name, d)
-        for d in sorted(base.iterdir())
-        if d.is_dir() and (d / "model.onnx").exists()
-    ]
+    return [(d.name, d) for d in sorted(base.iterdir()) if d.is_dir() and (d / "model.onnx").exists()]
 
 
 def _make_test_image(size: int) -> Image.Image:
@@ -189,7 +187,7 @@ def _spearman_r(a: np.ndarray, b: np.ndarray) -> float:
     rank_a = np.argsort(np.argsort(a)).astype(float)
     rank_b = np.argsort(np.argsort(b)).astype(float)
     d = rank_a - rank_b
-    return float(1.0 - 6.0 * np.sum(d ** 2) / (n * (n ** 2 - 1)))
+    return float(1.0 - 6.0 * np.sum(d**2) / (n * (n**2 - 1)))
 
 
 def _ort_run(session: Any, tensor: np.ndarray) -> np.ndarray:
@@ -210,9 +208,7 @@ def _ort_session(
         opts.log_severity_level = 3  # suppress verbose TRT logs
 
         if provider_options:
-            prov_list = [
-                (p, provider_options.get(p, {})) for p in providers
-            ]
+            prov_list = [(p, provider_options.get(p, {})) for p in providers]
         else:
             prov_list = providers
 
@@ -230,13 +226,15 @@ def _ort_session(
 # NVIDIA detection helpers
 # ---------------------------------------------------------------------------
 
+
 def _nvidia_gpu_info() -> str:
     """Return a one-line GPU description from nvidia-smi, or empty string."""
     try:
         r = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total",
-             "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=5,
+            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().splitlines()[0].strip()
@@ -254,6 +252,7 @@ def _cuda_available() -> bool:
     # Probe with a tiny 1×1 ONNX identity model built from scratch
     try:
         from onnx import helper, TensorProto
+
         x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 1])
         y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 1])
         node = helper.make_node("Identity", inputs=["x"], outputs=["y"])
@@ -284,6 +283,7 @@ def _trt_available() -> bool:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def cuda_available() -> bool:
     return _cuda_available()
@@ -296,9 +296,7 @@ def system_info() -> dict[str, str]:
     cuda_ver = "unknown"
     trt_ver = "unknown"
     try:
-        r = subprocess.run(
-            ["nvcc", "--version"], capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(["nvcc", "--version"], capture_output=True, text=True, timeout=5)
         for line in r.stdout.splitlines():
             if "release" in line.lower():
                 cuda_ver = line.strip()
@@ -307,6 +305,7 @@ def system_info() -> dict[str, str]:
         pass
     try:
         import tensorrt  # type: ignore
+
         trt_ver = tensorrt.__version__
     except ImportError:
         if _trt_available():
@@ -387,6 +386,7 @@ STRATEGIES: list[tuple[str, list[str], dict[str, dict]]] = [
 # Probe result helpers
 # ---------------------------------------------------------------------------
 
+
 def _score_result(
     cpu_out: np.ndarray,
     gpu_out: np.ndarray,
@@ -422,6 +422,7 @@ def _score_result(
 # Full probe — all installed models × all strategies
 # ---------------------------------------------------------------------------
 
+
 def test_nvidia_gpu_full_probe(cuda_available: bool, system_info: dict[str, str]) -> None:
     """Run every installed ONNX model through all NVIDIA GPU strategies and
     compare against CPU reference inference.
@@ -448,18 +449,17 @@ def test_nvidia_gpu_full_probe(cuda_available: bool, system_info: dict[str, str]
 
     W = 110
     rows: list[str] = []
-    rows.append(f"\n{'='*W}")
+    rows.append(f"\n{'=' * W}")
     rows.append("NVIDIA GPU Probe — YA-WAMF model compatibility report")
     rows.append(f"  GPU:  {system_info['gpu']}")
     rows.append(f"  ORT:  {system_info['ort']}")
     rows.append(f"  CUDA: {system_info['cuda']}")
     rows.append(f"  TRT:  {system_info['trt']}")
-    rows.append(f"{'='*W}")
+    rows.append(f"{'=' * W}")
     rows.append(
-        f"{'Model':<35} {'Strategy':<22} {'CPU rng':>8} {'GPU rng':>8} "
-        f"{'ratio':>6} {'spear':>7} {'top5∩':>6}  result"
+        f"{'Model':<35} {'Strategy':<22} {'CPU rng':>8} {'GPU rng':>8} {'ratio':>6} {'spear':>7} {'top5∩':>6}  result"
     )
-    rows.append(f"{'-'*W}")
+    rows.append(f"{'-' * W}")
 
     for model_id, model_dir in models:
         model_path = str(model_dir / "model.onnx")
@@ -472,7 +472,7 @@ def test_nvidia_gpu_full_probe(cuda_available: bool, system_info: dict[str, str]
         ok, err, cpu_sess = _ort_session(model_path, ["CPUExecutionProvider"])
         if not ok:
             rows.append(f"{model_id:<35} {'(CPU ref failed)':<22}  {err[:60]}")
-            rows.append(f"{'-'*W}")
+            rows.append(f"{'-' * W}")
             continue
         cpu_out = _ort_run(cpu_sess, tensor)
         cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
@@ -508,9 +508,9 @@ def test_nvidia_gpu_full_probe(cuda_available: bool, system_info: dict[str, str]
                 f"{ratio:>6.2f} {sp_str:>7} {overlap:>6}  {result}"
             )
 
-        rows.append(f"{'-'*W}")
+        rows.append(f"{'-' * W}")
 
-    rows.append(f"{'='*W}")
+    rows.append(f"{'=' * W}")
     rows.append(
         "Please paste this table into the relevant GitHub issue/discussion "
         "along with your GPU, driver, and ORT version."
@@ -522,6 +522,7 @@ def test_nvidia_gpu_full_probe(cuda_available: bool, system_info: dict[str, str]
 # ---------------------------------------------------------------------------
 # ConvNeXt-focused probe
 # ---------------------------------------------------------------------------
+
 
 def test_convnext_nvidia_probe(cuda_available: bool, system_info: dict[str, str]) -> None:
     """Focused probe for ConvNeXt Large on NVIDIA GPU.
@@ -556,17 +557,14 @@ def test_convnext_nvidia_probe(cuda_available: bool, system_info: dict[str, str]
 
     W = 115
     rows: list[str] = []
-    rows.append(f"\n{'='*W}")
+    rows.append(f"\n{'=' * W}")
     rows.append("ConvNeXt Large — NVIDIA GPU Precision Probe")
     rows.append(f"  GPU:  {system_info['gpu']}")
     rows.append(f"  ORT:  {system_info['ort']}  |  TRT: {system_info['trt']}")
     rows.append(f"  CPU logit range: {cpu_range:.2f}  (target: ratio ≥ 0.5, Spearman ≥ 0.50, top-5 ∩ ≥ 1)")
-    rows.append(f"{'='*W}")
-    rows.append(
-        f"{'Strategy':<24} {'providers':<45} {'GPU rng':>8} "
-        f"{'ratio':>6} {'spear':>7} {'top5∩':>6}  result"
-    )
-    rows.append(f"{'-'*W}")
+    rows.append(f"{'=' * W}")
+    rows.append(f"{'Strategy':<24} {'providers':<45} {'GPU rng':>8} {'ratio':>6} {'spear':>7} {'top5∩':>6}  result")
+    rows.append(f"{'-' * W}")
 
     for strategy_name, providers, provider_options in STRATEGIES:
         if "TensorrtExecutionProvider" in providers and not _trt_available():
@@ -590,11 +588,10 @@ def test_convnext_nvidia_probe(cuda_available: bool, system_info: dict[str, str]
         gpu_range, ratio, spearman, overlap, result = _score_result(cpu_out, gpu_out, cpu_range)
         sp_str = f"{spearman:.3f}" if np.isfinite(spearman) else "  nan"
         rows.append(
-            f"{strategy_name:<24} {prov_str:<45} {gpu_range:>8.2f} "
-            f"{ratio:>6.2f} {sp_str:>7} {overlap:>6}  {result}"
+            f"{strategy_name:<24} {prov_str:<45} {gpu_range:>8.2f} {ratio:>6.2f} {sp_str:>7} {overlap:>6}  {result}"
         )
 
-    rows.append(f"{'='*W}")
+    rows.append(f"{'=' * W}")
     rows.append(
         "Intel iGPU result for reference: ratio≈0.19, Spearman≈0.52, top-5∩=1 (low range — wrong predictions).\n"
         "If *** PASS *** appears here, ConvNeXt Large can be enabled for NVIDIA GPU users."

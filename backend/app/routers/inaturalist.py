@@ -75,7 +75,7 @@ async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(re
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": "write",
-        "state": state
+        "state": state,
     }
     authorization_url = f"{INAT_AUTHORIZE_URL}?{urlencode(params)}"
     return {"authorization_url": authorization_url, "state": state}
@@ -102,18 +102,22 @@ async def inaturalist_callback(request: Request, code: str = Query(...), state: 
                     "client_secret": settings.inaturalist.client_secret,
                     "grant_type": "authorization_code",
                     "code": code,
-                    "redirect_uri": redirect_uri
-                }
+                    "redirect_uri": redirect_uri,
+                },
             )
             resp.raise_for_status()
             token = resp.json()
     except Exception as e:
         log.error("inat_oauth_token_error", error=str(e))
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.inat.oauth_failed", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.inat.oauth_failed", lang, error=str(e))
+        )
 
     access_token = token.get("access_token")
     if not access_token:
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.inat.oauth_failed", lang, error="missing token"))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.inat.oauth_failed", lang, error="missing token")
+        )
 
     user_login = await inaturalist_service.fetch_user(access_token) or "inaturalist"
     await inaturalist_service.store_token(
@@ -122,7 +126,7 @@ async def inaturalist_callback(request: Request, code: str = Query(...), state: 
         refresh_token=token.get("refresh_token"),
         token_type=token.get("token_type"),
         expires_in=token.get("expires_in"),
-        scope=token.get("scope")
+        scope=token.get("scope"),
     )
 
     html = "<html><body><h3>iNaturalist connected.</h3><p>You can close this window.</p></body></html>"
@@ -136,7 +140,9 @@ async def inaturalist_disconnect(auth: AuthContext = Depends(require_owner)):
 
 
 @router.post("/draft", response_model=InaturalistDraftResponse)
-async def inaturalist_draft(request: Request, draft: InaturalistDraftRequest, auth: AuthContext = Depends(require_owner)):
+async def inaturalist_draft(
+    request: Request, draft: InaturalistDraftRequest, auth: AuthContext = Depends(require_owner)
+):
     lang = get_user_language(request)
     if not settings.inaturalist.enabled:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.disabled", lang))
@@ -163,12 +169,14 @@ async def inaturalist_draft(request: Request, draft: InaturalistDraftRequest, au
             longitude=lon,
             place_guess=place_guess,
             notes=None,
-            snapshot_url=snapshot_url
+            snapshot_url=snapshot_url,
         )
 
 
 @router.post("/submit")
-async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, auth: AuthContext = Depends(require_owner)):
+async def inaturalist_submit(
+    request: Request, body: InaturalistSubmitRequest, auth: AuthContext = Depends(require_owner)
+):
     lang = get_user_language(request)
     if not settings.inaturalist.enabled:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.disabled", lang))
@@ -183,8 +191,16 @@ async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, a
         if not det:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.inat.event_missing", lang))
 
-    lat = body.latitude if body.latitude is not None else (settings.inaturalist.default_latitude or settings.location.latitude)
-    lon = body.longitude if body.longitude is not None else (settings.inaturalist.default_longitude or settings.location.longitude)
+    lat = (
+        body.latitude
+        if body.latitude is not None
+        else (settings.inaturalist.default_latitude or settings.location.latitude)
+    )
+    lon = (
+        body.longitude
+        if body.longitude is not None
+        else (settings.inaturalist.default_longitude or settings.location.longitude)
+    )
     place_guess = body.place_guess or settings.inaturalist.default_place_guess
 
     payload = {
@@ -218,7 +234,9 @@ async def inaturalist_submit(request: Request, body: InaturalistSubmitRequest, a
         return {"status": "ok", "observation_id": observation_id}
     except Exception as e:
         log.error("inat_submit_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.inat.submit_failed", lang, error=str(e)))
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.inat.submit_failed", lang, error=str(e))
+        )
 
 
 @router.get("/seasonality")
@@ -227,19 +245,14 @@ async def inaturalist_seasonality(
     lat: Optional[float] = Query(None, description="Latitude"),
     lng: Optional[float] = Query(None, description="Longitude"),
     radius: int = Query(50, description="Radius in km"),
-    auth=Depends(get_auth_context_with_legacy)
+    auth=Depends(get_auth_context_with_legacy),
 ):
     """
     Fetch seasonality histogram (observations by month) from iNaturalist.
     Defaults to global if lat/lng missing, otherwise local.
     """
-    params = {
-        "taxon_id": taxon_id,
-        "date_field": "observed",
-        "interval": "month_of_year",
-        "verifiable": "true"
-    }
-    
+    params = {"taxon_id": taxon_id, "date_field": "observed", "interval": "month_of_year", "verifiable": "true"}
+
     if lat is not None and lng is not None:
         params["lat"] = lat
         params["lng"] = lng
@@ -250,20 +263,20 @@ async def inaturalist_seasonality(
             resp = await client.get(f"{INAT_BASE_URL}/observations/histogram", params=params)
             resp.raise_for_status()
             data = resp.json()
-            
+
             # Transform { "1": 10, "2": 20 } into array [10, 20, ...]
             # iNat months are 1-12
             histogram = data.get("results", {}).get("month_of_year", {})
             values = []
             for i in range(1, 13):
                 values.append(histogram.get(str(i), 0))
-                
+
             return {
                 "status": "ok",
                 "taxon_id": taxon_id,
                 "local": lat is not None,
                 "month_counts": values,
-                "total_observations": sum(values)
+                "total_observations": sum(values),
             }
     except Exception as e:
         log.error("inat_seasonality_failed", taxon_id=taxon_id, error=str(e))

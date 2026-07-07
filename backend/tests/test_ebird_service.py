@@ -41,7 +41,9 @@ async def test_resolve_species_code_matches_unicode_name(monkeypatch):
         }
     }
     monkeypatch.setattr(service, "get_taxonomy", AsyncMock(return_value=[]))
-    monkeypatch.setattr(service, "resolve_locale", AsyncMock(side_effect=lambda loc=None: (loc or "ru").replace("_", "-")))
+    monkeypatch.setattr(
+        service, "resolve_locale", AsyncMock(side_effect=lambda loc=None: (loc or "ru").replace("_", "-"))
+    )
 
     code = await service.resolve_species_code("Чёрный дрозд", locale="ru")
     assert code == "tumeru"

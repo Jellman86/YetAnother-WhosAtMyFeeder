@@ -238,7 +238,9 @@ class PersonalizationService:
 
             async with db.execute("SELECT COUNT(*) FROM classification_feedback") as cursor:
                 count_row = await cursor.fetchone()
-            summary["personalization_feedback_rows"] = int(count_row[0]) if count_row and count_row[0] is not None else 0
+            summary["personalization_feedback_rows"] = (
+                int(count_row[0]) if count_row and count_row[0] is not None else 0
+            )
 
             async with db.execute(
                 """
@@ -253,7 +255,9 @@ class PersonalizationService:
                 (self.min_feedback_tags,),
             ) as cursor:
                 active_row = await cursor.fetchone()
-            summary["personalization_active_camera_models"] = int(active_row[0]) if active_row and active_row[0] is not None else 0
+            summary["personalization_active_camera_models"] = (
+                int(active_row[0]) if active_row and active_row[0] is not None else 0
+            )
 
         return summary
 

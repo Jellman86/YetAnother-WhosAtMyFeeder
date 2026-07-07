@@ -34,7 +34,7 @@ class FrigateClient:
         """Build headers for Frigate requests, including auth token if configured."""
         headers = {}
         if settings.frigate.frigate_auth_token:
-            headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
+            headers["Authorization"] = f"Bearer {settings.frigate.frigate_auth_token}"
         return headers
 
     @property
@@ -42,12 +42,7 @@ class FrigateClient:
         """Get the configured Frigate base URL."""
         return settings.frigate.frigate_url
 
-    async def get(
-        self,
-        path: str,
-        params: Optional[dict] = None,
-        timeout: float = 30.0
-    ) -> httpx.Response:
+    async def get(self, path: str, params: Optional[dict] = None, timeout: float = 30.0) -> httpx.Response:
         """Make a GET request to Frigate API.
 
         Args:
@@ -60,19 +55,9 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.get(
-            url,
-            params=params,
-            headers=self._get_headers(),
-            timeout=timeout
-        )
+        return await client.get(url, params=params, headers=self._get_headers(), timeout=timeout)
 
-    async def post(
-        self,
-        path: str,
-        json: Optional[dict] = None,
-        timeout: float = 30.0
-    ) -> httpx.Response:
+    async def post(self, path: str, json: Optional[dict] = None, timeout: float = 30.0) -> httpx.Response:
         """Make a POST request to Frigate API.
 
         Args:
@@ -85,12 +70,7 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.post(
-            url,
-            json=json,
-            headers=self._get_headers(),
-            timeout=timeout
-        )
+        return await client.post(url, json=json, headers=self._get_headers(), timeout=timeout)
 
     async def get_version(self) -> Optional[str]:
         """Get Frigate version string."""
@@ -102,12 +82,7 @@ class FrigateClient:
             log.error("Failed to get Frigate version", error=str(e))
         return None
 
-    async def get_snapshot(
-        self,
-        event_id: str,
-        crop: bool = True,
-        quality: int = 95
-    ) -> Optional[bytes]:
+    async def get_snapshot(self, event_id: str, crop: bool = True, quality: int = 95) -> Optional[bytes]:
         """Fetch snapshot image for an event.
 
         Args:
@@ -236,11 +211,7 @@ class FrigateClient:
             True if successful
         """
         try:
-            resp = await self.post(
-                f"api/events/{event_id}/sub_label",
-                json={"subLabel": sublabel[:20]},
-                timeout=10.0
-            )
+            resp = await self.post(f"api/events/{event_id}/sub_label", json={"subLabel": sublabel[:20]}, timeout=10.0)
             return resp.status_code == 200
         except Exception as e:
             log.error("Failed to set sublabel", event_id=event_id, error=str(e))
@@ -267,7 +238,7 @@ class FrigateClient:
         label: Optional[str] = None,
         camera: Optional[str] = None,
         has_snapshot: bool = True,
-        limit: int = 100
+        limit: int = 100,
     ) -> list[dict]:
         """List events from Frigate.
 

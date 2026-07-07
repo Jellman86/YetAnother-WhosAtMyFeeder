@@ -19,13 +19,15 @@ from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
 
+
 class DailySpeciesSummary(APIModel):
     species: str
     count: int
-    latest_event: str # Used for thumbnail
+    latest_event: str  # Used for thumbnail
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+
 
 class DailySummaryResponse(APIModel):
     hourly_distribution: List[int]
@@ -34,9 +36,11 @@ class DailySummaryResponse(APIModel):
     total_count: int
     audio_confirmations: int
 
+
 class DailyCount(APIModel):
     date: str
     count: int
+
 
 class DailyWeatherSummary(APIModel):
     date: str
@@ -62,6 +66,7 @@ class DailyWeatherSummary(APIModel):
     pm_wind: Optional[float] = None
     pm_cloud: Optional[float] = None
     pm_temp: Optional[float] = None
+
 
 class DetectionsTimelineResponse(APIModel):
     days: int
@@ -201,56 +206,49 @@ def _build_local_timeline_points(
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
-async def get_daily_summary(
-    request: Request,
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
-):
+async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get a summary of detections for today."""
-    lang = getattr(request.state, 'language', 'en')
+    lang = getattr(request.state, "language", "en")
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
-    
+
     async with get_db() as db:
         repo = DetectionRepository(db)
-        
+
         # 1. Hourly distribution
         hourly = [0] * 24
         hourly_counts = await repo.get_timebucket_counts_hourly(start_dt, end_dt)
         for bucket_key, count in hourly_counts.items():
             local_dt = _parse_utc_bucket_key(bucket_key).replace(tzinfo=timezone.utc).astimezone(user_tz)
             hourly[local_dt.hour] += int(count)
-        
+
         # 2. Species counts
         species_raw = await repo.get_daily_species_counts(start_dt, end_dt)
-        
+
         # Transform unknowns
         unknown_labels = settings.classification.unknown_bird_labels
         unknown_count = 0
         latest_unknown_event = None
         latest_unknown_time = None
-        
+
         summary_species = []
         for s in species_raw:
             if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
                 unknown_count += s["count"]
                 # Keep the absolute latest event ID among unknowns
                 candidate_time = s.get("latest_detection_time")
-                if latest_unknown_time is None or (
-                    candidate_time is not None and candidate_time > latest_unknown_time
-                ):
+                if latest_unknown_time is None or (candidate_time is not None and candidate_time > latest_unknown_time):
                     latest_unknown_time = candidate_time
                     latest_unknown_event = s["latest_event"]
             else:
                 common_name = s.get("common_name")
                 taxa_id = s.get("taxa_id")
                 if taxa_id:
-                    if lang != 'en':
+                    if lang != "en":
                         localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                         if localized:
                             common_name = localized
@@ -259,24 +257,24 @@ async def get_daily_summary(
                         if canonical:
                             common_name = canonical
 
-                summary_species.append(DailySpeciesSummary(
-                    species=s["species"],
-                    count=s["count"],
-                    latest_event=s["latest_event"],
-                    scientific_name=s.get("scientific_name"),
-                    common_name=common_name,
-                    taxa_id=taxa_id
-                ))
-        
+                summary_species.append(
+                    DailySpeciesSummary(
+                        species=s["species"],
+                        count=s["count"],
+                        latest_event=s["latest_event"],
+                        scientific_name=s.get("scientific_name"),
+                        common_name=common_name,
+                        taxa_id=taxa_id,
+                    )
+                )
+
         if unknown_count > 0:
-            summary_species.append(DailySpeciesSummary(
-                species="Unknown Bird",
-                count=unknown_count,
-                latest_event=latest_unknown_event
-            ))
+            summary_species.append(
+                DailySpeciesSummary(species="Unknown Bird", count=unknown_count, latest_event=latest_unknown_event)
+            )
             # Sort again after aggregation
             summary_species.sort(key=lambda x: x.count, reverse=True)
-            
+
         # 3. Latest detection
         latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=end_dt)
         latest_detection = None
@@ -284,7 +282,7 @@ async def get_daily_summary(
             d = latest_raw[0]
             common_name = d.common_name
             if d.taxa_id:
-                if lang != 'en':
+                if lang != "en":
                     localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
                     if localized:
                         common_name = localized
@@ -301,11 +299,15 @@ async def get_daily_summary(
                 taxa_id=d.taxa_id,
                 extra_unknown_labels=unknown_labels,
             )
-                
+
             audio_species = d.audio_species
             if audio_species:
-                confirmed_taxa_id = int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
-                resolved = await localize_audio_species_name(audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id)
+                confirmed_taxa_id = (
+                    int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
+                )
+                resolved = await localize_audio_species_name(
+                    audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id
+                )
                 if resolved:
                     audio_species = resolved
 
@@ -336,19 +338,20 @@ async def get_daily_summary(
                 weather_snowfall=d.weather_snowfall,
                 scientific_name=public_species["scientific_name"],
                 common_name=public_species["common_name"],
-                taxa_id=public_species["taxa_id"]
+                taxa_id=public_species["taxa_id"],
             )
-            
+
         total_today = sum(hourly)
         audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
-        
+
         return DailySummaryResponse(
             hourly_distribution=hourly,
             top_species=summary_species,
             latest_detection=latest_detection,
             total_count=total_today,
-            audio_confirmations=audio_confirmations
+            audio_confirmations=audio_confirmations,
         )
+
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
 @guest_rate_limit()
@@ -378,19 +381,22 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     except ValueError:
                         continue
 
-                    entry = stats.setdefault(date_key, {
-                        "precip_total": 0.0,
-                        "rain_total": 0.0,
-                        "snow_total": 0.0,
-                        "wind_max": None,
-                        "wind_sum": 0.0,
-                        "wind_count": 0,
-                        "cloud_sum": 0.0,
-                        "cloud_count": 0,
-                        "temp_sum": 0.0,
-                        "temp_count": 0,
-                        "conditions": []
-                    })
+                    entry = stats.setdefault(
+                        date_key,
+                        {
+                            "precip_total": 0.0,
+                            "rain_total": 0.0,
+                            "snow_total": 0.0,
+                            "wind_max": None,
+                            "wind_sum": 0.0,
+                            "wind_count": 0,
+                            "cloud_sum": 0.0,
+                            "cloud_count": 0,
+                            "temp_sum": 0.0,
+                            "temp_count": 0,
+                            "conditions": [],
+                        },
+                    )
 
                     precip = weather.get("precipitation")
                     rain = weather.get("rain")
@@ -444,37 +450,36 @@ async def get_detection_timeline(request: Request, days: int = 30):
                     pm_weather = hourly.get(pm_key, {})
                     sun_entry = sun.get(date_key, {}) if sun else {}
 
-                    weather_summary.append(DailyWeatherSummary(
-                        date=date_key,
-                        condition=condition,
-                        precip_total=entry["precip_total"],
-                        rain_total=entry["rain_total"],
-                        snow_total=entry["snow_total"],
-                        wind_max=entry["wind_max"],
-                        wind_avg=wind_avg,
-                        cloud_avg=cloud_avg,
-                        temp_avg=temp_avg,
-                        sunrise=sun_entry.get("sunrise"),
-                        sunset=sun_entry.get("sunset"),
-                        am_condition=am_weather.get("condition_text"),
-                        am_rain=am_weather.get("rain"),
-                        am_snow=am_weather.get("snowfall"),
-                        am_wind=am_weather.get("wind_speed"),
-                        am_cloud=am_weather.get("cloud_cover"),
-                        am_temp=am_weather.get("temperature"),
-                        pm_condition=pm_weather.get("condition_text"),
-                        pm_rain=pm_weather.get("rain"),
-                        pm_snow=pm_weather.get("snowfall"),
-                        pm_wind=pm_weather.get("wind_speed"),
-                        pm_cloud=pm_weather.get("cloud_cover"),
-                        pm_temp=pm_weather.get("temperature")
-                    ))
+                    weather_summary.append(
+                        DailyWeatherSummary(
+                            date=date_key,
+                            condition=condition,
+                            precip_total=entry["precip_total"],
+                            rain_total=entry["rain_total"],
+                            snow_total=entry["snow_total"],
+                            wind_max=entry["wind_max"],
+                            wind_avg=wind_avg,
+                            cloud_avg=cloud_avg,
+                            temp_avg=temp_avg,
+                            sunrise=sun_entry.get("sunrise"),
+                            sunset=sun_entry.get("sunset"),
+                            am_condition=am_weather.get("condition_text"),
+                            am_rain=am_weather.get("rain"),
+                            am_snow=am_weather.get("snowfall"),
+                            am_wind=am_weather.get("wind_speed"),
+                            am_cloud=am_weather.get("cloud_cover"),
+                            am_temp=am_weather.get("temperature"),
+                            pm_condition=pm_weather.get("condition_text"),
+                            pm_rain=pm_weather.get("rain"),
+                            pm_snow=pm_weather.get("snowfall"),
+                            pm_wind=pm_weather.get("wind_speed"),
+                            pm_cloud=pm_weather.get("cloud_cover"),
+                            pm_temp=pm_weather.get("temperature"),
+                        )
+                    )
 
         return DetectionsTimelineResponse(
-            days=days,
-            total_count=total,
-            daily=[DailyCount(**item) for item in daily],
-            weather=weather_summary or None
+            days=days, total_count=total, daily=[DailyCount(**item) for item in daily], weather=weather_summary or None
         )
 
 
@@ -484,7 +489,9 @@ async def get_detection_timeline_span(
     request: Request,
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
-    compare_species: Optional[List[str]] = Query(None, description="Optional species names to include as compare lines"),
+    compare_species: Optional[List[str]] = Query(
+        None, description="Optional species names to include as compare lines"
+    ),
 ):
     """Get detections over time for a rolling span aligned to the current time.
 
@@ -666,7 +673,9 @@ async def get_detection_timeline_span(
                         return dt.replace(tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
 
                     def _weather_at_hour(dt: datetime) -> dict:
-                        raw = hourly_weather.get(dt.strftime("%Y-%m-%dT%H:00")) or hourly_weather.get(dt.strftime("%Y-%m-%dT%H:00Z"))
+                        raw = hourly_weather.get(dt.strftime("%Y-%m-%dT%H:00")) or hourly_weather.get(
+                            dt.strftime("%Y-%m-%dT%H:00Z")
+                        )
                         if raw is None:
                             # Try parsing the keys if the API format differs.
                             return {}
@@ -739,13 +748,17 @@ async def get_detection_timeline_span(
                             "precip_total": precip if precip_seen else None,
                             "rain_total": rain if rain_seen else None,
                             "snow_total": snow if snow_seen else None,
-                            "condition_text": weather_service._get_condition_text(mode_code) if mode_code is not None else None,
+                            "condition_text": weather_service._get_condition_text(mode_code)
+                            if mode_code is not None
+                            else None,
                         }
 
                     # Aggregate weather per timeline point.
                     weather_points: list[DetectionsTimelineWeatherPoint] = []
                     point_starts = [
-                        datetime.fromisoformat(point.bucket_start.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None)
+                        datetime.fromisoformat(point.bucket_start.replace("Z", "+00:00"))
+                        .astimezone(timezone.utc)
+                        .replace(tzinfo=None)
                         for point in points
                     ]
                     for idx, p in enumerate(points):

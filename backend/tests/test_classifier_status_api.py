@@ -82,7 +82,9 @@ async def test_classifier_status_includes_personalization_summary(client: httpx.
 
 
 @pytest.mark.asyncio
-async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     original_mode = settings.classification.image_execution_mode
     original_execution_mode = classifier_router.classifier_service._image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
@@ -121,7 +123,9 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
 
 
 @pytest.mark.asyncio
-async def test_classifier_test_endpoint_uses_in_process_path_by_default(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_classifier_test_endpoint_uses_in_process_path_by_default(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "in_process"
 

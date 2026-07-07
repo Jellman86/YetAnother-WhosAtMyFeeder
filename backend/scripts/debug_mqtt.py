@@ -3,6 +3,7 @@ import json
 import os
 from aiomqtt import Client
 
+
 async def main():
     print("Connecting to mosquitto.general_brg...")
     try:
@@ -20,9 +21,10 @@ async def main():
                 print(f"Topic: {message.topic}")
                 data = json.loads(message.payload)
                 print(json.dumps(data, indent=2))
-                break # Just catch one
+                break  # Just catch one
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

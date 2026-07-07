@@ -52,7 +52,9 @@ class EbirdService:
                 resp.raise_for_status()
                 return resp.json()
         except httpx.HTTPStatusError as e:
-            log.error("eBird API error", status_code=e.response.status_code, url=str(e.request.url), detail=e.response.text)
+            log.error(
+                "eBird API error", status_code=e.response.status_code, url=str(e.request.url), detail=e.response.text
+            )
             raise
         except Exception as e:
             log.error("eBird connection error", error=str(e), url=url)
@@ -153,7 +155,7 @@ class EbirdService:
     async def get_taxonomy(self, locale: Optional[str] = None) -> List[Dict[str, Any]]:
         effective_locale = await self.resolve_locale(locale)
         now = datetime.utcnow()
-        
+
         cache = self._taxonomy_cache.get(effective_locale)
         if cache and cache.get("fetched_at") and now - cache["fetched_at"] < TAXONOMY_CACHE_TTL:
             return cache["items"]
@@ -179,7 +181,7 @@ class EbirdService:
                 except Exception:
                     pass
             return []
-            
+
         index: Dict[str, str] = {}
         for item in items:
             code = item.get("speciesCode")
@@ -195,12 +197,8 @@ class EbirdService:
                 normalized = _normalize_name(sci)
                 if normalized:
                     index[normalized] = code
-        
-        self._taxonomy_cache[effective_locale] = {
-            "fetched_at": now, 
-            "items": items, 
-            "index": index
-        }
+
+        self._taxonomy_cache[effective_locale] = {"fetched_at": now, "items": items, "index": index}
         return items
 
     async def resolve_species_code(self, name: str, locale: Optional[str] = None) -> Optional[str]:
@@ -234,41 +232,43 @@ class EbirdService:
             code = index.get(normalized_name)
             if code:
                 return code
-        
+
         return None
 
     async def get_common_name(self, scientific_name: str, locale: Optional[str] = None) -> Optional[str]:
         """Resolve common name from scientific name using eBird taxonomy."""
         if not scientific_name:
             return None
-        
+
         # Ensure taxonomy is loaded for requested locale
         items = await self.get_taxonomy(locale)
-        
+
         # Search for scientific name match
         normalized_sci = _normalize_name(scientific_name)
         for item in items:
             sci = item.get("sciName") or ""
             if _normalize_name(sci) == normalized_sci:
                 return item.get("comName")
-        
+
         return None
 
     def simplify_observations(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         simplified = []
         for item in items:
-            simplified.append({
-                "species_code": item.get("speciesCode"),
-                "common_name": item.get("comName"),
-                "scientific_name": item.get("sciName"),
-                "observed_at": item.get("obsDt"),
-                "location_name": item.get("locName"),
-                "how_many": item.get("howMany"),
-                "lat": item.get("lat"),
-                "lng": item.get("lng"),
-                "obs_valid": item.get("obsValid"),
-                "obs_reviewed": item.get("obsReviewed"),
-            })
+            simplified.append(
+                {
+                    "species_code": item.get("speciesCode"),
+                    "common_name": item.get("comName"),
+                    "scientific_name": item.get("sciName"),
+                    "observed_at": item.get("obsDt"),
+                    "location_name": item.get("locName"),
+                    "how_many": item.get("howMany"),
+                    "lat": item.get("lat"),
+                    "lng": item.get("lng"),
+                    "obs_valid": item.get("obsValid"),
+                    "obs_reviewed": item.get("obsReviewed"),
+                }
+            )
         return simplified
 
 

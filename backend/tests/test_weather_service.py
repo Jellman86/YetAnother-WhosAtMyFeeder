@@ -12,7 +12,7 @@ def weather_service():
 @pytest.mark.asyncio
 async def test_get_location_from_config(weather_service):
     """Should use configured location if available."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -25,7 +25,7 @@ async def test_get_location_from_config(weather_service):
 @pytest.mark.asyncio
 async def test_get_location_auto_detect(weather_service):
     """Should auto-detect location via IP if not configured."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = None
         mock_settings.location.longitude = None
         mock_settings.location.automatic = True
@@ -33,14 +33,9 @@ async def test_get_location_auto_detect(weather_service):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "status": "success",
-            "lat": 51.5074,
-            "lon": -0.1278,
-            "city": "London"
-        }
+        mock_response.json.return_value = {"status": "success", "lat": 51.5074, "lon": -0.1278, "city": "London"}
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock()
@@ -56,12 +51,12 @@ async def test_get_location_auto_detect(weather_service):
 @pytest.mark.asyncio
 async def test_get_location_auto_detect_failure(weather_service):
     """Should return None if auto-detection fails."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = None
         mock_settings.location.longitude = None
         mock_settings.location.automatic = True
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock()
@@ -77,7 +72,7 @@ async def test_get_location_auto_detect_failure(weather_service):
 @pytest.mark.asyncio
 async def test_get_location_no_config_no_auto(weather_service):
     """Should return None if no config and auto disabled."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = None
         mock_settings.location.longitude = None
         mock_settings.location.automatic = False
@@ -91,22 +86,16 @@ async def test_get_location_no_config_no_auto(weather_service):
 @pytest.mark.asyncio
 async def test_get_current_weather_success(weather_service):
     """Should fetch current weather successfully."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "current": {
-                "temperature_2m": 18.5,
-                "weather_code": 0,
-                "is_day": 1
-            }
-        }
+        mock_response.json.return_value = {"current": {"temperature_2m": 18.5, "weather_code": 0, "is_day": 1}}
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock()
@@ -124,7 +113,7 @@ async def test_get_current_weather_success(weather_service):
 @pytest.mark.asyncio
 async def test_get_current_weather_no_location(weather_service):
     """Should return empty dict if location unavailable."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = None
         mock_settings.location.longitude = None
         mock_settings.location.automatic = False
@@ -139,11 +128,11 @@ async def test_get_current_weather_api_timeout(weather_service):
     """Should handle API timeout gracefully."""
     import httpx
 
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             # __aexit__ must return None/False to propagate exceptions
@@ -159,11 +148,11 @@ async def test_get_current_weather_api_timeout(weather_service):
 @pytest.mark.asyncio
 async def test_get_current_weather_api_error(weather_service):
     """Should handle API errors gracefully."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             # __aexit__ must return None/False to propagate exceptions
@@ -229,22 +218,16 @@ def test_get_condition_text_default(weather_service):
 @pytest.mark.asyncio
 async def test_get_current_weather_includes_all_fields(weather_service):
     """Weather response should include all expected fields."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {
-            "current": {
-                "temperature_2m": 22.0,
-                "weather_code": 61,
-                "is_day": 0
-            }
-        }
+        mock_response.json.return_value = {"current": {"temperature_2m": 22.0, "weather_code": 61, "is_day": 0}}
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock()
@@ -266,7 +249,7 @@ async def test_get_current_weather_includes_all_fields(weather_service):
 @pytest.mark.asyncio
 async def test_get_daily_sun_times_uses_local_timezone(weather_service):
     """Sun times should request local timezone from Open-Meteo."""
-    with patch('app.services.weather_service.settings') as mock_settings:
+    with patch("app.services.weather_service.settings") as mock_settings:
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -274,14 +257,10 @@ async def test_get_daily_sun_times_uses_local_timezone(weather_service):
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = {
-            "daily": {
-                "time": ["2026-02-01"],
-                "sunrise": ["2026-02-01T07:01"],
-                "sunset": ["2026-02-01T17:13"]
-            }
+            "daily": {"time": ["2026-02-01"], "sunrise": ["2026-02-01T07:01"], "sunset": ["2026-02-01T17:13"]}
         }
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock()

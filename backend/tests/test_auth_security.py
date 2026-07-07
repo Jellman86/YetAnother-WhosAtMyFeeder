@@ -38,6 +38,7 @@ def reset_auth_config():
 def enable_rate_limiting():
     """Enable rate limiting for specific tests."""
     from app.ratelimit import limiter
+
     # Reset in-memory counters so prior tests don't bleed rate-limit state
     if hasattr(limiter, "_storage") and hasattr(limiter._storage, "reset"):
         limiter._storage.reset()
@@ -61,18 +62,12 @@ class TestLoginRateLimiting:
 
         # Make 5 attempts (should all succeed or fail normally)
         for i in range(5):
-            response = await client.post("/api/auth/login", json={
-                "username": "admin",
-                "password": f"wrong{i}"
-            })
+            response = await client.post("/api/auth/login", json={"username": "admin", "password": f"wrong{i}"})
             # Should get 401 (wrong password) not 429 (rate limited)
             assert response.status_code == 401
 
         # 6th attempt should be rate limited
-        response = await client.post("/api/auth/login", json={
-            "username": "admin",
-            "password": "wrong6"
-        })
+        response = await client.post("/api/auth/login", json={"username": "admin", "password": "wrong6"})
         assert response.status_code == 429
         assert "Rate limit exceeded" in response.json()["detail"]
         assert "Retry-After" in response.headers
@@ -110,10 +105,7 @@ class TestInputValidation:
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = await client.post("/api/auth/login", json={
-            "username": "admin<script>",
-            "password": "test123A"
-        })
+        response = await client.post("/api/auth/login", json={"username": "admin<script>", "password": "test123A"})
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("Username must contain only" in str(err) for err in errors)
@@ -124,10 +116,7 @@ class TestInputValidation:
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = await client.post("/api/auth/login", json={
-            "username": "admin user",
-            "password": "test123A"
-        })
+        response = await client.post("/api/auth/login", json={"username": "admin user", "password": "test123A"})
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -136,10 +125,13 @@ class TestInputValidation:
         settings.auth.enabled = True
         settings.auth.password_hash = hash_password("test123A")
 
-        response = await client.post("/api/auth/login", json={
-            "username": "a" * 51,  # 51 chars, max is 50
-            "password": "test123A"
-        })
+        response = await client.post(
+            "/api/auth/login",
+            json={
+                "username": "a" * 51,  # 51 chars, max is 50
+                "password": "test123A",
+            },
+        )
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -147,11 +139,14 @@ class TestInputValidation:
         """Test that initial setup rejects short passwords."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin",
-            "password": "short",  # Less than 8 chars
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup",
+            json={
+                "username": "admin",
+                "password": "short",  # Less than 8 chars
+                "enable_auth": True,
+            },
+        )
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("at least 8 characters" in str(err) for err in errors)
@@ -161,11 +156,14 @@ class TestInputValidation:
         """Test that initial setup rejects passwords without letters."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin",
-            "password": "12345678",  # Only numbers
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup",
+            json={
+                "username": "admin",
+                "password": "12345678",  # Only numbers
+                "enable_auth": True,
+            },
+        )
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("at least one letter and one number" in str(err) for err in errors)
@@ -175,11 +173,14 @@ class TestInputValidation:
         """Test that initial setup rejects passwords without numbers."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin",
-            "password": "abcdefgh",  # Only letters
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup",
+            json={
+                "username": "admin",
+                "password": "abcdefgh",  # Only letters
+                "enable_auth": True,
+            },
+        )
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("at least one letter and one number" in str(err) for err in errors)
@@ -189,11 +190,14 @@ class TestInputValidation:
         """Test that valid passwords are accepted."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin",
-            "password": "test123A",  # Valid: 8 chars, letter + number
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup",
+            json={
+                "username": "admin",
+                "password": "test123A",  # Valid: 8 chars, letter + number
+                "enable_auth": True,
+            },
+        )
         assert response.status_code == 200
 
     @pytest.mark.asyncio
@@ -201,11 +205,9 @@ class TestInputValidation:
         """Test username validation in initial setup."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin@#$",
-            "password": "test123A",
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup", json={"username": "admin@#$", "password": "test123A", "enable_auth": True}
+        )
         assert response.status_code == 422
         errors = response.json()["detail"]
         assert any("Username must contain only" in str(err) for err in errors)
@@ -257,10 +259,7 @@ class TestAuditLogging:
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        response = await client.post("/api/auth/login", json={
-            "username": "admin",
-            "password": "test123A"
-        })
+        response = await client.post("/api/auth/login", json={"username": "admin", "password": "test123A"})
         assert response.status_code == 200
 
         # Check for audit log in stdout/stderr
@@ -275,10 +274,7 @@ class TestAuditLogging:
         settings.auth.username = "admin"
         settings.auth.password_hash = hash_password("test123A")
 
-        response = await client.post("/api/auth/login", json={
-            "username": "admin",
-            "password": "wrongpass"
-        })
+        response = await client.post("/api/auth/login", json={"username": "admin", "password": "wrongpass"})
         assert response.status_code == 401
 
         # Check for audit log
@@ -291,11 +287,9 @@ class TestAuditLogging:
         """Test that initial setup is logged."""
         settings.auth.password_hash = None
 
-        response = await client.post("/api/auth/initial-setup", json={
-            "username": "admin",
-            "password": "test123A",
-            "enable_auth": True
-        })
+        response = await client.post(
+            "/api/auth/initial-setup", json={"username": "admin", "password": "test123A", "enable_auth": True}
+        )
         assert response.status_code == 200
 
         # Check for audit log

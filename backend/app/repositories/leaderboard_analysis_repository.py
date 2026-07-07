@@ -37,7 +37,7 @@ class LeaderboardAnalysisRepository:
         async with self.db.execute(
             """SELECT id, config_key, config_json, analysis, analysis_timestamp, created_at
                FROM leaderboard_analyses WHERE config_key = ?""",
-            (config_key,)
+            (config_key,),
         ) as cursor:
             row = await cursor.fetchone()
         if not row:
@@ -48,7 +48,7 @@ class LeaderboardAnalysisRepository:
             config_json=row[2],
             analysis=row[3],
             analysis_timestamp=_parse_datetime(row[4]) if row[4] else datetime.now(),
-            created_at=_parse_datetime(row[5]) if row[5] else datetime.now()
+            created_at=_parse_datetime(row[5]) if row[5] else datetime.now(),
         )
 
     async def upsert_analysis(self, config_key: str, config_json: dict, analysis: str, timestamp: datetime):
@@ -61,6 +61,6 @@ class LeaderboardAnalysisRepository:
                    analysis = excluded.analysis,
                    analysis_timestamp = excluded.analysis_timestamp
             """,
-            (config_key, config_str, analysis, timestamp, timestamp)
+            (config_key, config_str, analysis, timestamp, timestamp),
         )
         await self.db.commit()

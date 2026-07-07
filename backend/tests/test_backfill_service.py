@@ -85,9 +85,7 @@ async def test_process_historical_event_returns_invalid_score_for_nan_classifier
 @pytest.mark.asyncio
 async def test_process_historical_event_passes_frigate_score_into_filtering(monkeypatch):
     classifier = MagicMock()
-    classifier.classify_async_background = AsyncMock(
-        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
-    )
+    classifier.classify_async_background = AsyncMock(return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}])
     service = BackfillService(classifier)
 
     image = Image.new("RGB", (8, 8), color="white")
@@ -136,9 +134,7 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
 @pytest.mark.asyncio
 async def test_process_historical_event_caches_snapshot_and_schedules_high_quality_upgrade(monkeypatch):
     classifier = MagicMock()
-    classifier.classify_async_background = AsyncMock(
-        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
-    )
+    classifier.classify_async_background = AsyncMock(return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}])
     service = BackfillService(classifier)
 
     image = Image.new("RGB", (8, 8), color="white")
@@ -197,9 +193,7 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
 @pytest.mark.asyncio
 async def test_process_historical_event_uses_extended_background_queue_timeout(monkeypatch):
     classifier = MagicMock()
-    classifier.classify_async_background = AsyncMock(
-        return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}]
-    )
+    classifier.classify_async_background = AsyncMock(return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}])
     service = BackfillService(classifier)
 
     image = Image.new("RGB", (8, 8), color="white")

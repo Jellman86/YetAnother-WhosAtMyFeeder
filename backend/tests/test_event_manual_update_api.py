@@ -94,9 +94,11 @@ async def test_manual_update_treats_localized_alias_of_same_species_as_unchanged
     await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 
     try:
-        with patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock()) as mock_get_names, \
-             patch("app.routers.events.audio_service.correlate_species", new=AsyncMock()) as mock_audio, \
-             patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as mock_broadcast:
+        with (
+            patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock()) as mock_get_names,
+            patch("app.routers.events.audio_service.correlate_species", new=AsyncMock()) as mock_audio,
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as mock_broadcast,
+        ):
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Herrerillo com\u00fan"},
@@ -139,16 +141,22 @@ async def test_manual_update_writes_classification_feedback_row(client: httpx.As
     await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 
     try:
-        with patch(
-            "app.routers.events.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": 145252}),
-        ) as mock_get_names, patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ) as mock_audio, patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
-        ) as mock_broadcast:
+        with (
+            patch(
+                "app.routers.events.taxonomy_service.get_names",
+                new=AsyncMock(
+                    return_value={"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": 145252}
+                ),
+            ) as mock_get_names,
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ) as mock_audio,
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ) as mock_broadcast,
+        ):
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Great Tit"},
@@ -194,7 +202,9 @@ async def test_manual_update_writes_classification_feedback_row(client: httpx.As
 
 
 @pytest.mark.asyncio
-async def test_manual_update_backfills_canonical_common_name_from_cache_when_taxonomy_is_partial(client: httpx.AsyncClient):
+async def test_manual_update_backfills_canonical_common_name_from_cache_when_taxonomy_is_partial(
+    client: httpx.AsyncClient,
+):
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
@@ -211,18 +221,23 @@ async def test_manual_update_backfills_canonical_common_name_from_cache_when_tax
             )
             await db.commit()
 
-        with patch(
-            "app.routers.events.DetectionRepository.resolve_species_aliases",
-            new=AsyncMock(return_value={}),
-        ), patch(
-            "app.routers.events.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None}),
-        ) as mock_get_names, patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ), patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
+        with (
+            patch(
+                "app.routers.events.DetectionRepository.resolve_species_aliases",
+                new=AsyncMock(return_value={}),
+            ),
+            patch(
+                "app.routers.events.taxonomy_service.get_names",
+                new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": None, "taxa_id": None}),
+            ) as mock_get_names,
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ),
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ),
         ):
             response = await client.patch(
                 f"/api/events/{event_id}",
@@ -268,19 +283,24 @@ async def test_manual_update_rejects_parenthetical_variant_of_blocked_species(cl
     await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 
     try:
-        with patch(
-            "app.routers.events.DetectionRepository.resolve_species_aliases",
-            new=AsyncMock(return_value={}),
-        ), patch(
-            "app.routers.events.taxonomy_service.get_names",
-            new=AsyncMock(return_value={}),
-        ), patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ) as mock_audio, patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
-        ) as mock_broadcast:
+        with (
+            patch(
+                "app.routers.events.DetectionRepository.resolve_species_aliases",
+                new=AsyncMock(return_value={}),
+            ),
+            patch(
+                "app.routers.events.taxonomy_service.get_names",
+                new=AsyncMock(return_value={}),
+            ),
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ) as mock_audio,
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ) as mock_broadcast,
+        ):
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Cassin's Finch (Adult Male)"},
@@ -288,7 +308,10 @@ async def test_manual_update_rejects_parenthetical_variant_of_blocked_species(cl
             )
 
         assert response.status_code == 422, response.text
-        assert response.json()["detail"] == "This species is on your blocked labels list. Remove it from the blocklist first."
+        assert (
+            response.json()["detail"]
+            == "This species is on your blocked labels list. Remove it from the blocklist first."
+        )
         mock_audio.assert_not_awaited()
         mock_broadcast.assert_not_awaited()
     finally:
@@ -312,19 +335,30 @@ async def test_manual_update_rejects_structured_blocked_species(client: httpx.As
     await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 
     try:
-        with patch(
-            "app.routers.events.DetectionRepository.resolve_species_aliases",
-            new=AsyncMock(return_value={}),
-        ), patch(
-            "app.routers.events.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Haemorhous cassinii", "common_name": "Cassin's Finch", "taxa_id": 4567}),
-        ), patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ) as mock_audio, patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
-        ) as mock_broadcast:
+        with (
+            patch(
+                "app.routers.events.DetectionRepository.resolve_species_aliases",
+                new=AsyncMock(return_value={}),
+            ),
+            patch(
+                "app.routers.events.taxonomy_service.get_names",
+                new=AsyncMock(
+                    return_value={
+                        "scientific_name": "Haemorhous cassinii",
+                        "common_name": "Cassin's Finch",
+                        "taxa_id": 4567,
+                    }
+                ),
+            ),
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ) as mock_audio,
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ) as mock_broadcast,
+        ):
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Cassin's Finch"},
@@ -332,7 +366,10 @@ async def test_manual_update_rejects_structured_blocked_species(client: httpx.As
             )
 
         assert response.status_code == 422, response.text
-        assert response.json()["detail"] == "This species is on your blocked labels list. Remove it from the blocklist first."
+        assert (
+            response.json()["detail"]
+            == "This species is on your blocked labels list. Remove it from the blocklist first."
+        )
         mock_audio.assert_not_awaited()
         mock_broadcast.assert_not_awaited()
     finally:
@@ -358,16 +395,26 @@ async def test_bulk_manual_update_applies_same_species_to_multiple_events(client
             )
             await db.commit()
 
-        with patch(
-            "app.routers.events.taxonomy_service.get_names",
-            new=AsyncMock(return_value={"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": replacement_taxa_id}),
-        ) as mock_get_names, patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ) as mock_audio, patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
-        ) as mock_broadcast:
+        with (
+            patch(
+                "app.routers.events.taxonomy_service.get_names",
+                new=AsyncMock(
+                    return_value={
+                        "scientific_name": "Parus major",
+                        "common_name": "Great Tit",
+                        "taxa_id": replacement_taxa_id,
+                    }
+                ),
+            ) as mock_get_names,
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ) as mock_audio,
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ) as mock_broadcast,
+        ):
             response = await client.patch(
                 "/api/events/bulk/manual-tag",
                 json={"event_ids": event_ids, "display_name": "Great Tit"},
@@ -427,10 +474,12 @@ async def test_bulk_manual_update_reports_partial_failures_without_aborting_batc
     try:
         with patch(
             "app.routers.events._apply_manual_tag_update",
-            new=AsyncMock(side_effect=[
-                {"status": "updated", "event_id": event_ids[0], "new_species": "Great Tit"},
-                RuntimeError("boom"),
-            ]),
+            new=AsyncMock(
+                side_effect=[
+                    {"status": "updated", "event_id": event_ids[0], "new_species": "Great Tit"},
+                    RuntimeError("boom"),
+                ]
+            ),
         ):
             response = await client.patch(
                 "/api/events/bulk/manual-tag",
@@ -462,13 +511,16 @@ async def test_manual_update_rejects_noncanonical_model_group_labels(client: htt
     await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 
     try:
-        with patch(
-            "app.routers.events.audio_service.correlate_species",
-            new=AsyncMock(return_value=(False, None, None)),
-        ) as mock_audio, patch(
-            "app.routers.events.broadcaster.broadcast",
-            new=AsyncMock(),
-        ) as mock_broadcast:
+        with (
+            patch(
+                "app.routers.events.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ) as mock_audio,
+            patch(
+                "app.routers.events.broadcaster.broadcast",
+                new=AsyncMock(),
+            ) as mock_broadcast,
+        ):
             response = await client.patch(
                 f"/api/events/{event_id}",
                 json={"display_name": "Great tit and allies"},

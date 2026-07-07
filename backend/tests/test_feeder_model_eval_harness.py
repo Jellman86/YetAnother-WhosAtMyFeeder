@@ -18,7 +18,7 @@ def test_load_manifest_reads_required_species_and_optional_context(tmp_path: Pat
     manifest_path = tmp_path / "manifest.csv"
     manifest_path.write_text(
         "image_path,expected_common_name,expected_scientific_name,taxa_id,camera_name,source_kind,tags,notes\n"
-        "snap.jpg,Blue Tit,Cyanistes caeruleus,14600,feeder,frigate_snapshot,\"small,side\",clear view\n",
+        'snap.jpg,Blue Tit,Cyanistes caeruleus,14600,feeder,frigate_snapshot,"small,side",clear view\n',
         encoding="utf-8",
     )
 
@@ -102,16 +102,22 @@ def test_score_predictions_matches_common_qualifier_variants_and_aliases() -> No
         expected_aliases=["Fringilla coelebs"],
     )
 
-    assert harness.score_predictions(
-        blue_tit,
-        predictions=[{"label": "Eurasian blue tit", "score": 0.85}],
-        high_confidence_unknown_threshold=0.9,
-    ).top1_correct is True
-    assert harness.score_predictions(
-        chaffinch,
-        predictions=[{"label": "Common chaffinch", "score": 0.89}],
-        high_confidence_unknown_threshold=0.9,
-    ).top1_correct is True
+    assert (
+        harness.score_predictions(
+            blue_tit,
+            predictions=[{"label": "Eurasian blue tit", "score": 0.85}],
+            high_confidence_unknown_threshold=0.9,
+        ).top1_correct
+        is True
+    )
+    assert (
+        harness.score_predictions(
+            chaffinch,
+            predictions=[{"label": "Common chaffinch", "score": 0.89}],
+            high_confidence_unknown_threshold=0.9,
+        ).top1_correct
+        is True
+    )
 
 
 def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
@@ -352,7 +358,9 @@ def test_generate_manifest_skips_unknown_and_missing_snapshots_by_default(tmp_pa
     (cache_dir / "snapshots").mkdir(parents=True)
     (cache_dir / "snapshots" / "event-unknown.jpg").write_bytes(b"fake")
     _create_detection_db(db_path)
-    _insert_detection(db_path, id=1, frigate_event="event-unknown", common_name="Unknown Bird", display_name="Unknown Bird")
+    _insert_detection(
+        db_path, id=1, frigate_event="event-unknown", common_name="Unknown Bird", display_name="Unknown Bird"
+    )
     _insert_detection(db_path, id=2, frigate_event="event-missing", common_name="Great Tit", display_name="Great Tit")
     manifest_path = tmp_path / "manifest.csv"
 

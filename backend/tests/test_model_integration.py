@@ -26,6 +26,7 @@ from PIL import Image
 
 try:
     import onnxruntime as ort
+
     ORT_AVAILABLE = True
 except ImportError:
     ORT_AVAILABLE = False
@@ -37,10 +38,12 @@ pytestmark = pytest.mark.skipif(not ORT_AVAILABLE, reason="onnxruntime not insta
 # Paths
 # ---------------------------------------------------------------------------
 
+
 def _models_dir() -> Path:
     if os.path.exists("/data/models"):
         return Path("/data/models")
     return Path(__file__).resolve().parent.parent / "data" / "models"
+
 
 _FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 _IMAGES_DIR = _FIXTURES_DIR / "bird_images"
@@ -51,6 +54,7 @@ _DOWNLOADED_PATH = _IMAGES_DIR / "downloaded.json"
 # ---------------------------------------------------------------------------
 # Preprocessing (mirrors eval_model_accuracy.py)
 # ---------------------------------------------------------------------------
+
 
 def _preprocess(img_path: Path, config: dict) -> np.ndarray:
     pre = config.get("preprocessing", {})
@@ -102,6 +106,7 @@ def _predict_top_n(session: ort.InferenceSession, tensor: np.ndarray, labels: li
 # Load manifest and discover test parameters
 # ---------------------------------------------------------------------------
 
+
 def _load_installed_models() -> dict[str, dict[str, Any]]:
     base = _models_dir()
     models: dict[str, dict[str, Any]] = {}
@@ -150,10 +155,7 @@ def _labels_cover_case(model_labels: list[str], acceptable_labels: list[str]) ->
     """
     norm_model = [_normalise(label) for label in model_labels]
     norm_acceptable = [_normalise(a) for a in acceptable_labels]
-    return any(
-        any(acc in pred or pred in acc for pred in norm_model)
-        for acc in norm_acceptable
-    )
+    return any(any(acc in pred or pred in acc for pred in norm_model) for acc in norm_acceptable)
 
 
 def _build_test_params() -> list[tuple]:
@@ -186,18 +188,21 @@ def _build_test_params() -> list[tuple]:
                 img_path = Path(img_record.get("path", ""))
                 if not img_path.exists():
                     continue
-                params.append(pytest.param(
-                    model_id,
-                    img_path,
-                    case["acceptable_labels"],
-                    case.get("min_top_n", 5),
-                    id=f"{model_id}__{case_id}__{img_path.stem}",
-                ))
+                params.append(
+                    pytest.param(
+                        model_id,
+                        img_path,
+                        case["acceptable_labels"],
+                        case.get("min_top_n", 5),
+                        id=f"{model_id}__{case_id}__{img_path.stem}",
+                    )
+                )
     return params
 
 
 _TEST_PARAMS = _build_test_params()
 _INSTALLED_MODELS = _load_installed_models()
+
 
 # Session cache — load each model once
 @pytest.fixture(scope="module")
@@ -212,16 +217,14 @@ def sessions() -> dict[str, ort.InferenceSession]:
         so.intra_op_num_threads = 4
         so.inter_op_num_threads = 2
         so.log_severity_level = 3
-        result[model_id] = ort.InferenceSession(
-            str(model_dir / "model.onnx"), so,
-            providers=["CPUExecutionProvider"]
-        )
+        result[model_id] = ort.InferenceSession(str(model_dir / "model.onnx"), so, providers=["CPUExecutionProvider"])
     return result
 
 
 # ---------------------------------------------------------------------------
 # Correctness tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not _TEST_PARAMS, reason="No fixture images found — run scripts/download_test_fixtures.py first")
 @pytest.mark.parametrize("model_id,img_path,acceptable_labels,min_top_n", _TEST_PARAMS)
@@ -243,10 +246,7 @@ def test_model_identifies_labeled_bird(
     top_labels_norm = [_normalise(p["label"]) for p in predictions[:min_top_n]]
     acceptable_norm = [_normalise(a) for a in acceptable_labels]
 
-    matched = any(
-        any(acc in pred or pred in acc for pred in top_labels_norm)
-        for acc in acceptable_norm
-    )
+    matched = any(any(acc in pred or pred in acc for pred in top_labels_norm) for acc in acceptable_norm)
 
     if not matched:
         top5_str = ", ".join(f"{p['label']} ({p['score']:.3f})" for p in predictions[:5])
@@ -260,6 +260,7 @@ def test_model_identifies_labeled_bird(
 # ---------------------------------------------------------------------------
 # Rejection tests (synthetic images)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not _INSTALLED_MODELS, reason="No installed models found")
 @pytest.mark.parametrize("model_id", list(_INSTALLED_MODELS.keys()))
@@ -310,6 +311,4 @@ def test_noise_image_does_not_produce_uniform_output(model_id: str, sessions: di
 
     # If output is uniform, std would be near 0
     std = float(np.std(probs))
-    assert std > 1e-5, (
-        f"{model_id}: output probabilities have std={std:.2e} — model may be outputting constants"
-    )
+    assert std > 1e-5, f"{model_id}: output probabilities have std={std:.2e} — model may be outputting constants"

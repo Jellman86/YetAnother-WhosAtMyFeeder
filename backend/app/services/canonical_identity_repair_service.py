@@ -61,7 +61,10 @@ class CanonicalIdentityRepairService:
 
         if status.get("is_running"):
             progress_state = "running"
-            if isinstance(seconds_since_progress, (int, float)) and seconds_since_progress >= TAXONOMY_PROGRESS_STALLED_SECONDS:
+            if (
+                isinstance(seconds_since_progress, (int, float))
+                and seconds_since_progress >= TAXONOMY_PROGRESS_STALLED_SECONDS
+            ):
                 progress_state = "stalled"
                 message = message or "Taxonomy repair is still running but progress appears stalled"
             else:

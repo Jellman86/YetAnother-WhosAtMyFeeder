@@ -36,6 +36,7 @@ except ImportError:
 # ONNX runtime (for high-accuracy models)
 try:
     import onnxruntime as ort
+
     ONNX_AVAILABLE = True
 except ImportError:
     ort = None
@@ -56,6 +57,7 @@ def _preload_onnxruntime_cuda_runtime_libraries() -> None:
     if not callable(preload_dlls):
         return
     preload_dlls(directory="")
+
 
 def _detect_openvino_support() -> dict:
     """Resolve OpenVINO Core import across package versions.
@@ -196,7 +198,9 @@ CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER = max(
     1.0,
     float(os.getenv("CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER", "1.25")),
 )
-LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT = os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
+LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT = (
+    os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
+)
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -355,7 +359,10 @@ def _invoke_model_classify(
         return classify_fn(image, input_context=normalized_input_context)
     except TypeError as exc:
         error_text = str(exc)
-        if "unexpected keyword argument 'input_context'" not in error_text and 'unexpected keyword argument "input_context"' not in error_text:
+        if (
+            "unexpected keyword argument 'input_context'" not in error_text
+            and 'unexpected keyword argument "input_context"' not in error_text
+        ):
             raise
         return classify_fn(image)
 
@@ -442,7 +449,7 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
         models = data.get("models") or {}
         union: set[str] = set()
         for provs in models.values():
-            for p in (provs or []):
+            for p in provs or []:
                 union.add(str(p).strip().lower())
         return {
             "verified_providers": sorted(union),
@@ -513,7 +520,7 @@ def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
             nan_count=nan_count,
             pos_inf_count=pos_inf_count,
             neg_inf_count=neg_inf_count,
-            total_elements=logits.size
+            total_elements=logits.size,
         )
         if not _strict_non_finite_output_enabled():
             log.warning(
@@ -607,10 +614,7 @@ def _resolve_grouped_labels(
 
 def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) -> bool:
     normalized = _normalize_inference_provider(provider)
-    allowed = {
-        _normalize_inference_provider(item)
-        for item in (spec or {}).get("supported_inference_providers") or []
-    }
+    allowed = {_normalize_inference_provider(item) for item in (spec or {}).get("supported_inference_providers") or []}
     allowed.discard("auto")
     return not allowed or normalized in allowed
 
@@ -869,9 +873,7 @@ def _detect_acceleration_capabilities() -> dict:
                     if not cuda_probe.get("ok"):
                         caps["cuda_probe_error"] = cuda_probe.get("error") or "CUDA provider probe failed"
             caps["cuda_available"] = bool(
-                caps["cuda_provider_installed"]
-                and caps["cuda_hardware_available"]
-                and not caps["cuda_probe_error"]
+                caps["cuda_provider_installed"] and caps["cuda_hardware_available"] and not caps["cuda_probe_error"]
             )
         except Exception as e:
             log.warning("Failed to inspect ONNX Runtime providers", error=str(e))
@@ -1391,10 +1393,7 @@ def _summarize_openvino_load_error(
     prefix = f"OpenVINO {device} could not compile this model on this host"
     unsupported_ops = _extract_openvino_unsupported_ops(error_text)
     if unsupported_ops:
-        return (
-            f"{prefix} (unsupported ONNX ops: {', '.join(unsupported_ops)}); "
-            f"using {fallback_target}."
-        )
+        return f"{prefix} (unsupported ONNX ops: {', '.join(unsupported_ops)}); using {fallback_target}."
 
     raw = (error_text or "").strip()
     if raw.lower().startswith("failed to load openvino model:"):
@@ -1404,12 +1403,13 @@ def _summarize_openvino_load_error(
         snippet = snippet[:217] + "..."
     return f"{prefix}: {snippet}; using {fallback_target}."
 
+
 # Global singleton instance
-_classifier_instance: Optional['ClassifierService'] = None
+_classifier_instance: Optional["ClassifierService"] = None
 _classifier_lock = threading.Lock()
 
 
-def get_classifier() -> 'ClassifierService':
+def get_classifier() -> "ClassifierService":
     """Get the shared classifier service instance (thread-safe)."""
     global _classifier_instance
     if _classifier_instance is None:
@@ -1429,7 +1429,7 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
-def resolve_live_classifier(stored: Any) -> 'ClassifierService':
+def resolve_live_classifier(stored: Any) -> "ClassifierService":
     """Return the current live ClassifierService, repairing a stale cached ref.
 
     Consumers that cached the classifier singleton at startup (EventProcessor,
@@ -1493,8 +1493,10 @@ class ModelInstance:
             # Load labels first
             if os.path.exists(self.labels_path):
                 try:
-                    with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
-                        self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
+                    with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
+                        self.labels = normalize_classifier_labels(
+                            line.strip() for line in f.readlines() if line.strip()
+                        )
                     strategy = str(self.label_grouping.get("strategy") or "").strip()
                     if strategy:
                         self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
@@ -1549,7 +1551,7 @@ class ModelInstance:
         """
         # Get expected input size from model
         input_details = self.input_details[0]
-        input_shape = input_details['shape']
+        input_shape = input_details["shape"]
 
         # Shape is typically [1, height, width, 3] for image models
         if len(input_shape) == 4:
@@ -1561,7 +1563,7 @@ class ModelInstance:
         input_data = self._preprocess_image(image, target_width, target_height)
 
         # Normalize based on model input type
-        if input_details['dtype'] == np.float32:
+        if input_details["dtype"] == np.float32:
             spec_mean = self.preprocessing.get("mean")
             spec_std = self.preprocessing.get("std")
             if spec_mean is not None or spec_std is not None:
@@ -1572,7 +1574,7 @@ class ModelInstance:
             else:
                 # Legacy MobileNet-style: maps [0, 255] to [-1, 1] via (x / 127.5) - 1
                 input_data = (input_data - 127.5) / 127.5
-        elif input_details['dtype'] == np.uint8:
+        elif input_details["dtype"] == np.uint8:
             input_data = input_data.astype(np.uint8)
 
         # Add batch dimension
@@ -1580,20 +1582,20 @@ class ModelInstance:
 
         # Run inference protected by lock
         with self._lock:
-            self.interpreter.set_tensor(input_details['index'], input_data)
+            self.interpreter.set_tensor(input_details["index"], input_data)
             self.interpreter.invoke()
 
             # Get output
             output_details = self.output_details[0]
-            output_data = self.interpreter.get_tensor(output_details['index'])
+            output_data = self.interpreter.get_tensor(output_details["index"])
 
         results = np.squeeze(output_data).astype(np.float32)
 
         # Dequantize if needed
-        if output_details['dtype'] == np.uint8:
-            quant_params = output_details.get('quantization_parameters', {})
-            scales = quant_params.get('scales', None)
-            zero_points = quant_params.get('zero_points', None)
+        if output_details["dtype"] == np.uint8:
+            quant_params = output_details.get("quantization_parameters", {})
+            scales = quant_params.get("scales", None)
+            zero_points = quant_params.get("zero_points", None)
 
             if scales is not None and len(scales) > 0:
                 scale = scales[0]
@@ -1733,7 +1735,7 @@ class ONNXModelInstance:
         # Load labels first
         if os.path.exists(self.labels_path):
             try:
-                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
+                with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
                     self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
                 strategy = str(self.label_grouping.get("strategy") or "").strip()
                 if strategy:
@@ -2043,7 +2045,7 @@ class OpenVINOModelInstance:
 
         if os.path.exists(self.labels_path):
             try:
-                with open(self.labels_path, 'r', encoding='utf-8', errors='replace') as f:
+                with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
                     self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
                 strategy = str(self.label_grouping.get("strategy") or "").strip()
                 if strategy:
@@ -2059,22 +2061,19 @@ class OpenVINOModelInstance:
 
         try:
             self.core = OpenVINOCore()
-            
+
             # Enable caching so GPU model compilation isn't repeated from scratch
             # on every worker process startup, avoiding readiness timeouts.
             cache_dir = os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache")
             os.makedirs(cache_dir, exist_ok=True)
             self.core.set_property({"CACHE_DIR": cache_dir})
-            
+
             model = self.core.read_model(self.model_path)
-            
-            # Intel GPUs default to f16 inference precision. Un-quantized ONNX models 
-            # often have intermediate activations >65504, which overflow f16, resulting 
+
+            # Intel GPUs default to f16 inference precision. Un-quantized ONNX models
+            # often have intermediate activations >65504, which overflow f16, resulting
             # in non-finite logits (NaN/inf) and crashing the strict softmax pipeline.
-            config = {
-                "PERFORMANCE_HINT": "LATENCY",
-                "NUM_STREAMS": "1"
-            }
+            config = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
             _is_gpu = self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
             _is_npu = self.device_name == "NPU" or str(self.device_name).startswith("NPU.")
             if _is_gpu or _is_npu:
@@ -2106,7 +2105,12 @@ class OpenVINOModelInstance:
                 self._run_gpu_startup_self_test()
             self.loaded = True
             self.error = None
-            log.info("OpenVINO model loaded successfully", model=self.name, device=self.device_name, input_size=self.input_size)
+            log.info(
+                "OpenVINO model loaded successfully",
+                model=self.name,
+                device=self.device_name,
+                input_size=self.input_size,
+            )
             return True
         except InvalidInferenceOutputError as exc:
             self.error = f"Failed OpenVINO model startup self-test: {exc.detail}"
@@ -2309,9 +2313,9 @@ class ClassifierService:
         self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
         self._worker_process_mode = bool(worker_process_mode)
-        configured_mode = str(
-            getattr(settings.classification, "image_execution_mode", "in_process") or "in_process"
-        ).strip().lower()
+        configured_mode = (
+            str(getattr(settings.classification, "image_execution_mode", "in_process") or "in_process").strip().lower()
+        )
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._bird_crop_service = bird_crop_service
@@ -2332,11 +2336,11 @@ class ClassifierService:
             live_admission_capacity = int(
                 getattr(settings.classification, "live_worker_count", image_workers) or image_workers
             )
-            background_admission_capacity = int(
-                getattr(settings.classification, "background_worker_count", 1) or 1
-            )
+            background_admission_capacity = int(getattr(settings.classification, "background_worker_count", 1) or 1)
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
-        self._live_image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_live_image_worker")
+        self._live_image_executor = ThreadPoolExecutor(
+            max_workers=image_workers, thread_name_prefix="ml_live_image_worker"
+        )
         self._background_image_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ml_background_worker")
         self._video_executor = ThreadPoolExecutor(max_workers=video_workers, thread_name_prefix="ml_video_worker")
         self._image_admission_timeouts = 0
@@ -2369,14 +2373,20 @@ class ClassifierService:
                 ),
             )
             self._classifier_supervisor = ClassifierSupervisor(
-                live_worker_count=int(getattr(settings.classification, "live_worker_count", image_workers) or image_workers),
+                live_worker_count=int(
+                    getattr(settings.classification, "live_worker_count", image_workers) or image_workers
+                ),
                 background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
                 video_worker_count=video_workers,
-                heartbeat_timeout_seconds=float(getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0),
+                heartbeat_timeout_seconds=float(
+                    getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0
+                ),
                 hard_deadline_seconds=image_hard_deadline_seconds,
                 background_hard_deadline_seconds=background_hard_deadline_seconds,
                 video_hard_deadline_seconds=max(image_hard_deadline_seconds, video_timeout_seconds + 15.0),
-                worker_ready_timeout_seconds=float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
+                worker_ready_timeout_seconds=float(
+                    getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0
+                ),
                 video_worker_ready_timeout_seconds=max(
                     float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
                     min(60.0, max(30.0, video_timeout_seconds / 2.0)),
@@ -2532,7 +2542,9 @@ class ClassifierService:
     ) -> dict[str, Any]:
         active_model = self._active_openvino_model()
         snapshot = {
-            "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
+            "selected_provider": _normalize_inference_provider(
+                getattr(settings.classification, "inference_provider", "auto")
+            ),
             "active_provider": active_provider,
             "inference_backend": active_backend,
             "model": self._runtime_model_snapshot(),
@@ -2604,9 +2616,7 @@ class ClassifierService:
 
         if backend == "onnxruntime":
             ort_providers = (
-                ["CUDAExecutionProvider", "CPUExecutionProvider"]
-                if provider == "cuda"
-                else ["CPUExecutionProvider"]
+                ["CUDAExecutionProvider", "CPUExecutionProvider"] if provider == "cuda" else ["CPUExecutionProvider"]
             )
             model = ONNXModelInstance(
                 "bird",
@@ -2723,9 +2733,7 @@ class ClassifierService:
 
         if backend == "onnxruntime":
             providers = (
-                ["CUDAExecutionProvider", "CPUExecutionProvider"]
-                if provider == "cuda"
-                else ["CPUExecutionProvider"]
+                ["CUDAExecutionProvider", "CPUExecutionProvider"] if provider == "cuda" else ["CPUExecutionProvider"]
             )
             model = ONNXModelInstance(
                 "bird",
@@ -2802,56 +2810,68 @@ class ClassifierService:
 
             gpu_latency, gpu_report = self._benchmark_model_probe(candidate_model, image)
             cpu_latency, cpu_report = self._benchmark_model_probe(cpu_model, image)
-            benchmark.update({
-                "candidate_latency_seconds": gpu_latency,
-                "baseline_latency_seconds": cpu_latency,
-                "gpu_latency_seconds": gpu_latency,
-                "cpu_latency_seconds": cpu_latency,
-                "candidate_status": gpu_report.get("status"),
-                "baseline_status": cpu_report.get("status"),
-                "gpu_status": gpu_report.get("status"),
-                "cpu_status": cpu_report.get("status"),
-                "candidate_probe": gpu_report,
-                "baseline_probe": cpu_report,
-                "gpu_probe": gpu_report,
-                "cpu_probe": cpu_report,
-            })
+            benchmark.update(
+                {
+                    "candidate_latency_seconds": gpu_latency,
+                    "baseline_latency_seconds": cpu_latency,
+                    "gpu_latency_seconds": gpu_latency,
+                    "cpu_latency_seconds": cpu_latency,
+                    "candidate_status": gpu_report.get("status"),
+                    "baseline_status": cpu_report.get("status"),
+                    "gpu_status": gpu_report.get("status"),
+                    "cpu_status": cpu_report.get("status"),
+                    "candidate_probe": gpu_report,
+                    "baseline_probe": cpu_report,
+                    "gpu_probe": gpu_report,
+                    "cpu_probe": cpu_report,
+                }
+            )
             if gpu_report.get("status") != "ok":
-                benchmark.update({
-                    "status": "failed",
-                    "should_mount": False,
-                    "reason": "candidate_probe_failed",
-                })
+                benchmark.update(
+                    {
+                        "status": "failed",
+                        "should_mount": False,
+                        "reason": "candidate_probe_failed",
+                    }
+                )
                 return self._record_runtime_benchmark(benchmark)
             if cpu_report.get("status") != "ok" or cpu_latency <= 0:
-                benchmark.update({
-                    "status": "skipped",
-                    "should_mount": True,
-                    "reason": "cpu_baseline_probe_unavailable",
-                })
+                benchmark.update(
+                    {
+                        "status": "skipped",
+                        "should_mount": True,
+                        "reason": "cpu_baseline_probe_unavailable",
+                    }
+                )
                 return self._record_runtime_benchmark(benchmark)
 
             ratio = gpu_latency / cpu_latency
             benchmark["ratio"] = ratio
             if ratio > CLASSIFIER_RUNTIME_BENCHMARK_MAX_GPU_CPU_RATIO:
-                benchmark.update({
-                    "status": "failed",
-                    "should_mount": False,
-                    "reason": "accelerated_latency_ratio_exceeded",
-                })
+                benchmark.update(
+                    {
+                        "status": "failed",
+                        "should_mount": False,
+                        "reason": "accelerated_latency_ratio_exceeded",
+                    }
+                )
             else:
-                benchmark.update({
-                    "status": "passed",
-                    "should_mount": True,
-                })
+                benchmark.update(
+                    {
+                        "status": "passed",
+                        "should_mount": True,
+                    }
+                )
             return self._record_runtime_benchmark(benchmark)
         except Exception as exc:
-            benchmark.update({
-                "status": "error",
-                "should_mount": True,
-                "reason": "benchmark_error",
-                "error": _summarize_runtime_exception(exc, max_len=600),
-            })
+            benchmark.update(
+                {
+                    "status": "error",
+                    "should_mount": True,
+                    "reason": "benchmark_error",
+                    "error": _summarize_runtime_exception(exc, max_len=600),
+                }
+            )
             return self._record_runtime_benchmark(benchmark)
         finally:
             if cpu_model is not None:
@@ -2865,17 +2885,15 @@ class ClassifierService:
 
         def _append(target_backend: str, target_provider: str) -> None:
             target = (target_backend, target_provider)
-            if (
-                target not in targets
-                and not (
-                    target_backend == self._inference_backend
-                    and target_provider == self._active_inference_provider
-                )
+            if target not in targets and not (
+                target_backend == self._inference_backend and target_provider == self._active_inference_provider
             ):
                 targets.append(target)
 
         if self._inference_backend == "openvino":
-            if self._active_inference_provider in ("intel_gpu", "intel_npu") and self._accel_caps.get("intel_cpu_available"):
+            if self._active_inference_provider in ("intel_gpu", "intel_npu") and self._accel_caps.get(
+                "intel_cpu_available"
+            ):
                 _append("openvino", "intel_cpu")
             if self._accel_caps.get("ort_available"):
                 _append("onnxruntime", "cpu")
@@ -2921,18 +2939,15 @@ class ClassifierService:
         last_recovery = self._inference_health.most_recent_recovery()
         restoring_after_live_lease_fallback = (
             isinstance(last_recovery, dict)
-            and last_recovery.get("reason") in {
+            and last_recovery.get("reason")
+            in {
                 LIVE_GPU_LEASE_EXPIRY_FALLBACK_REASON,
                 GPU_UNHEALTHY_FALLBACK_REASON,
             }
-            and not (
-                self._inference_backend == "openvino"
-                and self._active_inference_provider == "intel_gpu"
-            )
+            and not (self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu")
         )
         restoring_after_cpu_fallback = (
-            self._inference_backend == "openvino"
-            and self._active_inference_provider == "intel_cpu"
+            self._inference_backend == "openvino" and self._active_inference_provider == "intel_cpu"
         )
         if not restoring_after_live_lease_fallback and not restoring_after_cpu_fallback:
             return False
@@ -3111,9 +3126,7 @@ class ClassifierService:
             self._inference_backend = backend
             self._active_inference_provider = provider
             now = time.monotonic()
-            self._gpu_restore_not_before_monotonic = (
-                now + CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS
-            )
+            self._gpu_restore_not_before_monotonic = now + CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_COOLDOWN_SECONDS
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
             recovery = {
@@ -3169,9 +3182,7 @@ class ClassifierService:
             )
             if replacement is None:
                 self._runtime_gpu_restore_failures += 1
-                self._gpu_restore_not_before_monotonic = (
-                    time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
-                )
+                self._gpu_restore_not_before_monotonic = time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
                 return
             self._models["bird"] = replacement
             self._inference_backend = "openvino"
@@ -3183,15 +3194,17 @@ class ClassifierService:
                     current.cleanup()
                 except Exception:
                     pass
-            self._publish_runtime_recovery({
-                "status": "recovered",
-                "failed_backend": "openvino",
-                "failed_provider": "intel_cpu",
-                "recovered_backend": "openvino",
-                "recovered_provider": "intel_gpu",
-                "detail": "Auto-restored OpenVINO GPU provider after cooldown",
-                "at": time.time(),
-            })
+            self._publish_runtime_recovery(
+                {
+                    "status": "recovered",
+                    "failed_backend": "openvino",
+                    "failed_provider": "intel_cpu",
+                    "recovered_backend": "openvino",
+                    "recovered_provider": "intel_gpu",
+                    "detail": "Auto-restored OpenVINO GPU provider after cooldown",
+                    "at": time.time(),
+                }
+            )
 
     def _attempt_gpu_retry_after_invalid_output(
         self,
@@ -3282,9 +3295,7 @@ class ClassifierService:
             self._inference_backend = backend
             self._active_inference_provider = provider
             if backend == "openvino" and provider == "intel_cpu" and error.backend == "openvino":
-                self._gpu_restore_not_before_monotonic = (
-                    time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
-                )
+                self._gpu_restore_not_before_monotonic = time.monotonic() + CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS
             self._append_inference_fallback_reason(reason)
             self._runtime_fallback_recoveries += 1
             recovery: dict[str, Any] = {
@@ -3345,11 +3356,13 @@ class ClassifierService:
             str(item).strip() for item in (spec.get("model_config_warnings") or []) if str(item).strip()
         ]
 
-        log.info("Initializing bird model",
-                 path=model_path,
-                 input_size=input_size,
-                 runtime=runtime,
-                 preprocessing=preprocessing)
+        log.info(
+            "Initializing bird model",
+            path=model_path,
+            input_size=input_size,
+            runtime=runtime,
+            preprocessing=preprocessing,
+        )
 
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
@@ -3404,7 +3417,7 @@ class ClassifierService:
             )
 
         # Create appropriate model instance based on runtime
-        if runtime == 'onnx':
+        if runtime == "onnx":
             selection = _resolve_inference_selection(
                 self._selected_inference_provider,
                 self._accel_caps,
@@ -3460,9 +3473,7 @@ class ClassifierService:
                                 self._inference_backend = "onnxruntime"
                                 self._active_inference_provider = "cpu"
                                 prev_reason = self._inference_fallback_reason
-                                self._inference_fallback_reason = (
-                                    f"{prev_reason}; {reason}" if prev_reason else reason
-                                )
+                                self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
                                 fallback_model = ONNXModelInstance(
                                     "bird",
                                     model_path,
@@ -3478,20 +3489,20 @@ class ClassifierService:
                                     "ONNX Runtime CPU fallback model load failed after GPU runtime benchmark; falling back to TFLite",
                                     error=fallback_model.error,
                                 )
-                                runtime = 'tflite'
+                                runtime = "tflite"
                             else:
                                 prev_reason = self._inference_fallback_reason
-                                self._inference_fallback_reason = (
-                                    f"{prev_reason}; {reason}" if prev_reason else reason
-                                )
+                                self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
                                 log.warning(
                                     "OpenVINO GPU runtime benchmark failed and no ORT fallback available; falling back to TFLite",
                                     benchmark=benchmark,
                                 )
-                                runtime = 'tflite'
+                                runtime = "tflite"
                             tflite_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
                             if tflite_model is None:
-                                tflite_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
+                                tflite_model = ModelInstance(
+                                    "bird", model_path, labels_path, preprocessing=preprocessing
+                                )
                                 tflite_model.load()
                             self._models["bird"] = tflite_model
                             self._inference_backend = "tflite"
@@ -3555,7 +3566,9 @@ class ClassifierService:
                         self._openvino_model_compile_device,
                         fallback_target="ONNX Runtime CPU",
                     )
-                    self._inference_fallback_reason = f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
+                    self._inference_fallback_reason = (
+                        f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
+                    )
                     fallback_model = ONNXModelInstance(
                         "bird",
                         model_path,
@@ -3571,16 +3584,21 @@ class ClassifierService:
                         "ONNX Runtime CPU fallback model load failed; falling back to TFLite",
                         error=fallback_model.error,
                     )
-                    runtime = 'tflite'
+                    runtime = "tflite"
                 prev_reason = self._inference_fallback_reason
                 fallback_reason = _summarize_openvino_load_error(
                     self._openvino_model_compile_error,
                     self._openvino_model_compile_device,
                     fallback_target="TFLite",
                 )
-                self._inference_fallback_reason = f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
-                log.warning("OpenVINO model load failed and no ORT fallback available; falling back to TFLite", error=bird_model.error)
-                runtime = 'tflite'
+                self._inference_fallback_reason = (
+                    f"{prev_reason}; {fallback_reason}" if prev_reason else fallback_reason
+                )
+                log.warning(
+                    "OpenVINO model load failed and no ORT fallback available; falling back to TFLite",
+                    error=bird_model.error,
+                )
+                runtime = "tflite"
 
             if selection["backend"] == "onnxruntime":
                 bird_model = ONNXModelInstance(
@@ -3642,9 +3660,7 @@ class ClassifierService:
                             self._inference_backend = "onnxruntime"
                             self._active_inference_provider = "cpu"
                             prev_reason = self._inference_fallback_reason
-                            self._inference_fallback_reason = (
-                                f"{prev_reason}; {reason}" if prev_reason else reason
-                            )
+                            self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
                             fallback_model = ONNXModelInstance(
                                 "bird",
                                 model_path,
@@ -3660,10 +3676,12 @@ class ClassifierService:
                                 "ONNX Runtime CPU fallback model load failed after CUDA runtime benchmark; falling back to TFLite",
                                 error=fallback_model.error,
                             )
-                            runtime = 'tflite'
+                            runtime = "tflite"
                             tflite_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
                             if tflite_model is None:
-                                tflite_model = ModelInstance("bird", model_path, labels_path, preprocessing=preprocessing)
+                                tflite_model = ModelInstance(
+                                    "bird", model_path, labels_path, preprocessing=preprocessing
+                                )
                                 tflite_model.load()
                             self._models["bird"] = tflite_model
                             self._inference_backend = "tflite"
@@ -3691,12 +3709,16 @@ class ClassifierService:
                         )
                     return
                 if self._accel_caps.get("openvino_available") and self._accel_caps.get("intel_cpu_available"):
-                    log.warning("ONNX Runtime model load failed; retrying with OpenVINO CPU fallback", error=bird_model.error)
+                    log.warning(
+                        "ONNX Runtime model load failed; retrying with OpenVINO CPU fallback", error=bird_model.error
+                    )
                     self._inference_backend = "openvino"
                     self._active_inference_provider = "intel_cpu"
                     prev_reason = self._inference_fallback_reason
                     self._inference_fallback_reason = (
-                        f"{prev_reason}; ONNX Runtime load failed" if prev_reason else "ONNX Runtime load failed; using OpenVINO CPU"
+                        f"{prev_reason}; ONNX Runtime load failed"
+                        if prev_reason
+                        else "ONNX Runtime load failed; using OpenVINO CPU"
                     )
                     fallback_model = OpenVINOModelInstance(
                         "bird",
@@ -3714,16 +3736,16 @@ class ClassifierService:
                         "OpenVINO CPU fallback model load failed; falling back to TFLite",
                         error=fallback_model.error,
                     )
-                    runtime = 'tflite'
+                    runtime = "tflite"
                 log.warning("ONNX Runtime model load failed; falling back to TFLite", error=bird_model.error)
-                runtime = 'tflite'
+                runtime = "tflite"
 
             log.error(
                 "ONNX model requested but no ONNX-capable runtime is available; falling back to TFLite",
                 requested_provider=self._selected_inference_provider,
                 reason=self._inference_fallback_reason,
             )
-            runtime = 'tflite'
+            runtime = "tflite"
 
         # Default: TFLite model
         bird_model = self._build_bird_model_for_backend(spec, backend="tflite", provider="tflite")
@@ -3740,17 +3762,17 @@ class ClassifierService:
             if "bird" in self._models:
                 # Cleanup old model resources before replacing
                 old_model = self._models.pop("bird")
-                if hasattr(old_model, 'cleanup'):
+                if hasattr(old_model, "cleanup"):
                     old_model.cleanup()
                 del old_model
-            
+
             # 1. Initialize locally ONLY if we are a worker or NOT in subprocess mode.
             # This prevents the main process from loading large models into RAM when it
             # should be using supervisor workers instead.
             if self._worker_process_mode or self._image_execution_mode != "subprocess":
                 self._init_bird_model()
-        
-        # 2. If we have a supervisor (main process in subprocess mode), 
+
+        # 2. If we have a supervisor (main process in subprocess mode),
         # tell it to restart all workers to pick up the new model.
         if self._classifier_supervisor is not None:
             log.info("Requesting supervisor worker restart for model change")
@@ -3762,8 +3784,7 @@ class ClassifierService:
         """Get or lazily load the wildlife model."""
         if "wildlife" not in self._models:
             model_path, labels_path = self._get_model_paths(
-                settings.classification.wildlife_model,
-                settings.classification.wildlife_labels
+                settings.classification.wildlife_model, settings.classification.wildlife_labels
             )
             self._models["wildlife"] = ModelInstance("wildlife", model_path, labels_path)
 
@@ -3841,10 +3862,7 @@ class ClassifierService:
         queued = int(live_metrics["queued"])
         capacity = int(live_metrics["capacity"])
         oldest_age = live_metrics.get("oldest_running_age_seconds")
-        recovery_active = (
-            recent_counts["recent_live_abandoned"] > 0
-            or recent_counts["recent_live_late_ignored"] > 0
-        )
+        recovery_active = recent_counts["recent_live_abandoned"] > 0 or recent_counts["recent_live_late_ignored"] > 0
         supervisor_metrics = self._get_supervisor_metrics() or {}
         live_worker_pool = supervisor_metrics.get("live") if isinstance(supervisor_metrics, dict) else {}
         worker_circuit_open = bool((live_worker_pool or {}).get("circuit_open"))
@@ -3940,7 +3958,7 @@ class ClassifierService:
             if self._image_execution_mode == "subprocess"
             else None
         ) or self._inference_health.most_recent_recovery()
-        
+
         # Determine which TFLite runtime is actually in use
         tflite_type = "none"
         if tflite:
@@ -3989,28 +4007,21 @@ class ClassifierService:
             "status": "ok" if (bird_runtime_ready and not runtime_recovery_failed) else "error",
             "execution_mode": self._image_execution_mode,
             "runtimes": {
-                "tflite": {
-                    "installed": tflite is not None,
-                    "type": tflite_type
-                },
-                "onnx": {
-                    "installed": ONNX_AVAILABLE,
-                    "available": ort is not None
-                },
-                "openvino": {
-                    "installed": OPENVINO_AVAILABLE,
-                    "available": OpenVINOCore is not None
-                }
+                "tflite": {"installed": tflite is not None, "type": tflite_type},
+                "onnx": {"installed": ONNX_AVAILABLE, "available": ort is not None},
+                "openvino": {"installed": OPENVINO_AVAILABLE, "available": OpenVINOCore is not None},
             },
             "models": {
                 name: {
                     "loaded": model.loaded,
                     "runtime": (
-                        "onnx" if _safe_isinstance(model, ONNXModelInstance)
+                        "onnx"
+                        if _safe_isinstance(model, ONNXModelInstance)
                         else ("openvino" if _safe_isinstance(model, OpenVINOModelInstance) else "tflite")
                     ),
-                    "error": model.error
-                } for name, model in self._models.items()
+                    "error": model.error,
+                }
+                for name, model in self._models.items()
             },
             "live_image": live_image_health,
             "background_image": background_image_health,
@@ -4074,6 +4085,7 @@ class ClassifierService:
         active_model_id = None
         try:
             from app.services.model_manager import model_manager
+
             active_model_id = getattr(model_manager, "active_model_id", None)
             crop_detector_status = dict(model_manager.get_crop_detector_spec() or {})
         except Exception:
@@ -4117,7 +4129,9 @@ class ClassifierService:
             "process_uid": self._accel_caps.get("process_uid"),
             "process_gid": self._accel_caps.get("process_gid"),
             "process_groups": self._accel_caps.get("process_groups") or [],
-            "selected_provider": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")),
+            "selected_provider": _normalize_inference_provider(
+                getattr(settings.classification, "inference_provider", "auto")
+            ),
             "active_provider": effective_provider,
             "inference_backend": effective_backend,
             "fallback_reason": self._inference_fallback_reason,
@@ -4153,14 +4167,18 @@ class ClassifierService:
             "admission_recent_outcomes": admission_metrics["recent_outcomes"],
             "background_throttled": admission_metrics["background_throttled"],
             "available_providers": [
-                p for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+                p
+                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
                 if p == "cpu"
                 or (p == "cuda" and self._accel_caps.get("cuda_available"))
                 or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
                 or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
             ],
             # legacy compatibility (can be removed later)
-            "cuda_enabled": _normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto")) == "cuda",
+            "cuda_enabled": _normalize_inference_provider(
+                getattr(settings.classification, "inference_provider", "auto")
+            )
+            == "cuda",
             "models": {},
             "crop_detector": crop_detector_status,
         }
@@ -4172,11 +4190,11 @@ class ClassifierService:
             if name == "bird" and _safe_isinstance(model, ONNXModelInstance) and model.session:
                 model_status["active_providers"] = model.session.get_providers()
             status["models"][name] = model_status
-            
+
         if bird:
             # For backward compatibility
             status.update(bird.get_status())
-            
+
         return status
 
     def probe_bird_runtime(
@@ -4249,15 +4267,14 @@ class ClassifierService:
             return wildlife.get_status()
 
         model_path, labels_path = self._get_model_paths(
-            settings.classification.wildlife_model,
-            settings.classification.wildlife_labels
+            settings.classification.wildlife_model, settings.classification.wildlife_labels
         )
         model_exists = os.path.exists(model_path)
         labels_exist = os.path.exists(labels_path)
         labels_count = 0
         if labels_exist:
             try:
-                with open(labels_path, 'r') as f:
+                with open(labels_path, "r") as f:
                     labels_count = sum(1 for line in f if line.strip())
             except Exception:
                 pass
@@ -4313,7 +4330,11 @@ class ClassifierService:
         return None
 
     def _bird_crop_source_priority(self) -> str:
-        configured = str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "").strip().lower()
+        configured = (
+            str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "")
+            .strip()
+            .lower()
+        )
         if configured in {
             "frigate_hints_first",
             "crop_model_first",
@@ -4374,12 +4395,7 @@ class ClassifierService:
             return None
 
         image_width, image_height = image_size
-        normalized = (
-            0.0 <= left <= 1.0
-            and 0.0 <= top <= 1.0
-            and 0.0 <= width <= 1.0
-            and 0.0 <= height <= 1.0
-        )
+        normalized = 0.0 <= left <= 1.0 and 0.0 <= top <= 1.0 and 0.0 <= width <= 1.0 and 0.0 <= height <= 1.0
         if normalized:
             left *= float(image_width)
             top *= float(image_height)
@@ -4646,7 +4662,9 @@ class ClassifierService:
                 image_b64=self._encode_image_for_worker(image),
                 camera_name=camera_name,
                 model_id=model_id,
-                input_context=dict(normalized_input_context.model_dump()) if normalized_input_context is not None else None,
+                input_context=dict(normalized_input_context.model_dump())
+                if normalized_input_context is not None
+                else None,
             )
         except ClassifierWorkerCircuitOpenError:
             if priority == "live":
@@ -4729,7 +4747,9 @@ class ClassifierService:
             self._inference_health.record(
                 runtime_key,
                 outcome="ok",
-                latency_seconds=runner_latency_seconds if runner_latency_seconds is not None else time.monotonic() - started_at,
+                latency_seconds=runner_latency_seconds
+                if runner_latency_seconds is not None
+                else time.monotonic() - started_at,
                 latency_health_eligible=latency_health_eligible,
             )
             return result
@@ -4964,7 +4984,9 @@ class ClassifierService:
         """Async wrapper for classify to prevent blocking the event loop."""
         normalized_input_context = _normalize_classification_input_context(input_context)
         try:
-            base_results = await self._run_image_inference(self.classify, image, camera_name, model_id, normalized_input_context)
+            base_results = await self._run_image_inference(
+                self.classify, image, camera_name, model_id, normalized_input_context
+            )
         except BackgroundImageClassificationUnavailableError:
             return []
 
@@ -5128,7 +5150,7 @@ class ClassifierService:
     def reload_wildlife_model(self):
         if "wildlife" in self._models:
             old_model = self._models.pop("wildlife")
-            if hasattr(old_model, 'cleanup'):
+            if hasattr(old_model, "cleanup"):
                 old_model.cleanup()
             del old_model
             log.info("Cleared cached wildlife model instance")
@@ -5268,7 +5290,11 @@ class ClassifierService:
                     # Update last valid result metadata
                     top_idx = int(np.argmax(scores))
                     last_top_score = float(scores[top_idx])
-                    last_top_label = normalize_classifier_label(bird_model.labels[top_idx]) if top_idx < len(bird_model.labels) else f"Class {top_idx}"
+                    last_top_label = (
+                        normalize_classifier_label(bird_model.labels[top_idx])
+                        if top_idx < len(bird_model.labels)
+                        else f"Class {top_idx}"
+                    )
                     if should_hide_species_label(last_top_label):
                         skipped_unknown_frame_count += 1
                     else:
@@ -5277,6 +5303,7 @@ class ClassifierService:
                     try:
                         from io import BytesIO
                         import base64
+
                         thumb = image.copy()
                         thumb.thumbnail((96, 72))
                         buf = BytesIO()
@@ -5332,15 +5359,17 @@ class ClassifierService:
             for i in top_indices:
                 score = float(representative_scores[i])
                 label = normalize_classifier_label(bird_model.labels[i]) if i < len(bird_model.labels) else f"Class {i}"
-                classifications.append({
-                    "index": int(i),
-                    "score": score,
-                    "label": label,
-                    "inference_provider": str(self._active_inference_provider or ""),
-                    "inference_backend": str(self._inference_backend or ""),
-                    "model_id": str(active_model_id or ""),
-                    "model_name": model_name,
-                })
+                classifications.append(
+                    {
+                        "index": int(i),
+                        "score": score,
+                        "label": label,
+                        "inference_provider": str(self._active_inference_provider or ""),
+                        "inference_backend": str(self._inference_backend or ""),
+                        "model_id": str(active_model_id or ""),
+                        "model_name": model_name,
+                    }
+                )
 
             if classifications:
                 top_score = float(classifications[0]["score"])
@@ -5358,10 +5387,12 @@ class ClassifierService:
                     )
                     return []
 
-            log.info(f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
-                     top_result=classifications[0]['label'] if classifications else None,
-                     top_score=round(classifications[0]['score'], 3),
-                     skipped_unknown_frames=skipped_unknown_frame_count)
+            log.info(
+                f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
+                top_result=classifications[0]["label"] if classifications else None,
+                top_score=round(classifications[0]["score"], 3),
+                skipped_unknown_frames=skipped_unknown_frame_count,
+            )
 
             return classifications
 
@@ -5424,6 +5455,7 @@ class ClassifierService:
 
             # Wrap the callback to make it thread-safe
             if progress_callback:
+
                 def sync_callback(
                     current_frame,
                     total_frames,
@@ -5448,21 +5480,17 @@ class ClassifierService:
                                 model_name,
                                 frame_offset_seconds,
                             ),
-                            loop
+                            loop,
                         )
                         try:
                             future.result(timeout=1.0)
                         except TimeoutError:
-                            log.warning("Progress callback timed out after 1s",
-                                       frame=current_frame,
-                                       total=total_frames)
+                            log.warning("Progress callback timed out after 1s", frame=current_frame, total=total_frames)
                         except Exception as e:
-                            log.error("Progress callback failed",
-                                     error=str(e),
-                                     frame=current_frame,
-                                     total=total_frames)
+                            log.error("Progress callback failed", error=str(e), frame=current_frame, total=total_frames)
                     except Exception as e:
                         log.error("Failed to schedule progress callback", error=str(e))
+
                 base_results = await loop.run_in_executor(
                     self._video_executor,
                     self.classify_video,

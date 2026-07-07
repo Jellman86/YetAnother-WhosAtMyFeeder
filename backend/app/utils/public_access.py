@@ -30,4 +30,3 @@ def effective_public_media_days() -> int:
         retention_days = int(settings.maintenance.retention_days or 0)
         return _cap_public_days(retention_days if retention_days > 0 else 365)
     return _cap_public_days(settings.public_access.media_historical_days)
-

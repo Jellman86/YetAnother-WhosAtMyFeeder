@@ -1,4 +1,5 @@
 """Owner-only HTTP endpoints for the model evaluation harness."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -24,8 +25,8 @@ class StartRunRequest(BaseModel):
     include_per_image: bool = False
     region_override: Optional[str] = None
     sweep_devices: bool = False
-    compat_only: bool = False          # device sweep only, skip accuracy scoring
-    sweep_all_models: bool = False     # download + test every model (else installed only)
+    compat_only: bool = False  # device sweep only, skip accuracy scoring
+    sweep_all_models: bool = False  # download + test every model (else installed only)
 
 
 class StartRunResponse(BaseModel):
@@ -78,8 +79,10 @@ async def get_artifact(
     if path is None:
         raise HTTPException(status_code=404, detail="artifact not found")
     media_type = (
-        "application/json" if artifact.endswith(".json")
-        else "application/x-ndjson" if artifact.endswith(".jsonl")
+        "application/json"
+        if artifact.endswith(".json")
+        else "application/x-ndjson"
+        if artifact.endswith(".jsonl")
         else "text/csv"
     )
     return FileResponse(path, media_type=media_type, filename=artifact)

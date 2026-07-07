@@ -303,13 +303,48 @@ async def test_audio_species_leaderboard_counts_window_and_prev(client: httpx.As
     now = datetime.now(timezone.utc).replace(microsecond=0)
     rows = [
         # Dunnock: two in the current 7-day window, one in the prior window.
-        ((now - timedelta(hours=1)).isoformat(sep=" "), "Dunnock", 0.92, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
-        ((now - timedelta(hours=2)).isoformat(sep=" "), "Dunnock", 0.82, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
-        ((now - timedelta(days=10)).isoformat(sep=" "), "Dunnock", 0.71, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        (
+            (now - timedelta(hours=1)).isoformat(sep=" "),
+            "Dunnock",
+            0.92,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(hours=2)).isoformat(sep=" "),
+            "Dunnock",
+            0.82,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(days=10)).isoformat(sep=" "),
+            "Dunnock",
+            0.71,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
         # Blue Tit: one in the current window, none prior.
-        ((now - timedelta(hours=3)).isoformat(sep=" "), "Blue Tit", 0.88, "Garden Mic", json.dumps({"nm": "Garden Mic"}), "Cyanistes caeruleus"),
+        (
+            (now - timedelta(hours=3)).isoformat(sep=" "),
+            "Blue Tit",
+            0.88,
+            "Garden Mic",
+            json.dumps({"nm": "Garden Mic"}),
+            "Cyanistes caeruleus",
+        ),
         # Robin: outside both windows — must be excluded.
-        ((now - timedelta(days=20)).isoformat(sep=" "), "Robin", 0.9, "BirdCam", json.dumps({"nm": "BirdCam"}), "Erithacus rubecula"),
+        (
+            (now - timedelta(days=20)).isoformat(sep=" "),
+            "Robin",
+            0.9,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Erithacus rubecula",
+        ),
     ]
 
     async with get_db() as db:
@@ -353,9 +388,30 @@ async def test_audio_species_leaderboard_all_span_counts_everything(client: http
 
     now = datetime.now(timezone.utc).replace(microsecond=0)
     rows = [
-        ((now - timedelta(hours=1)).isoformat(sep=" "), "Dunnock", 0.9, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
-        ((now - timedelta(days=40)).isoformat(sep=" "), "Dunnock", 0.7, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
-        ((now - timedelta(hours=2)).isoformat(sep=" "), "Blue Tit", 0.85, "Garden Mic", json.dumps({"nm": "Garden Mic"}), "Cyanistes caeruleus"),
+        (
+            (now - timedelta(hours=1)).isoformat(sep=" "),
+            "Dunnock",
+            0.9,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(days=40)).isoformat(sep=" "),
+            "Dunnock",
+            0.7,
+            "BirdCam",
+            json.dumps({"nm": "BirdCam"}),
+            "Prunella modularis",
+        ),
+        (
+            (now - timedelta(hours=2)).isoformat(sep=" "),
+            "Blue Tit",
+            0.85,
+            "Garden Mic",
+            json.dumps({"nm": "Garden Mic"}),
+            "Cyanistes caeruleus",
+        ),
     ]
 
     async with get_db() as db:

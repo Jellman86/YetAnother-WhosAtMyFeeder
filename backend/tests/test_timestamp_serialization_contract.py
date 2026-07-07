@@ -25,6 +25,7 @@ def test_ai_router_serializer_emits_explicit_utc_for_naive_and_aware_datetimes()
     from app.routers import ai
 
     assert ai._serialize_timestamp(datetime(2026, 4, 1, 12, 0, 0)) == "2026-04-01T12:00:00Z"
-    assert ai._serialize_timestamp(
-        datetime(2026, 4, 1, 12, 0, 0, tzinfo=timezone.utc) + timedelta(minutes=5)
-    ) == "2026-04-01T12:05:00Z"
+    assert (
+        ai._serialize_timestamp(datetime(2026, 4, 1, 12, 0, 0, tzinfo=timezone.utc) + timedelta(minutes=5))
+        == "2026-04-01T12:05:00Z"
+    )

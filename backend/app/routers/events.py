@@ -63,6 +63,8 @@ def _build_event_classification_input_context(
     if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
         context["frigate_region"] = list(frigate_region)
     return context
+
+
 log = structlog.get_logger()
 
 
@@ -104,9 +106,8 @@ def resolve_species_display_filter_aliases(
     if taxa_id is not None or not species_name:
         return species_name, None
     normalized_species = _normalize_species_name(species_name)
-    if (
-        species_name != UNKNOWN_BIRD_FILTER_ALIAS
-        and normalized_species != _normalize_species_name(UNKNOWN_BIRD_DISPLAY_LABEL)
+    if species_name != UNKNOWN_BIRD_FILTER_ALIAS and normalized_species != _normalize_species_name(
+        UNKNOWN_BIRD_DISPLAY_LABEL
     ):
         return species_name, None
 
@@ -160,10 +161,7 @@ def _manual_update_is_alias_noop(detection, requested_species: str, resolved_ali
     if resolved_scientific and existing_scientific and resolved_scientific == existing_scientific:
         return True
 
-    alias_match_names = {
-        _normalize_species_name(name)
-        for name in (resolved_aliases.get("match_names") or [])
-    }
+    alias_match_names = {_normalize_species_name(name) for name in (resolved_aliases.get("match_names") or [])}
     alias_match_names.discard(None)
     if (
         alias_match_names
@@ -176,6 +174,7 @@ def _manual_update_is_alias_noop(detection, requested_species: str, resolved_ali
         return True
 
     return False
+
 
 def _get_active_model_id_for_feedback() -> str:
     try:
@@ -307,11 +306,13 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         payload.update(overrides)
     return payload
 
+
 # get_classifier is now imported from classifier_service
 
 
 class EventFilterSpecies(BaseModel):
     """Species filter option with taxonomy data."""
+
     value: str
     display_name: str
     scientific_name: Optional[str] = None
@@ -321,6 +322,7 @@ class EventFilterSpecies(BaseModel):
 
 class EventFilters(BaseModel):
     """Available filter options for events."""
+
     species: List[EventFilterSpecies]
     cameras: List[str]
 
@@ -330,6 +332,7 @@ _event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
 
 class EventsCountResponse(BaseModel):
     """Response for events count endpoint."""
+
     count: int
     filtered: bool
 
@@ -339,16 +342,13 @@ class EventsCountResponse(BaseModel):
 async def get_event_filters(
     request: Request,
     force_refresh: bool = Query(
-        default=False,
-        description="Bypass short-lived filter cache and fetch fresh species/camera options"
+        default=False, description="Bypass short-lived filter cache and fetch fresh species/camera options"
     ),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get available filter options (species and cameras) from the database."""
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     lang = get_user_language(request)
     cache_key = (lang, hide_camera_names)
@@ -408,7 +408,7 @@ async def get_event_filters(
                     display_name=sci_name or display_name,
                     scientific_name=sci_name,
                     common_name=com_name,
-                    taxa_id=t_id
+                    taxa_id=t_id,
                 )
 
         if species_rows:
@@ -453,7 +453,7 @@ async def get_events(
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get paginated events with optional filters.
 
@@ -461,9 +461,7 @@ async def get_events(
     """
     lang = get_user_language(request)
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
     # Apply public access restrictions
@@ -512,7 +510,7 @@ async def get_events(
             sort=sort,
             include_hidden=include_hidden,
             favorite_only=favorites,
-            audio_confirmed_only=audio_confirmed_only
+            audio_confirmed_only=audio_confirmed_only,
         )
 
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
@@ -543,12 +541,11 @@ async def get_events(
         # Pre-resolve unconfirmed audio_species names concurrently.
         # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
         unconfirmed_audio_species: set[str] = {
-            event.audio_species.strip()
-            for event in events
-            if event.audio_species and not event.audio_confirmed
+            event.audio_species.strip() for event in events if event.audio_species and not event.audio_confirmed
         }
         unconfirmed_audio_canonical: dict[str, str] = {}
         if unconfirmed_audio_species:
+
             async def resolve_unconfirmed(comname: str) -> tuple[str, str | None]:
                 return comname, await localize_audio_species_name(comname, lang, db)
 
@@ -630,9 +627,7 @@ async def get_events(
                     # Confirmed but taxonomy not enriched yet — nothing to resolve
                     resolved_audio = raw_audio_species
                 else:
-                    resolved_audio = unconfirmed_audio_canonical.get(
-                        raw_audio_species.strip(), raw_audio_species
-                    )
+                    resolved_audio = unconfirmed_audio_canonical.get(raw_audio_species.strip(), raw_audio_species)
             else:
                 resolved_audio = raw_audio_species
 
@@ -682,7 +677,7 @@ async def get_events(
                 video_classification_model_id=event.video_classification_model_id,
                 video_classification_model_name=_video_classification_model_name(event.video_classification_model_id),
                 ai_analysis=event.ai_analysis,
-                ai_analysis_timestamp=event.ai_analysis_timestamp
+                ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
             response_events.append(response_event)
 
@@ -691,6 +686,7 @@ async def get_events(
 
 class HiddenCountResponse(BaseModel):
     """Response for hidden count endpoint."""
+
     hidden_count: int
 
 
@@ -714,13 +710,11 @@ async def get_events_count(
     favorites: bool = Query(default=False, description="Only count favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only count detections with audio confirmation"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
-    auth: AuthContext = Depends(get_auth_context_with_legacy)
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get total count of events (optionally filtered). Public users see limited historical data."""
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -755,7 +749,7 @@ async def get_events_count(
             camera=camera,
             include_hidden=include_hidden,
             favorite_only=favorites,
-            audio_confirmed_only=audio_confirmed_only
+            audio_confirmed_only=audio_confirmed_only,
         )
 
         # Determine if any filters are applied
@@ -763,41 +757,32 @@ async def get_events_count(
 
         return EventsCountResponse(count=count, filtered=filtered)
 
+
 @router.delete("/events/{event_id}")
-async def delete_event(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def delete_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Delete a detection by its Frigate event ID. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
         if not detection:
-            raise HTTPException(
-                status_code=404, 
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
-            
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
+
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
-            await broadcaster.broadcast({
-                "type": "detection_deleted",
-                "data": {
-                    "frigate_event": event_id,
-                    "timestamp": serialize_api_datetime(detection.detection_time)
+            await broadcaster.broadcast(
+                {
+                    "type": "detection_deleted",
+                    "data": {"frigate_event": event_id, "timestamp": serialize_api_datetime(detection.detection_time)},
                 }
-            })
+            )
             return {"status": "deleted", "event_id": event_id}
-        raise HTTPException(
-            status_code=404, 
-            detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-        )
+        raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
 
 class HideResponse(BaseModel):
     """Response for hide/unhide action."""
+
     status: str
     event_id: str
     is_hidden: bool
@@ -805,17 +790,14 @@ class HideResponse(BaseModel):
 
 class FavoriteResponse(BaseModel):
     """Response for favorite/unfavorite action."""
+
     status: str
     event_id: str
     is_favorite: bool
 
 
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
-async def toggle_hide_event(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def toggle_hide_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Toggle the hidden/ignored status of a detection. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
@@ -823,89 +805,61 @@ async def toggle_hide_event(
         new_status = await repo.toggle_hidden(event_id)
 
         if new_status is None:
-            raise HTTPException(
-                status_code=404, 
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         detection = await repo.get_by_frigate_event(event_id)
         if detection:
-            await broadcaster.broadcast({
-                "type": "detection_updated",
-                "data": _detection_updated_payload(detection)
-            })
+            await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
 
         action = "hidden" if new_status else "unhidden"
         log.info(f"Detection {action}", event_id=event_id, is_hidden=new_status)
 
-        return HideResponse(
-            status="updated",
-            event_id=event_id,
-            is_hidden=new_status
-        )
+        return HideResponse(status="updated", event_id=event_id, is_hidden=new_status)
 
 
 @router.post("/events/{event_id}/favorite", response_model=FavoriteResponse)
-async def favorite_event(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def favorite_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Mark a detection as favorite. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         result = await repo.favorite_detection(event_id, created_by=auth.username)
         if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         detection = await repo.get_by_frigate_event(event_id)
         if detection:
-            await broadcaster.broadcast({
-                "type": "detection_updated",
-                "data": _detection_updated_payload(detection)
-            })
+            await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
 
         return FavoriteResponse(status="updated", event_id=event_id, is_favorite=True)
 
 
 @router.delete("/events/{event_id}/favorite", response_model=FavoriteResponse)
-async def unfavorite_event(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def unfavorite_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Remove favorite marker from a detection. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         result = await repo.unfavorite_detection(event_id)
         if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         detection = await repo.get_by_frigate_event(event_id)
         if detection:
-            await broadcaster.broadcast({
-                "type": "detection_updated",
-                "data": _detection_updated_payload(detection)
-            })
+            await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
 
         return FavoriteResponse(status="updated", event_id=event_id, is_favorite=False)
 
 
 class UpdateDetectionRequest(BaseModel):
     """Request to manually update a detection's species."""
+
     display_name: str = Field(..., min_length=1, description="New species name")
 
 
 class BulkManualTagRequest(BaseModel):
     """Request to manually update multiple detections to the same species."""
+
     event_ids: List[str] = Field(..., min_length=1, max_length=200, description="Frigate event IDs to retag")
     display_name: str = Field(..., min_length=1, description="New species name")
 
@@ -926,6 +880,7 @@ class BulkManualTagResponse(BaseModel):
 
 class BulkDeleteRequest(BaseModel):
     """Request to delete multiple detections."""
+
     event_ids: List[str] = Field(..., min_length=1, max_length=200, description="Frigate event IDs to delete")
 
 
@@ -938,6 +893,7 @@ class BulkDeleteResponse(BaseModel):
 
 class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
+
     status: str
     event_id: str
     old_species: str
@@ -959,21 +915,14 @@ class ClassificationStatusResponse(BaseModel):
 
 
 @router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
-async def get_event_classification_status(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def get_event_classification_status(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Get current video classification status for a single event. Owner only."""
     lang = get_user_language(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         ts = detection.video_classification_timestamp
         return ClassificationStatusResponse(
@@ -1002,11 +951,13 @@ async def _apply_manual_tag_update(
     new_species = requested_species.strip()
     event_id = detection.frigate_event
 
-    log.debug("Manual tag request",
-              event_id=event_id,
-              old_species=old_species,
-              new_species=new_species,
-              frigate_event=detection.frigate_event)
+    log.debug(
+        "Manual tag request",
+        event_id=event_id,
+        old_species=old_species,
+        new_species=new_species,
+        frigate_event=detection.frigate_event,
+    )
 
     if _normalize_species_name(old_species) == _normalize_species_name(new_species):
         return {
@@ -1045,9 +996,7 @@ async def _apply_manual_tag_update(
         }
 
     taxonomy_lookup_name = (
-        resolved_aliases.get("scientific_name")
-        or resolved_aliases.get("common_name")
-        or normalized_label
+        resolved_aliases.get("scientific_name") or resolved_aliases.get("common_name") or normalized_label
     )
     taxonomy: dict = {}
     if normalized_label != "Unknown Bird":
@@ -1062,11 +1011,7 @@ async def _apply_manual_tag_update(
                 error=str(exc),
             )
 
-    sci_name = (
-        taxonomy.get("scientific_name")
-        or resolved_aliases.get("scientific_name")
-        or normalized_label
-    )
+    sci_name = taxonomy.get("scientific_name") or resolved_aliases.get("scientific_name") or normalized_label
     com_name = taxonomy.get("common_name") or resolved_aliases.get("common_name")
     t_id = taxonomy.get("taxa_id") if taxonomy.get("taxa_id") is not None else resolved_aliases.get("taxa_id")
 
@@ -1089,8 +1034,7 @@ async def _apply_manual_tag_update(
         taxa_id=t_id,
     ):
         raise HTTPException(
-            status_code=422,
-            detail="This species is on your blocked labels list. Remove it from the blocklist first."
+            status_code=422, detail="This species is on your blocked labels list. Remove it from the blocklist first."
         )
 
     stored_category_name = sci_name or normalized_label
@@ -1102,9 +1046,7 @@ async def _apply_manual_tag_update(
 
     try:
         audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-            target_time=detection.detection_time,
-            species_name=sci_name,
-            camera_name=detection.camera_name
+            target_time=detection.detection_time, species_name=sci_name, camera_name=detection.camera_name
         )
     except Exception as exc:
         log.warning(
@@ -1122,17 +1064,27 @@ async def _apply_manual_tag_update(
     detection.common_name = com_name
     detection.taxa_id = t_id
 
-    await db.execute("""
+    await db.execute(
+        """
         UPDATE detections
         SET display_name = ?, category_name = ?,
             scientific_name = ?, common_name = ?, taxa_id = ?,
             audio_confirmed = ?, audio_species = ?, audio_score = ?,
             manual_tagged = 1
         WHERE frigate_event = ?
-    """, (stored_display_name, stored_category_name,
-          sci_name, com_name, t_id,
-          1 if audio_confirmed else 0, audio_species, audio_score,
-          event_id))
+    """,
+        (
+            stored_display_name,
+            stored_category_name,
+            sci_name,
+            com_name,
+            t_id,
+            1 if audio_confirmed else 0,
+            audio_species,
+            audio_score,
+            event_id,
+        ),
+    )
 
     model_id = _get_active_model_id_for_feedback()
     predicted_label = (old_category_name or old_species or "").strip()
@@ -1149,33 +1101,37 @@ async def _apply_manual_tag_update(
         )
     await db.commit()
 
-    log.info("Manually updated detection species",
-             event_id=event_id,
-             old_species=old_species,
-             new_species=stored_display_name,
-             requested_species=new_species,
-             scientific=sci_name,
-             audio_confirmed=audio_confirmed,
-             audio_species=audio_species)
+    log.info(
+        "Manually updated detection species",
+        event_id=event_id,
+        old_species=old_species,
+        new_species=stored_display_name,
+        requested_species=new_species,
+        scientific=sci_name,
+        audio_confirmed=audio_confirmed,
+        audio_species=audio_species,
+    )
 
     refreshed_detection = await repo.get_by_frigate_event(event_id)
     payload_source = refreshed_detection or detection
-    await broadcaster.broadcast({
-        "type": "detection_updated",
-        "data": _detection_updated_payload(
-            payload_source,
-            overrides={
-                "display_name": stored_display_name,
-                "manual_tagged": True,
-                "audio_confirmed": audio_confirmed,
-                "audio_species": audio_species,
-                "audio_score": audio_score,
-                "scientific_name": sci_name,
-                "common_name": com_name,
-                "taxa_id": t_id,
-            }
-        )
-    })
+    await broadcaster.broadcast(
+        {
+            "type": "detection_updated",
+            "data": _detection_updated_payload(
+                payload_source,
+                overrides={
+                    "display_name": stored_display_name,
+                    "manual_tagged": True,
+                    "audio_confirmed": audio_confirmed,
+                    "audio_species": audio_species,
+                    "audio_score": audio_score,
+                    "scientific_name": sci_name,
+                    "common_name": com_name,
+                    "taxa_id": t_id,
+                },
+            ),
+        }
+    )
 
     return {
         "status": "updated",
@@ -1193,7 +1149,7 @@ async def reclassify_event(
     event_id: str,
     request: Request,
     strategy: Literal["snapshot", "video"] = Query("snapshot", description="Classification strategy"),
-    auth: AuthContext = Depends(require_owner)
+    auth: AuthContext = Depends(require_owner),
 ):
     """
     Re-run the classifier on an existing detection.
@@ -1207,10 +1163,7 @@ async def reclassify_event(
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang=lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         old_species = detection.display_name
         classifier = get_classifier()
@@ -1220,39 +1173,33 @@ async def reclassify_event(
         async def broadcast_reclassification_started(mode: Literal["snapshot", "video"]) -> None:
             nonlocal started_reclassification
             started_reclassification = True
-            await broadcaster.broadcast({
-                "type": "reclassification_started",
-                "data": {
-                    "event_id": event_id,
-                    "strategy": mode
-                }
-            })
+            await broadcaster.broadcast(
+                {"type": "reclassification_started", "data": {"event_id": event_id, "strategy": mode}}
+            )
 
         async def broadcast_reclassification_completed(results_payload: list) -> None:
             nonlocal completion_broadcasted
             completion_broadcasted = True
-            await broadcaster.broadcast({
-                "type": "reclassification_completed",
-                "data": {
-                    "event_id": event_id,
-                    "results": results_payload
-                }
-            })
+            await broadcaster.broadcast(
+                {"type": "reclassification_completed", "data": {"event_id": event_id, "results": results_payload}}
+            )
 
         async def broadcast_video_status(status: str, error: str | None = None):
             await repo.update_video_status(event_id, status, error=error)
             refreshed = await repo.get_by_frigate_event(event_id)
             payload_source = refreshed or detection
-            await broadcaster.broadcast({
-                "type": "detection_updated",
-                "data": _detection_updated_payload(
-                    payload_source,
-                    overrides={
-                        "video_classification_status": status,
-                        "video_classification_error": error,
-                    }
-                )
-            })
+            await broadcaster.broadcast(
+                {
+                    "type": "detection_updated",
+                    "data": _detection_updated_payload(
+                        payload_source,
+                        overrides={
+                            "video_classification_status": status,
+                            "video_classification_error": error,
+                        },
+                    ),
+                }
+            )
 
         try:
             # Determine effective strategy
@@ -1268,17 +1215,21 @@ async def reclassify_event(
 
             effective_strategy = strategy
             if strategy == "video" and not has_clip:
-                log.warning("Video strategy requested but no clip available, falling back to snapshot", event_id=event_id)
+                log.warning(
+                    "Video strategy requested but no clip available, falling back to snapshot", event_id=event_id
+                )
                 await broadcast_video_status("failed", event_error or "clip_unavailable")
-                await broadcaster.broadcast({
-                    "type": "reclassification_strategy_changed",
-                    "data": {
-                        "event_id": event_id,
-                        "from": "video",
-                        "to": "snapshot",
-                        "reason": event_error or "clip_unavailable",
+                await broadcaster.broadcast(
+                    {
+                        "type": "reclassification_strategy_changed",
+                        "data": {
+                            "event_id": event_id,
+                            "from": "video",
+                            "to": "snapshot",
+                            "reason": event_error or "clip_unavailable",
+                        },
                     }
-                })
+                )
                 effective_strategy = "snapshot"
 
             results = []
@@ -1295,7 +1246,12 @@ async def reclassify_event(
                 ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
                     if allow_recording_cache:
                         try:
-                            recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+                            (
+                                recording_cached_path,
+                                _camera_name,
+                                _start_ts,
+                                _end_ts,
+                            ) = await _get_valid_cached_recording_clip_path(
                                 event_id,
                                 lang,
                             )
@@ -1332,7 +1288,13 @@ async def reclassify_event(
                 clip_source = "frigate"
                 clip_variant: Literal["event", "recording"] = "event"
                 cached_source_path: str | None = None
-                clip_data, clip_error, clip_source, clip_variant, cached_source_path = await _load_reclassification_clip(
+                (
+                    clip_data,
+                    clip_error,
+                    clip_source,
+                    clip_variant,
+                    cached_source_path,
+                ) = await _load_reclassification_clip(
                     allow_recording_cache=True,
                     allow_event_cache=True,
                 )
@@ -1342,7 +1304,7 @@ async def reclassify_event(
                     await broadcast_video_status("failed", clip_error or "clip_fetch_failed")
                     effective_strategy = "snapshot"
                 else:
-                    if not (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
+                    if not (clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]):
                         log.warning("Clip data invalid, falling back to snapshot", event_id=event_id)
                         await broadcast_video_status("failed", "clip_invalid")
                         effective_strategy = "snapshot"
@@ -1368,7 +1330,9 @@ async def reclassify_event(
                         if not valid_clip:
                             if os.path.exists(tmp_path):
                                 os.remove(tmp_path)
-                            log.warning("Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source)
+                            log.warning(
+                                "Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source
+                            )
                             await broadcast_video_status("failed", "clip_decode_failed")
                             if clip_source in {"recording_cache", "cache"}:
                                 if cached_source_path and os.path.exists(cached_source_path):
@@ -1376,11 +1340,19 @@ async def reclassify_event(
                                         os.remove(cached_source_path)
                                     except OSError:
                                         pass
-                                clip_data, clip_error, clip_source, clip_variant, cached_source_path = await _load_reclassification_clip(
+                                (
+                                    clip_data,
+                                    clip_error,
+                                    clip_source,
+                                    clip_variant,
+                                    cached_source_path,
+                                ) = await _load_reclassification_clip(
                                     allow_recording_cache=False,
                                     allow_event_cache=(clip_source == "recording_cache"),
                                 )
-                                if clip_data and (clip_data.startswith(b'\x00\x00\x00\x18ftyp') or b'ftyp' in clip_data[:32]):
+                                if clip_data and (
+                                    clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]
+                                ):
                                     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                                         tmp.write(clip_data)
                                         tmp_path = tmp.name
@@ -1400,30 +1372,44 @@ async def reclassify_event(
                                 # Define progress callback to broadcast real-time progress via SSE
                                 _video_frame_scores: list[dict] = []
 
-                                async def progress_callback(current_frame, total_frames, frame_score, top_label, frame_thumb=None, frame_index=None, clip_total=None, model_name=None, frame_offset_seconds=None):
+                                async def progress_callback(
+                                    current_frame,
+                                    total_frames,
+                                    frame_score,
+                                    top_label,
+                                    frame_thumb=None,
+                                    frame_index=None,
+                                    clip_total=None,
+                                    model_name=None,
+                                    frame_offset_seconds=None,
+                                ):
                                     if frame_index is not None and frame_score is not None:
-                                        _video_frame_scores.append({
-                                            "frame_index": int(frame_index) - 1,
-                                            "frame_offset_seconds": frame_offset_seconds,
-                                            "frame_score": float(frame_score),
-                                            "top_label": top_label,
-                                            "top_score": float(frame_score),
-                                        })
-                                    await broadcaster.broadcast({
-                                        "type": "reclassification_progress",
-                                        "data": {
-                                            "event_id": event_id,
-                                            "current_frame": current_frame,
-                                            "total_frames": total_frames,
-                                            "frame_score": frame_score,
-                                            "top_label": top_label,
-                                            "frame_thumb": frame_thumb,
-                                            "frame_index": frame_index,
-                                            "clip_total": clip_total,
-                                            "model_name": model_name,
-                                            "ram_usage": get_ram_usage_string()
+                                        _video_frame_scores.append(
+                                            {
+                                                "frame_index": int(frame_index) - 1,
+                                                "frame_offset_seconds": frame_offset_seconds,
+                                                "frame_score": float(frame_score),
+                                                "top_label": top_label,
+                                                "top_score": float(frame_score),
+                                            }
+                                        )
+                                    await broadcaster.broadcast(
+                                        {
+                                            "type": "reclassification_progress",
+                                            "data": {
+                                                "event_id": event_id,
+                                                "current_frame": current_frame,
+                                                "total_frames": total_frames,
+                                                "frame_score": frame_score,
+                                                "top_label": top_label,
+                                                "frame_thumb": frame_thumb,
+                                                "frame_index": frame_index,
+                                                "clip_total": clip_total,
+                                                "model_name": model_name,
+                                                "ram_usage": get_ram_usage_string(),
+                                            },
                                         }
-                                    })
+                                    )
 
                                 results = await classifier.classify_video_async(
                                     tmp_path,
@@ -1444,7 +1430,9 @@ async def reclassify_event(
                                     os.remove(tmp_path)
 
                         if not results:
-                            log.warning("Video classification yielded no results, falling back to snapshot", event_id=event_id)
+                            log.warning(
+                                "Video classification yielded no results, falling back to snapshot", event_id=event_id
+                            )
                             await broadcast_video_status("failed", "video_no_results")
                             effective_strategy = "snapshot"
                         else:
@@ -1501,13 +1489,14 @@ async def reclassify_event(
             if effective_strategy == "snapshot":
                 await broadcast_reclassification_started("snapshot")
 
-                snapshot_data = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+                snapshot_data = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(
+                    event_id, crop=True, quality=95
+                )
                 if not snapshot_data:
                     # Still broadcast completion if it failed so UI can stop spinner
                     await broadcast_reclassification_completed([])
                     raise HTTPException(
-                        status_code=502,
-                        detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                        status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
                     )
 
                 image = Image.open(BytesIO(snapshot_data))
@@ -1522,12 +1511,12 @@ async def reclassify_event(
 
             if not results:
                 raise HTTPException(
-                    status_code=500,
-                    detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                    status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
                 )
 
             # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
             from app.services.detection_service import DetectionService
+
             svc = DetectionService(classifier)
             selection = svc.select_usable_classification(results, event_id)
             if isinstance(selection, tuple) and len(selection) == 2:
@@ -1536,14 +1525,13 @@ async def reclassify_event(
                 top = results[0]
             if not top:
                 raise HTTPException(
-                    status_code=500,
-                    detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                    status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
                 )
             await svc.apply_video_result(
                 frigate_event=event_id,
-                video_label=top['label'],
-                video_score=top['score'],
-                video_index=top['index'],
+                video_label=top["label"],
+                video_score=top["score"],
+                video_index=top["index"],
                 manual_tagged=True,
                 video_provider=top.get("inference_provider"),
                 video_backend=top.get("inference_backend"),
@@ -1552,7 +1540,7 @@ async def reclassify_event(
             # Re-fetch updated detection for the response
             updated_detection = await repo.get_by_frigate_event(event_id)
             if not updated_detection:
-                updated_detection = detection # Fallback
+                updated_detection = detection  # Fallback
 
             return ReclassifyResponse(
                 status="success",
@@ -1561,7 +1549,7 @@ async def reclassify_event(
                 new_species=updated_detection.display_name,
                 new_score=updated_detection.score,
                 updated=True,
-                actual_strategy=effective_strategy
+                actual_strategy=effective_strategy,
             )
         except HTTPException:
             if started_reclassification and not completion_broadcasted:
@@ -1575,19 +1563,16 @@ async def reclassify_event(
                 event_id=event_id,
                 strategy=strategy,
                 error=str(exc),
-                exc_info=True
+                exc_info=True,
             )
             raise HTTPException(
-                status_code=500,
-                detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
             ) from exc
 
 
 @router.patch("/events/bulk/manual-tag", response_model=BulkManualTagResponse)
 async def bulk_manual_tag_events(
-    update_request: BulkManualTagRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    update_request: BulkManualTagRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     lang = get_user_language(request)
     requested_ids = []
@@ -1642,7 +1627,11 @@ async def bulk_manual_tag_events(
                 unchanged_event_ids.append(event_id)
                 last_new_species = result.get("new_species") or last_new_species
 
-    status = "updated" if updated_event_ids else ("unchanged" if unchanged_event_ids else ("failed" if failed_event_ids else "missing"))
+    status = (
+        "updated"
+        if updated_event_ids
+        else ("unchanged" if unchanged_event_ids else ("failed" if failed_event_ids else "missing"))
+    )
     return BulkManualTagResponse(
         status=status,
         requested_count=len(requested_ids),
@@ -1659,10 +1648,7 @@ async def bulk_manual_tag_events(
 
 
 @router.post("/events/bulk/delete", response_model=BulkDeleteResponse)
-async def bulk_delete_events(
-    body: BulkDeleteRequest,
-    auth: AuthContext = Depends(require_owner)
-):
+async def bulk_delete_events(body: BulkDeleteRequest, auth: AuthContext = Depends(require_owner)):
     """Delete multiple detections by Frigate event ID. Owner only."""
     requested_ids: list[str] = []
     seen_ids: set[str] = set()
@@ -1688,13 +1674,15 @@ async def bulk_delete_events(
                 continue
             deleted = await repo.delete_by_frigate_event(event_id)
             if deleted:
-                await broadcaster.broadcast({
-                    "type": "detection_deleted",
-                    "data": {
-                        "frigate_event": event_id,
-                        "timestamp": serialize_api_datetime(detection.detection_time),
-                    },
-                })
+                await broadcaster.broadcast(
+                    {
+                        "type": "detection_deleted",
+                        "data": {
+                            "frigate_event": event_id,
+                            "timestamp": serialize_api_datetime(detection.detection_time),
+                        },
+                    }
+                )
                 deleted_event_ids.append(event_id)
             else:
                 missing_event_ids.append(event_id)
@@ -1709,10 +1697,7 @@ async def bulk_delete_events(
 
 @router.patch("/events/{event_id}")
 async def update_event(
-    event_id: str,
-    update_request: UpdateDetectionRequest,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
+    event_id: str, update_request: UpdateDetectionRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """
     Manually update a detection's species name. Owner only.
@@ -1724,10 +1709,7 @@ async def update_event(
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         return await _apply_manual_tag_update(
             db=db,
@@ -1740,6 +1722,7 @@ async def update_event(
 
 class WildlifeClassification(BaseModel):
     """A single wildlife classification result."""
+
     label: str
     score: float
     index: int
@@ -1747,17 +1730,14 @@ class WildlifeClassification(BaseModel):
 
 class WildlifeClassifyResponse(BaseModel):
     """Response from wildlife classification."""
+
     status: str
     event_id: str
     classifications: List[WildlifeClassification]
 
 
 @router.post("/events/{event_id}/classify-wildlife", response_model=WildlifeClassifyResponse)
-async def classify_wildlife(
-    event_id: str,
-    request: Request,
-    auth: AuthContext = Depends(require_owner)
-):
+async def classify_wildlife(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Classify a detection using the general wildlife model. Owner only.
     Fetches the snapshot from Frigate and runs it through the wildlife classifier.
@@ -1769,17 +1749,13 @@ async def classify_wildlife(
         detection = await repo.get_by_frigate_event(event_id)
 
         if not detection:
-            raise HTTPException(
-                status_code=404,
-                detail=i18n_service.translate("errors.detection_not_found", lang)
-            )
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         # Fetch snapshot from Frigate using centralized client
         snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_data:
             raise HTTPException(
-                status_code=502,
-                detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
             )
 
         # Classify with wildlife model
@@ -1795,30 +1771,21 @@ async def classify_wildlife(
             wildlife_status = classifier.get_wildlife_status()
             if not wildlife_status.get("enabled"):
                 raise HTTPException(
-                    status_code=503,
-                    detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
+                    status_code=503, detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
                 )
             raise HTTPException(
-                status_code=500,
-                detail=i18n_service.translate("errors.events.classification_failed", lang)
+                status_code=500, detail=i18n_service.translate("errors.events.classification_failed", lang)
             )
 
         classifications = [
-            WildlifeClassification(
-                label=r['label'],
-                score=r['score'],
-                index=r['index']
-            )
-            for r in results
+            WildlifeClassification(label=r["label"], score=r["score"], index=r["index"]) for r in results
         ]
 
-        log.info("Wildlife classification complete",
-                 event_id=event_id,
-                 top_result=results[0]['label'] if results else None,
-                 top_score=results[0]['score'] if results else None)
-
-        return WildlifeClassifyResponse(
-            status="success",
+        log.info(
+            "Wildlife classification complete",
             event_id=event_id,
-            classifications=classifications
+            top_result=results[0]["label"] if results else None,
+            top_score=results[0]["score"] if results else None,
         )
+
+        return WildlifeClassifyResponse(status="success", event_id=event_id, classifications=classifications)

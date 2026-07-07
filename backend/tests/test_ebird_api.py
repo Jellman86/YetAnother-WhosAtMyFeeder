@@ -42,21 +42,27 @@ def reset_ebird_settings():
 
 @pytest.mark.asyncio
 async def test_ebird_notable_tolerates_thumbnail_enrichment_failure(client: httpx.AsyncClient):
-    sample = [{
-        "speciesCode": "eucdov",
-        "comName": "Eurasian Collared-Dove",
-        "sciName": "Streptopelia decaocto",
-        "obsDt": "2026-03-14 08:30",
-        "locName": "Nearby Reserve",
-        "howMany": 1,
-        "lat": 51.5,
-        "lng": -0.14,
-        "obsValid": True,
-        "obsReviewed": False
-    }]
+    sample = [
+        {
+            "speciesCode": "eucdov",
+            "comName": "Eurasian Collared-Dove",
+            "sciName": "Streptopelia decaocto",
+            "obsDt": "2026-03-14 08:30",
+            "locName": "Nearby Reserve",
+            "howMany": 1,
+            "lat": 51.5,
+            "lng": -0.14,
+            "obsValid": True,
+            "obsReviewed": False,
+        }
+    ]
 
-    with patch("app.routers.ebird.ebird_service.get_recent_observations", new=AsyncMock(return_value=sample)), \
-         patch("app.routers.ebird.taxonomy_service.get_names", new=AsyncMock(side_effect=RuntimeError("taxonomy failed"))):
+    with (
+        patch("app.routers.ebird.ebird_service.get_recent_observations", new=AsyncMock(return_value=sample)),
+        patch(
+            "app.routers.ebird.taxonomy_service.get_names", new=AsyncMock(side_effect=RuntimeError("taxonomy failed"))
+        ),
+    ):
         response = await client.get("/api/ebird/notable")
 
     assert response.status_code == 200

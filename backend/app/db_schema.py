@@ -1,4 +1,18 @@
-from sqlalchemy import Table, Column, Integer, String, Float, Boolean, TIMESTAMP, MetaData, Index, ForeignKey, UniqueConstraint, Date, PrimaryKeyConstraint
+from sqlalchemy import (
+    Table,
+    Column,
+    Integer,
+    String,
+    Float,
+    Boolean,
+    TIMESTAMP,
+    MetaData,
+    Index,
+    ForeignKey,
+    UniqueConstraint,
+    Date,
+    PrimaryKeyConstraint,
+)
 from sqlalchemy.sql import func
 
 metadata = MetaData()

@@ -10,6 +10,7 @@ Only one run is allowed at a time. State for the active run is held in the
 service singleton; finished runs are read back off disk on request so history
 survives a process restart.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -135,7 +136,12 @@ class ModelEvalRunner:
             if not entry.is_dir():
                 continue
             summary_path = entry / SUMMARY_FILENAME
-            row = {"run_id": entry.name, "status": "in_progress" if entry.name == (self._active_status or {}).get("run_id") and self.is_running() else "complete"}
+            row = {
+                "run_id": entry.name,
+                "status": "in_progress"
+                if entry.name == (self._active_status or {}).get("run_id") and self.is_running()
+                else "complete",
+            }
             if summary_path.is_file():
                 try:
                     row.update(_summary_brief(json.loads(summary_path.read_text())))
@@ -175,7 +181,13 @@ class ModelEvalRunner:
         return summary
 
     def artifact_path(self, run_id: str, filename: str) -> Optional[Path]:
-        if filename not in {SUMMARY_FILENAME, RUNTIME_FILENAME, RESULTS_FILENAME, CONFUSIONS_FILENAME, DEVICE_MATRIX_FILENAME}:
+        if filename not in {
+            SUMMARY_FILENAME,
+            RUNTIME_FILENAME,
+            RESULTS_FILENAME,
+            CONFUSIONS_FILENAME,
+            DEVICE_MATRIX_FILENAME,
+        }:
             return None
         candidate = _eval_runs_root() / _safe_run_id(run_id) / filename
         return candidate if candidate.is_file() else None
@@ -264,7 +276,9 @@ class ModelEvalRunner:
         classifier_service = get_classifier()
 
         started_at = datetime.now(timezone.utc)
-        await self._emit(run_id, phase="building_panel", progress={"done": 0, "total": 0, "label": "building species panel"})
+        await self._emit(
+            run_id, phase="building_panel", progress={"done": 0, "total": 0, "label": "building species panel"}
+        )
 
         latitude = settings.location.latitude
         longitude = settings.location.longitude
@@ -282,16 +296,25 @@ class ModelEvalRunner:
 
         # Fetch images
         images_root = run_dir / IMAGES_SUBDIR
-        await self._emit(run_id, phase="fetching_images", progress={"done": 0, "total": len(panel), "label": "fetching images"})
+        await self._emit(
+            run_id, phase="fetching_images", progress={"done": 0, "total": len(panel), "label": "fetching images"}
+        )
 
         def _img_progress(done: int, total: int) -> None:
-            asyncio.create_task(self._emit(run_id, phase="fetching_images", progress={"done": done, "total": total, "label": "fetching images"}))
+            asyncio.create_task(
+                self._emit(
+                    run_id, phase="fetching_images", progress={"done": done, "total": total, "label": "fetching images"}
+                )
+            )
 
-        species_dicts = [{
-            "taxa_id": e.taxa_id,
-            "scientific_name": e.scientific_name,
-            "common_name": e.common_name,
-        } for e in panel]
+        species_dicts = [
+            {
+                "taxa_id": e.taxa_id,
+                "scientific_name": e.scientific_name,
+                "common_name": e.common_name,
+            }
+            for e in panel
+        ]
         images_by_taxa = await fetch_panel_images(
             species=species_dicts,
             dest_root=images_root,
@@ -319,10 +342,9 @@ class ModelEvalRunner:
         # Discover classifier models
         installed = await model_manager.list_installed_models()
         classifiers = [
-            m for m in installed
-            if m.ready and (
-                m.metadata is None or (m.metadata.artifact_kind or "classifier") == "classifier"
-            )
+            m
+            for m in installed
+            if m.ready and (m.metadata is None or (m.metadata.artifact_kind or "classifier") == "classifier")
         ]
         if not classifiers:
             raise RuntimeError("no installed classifier models found")
@@ -348,20 +370,29 @@ class ModelEvalRunner:
                     cleanup_image_dir(images_root)
                 except Exception as e:
                     log.warning("model_eval_cleanup_failed", error=str(e))
-            _write_summary(run_dir, _build_summary_envelope(
-                run_id=run_id,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc),
-                panel=usable_panel,
-                total_images=total_images,
-                image_sources=image_sources_count,
-                region_label=region_label,
-                models=[],
-                skipped_models=[],
-            ))
-            await self._emit(run_id, phase="complete", progress={
-                "done": len(classifiers), "total": len(classifiers), "label": "complete",
-            })
+            _write_summary(
+                run_dir,
+                _build_summary_envelope(
+                    run_id=run_id,
+                    started_at=started_at,
+                    finished_at=datetime.now(timezone.utc),
+                    panel=usable_panel,
+                    total_images=total_images,
+                    image_sources=image_sources_count,
+                    region_label=region_label,
+                    models=[],
+                    skipped_models=[],
+                ),
+            )
+            await self._emit(
+                run_id,
+                phase="complete",
+                progress={
+                    "done": len(classifiers),
+                    "total": len(classifiers),
+                    "label": "complete",
+                },
+            )
             return
 
         # Open per-image jsonl writer once if requested
@@ -398,17 +429,19 @@ class ModelEvalRunner:
                 activated = await model_manager.activate_model(model.id)
                 if not activated:
                     log.warning("model_eval_activation_failed", model_id=model.id)
-                    skipped_models.append({
-                        "model_id": model.id,
-                        "reason": "activation_failed",
-                        "detail": (
-                            "model_manager.activate_model returned False. Common cause: "
-                            "family models with eu/na variants whose top-level dir lacks "
-                            "model.onnx — model_manager validates the parent dir."
-                        ),
-                        "ready": getattr(model, "ready", None),
-                        "ready_reason": getattr(model, "reason", None),
-                    })
+                    skipped_models.append(
+                        {
+                            "model_id": model.id,
+                            "reason": "activation_failed",
+                            "detail": (
+                                "model_manager.activate_model returned False. Common cause: "
+                                "family models with eu/na variants whose top-level dir lacks "
+                                "model.onnx — model_manager validates the parent dir."
+                            ),
+                            "ready": getattr(model, "ready", None),
+                            "ready_reason": getattr(model, "reason", None),
+                        }
+                    )
                     continue
                 # Reload classifier_service to pick up the new active model.
                 try:
@@ -416,11 +449,13 @@ class ModelEvalRunner:
                         await classifier_service.reload_bird_model()
                 except Exception as e:
                     log.warning("model_eval_reload_failed", model_id=model.id, error=str(e))
-                    skipped_models.append({
-                        "model_id": model.id,
-                        "reason": "reload_failed",
-                        "detail": str(e),
-                    })
+                    skipped_models.append(
+                        {
+                            "model_id": model.id,
+                            "reason": "reload_failed",
+                            "detail": str(e),
+                        }
+                    )
                     continue
 
                 # Per-model state
@@ -485,8 +520,7 @@ class ModelEvalRunner:
                         for r in top5:
                             label = (r.get("label") or "").strip()
                             r["taxa_id"] = (
-                                _resolve_label_taxa(label, panel_label_to_taxa, taxa_cache)
-                                if label else None
+                                _resolve_label_taxa(label, panel_label_to_taxa, taxa_cache) if label else None
                             )
 
                         top1 = top5[0] if top5 else None
@@ -502,9 +536,7 @@ class ModelEvalRunner:
                         # situation where the same species (e.g. Pica pica)
                         # gets resolved to different taxa_ids through
                         # different code paths.
-                        match_flags = [
-                            _is_correct_match(r, entry) for r in top5
-                        ]
+                        match_flags = [_is_correct_match(r, entry) for r in top5]
                         if match_flags and match_flags[0]:
                             top1_hits += 1
                         if any(match_flags[:3]):
@@ -541,25 +573,31 @@ class ModelEvalRunner:
                         processed += 1
 
                         if results_fp is not None:
-                            results_fp.write(json.dumps({
-                                "model_id": model.id,
-                                "taxa_id": entry.taxa_id,
-                                "expected_common": entry.common_name,
-                                "expected_scientific": entry.scientific_name,
-                                "panel": entry.panel,
-                                "image_path": fetched.local_path,
-                                "image_source": fetched.source,
-                                "image_url": fetched.source_url,
-                                "top5": [
+                            results_fp.write(
+                                json.dumps(
                                     {
-                                        "label": r.get("label"),
-                                        "score": float(r.get("score") or 0.0),
-                                        "taxa_id": r.get("taxa_id"),
-                                    } for r in top5
-                                ],
-                                "latency_ms": round(latency_ms, 2),
-                                "correct_top1": bool(match_flags and match_flags[0]),
-                            }) + "\n")
+                                        "model_id": model.id,
+                                        "taxa_id": entry.taxa_id,
+                                        "expected_common": entry.common_name,
+                                        "expected_scientific": entry.scientific_name,
+                                        "panel": entry.panel,
+                                        "image_path": fetched.local_path,
+                                        "image_source": fetched.source,
+                                        "image_url": fetched.source_url,
+                                        "top5": [
+                                            {
+                                                "label": r.get("label"),
+                                                "score": float(r.get("score") or 0.0),
+                                                "taxa_id": r.get("taxa_id"),
+                                            }
+                                            for r in top5
+                                        ],
+                                        "latency_ms": round(latency_ms, 2),
+                                        "correct_top1": bool(match_flags and match_flags[0]),
+                                    }
+                                )
+                                + "\n"
+                            )
 
                 # Per-model summary
                 status = _classifier_status_snapshot(classifier_service)
@@ -612,17 +650,20 @@ class ModelEvalRunner:
                 # Confusion CSV — append per model so partial runs leave usable data
                 _append_confusions_csv(run_dir / CONFUSIONS_FILENAME, model.id, confusions)
                 # Persist partial summary after each model
-                _write_summary(run_dir, _build_summary_envelope(
-                    run_id=run_id,
-                    started_at=started_at,
-                    finished_at=None,
-                    panel=usable_panel,
-                    total_images=total_images,
-                    image_sources=image_sources_count,
-                    region_label=region_label,
-                    models=model_summaries,
-                    skipped_models=skipped_models,
-                ))
+                _write_summary(
+                    run_dir,
+                    _build_summary_envelope(
+                        run_id=run_id,
+                        started_at=started_at,
+                        finished_at=None,
+                        panel=usable_panel,
+                        total_images=total_images,
+                        image_sources=image_sources_count,
+                        region_label=region_label,
+                        models=model_summaries,
+                        skipped_models=skipped_models,
+                    ),
+                )
                 _write_runtime(run_dir, runtime_payload)
 
             # Optional per-model x per-device capability sweep (compile / finite /
@@ -663,11 +704,15 @@ class ModelEvalRunner:
         )
         _write_summary(run_dir, envelope)
         _write_runtime(run_dir, runtime_payload)
-        await self._emit(run_id, phase="complete", progress={
-            "done": len(classifiers),
-            "total": len(classifiers),
-            "label": "complete",
-        })
+        await self._emit(
+            run_id,
+            phase="complete",
+            progress={
+                "done": len(classifiers),
+                "total": len(classifiers),
+                "label": "complete",
+            },
+        )
 
     async def _download_all_classifier_models(self, run_id: str) -> None:
         """Install every registry classifier model that isn't present yet.
@@ -679,33 +724,42 @@ class ModelEvalRunner:
 
         try:
             available = await model_manager.list_available_models()
-            installed_ready = {
-                m.id for m in await model_manager.list_installed_models()
-                if getattr(m, "ready", False)
-            }
+            installed_ready = {m.id for m in await model_manager.list_installed_models() if getattr(m, "ready", False)}
         except Exception as e:
             log.warning("model_eval_list_models_failed", error=str(e))
             return
 
         targets = [
-            m for m in available
-            if ((getattr(m, "artifact_kind", None) or "classifier") == "classifier")
-            and m.id not in installed_ready
+            m
+            for m in available
+            if ((getattr(m, "artifact_kind", None) or "classifier") == "classifier") and m.id not in installed_ready
         ]
         total = len(targets)
         for idx, m in enumerate(targets):
-            await self._emit(run_id, phase="downloading_models", progress={
-                "done": idx, "total": total, "label": f"downloading {m.id}",
-            })
+            await self._emit(
+                run_id,
+                phase="downloading_models",
+                progress={
+                    "done": idx,
+                    "total": total,
+                    "label": f"downloading {m.id}",
+                },
+            )
             try:
                 if not await model_manager.download_model(m.id):
                     log.warning("model_eval_download_failed", model_id=m.id)
             except Exception as e:
                 log.warning("model_eval_download_error", model_id=m.id, error=str(e))
         if total:
-            await self._emit(run_id, phase="downloading_models", progress={
-                "done": total, "total": total, "label": "models downloaded",
-            })
+            await self._emit(
+                run_id,
+                phase="downloading_models",
+                progress={
+                    "done": total,
+                    "total": total,
+                    "label": "models downloaded",
+                },
+            )
 
     async def _device_sweep(self, run_id: str, run_dir: Path, classifiers: list) -> None:
         """Compile + run every model on each available OpenVINO device and compare
@@ -719,6 +773,7 @@ class ModelEvalRunner:
         # isolated in the probe subprocess. CPU is the correctness baseline.
         try:
             import openvino as _ov
+
             avail = list(_ov.Core().available_devices)
         except Exception as e:
             log.warning("model_eval_openvino_unavailable", error=str(e))
@@ -735,16 +790,21 @@ class ModelEvalRunner:
         # (not just a synthetic gradient) so f16 NPU divergence on real data is caught.
         exts = {".jpg", ".jpeg", ".png", ".webp"}
         image_paths = [
-            str(p) for p in sorted((run_dir / IMAGES_SUBDIR).rglob("*"))
-            if p.is_file() and p.suffix.lower() in exts
+            str(p) for p in sorted((run_dir / IMAGES_SUBDIR).rglob("*")) if p.is_file() and p.suffix.lower() in exts
         ][:12]
 
         matrix: dict[str, Any] = {}
         total = len(classifiers)
         for m_idx, model in enumerate(classifiers):
-            await self._emit(run_id, phase="device_sweep", progress={
-                "done": m_idx, "total": total, "label": f"sweeping {model.id}",
-            })
+            await self._emit(
+                run_id,
+                phase="device_sweep",
+                progress={
+                    "done": m_idx,
+                    "total": total,
+                    "label": f"sweeping {model.id}",
+                },
+            )
             try:
                 activated = await model_manager.activate_model(model.id)
             except Exception:
@@ -772,8 +832,11 @@ class ModelEvalRunner:
                 compiles = bool(compile_info.get("ok"))
                 finite = None
                 if compiles:
-                    finite = bool(out.get("finite_count")) and not (out.get("nan_count") or 0) \
+                    finite = (
+                        bool(out.get("finite_count"))
+                        and not (out.get("nan_count") or 0)
                         and not ((out.get("pos_inf_count") or 0) + (out.get("neg_inf_count") or 0))
+                    )
                 entry: dict[str, Any] = {
                     "compiles": compiles,
                     "error": compile_info.get("error"),
@@ -799,7 +862,7 @@ class ModelEvalRunner:
                         entry["images_compared"] = n
                         entry["top1_match_rate"] = round(top1_hits / n, 3)
                         entry["mean_top5_overlap"] = round(sum(overlaps) / n, 2)
-                        entry["matches_cpu"] = (top1_hits == n)
+                        entry["matches_cpu"] = top1_hits == n
                 per_device[dev] = entry
             matrix[model.id] = {"devices": per_device}
 
@@ -835,17 +898,28 @@ class ModelEvalRunner:
             if passed:
                 eligibility[mid] = passed
         try:
-            (_eval_runs_root() / "device_eligibility.json").write_text(json.dumps({
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "run_id": run_id,
-                "models": eligibility,
-            }, indent=2))
+            (_eval_runs_root() / "device_eligibility.json").write_text(
+                json.dumps(
+                    {
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "run_id": run_id,
+                        "models": eligibility,
+                    },
+                    indent=2,
+                )
+            )
         except OSError as e:
             log.warning("model_eval_eligibility_write_failed", error=str(e))
 
-        await self._emit(run_id, phase="device_sweep", progress={
-            "done": total, "total": total, "label": "device sweep complete",
-        })
+        await self._emit(
+            run_id,
+            phase="device_sweep",
+            progress={
+                "done": total,
+                "total": total,
+                "label": "device sweep complete",
+            },
+        )
 
     async def _run_probe_subprocess(
         self, device: str, *, timeout: float, image_paths: Optional[list[str]] = None
@@ -854,8 +928,10 @@ class ModelEvalRunner:
         JSON report, or None on crash / timeout / parse failure. When image_paths are
         given the probe runs those real images; otherwise it uses a synthetic image."""
         import sys as _sys
+
         try:
             import app as _app_pkg
+
             backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
         except Exception:
             backend_root = None
@@ -891,6 +967,7 @@ class ModelEvalRunner:
 
 
 # ---------- helpers ----------
+
 
 def _safe_div(numerator: int, denominator: int) -> float:
     if not denominator:
@@ -992,22 +1069,31 @@ def _append_confusions_csv(
     with open(path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if write_header:
-            writer.writerow([
-                "model_id", "expected_taxa", "expected_common",
-                "predicted_taxa", "predicted_common", "count", "mean_score",
-            ])
+            writer.writerow(
+                [
+                    "model_id",
+                    "expected_taxa",
+                    "expected_common",
+                    "predicted_taxa",
+                    "predicted_common",
+                    "count",
+                    "mean_score",
+                ]
+            )
         ordered = sorted(confusions.values(), key=lambda r: r["count"], reverse=True)
         for row in ordered[:50]:
             mean_score = row["score_sum"] / row["count"] if row["count"] else 0.0
-            writer.writerow([
-                model_id,
-                row["expected_taxa"],
-                row["expected_common"],
-                row["predicted_taxa"],
-                row["predicted_common"],
-                row["count"],
-                f"{mean_score:.3f}",
-            ])
+            writer.writerow(
+                [
+                    model_id,
+                    row["expected_taxa"],
+                    row["expected_common"],
+                    row["predicted_taxa"],
+                    row["predicted_common"],
+                    row["count"],
+                    f"{mean_score:.3f}",
+                ]
+            )
 
 
 def _is_correct_match(prediction: dict[str, Any], expected: SpeciesEntry) -> bool:
@@ -1032,10 +1118,7 @@ def _is_correct_match(prediction: dict[str, Any], expected: SpeciesEntry) -> boo
     # labels like "Cassin's Finch (Adult Male)").
     if "(" in label:
         head = label.split("(", 1)[0].strip()
-        if head and (
-            head == expected.scientific_name.strip().lower()
-            or head == expected.common_name.strip().lower()
-        ):
+        if head and (head == expected.scientific_name.strip().lower() or head == expected.common_name.strip().lower()):
             return True
     return False
 
@@ -1178,7 +1261,9 @@ def _gpu_diagnostic(
             "normalization": preprocessing.get("normalization"),
             "padding_color": preprocessing.get("padding_color"),
         },
-        "model_config_warnings": list(spec.get("model_config_warnings") or runtime_model.get("model_config_warnings") or []),
+        "model_config_warnings": list(
+            spec.get("model_config_warnings") or runtime_model.get("model_config_warnings") or []
+        ),
         "model_artifact": {
             "runtime": spec.get("runtime") or runtime_model.get("declared_runtime"),
             "model_type": runtime_model.get("model_type"),

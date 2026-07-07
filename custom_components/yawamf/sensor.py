@@ -1,4 +1,5 @@
 """Sensor platform for Yet Another WhosAtMyFeeder."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -27,6 +28,7 @@ from .const import (
 )
 from .coordinator import YAWAMFDataUpdateCoordinator
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -35,12 +37,14 @@ async def async_setup_entry(
     """Set up the sensor platform."""
     coordinator: YAWAMFDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    async_add_entities([
-        YAWAMFLastBirdSensor(coordinator),
-        YAWAMFLastDetectionEventSensor(coordinator),
-        YAWAMFLastDetectionTimestampSensor(coordinator),
-        YAWAMFDailyCountSensor(coordinator),
-    ])
+    async_add_entities(
+        [
+            YAWAMFLastBirdSensor(coordinator),
+            YAWAMFLastDetectionEventSensor(coordinator),
+            YAWAMFLastDetectionTimestampSensor(coordinator),
+            YAWAMFDailyCountSensor(coordinator),
+        ]
+    )
 
 
 def _latest_detection(coordinator: YAWAMFDataUpdateCoordinator) -> dict[str, Any] | None:
@@ -69,6 +73,7 @@ def _latest_detection_timestamp(coordinator: YAWAMFDataUpdateCoordinator) -> dat
         return datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
 
 class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], SensorEntity):
     """Sensor showing the last bird detected."""
@@ -201,6 +206,7 @@ class YAWAMFLastDetectionTimestampSensor(CoordinatorEntity[YAWAMFDataUpdateCoord
             manufacturer="YA-WAMF",
             configuration_url=self.coordinator.url,
         )
+
 
 class YAWAMFDailyCountSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], SensorEntity):
     """Sensor showing total detections in the rolling 24-hour summary window."""

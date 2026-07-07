@@ -83,7 +83,9 @@ def test_export_binocular_model_writes_labels_and_onnx_paths(tmp_path):
     calls = {}
     fake_model = FakeModel()
 
-    def fake_loader(*, repo_id, filename, checkpoint_loader=None, torch_load=None, model_builder=None, encoder_loader=None):
+    def fake_loader(
+        *, repo_id, filename, checkpoint_loader=None, torch_load=None, model_builder=None, encoder_loader=None
+    ):
         calls["repo_id"] = repo_id
         calls["filename"] = filename
         return fake_model, ["Blue Jay", "Northern Cardinal"], {"image_size": 224}

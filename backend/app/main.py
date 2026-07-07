@@ -65,6 +65,7 @@ from app.ratelimit import limiter
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 
+
 # Version management
 def get_base_version() -> str:
     """Read base version from VERSION file or environment."""
@@ -72,30 +73,27 @@ def get_base_version() -> str:
     if os.environ.get("APP_VERSION_BASE"):
         return os.environ.get("APP_VERSION_BASE")
 
-    version_file = os.path.join(os.path.dirname(__file__), '..', '..', 'VERSION')
+    version_file = os.path.join(os.path.dirname(__file__), "..", "..", "VERSION")
     try:
-        with open(version_file, 'r') as f:
+        with open(version_file, "r") as f:
             return f.read().strip()
     except (FileNotFoundError, IOError):
         # Fallback if VERSION file doesn't exist
         return "2.2.0"
 
+
 def get_git_hash() -> str:
     """Get git commit hash from environment or by running git."""
     # First check environment variable (set during Docker build)
-    git_hash = os.environ.get('GIT_HASH', '').strip()
+    git_hash = os.environ.get("GIT_HASH", "").strip()
     if git_hash:
         return git_hash
 
     # Try to get from git command (for development)
     try:
         import subprocess
-        result = subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+
+        result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.strip()
     except (subprocess.SubprocessError, FileNotFoundError):
@@ -103,28 +101,26 @@ def get_git_hash() -> str:
 
     return "unknown"
 
+
 def get_app_branch() -> str:
     """Get app branch from environment or by running git."""
     # First check environment variable (set during Docker build)
-    branch = os.environ.get('APP_BRANCH', '').strip()
+    branch = os.environ.get("APP_BRANCH", "").strip()
     if branch:
         return branch
 
     # Try to get from git command (for development)
     try:
         import subprocess
-        result = subprocess.run(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+
+        result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.strip()
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
     return "unknown"
+
 
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
@@ -140,24 +136,22 @@ if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:
 else:
     APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
-os.environ["APP_VERSION"] = APP_VERSION # Make available to other services
+os.environ["APP_VERSION"] = APP_VERSION  # Make available to other services
 
 # Metrics
-EVENTS_PROCESSED = Counter('events_processed_total', 'Total number of events processed')
-DETECTIONS_TOTAL = Counter('detections_total', 'Total number of bird detections')
-API_REQUESTS = Counter('api_requests_total', 'Total API requests')
-RATE_LIMIT_EXCEEDED = Counter('rate_limit_exceeded_total', 'Total rate limit violations')
+EVENTS_PROCESSED = Counter("events_processed_total", "Total number of events processed")
+DETECTIONS_TOTAL = Counter("detections_total", "Total number of bird detections")
+API_REQUESTS = Counter("api_requests_total", "Total API requests")
+RATE_LIMIT_EXCEEDED = Counter("rate_limit_exceeded_total", "Total rate limit violations")
+
 
 def _is_testing() -> bool:
     """
     Detect test runs (pytest sets PYTEST_CURRENT_TEST only while a test is executing).
     This must be evaluated at runtime (inside lifespan), not just at import time.
     """
-    return (
-        "pytest" in sys.modules
-        or bool(os.getenv("PYTEST_CURRENT_TEST"))
-        or os.getenv("YA_WAMF_TESTING") == "1"
-    )
+    return "pytest" in sys.modules or bool(os.getenv("PYTEST_CURRENT_TEST")) or os.getenv("YA_WAMF_TESTING") == "1"
+
 
 log = structlog.get_logger()
 event_processor: EventProcessor | None = None
@@ -183,15 +177,19 @@ async def run_cleanup():
                 deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
             if deleted_count > 0:
-                log.info("Automatic cleanup completed",
-                         deleted_count=deleted_count,
-                         retention_days=settings.maintenance.retention_days,
-                         cutoff=cutoff.isoformat())
+                log.info(
+                    "Automatic cleanup completed",
+                    deleted_count=deleted_count,
+                    retention_days=settings.maintenance.retention_days,
+                    cutoff=cutoff.isoformat(),
+                )
             if deleted_audio_count > 0:
-                log.info("Automatic audio cleanup completed",
-                         deleted_count=deleted_audio_count,
-                         retention_days=settings.maintenance.retention_days,
-                         cutoff=cutoff.isoformat())
+                log.info(
+                    "Automatic audio cleanup completed",
+                    deleted_count=deleted_audio_count,
+                    retention_days=settings.maintenance.retention_days,
+                    cutoff=cutoff.isoformat(),
+                )
 
         # Media cache cleanup
         if settings.media_cache.enabled:
@@ -220,24 +218,36 @@ async def run_cleanup():
         if settings.maintenance.auto_purge_missing_clips and settings.maintenance.auto_purge_missing_snapshots:
             try:
                 from app.routers.settings import _purge_missing_all_media
+
                 result = await _purge_missing_all_media()
-                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
+                if any(
+                    result.get(key, 0) > 0
+                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
+                ):
                     log.info("Scheduled media integrity scan completed", **result)
             except Exception as e:
                 log.error("Scheduled media integrity scan failed", error=str(e))
         elif settings.maintenance.auto_purge_missing_clips:
             try:
                 from app.routers.settings import _purge_missing_media
+
                 result = await _purge_missing_media("clip")
-                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
+                if any(
+                    result.get(key, 0) > 0
+                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
+                ):
                     log.info("Scheduled purge missing clips completed", **result)
             except Exception as e:
                 log.error("Scheduled purge missing clips failed", error=str(e))
         elif settings.maintenance.auto_purge_missing_snapshots:
             try:
                 from app.routers.settings import _purge_missing_media
+
                 result = await _purge_missing_media("snapshot")
-                if any(result.get(key, 0) > 0 for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")):
+                if any(
+                    result.get(key, 0) > 0
+                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
+                ):
                     log.info("Scheduled purge missing snapshots completed", **result)
             except Exception as e:
                 log.error("Scheduled purge missing snapshots failed", error=str(e))
@@ -246,6 +256,7 @@ async def run_cleanup():
         if settings.maintenance.auto_analyze_unknowns:
             try:
                 from app.routers.settings import _run_analyze_unknowns
+
                 result = await _run_analyze_unknowns()
                 if result.get("accepted", 0) > 0:
                     log.info("Scheduled analyze unknowns completed", **result)
@@ -269,9 +280,9 @@ async def cleanup_scheduler():
         try:
             # Sleep for the interval, checking for cancellation periodically
             for _ in range(CLEANUP_INTERVAL_HOURS):
-                 if not cleanup_running:
-                     break
-                 await asyncio.sleep(3600) # check every hour
+                if not cleanup_running:
+                    break
+                await asyncio.sleep(3600)  # check every hour
 
             if cleanup_running:
                 await run_cleanup()
@@ -369,6 +380,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "db_init", init_db, fatal=True)
         await _run_lifecycle_phase(app, "notification_dispatcher_start", notification_dispatcher.start, fatal=False)
         from app.services.model_manager import model_manager
+
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
@@ -403,6 +415,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
     await close_db()  # Close database connection pool
 
+
 app = FastAPI(title="Yet Another WhosAtMyFeeder API", version=APP_VERSION, lifespan=lifespan)
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) for correct scheme/IP detection
@@ -423,31 +436,26 @@ log = structlog.get_logger()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
 # Custom rate limit exceeded handler with metrics
 @app.exception_handler(RateLimitExceeded)
 async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
     RATE_LIMIT_EXCEEDED.inc()
-    log.warning("Rate limit exceeded",
-                ip=get_remote_address(request),
-                path=request.url.path)
+    log.warning("Rate limit exceeded", ip=get_remote_address(request), path=request.url.path)
     return Response(
         content='{"detail":"Rate limit exceeded. Please try again later."}',
         status_code=429,
         headers={"Retry-After": str(exc.detail)},
-        media_type="application/json"
+        media_type="application/json",
     )
+
 
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    log.error(
-        "Unhandled exception",
-        path=request.url.path,
-        method=request.method,
-        error=str(exc),
-        exc_info=True
-    )
+    log.error("Unhandled exception", path=request.url.path, method=request.method, error=str(exc), exc_info=True)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 app.add_middleware(LanguageMiddleware)
 
@@ -475,13 +483,21 @@ app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[De
 
 # Owner-only routers - require authentication
 app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(
+    backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
 app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(debug.router, prefix="/api", tags=["debug"], dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(diagnostics.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(
+    diagnostics.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
+app.include_router(
+    model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(
+    inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 
@@ -572,17 +588,11 @@ async def add_security_headers(request: Request, call_next):
 
     # Permissions Policy - disable unnecessary browser features
     response.headers["Permissions-Policy"] = (
-        "geolocation=(), "
-        "microphone=(), "
-        "camera=(), "
-        "payment=(), "
-        "usb=(), "
-        "magnetometer=(), "
-        "gyroscope=(), "
-        "accelerometer=()"
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
     )
 
     return response
+
 
 @app.middleware("http")
 async def check_https_warning(request: Request, call_next):
@@ -619,7 +629,7 @@ async def check_https_warning(request: Request, call_next):
                     x_forwarded_host=request.headers.get("x-forwarded-host"),
                     trusted_proxy_hosts_configured=getattr(app.state, "trusted_proxy_hosts_configured", []),
                     trusted_proxy_hosts_resolved=resolved_trusted_hosts,
-                    recommendation="Use HTTPS in production for secure authentication"
+                    recommendation="Use HTTPS in production for secure authentication",
                 )
             # Warn if proxy trust is wide open
             if "*" in resolved_trusted_hosts:
@@ -627,24 +637,26 @@ async def check_https_warning(request: Request, call_next):
                     app.state._last_proxy_warning = datetime.now()
                     log.warning(
                         "Proxy headers trust all hosts",
-                        recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                        recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies",
                     )
                 else:
                     if (datetime.now() - app.state._last_proxy_warning).total_seconds() > 60:
                         app.state._last_proxy_warning = datetime.now()
                         log.warning(
                             "Proxy headers trust all hosts",
-                            recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies"
+                            recommendation="Configure SYSTEM__TRUSTED_PROXY_HOSTS to restrict trusted proxies",
                         )
 
     response = await _safe_call_next(request, call_next)
     return response
+
 
 @app.middleware("http")
 async def count_requests(request, call_next):
     API_REQUESTS.inc()
     response = await _safe_call_next(request, call_next)
     return response
+
 
 @app.get("/health")
 async def health_check():
@@ -679,8 +691,8 @@ async def health_check():
         }
     )
     health = {
-        "status": "ok", 
-        "service": "ya-wamf-backend", 
+        "status": "ok",
+        "service": "ya-wamf-backend",
         "version": APP_VERSION,
         "ml": classifier_health,
         "db_pool": db_pool_health,
@@ -695,14 +707,11 @@ async def health_check():
     }
     live_image_health = health["ml"].get("live_image") or {}
     live_image_status = str(live_image_health.get("status") or "").lower()
-    
+
     # If startup had degraded phases or ML is unhealthy, top-level status should reflect it
     if (
         health["ml"]["status"] != "ok"
-        or (
-            live_image_status not in {"", "ok", "healthy"}
-            or bool(live_image_health.get("recovery_active"))
-        )
+        or (live_image_status not in {"", "ok", "healthy"} or bool(live_image_health.get("recovery_active")))
         or startup_warnings
         or bool(mqtt_health.get("backlog_wait_active"))
         or bool(mqtt_health.get("recent_handler_slot_wait_exhaustion"))
@@ -712,7 +721,7 @@ async def health_check():
         or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0
     ):
         health["status"] = "degraded"
-        
+
     return health
 
 
@@ -739,10 +748,11 @@ async def readiness_check():
         return payload
     return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
 
+
 @app.get("/api/sse")
 async def sse_endpoint(
     request: Request,
-    token: str = None  # Optional token via query param for EventSource
+    token: str = None,  # Optional token via query param for EventSource
 ):
     """Server-Sent Events endpoint for real-time updates.
 
@@ -775,9 +785,7 @@ async def sse_endpoint(
             raise e
 
     hide_camera_names = (
-        not auth.is_owner
-        and settings.public_access.enabled
-        and not settings.public_access.show_camera_names
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
     def sanitize_message_for_guest(message: dict) -> dict:
@@ -812,9 +820,15 @@ async def sse_endpoint(
 
                     # Filter sensitive events for guests
                     if not auth.is_owner:
-                        event_type = message.get('type', '')
+                        event_type = message.get("type", "")
                         # Block owner-only events from public users
-                        if event_type in ['settings_updated', 'backfill_started', 'backfill_progress', 'backfill_complete', 'backfill_failed']:
+                        if event_type in [
+                            "settings_updated",
+                            "backfill_started",
+                            "backfill_progress",
+                            "backfill_complete",
+                            "backfill_failed",
+                        ]:
                             continue
 
                     if not auth.is_owner:
@@ -845,6 +859,7 @@ async def sse_endpoint(
             "X-Accel-Buffering": "no",
         },
     )
+
 
 @app.get("/api/version")
 async def get_version():

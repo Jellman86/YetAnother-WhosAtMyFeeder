@@ -11,6 +11,7 @@ from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 
+
 @dataclass
 class AudioDetection:
     timestamp: datetime
@@ -19,6 +20,7 @@ class AudioDetection:
     sensor_id: Optional[str]
     raw_data: dict
     scientific_name: Optional[str] = None
+
 
 def _extract_birdnet_id(raw_data: dict | None) -> int | None:
     """Pull a stable BirdNET-Go detection id out of an MQTT payload.
@@ -50,9 +52,11 @@ class AudioService:
         buffer_minutes = settings.frigate.audio_buffer_hours * 60
         self._buffer_duration = timedelta(minutes=buffer_minutes)
         self._lock = asyncio.Lock()
-        log.info("AudioService initialized",
-                 buffer_duration_hours=settings.frigate.audio_buffer_hours,
-                 correlation_window_seconds=settings.frigate.audio_correlation_window_seconds)
+        log.info(
+            "AudioService initialized",
+            buffer_duration_hours=settings.frigate.audio_buffer_hours,
+            correlation_window_seconds=settings.frigate.audio_correlation_window_seconds,
+        )
 
     @staticmethod
     def _extract_birdnet_mapping_key(data: dict) -> Optional[str]:
@@ -96,10 +100,7 @@ class AudioService:
         if not isinstance(expected_sensor_id, str):
             return True, set()
 
-        tokens = [
-            cls._normalize_mapping_key(token)
-            for token in re.split(r"[,\n;|]+", expected_sensor_id)
-        ]
+        tokens = [cls._normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", expected_sensor_id)]
         normalized_keys = {token for token in tokens if token}
         if not normalized_keys or "*" in normalized_keys:
             return True, set()
@@ -161,13 +162,15 @@ class AudioService:
             if not scientific_name:
                 try:
                     from app.services.taxonomy.taxonomy_service import taxonomy_service
+
                     taxonomy = await taxonomy_service.get_names(species)
                     scientific_name = taxonomy.get("scientific_name")
                 except Exception as e:
                     # Keep ingesting audio events even if taxonomy lookup is unavailable.
                     scientific_name = None
-                    log.warning("Failed to resolve audio taxonomy; using raw species name",
-                                species=species, error=str(e))
+                    log.warning(
+                        "Failed to resolve audio taxonomy; using raw species name", species=species, error=str(e)
+                    )
 
             # If timestamp provided in payload, use it
             ts_raw = data.get("timestamp") or data.get("ts")
@@ -183,7 +186,7 @@ class AudioService:
                 if iso_ts:
                     try:
                         # Handle potential trailing 'Z' or extra precision
-                        timestamp = datetime.fromisoformat(iso_ts.replace('Z', '+00:00'))
+                        timestamp = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
                         # Ensure timezone-aware (if naive, assume UTC)
                         if timestamp.tzinfo is None:
                             timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -196,13 +199,21 @@ class AudioService:
                 confidence=float(confidence),
                 sensor_id=sensor_id,
                 raw_data=data,
-                scientific_name=scientific_name
+                scientific_name=scientific_name,
             )
 
             async with self._lock:
                 self._buffer.append(detection)
                 buffer_len = len(self._buffer)
-                log.info("Audio detection added to buffer", species=species, scientific=scientific_name, confidence=confidence, sensor_id=sensor_id, ts=timestamp.isoformat(), buffer_len=buffer_len)
+                log.info(
+                    "Audio detection added to buffer",
+                    species=species,
+                    scientific=scientific_name,
+                    confidence=confidence,
+                    sensor_id=sensor_id,
+                    ts=timestamp.isoformat(),
+                    buffer_len=buffer_len,
+                )
                 self._cleanup_buffer()
 
             try:
@@ -214,11 +225,11 @@ class AudioService:
                         confidence=float(confidence),
                         sensor_id=sensor_id,
                         raw_data=data,
-                        scientific_name=scientific_name
+                        scientific_name=scientific_name,
                     )
             except Exception as e:
                 log.warning("Failed to persist audio detection", error=str(e))
-            
+
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
 
@@ -247,7 +258,9 @@ class AudioService:
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))
 
-    async def find_match(self, target_time: datetime, camera_name: str = None, window_seconds: int = None) -> Optional[AudioDetection]:
+    async def find_match(
+        self, target_time: datetime, camera_name: str = None, window_seconds: int = None
+    ) -> Optional[AudioDetection]:
         """Find an audio detection matching the visual timestamp and camera.
 
         Args:
@@ -258,7 +271,7 @@ class AudioService:
         if window_seconds is None:
             window_seconds = settings.frigate.audio_correlation_window_seconds
         async with self._lock:
-            self._cleanup_buffer() # Clean before matching
+            self._cleanup_buffer()  # Clean before matching
 
             # Determine which sensor ID we are looking for based on camera mapping
             expected_sensor_id = None
@@ -291,11 +304,7 @@ class AudioService:
             return best_match
 
     async def correlate_species(
-        self,
-        target_time: datetime,
-        species_name: str,
-        camera_name: str = None,
-        window_seconds: int = None
+        self, target_time: datetime, species_name: str, camera_name: str = None, window_seconds: int = None
     ) -> tuple[bool, Optional[str], Optional[float]]:
         """Check if a specific species has audio confirmation at target time.
 
@@ -314,15 +323,19 @@ class AudioService:
         """
         if window_seconds is None:
             window_seconds = settings.frigate.audio_correlation_window_seconds
-        
+
         # Get scientific name for the species we're looking for
         taxonomy: dict = {}
         try:
             from app.services.taxonomy.taxonomy_service import taxonomy_service
+
             taxonomy = await taxonomy_service.get_names(species_name)
         except Exception as e:
-            log.warning("Audio correlation taxonomy lookup failed; falling back to raw names",
-                        species=species_name, error=str(e))
+            log.warning(
+                "Audio correlation taxonomy lookup failed; falling back to raw names",
+                species=species_name,
+                error=str(e),
+            )
 
         target_query = (species_name or "").lower().strip()
         target_scientific = (taxonomy.get("scientific_name") or species_name or "").lower().strip()
@@ -361,16 +374,19 @@ class AudioService:
                 # Match against multiple fields for cross-language robustness
                 audio_species = detection.species.lower().strip()
                 audio_scientific = (detection.scientific_name or "").lower().strip()
-                
+
                 matches = (
-                    audio_species == target_query or
-                    audio_species == target_scientific or
-                    audio_species == target_common or
-                    (audio_scientific and (
-                        audio_scientific == target_query or
-                        audio_scientific == target_scientific or
-                        audio_scientific == target_common
-                    ))
+                    audio_species == target_query
+                    or audio_species == target_scientific
+                    or audio_species == target_common
+                    or (
+                        audio_scientific
+                        and (
+                            audio_scientific == target_query
+                            or audio_scientific == target_scientific
+                            or audio_scientific == target_common
+                        )
+                    )
                 )
 
                 if matches:
@@ -379,26 +395,30 @@ class AudioService:
                         best_match = detection
 
             if best_match:
-                log.info("Audio correlation match found",
-                         query=species_name,
-                         target_sci=target_scientific,
-                         audio_species=best_match.species,
-                         audio_sci=best_match.scientific_name,
-                         confidence=best_match.confidence,
-                         time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()))
+                log.info(
+                    "Audio correlation match found",
+                    query=species_name,
+                    target_sci=target_scientific,
+                    audio_species=best_match.species,
+                    audio_sci=best_match.scientific_name,
+                    confidence=best_match.confidence,
+                    time_delta_sec=abs((best_match.timestamp - target_time).total_seconds()),
+                )
                 return (True, best_match.species, best_match.confidence)
             else:
-                log.debug("No audio correlation found",
-                          species=species_name,
-                          target_time=target_time.isoformat(),
-                          window_seconds=window_seconds,
-                          buffer_size=len(self._buffer))
+                log.debug(
+                    "No audio correlation found",
+                    species=species_name,
+                    target_time=target_time.isoformat(),
+                    window_seconds=window_seconds,
+                    buffer_size=len(self._buffer),
+                )
                 return (False, None, None)
 
     async def get_recent_detections(self, limit: int = 10) -> list[dict]:
         """Get the most recent audio detections from the buffer."""
         async with self._lock:
-            self._cleanup_buffer() # Clean before returning to UI
+            self._cleanup_buffer()  # Clean before returning to UI
             # Sort by timestamp descending
             sorted_detections = sorted(self._buffer, key=lambda x: x.timestamp, reverse=True)
             return [
@@ -414,11 +434,7 @@ class AudioService:
             ]
 
     async def get_detections_near(
-        self,
-        target_time: datetime,
-        camera_name: str | None = None,
-        window_seconds: int | None = None,
-        limit: int = 5
+        self, target_time: datetime, camera_name: str | None = None, window_seconds: int | None = None, limit: int = 5
     ) -> list[dict]:
         """Get audio detections within a time window around a target timestamp."""
         if window_seconds is None:
@@ -454,9 +470,10 @@ class AudioService:
                     "species": d.species,
                     "confidence": d.confidence,
                     "sensor_id": d.sensor_id,
-                    "offset_seconds": int(delta)
+                    "offset_seconds": int(delta),
                 }
                 for delta, d in matches[:limit]
             ]
+
 
 audio_service = AudioService()

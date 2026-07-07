@@ -159,10 +159,12 @@ async def test_events_list_reports_cached_media_when_frigate_event_is_missing(cl
         )
         await db.commit()
 
-    with patch("app.routers.events.frigate_client.get_event", new=AsyncMock(return_value=None)), \
-         patch("app.services.media_cache.media_cache.has_snapshot", return_value=True), \
-         patch("app.services.media_cache.media_cache.has_clip", return_value=False), \
-         patch("app.services.media_cache.media_cache.has_recording_clip", return_value=True):
+    with (
+        patch("app.routers.events.frigate_client.get_event", new=AsyncMock(return_value=None)),
+        patch("app.services.media_cache.media_cache.has_snapshot", return_value=True),
+        patch("app.services.media_cache.media_cache.has_clip", return_value=False),
+        patch("app.services.media_cache.media_cache.has_recording_clip", return_value=True),
+    ):
         response = await client.get("/api/events", params={"limit": 10, "camera": "test-camera"})
 
     assert response.status_code == 200, response.text

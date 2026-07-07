@@ -10,6 +10,7 @@ from app.auth import require_owner, AuthContext
 
 router = APIRouter()
 
+
 @router.get("/debug/config")
 async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, Any]:
     """Dump current configuration (secrets redacted). Owner only."""
@@ -44,7 +45,9 @@ async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, 
     conf = redact(conf)
     return conf
 
+
 _DEBUG_STATS_TABLES = ("detections", "taxonomy_cache")
+
 
 @router.get("/debug/db/stats")
 async def debug_db_stats(auth: AuthContext = Depends(require_owner)):
@@ -60,11 +63,12 @@ async def debug_db_stats(auth: AuthContext = Depends(require_owner)):
                 stats[table] = f"Error: {str(e)}"
     return stats
 
+
 @router.get("/debug/connectivity")
 async def debug_connectivity(auth: AuthContext = Depends(require_owner)):
     """Test connectivity to external services. Owner only."""
     results = {}
-    
+
     # Test Frigate
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -97,13 +101,14 @@ async def debug_connectivity(auth: AuthContext = Depends(require_owner)):
 
     return results
 
+
 @router.get("/debug/fs/models")
 async def debug_fs_models(auth: AuthContext = Depends(require_owner)):
     """List files in the model directory. Owner only."""
     model_dir = "/data/models"
     if not os.path.exists(model_dir):
         return {"error": "Model directory does not exist"}
-    
+
     files = []
     for f in os.listdir(model_dir):
         path = os.path.join(model_dir, f)
@@ -112,13 +117,11 @@ async def debug_fs_models(auth: AuthContext = Depends(require_owner)):
             files.append({"name": f, "size_bytes": size})
     return {"files": files}
 
+
 @router.get("/debug/system")
 async def debug_system(auth: AuthContext = Depends(require_owner)):
     """Get system info. Owner only."""
     import platform
     import sys
-    return {
-        "platform": platform.platform(),
-        "python": sys.version,
-        "disk_usage": shutil.disk_usage("/data")
-    }
+
+    return {"platform": platform.platform(), "python": sys.version, "disk_usage": shutil.disk_usage("/data")}
