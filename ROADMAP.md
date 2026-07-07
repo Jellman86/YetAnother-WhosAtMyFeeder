@@ -366,6 +366,43 @@ The same release should also deliver a full UI refresh so the major-version jump
 
 ---
 
+### 8.1. Gold-Standard Engineering Excellence — Pre-3.0 Gate 🏅
+**Priority:** P0 | **Effort:** M | **Status:** In progress — must land before `v3.0`
+
+The `v3.0` major version is the point to close the remaining gaps between the
+`CLAUDE.md` contract and the codebase, so the release ships against the full
+engineering bar rather than partial enforcement. The tracked assessment is
+[`docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md`](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md);
+this item promotes that review's implementation plan into a release gate.
+
+**Phase 1 — Enforce what the contract already requires:**
+- ✅ Ruff lint gate and backend coverage floor (20%) in PR CI.
+- ✅ `CONTRIBUTING.md` rewritten against the contract.
+- ☐ Add the Ruff **format** gate once the existing Python tree has an accepted
+  formatting baseline (the one open Phase 1 item).
+- ☐ Ratchet the coverage floor upward from 20% as coverage improves.
+
+**Phase 2 — Strengthen the API contract:**
+- ☐ Emit a build-time OpenAPI artifact.
+- ☐ Generate or contract-test the SPA's TypeScript API types against it, so an
+  endpoint/type mismatch is caught in CI, not in the browser.
+
+**Phase 3 — Mature documentation governance:**
+- ✅ Documentation standard published ([`docs/documentation-standard.md`](docs/documentation-standard.md)):
+  audience, Diátaxis structure, safety-claim rules, and screenshot rules.
+- ☐ Bring all user-facing docs into line with the standard and keep the
+  docs-quality gate growing into it.
+- ☐ Add the missing governance files (`AGENTS.md`, `CODE_OF_CONDUCT.md`).
+- ☐ Keep dated reviews in `docs/reviews/` current as subsystems change.
+
+**Acceptance Criteria:**
+- CI fails on lint, format, and coverage regressions before `v3.0` ships.
+- An endpoint/type mismatch between backend and SPA is caught in CI.
+- Every user-facing docs page conforms to `docs/documentation-standard.md`, and
+  new settings/API/UI changes update docs in the same PR.
+
+---
+
 ### 9. Next-Version Accurate Bird Crop Detector Tier 🐦
 **Priority:** P1 | **Effort:** M-L (1-2 weeks) | **Status:** Deferred to next version
 
@@ -466,7 +503,7 @@ This work should be kept out of the current hardening cycle. The immediate prior
 ---
 
 ### 10. Intel NPU Inference Support (OpenVINO) 🧠
-**Priority:** P2 | **Effort:** M (plumbing ~1 day + per-model validation) | **Status:** In progress
+**Priority:** P2 | **Effort:** M (plumbing ~1 day + per-model validation) | **Status:** ✅ Shipped — `intel_npu` provider, capability probe (`intel_npu_available`), fallback chain, Settings device picker, and Dockerfile NPU driver are in; `rope_vit_b14` validated on Arrow Lake NPU (2026-07-05, f16, top-5 matching CPU). Per-model validation continues as new models are added.
 
 Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost") alongside the iGPU. OpenVINO already treats `NPU` as a first-class device, and the classifier's Intel path uses native OpenVINO (`core.compile_model(model, device_name)`) — so the NPU slots into the same seams the existing `intel_gpu` provider uses. The goal is to let users run classification on the NPU to free the iGPU/CPU (power/thermal efficiency), **without** destabilising existing installs.
 
@@ -491,7 +528,7 @@ Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost
 ---
 
 ### 11. Home Assistant Proxy / Sidebar Panel 🏠
-**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** Requested ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54))
+**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** ✅ Shipped ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54)) — the `custom_components/yawamf` ingress view proxies the dashboard under `/api/yawamf/ingress`, the SPA resolves its API base from an injected base-path marker (`__YAWAMF_APP_BASE_PATH`), and the "YA-WAMF" sidebar panel is authenticated by HA. Standalone direct-port access still works.
 
 Serve the YA-WAMF web UI **through** Home Assistant (like the Frigate integration does) instead of only as a separate site. The integration would register a sidebar panel and an internal reverse proxy, so the full dashboard is embedded in HA, **authenticated by HA**, and reachable via HA's existing secure external access (Nabu Casa / Cloudflare / NPM) — no need to separately expose or secure `yawamf.pownet.uk`.
 

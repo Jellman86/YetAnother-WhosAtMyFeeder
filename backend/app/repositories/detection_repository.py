@@ -1865,6 +1865,40 @@ class DetectionRepository:
 
         return total_deleted
 
+    async def delete_audio_detections_older_than(
+        self,
+        cutoff_date: datetime,
+        chunk_size: int = 1000,
+    ) -> int:
+        """Delete BirdNET-Go audio detections older than the cutoff date in chunks.
+
+        Audio detections have no favorites/soft-delete concept, so this is a
+        straight age-based purge keyed on the ``timestamp`` column. Chunked to
+        mirror ``delete_older_than`` and avoid long write locks.
+        """
+        total_deleted = 0
+        cutoff_str = cutoff_date.isoformat(sep=' ')
+
+        while True:
+            query = """
+                DELETE FROM audio_detections
+                WHERE id IN (
+                    SELECT id
+                    FROM audio_detections
+                    WHERE timestamp < ?
+                    LIMIT ?
+                )
+            """
+            async with self.db.execute(query, (cutoff_str, chunk_size)) as cursor:
+                if cursor.rowcount == 0:
+                    break
+                total_deleted += cursor.rowcount
+                await self.db.commit()
+                # Brief sleep to yield the event loop and allow other queries
+                await asyncio.sleep(0.01)
+
+        return total_deleted
+
     async def delete_all(self) -> int:
         """Delete ALL detections. Use with caution."""
         async with self.db.execute("DELETE FROM detections") as cursor:

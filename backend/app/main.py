@@ -181,9 +181,15 @@ async def run_cleanup():
                 repo = DetectionRepository(db)
                 favorite_event_ids = await repo.get_favorite_frigate_event_ids()
                 deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
+                deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
             if deleted_count > 0:
                 log.info("Automatic cleanup completed",
                          deleted_count=deleted_count,
+                         retention_days=settings.maintenance.retention_days,
+                         cutoff=cutoff.isoformat())
+            if deleted_audio_count > 0:
+                log.info("Automatic audio cleanup completed",
+                         deleted_count=deleted_audio_count,
                          retention_days=settings.maintenance.retention_days,
                          cutoff=cutoff.isoformat())
 

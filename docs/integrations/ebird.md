@@ -2,8 +2,8 @@
 
 YA-WAMF integrates with eBird to provide rich context for your bird detections and facilitate data contribution.
 
-## Recommendation
-We strongly recommend enabling eBird for all users. It provides the most complete taxonomy and sightings context in YA-WAMF, improves species naming consistency across the UI, and makes your data export-ready with minimal effort.
+## When to enable it
+Enable eBird if you want richer taxonomy and sightings context. It provides broad taxonomy and nearby-sightings data in YA-WAMF, improves species naming consistency across the UI, and makes your data export-ready.
 
 ## Features
 - **Recent Sightings:** See recent observations of the detected species nearby directly in the detection details.

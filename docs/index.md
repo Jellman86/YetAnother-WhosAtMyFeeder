@@ -17,7 +17,7 @@ Everything you need to get the containers running and configured correctly.
 - **[🔌 MQTT Broker Setup](setup/mqtt-broker.md)** - Running Mosquitto alongside Frigate and connecting all three containers.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
-- **[⚡ GPU Acceleration Setup & Diagnostics](troubleshooting/diagnostics.md)** - CUDA/OpenVINO requirements, provider badges, and troubleshooting.
+- **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Run classification on an Intel GPU, Intel NPU, or NVIDIA CUDA, with device passthrough and fallback behaviour.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
@@ -28,7 +28,7 @@ Build integrations and custom tools with YA-WAMF.
 YA-WAMF is fully responsive and works great on phones and tablets.
 
 <div align="center">
-  <img src="images/dashboard-mobile.png" width="300" alt="Mobile Dashboard" />
+  <img src="images/dashboard-mobile.png" width="300" alt="YA-WAMF dashboard on a phone showing recent detections" />
 </div>
 
 ## 🔗 Integrations
@@ -58,4 +58,5 @@ Solving common issues and using diagnostic tools.
 ## Engineering & Quality
 How the project is built and held to standard.
 - **[📐 Engineering Standards](../CLAUDE.md)** - The contract every change must clear: safety, testing, database, UI, and Definition of Done.
+- **[📝 Documentation Standard](documentation-standard.md)** - Audience, Diátaxis structure, safety-claim rules, and screenshot rules every user-facing page follows.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.

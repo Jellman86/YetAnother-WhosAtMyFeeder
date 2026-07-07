@@ -945,3 +945,78 @@ async def test_delete_older_than_preserves_favorites_when_enabled():
         assert await repo.get_by_frigate_event(old_favorite_event) is not None
         assert await repo.get_by_frigate_event(old_regular_event) is None
         assert await repo.get_by_frigate_event(recent_event) is not None
+
+
+async def _create_audio_detections_table(db: aiosqlite.Connection) -> None:
+    await db.execute("""
+        CREATE TABLE audio_detections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TIMESTAMP NOT NULL,
+            species TEXT NOT NULL,
+            confidence FLOAT NOT NULL,
+            sensor_id TEXT,
+            raw_data TEXT,
+            scientific_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+@pytest.mark.asyncio
+async def test_delete_audio_detections_older_than_purges_only_old_rows():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_audio_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        old_time = datetime.utcnow() - timedelta(days=30)
+        recent_time = datetime.utcnow()
+
+        await repo.insert_audio_detection(
+            timestamp=old_time,
+            species="OldBird",
+            confidence=0.9,
+            sensor_id="cam_1",
+            raw_data={"seq": 1},
+            scientific_name="Erithacus rubecula",
+        )
+        await repo.insert_audio_detection(
+            timestamp=recent_time,
+            species="NewBird",
+            confidence=0.8,
+            sensor_id="cam_1",
+            raw_data={"seq": 2},
+            scientific_name="Erithacus rubecula",
+        )
+
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        deleted = await repo.delete_audio_detections_older_than(cutoff)
+        assert deleted == 1
+
+        async with db.execute("SELECT species FROM audio_detections") as cursor:
+            remaining = [row[0] for row in await cursor.fetchall()]
+        assert remaining == ["NewBird"]
+
+
+@pytest.mark.asyncio
+async def test_delete_audio_detections_older_than_returns_zero_when_nothing_expired():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_audio_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        await repo.insert_audio_detection(
+            timestamp=datetime.utcnow(),
+            species="NewBird",
+            confidence=0.8,
+            sensor_id="cam_1",
+            raw_data={"seq": 1},
+            scientific_name="Erithacus rubecula",
+        )
+
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        assert await repo.delete_audio_detections_older_than(cutoff) == 0
+
+        async with db.execute("SELECT COUNT(*) FROM audio_detections") as cursor:
+            (remaining,) = await cursor.fetchone()
+        assert remaining == 1
