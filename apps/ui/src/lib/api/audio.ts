@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { LeaderboardSpan } from './leaderboard';
 
 export interface AudioDetection {
     timestamp: string;
@@ -90,6 +91,31 @@ export async function fetchAudioSummary(params: Omit<AudioHistoryParams, 'limit'
     const query = buildAudioHistoryParams(params);
     const response = await apiFetch(`${API_BASE}/audio/summary?${query.toString()}`);
     return handleResponse<AudioSummaryResponse>(response);
+}
+
+export interface AudioSpeciesLeaderboardItem {
+    species: string;
+    scientific_name?: string | null;
+    heard_count: number;
+    heard_prev_count: number;
+    heard_delta: number;
+    heard_percent: number;
+    avg_confidence: number;
+    last_heard?: string | null;
+}
+
+export interface AudioSpeciesLeaderboardResponse {
+    span: LeaderboardSpan;
+    window_start: string;
+    window_end: string;
+    species: AudioSpeciesLeaderboardItem[];
+}
+
+export async function fetchAudioSpeciesLeaderboard(
+    span: LeaderboardSpan = 'week'
+): Promise<AudioSpeciesLeaderboardResponse> {
+    const response = await apiFetch(`${API_BASE}/audio/species?span=${encodeURIComponent(span)}`);
+    return handleResponse<AudioSpeciesLeaderboardResponse>(response);
 }
 
 export interface AudioContextDetection extends AudioDetection {

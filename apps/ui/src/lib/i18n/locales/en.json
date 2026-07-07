@@ -97,7 +97,9 @@
       "unknown_sensor": "Unknown Sensor",
       "open_history": "Open audio history",
       "open_birdnet": "Open BirdNET-Go",
-      "open_in_birdnet": "Open detection in BirdNET-Go"
+      "open_in_birdnet": "Open detection in BirdNET-Go",
+      "heard_today": "heard",
+      "species": "species"
     },
     "top_visitors_title": "Top Visitors",
     "top_visitors_empty": "No visitors recorded yet today.",
@@ -124,6 +126,9 @@
     "apply_settings": "Apply Settings",
     "available": "Available",
     "clear": "Clear",
+    "apply": "Apply",
+    "previous": "Previous",
+    "next": "Next",
     "clearing": "Clearing...",
     "disabled": "Disabled",
     "enabled": "Enabled",
@@ -1441,6 +1446,63 @@
     "classification_legend": "Classification sources: Manual, Video, Snapshot",
     "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
   },
+  "audio": {
+    "chart": {
+      "heard": "Heard",
+      "daily_title": "Activity over time",
+      "daily_sub": "BirdNET-Go detections heard per day",
+      "hourly_title": "Time of day",
+      "species_title": "Species mix",
+      "empty": "No activity in this window."
+    },
+    "stat": {
+      "heard": "Heard",
+      "heard_sub": "BirdNET detections in view",
+      "species": "Species",
+      "species_sub": "Audio-derived species",
+      "peak_hour": "Peak hour",
+      "peak_hour_sub": "{count} detections",
+      "no_activity": "No activity yet",
+      "sources": "Sources",
+      "sources_sub": "Microphones or streams"
+    },
+    "filter": {
+      "window": "Window",
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "1y": "1 year",
+      "species": "Species",
+      "source": "Source",
+      "min_confidence": "Min confidence"
+    },
+    "top_species": "Top heard species",
+    "card": {
+      "last_heard": "Last heard",
+      "avg": "avg",
+      "max": "max"
+    },
+    "history": {
+      "title": "Detection history",
+      "sub": "Persisted BirdNET-Go detections, separate from visual visits.",
+      "empty": "No BirdNET detections match these filters.",
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "table": {
+      "sound": "Sound",
+      "time": "Time",
+      "species": "Species",
+      "source": "Source",
+      "confidence": "Confidence",
+      "open_birdnet": "Open in BirdNET-Go",
+      "unknown_source": "Unknown source"
+    },
+    "sources": {
+      "title": "Sources",
+      "empty": "No sources yet."
+    }
+  },
   "leaderboard": {
     "title": "Species Leaderboard",
     "species_count": "{count} species",
@@ -1450,6 +1512,12 @@
     "sort_by_week": "Week",
     "sort_by_month": "Month",
     "include_unknown": "Include Unknown Bird",
+    "source_toggle": "Detection source",
+    "source_seen": "Seen",
+    "source_heard": "Heard",
+    "source_both": "Both",
+    "audio_only": "Audio only",
+    "audio_only_desc": "Heard on BirdNET-Go, not seen on camera",
     "featured": "Featured",
     "top_performers": "Top performers",
     "full_rankings": "Full rankings",

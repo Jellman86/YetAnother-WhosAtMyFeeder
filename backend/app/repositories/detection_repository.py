@@ -3731,6 +3731,63 @@ class DetectionRepository:
             "sources": sources,
         }
 
+    async def get_audio_species_counts(
+        self,
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> list[dict]:
+        """Heard-count rollups per species over a rolling window and the prior window.
+
+        Mirrors ``get_species_leaderboard_window`` but over ``audio_detections`` so the
+        Species leaderboard can show BirdNET-Go "heard" counts alongside camera "seen"
+        counts. Rows are grouped by scientific name when available, else the species
+        label, matching how the audio summary de-duplicates species. Timestamps are
+        formatted the same way they are stored (``isoformat(sep=' ')``) so the string
+        comparison lines up with the ``idx_audio_detections_time`` index.
+        """
+        def _fmt(dt: datetime) -> str:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat(sep=' ')
+
+        ws, we = _fmt(window_start), _fmt(window_end)
+        ps, pe = _fmt(prev_start), _fmt(prev_end)
+
+        query = """
+            SELECT
+                COALESCE(NULLIF(LOWER(scientific_name), ''), LOWER(species)) AS unified_id,
+                MAX(species) AS species,
+                MAX(scientific_name) AS scientific_name,
+                SUM(CASE WHEN timestamp >= ? AND timestamp < ? THEN 1 ELSE 0 END) AS window_count,
+                SUM(CASE WHEN timestamp >= ? AND timestamp < ? THEN 1 ELSE 0 END) AS prev_count,
+                AVG(CASE WHEN timestamp >= ? AND timestamp < ? THEN confidence ELSE NULL END) AS window_avg_confidence,
+                MAX(CASE WHEN timestamp >= ? AND timestamp < ? THEN timestamp ELSE NULL END) AS window_last_heard
+            FROM audio_detections
+            WHERE timestamp >= ? AND timestamp < ?
+            GROUP BY unified_id
+        """
+        params = (ws, we, ps, pe, ws, we, ws, we, ps, we)
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+
+        results: list[dict] = []
+        for row in rows:
+            window_count = int(row[3] or 0)
+            prev_count = int(row[4] or 0)
+            if window_count == 0 and prev_count == 0:
+                continue
+            results.append({
+                "species": row[1],
+                "scientific_name": row[2],
+                "window_count": window_count,
+                "prev_count": prev_count,
+                "window_avg_confidence": float(row[5] or 0.0),
+                "window_last_heard": _parse_datetime(row[6]) if row[6] else None,
+            })
+        return results
+
     async def get_audio_confirmations_count(self, start_date: datetime, end_date: datetime) -> int:
         """Get total audio-confirmed detections in a time range."""
         async with self.db.execute(

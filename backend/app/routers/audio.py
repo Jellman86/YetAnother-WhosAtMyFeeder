@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import structlog
 from pydantic import BaseModel
+from typing import Literal
 import aiosqlite
 from app.services.audio.audio_service import audio_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -16,6 +17,8 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.language import get_user_language
 from app.utils.audio_localization import localize_audio_detections
+from app.utils.canonical_species import should_hide_species_label
+from app.utils.api_datetime import serialize_api_datetime
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 log = structlog.get_logger()
@@ -199,6 +202,84 @@ async def get_audio_summary(
         result["source_count"] = 0
 
     return result
+
+def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:
+    """Rolling window + prior window for the audio leaderboard, aligned to the
+    visual leaderboard spans in ``routers/species.py`` (day=24h, week=7d,
+    month=30d). ``all`` collapses the lower bound to the epoch so every stored
+    detection counts and the prior window contributes nothing."""
+    now = datetime.now(timezone.utc)
+    if span == "all":
+        window_start = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return window_start, now, window_start, window_start
+    if span == "day":
+        window = timedelta(hours=24)
+    elif span == "week":
+        window = timedelta(days=7)
+    else:
+        window = timedelta(days=30)
+    window_start = now - window
+    return window_start, now, window_start - window, window_start
+
+
+@router.get("/species")
+@guest_rate_limit()
+async def get_audio_species_leaderboard(
+    request: Request,
+    span: Literal["day", "week", "month", "all"] = Query(default="week"),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Heard-count leaderboard over persisted BirdNET-Go detections.
+
+    Returns one row per species (grouped by scientific name where available) with the
+    current-window heard count plus the prior window for trend, so the Species page can
+    merge these onto the camera "seen" leaderboard. Species names are localized through
+    the same taxonomy path as the visual leaderboard so client-side matching lines up.
+    """
+    window_start, window_end, prev_start, prev_end = _leaderboard_window(span)
+    lang = get_user_language(request) or "en"
+    unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        rows = await repo.get_audio_species_counts(
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
+        await localize_audio_detections(rows, lang, db)
+
+    species: list[dict] = []
+    for row in rows:
+        name = row.get("species")
+        if not name or name in unknown_labels or should_hide_species_label(name):
+            continue
+        if row["window_count"] <= 0:
+            continue
+        prev_count = row["prev_count"]
+        delta = row["window_count"] - prev_count
+        percent = (delta / prev_count) * 100.0 if prev_count > 0 else 0.0
+        species.append({
+            "species": name,
+            "scientific_name": row.get("scientific_name"),
+            "heard_count": row["window_count"],
+            "heard_prev_count": prev_count,
+            "heard_delta": delta,
+            "heard_percent": percent,
+            "avg_confidence": row.get("window_avg_confidence", 0.0),
+            "last_heard": serialize_api_datetime(row.get("window_last_heard")),
+        })
+
+    species.sort(key=lambda x: int(x.get("heard_count") or 0), reverse=True)
+
+    return {
+        "span": span,
+        "window_start": window_start.isoformat(),
+        "window_end": window_end.isoformat(),
+        "species": species,
+    }
+
 
 @router.get("/spectrogram/{birdnet_id}")
 async def get_audio_spectrogram(

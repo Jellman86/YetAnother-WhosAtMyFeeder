@@ -8,6 +8,8 @@
         fetchLeaderboardSpecies,
         fetchSpecies,
         fetchSpeciesInfo,
+        fetchAudioSpeciesLeaderboard,
+        type AudioSpeciesLeaderboardItem,
         type DetectionsActivityHeatmapResponse,
         type DetectionsTimelineSpanResponse,
         type LeaderboardSpan,
@@ -51,8 +53,23 @@
         camera_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
+    type SourceMode = 'seen' | 'heard' | 'both';
+
+    // A leaderboard row enriched for the table: naming + merged BirdNET "heard" data.
+    type LeaderboardTableRow = LeaderboardRow & {
+        displayName: string;
+        subName: string | null;
+        heard_count: number;
+        heard_delta: number | null;
+        heard_percent: number | null;
+        heard_avg: number | null;
+        heard_last: string | null;
+        audio_only: boolean;
+    };
 
     let species: LeaderboardRow[] = $state([]);
+    let audioSpecies = $state<AudioSpeciesLeaderboardItem[]>([]);
+    let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
     let error = $state<string | null>(null);
     let span = $state<LeaderboardSpan>('month');
@@ -95,6 +112,9 @@
     );
     const summaryEnabled = $derived(enrichmentSummaryProvider !== 'disabled');
     const canUseLeaderboardAnalysis = $derived(llmReady && authStore.canModify);
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
 
     $effect(() => {
         llmReady = settingsStore.llmReady;
@@ -147,6 +167,99 @@
         const bTime = b.last_seen ? new Date(b.last_seen).getTime() : 0;
         return bTime - aTime;
     })[0]);
+
+    // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
+    // localized species name, so we can merge them onto the visual leaderboard rows.
+    let audioByKey = $derived(() => {
+        const map = new Map<string, AudioSpeciesLeaderboardItem>();
+        for (const a of audioSpecies) {
+            if (a.scientific_name) map.set(`sci:${a.scientific_name.toLowerCase()}`, a);
+            if (a.species) map.set(`nm:${a.species.toLowerCase()}`, a);
+        }
+        return map;
+    });
+
+    function heardForRow(row: LeaderboardRow, map: Map<string, AudioSpeciesLeaderboardItem>) {
+        if (row.scientific_name) {
+            const bySci = map.get(`sci:${row.scientific_name.toLowerCase()}`);
+            if (bySci) return bySci;
+        }
+        if (row.species) return map.get(`nm:${row.species.toLowerCase()}`);
+        return undefined;
+    }
+
+    // Rows for the leaderboard table: visual species with heard data merged in, plus
+    // (in Heard/Both modes) audio-only species that were never seen on camera. Sort key
+    // follows the active source toggle. Charts/stats/podium still use the visual-only
+    // derived lists above, so they are unaffected.
+    let leaderboardTableRows = $derived((): LeaderboardTableRow[] => {
+        const showCommon = settingsStore.displayCommonNames;
+        const preferSci = settingsStore.scientificNamePrimary;
+        const map = audioByKey();
+        const usedAudioKeys = new Set<string>();
+
+        const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
+            const naming = getBirdNames(item as any, showCommon, preferSci);
+            const heard = heardForRow(item, map);
+            if (heard) {
+                if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);
+                if (heard.species) usedAudioKeys.add(`nm:${heard.species.toLowerCase()}`);
+            }
+            return {
+                ...item,
+                displayName: naming.primary,
+                subName: naming.secondary,
+                heard_count: heard?.heard_count ?? 0,
+                heard_delta: heard?.heard_delta ?? null,
+                heard_percent: heard?.heard_percent ?? null,
+                heard_avg: heard?.avg_confidence ?? null,
+                heard_last: heard?.last_heard ?? null,
+                audio_only: false
+            };
+        });
+
+        if (birdnetEnabled && sourceMode !== 'seen') {
+            for (const a of audioSpecies) {
+                const sciKey = a.scientific_name ? `sci:${a.scientific_name.toLowerCase()}` : null;
+                const nmKey = a.species ? `nm:${a.species.toLowerCase()}` : null;
+                if ((sciKey && usedAudioKeys.has(sciKey)) || (nmKey && usedAudioKeys.has(nmKey))) continue;
+                if (!includeUnknownBird && a.species === 'Unknown Bird') continue;
+                rows.push({
+                    species: a.species,
+                    scientific_name: a.scientific_name ?? null,
+                    common_name: null,
+                    taxa_id: null,
+                    count: 0,
+                    prev_count: null,
+                    delta: null,
+                    percent: null,
+                    first_seen: null,
+                    last_seen: a.last_heard ?? null,
+                    avg_confidence: null,
+                    camera_count: null,
+                    displayName: a.species,
+                    subName: a.scientific_name ?? null,
+                    heard_count: a.heard_count,
+                    heard_delta: a.heard_delta,
+                    heard_percent: a.heard_percent,
+                    heard_avg: a.avg_confidence,
+                    heard_last: a.last_heard ?? null,
+                    audio_only: true
+                });
+            }
+        }
+
+        const sortValue = (r: LeaderboardTableRow) =>
+            sourceMode === 'heard'
+                ? (r.heard_count || 0)
+                : sourceMode === 'both'
+                    ? (r.count || 0) + (r.heard_count || 0)
+                    : (r.count || 0);
+        rows.sort((a, b) => sortValue(b) - sortValue(a));
+        return rows;
+    });
+
+    let maxHeard = $derived(Math.max(...leaderboardTableRows().map((r) => r.heard_count || 0), 1));
 
     const leaderboardStale = new StaleTracker(120_000); // 2 minutes
 
@@ -241,10 +354,26 @@
         }
 
         const compareSpecies = selectCompareSpecies(species);
-        const [timelineResult, heatmapResult] = await Promise.allSettled([
+        const [timelineResult, heatmapResult, audioResult] = await Promise.allSettled([
             fetchDetectionsTimelineSpan(span, { includeWeather: true, compareSpecies }),
             fetchDetectionsActivityHeatmapSpan(span),
+            birdnetEnabled ? fetchAudioSpeciesLeaderboard(span) : Promise.resolve(null),
         ]);
+
+        // Audio "heard" data is supplementary — a failure here must not disturb the
+        // visual leaderboard, so it is handled independently and degrades to empty.
+        if (audioResult.status === 'fulfilled') {
+            audioSpecies = audioResult.value?.species ?? [];
+        } else {
+            audioSpecies = [];
+            if (isTransientRequestError(audioResult.reason)) {
+                logger.warn('Audio species leaderboard fetch failed (transient)', {
+                    message: getErrorMessage(audioResult.reason)
+                });
+            } else {
+                logger.error('Failed to load audio species leaderboard', audioResult.reason);
+            }
+        }
 
         if (timelineResult.status === 'fulfilled') {
             timeline = timelineResult.value;
@@ -1185,14 +1314,44 @@
             </button>
         </div>
 
-        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
-            <input
-                type="checkbox"
-                class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500"
-                bind:checked={includeUnknownBird}
-            />
-            {$_('leaderboard.include_unknown')}
-        </label>
+        <div class="flex flex-wrap items-center gap-3">
+            {#if birdnetEnabled}
+                <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/70 p-0.5" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
+                    <button
+                        type="button"
+                        onclick={() => sourceMode = 'seen'}
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition {sourceMode === 'seen' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                        {$_('leaderboard.source_seen', { default: 'Seen' })}
+                    </button>
+                    <button
+                        type="button"
+                        onclick={() => sourceMode = 'heard'}
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition {sourceMode === 'heard' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                        {$_('leaderboard.source_heard', { default: 'Heard' })}
+                    </button>
+                    <button
+                        type="button"
+                        onclick={() => sourceMode = 'both'}
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition {sourceMode === 'both' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                    >
+                        {$_('leaderboard.source_both', { default: 'Both' })}
+                    </button>
+                </div>
+            {/if}
+
+            <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
+                <input
+                    type="checkbox"
+                    class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500"
+                    bind:checked={includeUnknownBird}
+                />
+                {$_('leaderboard.include_unknown')}
+            </label>
+        </div>
     </div>
 
     {#if error}
@@ -1753,7 +1912,22 @@
                         <tr>
                             <th class="px-5 py-3 w-16">{$_('leaderboard.rank')}</th>
                             <th class="px-5 py-3">{$_('leaderboard.species')}</th>
-                            <th class="px-5 py-3 text-right">{selectedCountLabel()}</th>
+                            {#if birdnetEnabled}
+                                <th class="px-5 py-3 text-right">
+                                    <span class="inline-flex items-center gap-1 justify-end">
+                                        <svg class="h-3.5 w-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                                        {$_('leaderboard.source_seen', { default: 'Seen' })}
+                                    </span>
+                                </th>
+                                <th class="px-5 py-3 text-right">
+                                    <span class="inline-flex items-center gap-1 justify-end">
+                                        <svg class="h-3.5 w-3.5 text-teal-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                                        {$_('leaderboard.source_heard', { default: 'Heard' })}
+                                    </span>
+                                </th>
+                            {:else}
+                                <th class="px-5 py-3 text-right">{selectedCountLabel()}</th>
+                            {/if}
                             <th class="px-5 py-3 text-right">{$_('leaderboard.trend')}</th>
                             <th class="px-5 py-3 text-right">{$_('leaderboard.cameras')}</th>
                             <th class="px-5 py-3 text-right">{$_('leaderboard.avg_confidence')}</th>
@@ -1761,8 +1935,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each sortedSpecies() as item, index (item.species)}
+                        {#each leaderboardTableRows() as item, index (`${item.species}|${item.audio_only}`)}
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
+                            {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             <tr
                                 class="border-b border-slate-100/70 dark:border-slate-800/60 hover:bg-slate-50/70 dark:hover:bg-slate-900/30 transition cursor-pointer
                                     {index % 2 === 1 ? 'bg-slate-25 dark:bg-slate-900/15' : ''}"
@@ -1809,6 +1984,12 @@
                                                 {#if item.species === "Unknown Bird"}
                                                     <span class="inline-flex items-center justify-center bg-amber-500 text-white rounded-full w-5 h-5 text-[10px] font-black" title={$_('leaderboard.needs_review')}>?</span>
                                                 {/if}
+                                                {#if item.audio_only}
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide" title={$_('leaderboard.audio_only_desc', { default: 'Heard on BirdNET-Go, not seen on camera' })}>
+                                                        <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                                                        {$_('leaderboard.audio_only', { default: 'Audio only' })}
+                                                    </span>
+                                                {/if}
                                             </div>
                                             {#if item.subName}
                                                 <div class="text-[10px] italic text-slate-500 dark:text-slate-400 truncate">
@@ -1820,12 +2001,22 @@
                                 </td>
                                 <td class="px-5 py-3.5 text-right">
                                     <div class="inline-flex flex-col items-end gap-1">
-                                        <span class="font-black text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span>
+                                        <span class="font-black {item.count > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-600'}">{item.count.toLocaleString()}</span>
                                         <div class="w-20 h-1 rounded-full bg-slate-100 dark:bg-slate-700/60 overflow-hidden">
                                             <div class="h-full rounded-full bg-emerald-400/70" style="width: {rowCountPct}%"></div>
                                         </div>
                                     </div>
                                 </td>
+                                {#if birdnetEnabled}
+                                    <td class="px-5 py-3.5 text-right">
+                                        <div class="inline-flex flex-col items-end gap-1">
+                                            <span class="font-black {item.heard_count > 0 ? 'text-teal-600 dark:text-teal-300' : 'text-slate-300 dark:text-slate-600'}">{item.heard_count.toLocaleString()}</span>
+                                            <div class="w-20 h-1 rounded-full bg-slate-100 dark:bg-slate-700/60 overflow-hidden">
+                                                <div class="h-full rounded-full bg-teal-400/70" style="width: {rowHeardPct}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                {/if}
                                 <td class="px-5 py-3.5 text-right font-semibold {(item.delta ?? 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : (item.delta ?? 0) < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-400'}">
                                     {span === 'all' ? '—' : formatTrend(item.delta, item.percent)}
                                 </td>

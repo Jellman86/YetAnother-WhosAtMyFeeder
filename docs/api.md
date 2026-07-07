@@ -207,6 +207,7 @@ Notes:
   - `GET /api/audio/recent`
   - `GET /api/audio/history`
   - `GET /api/audio/summary`
+  - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/sources`
 - eBird:

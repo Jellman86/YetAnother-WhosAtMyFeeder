@@ -4,7 +4,7 @@
     import { fly } from 'svelte/transition';
     import { flip } from 'svelte/animate';
     import { cubicOut } from 'svelte/easing';
-    import { fetchRecentAudio, type AudioDetection } from '../api';
+    import { fetchRecentAudio, fetchAudioSummary, type AudioDetection, type AudioSummaryResponse } from '../api';
     import { withAuthParams } from '../api/core';
     import { fetchSettings } from '../api/settings';
     import { appApiPath } from '../app/url-base';
@@ -30,8 +30,25 @@
 
     let audioDetections = $state<AudioDetection[]>([]);
     let pollInterval: any;
+    let summaryInterval: any;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
+    let summary = $state<AudioSummaryResponse | null>(null);
+
+    // Compact 24-hour sparkline for the header strip. Built as a normalized
+    // SVG polyline so the widget stays light (no ApexCharts on the dashboard).
+    let sparkline = $derived.by(() => {
+        const counts = new Array(24).fill(0);
+        for (const item of summary?.hourly_counts ?? []) {
+            if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
+        }
+        const max = Math.max(...counts, 1);
+        const w = 100;
+        const h = 24;
+        const step = counts.length > 1 ? w / (counts.length - 1) : w;
+        const points = counts.map((c, i) => `${(i * step).toFixed(1)},${(h - (c / max) * h).toFixed(1)}`);
+        return { points: points.join(' '), area: `0,${h} ${points.join(' ')} ${w},${h}`, hasData: counts.some((c) => c > 0) };
+    });
 
     async function loadAudio() {
         try {
@@ -46,6 +63,18 @@
             }
         } finally {
             loading = false;
+        }
+    }
+
+    async function loadSummary() {
+        try {
+            summary = await fetchAudioSummary({ days: 1 });
+        } catch (e) {
+            if (isTransientRequestError(e)) {
+                logger.warn('Audio summary fetch failed (transient)', { message: getErrorMessage(e) });
+            } else {
+                logger.error('Failed to fetch audio summary', e);
+            }
         }
     }
 
@@ -77,12 +106,16 @@
 
     onMount(() => {
         loadAudio();
+        loadSummary();
         loadBirdnetUrl();
         pollInterval = setInterval(loadAudio, 5000);
+        // Summary rollups change slowly — refresh on a longer cadence to limit load.
+        summaryInterval = setInterval(loadSummary, 60000);
     });
 
     onDestroy(() => {
         if (pollInterval) clearInterval(pollInterval);
+        if (summaryInterval) clearInterval(summaryInterval);
     });
 
     function formatTimeWithSeconds(dateString: string): string {
@@ -137,6 +170,26 @@
             {/if}
         </div>
     </div>
+
+    {#if summary && summary.total > 0}
+        <div class="mb-4 flex items-center gap-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 px-3.5 py-2.5">
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-lg font-black text-teal-700 dark:text-teal-300 leading-none">{summary.total.toLocaleString()}</span>
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('dashboard.audio_feed.heard_today', { default: 'heard' })}</span>
+            </div>
+            <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{summary.species_count}</span>
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('dashboard.audio_feed.species', { default: 'species' })}</span>
+            </div>
+            {#if sparkline.hasData}
+                <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="ml-auto h-6 w-24 flex-shrink-0 overflow-visible" aria-hidden="true">
+                    <polyline points={sparkline.area} fill="currentColor" class="text-teal-500/15" stroke="none" />
+                    <polyline points={sparkline.points} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" class="text-teal-500 dark:text-teal-400" vector-effect="non-scaling-stroke" />
+                </svg>
+            {/if}
+        </div>
+    {/if}
 
     <div class="space-y-3 flex-1">
         {#if loading}

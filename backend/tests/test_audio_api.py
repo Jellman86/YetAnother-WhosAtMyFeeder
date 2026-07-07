@@ -296,6 +296,91 @@ async def test_audio_summary_rolls_up_persisted_history(client: httpx.AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_audio_species_leaderboard_counts_window_and_prev(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    rows = [
+        # Dunnock: two in the current 7-day window, one in the prior window.
+        ((now - timedelta(hours=1)).isoformat(sep=" "), "Dunnock", 0.92, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        ((now - timedelta(hours=2)).isoformat(sep=" "), "Dunnock", 0.82, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        ((now - timedelta(days=10)).isoformat(sep=" "), "Dunnock", 0.71, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        # Blue Tit: one in the current window, none prior.
+        ((now - timedelta(hours=3)).isoformat(sep=" "), "Blue Tit", 0.88, "Garden Mic", json.dumps({"nm": "Garden Mic"}), "Cyanistes caeruleus"),
+        # Robin: outside both windows — must be excluded.
+        ((now - timedelta(days=20)).isoformat(sep=" "), "Robin", 0.9, "BirdCam", json.dumps({"nm": "BirdCam"}), "Erithacus rubecula"),
+    ]
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM taxonomy_cache")
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get("/api/audio/species", params={"span": "week"})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["span"] == "week"
+    species = payload["species"]
+    names = [item["species"] for item in species]
+    assert names == ["Dunnock", "Blue Tit"]  # sorted by heard_count desc, Robin excluded
+
+    dunnock = species[0]
+    assert dunnock["heard_count"] == 2
+    assert dunnock["heard_prev_count"] == 1
+    assert dunnock["heard_delta"] == 1
+    assert dunnock["heard_percent"] == 100.0
+    assert dunnock["scientific_name"] == "Prunella modularis"
+    assert dunnock["last_heard"] is not None
+
+    blue_tit = species[1]
+    assert blue_tit["heard_count"] == 1
+    assert blue_tit["heard_prev_count"] == 0
+    assert blue_tit["heard_percent"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_audio_species_leaderboard_all_span_counts_everything(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    rows = [
+        ((now - timedelta(hours=1)).isoformat(sep=" "), "Dunnock", 0.9, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        ((now - timedelta(days=40)).isoformat(sep=" "), "Dunnock", 0.7, "BirdCam", json.dumps({"nm": "BirdCam"}), "Prunella modularis"),
+        ((now - timedelta(hours=2)).isoformat(sep=" "), "Blue Tit", 0.85, "Garden Mic", json.dumps({"nm": "Garden Mic"}), "Cyanistes caeruleus"),
+    ]
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM taxonomy_cache")
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get("/api/audio/species", params={"span": "all"})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    by_name = {item["species"]: item for item in payload["species"]}
+    assert by_name["Dunnock"]["heard_count"] == 2  # includes the 40-day-old row
+    assert by_name["Dunnock"]["heard_prev_count"] == 0
+    assert by_name["Dunnock"]["heard_delta"] == 2
+    assert by_name["Blue Tit"]["heard_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
