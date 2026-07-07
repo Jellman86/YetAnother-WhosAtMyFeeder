@@ -383,7 +383,9 @@ this item promotes that review's implementation plan into a release gate.
 - ☐ Ratchet the coverage floor upward from 20% as coverage improves.
 
 **Phase 2 — Strengthen the API contract:**
-- ☐ Emit a build-time OpenAPI artifact.
+- ✅ Emit a build-time OpenAPI artifact (`backend/openapi.json` via
+  `backend/scripts/export_openapi.py`), with a CI drift check so the schema stays
+  in sync with the routers.
 - ☐ Generate or contract-test the SPA's TypeScript API types against it, so an
   endpoint/type mismatch is caught in CI, not in the browser.
 
@@ -392,7 +394,7 @@ this item promotes that review's implementation plan into a release gate.
   audience, Diátaxis structure, safety-claim rules, and screenshot rules.
 - ☐ Bring all user-facing docs into line with the standard and keep the
   docs-quality gate growing into it.
-- ☐ Add the missing governance files (`AGENTS.md`, `CODE_OF_CONDUCT.md`).
+- ✅ Added the missing governance files (`AGENTS.md`, `CODE_OF_CONDUCT.md`).
 - ☐ Keep dated reviews in `docs/reviews/` current as subsystems change.
 
 **Acceptance Criteria:**

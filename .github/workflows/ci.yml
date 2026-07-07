@@ -76,6 +76,11 @@ jobs:
           print(f"Alembic head OK: {heads[0]}")
           PY
 
+      - name: OpenAPI artifact up to date
+        run: |
+          cd backend
+          python scripts/export_openapi.py --check
+
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest

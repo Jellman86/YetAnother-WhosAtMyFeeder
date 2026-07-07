@@ -6,7 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-07-07
+
 ### Added
+- **API:** Build-time OpenAPI artifact (`backend/openapi.json`) exported by `backend/scripts/export_openapi.py`, with a CI drift check so the published API contract stays in sync with the routers under `backend/app/routers`.
+- **Docs & governance:** Added a documentation standard (`docs/documentation-standard.md`), a hardware-acceleration setup guide covering the Intel NPU / Intel GPU / CUDA providers, and `AGENTS.md` and `CODE_OF_CONDUCT.md` governance files.
 - **CI:** Pull-request CI now runs Ruff linting over backend and Home Assistant integration Python code, and reports backend coverage with the existing 20% floor so regressions are visible before merge.
 - **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
 - **BirdNET (#53):** Added a persisted Audio History view backed by the existing BirdNET-Go detection table, including filterable history, confidence/source/species filters, top heard species, source rollups, and hourly activity summaries separate from visual feeder detections.
