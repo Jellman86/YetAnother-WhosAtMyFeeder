@@ -29,7 +29,7 @@ from app.routers.proxy import _get_valid_cached_recording_clip_path
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
-from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa: F401 - compatibility for tests
 from app.utils.video_analysis import rank_video_top_frames
 
 log = structlog.get_logger()

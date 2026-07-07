@@ -39,7 +39,7 @@ from app.config_models import (
 )
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.utils.frigate_recording import get_camera_retention_days
-from app.utils.api_datetime import utc_naive_now
+from app.utils.api_datetime import utc_naive_now  # noqa: F401 - compatibility for tests and maintenance helpers
 
 from fastapi import BackgroundTasks
 
@@ -2091,8 +2091,6 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 @router.get("/cache/stats")
 async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     """Get media cache statistics. Owner only."""
-    from app.services.media_cache import media_cache
-
     stats = media_cache.get_cache_stats()
 
     # Add retention info
@@ -2113,8 +2111,6 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
 @router.post("/cache/cleanup")
 async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     """Manually trigger cleanup of old cached media. Owner only."""
-    from app.services.media_cache import media_cache
-
     # Determine retention period
     retention = settings.media_cache.retention_days
     if retention == 0:

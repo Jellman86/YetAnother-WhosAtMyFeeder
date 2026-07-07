@@ -1,7 +1,9 @@
+import { toAppPath } from './app/url-base';
+
 export const ICON_ASSET_VERSION = '20260306-1';
 
 export function withAssetVersion(path: string): string {
-    return `${path}?v=${ICON_ASSET_VERSION}`;
+    return `${toAppPath(path)}?v=${ICON_ASSET_VERSION}`;
 }
 
 export const FAVICON_ICO_URL = withAssetVersion('/favicon.ico');

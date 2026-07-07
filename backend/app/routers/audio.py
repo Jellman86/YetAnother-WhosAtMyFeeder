@@ -6,9 +6,7 @@ import json
 import structlog
 from pydantic import BaseModel
 from typing import Literal
-import aiosqlite
 from app.services.audio.audio_service import audio_service
-from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.config import settings
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy

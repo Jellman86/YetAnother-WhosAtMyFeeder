@@ -1393,8 +1393,6 @@ async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path,
 
     used_indices: list[int] = []
 
-    original_extract = service._extract_snapshot_candidate_payloads_from_clip_path
-
     def fake_extract(clip_path, *, event_id, event_data=None, clip_variant="event", override_frame_indices=None):
         if override_frame_indices is not None:
             used_indices.extend(override_frame_indices)

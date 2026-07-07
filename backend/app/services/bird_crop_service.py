@@ -671,7 +671,6 @@ class BirdCropService:
         if arr.ndim != 2 or arr.shape[-1] <= 5:
             return []
 
-        num_predictions = int(arr.shape[0])
         img_h = int(round(float(transform.get("input_height") or 0.0)))
         img_w = int(round(float(transform.get("input_width") or 0.0)))
         if img_h <= 0 or img_w <= 0:

@@ -11,7 +11,6 @@ slot; only the same kind throttles itself.
 
 from __future__ import annotations
 
-import asyncio
 import types
 
 import pytest

@@ -842,7 +842,6 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
         AsyncMock(return_value=True),
     )
 
-    import pathlib
     monkeypatch.setattr(
         auto_video_classifier_module,
         "Path",

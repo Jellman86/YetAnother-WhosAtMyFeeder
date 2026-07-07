@@ -253,6 +253,40 @@ def _load_coordinator_and_sensor_modules():
     return coordinator_module, sensor_module
 
 
+def _load_ingress_module():
+    _install_common_test_modules()
+
+    aiohttp_web_mod = types.ModuleType("aiohttp.web")
+    aiohttp_web_mod.StreamResponse = object
+    aiohttp_web_mod.Request = object
+    aiohttp_web_mod.HTTPBadGateway = RuntimeError
+    aiohttp_web_mod.HTTPUnauthorized = RuntimeError
+    sys.modules["aiohttp.web"] = aiohttp_web_mod
+    sys.modules["aiohttp"].web = aiohttp_web_mod
+
+    http_mod = types.ModuleType("homeassistant.components.http")
+
+    class HomeAssistantView:
+        pass
+
+    http_mod.HomeAssistantView = HomeAssistantView
+    sys.modules["homeassistant.components.http"] = http_mod
+
+    coordinator_mod = types.ModuleType("custom_components.yawamf.coordinator")
+    coordinator_mod.YAWAMFDataUpdateCoordinator = object
+    sys.modules["custom_components.yawamf.coordinator"] = coordinator_mod
+
+    spec = importlib.util.spec_from_file_location(
+        "custom_components.yawamf.ingress",
+        PACKAGE_DIR / "ingress.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["custom_components.yawamf.ingress"] = module
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
 class _JsonHandler(BaseHTTPRequestHandler):
     routes = {}
 
@@ -514,3 +548,85 @@ def test_sensors_handle_string_total_count():
     # The sensor should handle non-int gracefully.
     value = count_sensor.native_value
     assert value is None or isinstance(value, int)
+
+
+@pytest.mark.asyncio
+async def test_ingress_registers_sidebar_panel_with_home_assistant_panel_api():
+    ingress_module = _load_ingress_module()
+    ingress_module.secrets.token_urlsafe = lambda _length: "test-token"
+    registered_panels: list[dict] = []
+
+    frontend_mod = types.ModuleType("homeassistant.components.frontend")
+
+    def async_register_built_in_panel(
+        hass,
+        *,
+        component_name,
+        frontend_url_path,
+        sidebar_title,
+        sidebar_icon,
+        config,
+        require_admin,
+    ):
+        registered_panels.append(
+            {
+                "component_name": component_name,
+                "frontend_url_path": frontend_url_path,
+                "sidebar_title": sidebar_title,
+                "sidebar_icon": sidebar_icon,
+                "config": config,
+                "require_admin": require_admin,
+            }
+        )
+
+    frontend_mod.async_register_built_in_panel = async_register_built_in_panel
+    sys.modules["homeassistant.components.frontend"] = frontend_mod
+    sys.modules["homeassistant.components"].frontend = frontend_mod
+
+    registered_views = []
+    hass = types.SimpleNamespace(
+        http=types.SimpleNamespace(register_view=registered_views.append),
+    )
+    coordinator = types.SimpleNamespace(url="http://yawamf.local", headers={}, session=None)
+
+    await ingress_module.async_register_ingress(hass, coordinator)
+
+    assert [view.url for view in registered_views] == [
+        "/api/yawamf/ingress/{path:.*}",
+        "/favicon.ico",
+        "/favicon.png",
+        "/apple-touch-icon.png",
+        "/manifest.json",
+        "/pwa-192x192.png",
+        "/pwa-512x512.png",
+        "/frigate-logo.png",
+    ]
+    assert registered_panels == [
+        {
+            "component_name": "iframe",
+            "frontend_url_path": "yawamf",
+            "sidebar_title": "YA-WAMF",
+            "sidebar_icon": "mdi:bird",
+            "config": {"url": "/api/yawamf/ingress/?auth=test-token"},
+            "require_admin": False,
+        }
+    ]
+
+
+def test_ingress_rewrites_runtime_icon_assets_and_manifest_paths():
+    ingress_module = _load_ingress_module()
+
+    body = """
+    <link rel="icon" href="/favicon.png?v=1" />
+    <script>const icon = "/pwa-192x192.png?v=1"; const api = '/api/stats/daily-summary';</script>
+    {"start_url": "/", "scope": "/", "icons": [{"src": "/pwa-512x512.png?v=1"}]}
+    """
+
+    rewritten = ingress_module._rewrite_root_paths(body)
+
+    assert 'href="/api/yawamf/ingress/favicon.png?v=1"' in rewritten
+    assert '"/api/yawamf/ingress/pwa-192x192.png?v=1"' in rewritten
+    assert "'/api/yawamf/ingress/api/stats/daily-summary'" in rewritten
+    assert '"start_url": "/api/yawamf/ingress/"' in rewritten
+    assert '"scope": "/api/yawamf/ingress/"' in rewritten
+    assert '"/api/yawamf/ingress/pwa-512x512.png?v=1"' in rewritten

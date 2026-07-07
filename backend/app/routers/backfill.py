@@ -7,7 +7,6 @@ import asyncio
 from uuid import uuid4
 
 from app.services.backfill_service import BackfillService
-from app.services.classifier_service import get_classifier
 from app.services.i18n_service import i18n_service
 from app.services.media_cache import media_cache
 from app.services.weather_service import weather_service

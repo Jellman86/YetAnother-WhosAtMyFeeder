@@ -661,7 +661,11 @@ class MediaCacheService:
         Returns:
             Path to cached clip, or None if not cached or empty
         """
-        path = self._clip_path(event_id)
+        try:
+            path = self._clip_path(event_id)
+        except ValueError as exc:
+            log.warning("Rejected invalid cached clip path", event_id=event_id, error=str(exc))
+            return None
         if path.exists():
             stat_result = path.stat()
             size = stat_result.st_size
@@ -691,7 +695,11 @@ class MediaCacheService:
         min_duration_seconds: float | None = None,
     ) -> Optional[Path]:
         """Get path to a cached recording clip if it exists and has content."""
-        path = self._recording_clip_path(event_id)
+        try:
+            path = self._recording_clip_path(event_id)
+        except ValueError as exc:
+            log.warning("Rejected invalid cached recording clip path", event_id=event_id, error=str(exc))
+            return None
         if path.exists():
             stat_result = path.stat()
             size = stat_result.st_size

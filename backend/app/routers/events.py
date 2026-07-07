@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta
 from io import BytesIO
+from pathlib import Path
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -1293,21 +1294,35 @@ async def reclassify_event(
                     allow_event_cache: bool,
                 ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
                     if allow_recording_cache:
-                        recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
-                            event_id,
-                            lang,
-                        )
-                        if recording_cached_path:
-                            log.info("Using cached recording clip for reclassification", event_id=event_id)
-                            with open(recording_cached_path, "rb") as handle:
-                                return handle.read(), None, "recording_cache", "recording", str(recording_cached_path)
+                        try:
+                            recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+                                event_id,
+                                lang,
+                            )
+                            if recording_cached_path:
+                                log.info("Using cached recording clip for reclassification", event_id=event_id)
+                                clip_bytes = await asyncio.to_thread(Path(recording_cached_path).read_bytes)
+                                return clip_bytes, None, "recording_cache", "recording", str(recording_cached_path)
+                        except Exception as exc:
+                            log.debug(
+                                "Failed to resolve cached recording clip for reclassification",
+                                event_id=event_id,
+                                error=str(exc),
+                            )
 
                     if allow_event_cache:
                         cached_path = media_cache.get_clip_path(event_id)
                         if cached_path:
                             log.info("Using cached clip for reclassification", event_id=event_id)
-                            with open(cached_path, "rb") as handle:
-                                return handle.read(), None, "cache", "event", str(cached_path)
+                            try:
+                                clip_bytes = await asyncio.to_thread(Path(cached_path).read_bytes)
+                                return clip_bytes, None, "cache", "event", str(cached_path)
+                            except Exception as exc:
+                                log.debug(
+                                    "Failed to read cached event clip for reclassification",
+                                    event_id=event_id,
+                                    error=str(exc),
+                                )
 
                     clip_bytes, error_code = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
                     return clip_bytes, error_code, "frigate", "event", None
@@ -1516,9 +1531,9 @@ async def reclassify_event(
             svc = DetectionService(classifier)
             selection = svc.select_usable_classification(results, event_id)
             if isinstance(selection, tuple) and len(selection) == 2:
-                top, reason = selection
+                top, _reason = selection
             else:
-                top, reason = results[0], None
+                top = results[0]
             if not top:
                 raise HTTPException(
                     status_code=500,

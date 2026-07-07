@@ -1,4 +1,3 @@
-import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -84,7 +83,6 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
     from app.routers.backfill import _JOB_STORE
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    now_monotonic = time.monotonic()
 
     jobs: list[dict[str, Any]] = []
     stale_jobs: list[dict[str, Any]] = []

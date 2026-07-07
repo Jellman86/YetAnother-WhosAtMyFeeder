@@ -50,7 +50,7 @@ def _preload_onnxruntime_cuda_runtime_libraries() -> None:
     than a standard system library path, so we ask ORT to preload them
     explicitly before probing or creating CUDA sessions.
     """
-    if not ONNX_AVAILABLE or ort is None:
+    if ort is None:
         return
     preload_dlls = getattr(ort, "preload_dlls", None)
     if not callable(preload_dlls):
