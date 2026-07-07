@@ -1,90 +1,259 @@
-# CLAUDE.md
+# CLAUDE.md — YA-WAMF Engineering Standards
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file is the contract for everyone working in this repository, human or AI
+agent. Read it before writing code. These standards are not aspirational; they
+are the bar a change must clear before it is committed. When a request conflicts
+with a standard here, surface the conflict instead of silently breaking the
+standard.
 
-## Project Overview
+Sections 1–10 are the contract (the *how*). The **Reference** section below is
+orientation (the *what* and *where*): architecture, components, schema, and
+troubleshooting. The current honest assessment of where the project sits against
+this bar — and the prioritised path to close the gaps — lives in
+[`docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md`](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md).
 
-YA-WAMF (Yet Another WhosAtMyFeeder) is a bird classification system that integrates with Frigate NVR to identify birds visiting feeders using machine learning. The system receives MQTT events from Frigate, classifies bird species using local ML models (TFLite/ONNX), correlates with audio detections from BirdNET-Go, and provides a real-time web dashboard with notifications.
+---
 
-**Tech Stack:**
-- Backend: Python 3.12 + FastAPI + SQLite + Alembic
-- Frontend: Svelte 5 + TypeScript + Tailwind CSS + Vite
-- ML: ONNX Runtime / TensorFlow Lite (MobileNetV2, ConvNeXt, EVA-02)
-- Messaging: MQTT (aiomqtt) for Frigate events, SSE for frontend updates
-- Deployment: Docker Compose with separate backend/frontend containers
+## 1. Safety & data integrity — the non-negotiable
 
-## Git Commit Rules
+YA-WAMF is a long-running daemon that ingests untrusted external events and keeps
+a durable history users care about. The detection history and the user's
+configuration are the assets we must never damage.
 
-- **Never** add `Co-Authored-By:`, `Co-authored-by:`, or any AI attribution trailer to commit messages.
-- **Never** reference Claude, Gemini, or any AI tool in commit messages, PR descriptions, or issue comments.
-- Commit messages should read as if written by the project owner.
+- **The detections database is user data. Never lose or corrupt it.** Schema
+  changes go through reversible Alembic migrations (§3); a migration must never be
+  destructive without an explicit, documented reason.
+- **All external input is untrusted.** Frigate MQTT events, BirdNET-Go payloads,
+  Frigate/media URLs, and API request parameters are attacker-influenced. Ingest is
+  idempotent (the `detections.frigate_event` column is `UNIQUE` — the same event
+  processed twice must not create a second row or mutate history unexpectedly).
+  Media/event identifiers used in cache or proxy paths must be sanitised against
+  path traversal. Species names rendered into notification markup must be escaped.
+- **Deletes are soft or clearly destructive.** Prefer `is_hidden` soft-deletion;
+  when a hard delete is offered, the UI and API must be honest that it is
+  irreversible (§5).
+- **Conservative defaults.** When in doubt, do nothing and report why. A dropped
+  detection is recoverable on the next event; a corrupted history is not.
+- **Secrets never leak.** API keys, tokens, and passwords are redacted as
+  `"***REDACTED***"` in API responses, are never written to logs or telemetry, and
+  are preserved (not overwritten with the redaction placeholder) on settings
+  writes via `should_update_secret()`. Timing-safe comparison
+  (`secrets.compare_digest`) is used for the API key in `backend/app/auth.py` and
+  `backend/app/ratelimit.py`.
 
-## Development Commands
+If you are unsure whether a change is safe, it is not safe yet. Add a test that
+proves the safe behaviour.
 
-### Backend
+## 2. Test-driven development
+
+We work test-first.
+
+- Write a failing test that describes the behaviour, then write the code that makes
+  it pass, then refactor. Commit only with the suite green.
+- **Pure logic gets pure unit tests.** Classification admission, canonical-species
+  identity, config/env mapping, taxonomy normalisation, and other decision logic
+  must be testable without a live database, network, MQTT broker, or ML model. Pass
+  inputs in (parsed payloads, `now`) so tests are deterministic. See
+  [`backend/tests/test_classification_admission.py`](backend/tests/test_classification_admission.py),
+  [`backend/tests/test_canonical_species.py`](backend/tests/test_canonical_species.py),
+  and [`backend/tests/test_config_env_mapping.py`](backend/tests/test_config_env_mapping.py).
+- **A bug fix starts with a test that reproduces the bug**, then the fix.
+- Tests own their fixtures (temp dirs, seeded rows) and clean up; never depend on a
+  developer machine, a running Frigate/MQTT, or downloaded models.
+- Mock external services (Frigate, MQTT, LLM, BirdNET-Go) at their boundary.
+- Test names state the behaviour, e.g. `test_audio_species_leaderboard_counts_window_and_prev`.
+
+The full suite (`pytest`, and `npm run check` + `npm test` for the frontend) must
+pass before any commit. "It builds" is not "it works".
+
+## 3. Database excellence
+
+- **Alembic migrations only.** Schema is versioned under
+  `backend/migrations/versions/`. There is no `create_all`/implicit-schema path in
+  committed runtime code, and there must not be one.
+- **Every schema change ships a migration in the same commit.** Never edit an
+  already-released migration; add a new one.
+- **Single head, reversible, idempotent.** There is exactly one Alembic head. Each
+  migration has a working `downgrade`; `upgrade → downgrade → upgrade` is a no-op
+  against an up-to-date database. CI enforces all three (see §9).
+- **Constraints belong in the schema**: `UNIQUE` (e.g. `frigate_event`), indexes,
+  required columns, enum handling. Do not rely on application code to enforce what
+  the database can enforce.
+- SQLite lives under `/data` in the container (`data/speciesid.db`). It is user
+  data — migrations must be backwards-safe.
+- All database access is async and goes through the **repository pattern**
+  (`backend/app/repositories/`), never raw SQLAlchemy in routers. Read paths use
+  pagination/limits.
+
+Add a migration:
 
 ```bash
-cd backend
+cd backend && source .venv/bin/activate
+alembic revision --autogenerate -m "describe change"   # review the generated file
+alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove reversibility
+```
 
-# Setup
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+## 4. Self-documenting code
+
+- Names carry the meaning. A reader should understand intent without comments.
+- Comments explain **why**, not **what**. The only *what* worth a comment is a
+  non-obvious one.
+- Keep functions small and single-purpose. Domain logic in `services/`, data access
+  in `repositories/`, HTTP composition in `routers/`. Business rules that can be
+  pure should be pure and directly tested (§2).
+- **Async by default, no blocking I/O.** Use `async def` for all I/O; never
+  `open()`, `requests`, or synchronous DB calls — use `aiofiles`, `httpx`, and async
+  SQLAlchemy.
+- **Type hints everywhere**; Pydantic models for request/response DTOs.
+- **Structured logging**: `structlog.get_logger()` with context
+  (`log.info("event", event_id=id, score=0.9)`), never bare `print`, never secrets.
+- No dead code, no commented-out blocks, no `TODO` without a linked issue.
+
+## 5. Clean, honest UI
+
+- The UI is **operational, not marketing**. Dense, calm, and honest about state.
+- A first-time user should understand what a screen does and what a click will do,
+  without a manual. Label actions by their effect. Show *why* something is disabled,
+  empty, or skipped.
+- **The shared UI kit in [`apps/ui/src/app.css`](apps/ui/src/app.css) is the source
+  of truth for controls.** Use `btn` + `btn-primary`/`btn-secondary`/`btn-ghost`,
+  `input-base`, `select-base`, `tab-button`, and `card-base` rather than hand-rolled
+  Tailwind, so controls stay consistent across themes. (A bare `btn-primary` without
+  the base `btn` renders unstyled — the correct form is `class="btn btn-primary …"`.)
+- Never imply a destructive action is reversible when it isn't. The UI must reflect
+  the safety model (§1) truthfully.
+- **Svelte 5 runes** (`$state`, `$derived`, `$effect`) and modern events
+  (`onclick={…}`, not `on:click`). TypeScript everywhere; `npm run check` is clean
+  (zero errors, zero warnings) before commit.
+- Show loading, empty, and error states explicitly. Empty states tell the user what
+  to do next.
+- **Media/artwork is a recognition aid, not decoration.** Snapshots and spectrograms
+  are proxied so no token reaches the browser, must degrade silently to a
+  placeholder, must never imply state, and must never shift layout (fixed aspect,
+  lazy-loaded).
+- User-facing strings go through i18n (`svelte-i18n`); new keys land in
+  `apps/ui/src/lib/i18n/locales/en.json` (use `{ default: '…' }` fallbacks).
+
+## 6. Definition of done
+
+A change is done when **all** of these hold:
+
+1. `pytest` is fully green, and new behaviour has new tests (§2).
+2. `npm run check` is clean and `npm test` passes if the frontend changed (§5).
+3. `ruff check .` and `ruff format .` are clean (Python style).
+4. Schema changes have a reversible migration, a single Alembic head, and re-running
+   them is a no-op (§3).
+5. The safety/data-integrity model (§1) is intact or strengthened — never weakened.
+6. `CHANGELOG.md` (Unreleased section) records the change.
+7. Documentation is updated when behaviour, settings, API, or UI labels change
+   (`docs/`, `README.md`, and `docs/api.md` for endpoints).
+8. Code is self-documenting and matches surrounding style (§4).
+
+## 7. Commands & local environment
+
+Backend (Python 3.12, from `backend/`):
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# Run development server (with auto-reload)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Database migrations
-alembic revision --autogenerate -m "description"
-alembic upgrade head
-
-# Testing
-pytest                                    # Run all tests
-pytest --cov=app --cov-report=html        # With coverage
-pytest tests/test_proxy.py -v             # Specific file
-pytest tests/test_proxy.py::test_name -v  # Specific test
-
-# Code quality
-ruff check .                              # Linting
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
+pytest                                                     # full suite
+pytest tests/test_audio_api.py -v                          # one file
+ruff check . && ruff format .                              # lint + format
+alembic upgrade head                                       # apply migrations
 ```
 
-### Frontend
+Frontend (from `apps/ui/`):
 
 ```bash
-cd apps/ui
-
-# Setup
 npm install
-
-# Development server (proxies API to localhost:8000)
-npm run dev
-
-# Build for production
-npm run build
-
-# Type checking
-npm run check
+npm run dev        # dev server; proxy target is set in vite.config.ts
+npm run check      # svelte-check: zero errors, zero warnings
+npm test           # vitest unit/layout tests
+npm run build      # production build
 ```
 
-### Docker
+The dev proxy target in `vite.config.ts` points at the container service host; set
+it to your local backend when running the two directly.
 
-```bash
-# Full stack
-docker compose up -d
-docker compose logs -f
-docker compose logs -f yawamf-backend
+## 8. Project layout & dependency direction
 
-# Rebuild after changes
-docker compose build
-docker compose up -d
-
-# Development mode (with hot reload)
-docker compose -f docker-compose.dev.yml up -d
 ```
+backend/app/routers/        HTTP composition: FastAPI endpoints, request/response DTOs.
+backend/app/services/       Domain + orchestration: MQTT, classifier, taxonomy, audio, AI, notifications.
+backend/app/repositories/   Data access: async SQLAlchemy behind a repository API.
+backend/app/models/         Pydantic models.
+backend/migrations/         Alembic versioned schema.
+backend/tests/              pytest (unit + API via TestClient).
+apps/ui/src/lib/pages/      Svelte 5 pages.
+apps/ui/src/lib/components/ Reusable components.
+apps/ui/src/lib/api/        Typed API client (the only place fetch happens).
+docs/                       Product, setup, integrations, API, reviews.
+.github/workflows/          CI (see §9).
+```
+
+Dependency direction: `routers → services → repositories → SQLite`. Keep business
+rules out of routers and pure where possible. On the frontend, all API calls go
+through `apps/ui/src/lib/api/`, never inline `fetch`.
+
+## 9. CI is the enforcement point
+
+CI is where the Definition of Done is enforced. Keep CI and the local commands in
+§7 in lock-step; if you change how the app is built or tested locally, update the
+workflow in the same commit. CI is allowed to be stricter than a local run, never
+looser.
+
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: Alembic
+  migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+  ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
+  single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
+  → `npm test` → `npm run build`. **telemetry worker**: dependency check.
+- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
+  for Python and TypeScript.
+- [`.github/workflows/docs-quality.yml`](.github/workflows/docs-quality.yml) — runs
+  [`backend/scripts/docs_consistency_check.py`](backend/scripts/docs_consistency_check.py):
+  local doc links resolve, documented endpoints in `docs/api.md` map to real routes,
+  and stale compose/nav terms are rejected.
+- [`.github/dependabot.yml`](.github/dependabot.yml) — dependency updates for pip,
+  npm, Docker, and Actions.
+
+**Anything in the Definition of Done that can be machine-checked should be a CI
+gate.** Two DoD items are not yet gated and are tracked in the review as
+follow-ups: `ruff` lint/format (§6.3) and a coverage floor. Do not treat "not gated
+yet" as "optional"; run them locally.
+
+## 10. Workflow & commit rules
+
+- **Everyday work happens on `dev`.** Release tags / `main` are handled separately.
+- **Git commit rules (unchanged, and strict):**
+  - **Never** add `Co-Authored-By:`, `Co-authored-by:`, or any AI attribution
+    trailer to commit messages.
+  - **Never** reference Claude, Gemini, or any AI tool in commit messages, PR
+    descriptions, or issue comments.
+  - Commit messages should read as if written by the project owner.
+
+---
+
+# Reference
+
+Orientation only. Behaviour is defined by code and tests (§2); when this section
+disagrees with the code, the code wins — fix the doc.
+
+## Project overview
+
+YA-WAMF (Yet Another WhosAtMyFeeder) is a bird classification system that
+integrates with Frigate NVR to identify birds visiting feeders using machine
+learning. It receives MQTT events from Frigate, classifies species with local ML
+models (TFLite/ONNX), correlates with audio detections from BirdNET-Go, and serves
+a real-time web dashboard with notifications.
+
+**Tech stack:** Python 3.12 + FastAPI + SQLite + Alembic (backend); Svelte 5 +
+TypeScript + Tailwind + Vite (frontend); ONNX Runtime / TensorFlow Lite (ML);
+MQTT (aiomqtt) for ingest, SSE for the frontend; Docker Compose deployment.
 
 ## Architecture
 
-### Data Flow
+### Data flow
 
 ```
 Frigate (MQTT) → MQTTService → EventProcessor → ClassifierService → DetectionRepository → SQLite
@@ -96,250 +265,90 @@ Frigate (MQTT) → MQTTService → EventProcessor → ClassifierService → Dete
                               NotificationService
 ```
 
-### Key Components
+### Key components
 
-**Backend Services** (`backend/app/services/`):
-- `mqtt_service.py` - Subscribes to `frigate/events` MQTT topic
-- `event_processor.py` - Orchestrates detection pipeline (200+ lines, needs refactoring)
-- `classifier_service.py` - ML inference engine (ONNX/TFLite model loading and prediction)
-- `frigate_client.py` - Fetches snapshots and clips from Frigate API
-- `audio/audio_service.py` - Correlates visual detections with BirdNET-Go audio buffer
-- `taxonomy/taxonomy_service.py` - iNaturalist-based scientific ↔ common name mapping
-- `ai_service.py` - LLM integration (Gemini/OpenAI) for behavioral analysis
-- `broadcaster.py` - Server-Sent Events (SSE) for real-time frontend updates
-- `notification_service.py` - Discord, Telegram, Pushover notifications
-- `auto_video_classifier_service.py` - Background video frame analysis for higher accuracy
-- `model_manager.py` - Model download and management
-- `telemetry_service.py` - Anonymous usage metrics (opt-in)
+**Backend services** (`backend/app/services/`):
+- `mqtt_service.py` — subscribes to the `frigate/events` MQTT topic
+- `event_processor.py` — orchestrates the detection pipeline
+- `classifier_service.py` — ML inference engine (ONNX/TFLite load + predict)
+- `frigate_client.py` — fetches snapshots and clips from the Frigate API
+- `audio/audio_service.py` — correlates visual detections with the BirdNET-Go buffer
+- `taxonomy/taxonomy_service.py` — iNaturalist scientific ↔ common name mapping
+- `ai_service.py` — LLM integration (Gemini/OpenAI) for behavioural analysis
+- `broadcaster.py` — Server-Sent Events for real-time frontend updates
+- `notification_service.py` — Discord, Telegram, Pushover notifications
+- `auto_video_classifier_service.py` — background video-frame analysis
+- `model_manager.py` — model download and management
+- `telemetry_service.py` — anonymous, opt-in usage metrics
 
-**Backend Routers** (`backend/app/routers/`):
-- `events.py` - Detection CRUD, filtering, pagination, deletion
-- `species.py` - Species aggregation, statistics, counts
-- `settings.py` - Configuration management (read/update config.json)
-- `proxy.py` - Frigate media proxy (thumbnails, snapshots, clips with HTTP Range support)
-- `stream.py` - SSE endpoint for real-time updates
-- `classifier.py` - Model status, health checks
-- `ai.py` - LLM behavioral analysis endpoint
-- `audio.py` - Recent BirdNET audio detections
-- `backfill.py` - Historical Frigate event reprocessing
-- `stats.py` - Analytics and metrics
-- `models.py` - Model management endpoints
+**Backend routers** (`backend/app/routers/`): `events`, `species`, `settings`,
+`proxy` (Frigate media proxy with HTTP Range), `stream` (SSE), `classifier`, `ai`,
+`audio`, `backfill`, `stats`, `models`.
 
-**Frontend Pages** (`apps/ui/src/lib/pages/`):
-- `Dashboard.svelte` - Real-time detection grid with SSE
-- `Events.svelte` - Paginated detection list with filters
-- `Species.svelte` - Species statistics and taxonomy info
-- `Settings.svelte` - Configuration UI (camera selection, thresholds, notifications, etc.)
+**Frontend pages** (`apps/ui/src/lib/pages/`): `Dashboard`, `Events`, `Species`,
+`AudioHistory`, `Settings`, and others. **Components**
+(`apps/ui/src/lib/components/`): `DetectionCard`, `VideoPlayer`,
+`SpeciesDetailModal`, `RecentAudio`, `Header`, and more.
 
-**Frontend Components** (`apps/ui/src/lib/components/`):
-- `DetectionCard.svelte` - Individual detection display with video playback
-- `VideoPlayer.svelte` - Proxied Frigate clip player with seeking support
-- `SpeciesDetailModal.svelte` - Species info modal with LLM analysis
-- `Header.svelte` - Navigation and dark mode toggle
-- `Footer.svelte` - Footer with version and links
+### Database schema
 
-### Database Schema
+**Primary table `detections`** — all bird detections with classification scores,
+Frigate event IDs, camera names, weather, and audio correlation.
+- `frigate_event` is `UNIQUE` (idempotent ingest); `is_hidden` for soft deletion.
+- `audio_confirmed`, `audio_species` for BirdNET-Go correlation.
+- `scientific_name`, `common_name`, `taxa_id` for taxonomy enrichment.
+- Video fields: `video_analysis_done`, `video_top_species`, `video_avg_score`.
 
-**Primary Table:** `detections`
-- Stores all bird detections with classification scores, Frigate event IDs, camera names, weather data, audio correlation
-- `frigate_event` column is UNIQUE - prevents duplicate processing
-- `is_hidden` flag for soft deletion
-- `audio_confirmed`, `audio_species` for BirdNET-Go correlation
-- `scientific_name`, `common_name`, `taxa_id` for taxonomy enrichment
-- Video classification fields: `video_analysis_done`, `video_top_species`, `video_avg_score`
+**`audio_detections`** — persisted BirdNET-Go detections (species, scientific name,
+confidence, timestamp, sensor, raw payload); indexed on `timestamp` and
+`scientific_name`.
 
-**Secondary Table:** `taxonomy_cache`
-- Caches iNaturalist API lookups for scientific/common name mapping
-- Reduces external API calls
+**`taxonomy_cache`** — caches iNaturalist lookups to reduce external calls.
 
-**Migrations:** Managed with Alembic in `backend/migrations/`
+**Migrations:** Alembic under `backend/migrations/versions/` (§3).
 
-### Configuration System
+### Configuration system
 
-**Priority (highest to lowest):**
-1. Environment variables (prefixed with section name, e.g., `FRIGATE__FRIGATE_URL`)
-2. `config/config.json` (persisted runtime config)
-3. Code defaults in `backend/app/config.py`
+Priority (highest to lowest): environment variables (section-prefixed, e.g.
+`FRIGATE__FRIGATE_URL`) → `config/config.json` (persisted runtime config) → code
+defaults in `backend/app/config.py`. Settings are read/written through Pydantic
+Settings; the `/api/settings` endpoint redacts secrets in GET and preserves stored
+secrets on PUT via `should_update_secret()`.
 
-**Important:** Settings are read/written through `config.py` which uses Pydantic Settings. The `/api/settings` endpoint reads from and writes to `config.json`. Sensitive fields (API keys, passwords) are redacted as `"***REDACTED***"` in GET responses. The PUT endpoint's `should_update_secret()` helper skips any field that contains the placeholder, so the redacted value is safe to send back — the stored secret will be preserved.
+### Authentication & access
 
-### Authentication
+Optional API-key authentication via the `YA_WAMF_API_KEY` environment variable.
+When set, all API requests require the `X-API-Key` header, SSE streams authenticate
+via query parameter, and the frontend shows a login screen. Public/guest access and
+privacy controls live under **Settings → Security**. Comparison is timing-safe
+(`secrets.compare_digest`).
 
-Optional API key authentication via `YA_WAMF_API_KEY` environment variable. When set:
-- All API requests must include `X-API-Key` header
-- SSE streams authenticate via query parameter
-- Frontend shows login screen
+## External integrations
 
-API key comparison uses `secrets.compare_digest()` in `auth.py` and `ratelimit.py` — timing-safe.
-
-## Common Development Workflows
-
-### Adding a New Feature
-
-1. **Backend API:**
-   - Create endpoint in appropriate router (`backend/app/routers/`)
-   - Use repository pattern for data access (`backend/app/repositories/`)
-   - Add Pydantic models for request/response in `backend/app/models/`
-   - Register router in `backend/app/main.py`
-   - Add tests in `backend/tests/`
-
-2. **Frontend:**
-   - Add API client function in `apps/ui/src/lib/api.ts`
-   - Create/update Svelte component using Svelte 5 runes (`$state`, `$derived`, `$effect`)
-   - Use TypeScript interfaces for type safety
-   - Follow Tailwind utility-first CSS approach
-
-3. **Service Logic:**
-   - Add service in `backend/app/services/`
-   - Use async/await for I/O operations
-   - Use structlog for logging with context
-   - Inject dependencies via function parameters
-
-### Running a Single Test
-
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_events.py::test_get_detections -v
-```
-
-### Database Migration
-
-```bash
-cd backend
-source venv/bin/activate
-
-# Auto-generate migration from schema changes
-alembic revision --autogenerate -m "add new column"
-
-# Review generated migration in backend/migrations/versions/
-# Edit if needed (Alembic doesn't catch everything)
-
-# Apply migration
-alembic upgrade head
-
-# Rollback if needed
-alembic downgrade -1
-```
-
-### Adding a New ML Model
-
-1. Place model files in `data/models/`:
-   - `model.tflite` or `model.onnx`
-   - `labels.txt` (one label per line)
-2. Update `classifier_service.py` if different input size or preprocessing needed
-3. Restart backend
-4. Use Settings UI to select model
-
-## Code Conventions
-
-### Python (Backend)
-
-- **Async by default:** Use `async def` for all I/O operations (HTTP, database, file access)
-- **Type hints everywhere:** Function signatures, class attributes, variables where helpful
-- **Repository pattern:** Data access through `DetectionRepository`, not direct SQLAlchemy in routers
-- **Error handling:** Raise `HTTPException` for API errors, catch external exceptions and re-raise as HTTP errors
-- **Logging:** Use `structlog.get_logger()` with context: `log.info("event", event_id=id, score=0.9)`
-- **No blocking I/O:** Never use `open()`, `requests`, or synchronous database calls - use `aiofiles`, `httpx`, and SQLAlchemy async
-
-### TypeScript/Svelte (Frontend)
-
-- **Svelte 5 runes:** Use `$state()`, `$derived()`, `$effect()` instead of `let x = $state(0)` syntax
-- **Props:** Define with `let { prop1, prop2 }: Props = $props()`
-- **Events:** Use `onclick` attribute, not `on:click` (Svelte 5 change)
-- **Types:** Define interfaces for all data structures, import from `api.ts`
-- **API calls:** All API interactions through functions in `api.ts`, not inline fetch calls
-
-### Testing
-
-- **Backend:** Use `pytest` with `TestClient` from FastAPI
-- **Mocking:** Mock external services (Frigate, MQTT, LLM APIs) using `unittest.mock.patch`
-- **Coverage:** Aim for >80% coverage on new code
-- **Current state:** Only ~5% E2E tests exist, no unit tests for most services (technical debt)
-
-## Important Constraints
-
-### Fast Path Optimization
-The system supports "Trust Frigate Sublabels" mode where Frigate's built-in bird classification is used directly, skipping local ML inference. This is controlled by `settings.classification.trust_frigate_sublabels`.
-
-### Video Clip Fetching
-Can be disabled via `settings.frigate.clips_enabled` to save bandwidth. Video proxy in `routers/proxy.py` supports HTTP Range requests for seeking.
-
-### Auto Video Analysis
-Background task that downloads full video clips and analyzes multiple frames for higher accuracy. Managed by `auto_video_classifier_service.py`. Uses temporal ensemble logic to refine detections.
-
-### BirdNET-Go Integration
-Audio detections are buffered in memory (configurable size) and correlated with visual detections by timestamp proximity. Audio service maintains a deque of recent detections.
-
-### Taxonomy Normalization
-Scientific and common names are normalized via iNaturalist API lookups, cached in `taxonomy_cache` table. This handles variations like "House Sparrow" vs "Passer domesticus".
-
-### Notification Filtering
-Notifications (Discord, Telegram, Pushover) support per-platform filters:
-- Minimum confidence threshold
-- Species blocklist/allowlist
-- Audio-only detections
-- New species alerts
-
-## Known Issues & Technical Debt
-
-No active known issues. See `DEVELOPER.md` for historical context.
-
-## File Locations
-
-- **Configuration:** `config/config.json` (persisted), `.env` (Docker environment)
-- **Database:** `data/speciesid.db` (SQLite)
-- **ML Models:** `data/models/` (model.tflite, labels.txt, onnx files)
-- **Migrations:** `backend/migrations/versions/`
-- **Tests:** `backend/tests/`
-- **Static Assets:** `apps/ui/public/` (icons, images)
-
-## External Integrations
-
-- **Frigate NVR:** MQTT events on `frigate/events`, HTTP API for media (`/api/events/{id}/snapshot.jpg`)
-- **BirdNET-Go:** MQTT audio detections on configurable topic (default: `birdnet/text`)
-- **iNaturalist:** Taxonomy API for name normalization
-- **Weather APIs:** Local weather data enrichment (OpenWeatherMap or similar)
-- **LLMs:** Google Gemini or OpenAI for behavioral analysis
-- **BirdWeather:** Optional detection reporting to community science platform
-- **Home Assistant:** Custom integration via `custom_components/yawamf/`
-
-## Performance Considerations
-
-- **SSE Broadcasting:** Use `Broadcaster` service to fan out events to multiple clients efficiently
-- **Media Caching:** `media_cache.py` caches Frigate responses to reduce load
-- **Batch Operations:** Frigate clip availability checks are batched in `events.py`
-- **Model Loading:** Models loaded once at startup, not per-request
-- **Database Queries:** Use pagination and limits (default: 50 detections per page)
-
-## Security Notes
-
-- **Path Traversal:** Event IDs used in media cache paths - ensure sanitization
-- **MQTT Auth:** Support for username/password auth to MQTT broker
-- **Frigate Auth:** Support for Bearer token auth to Frigate API
-- **API Key:** Optional password protection for entire application
-- **CORS:** Frontend and backend run on different ports, CORS configured in `main.py`
-- **Markdown Injection:** Telegram notifications may be vulnerable to species name injection (escape markdown special chars)
+- **Frigate NVR** — MQTT events on `frigate/events`; HTTP API for media.
+- **BirdNET-Go** — audio detections; persisted history + spectrogram/clip proxy.
+- **iNaturalist** — taxonomy normalisation (cached in `taxonomy_cache`).
+- **Weather APIs** — local weather enrichment.
+- **LLMs** — Gemini or OpenAI for behavioural analysis.
+- **BirdWeather / eBird / Home Assistant** — optional reporting and integration
+  (`custom_components/yawamf/`).
 
 ## Troubleshooting
 
 **No detections appearing:**
-- Check MQTT connection: `docker compose logs yawamf-backend | grep MQTT`
-- Verify Frigate is publishing to `frigate/events`
-- Confirm camera is in configured camera list (Settings)
-- Check model is loaded: `GET /api/classifier/status`
+- Check the MQTT connection in the backend logs.
+- Verify Frigate is publishing to `frigate/events` and the camera is in the
+  configured list (Settings).
+- Confirm the model is loaded: `GET /api/classifier/status`.
 
 **Frontend not loading:**
-- Verify backend is healthy: `curl http://localhost:8946/api/classifier/status`
-- Check CORS configuration in `backend/app/main.py`
-- Inspect browser console for errors
+- Verify the backend is healthy (`/api/classifier/status`); check CORS in
+  `backend/app/main.py`; inspect the browser console.
 
 **Database errors:**
-- Run migrations: `docker compose exec yawamf-backend alembic upgrade head`
-- Check database permissions on `data/speciesid.db`
-- Look for schema mismatches between `db_schema.py` and actual table
+- Apply migrations (`alembic upgrade head`); check permissions on
+  `data/speciesid.db`; look for schema mismatches.
 
 **Classification failures:**
-- Verify model files exist: `ls data/models/`
-- Check model format matches classifier type (TFLite vs ONNX)
-- Review classifier logs for shape/type mismatches
+- Verify model files exist under `data/models/`; confirm the format matches the
+  classifier type; review classifier logs for shape/type mismatches.

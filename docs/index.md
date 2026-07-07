@@ -54,3 +54,8 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 ## Troubleshooting
 Solving common issues and using diagnostic tools.
 - **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
+
+## Engineering & Quality
+How the project is built and held to standard.
+- **[📐 Engineering Standards](../CLAUDE.md)** - The contract every change must clear: safety, testing, database, UI, and Definition of Done.
+- **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
