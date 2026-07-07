@@ -40,6 +40,9 @@ jobs:
       - name: Python lint
         run: python -m ruff check backend custom_components/yawamf
 
+      - name: Python format
+        run: python -m ruff format --check backend custom_components/yawamf
+
       - name: Migration smoke test
         run: |
           cd backend

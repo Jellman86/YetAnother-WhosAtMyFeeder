@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **CI:** Applied a Ruff formatting baseline across the backend and Home Assistant integration, and added a `ruff format --check` gate so formatting drift fails CI. Formatting-only commits are listed in `.git-blame-ignore-revs`.
+
 ## [2.12.0] - 2026-07-07
 
 ### Added

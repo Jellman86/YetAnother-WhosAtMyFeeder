@@ -378,8 +378,8 @@ this item promotes that review's implementation plan into a release gate.
 **Phase 1 — Enforce what the contract already requires:**
 - ✅ Ruff lint gate and backend coverage floor (20%) in PR CI.
 - ✅ `CONTRIBUTING.md` rewritten against the contract.
-- ☐ Add the Ruff **format** gate once the existing Python tree has an accepted
-  formatting baseline (the one open Phase 1 item).
+- ✅ Ruff **format** gate: applied the formatting baseline across the backend and
+  Home Assistant integration and added the `ruff format --check` CI step.
 - ☐ Ratchet the coverage floor upward from 20% as coverage improves.
 
 **Phase 2 — Strengthen the API contract:**

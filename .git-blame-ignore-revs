@@ -1,0 +1,6 @@
+# Commits listed here are skipped by `git blame` (bulk mechanical changes).
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically.)
+
+# Apply Ruff format baseline across backend and HA integration
+0086966a44690d064f709bb93e29958405fdbe51
