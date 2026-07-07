@@ -393,8 +393,9 @@ this item promotes that review's implementation plan into a release gate.
 **Phase 3 — Mature documentation governance:**
 - ✅ Documentation standard published ([`docs/documentation-standard.md`](docs/documentation-standard.md)):
   audience, Diátaxis structure, safety-claim rules, and screenshot rules.
-- ☐ Bring all user-facing docs into line with the standard and keep the
-  docs-quality gate growing into it.
+- ✅ Audited all user-facing docs against the standard (compose commands, voice,
+  headings, safety boundaries) and fixed the gaps found; keep the docs-quality
+  gate growing into the standard.
 - ✅ Added the missing governance files (`AGENTS.md`, `CODE_OF_CONDUCT.md`).
 - ☐ Keep dated reviews in `docs/reviews/` current as subsystems change.
 

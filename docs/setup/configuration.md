@@ -103,7 +103,7 @@ See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for SSE and video clip 
 > **Legacy split deployment:** If you are still running the older two-container stack, route `/api/*` to `yawamf-backend:8000` and `/` to `yawamf-frontend:80` to avoid a multi-hop proxy chain that can cause HTTPS detection warnings.
 
 ## Data Management
-- **Retention Policy:** Choose how long to keep sightings in your history.
+- **Retention Policy:** Choose how long to keep sightings in your history (`maintenance.retention_days`; `0` keeps everything). Scheduled cleanup permanently deletes both visual detections and BirdNET-Go audio detections older than this window — purged history cannot be recovered. Favourited detections are preserved.
 - **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
 - **HQ Event Snapshots (Beta):** Replace cached snapshots with a higher-quality crop fetched from Frigate after event end. Optional bird-crop toggle and JPEG quality slider. Can be enabled independently of standard snapshot caching.
 - **Taxonomy Repair:** Manually trigger a sync to normalize all species names using iNaturalist data.

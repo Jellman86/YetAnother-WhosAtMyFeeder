@@ -40,7 +40,7 @@ Send rich HTML emails with optional snapshots.
 
 ## Intelligent Filtering
 
-To prevent spam, you can configure powerful filters that apply to all notifications:
+To prevent spam, you can configure filters that apply to all notifications:
 
 ### 1. Minimum Confidence
 Only send alerts if the detection confidence is above a certain threshold (default: 70%).
