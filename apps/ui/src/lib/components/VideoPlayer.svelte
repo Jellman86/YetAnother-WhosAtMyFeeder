@@ -14,6 +14,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
+    import { toAppPath } from '../app/url-base';
 
     interface Props {
         frigateEvent: string;
@@ -189,7 +190,7 @@
 
     function buildLegacyShareUrl(): string {
         if (typeof window === 'undefined') return '';
-        const url = new URL('/events', window.location.origin);
+        const url = new URL(toAppPath('/events'), window.location.origin);
         url.searchParams.set('event', frigateEvent);
         url.searchParams.set('video', '1');
         if (shareToken) {
@@ -978,4 +979,3 @@
         {/if}
     </div>
 </div>
-

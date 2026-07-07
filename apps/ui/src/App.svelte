@@ -50,6 +50,7 @@
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
+  import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -123,8 +124,9 @@
           dashboardRefreshKey += 1;
       }
       currentRoute = targetPath;
-      if (opts.replace) window.history.replaceState(null, '', targetPath);
-      else window.history.pushState(null, '', targetPath);
+      const browserPath = toAppPath(targetPath);
+      if (opts.replace) window.history.replaceState(null, '', browserPath);
+      else window.history.pushState(null, '', browserPath);
       refreshCoordinator.onNavigate();
   }
 
@@ -277,7 +279,7 @@
           });
 
           const handlePopState = () => {
-              currentRoute = normalizeRouteForCurrentAccess(window.location.pathname);
+              currentRoute = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
               refreshCoordinator.onNavigate();
           };
           window.addEventListener('popstate', handlePopState);
@@ -323,19 +325,19 @@
           window.addEventListener('error', handleWindowError);
           window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-          const path = window.location.pathname;
+          const path = fromAppPath(window.location.pathname);
           const resolvedPath = path === '' ? '/' : path;
           const canonicalPath = normalizeSettingsRoute(getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath);
           currentRoute = canonicalPath;
           if (canonicalPath !== resolvedPath) {
-              window.history.replaceState(null, '', canonicalPath);
+              window.history.replaceState(null, '', toAppPath(canonicalPath));
           }
 
           await authStore.loadStatus();
           const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
           if (accessAdjustedPath !== currentRoute) {
               currentRoute = accessAdjustedPath;
-              window.history.replaceState(null, '', accessAdjustedPath);
+              window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
           }
           notificationCenter.hydrate();
           jobDiagnosticsStore.hydrate();
@@ -498,7 +500,8 @@
 
       try {
           const token = authStore.token;
-          const sseUrl = token ? `/api/sse?token=${encodeURIComponent(token)}` : '/api/sse';
+          const sseBase = appApiPath('/api/sse');
+          const sseUrl = token ? `${sseBase}?token=${encodeURIComponent(token)}` : sseBase;
           evtSource = new EventSource(sseUrl);
 
           evtSource.onopen = () => {

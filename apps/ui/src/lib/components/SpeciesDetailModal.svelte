@@ -26,6 +26,7 @@
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
+    import { toAppPath } from '../app/url-base';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
 
     interface Props {
@@ -333,7 +334,7 @@
     }
 
     function handleOpenExplorer() {
-        window.location.assign(`/events?species=${encodeURIComponent(UNKNOWN_SPECIES_NAME)}`);
+        window.location.assign(toAppPath(`/events?species=${encodeURIComponent(UNKNOWN_SPECIES_NAME)}`));
     }
 
     async function handleReclassify(strategy: 'snapshot' | 'video') {

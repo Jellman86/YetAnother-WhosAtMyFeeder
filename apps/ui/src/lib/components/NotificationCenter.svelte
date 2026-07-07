@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { notificationCenter } from '../stores/notification_center.svelte';
+    import { toAppPath } from '../app/url-base';
 
     let {
         showLabel = false,
@@ -23,7 +24,7 @@
         if (onNavigate) {
             onNavigate('/notifications');
         } else {
-            window.location.assign('/notifications');
+            window.location.assign(toAppPath('/notifications'));
         }
     }
 </script>

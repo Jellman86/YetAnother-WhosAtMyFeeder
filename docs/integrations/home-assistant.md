@@ -30,6 +30,17 @@ Supported options in the integration config:
 If you change your server address (for example, moving from direct IP to a reverse proxy URL), use:
 **Settings → Devices & Services → YA-WAMF → Configure** and update the URL.
 
+### Sidebar Proxy
+The integration can expose YA-WAMF through the Home Assistant sidebar. Enable
+**Show YA-WAMF in the Home Assistant sidebar** in the integration options. Home
+Assistant authenticates the browser session, then the custom component proxies
+requests to the configured YA-WAMF URL using the credentials stored in the
+integration.
+
+The same YA-WAMF frontend bundle works for both standalone access and the Home
+Assistant sidebar. The app detects the Home Assistant ingress path at runtime,
+and the integration rewrites root asset links while proxying the page.
+
 ### Reverse Proxy Notes
 - Use the **public hostname** you configured on the proxy (not the internal container IP).
 - Ensure the proxy forwards the `/health` and `/api/stats/daily-summary` endpoints.

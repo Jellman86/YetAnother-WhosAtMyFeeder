@@ -3,6 +3,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { authStore } from '../stores/auth.svelte';
     import { fetchSettings } from '../api/settings';
+    import { appApiPath } from '../app/url-base';
 
     let cameras = $state<string[]>([]);
     let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
@@ -53,7 +54,7 @@
         const headers = authStore.token ? { Authorization: `Bearer ${authStore.token}` } : undefined;
         frames = { ...frames, [camera]: { ...(frames[camera] ?? { url: null, ok: false, loading: false }), loading: true } };
         try {
-            const resp = await fetch(`/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${Date.now()}`, { headers });
+            const resp = await fetch(`${appApiPath(`/frigate/camera/${encodeURIComponent(camera)}/latest.jpg`)}?cache=${Date.now()}`, { headers });
             if (!resp.ok) {
                 frames = { ...frames, [camera]: { ...frames[camera], ok: false, loading: false } };
                 return;

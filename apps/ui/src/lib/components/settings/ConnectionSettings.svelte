@@ -3,6 +3,7 @@
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
     import type { RecordingClipCapability } from '../../api/system';
+    import { appApiPath } from '../../app/url-base';
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
     import SecretInput from './_primitives/SecretInput.svelte';
@@ -189,7 +190,7 @@
         previewError = null;
         try {
             const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-            const resp = await fetch(`/api/frigate/camera/${encodeURIComponent(camera)}/latest.jpg?cache=${previewTimestamp}`, {
+            const resp = await fetch(`${appApiPath(`/frigate/camera/${encodeURIComponent(camera)}/latest.jpg`)}?cache=${previewTimestamp}`, {
                 headers
             });
             if (!resp.ok) {

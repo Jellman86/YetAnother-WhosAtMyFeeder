@@ -7,8 +7,13 @@ CONF_POLLING_INTERVAL = "polling_interval"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_API_KEY = "api_key"
+CONF_ENABLE_INGRESS = "enable_ingress"
 
 DEFAULT_POLLING_INTERVAL = 30  # seconds
+DEFAULT_ENABLE_INGRESS = False
+
+INGRESS_URL = "/api/yawamf/ingress"
+PANEL_URL_PATH = "yawamf"
 
 ATTR_EVENT_ID = "event_id"
 ATTR_SCORE = "score"

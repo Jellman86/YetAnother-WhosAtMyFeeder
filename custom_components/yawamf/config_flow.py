@@ -20,6 +20,8 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_API_KEY,
+    CONF_ENABLE_INGRESS,
+    DEFAULT_ENABLE_INGRESS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_USERNAME): str,
         vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_API_KEY): str,
+        vol.Optional(CONF_ENABLE_INGRESS, default=DEFAULT_ENABLE_INGRESS): bool,
     }
 )
 
@@ -184,6 +187,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
                         ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600)),
+                    vol.Optional(
+                        CONF_ENABLE_INGRESS,
+                        default=self.config_entry.options.get(
+                            CONF_ENABLE_INGRESS,
+                            self.config_entry.data.get(CONF_ENABLE_INGRESS, DEFAULT_ENABLE_INGRESS),
+                        ),
+                    ): bool,
                 }
             ),
         )

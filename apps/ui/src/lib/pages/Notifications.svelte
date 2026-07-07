@@ -11,6 +11,7 @@
     import { formatDateTime } from '../utils/datetime';
     import Jobs from './Jobs.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { toAppPath } from '../app/url-base';
 
     let {
         onNavigate,
@@ -36,7 +37,7 @@
             onNavigate(tabPath);
             return;
         }
-        window.location.assign(tabPath);
+        window.location.assign(toAppPath(tabPath));
     }
 
     function formatTime(ts: number) {
@@ -67,7 +68,7 @@
         notificationCenter.markRead(item.id);
         const route = item.meta?.route;
         if (!route || typeof route !== 'string') return;
-        window.location.assign(route);
+        window.location.assign(toAppPath(route));
     }
 
     function canOpen(item: NotificationItem) {

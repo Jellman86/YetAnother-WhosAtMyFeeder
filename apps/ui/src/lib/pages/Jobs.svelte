@@ -9,6 +9,7 @@
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { resetVideoCircuit } from '../api/maintenance';
+    import { toAppPath } from '../app/url-base';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
@@ -90,7 +91,7 @@
                 onNavigate(item.route);
                 return;
             }
-            window.location.assign(item.route);
+            window.location.assign(toAppPath(item.route));
         }
     }
 

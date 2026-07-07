@@ -35,6 +35,7 @@
     } from '../api';
     import type { Detection } from '../api';
     import { withAuthParams } from '../api/core';
+    import { appApiPath } from '../app/url-base';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -398,12 +399,12 @@
     // authentication is enabled.
     const matchedSpectrogramUrl = $derived(
         matchedAudioEntry?.birdnet_id != null
-            ? withAuthParams(`/api/audio/spectrogram/${matchedAudioEntry.birdnet_id}?width=600`)
+            ? withAuthParams(`${appApiPath(`/audio/spectrogram/${matchedAudioEntry.birdnet_id}`)}?width=600`)
             : null
     );
     const matchedAudioClipUrl = $derived(
         matchedAudioEntry?.birdnet_id != null
-            ? withAuthParams(`/api/audio/clip/${matchedAudioEntry.birdnet_id}`)
+            ? withAuthParams(appApiPath(`/audio/clip/${matchedAudioEntry.birdnet_id}`))
             : null
     );
     // Playback state bound to the hidden <audio> element. Reset whenever

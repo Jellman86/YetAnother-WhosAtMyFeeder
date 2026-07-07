@@ -7,6 +7,7 @@
     import { fetchRecentAudio, type AudioDetection } from '../api';
     import { withAuthParams } from '../api/core';
     import { fetchSettings } from '../api/settings';
+    import { appApiPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -66,7 +67,7 @@
         // The spectrogram is loaded as a CSS background-image, which cannot send
         // auth headers — append the JWT as a query param so it works when
         // authentication is enabled (mirrors Frigate media URLs).
-        return withAuthParams(`/api/audio/spectrogram/${birdnet_id}?width=600`);
+        return withAuthParams(`${appApiPath(`/audio/spectrogram/${birdnet_id}`)}?width=600`);
     }
 
     function birdnetDetectionUrl(birdnet_id: number | null | undefined): string | null {

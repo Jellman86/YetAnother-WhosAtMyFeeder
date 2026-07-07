@@ -15,6 +15,7 @@ window.addEventListener('unhandledrejection', (event) => {
 import { toastStore } from './lib/stores/toast.svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { APP_BASE_PATH } from './lib/app/url-base';
 
 mount(App, { target: document.getElementById('app')! });
 
@@ -26,7 +27,7 @@ function getLabel(key: string, fallback: string) {
   }
 }
 
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && !APP_BASE_PATH && 'serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');

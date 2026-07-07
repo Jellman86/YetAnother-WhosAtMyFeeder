@@ -67,6 +67,7 @@
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
     import { validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
@@ -2084,7 +2085,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     function handleTabChange(tab: SettingsTab) {
         const path = `/settings/${tab}`;
         if (onNavigate) onNavigate(path);
-        else window.history.pushState(null, '', path);
+        else window.history.pushState(null, '', toAppPath(path));
     }
 
     // Drive taxonomy polling from the derived active tab so router-driven changes
@@ -2106,7 +2107,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const canonical = canonicalSettingsPath(currentRoute, window.location.hash.slice(1));
         if (canonical && canonical !== currentRoute) {
             if (onNavigate) onNavigate(canonical, { replace: true });
-            else window.history.replaceState(null, '', canonical);
+            else window.history.replaceState(null, '', toAppPath(canonical));
         }
     });
 

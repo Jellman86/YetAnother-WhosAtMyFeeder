@@ -1,4 +1,6 @@
-export const API_BASE = '/api';
+import { appApiPath, normalizeBackendPath } from '../app/url-base';
+
+export const API_BASE = appApiPath('/api');
 
 import { readApiErrorMessage } from './error-message';
 
@@ -29,14 +31,15 @@ function appendQueryParam(url: string, key: string, value: string): string {
 }
 
 export function withAuthParams(url: string): string {
+    const normalizedUrl = normalizeBackendPath(url);
     const token = getAuthToken();
     if (token) {
-        return appendQueryParam(url, 'token', token);
+        return appendQueryParam(normalizedUrl, 'token', token);
     }
     if (apiKey) {
-        return appendQueryParam(url, 'api_key', apiKey);
+        return appendQueryParam(normalizedUrl, 'api_key', apiKey);
     }
-    return url;
+    return normalizedUrl;
 }
 
 function isAuthTokenExpired(): boolean {
@@ -108,7 +111,7 @@ export function setAuthErrorCallback(callback: () => void) {
 }
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const response = await fetch(url, {
+    const response = await fetch(normalizeBackendPath(url), {
         ...options,
         headers: getHeaders(options.headers)
     });
@@ -145,7 +148,7 @@ export async function fetchWithAbort<T>(
             signal: controller?.signal
         };
 
-        const response = await fetch(url, fetchOptions);
+        const response = await fetch(normalizeBackendPath(url), fetchOptions);
 
         if (key) {
             abortControllers.delete(key);

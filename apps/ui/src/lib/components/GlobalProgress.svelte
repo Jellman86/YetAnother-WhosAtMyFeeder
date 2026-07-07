@@ -8,6 +8,7 @@
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
+    import { toAppPath } from '../app/url-base';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     let nowTs = $state(Date.now());
@@ -62,7 +63,7 @@
             onNavigate(jobsTabPath);
             return;
         }
-        window.location.assign(jobsTabPath);
+        window.location.assign(toAppPath(jobsTabPath));
     }
 </script>
 

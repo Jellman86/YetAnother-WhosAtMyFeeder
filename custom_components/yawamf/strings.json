@@ -9,7 +9,8 @@
           "url": "Base URL",
           "username": "Username (optional)",
           "password": "Password (optional)",
-          "api_key": "Legacy API key (optional)"
+          "api_key": "Legacy API key (optional)",
+          "enable_ingress": "Show YA-WAMF in the Home Assistant sidebar"
         }
       }
     },
@@ -28,10 +29,10 @@
           "username": "Username (optional)",
           "password": "Password (optional)",
           "api_key": "Legacy API key (optional)",
-          "polling_interval": "Polling interval (seconds)"
+          "polling_interval": "Polling interval (seconds)",
+          "enable_ingress": "Show YA-WAMF in the Home Assistant sidebar"
         }
       }
     }
   }
 }
-
