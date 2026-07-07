@@ -380,7 +380,8 @@ this item promotes that review's implementation plan into a release gate.
 - ✅ `CONTRIBUTING.md` rewritten against the contract.
 - ✅ Ruff **format** gate: applied the formatting baseline across the backend and
   Home Assistant integration and added the `ruff format --check` CI step.
-- ☐ Ratchet the coverage floor upward from 20% as coverage improves.
+- ✅ Ratcheted the coverage floor from 20% to 60% (measured backend coverage is
+  ~65%); keep raising it as coverage improves.
 
 **Phase 2 — Strengthen the API contract:**
 - ✅ Emit a build-time OpenAPI artifact (`backend/openapi.json` via
