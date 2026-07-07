@@ -234,7 +234,12 @@ async def test_audio_summary_rolls_up_persisted_history(client: httpx.AsyncClien
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
-    now = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+    now = (datetime.now(timezone.utc) - timedelta(days=1)).replace(
+        hour=12,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
     rows = [
         (
             (now - timedelta(hours=1)).isoformat(sep=" "),
