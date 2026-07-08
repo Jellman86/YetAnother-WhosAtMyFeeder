@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
 
@@ -191,7 +192,7 @@ export interface Settings {
 
 export type UpdateSettings = Partial<Settings>;
 
-export interface SettingsUpdate extends Partial<Settings> {}
+export type SettingsUpdate = paths['/api/settings']['post']['requestBody'];
 
 export async function fetchSettings(): Promise<Settings> {
     const response = await apiFetch(`${API_BASE}/settings`);
