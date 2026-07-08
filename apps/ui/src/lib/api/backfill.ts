@@ -1,22 +1,9 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 
-export interface BackfillRequest {
-    date_range: 'day' | 'week' | 'month' | 'custom';
-    start_date?: string;
-    end_date?: string;
-    cameras?: string[];
-}
+export type BackfillRequest = paths['/api/backfill']['post']['requestBody'];
 
-export interface BackfillResult {
-    status: string;
-    processed: number;
-    new_detections: number;
-    skipped: number;
-    errors: number;
-    skipped_reasons?: Record<string, number>;
-    error_reasons?: Record<string, number>;
-    message: string;
-}
+export type BackfillResult = paths['/api/backfill']['post']['response'];
 
 export async function runBackfill(request: BackfillRequest): Promise<BackfillResult> {
     const response = await apiFetch(`${API_BASE}/backfill`, {
@@ -27,22 +14,9 @@ export async function runBackfill(request: BackfillRequest): Promise<BackfillRes
     return handleResponse<BackfillResult>(response);
 }
 
-export interface WeatherBackfillRequest {
-    date_range: 'day' | 'week' | 'month' | 'custom';
-    start_date?: string;
-    end_date?: string;
-    only_missing?: boolean;
-}
+export type WeatherBackfillRequest = paths['/api/backfill/weather']['post']['requestBody'];
 
-export interface WeatherBackfillResult {
-    status: string;
-    processed: number;
-    updated: number;
-    skipped: number;
-    errors: number;
-    error_reasons?: Record<string, number>;
-    message: string;
-}
+export type WeatherBackfillResult = paths['/api/backfill/weather']['post']['response'];
 
 export async function runWeatherBackfill(request: WeatherBackfillRequest): Promise<WeatherBackfillResult> {
     const response = await apiFetch(`${API_BASE}/backfill/weather`, {
@@ -53,22 +27,7 @@ export async function runWeatherBackfill(request: WeatherBackfillRequest): Promi
     return handleResponse<WeatherBackfillResult>(response);
 }
 
-export interface BackfillJobStatus {
-    id: string;
-    kind: string;
-    status: string;
-    processed: number;
-    total: number;
-    new_detections?: number;
-    updated?: number;
-    skipped: number;
-    skipped_reasons?: Record<string, number>;
-    errors: number;
-    error_reasons?: Record<string, number>;
-    message?: string;
-    started_at?: string | null;
-    finished_at?: string | null;
-}
+export type BackfillJobStatus = paths['/api/backfill/async']['post']['response'];
 
 export async function startBackfillJob(request: BackfillRequest): Promise<BackfillJobStatus> {
     const response = await apiFetch(`${API_BASE}/backfill/async`, {
