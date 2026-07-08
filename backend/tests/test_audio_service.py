@@ -13,6 +13,7 @@ def audio_service():
     ):
         mock_settings.frigate.audio_buffer_hours = 0.083  # ~5 minutes
         mock_settings.frigate.audio_correlation_window_seconds = 10
+        mock_settings.frigate.audio_min_confidence = 0.0  # default: store everything
         # Mock successful taxonomy lookup
         mock_get_names.return_value = {"scientific_name": "Scientific Name", "common_name": "Common Name"}
         service = AudioService()
@@ -354,3 +355,33 @@ async def test_correlate_species_uses_legacy_source_id_mapping(audio_service):
     assert matched is True
     assert species == "Blue Jay"
     assert score == pytest.approx(0.91)
+
+
+@pytest.mark.asyncio
+async def test_add_detection_drops_below_min_confidence():
+    with (
+        patch("app.services.audio.audio_service.settings") as mock_settings,
+        patch("app.services.taxonomy.taxonomy_service.taxonomy_service.get_names") as mock_get_names,
+    ):
+        mock_settings.frigate.audio_buffer_hours = 0.083  # ~5 minutes
+        mock_settings.frigate.audio_correlation_window_seconds = 10
+        mock_settings.frigate.audio_min_confidence = 0.5
+        mock_get_names.return_value = {"scientific_name": "Scientific Name", "common_name": "Common Name"}
+        service = AudioService()
+
+        # Below the threshold: dropped (not buffered, not persisted).
+        await service.add_detection({"species": "Sparrow", "confidence": 0.3})
+        assert len(service._buffer) == 0
+
+        # At the threshold: kept.
+        await service.add_detection({"species": "Robin", "confidence": 0.5})
+        assert len(service._buffer) == 1
+        assert service._buffer[0].species == "Robin"
+
+
+@pytest.mark.asyncio
+async def test_add_detection_keeps_low_confidence_when_threshold_zero(audio_service):
+    # Default threshold (0.0) stores everything, including very low confidence.
+    await audio_service.add_detection({"species": "Wren", "confidence": 0.05})
+    assert len(audio_service._buffer) == 1
+    assert audio_service._buffer[0].species == "Wren"

@@ -8,12 +8,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 - **Unraid (#56):** Added a Community Applications Docker template (`unraid/yawamf.xml`) and an [Unraid setup guide](docs/setup/unraid.md) so Unraid users can install the monolithic image with prefilled ports, `/config` and `/data` paths, Frigate URL, and optional Intel GPU/NPU device passthrough.
+- **BirdNET (#53):** Added a persist-time confidence floor for BirdNET-Go audio detections (`frigate.audio_min_confidence`, default `0.0`). Detections below the threshold are neither buffered for correlation nor stored, completing the configurable low-confidence filtering from the audio-history request.
 
 ### Changed
 - **Classifier worker:** The progress-emit timeout is now injectable (`progress_emit_timeout_seconds`, default unchanged) and the slow-progress test waits on observed state rather than fixed sleeps, fixing a deadlock that hung the test suite when run under `coverage`.
 - **CI:** Applied a Ruff formatting baseline across the backend and Home Assistant integration, and added a `ruff format --check` gate so formatting drift fails CI. Formatting-only commits are listed in `.git-blame-ignore-revs`.
 - **CI:** Raised the backend coverage floor from 20% to 60% (measured coverage is ~65%) so coverage regressions fail the build.
-- **API contract:** Added a generated frontend TypeScript contract (`apps/ui/src/lib/api/generated/openapi.ts`) from `backend/openapi.json`, wired auth, stats, events, classifier/model, backfill, and settings write payload API types to it, and added a CI freshness check so backend contract drift reaches the SPA during review.
 
 ## [2.12.0] - 2026-07-07
 

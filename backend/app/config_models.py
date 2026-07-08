@@ -239,6 +239,12 @@ class FrigateSettings(BaseModel):
         le=3600,
         description="Time window in seconds for audio-visual correlation (±N seconds from detection)",
     )
+    audio_min_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Ignore BirdNET-Go audio detections below this confidence (0.0 stores everything)",
+    )
 
 
 class ClassificationSettings(BaseModel):

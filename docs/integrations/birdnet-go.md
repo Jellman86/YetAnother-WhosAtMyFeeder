@@ -40,5 +40,8 @@ YA-WAMF is compatible with multiple BirdNET message formats:
 
 The system ignores "Sound Level" messages (`birdnet/soundlevel`) and focuses only on valid species identifications.
 
+### Filtering low-confidence detections
+By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy low-confidence detections at ingest, set **Minimum audio confidence** (`frigate.audio_min_confidence`, `0.0`–`1.0`). Detections below the threshold are neither buffered for correlation nor written to history. The default `0.0` stores everything. BirdNET-Go also has its own confidence and dynamic-threshold controls upstream; this setting is an additional YA-WAMF-side floor.
+
 ## Dashboard Widget
 The dashboard includes a "Recent Audio" widget that shows the live in-memory detections from BirdNET-Go, even if no visual event occurred. The widget includes a **History** link to the full Audio History view, which reads from persisted BirdNET detections and provides date-window, species, source, and confidence filters plus top-species, source, and hourly activity summaries. This audio history is kept separate from the visual feeder leaderboard so "heard" detections do not inflate "seen" detections.

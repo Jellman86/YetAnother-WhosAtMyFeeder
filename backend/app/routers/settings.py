@@ -366,6 +366,12 @@ class SettingsUpdate(BaseModel):
         le=3600,
         description="Time window in seconds for audio-visual correlation (±N seconds from detection)",
     )
+    audio_min_confidence: float = Field(
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Ignore BirdNET-Go audio detections below this confidence (0.0 stores everything)",
+    )
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
     recording_clip_before_seconds: int = Field(
@@ -867,6 +873,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
+        "audio_min_confidence": settings.frigate.audio_min_confidence,
         "clips_enabled": settings.frigate.clips_enabled,
         "recording_clip_enabled": settings.frigate.recording_clip_enabled,
         "recording_clip_before_seconds": settings.frigate.recording_clip_before_seconds,
@@ -1126,6 +1133,8 @@ async def update_settings(
         settings.frigate.audio_buffer_hours = update.audio_buffer_hours
     if "audio_correlation_window_seconds" in fields_set:
         settings.frigate.audio_correlation_window_seconds = update.audio_correlation_window_seconds
+    if "audio_min_confidence" in fields_set:
+        settings.frigate.audio_min_confidence = update.audio_min_confidence
 
     if "clips_enabled" in fields_set:
         settings.frigate.clips_enabled = update.clips_enabled

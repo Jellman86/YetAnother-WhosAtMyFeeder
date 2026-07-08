@@ -154,6 +154,19 @@ class AudioService:
             if confidence is None:
                 confidence = data.get("Confidence", 0.0)
 
+            # Persist-time confidence gate: optionally ignore low-confidence audio
+            # detections entirely (neither buffered for correlation nor stored).
+            # Default 0.0 keeps everything, so this is opt-in and backwards-safe.
+            min_confidence = settings.frigate.audio_min_confidence
+            if min_confidence > 0 and float(confidence) < min_confidence:
+                log.debug(
+                    "Audio detection below minimum confidence; ignoring",
+                    species=species,
+                    confidence=confidence,
+                    min_confidence=min_confidence,
+                )
+                return
+
             # Canonical BirdNET source key for camera mapping (prefer stable source names)
             sensor_id = self._extract_birdnet_mapping_key(data)
 
