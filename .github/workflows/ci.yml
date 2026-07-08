@@ -84,6 +84,11 @@ jobs:
           cd backend
           python scripts/export_openapi.py --check
 
+      - name: Frontend OpenAPI types up to date
+        run: |
+          cd backend
+          python scripts/export_openapi_types.py --check
+
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest

@@ -91,6 +91,8 @@
         return n.toString();
     };
 
+    const formatEstimatedCost = (value: number | null | undefined) => (value ?? 0).toFixed(4);
+
     const metricCardClass = 'p-6 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5';
     const buttonPrimaryClass = 'px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
     const buttonSecondaryClass = 'px-6 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -134,7 +136,7 @@
                 <div class="{metricCardClass} bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/10 dark:border-emerald-500/20">
                     <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
                     <p class="text-2xl font-black text-emerald-700 dark:text-emerald-300">
-                        ${usage.estimated_cost_usd.toFixed(4)}
+                        ${formatEstimatedCost(usage.estimated_cost_usd)}
                         <span class="text-xs ml-1 font-bold text-emerald-600/60 dark:text-emerald-400/40">USD</span>
                     </p>
                     {#if !usage.pricing_configured}
@@ -165,7 +167,7 @@
                                     <td class="px-4 py-3 capitalize">{item.feature}</td>
                                     <td class="px-4 py-3 text-right">{item.calls}</td>
                                     <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">${item.estimated_cost_usd.toFixed(4)}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">${formatEstimatedCost(item.estimated_cost_usd)}</td>
                                 </tr>
                             {/each}
                         </tbody>

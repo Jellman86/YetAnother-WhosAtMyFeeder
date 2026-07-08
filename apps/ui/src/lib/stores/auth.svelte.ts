@@ -76,7 +76,7 @@ class AuthStore {
             this.publicAccessEnabled = status.public_access_enabled;
             this.publicAccessShowAiConversation = status.public_access_show_ai_conversation ?? false;
             this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
-            this.needsInitialSetup = status.needs_initial_setup;
+            this.needsInitialSetup = status.needs_initial_setup ?? false;
             this.isAuthenticated = status.is_authenticated;
             this.username = status.username ?? null;
             this.httpsWarning = status.https_warning ?? false;

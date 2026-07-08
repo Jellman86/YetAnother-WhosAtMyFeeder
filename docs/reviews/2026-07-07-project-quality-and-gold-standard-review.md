@@ -122,24 +122,23 @@ Status: **addressed** — [`CLAUDE.md`](../../CLAUDE.md) now leads with a number
 and `ruff format .`, and the Definition of Done (§6) requires it, but nothing gates
 it. Style and simple correctness lint can therefore drift.
 
-Status: **partially addressed** — [`ci.yml`](../../.github/workflows/ci.yml) now
-runs `ruff check backend custom_components/yawamf`, backed by the repo-level
-[`pyproject.toml`](../../pyproject.toml) Ruff configuration. Format enforcement is
-still pending because `ruff format --check` currently implies a broad mechanical
-formatting pass across existing Python files.
+Status: **addressed** — [`ci.yml`](../../.github/workflows/ci.yml) now runs
+`ruff check backend custom_components/yawamf` and
+`ruff format --check backend custom_components/yawamf`, backed by the repo-level
+[`pyproject.toml`](../../pyproject.toml) Ruff configuration and an accepted
+formatting baseline.
 
-Gold-standard target: add the `ruff format --check` gate after either accepting
-the mechanical format pass or narrowing a deliberate format policy. Acceptance: a
-lint or format violation fails CI.
+Gold-standard target: keep both lint and format gates green. Acceptance: a lint
+or format violation fails CI.
 
 ### 3. Backend coverage floor is now enforced in PR CI
 
 Coverage tooling exists and PR CI now runs the backend suite under `coverage` with
-the existing 20% floor, so a large PR cannot quietly lower measured backend test
-depth below the current minimum.
+a 60% floor, so a large PR cannot quietly lower measured backend test depth below
+the current minimum.
 
-Gold-standard target: ratchet the floor upward from the current conservative 20%
-baseline as low-coverage modules gain focused tests. Keep hardware/model-dependent
+Gold-standard target: ratchet the floor upward from the current 60% baseline as
+low-coverage modules gain focused tests. Keep hardware/model-dependent
 paths excluded and clearly labelled rather than faked.
 
 ### 4. `CONTRIBUTING.md` now points at the contract
@@ -151,26 +150,29 @@ Status: **addressed** — [`CONTRIBUTING.md`](../../CONTRIBUTING.md) now points 
 Gold-standard target: keep contributor guidance in lock-step with the Definition
 of Done and CI commands.
 
-### 5. API contract is documented but not generated
+### 5. API contract is generated; frontend adoption has started
 
-FastAPI serves OpenAPI at `/docs`, and the docs-quality gate checks that documented
-endpoints in [`../api.md`](../api.md) exist as routes — a good drift guard. But the
-`api.md` reference is still hand-maintained and the SPA maintains API types by hand.
+FastAPI serves OpenAPI at `/docs`, and PR CI checks the committed
+[`backend/openapi.json`](../../backend/openapi.json) artifact is up to date. The
+frontend now also has a generated TypeScript contract at
+[`apps/ui/src/lib/api/generated/openapi.ts`](../../apps/ui/src/lib/api/generated/openapi.ts),
+with a CI freshness check. The first consumer is the auth API module, which types
+`/api/auth/status` and `/api/auth/login` from the generated path contract. The
+stats and events API modules now also source high-value response shapes from the
+same generated contract.
 
-Gold-standard target: publish a build-time OpenAPI artifact, and consider
-generating (or contract-testing) the frontend's TypeScript API types against it.
-This turns "the docs match the routes" into "the client matches the contract".
+Gold-standard target: continue migrating high-value frontend API modules to the
+generated path contract so "the docs match the routes" becomes "the client matches
+the contract" across the whole SPA.
 
 ### 6. Documentation history and governance are thin
 
-There is no `docs/reviews/` history before this document, no documentation-standard
-page, and no `AGENTS.md`/`CODE_OF_CONDUCT.md`. The docs themselves are good and
-task-oriented; the gap is in the meta-layer that keeps them that way.
+There is now a documentation standard page plus `AGENTS.md` and
+`CODE_OF_CONDUCT.md`. The remaining work is to keep dated reviews current as the
+project changes and to grow the docs-quality gate around the standard.
 
-Gold-standard target: keep dated reviews here as the project evolves; add a short
-documentation standard (audience, Diátaxis structure, safety-claim rules,
-screenshot rules) that the docs-quality gate can grow into; add the missing
-governance files.
+Gold-standard target: keep dated reviews here as the project evolves and grow the
+docs-quality gate around the documentation standard.
 
 ## Gold-standard implementation plan
 
@@ -178,24 +180,26 @@ This plan is intentionally sequenced from lowest-risk, highest-leverage first. I
 **not** part of this documentation-only change; it is the tracked follow-up.
 
 ### Phase 1: Enforce what the contract already requires
-- Add a `ruff` config and a CI lint gate (done); add the format gate after the
-  existing Python tree has an accepted formatting baseline (gap 2).
-- Add coverage measurement and a floor to the backend CI job (done at 20%; ratchet
+- Add a `ruff` config and CI lint/format gates (done).
+- Add coverage measurement and a floor to the backend CI job (done at 60%; ratchet
   upward as coverage improves).
 - Rewrite `CONTRIBUTING.md` against the contract and fix its contradictions (done).
 
 Acceptance: CI fails on lint violations and coverage regressions;
-`CONTRIBUTING.md` no longer contradicts the workflow. Format violations remain the
-open Phase 1 enforcement item.
+`CONTRIBUTING.md` no longer contradicts the workflow.
 
 ### Phase 2: Strengthen the API contract
-- Emit a build-time OpenAPI artifact.
-- Generate or contract-test the SPA's API types against it (gap 5).
+- Emit a build-time OpenAPI artifact (done).
+- Generate frontend TypeScript types from the artifact and check freshness in CI
+  (done).
+- Migrate remaining high-value frontend API modules to generated path-level
+  response/request types.
 
-Acceptance: an endpoint/type mismatch is caught in CI, not in the browser.
+Acceptance: an endpoint/type mismatch is caught in CI, not in the browser. Initial
+auth, stats, and events coverage is in place; broader SPA adoption remains.
 
 ### Phase 3: Mature documentation governance
-- Add a documentation standard and the missing governance files (gap 6).
+- Add a documentation standard and the missing governance files (done).
 - Keep this review current; add engineering notes as significant subsystems change.
 
 Acceptance: new settings/API/UI changes update docs in the same PR; the docs map
@@ -208,11 +212,11 @@ links to the current review.
 | Safety & data integrity | Strong (idempotent ingest, soft delete, secret redaction, constant-time auth) | Preserve as the first invariant |
 | Core domain design | Good; pure decision logic is tested | Keep pushing business rules to pure, tested functions |
 | Migrations | Excellent; reversibility + single head enforced in CI | Preserve; migration-per-commit |
-| Testing | Broad unit + API coverage; 20% backend coverage floor in PR CI | Ratchet the floor upward; keep hardware paths labelled |
-| CI & supply chain | Strong (migration matrix, CodeQL, Dependabot, docs gate, Ruff lint, coverage floor) | Add Ruff format gate |
+| Testing | Broad unit + API coverage; 60% backend coverage floor in PR CI | Ratchet the floor upward; keep hardware paths labelled |
+| CI & supply chain | Strong (migration matrix, CodeQL, Dependabot, docs gate, Ruff lint/format, coverage floor) | Keep gates green |
 | Security boundary | Reasonable (optional API key, redaction, guest controls) | Keep OWASP-informed endpoint review as surfaces grow |
 | UI honesty | Operational and consistent (shared control kit) | Zero-warning `check`; explicit empty/error states everywhere |
-| Docs | Good and gated for drift | Add documentation standard + generated API contract |
+| Docs | Good and gated for drift; documentation standard exists | Continue generated API contract adoption |
 | Workflow & governance | Trunk-based on `dev`; strict commit rules; CONTRIBUTING aligned | Add missing governance files |
 
 ## Suggested agent prompt

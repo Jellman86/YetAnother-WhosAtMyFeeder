@@ -1,60 +1,17 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
-import type { Detection } from './types';
+import type { paths } from './generated/openapi';
 
-export interface DailySpeciesSummary {
-    species: string;
-    count: number;
-    latest_event: string;
-    scientific_name?: string | null;
-    common_name?: string | null;
-    taxa_id?: number | null;
-}
-
-export interface DailySummary {
-    hourly_distribution: number[];
-    top_species: DailySpeciesSummary[];
-    latest_detection: Detection | null;
-    total_count: number;
-    audio_confirmations: number;
-}
+export type DailySpeciesSummary = paths['/api/stats/daily-summary']['get']['response']['top_species'][number];
+export type DailySummary = paths['/api/stats/daily-summary']['get']['response'];
 
 export async function fetchDailySummary(): Promise<DailySummary> {
     const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
     return handleResponse<DailySummary>(response);
 }
 
-export interface AIUsageBreakdown {
-    provider: string;
-    model: string;
-    feature: string;
-    calls: number;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    estimated_cost_usd: number;
-}
-
-export interface AIUsageDaily {
-    day: string;
-    calls: number;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-}
-
-export interface AIUsageResponse {
-    span: string;
-    from_date: string;
-    to_date: string;
-    calls: number;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    estimated_cost_usd: number;
-    pricing_configured: boolean;
-    breakdown: AIUsageBreakdown[];
-    daily: AIUsageDaily[];
-}
+export type AIUsageBreakdown = paths['/api/stats/ai/usage']['get']['response']['breakdown'][number];
+export type AIUsageDaily = paths['/api/stats/ai/usage']['get']['response']['daily'][number];
+export type AIUsageResponse = paths['/api/stats/ai/usage']['get']['response'];
 
 export async function fetchAiUsage(span: string = '30d'): Promise<AIUsageResponse> {
     const response = await apiFetch(`${API_BASE}/stats/ai/usage?span=${span}`);

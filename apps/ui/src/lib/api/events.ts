@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 import type { Detection } from './types';
 
 export interface FetchEventsOptions {
@@ -45,34 +46,16 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
 }
 
-export interface EventClassificationStatusResponse {
-    event_id: string;
-    video_classification_status: string | null;
-    video_classification_error: string | null;
-    video_classification_timestamp: string | null;
-    video_classification_provider?: string | null;
-    video_classification_backend?: string | null;
-    video_classification_model_id?: string | null;
-    video_classification_model_name?: string | null;
-}
+export type EventClassificationStatusResponse =
+    paths['/api/events/{event_id}/classification-status']['get']['response'];
 
 export async function fetchEventClassificationStatus(frigateEventId: string): Promise<EventClassificationStatusResponse> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/classification-status`);
     return handleResponse<EventClassificationStatusResponse>(response);
 }
 
-export interface EventFilters {
-    species: EventFilterSpecies[];
-    cameras: string[];
-}
-
-export interface EventFilterSpecies {
-    value: string;
-    display_name: string;
-    scientific_name?: string | null;
-    common_name?: string | null;
-    taxa_id?: number | null;
-}
+export type EventFilters = paths['/api/events/filters']['get']['response'];
+export type EventFilterSpecies = EventFilters['species'][number];
 
 export interface FetchEventFiltersOptions {
     forceRefresh?: boolean;
@@ -96,10 +79,7 @@ export interface EventsCountOptions {
     audioConfirmedOnly?: boolean;
 }
 
-export interface EventsCountResponse {
-    count: number;
-    filtered: boolean;
-}
+export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
     const { startDate, endDate, species, camera, includeHidden, favoritesOnly, audioConfirmedOnly } = options;
@@ -123,12 +103,7 @@ export async function deleteDetection(frigateEventId: string): Promise<{ status:
     return handleResponse<{ status: string }>(response);
 }
 
-export interface BulkDeleteResult {
-    deleted_count: number;
-    missing_count: number;
-    deleted_event_ids: string[];
-    missing_event_ids: string[];
-}
+export type BulkDeleteResult = paths['/api/events/bulk/delete']['post']['response'];
 
 export async function bulkDeleteDetections(eventIds: string[]): Promise<BulkDeleteResult> {
     const response = await apiFetch(`${API_BASE}/events/bulk/delete`, {
@@ -139,17 +114,9 @@ export async function bulkDeleteDetections(eventIds: string[]): Promise<BulkDele
     return handleResponse<BulkDeleteResult>(response);
 }
 
-export interface HideDetectionResult {
-    status: string;
-    event_id: string;
-    is_hidden: boolean;
-}
+export type HideDetectionResult = paths['/api/events/{event_id}/hide']['post']['response'];
 
-export interface FavoriteDetectionResult {
-    status: string;
-    event_id: string;
-    is_favorite: boolean;
-}
+export type FavoriteDetectionResult = paths['/api/events/{event_id}/favorite']['post']['response'];
 
 export async function hideDetection(frigateEventId: string): Promise<HideDetectionResult> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/hide`, {
@@ -172,7 +139,7 @@ export async function unfavoriteDetection(frigateEventId: string): Promise<Favor
     return handleResponse<FavoriteDetectionResult>(response);
 }
 
-export async function fetchHiddenCount(): Promise<{ hidden_count: number }> {
+export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-count']['get']['response']> {
     const response = await apiFetch(`${API_BASE}/events/hidden-count`);
-    return handleResponse<{ hidden_count: number }>(response);
+    return handleResponse<paths['/api/events/hidden-count']['get']['response']>(response);
 }

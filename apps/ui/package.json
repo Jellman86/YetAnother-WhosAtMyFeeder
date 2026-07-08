@@ -7,6 +7,8 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
+        "api:types": "python3 ../../backend/scripts/export_openapi_types.py",
+        "api:types:check": "python3 ../../backend/scripts/export_openapi_types.py --check",
         "check": "svelte-check --tsconfig ./tsconfig.json",
         "test": "vitest run"
     },
