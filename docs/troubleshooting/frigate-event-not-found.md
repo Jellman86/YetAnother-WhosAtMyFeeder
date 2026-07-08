@@ -28,19 +28,54 @@ A detection only becomes a persistent Frigate event (visible in the API and UI) 
 
 If a bird passes through frame quickly — fewer frames than `min_initialized` requires — Frigate sends the MQTT message, YA-WAMF receives it and caches the snapshot and clip immediately, but Frigate's event API returns 404 because the event was never written to its database. No clip file will exist in Frigate's media storage either.
 
-This is the expected behaviour for a brief or uncertain detection. You can tune Frigate's thresholds to reduce how often it occurs:
+This is expected Frigate behaviour, not a fault. How you tune it depends on **what you want** — and the two goals pull in opposite directions, so it is easy to change the wrong knob.
+
+### First, understand the three gates
+
+- **`min_score`** (per-frame, default `0.5`): a single frame scoring below this is discarded and never tracked.
+- **`min_initialized`** (default **½ × `detect.fps`**): consecutive frames an object must be detected before Frigate *starts tracking* it (and publishes MQTT). Setting this **below** the default makes very brief blips become tracked objects — they fire MQTT (so YA-WAMF processes them) but frequently never persist.
+- **`threshold`** (median score, default `0.7`): the **median** across the object's tracked frames must cross this before Frigate *saves the object as an event* in its database.
+
+An object fires MQTT once it is tracked (`min_score` + `min_initialized`), but only becomes a persistent, API-visible event once its **median** crosses `threshold`. A brief visit can fire MQTT yet never cross `threshold`, giving `event_not_found`.
+
+> ⚠️ **Common trap:** raising `threshold` does **not** reduce `event_not_found` — it *increases* it, because more tracked objects fail to reach the higher median bar and are never saved.
+
+### If you want fewer, higher-confidence detections
+
+Stop fleeting/weak objects from being tracked at all, so they never fire MQTT:
 
 ```yaml
-# frigate config.yml — under objects > filters > bird
+# frigate config.yml — per camera
+detect:
+  min_initialized: 5     # require more frames before tracking (≈ ½ fps at fps 10)
 objects:
   filters:
     bird:
-      min_score: 0.55       # raise to require higher raw confidence
-      threshold: 0.75       # raise to require a higher confirmed median
-      # min_initialized is derived from detect.fps, not set directly
+      min_score: 0.5      # discard weaker per-frame detections
 ```
 
-Raising `detect.fps` gives the tracker more opportunities to accumulate frames, which helps confirm fast-moving birds. See the [Frigate object filters documentation](https://docs.frigate.video/configuration/object_filters/) for details.
+This removes brief fly-throughs entirely — you will not see them in YA-WAMF either.
+
+### If you want to keep brief visits (recommended for a feeder)
+
+Keep tracking sensitive, but **lower `threshold`** so briefly-tracked birds cross the median bar and Frigate saves them as real events:
+
+```yaml
+# frigate config.yml — per camera
+detect:
+  min_initialized: 2     # keep tracking brief objects
+objects:
+  filters:
+    bird:
+      min_score: 0.45     # allow fainter per-frame detections
+      threshold: 0.5      # persist brief objects instead of dropping them
+```
+
+Trade-off: a lower `threshold` admits more marginal detections. YA-WAMF's own classifier and the **Minimum audio/visual confidence** settings then filter what is kept, so the noise does not reach your history.
+
+`detect.fps` interacts with all of this: at a higher fps a brief bird accumulates its `min_initialized` frames sooner (5 frames = 0.5 s at 10 fps vs 1 s at 5 fps), so genuine quick visits confirm faster. Frigate recommends `fps: 5`; raise it only if your hardware has detection headroom. See the [Frigate object filters documentation](https://docs.frigate.video/configuration/object_filters/) and [detect configuration](https://docs.frigate.video/configuration/detect/).
+
+Whichever you choose, YA-WAMF still caches the snapshot and clip the moment the MQTT event arrives, so a brief visit is classified even when Frigate never persists the event.
 
 ---
 

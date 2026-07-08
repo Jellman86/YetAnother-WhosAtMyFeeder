@@ -87,9 +87,13 @@ cameras:
       filters:
         bird:
           min_area: 500 # Filter out tiny movements (leaves, etc)
-          min_score: 0.5
-          threshold: 0.7
+          min_score: 0.45  # per-frame floor to start tracking (Frigate default 0.5)
+          threshold: 0.5   # MEDIAN score needed for Frigate to SAVE the object as an event
+                           # (Frigate default 0.7). Lower = brief visits persist instead of
+                           # becoming "event not found"; raise toward 0.7 for fewer, stricter events.
 ```
+
+> For a bird feeder you usually want to catch quick visits, so this example lowers `threshold` below Frigate's `0.7` default. See [Detection FPS and Missing Events](#-detection-fps-and-missing-events) below and the [Event Not Found troubleshooting guide](../troubleshooting/frigate-event-not-found.md).
 
 ## Why use go2rtc?
 Using the `go2rtc` section in Frigate provides several major benefits:
@@ -104,7 +108,12 @@ Frigate publishes an MQTT event as soon as a bird is first detected, but **only 
 - YA-WAMF receives the MQTT event and can grab the snapshot (served from memory).
 - But Frigate never writes the event to its database, so `/api/events/{id}` returns 404 and no clip is available.
 
-**Set `detect.fps` to match your sub-stream's native frame rate** (commonly 10-15 FPS). Higher FPS gives the tracker more frames to confirm the object, making brief detections far more likely to be persisted. Avoid setting it higher than the stream's actual FPS, as Frigate will duplicate frames with no benefit.
+There are two levers, and it is easy to change the wrong one:
+
+- **`threshold`** (median score to *save* the object as an event) is the main control. A brief bird fires MQTT but only becomes a persistent event once its median crosses `threshold`. **Lower `threshold` (e.g. `0.5`) to keep brief visits**; raising it *increases* "event not found", it does not reduce it.
+- **`detect.fps`** and **`detect.min_initialized`** control how quickly an object starts being tracked. Higher fps lets a brief bird reach its `min_initialized` frame count sooner (5 frames = 0.5 s at 10 fps). Frigate now recommends `fps: 5` and derives `min_initialized` as ½ the fps; raise fps only if your detector has headroom, and keep `min_initialized` low if you want brief visits tracked.
+
+Whatever you choose, YA-WAMF caches the snapshot and clip the instant the MQTT event arrives, so brief visits are still classified even when Frigate never persists the event. Full explanation: [Frigate "Event Not Found" guide](../troubleshooting/frigate-event-not-found.md).
 
 ### 📷 Snapshot Resolution
 While Frigate's detection model often runs at a low resolution (e.g., 320x320), YA-WAMF's high-accuracy models (EVA-02) perform much better if the source snapshot is clear. Ensure your `detect` role is assigned to a stream with decent resolution (720p or higher) for the best identification results.
