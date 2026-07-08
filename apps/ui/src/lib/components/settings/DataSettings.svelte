@@ -613,7 +613,7 @@
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
                                     <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
                                     {#if candidate.repaired_detection_time}<span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
-                                    {#if candidate.delta_hours !== null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
+                                    {#if candidate.delta_hours != null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
                                 </div>
                             </div>
                         {/each}

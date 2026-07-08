@@ -1107,12 +1107,59 @@ export interface components {
     StartRunResponse: {
     run_id: string;
 };
+    TaxonomySyncStartResponse: {
+    status: string;
+};
+    TaxonomySyncStatusResponse: {
+    current_item?: string | null;
+    error?: string | null;
+    is_running: boolean;
+    last_progress_at?: string | null;
+    message?: string | null;
+    processed: number;
+    progress_state?: string | null;
+    seconds_since_progress?: number | null;
+    total: number;
+};
     TestEmailRequest: {
     test_message?: string;
     test_subject?: string;
 };
     TimezoneRepairApplyRequest: {
     confirm?: boolean;
+};
+    TimezoneRepairApplyResponse: {
+    preview: components['schemas']['TimezoneRepairPreviewResponse'];
+    repaired_count: number;
+    skipped_count: number;
+    status: string;
+};
+    TimezoneRepairCandidateResponse: {
+    camera_name: string;
+    delta_hours?: number | null;
+    detection_id: number;
+    display_name: string;
+    error?: string | null;
+    frigate_event: string;
+    frigate_start_time?: string | null;
+    repaired_detection_time?: string | null;
+    status: string;
+    stored_detection_time: string;
+};
+    TimezoneRepairPreviewResponse: {
+    candidates: Array<components['schemas']['TimezoneRepairCandidateResponse']>;
+    summary: components['schemas']['TimezoneRepairSummary'];
+};
+    TimezoneRepairSummary: {
+    lookup_error_count?: number;
+    missing_frigate_event_count: number;
+    ok_count: number;
+    repair_candidate_count: number;
+    scan_limit?: number | null;
+    scan_truncated?: boolean | null;
+    scanned_count: number;
+    total_rows_in_scope?: number | null;
+    unsupported_delta_count: number;
 };
     UpdateDetectionRequest: {
     display_name: string;
@@ -2367,7 +2414,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['TaxonomySyncStatusResponse'];
     };
   };
   "/api/maintenance/taxonomy/sync": {
@@ -2376,7 +2423,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['TaxonomySyncStartResponse'];
     };
   };
   "/api/maintenance/timezone-repair/apply": {
@@ -2385,7 +2432,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['TimezoneRepairApplyRequest'];
-      response: unknown;
+      response: components['schemas']['TimezoneRepairApplyResponse'];
     };
   };
   "/api/maintenance/timezone-repair/preview": {
@@ -2394,7 +2441,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['TimezoneRepairPreviewResponse'];
     };
   };
   "/api/maintenance/video-classification/reset-circuit": {

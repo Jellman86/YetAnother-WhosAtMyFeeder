@@ -24,49 +24,14 @@ export interface ResetDatabaseResult {
 
 export type ClearFeedbackResult = paths['/api/maintenance/feedback/clear']['delete']['response'];
 
-export interface TaxonomySyncStatus {
-    is_running: boolean;
-    total: number;
-    processed: number;
-    current_item: string | null;
-    error: string | null;
-    message?: string | null;
-    progress_state?: string;
-    last_progress_at?: string | null;
-    seconds_since_progress?: number | null;
-}
+export type TaxonomySyncStatus = paths['/api/maintenance/taxonomy/status']['get']['response'];
 
-export interface TimezoneRepairCandidate {
-    detection_id: number;
-    frigate_event: string;
-    camera_name: string;
-    display_name: string;
-    status: 'ok' | 'repair_candidate' | 'missing_frigate_event' | 'unsupported_delta' | string;
-    stored_detection_time: string;
-    frigate_start_time: string | null;
-    repaired_detection_time: string | null;
-    delta_hours: number | null;
-    error?: string | null;
-}
+export type TimezoneRepairCandidate =
+    paths['/api/maintenance/timezone-repair/preview']['get']['response']['candidates'][number];
 
-export interface TimezoneRepairPreview {
-    summary: {
-        scanned_count: number;
-        repair_candidate_count: number;
-        ok_count: number;
-        missing_frigate_event_count: number;
-        lookup_error_count: number;
-        unsupported_delta_count: number;
-    };
-    candidates: TimezoneRepairCandidate[];
-}
+export type TimezoneRepairPreview = paths['/api/maintenance/timezone-repair/preview']['get']['response'];
 
-export interface TimezoneRepairApplyResult {
-    status: string;
-    repaired_count: number;
-    skipped_count: number;
-    preview: TimezoneRepairPreview;
-}
+export type TimezoneRepairApplyResult = paths['/api/maintenance/timezone-repair/apply']['post']['response'];
 
 export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
     const response = await apiFetch(`${API_BASE}/maintenance/stats`);
@@ -138,9 +103,9 @@ export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
     return handleResponse<TaxonomySyncStatus>(response);
 }
 
-export async function startTaxonomySync(): Promise<{ status: string }> {
+export async function startTaxonomySync(): Promise<paths['/api/maintenance/taxonomy/sync']['post']['response']> {
     const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/sync`, { method: 'POST' });
-    return handleResponse<{ status: string }>(response);
+    return handleResponse<paths['/api/maintenance/taxonomy/sync']['post']['response']>(response);
 }
 
 export async function fetchTimezoneRepairPreview(): Promise<TimezoneRepairPreview> {

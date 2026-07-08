@@ -100,13 +100,29 @@ def _maintenance_holder_id(kind: str) -> str:
     return f"{kind}:{uuid4()}"
 
 
-@router.get("/maintenance/taxonomy/status")
+class TaxonomySyncStatusResponse(BaseModel):
+    is_running: bool
+    total: int
+    processed: int
+    current_item: Optional[str] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+    progress_state: Optional[str] = None
+    last_progress_at: Optional[str] = None
+    seconds_since_progress: Optional[float] = None
+
+
+class TaxonomySyncStartResponse(BaseModel):
+    status: str
+
+
+@router.get("/maintenance/taxonomy/status", response_model=TaxonomySyncStatusResponse)
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
     return canonical_identity_repair_service.get_status()
 
 
-@router.post("/maintenance/taxonomy/sync")
+@router.post("/maintenance/taxonomy/sync", response_model=TaxonomySyncStartResponse)
 async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Start the background process to normalize all detection names. Owner only."""
     guard = _maintenance_guardrail_status()
@@ -186,6 +202,43 @@ class NotificationTestRequest(BaseModel):
 
 class TimezoneRepairApplyRequest(BaseModel):
     confirm: bool = False
+
+
+class TimezoneRepairSummary(BaseModel):
+    scanned_count: int
+    repair_candidate_count: int
+    ok_count: int
+    missing_frigate_event_count: int
+    lookup_error_count: int = 0
+    unsupported_delta_count: int
+    total_rows_in_scope: Optional[int] = None
+    scan_limit: Optional[int] = None
+    scan_truncated: Optional[bool] = None
+
+
+class TimezoneRepairCandidateResponse(BaseModel):
+    detection_id: int
+    frigate_event: str
+    camera_name: str
+    display_name: str
+    status: str
+    stored_detection_time: str
+    frigate_start_time: Optional[str] = None
+    repaired_detection_time: Optional[str] = None
+    delta_hours: Optional[int] = None
+    error: Optional[str] = None
+
+
+class TimezoneRepairPreviewResponse(BaseModel):
+    summary: TimezoneRepairSummary
+    candidates: list[TimezoneRepairCandidateResponse]
+
+
+class TimezoneRepairApplyResponse(BaseModel):
+    status: str
+    repaired_count: int
+    skipped_count: int
+    preview: TimezoneRepairPreviewResponse
 
 
 class MaintenanceStatsResponse(BaseModel):
@@ -1724,7 +1777,7 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
         }
 
 
-@router.get("/maintenance/timezone-repair/preview")
+@router.get("/maintenance/timezone-repair/preview", response_model=TimezoneRepairPreviewResponse)
 async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
     """Preview legacy detection timestamp repairs validated against Frigate. Owner only."""
     holder_id = _maintenance_holder_id("timezone_repair_preview")
@@ -1737,7 +1790,7 @@ async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
         await maintenance_coordinator.release(holder_id)
 
 
-@router.post("/maintenance/timezone-repair/apply")
+@router.post("/maintenance/timezone-repair/apply", response_model=TimezoneRepairApplyResponse)
 async def apply_timezone_repair(
     request: TimezoneRepairApplyRequest,
     auth: AuthContext = Depends(require_owner),

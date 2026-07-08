@@ -8933,6 +8933,108 @@
         "title": "StartRunResponse",
         "type": "object"
       },
+      "TaxonomySyncStartResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TaxonomySyncStartResponse",
+        "type": "object"
+      },
+      "TaxonomySyncStatusResponse": {
+        "properties": {
+          "current_item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Item"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "is_running": {
+            "title": "Is Running",
+            "type": "boolean"
+          },
+          "last_progress_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Progress At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "progress_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress State"
+          },
+          "seconds_since_progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds Since Progress"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "is_running",
+          "total",
+          "processed"
+        ],
+        "title": "TaxonomySyncStatusResponse",
+        "type": "object"
+      },
       "TestEmailRequest": {
         "properties": {
           "test_message": {
@@ -8958,6 +9060,206 @@
           }
         },
         "title": "TimezoneRepairApplyRequest",
+        "type": "object"
+      },
+      "TimezoneRepairApplyResponse": {
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/TimezoneRepairPreviewResponse"
+          },
+          "repaired_count": {
+            "title": "Repaired Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "repaired_count",
+          "skipped_count",
+          "preview"
+        ],
+        "title": "TimezoneRepairApplyResponse",
+        "type": "object"
+      },
+      "TimezoneRepairCandidateResponse": {
+        "properties": {
+          "camera_name": {
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "delta_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Hours"
+          },
+          "detection_id": {
+            "title": "Detection Id",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "frigate_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Start Time"
+          },
+          "repaired_detection_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repaired Detection Time"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stored_detection_time": {
+            "title": "Stored Detection Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detection_id",
+          "frigate_event",
+          "camera_name",
+          "display_name",
+          "status",
+          "stored_detection_time"
+        ],
+        "title": "TimezoneRepairCandidateResponse",
+        "type": "object"
+      },
+      "TimezoneRepairPreviewResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/TimezoneRepairCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TimezoneRepairSummary"
+          }
+        },
+        "required": [
+          "summary",
+          "candidates"
+        ],
+        "title": "TimezoneRepairPreviewResponse",
+        "type": "object"
+      },
+      "TimezoneRepairSummary": {
+        "properties": {
+          "lookup_error_count": {
+            "default": 0,
+            "title": "Lookup Error Count",
+            "type": "integer"
+          },
+          "missing_frigate_event_count": {
+            "title": "Missing Frigate Event Count",
+            "type": "integer"
+          },
+          "ok_count": {
+            "title": "Ok Count",
+            "type": "integer"
+          },
+          "repair_candidate_count": {
+            "title": "Repair Candidate Count",
+            "type": "integer"
+          },
+          "scan_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Limit"
+          },
+          "scan_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Truncated"
+          },
+          "scanned_count": {
+            "title": "Scanned Count",
+            "type": "integer"
+          },
+          "total_rows_in_scope": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Rows In Scope"
+          },
+          "unsupported_delta_count": {
+            "title": "Unsupported Delta Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scanned_count",
+          "repair_candidate_count",
+          "ok_count",
+          "missing_frigate_event_count",
+          "unsupported_delta_count"
+        ],
+        "title": "TimezoneRepairSummary",
         "type": "object"
       },
       "UpdateDetectionRequest": {
@@ -15531,7 +15833,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonomySyncStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15559,7 +15863,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonomySyncStartResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15597,7 +15903,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TimezoneRepairApplyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15635,7 +15943,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TimezoneRepairPreviewResponse"
+                }
               }
             },
             "description": "Successful Response"
