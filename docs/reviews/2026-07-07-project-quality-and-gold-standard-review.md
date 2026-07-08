@@ -165,7 +165,9 @@ use generated model metadata, installed-model, download-progress, reclassify, an
 bulk manual-tag response types. Backfill request/result/job DTOs now come from
 the generated contract as well. Maintenance and media-cache endpoints now expose
 explicit backend response models and the frontend maintenance API client consumes
-those generated response types.
+those generated response types. Classifier label/default-download and model
+download/activate action endpoints now also publish explicit response models and
+feed the generated frontend client types.
 
 Gold-standard target: continue migrating high-value frontend API modules to the
 generated path contract so "the docs match the routes" becomes "the client matches
@@ -202,8 +204,9 @@ Acceptance: CI fails on lint violations and coverage regressions;
   response/request types.
 
 Acceptance: an endpoint/type mismatch is caught in CI, not in the browser. Initial
-auth, stats, events, classifier/model, backfill, maintenance/cache, and
-settings-write coverage is in place; broader SPA adoption remains.
+auth, stats, events, classifier/model, classifier/model actions, backfill,
+maintenance/cache, and settings-write coverage is in place; broader SPA adoption
+remains.
 
 ### Phase 3: Mature documentation governance
 - Add a documentation standard and the missing governance files (done).

@@ -1629,6 +1629,84 @@
         "title": "ClassificationStatusResponse",
         "type": "object"
       },
+      "ClassifierDownloadResponse": {
+        "properties": {
+          "input_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Size"
+          },
+          "labels_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels Count"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ClassifierDownloadResponse",
+        "type": "object"
+      },
+      "ClassifierLabelsResponse": {
+        "properties": {
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "labels"
+        ],
+        "title": "ClassifierLabelsResponse",
+        "type": "object"
+      },
       "CleanupResponse": {
         "properties": {
           "cutoff_date": {
@@ -3994,6 +4072,24 @@
           "detections_to_cleanup"
         ],
         "title": "MaintenanceStatsResponse",
+        "type": "object"
+      },
+      "ModelActionResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ModelActionResponse",
         "type": "object"
       },
       "ModelMetadata": {
@@ -10678,7 +10774,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierDownloadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -10709,7 +10807,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierLabelsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -10930,7 +11030,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierDownloadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -10961,7 +11063,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierLabelsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15765,7 +15869,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelActionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15817,7 +15923,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelActionResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -251,6 +251,17 @@ export interface components {
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
 };
+    ClassifierDownloadResponse: {
+    input_size?: string | null;
+    labels_count?: number | null;
+    message: string;
+    model?: string | null;
+    path?: string | null;
+    status: string;
+};
+    ClassifierLabelsResponse: {
+    labels: Array<string>;
+};
     CleanupResponse: {
     cutoff_date?: string | null;
     deleted_count: number;
@@ -576,6 +587,10 @@ export interface components {
     oldest_detection?: string | null;
     retention_days: number;
     total_detections: number;
+};
+    ModelActionResponse: {
+    message: string;
+    status: string;
 };
     ModelMetadata: {
     accuracy_tier: string;
@@ -1431,7 +1446,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClassifierDownloadResponse'];
     };
   };
   "/api/classifier/labels": {
@@ -1440,7 +1455,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClassifierLabelsResponse'];
     };
   };
   "/api/classifier/probe": {
@@ -1488,7 +1503,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClassifierDownloadResponse'];
     };
   };
   "/api/classifier/wildlife/labels": {
@@ -1497,7 +1512,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClassifierLabelsResponse'];
     };
   };
   "/api/classifier/wildlife/status": {
@@ -2437,7 +2452,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ModelActionResponse'];
     };
   };
   "/api/models/{model_id}/download": {
@@ -2448,7 +2463,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ModelActionResponse'];
     };
   };
   "/api/settings": {

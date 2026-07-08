@@ -1,6 +1,7 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
 from fastapi import APIRouter, UploadFile, File, Depends, Request, HTTPException, Query
+from pydantic import BaseModel
 import structlog
 from pathlib import Path
 
@@ -13,6 +14,19 @@ from app.ratelimit import guest_rate_limit
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
 log = structlog.get_logger()
+
+
+class ClassifierLabelsResponse(BaseModel):
+    labels: list[str]
+
+
+class ClassifierDownloadResponse(BaseModel):
+    status: str
+    message: str
+    labels_count: int | None = None
+    path: str | None = None
+    model: str | None = None
+    input_size: str | None = None
 
 
 class _LiveClassifierProxy:
@@ -50,7 +64,7 @@ async def classifier_status(request: Request, auth: AuthContext = Depends(get_au
     return status
 
 
-@router.get("/labels")
+@router.get("/labels", response_model=ClassifierLabelsResponse)
 @guest_rate_limit()
 async def classifier_labels(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the list of species labels from the classifier model."""
@@ -64,7 +78,7 @@ async def wildlife_classifier_status(request: Request, auth: AuthContext = Depen
     return classifier_service.get_wildlife_status()
 
 
-@router.get("/wildlife/labels")
+@router.get("/wildlife/labels", response_model=ClassifierLabelsResponse)
 @guest_rate_limit()
 async def wildlife_classifier_labels(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Return the list of labels from the wildlife classifier model."""
@@ -351,7 +365,7 @@ async def test_wildlife_classifier(image: UploadFile = File(...), auth: AuthCont
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
-@router.post("/wildlife/download")
+@router.post("/wildlife/download", response_model=ClassifierDownloadResponse)
 async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
     """Download EfficientNet-Lite4 for wildlife/animal classification. Owner only.
 
@@ -473,7 +487,7 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
         return {"status": "error", "message": str(e)}
 
 
-@router.post("/download")
+@router.post("/download", response_model=ClassifierDownloadResponse)
 async def download_default_model(auth: AuthContext = Depends(require_owner)):
     """Download the default bird classifier model. Owner only."""
     import httpx

@@ -67,11 +67,7 @@ export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     return handleResponse<ClassifierStatus>(response);
 }
 
-export interface DownloadModelResult {
-    status: 'ok' | 'error';
-    message: string;
-    labels_count?: number;
-}
+export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];
 
 export async function downloadDefaultModel(): Promise<DownloadModelResult> {
     const response = await apiFetch(`${API_BASE}/classifier/download`, {
@@ -92,9 +88,11 @@ export interface UpdateDetectionResult {
 
 export type BulkUpdateDetectionResult = paths['/api/events/bulk/manual-tag']['patch']['response'];
 
-export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
+export type ClassifierLabelsResponse = paths['/api/classifier/labels']['get']['response'];
+
+export async function fetchClassifierLabels(): Promise<ClassifierLabelsResponse> {
     const response = await apiFetch(`${API_BASE}/classifier/labels`);
-    return handleResponse<{ labels: string[] }>(response);
+    return handleResponse<ClassifierLabelsResponse>(response);
 }
 
 export async function reclassifyDetection(eventId: string, strategy: 'snapshot' | 'video' = 'snapshot'): Promise<ReclassifyResult> {
@@ -322,11 +320,13 @@ export async function fetchInstalledModels(): Promise<InstalledModel[]> {
     return handleResponse<InstalledModel[]>(response);
 }
 
-export async function downloadModel(modelId: string): Promise<{ status: string; message: string }> {
+export type ModelActionResult = paths['/api/models/{model_id}/download']['post']['response'];
+
+export async function downloadModel(modelId: string): Promise<ModelActionResult> {
     const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
         method: 'POST',
     });
-    return handleResponse<{ status: string; message: string }>(response);
+    return handleResponse<ModelActionResult>(response);
 }
 
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
@@ -334,11 +334,11 @@ export async function fetchDownloadStatus(modelId: string): Promise<DownloadProg
     return handleResponse<DownloadProgress | null>(response);
 }
 
-export async function activateModel(modelId: string): Promise<{ status: string; message: string }> {
+export async function activateModel(modelId: string): Promise<ModelActionResult> {
     const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
         method: 'POST',
     });
-    return handleResponse<{ status: string; message: string }>(response);
+    return handleResponse<ModelActionResult>(response);
 }
 
 export async function analyzeDetection(

@@ -16,6 +16,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **CI:** Raised the backend coverage floor from 20% to 60% (measured coverage is ~65%) so coverage regressions fail the build.
 - **API contract:** Added a generated frontend TypeScript contract (`apps/ui/src/lib/api/generated/openapi.ts`) from `backend/openapi.json`, wired auth, stats, events, classifier/model, backfill, and settings write payload API types to it, and added a CI freshness check so backend contract drift reaches the SPA during review.
 - **API contract:** Added explicit backend response models for maintenance and media-cache endpoints, then migrated the frontend maintenance API client to the generated response types.
+- **API contract:** Added explicit response models for classifier labels/default-download and model download/activate actions, then migrated those frontend API client result types to the generated contract.
 
 ## [2.12.0] - 2026-07-07
 

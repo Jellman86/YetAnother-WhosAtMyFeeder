@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from pydantic import BaseModel
 from typing import List, Optional
 from app.config import settings
 from app.services.model_manager import model_manager
@@ -7,6 +8,11 @@ from app.services.classifier_service import get_classifier
 from app.auth import require_owner, AuthContext
 
 router = APIRouter()
+
+
+class ModelActionResponse(BaseModel):
+    status: str
+    message: str
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -30,7 +36,7 @@ async def get_resolved_model_families(auth: AuthContext = Depends(require_owner)
     )
 
 
-@router.post("/models/{model_id}/download")
+@router.post("/models/{model_id}/download", response_model=ModelActionResponse)
 async def download_model(model_id: str, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Download and install a specific model. Owner only."""
     # Run in background
@@ -47,7 +53,7 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
     return status
 
 
-@router.post("/models/{model_id}/activate")
+@router.post("/models/{model_id}/activate", response_model=ModelActionResponse)
 async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Set a specific model as the active classifier. Owner only."""
     success = await model_manager.activate_model(model_id)
