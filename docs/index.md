@@ -11,6 +11,7 @@ Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**. This 
 Everything you need to get the containers running and configured correctly.
 - **[🚀 Getting Started](setup/getting-started.md)** - Fast-track installation using Docker Compose.
 - **[🍓 Raspberry Pi Setup](setup/raspberry-pi.md)** - ARM64 monolith install notes, image override, and expected limitations.
+- **[🧡 Unraid Setup](setup/unraid.md)** - One-template install using the Docker template, with paths, ports, and optional hardware acceleration.
 - **[📦 Full Docker Stack](setup/docker-stack.md)** - A complete example including Frigate and MQTT.
 - **[🔄 Split-to-Monolith Migration](setup/migrate-split-to-monolith.md)** - Transition guidance for existing two-container installs.
 - **[📷 Recommended Frigate Config](setup/frigate-config.md)** - Optimized settings for bird snapshots.
