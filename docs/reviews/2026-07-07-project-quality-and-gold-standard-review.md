@@ -163,7 +163,9 @@ same generated contract, and settings writes now type their request payload from
 the generated `/api/settings` contract. Classifier/model manager DTOs now also
 use generated model metadata, installed-model, download-progress, reclassify, and
 bulk manual-tag response types. Backfill request/result/job DTOs now come from
-the generated contract as well.
+the generated contract as well. Maintenance and media-cache endpoints now expose
+explicit backend response models and the frontend maintenance API client consumes
+those generated response types.
 
 Gold-standard target: continue migrating high-value frontend API modules to the
 generated path contract so "the docs match the routes" becomes "the client matches
@@ -200,8 +202,8 @@ Acceptance: CI fails on lint violations and coverage regressions;
   response/request types.
 
 Acceptance: an endpoint/type mismatch is caught in CI, not in the browser. Initial
-auth, stats, events, classifier/model, backfill, and settings-write coverage is
-in place; broader SPA adoption remains.
+auth, stats, events, classifier/model, backfill, maintenance/cache, and
+settings-write coverage is in place; broader SPA adoption remains.
 
 ### Phase 3: Mature documentation governance
 - Add a documentation standard and the missing governance files (done).

@@ -1,109 +1,19 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 
-export interface CacheStats {
-    snapshot_count: number;
-    snapshot_size_bytes: number;
-    snapshot_size_mb: number;
-    clip_count: number;
-    clip_size_bytes: number;
-    clip_size_mb: number;
-    total_size_bytes: number;
-    total_size_mb: number;
-    oldest_file: string | null;
-    newest_file: string | null;
-    cache_enabled: boolean;
-    cache_snapshots: boolean;
-    cache_clips: boolean;
-    retention_days: number;
-    retention_source: string;
-}
+export type CacheStats = paths['/api/cache/stats']['get']['response'];
 
-export interface CacheCleanupResult {
-    status: string;
-    snapshots_deleted: number;
-    clips_deleted: number;
-    bytes_freed: number;
-    retention_days?: number;
-    message?: string;
-}
+export type CacheCleanupResult = paths['/api/cache/cleanup']['post']['response'];
 
-export interface MaintenanceStats {
-    total_detections: number;
-    oldest_detection: string | null;
-    retention_days: number;
-    detections_to_cleanup: number;
-}
+export type MaintenanceStats = paths['/api/maintenance/stats']['get']['response'];
 
-export interface CleanupResult {
-    status: string;
-    deleted_count: number;
-    message?: string;
-    cutoff_date?: string;
-}
+export type CleanupResult = paths['/api/maintenance/cleanup']['post']['response'];
 
-export interface PurgeMissingMediaResult {
-    status: string;
-    deleted_count: number;
-    marked_missing_count: number;
-    kept_count: number;
-    cleared_missing_count: number;
-    checked: number;
-    missing: number;
-    message?: string;
-}
+export type PurgeMissingMediaResult = paths['/api/maintenance/purge-missing-media']['post']['response'];
 
-export interface AnalyzeUnknownsResult {
-    status: string;
-    count: number;
-    message: string;
-    accepted?: number;
-    skipped_duplicate?: number;
-    dropped_full?: number;
-    skipped_no_clip?: number;
-    skipped_missing_event?: number;
-    skipped_outside_retention?: number;
-    precheck_errors?: number;
-    total_candidates?: number;
-    remaining_candidates?: number;
-    queue_limit?: number;
-    scan_limit?: number;
-    scan_truncated?: boolean;
-    pending_maintenance?: number;
-    active_maintenance?: number;
-    retry_after_seconds?: number;
-}
+export type AnalyzeUnknownsResult = paths['/api/maintenance/analyze-unknowns']['post']['response'];
 
-export interface AnalysisStatus {
-    status?: 'idle' | 'queued' | 'processing' | 'open' | string;
-    pending: number;
-    active: number;
-    circuit_open: boolean;
-    open_until?: string | null;
-    failure_count?: number;
-    pending_capacity?: number;
-    pending_available?: number;
-    max_concurrent_configured?: number;
-    max_concurrent_effective?: number;
-    mqtt_pressure_level?: string;
-    throttled_for_mqtt_pressure?: boolean;
-    throttled_for_live_pressure?: boolean;
-    maintenance_starvation_relief_active?: boolean;
-    live_pressure_active?: boolean;
-    live_in_flight?: number;
-    live_queued?: number;
-    mqtt_in_flight?: number;
-    mqtt_in_flight_capacity?: number;
-    oldest_maintenance_pending_age_seconds?: number;
-    pending_maintenance?: number;
-    active_maintenance?: number;
-    queue_limit?: number;
-    scan_limit?: number;
-    scan_truncated?: boolean;
-    remaining_candidates?: number;
-    maintenance_state?: string;
-    maintenance_status_message?: string;
-    maintenance_seconds_since_progress?: number | null;
-}
+export type AnalysisStatus = paths['/api/maintenance/analysis/status']['get']['response'];
 
 export interface ResetDatabaseResult {
     status: string;
@@ -112,11 +22,7 @@ export interface ResetDatabaseResult {
     cache_stats: any;
 }
 
-export interface ClearFeedbackResult {
-    status: string;
-    message: string;
-    deleted_count: number;
-}
+export type ClearFeedbackResult = paths['/api/maintenance/feedback/clear']['delete']['response'];
 
 export interface TaxonomySyncStatus {
     is_running: boolean;

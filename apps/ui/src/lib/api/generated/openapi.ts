@@ -39,6 +39,57 @@ export interface components {
     to_date: string;
     total_tokens: number;
 };
+    AnalysisStatusResponse: {
+    active: number;
+    active_maintenance?: number | null;
+    circuit_open: boolean;
+    failure_count?: number | null;
+    live_in_flight?: number | null;
+    live_pressure_active?: boolean | null;
+    live_queued?: number | null;
+    maintenance_seconds_since_progress?: number | null;
+    maintenance_starvation_relief_active?: boolean | null;
+    maintenance_state?: string | null;
+    maintenance_status_message?: string | null;
+    max_concurrent_configured?: number | null;
+    max_concurrent_effective?: number | null;
+    mqtt_in_flight?: number | null;
+    mqtt_in_flight_capacity?: number | null;
+    mqtt_pressure_level?: string | null;
+    oldest_maintenance_pending_age_seconds?: number | null;
+    open_until?: string | null;
+    pending: number;
+    pending_available?: number | null;
+    pending_capacity?: number | null;
+    pending_maintenance?: number | null;
+    queue_limit?: number | null;
+    remaining_candidates?: number | null;
+    scan_limit?: number | null;
+    scan_truncated?: boolean | null;
+    status?: string | null;
+    throttled_for_live_pressure?: boolean | null;
+    throttled_for_mqtt_pressure?: boolean | null;
+};
+    AnalyzeUnknownsResponse: {
+    accepted?: number | null;
+    active_maintenance?: number | null;
+    count: number;
+    dropped_full?: number | null;
+    message: string;
+    pending_maintenance?: number | null;
+    precheck_errors?: number | null;
+    queue_limit?: number | null;
+    remaining_candidates?: number | null;
+    retry_after_seconds?: number | null;
+    scan_limit?: number | null;
+    scan_truncated?: boolean | null;
+    skipped_duplicate?: number | null;
+    skipped_missing_event?: number | null;
+    skipped_no_clip?: number | null;
+    skipped_outside_retention?: number | null;
+    status: string;
+    total_candidates?: number | null;
+};
     AudioSourceResponse: {
     last_seen: string;
     mapping_value: string;
@@ -152,6 +203,36 @@ export interface components {
     updated_count: number;
     updated_event_ids: Array<string>;
 };
+    CacheCleanupResponse: {
+    bytes_freed: number;
+    clips_deleted: number;
+    message?: string | null;
+    previews_deleted?: number;
+    protected_skipped?: number;
+    retention_days: number;
+    snapshots_deleted: number;
+    status: string;
+};
+    CacheStatsResponse: {
+    cache_clips: boolean;
+    cache_enabled: boolean;
+    cache_snapshots: boolean;
+    clip_count: number;
+    clip_size_bytes: number;
+    clip_size_mb: number;
+    newest_file?: string | null;
+    oldest_file?: string | null;
+    preview_count: number;
+    preview_size_bytes: number;
+    preview_size_mb: number;
+    retention_days: number;
+    retention_source: string;
+    snapshot_count: number;
+    snapshot_size_bytes: number;
+    snapshot_size_mb: number;
+    total_size_bytes: number;
+    total_size_mb: number;
+};
     CameraStats: {
     camera_name: string;
     count: number;
@@ -169,6 +250,17 @@ export interface components {
     video_classification_provider?: string | null;
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
+};
+    CleanupResponse: {
+    cutoff_date?: string | null;
+    deleted_count: number;
+    message?: string | null;
+    status: string;
+};
+    ClearFeedbackResponse: {
+    deleted_count: number;
+    message: string;
+    status: string;
 };
     ConversationRequest: {
     message: string;
@@ -479,6 +571,12 @@ export interface components {
     token_type?: string;
     username: string;
 };
+    MaintenanceStatsResponse: {
+    detections_to_cleanup: number;
+    oldest_detection?: string | null;
+    retention_days: number;
+    total_detections: number;
+};
     ModelMetadata: {
     accuracy_tier: string;
     advanced_only?: boolean;
@@ -519,6 +617,16 @@ export interface components {
     user_key?: string | null;
     webhook_url?: string | null;
 };
+    PurgeMissingMediaResponse: {
+    checked: number;
+    cleared_missing_count: number;
+    deleted_count: number;
+    kept_count: number;
+    marked_missing_count: number;
+    message?: string | null;
+    missing: number;
+    status: string;
+};
     ReclassifyResponse: {
     actual_strategy: "snapshot" | "video";
     event_id: string;
@@ -545,6 +653,7 @@ export interface components {
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
+    audio_min_confidence?: number;
     audio_topic?: string;
     auth_enabled?: boolean | null;
     auth_has_password?: boolean;
@@ -720,6 +829,7 @@ export interface components {
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
+    audio_min_confidence?: number;
     audio_topic?: string;
     auth_enabled?: boolean | null;
     auth_password?: string | null;
@@ -1283,7 +1393,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['CacheCleanupResponse'];
     };
   };
   "/api/cache/stats": {
@@ -1292,7 +1402,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['CacheStatsResponse'];
     };
   };
   "/api/classifier/classify": {
@@ -2161,7 +2271,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AnalysisStatusResponse'];
     };
   };
   "/api/maintenance/analyze-unknowns": {
@@ -2170,7 +2280,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AnalyzeUnknownsResponse'];
     };
   };
   "/api/maintenance/cleanup": {
@@ -2179,7 +2289,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['CleanupResponse'];
     };
   };
   "/api/maintenance/favorites/clear": {
@@ -2188,7 +2298,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['CleanupResponse'];
     };
   };
   "/api/maintenance/feedback/clear": {
@@ -2197,7 +2307,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClearFeedbackResponse'];
     };
   };
   "/api/maintenance/purge-missing-clips": {
@@ -2206,7 +2316,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['PurgeMissingMediaResponse'];
     };
   };
   "/api/maintenance/purge-missing-media": {
@@ -2215,7 +2325,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['PurgeMissingMediaResponse'];
     };
   };
   "/api/maintenance/purge-missing-snapshots": {
@@ -2224,7 +2334,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['PurgeMissingMediaResponse'];
     };
   };
   "/api/maintenance/stats": {
@@ -2233,7 +2343,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['MaintenanceStatsResponse'];
     };
   };
   "/api/maintenance/taxonomy/status": {

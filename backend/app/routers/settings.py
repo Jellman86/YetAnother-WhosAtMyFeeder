@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError, create_model, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
 import structlog
 
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
@@ -186,6 +186,124 @@ class NotificationTestRequest(BaseModel):
 
 class TimezoneRepairApplyRequest(BaseModel):
     confirm: bool = False
+
+
+class MaintenanceStatsResponse(BaseModel):
+    total_detections: int
+    oldest_detection: Optional[str] = None
+    retention_days: int
+    detections_to_cleanup: int
+
+
+class CleanupResponse(BaseModel):
+    status: str
+    deleted_count: int
+    message: Optional[str] = None
+    cutoff_date: Optional[str] = None
+
+
+class PurgeMissingMediaResponse(BaseModel):
+    status: str
+    deleted_count: int
+    marked_missing_count: int
+    kept_count: int
+    cleared_missing_count: int
+    checked: int
+    missing: int
+    message: Optional[str] = None
+
+
+class AnalyzeUnknownsResponse(BaseModel):
+    status: str
+    count: int
+    message: str
+    accepted: Optional[int] = None
+    skipped_duplicate: Optional[int] = None
+    dropped_full: Optional[int] = None
+    skipped_no_clip: Optional[int] = None
+    skipped_missing_event: Optional[int] = None
+    skipped_outside_retention: Optional[int] = None
+    precheck_errors: Optional[int] = None
+    total_candidates: Optional[int] = None
+    remaining_candidates: Optional[int] = None
+    queue_limit: Optional[int] = None
+    scan_limit: Optional[int] = None
+    scan_truncated: Optional[bool] = None
+    pending_maintenance: Optional[int] = None
+    active_maintenance: Optional[int] = None
+    retry_after_seconds: Optional[int] = None
+
+
+class AnalysisStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: Optional[str] = None
+    pending: int
+    active: int
+    circuit_open: bool
+    open_until: Optional[str] = None
+    failure_count: Optional[int] = None
+    pending_capacity: Optional[int] = None
+    pending_available: Optional[int] = None
+    max_concurrent_configured: Optional[int] = None
+    max_concurrent_effective: Optional[int] = None
+    mqtt_pressure_level: Optional[str] = None
+    throttled_for_mqtt_pressure: Optional[bool] = None
+    throttled_for_live_pressure: Optional[bool] = None
+    maintenance_starvation_relief_active: Optional[bool] = None
+    live_pressure_active: Optional[bool] = None
+    live_in_flight: Optional[int] = None
+    live_queued: Optional[int] = None
+    mqtt_in_flight: Optional[int] = None
+    mqtt_in_flight_capacity: Optional[int] = None
+    oldest_maintenance_pending_age_seconds: Optional[float] = None
+    pending_maintenance: Optional[int] = None
+    active_maintenance: Optional[int] = None
+    queue_limit: Optional[int] = None
+    scan_limit: Optional[int] = None
+    scan_truncated: Optional[bool] = None
+    remaining_candidates: Optional[int] = None
+    maintenance_state: Optional[str] = None
+    maintenance_status_message: Optional[str] = None
+    maintenance_seconds_since_progress: Optional[float] = None
+
+
+class CacheStatsResponse(BaseModel):
+    snapshot_count: int
+    snapshot_size_bytes: int
+    snapshot_size_mb: float
+    clip_count: int
+    clip_size_bytes: int
+    clip_size_mb: float
+    preview_count: int
+    preview_size_bytes: int
+    preview_size_mb: float
+    total_size_bytes: int
+    total_size_mb: float
+    oldest_file: Optional[str] = None
+    newest_file: Optional[str] = None
+    cache_enabled: bool
+    cache_snapshots: bool
+    cache_clips: bool
+    retention_days: int
+    retention_source: str
+
+
+class CacheCleanupResponse(BaseModel):
+    status: str
+    snapshots_deleted: int
+    clips_deleted: int
+    previews_deleted: int = 0
+    bytes_freed: int
+    protected_skipped: int = 0
+    retention_days: int
+    message: Optional[str] = None
+
+
+class ClearFeedbackResponse(BaseModel):
+    status: str
+    message: str
+    deleted_count: int
 
 
 @router.post("/settings/notifications/test")
@@ -1584,7 +1702,7 @@ async def update_settings(
     return {"status": "updated"}
 
 
-@router.get("/maintenance/stats")
+@router.get("/maintenance/stats", response_model=MaintenanceStatsResponse)
 async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
     """Get database maintenance statistics. Owner only."""
     async with get_db() as db:
@@ -1637,7 +1755,7 @@ async def apply_timezone_repair(
         await maintenance_coordinator.release(holder_id)
 
 
-@router.post("/maintenance/cleanup")
+@router.post("/maintenance/cleanup", response_model=CleanupResponse)
 async def run_cleanup(auth: AuthContext = Depends(require_owner)):
     """Manually trigger cleanup of old detections. Owner only."""
     if settings.maintenance.retention_days <= 0:
@@ -1654,7 +1772,7 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
     return {"status": "completed", "deleted_count": deleted_count, "cutoff_date": cutoff.isoformat()}
 
 
-@router.post("/maintenance/favorites/clear")
+@router.post("/maintenance/favorites/clear", response_model=CleanupResponse)
 async def clear_favorites(auth: AuthContext = Depends(require_owner)):
     """Remove all favorite markers from detections. Owner only."""
     async with get_db() as db:
@@ -1863,7 +1981,7 @@ def _get_camera_retention_days(frigate_config: object, camera_name: str) -> floa
     return get_camera_retention_days(frigate_config, camera_name)
 
 
-@router.post("/maintenance/purge-missing-clips")
+@router.post("/maintenance/purge-missing-clips", response_model=PurgeMissingMediaResponse)
 async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     """Remove detections without clips (or missing events). Owner only."""
     result = await _purge_missing_media("clip")
@@ -1871,7 +1989,7 @@ async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     return result
 
 
-@router.post("/maintenance/purge-missing-media")
+@router.post("/maintenance/purge-missing-media", response_model=PurgeMissingMediaResponse)
 async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
     """Apply the configured missing-media policy when any Frigate event/media is missing. Owner only."""
     result = await _purge_missing_all_media()
@@ -1879,7 +1997,7 @@ async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
     return result
 
 
-@router.post("/maintenance/purge-missing-snapshots")
+@router.post("/maintenance/purge-missing-snapshots", response_model=PurgeMissingMediaResponse)
 async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
     """Remove detections without snapshots (or missing events). Owner only."""
     result = await _purge_missing_media("snapshot")
@@ -2091,7 +2209,7 @@ async def _run_analyze_unknowns() -> dict:
     }
 
 
-@router.post("/maintenance/analyze-unknowns")
+@router.post("/maintenance/analyze-unknowns", response_model=AnalyzeUnknownsResponse)
 async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     """Queue video analysis for all 'Unknown Bird' detections. Owner only."""
     guard = _maintenance_guardrail_status()
@@ -2121,7 +2239,7 @@ async def analyze_unknowns(auth: AuthContext = Depends(require_owner)):
     return await _run_analyze_unknowns()
 
 
-@router.get("/maintenance/analysis/status")
+@router.get("/maintenance/analysis/status", response_model=AnalysisStatusResponse)
 async def get_analysis_status(response: Response, auth: AuthContext = Depends(require_owner)):
     """Get status of auto video classification queue. Owner only."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
@@ -2138,7 +2256,7 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 # =============================================================================
 
 
-@router.get("/cache/stats")
+@router.get("/cache/stats", response_model=CacheStatsResponse)
 async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     """Get media cache statistics. Owner only."""
     stats = media_cache.get_cache_stats()
@@ -2158,7 +2276,7 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     }
 
 
-@router.post("/cache/cleanup")
+@router.post("/cache/cleanup", response_model=CacheCleanupResponse)
 async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     """Manually trigger cleanup of old cached media. Owner only."""
     # Determine retention period
@@ -2211,7 +2329,7 @@ async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
     }
 
 
-@router.delete("/maintenance/feedback/clear")
+@router.delete("/maintenance/feedback/clear", response_model=ClearFeedbackResponse)
 async def clear_classification_feedback(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Clear all personalized re-ranking classification feedback. Owner only."""
     from app.services.classifier_service import get_classifier

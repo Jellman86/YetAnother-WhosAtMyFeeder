@@ -174,6 +174,504 @@
         "title": "AIUsageResponse",
         "type": "object"
       },
+      "AnalysisStatusResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "active_maintenance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Maintenance"
+          },
+          "circuit_open": {
+            "title": "Circuit Open",
+            "type": "boolean"
+          },
+          "failure_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Count"
+          },
+          "live_in_flight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live In Flight"
+          },
+          "live_pressure_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Pressure Active"
+          },
+          "live_queued": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Queued"
+          },
+          "maintenance_seconds_since_progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Seconds Since Progress"
+          },
+          "maintenance_starvation_relief_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Starvation Relief Active"
+          },
+          "maintenance_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance State"
+          },
+          "maintenance_status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Status Message"
+          },
+          "max_concurrent_configured": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Configured"
+          },
+          "max_concurrent_effective": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Effective"
+          },
+          "mqtt_in_flight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mqtt In Flight"
+          },
+          "mqtt_in_flight_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mqtt In Flight Capacity"
+          },
+          "mqtt_pressure_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mqtt Pressure Level"
+          },
+          "oldest_maintenance_pending_age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Maintenance Pending Age Seconds"
+          },
+          "open_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Until"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "pending_available": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Available"
+          },
+          "pending_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Capacity"
+          },
+          "pending_maintenance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Maintenance"
+          },
+          "queue_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Limit"
+          },
+          "remaining_candidates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Candidates"
+          },
+          "scan_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Limit"
+          },
+          "scan_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Truncated"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "throttled_for_live_pressure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Throttled For Live Pressure"
+          },
+          "throttled_for_mqtt_pressure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Throttled For Mqtt Pressure"
+          }
+        },
+        "required": [
+          "pending",
+          "active",
+          "circuit_open"
+        ],
+        "title": "AnalysisStatusResponse",
+        "type": "object"
+      },
+      "AnalyzeUnknownsResponse": {
+        "properties": {
+          "accepted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted"
+          },
+          "active_maintenance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Maintenance"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "dropped_full": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropped Full"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "pending_maintenance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Maintenance"
+          },
+          "precheck_errors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precheck Errors"
+          },
+          "queue_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Limit"
+          },
+          "remaining_candidates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Candidates"
+          },
+          "retry_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After Seconds"
+          },
+          "scan_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Limit"
+          },
+          "scan_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Truncated"
+          },
+          "skipped_duplicate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Duplicate"
+          },
+          "skipped_missing_event": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Missing Event"
+          },
+          "skipped_no_clip": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped No Clip"
+          },
+          "skipped_outside_retention": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Outside Retention"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_candidates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Candidates"
+          }
+        },
+        "required": [
+          "status",
+          "count",
+          "message"
+        ],
+        "title": "AnalyzeUnknownsResponse",
+        "type": "object"
+      },
       "AudioSourceResponse": {
         "properties": {
           "last_seen": {
@@ -842,6 +1340,170 @@
         "title": "BulkManualTagResponse",
         "type": "object"
       },
+      "CacheCleanupResponse": {
+        "properties": {
+          "bytes_freed": {
+            "title": "Bytes Freed",
+            "type": "integer"
+          },
+          "clips_deleted": {
+            "title": "Clips Deleted",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "previews_deleted": {
+            "default": 0,
+            "title": "Previews Deleted",
+            "type": "integer"
+          },
+          "protected_skipped": {
+            "default": 0,
+            "title": "Protected Skipped",
+            "type": "integer"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "snapshots_deleted": {
+            "title": "Snapshots Deleted",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "snapshots_deleted",
+          "clips_deleted",
+          "bytes_freed",
+          "retention_days"
+        ],
+        "title": "CacheCleanupResponse",
+        "type": "object"
+      },
+      "CacheStatsResponse": {
+        "properties": {
+          "cache_clips": {
+            "title": "Cache Clips",
+            "type": "boolean"
+          },
+          "cache_enabled": {
+            "title": "Cache Enabled",
+            "type": "boolean"
+          },
+          "cache_snapshots": {
+            "title": "Cache Snapshots",
+            "type": "boolean"
+          },
+          "clip_count": {
+            "title": "Clip Count",
+            "type": "integer"
+          },
+          "clip_size_bytes": {
+            "title": "Clip Size Bytes",
+            "type": "integer"
+          },
+          "clip_size_mb": {
+            "title": "Clip Size Mb",
+            "type": "number"
+          },
+          "newest_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest File"
+          },
+          "oldest_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest File"
+          },
+          "preview_count": {
+            "title": "Preview Count",
+            "type": "integer"
+          },
+          "preview_size_bytes": {
+            "title": "Preview Size Bytes",
+            "type": "integer"
+          },
+          "preview_size_mb": {
+            "title": "Preview Size Mb",
+            "type": "number"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "retention_source": {
+            "title": "Retention Source",
+            "type": "string"
+          },
+          "snapshot_count": {
+            "title": "Snapshot Count",
+            "type": "integer"
+          },
+          "snapshot_size_bytes": {
+            "title": "Snapshot Size Bytes",
+            "type": "integer"
+          },
+          "snapshot_size_mb": {
+            "title": "Snapshot Size Mb",
+            "type": "number"
+          },
+          "total_size_bytes": {
+            "title": "Total Size Bytes",
+            "type": "integer"
+          },
+          "total_size_mb": {
+            "title": "Total Size Mb",
+            "type": "number"
+          }
+        },
+        "required": [
+          "snapshot_count",
+          "snapshot_size_bytes",
+          "snapshot_size_mb",
+          "clip_count",
+          "clip_size_bytes",
+          "clip_size_mb",
+          "preview_count",
+          "preview_size_bytes",
+          "preview_size_mb",
+          "total_size_bytes",
+          "total_size_mb",
+          "cache_enabled",
+          "cache_snapshots",
+          "cache_clips",
+          "retention_days",
+          "retention_source"
+        ],
+        "title": "CacheStatsResponse",
+        "type": "object"
+      },
       "CameraStats": {
         "properties": {
           "camera_name": {
@@ -965,6 +1627,69 @@
           "event_id"
         ],
         "title": "ClassificationStatusResponse",
+        "type": "object"
+      },
+      "CleanupResponse": {
+        "properties": {
+          "cutoff_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutoff Date"
+          },
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "deleted_count"
+        ],
+        "title": "CleanupResponse",
+        "type": "object"
+      },
+      "ClearFeedbackResponse": {
+        "properties": {
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "deleted_count"
+        ],
+        "title": "ClearFeedbackResponse",
         "type": "object"
       },
       "ConversationRequest": {
@@ -3237,6 +3962,40 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "MaintenanceStatsResponse": {
+        "properties": {
+          "detections_to_cleanup": {
+            "title": "Detections To Cleanup",
+            "type": "integer"
+          },
+          "oldest_detection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Detection"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "total_detections": {
+            "title": "Total Detections",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_detections",
+          "retention_days",
+          "detections_to_cleanup"
+        ],
+        "title": "MaintenanceStatsResponse",
+        "type": "object"
+      },
       "ModelMetadata": {
         "properties": {
           "accuracy_tier": {
@@ -3545,6 +4304,60 @@
         "title": "NotificationTestRequest",
         "type": "object"
       },
+      "PurgeMissingMediaResponse": {
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "integer"
+          },
+          "cleared_missing_count": {
+            "title": "Cleared Missing Count",
+            "type": "integer"
+          },
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "kept_count": {
+            "title": "Kept Count",
+            "type": "integer"
+          },
+          "marked_missing_count": {
+            "title": "Marked Missing Count",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "deleted_count",
+          "marked_missing_count",
+          "kept_count",
+          "cleared_missing_count",
+          "checked",
+          "missing"
+        ],
+        "title": "PurgeMissingMediaResponse",
+        "type": "object"
+      },
       "ReclassifyResponse": {
         "description": "Response from reclassification.",
         "properties": {
@@ -3725,6 +4538,11 @@
             "default": 300,
             "title": "Audio Correlation Window Seconds",
             "type": "integer"
+          },
+          "audio_min_confidence": {
+            "default": 0.0,
+            "title": "Audio Min Confidence",
+            "type": "number"
           },
           "audio_topic": {
             "default": "birdnet/text",
@@ -5506,6 +6324,14 @@
             "minimum": 5.0,
             "title": "Audio Correlation Window Seconds",
             "type": "integer"
+          },
+          "audio_min_confidence": {
+            "default": 0.0,
+            "description": "Ignore BirdNET-Go audio detections below this confidence (0.0 stores everything)",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Audio Min Confidence",
+            "type": "number"
           },
           "audio_topic": {
             "default": "birdnet/text",
@@ -9696,7 +10522,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CacheCleanupResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -9724,7 +10552,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CacheStatsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14327,7 +15157,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14355,7 +15187,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeUnknownsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14383,7 +15217,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14411,7 +15247,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14439,7 +15277,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClearFeedbackResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14467,7 +15307,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeMissingMediaResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14495,7 +15337,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeMissingMediaResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14523,7 +15367,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeMissingMediaResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14551,7 +15397,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceStatsResponse"
+                }
               }
             },
             "description": "Successful Response"
