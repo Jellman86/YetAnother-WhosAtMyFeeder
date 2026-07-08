@@ -8,6 +8,7 @@
     import {
         CROP_MODEL_OVERRIDE_VALUES,
         CROP_SOURCE_OVERRIDE_VALUES,
+        getCropVariantMetadata,
         getCropVariantOverrideEntries,
         normalizeCropModelOverride,
         normalizeCropSourceOverride,
@@ -131,8 +132,8 @@
         }
     }
 
-    function statusLabel(status: string): string {
-        return formatMetadataLabel(status);
+    function statusLabel(status: string | undefined): string {
+        return formatMetadataLabel(status ?? 'stable');
     }
 
     function tierChipClass(tier: string): string {
@@ -148,8 +149,8 @@
         }
     }
 
-    function statusChipClass(status: string): string {
-        switch (status) {
+    function statusChipClass(status: string | undefined): string {
+        switch (status ?? 'stable') {
             case 'stable':
                 return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
             case 'beta':
@@ -493,7 +494,7 @@
     {:else}
         {@const cropDetectorModels = availableModels
             .filter((model) => (model.artifact_kind || 'classifier') === 'crop_detector')
-            .sort((a, b) => a.sort_order - b.sort_order)}
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))}
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
         {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorModels.some((model) => isCropDetectorInstalled(model.id)))}
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
@@ -868,7 +869,7 @@
                                         </summary>
                                         <div class="mt-4 space-y-4">
                                             {#each variantEntries as variant}
-                                                {@const variantMeta = model.region_variants?.[variant.region]}
+                                                {@const variantMeta = getCropVariantMetadata(model, variant.region)}
                                                 <div class="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-600/80 dark:bg-slate-900/40">
                                                     <div class="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                         <div>

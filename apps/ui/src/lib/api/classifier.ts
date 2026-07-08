@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
+import type { components, paths } from './generated/openapi';
 
 export interface ClassifierStatus {
     loaded: boolean;
@@ -79,15 +80,7 @@ export async function downloadDefaultModel(): Promise<DownloadModelResult> {
     return handleResponse<DownloadModelResult>(response);
 }
 
-export interface ReclassifyResult {
-    status: string;
-    event_id: string;
-    old_species: string;
-    new_species: string;
-    new_score: number;
-    updated: boolean;
-    actual_strategy?: 'snapshot' | 'video';
-}
+export type ReclassifyResult = paths['/api/events/{event_id}/reclassify']['post']['response'];
 
 export interface UpdateDetectionResult {
     status: string;
@@ -97,19 +90,7 @@ export interface UpdateDetectionResult {
     species?: string;
 }
 
-export interface BulkUpdateDetectionResult {
-    status: string;
-    requested_count: number;
-    updated_count: number;
-    unchanged_count: number;
-    missing_count: number;
-    failed_count: number;
-    updated_event_ids: string[];
-    unchanged_event_ids: string[];
-    missing_event_ids: string[];
-    failed_event_ids: string[];
-    new_species?: string | null;
-}
+export type BulkUpdateDetectionResult = paths['/api/events/bulk/manual-tag']['patch']['response'];
 
 export async function fetchClassifierLabels(): Promise<{ labels: string[] }> {
     const response = await apiFetch(`${API_BASE}/classifier/labels`);
@@ -142,45 +123,7 @@ export async function bulkUpdateDetectionSpecies(eventIds: string[], displayName
     return handleResponse<BulkUpdateDetectionResult>(response);
 }
 
-export interface ModelMetadata {
-    id: string;
-    name: string;
-    description: string;
-    architecture: string;
-    artifact_kind?: string;
-    file_size_mb: number;
-    accuracy_tier: string;
-    inference_speed: string;
-    download_url: string;
-    weights_url?: string;
-    labels_url: string;
-    input_size: number;
-    runtime?: string;
-    supported_inference_providers?: string[];
-    tier: string;
-    taxonomy_scope: string;
-    recommended_for: string;
-    estimated_ram_mb?: number;
-    advanced_only: boolean;
-    sort_order: number;
-    status: string;
-    notes?: string;
-    recommended_threshold?: number;
-    family_id?: string;
-    default_region?: string;
-    region_variants?: Record<string, {
-        region_scope?: string;
-        name?: string;
-        crop_generator?: {
-            enabled?: boolean;
-            source_preference?: string;
-        };
-    }>;
-    crop_generator?: {
-        enabled?: boolean;
-        source_preference?: string;
-    };
-}
+export type ModelMetadata = components['schemas']['ModelMetadata'];
 
 export interface ModelMetadataSummary {
     tierLabel: string;
@@ -201,7 +144,7 @@ const MODEL_TIER_PRIORITY: Record<string, number> = {
 export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): number {
     return (
         (MODEL_TIER_PRIORITY[a.tier] ?? 99) - (MODEL_TIER_PRIORITY[b.tier] ?? 99) ||
-        a.sort_order - b.sort_order ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
         a.name.localeCompare(b.name)
     );
 }
@@ -354,7 +297,7 @@ export function summarizeModelMetadata(metadata?: ModelMetadata | null): ModelMe
     const tierLabel = formatModelMetadataLabel(metadata.tier);
     const taxonomyScopeLabel = formatModelMetadataLabel(metadata.taxonomy_scope);
     const advancedStateLabel = metadata.advanced_only ? 'Advanced only' : 'Standard';
-    const statusLabel = formatModelMetadataLabel(metadata.status);
+    const statusLabel = formatModelMetadataLabel(metadata.status ?? 'stable');
 
     return {
         tierLabel,
@@ -365,23 +308,9 @@ export function summarizeModelMetadata(metadata?: ModelMetadata | null): ModelMe
     };
 }
 
-export interface InstalledModel {
-    id: string;
-    path: string;
-    labels_path: string;
-    is_active: boolean;
-    ready?: boolean;
-    reason?: string;
-    metadata?: ModelMetadata;
-}
+export type InstalledModel = components['schemas']['InstalledModel'];
 
-export interface DownloadProgress {
-    model_id: string;
-    status: 'pending' | 'downloading' | 'completed' | 'error';
-    progress: number;
-    message?: string;
-    error?: string;
-}
+export type DownloadProgress = components['schemas']['DownloadProgress'];
 
 export async function fetchAvailableModels(): Promise<ModelMetadata[]> {
     const response = await apiFetch(`${API_BASE}/models/available`);

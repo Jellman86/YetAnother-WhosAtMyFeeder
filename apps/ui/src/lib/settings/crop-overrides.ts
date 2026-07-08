@@ -12,6 +12,14 @@ export interface CropVariantOverrideEntry {
     region: string;
 }
 
+type CropGeneratorDefaults = NonNullable<ModelMetadata['crop_generator']>;
+
+export interface CropVariantMetadata {
+    name?: string;
+    region_scope?: string;
+    crop_generator?: CropGeneratorDefaults;
+}
+
 export function normalizeCropModelOverride(
     value: string | null | undefined
 ): CropModelOverride {
@@ -102,15 +110,46 @@ export function roundTripCropOverrides(
     };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cropGeneratorFromUnknown(value: unknown): CropGeneratorDefaults | undefined {
+    if (!isRecord(value)) return undefined;
+    return {
+        enabled: typeof value.enabled === 'boolean' ? value.enabled : undefined,
+        source_preference: typeof value.source_preference === 'string' ? value.source_preference : undefined,
+        input_context: isRecord(value.input_context)
+            ? { is_cropped: typeof value.input_context.is_cropped === 'boolean' ? value.input_context.is_cropped : undefined }
+            : null,
+    };
+}
+
+export function getCropVariantMetadata(
+    model: Pick<ModelMetadata, 'region_variants'>,
+    region: string
+): CropVariantMetadata | undefined {
+    const rawVariant = model.region_variants?.[region];
+    if (!isRecord(rawVariant)) return undefined;
+    return {
+        name: typeof rawVariant.name === 'string' ? rawVariant.name : undefined,
+        region_scope: typeof rawVariant.region_scope === 'string' ? rawVariant.region_scope : undefined,
+        crop_generator: cropGeneratorFromUnknown(rawVariant.crop_generator),
+    };
+}
+
 export function getCropVariantOverrideEntries(model: Pick<ModelMetadata, 'id' | 'family_id' | 'region_variants'>): CropVariantOverrideEntry[] {
     const familyId = String(model.family_id || model.id || '').trim();
     const regionVariants = model.region_variants || {};
 
     return Object.entries(regionVariants)
-        .map(([region, variant]) => ({
-            id: `${familyId}.${region}`,
-            label: variant.name || variant.region_scope || region.toUpperCase(),
-            region,
-        }))
+        .map(([region]) => {
+            const variant = getCropVariantMetadata(model, region);
+            return {
+                id: `${familyId}.${region}`,
+                label: variant?.name || variant?.region_scope || region.toUpperCase(),
+                region,
+            };
+        })
         .sort((left, right) => left.label.localeCompare(right.label));
 }
