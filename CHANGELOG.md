@@ -18,6 +18,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **API contract:** Added explicit backend response models for maintenance and media-cache endpoints, then migrated the frontend maintenance API client to the generated response types.
 - **API contract:** Added explicit response models for classifier labels/default-download and model download/activate actions, then migrated those frontend API client result types to the generated contract.
 - **API contract:** Added explicit response models for taxonomy sync and timezone-repair endpoints, then migrated those frontend maintenance client types to the generated contract.
+- **API contract:** Added explicit response models for version, Frigate connection/capability, and reverse-geocode endpoints, then migrated the matching frontend system/geocoding types to the generated contract.
 
 ## [2.12.0] - 2026-07-07
 

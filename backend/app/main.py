@@ -15,6 +15,7 @@ from time import monotonic
 from contextlib import asynccontextmanager
 from typing import Awaitable, Callable
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
+from pydantic import BaseModel
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.database import (
@@ -137,6 +138,12 @@ else:
     APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
 os.environ["APP_VERSION"] = APP_VERSION  # Make available to other services
+
+
+class VersionResponse(BaseModel):
+    version: str
+    base_version: str
+
 
 # Metrics
 EVENTS_PROCESSED = Counter("events_processed_total", "Total number of events processed")
@@ -861,7 +868,7 @@ async def sse_endpoint(
     )
 
 
-@app.get("/api/version")
+@app.get("/api/version", response_model=VersionResponse)
 async def get_version():
     """Return the application version info. Git hash and branch are omitted from
     the unauthenticated response to reduce reconnaissance surface; they are

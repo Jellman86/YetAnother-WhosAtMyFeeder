@@ -1,11 +1,10 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 
-export interface VersionInfo {
-    version: string;
-    base_version: string;
+export type VersionInfo = paths['/api/version']['get']['response'] & {
     git_hash: string;   // resolved from build-time constant; not returned by the API
     branch: string;     // resolved from build-time constant; not returned by the API
-}
+};
 
 export interface HealthStatus {
     status: string;
@@ -16,20 +15,9 @@ export interface HealthStatus {
     startup_started_at?: string;
 }
 
-export interface FrigateTestResult {
-    status: string;
-    frigate_url: string;
-    version: string;
-}
+export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
 
-export interface RecordingClipCapability {
-    supported: boolean;
-    reason: string | null;
-    recordings_enabled: boolean;
-    retention_days: number | null;
-    eligible_cameras: string[];
-    ineligible_cameras: Record<string, string>;
-}
+export type RecordingClipCapability = paths['/api/frigate/recording-clip-capability']['get']['response'];
 
 export async function fetchVersion(): Promise<VersionInfo> {
     const gitHash = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';

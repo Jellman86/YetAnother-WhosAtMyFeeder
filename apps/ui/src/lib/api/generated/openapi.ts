@@ -505,6 +505,11 @@ export interface components {
     is_favorite: boolean;
     status: string;
 };
+    FrigateTestResponse: {
+    frigate_url: string;
+    status: string;
+    version: string;
+};
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
@@ -651,11 +656,24 @@ export interface components {
     status: string;
     updated: boolean;
 };
+    RecordingClipCapabilityResponse: {
+    eligible_cameras: Array<string>;
+    ineligible_cameras: Record<string, string>;
+    reason?: string | null;
+    recordings_enabled: boolean;
+    retention_days?: number | null;
+    supported: boolean;
+};
     RecordingClipFetchResponse: {
     cached: boolean;
     clip_variant?: "recording";
     event_id: string;
     status: "ready";
+};
+    ReverseGeocodeResponse: {
+    country?: string | null;
+    place_guess?: string | null;
+    state?: string | null;
 };
     SettingsResponse: {
     accessibility_dyslexia_font?: boolean | null;
@@ -1168,6 +1186,10 @@ export interface components {
     loc: Array<string | number>;
     msg: string;
     type: string;
+};
+    VersionResponse: {
+    base_version: string;
+    version: string;
 };
     VideoShareCreateRequest: {
     clip_variant?: "event" | "recording";
@@ -2057,7 +2079,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['RecordingClipCapabilityResponse'];
     };
   };
   "/api/frigate/test": {
@@ -2066,7 +2088,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['FrigateTestResponse'];
     };
   };
   "/api/frigate/{event_id}/clip-thumbnails.jpg": {
@@ -2324,7 +2346,7 @@ export interface paths {
     lon: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ReverseGeocodeResponse'];
     };
   };
   "/api/maintenance/analysis/status": {
@@ -2741,7 +2763,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['VersionResponse'];
     };
   };
   "/api/video-share": {

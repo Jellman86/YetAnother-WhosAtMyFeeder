@@ -438,6 +438,21 @@ class RecordingClipFetchResponse(BaseModel):
     cached: bool
 
 
+class FrigateTestResponse(BaseModel):
+    status: str
+    frigate_url: str
+    version: str
+
+
+class RecordingClipCapabilityResponse(BaseModel):
+    supported: bool
+    reason: str | None = None
+    recordings_enabled: bool
+    retention_days: float | None = None
+    eligible_cameras: list[str]
+    ineligible_cameras: dict[str, str]
+
+
 class SnapshotStatusResponse(BaseModel):
     event_id: str
     cached: bool
@@ -1342,7 +1357,7 @@ async def revoke_video_share_link(
     return VideoShareRevokeResponse(status="revoked", event_id=event_id, link_id=link_id)
 
 
-@router.get("/frigate/test")
+@router.get("/frigate/test", response_model=FrigateTestResponse)
 async def test_frigate_connection(request: Request, auth: AuthContext = Depends(require_owner)):
     """Test connection to Frigate and return status with details."""
     url = f"{settings.frigate.frigate_url}/api/version"
@@ -1400,7 +1415,7 @@ async def proxy_config(request: Request, auth: AuthContext = Depends(require_own
         )
 
 
-@router.get("/frigate/recording-clip-capability")
+@router.get("/frigate/recording-clip-capability", response_model=RecordingClipCapabilityResponse)
 async def get_recording_clip_capability(auth: AuthContext = Depends(require_owner)):
     try:
         frigate_config = await frigate_client.get_config()

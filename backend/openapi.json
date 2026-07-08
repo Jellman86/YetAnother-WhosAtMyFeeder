@@ -3565,6 +3565,29 @@
         "title": "FavoriteResponse",
         "type": "object"
       },
+      "FrigateTestResponse": {
+        "properties": {
+          "frigate_url": {
+            "title": "Frigate Url",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "frigate_url",
+          "version"
+        ],
+        "title": "FrigateTestResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4502,6 +4525,62 @@
         "title": "ReclassifyResponse",
         "type": "object"
       },
+      "RecordingClipCapabilityResponse": {
+        "properties": {
+          "eligible_cameras": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eligible Cameras",
+            "type": "array"
+          },
+          "ineligible_cameras": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Ineligible Cameras",
+            "type": "object"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recordings_enabled": {
+            "title": "Recordings Enabled",
+            "type": "boolean"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported",
+          "recordings_enabled",
+          "eligible_cameras",
+          "ineligible_cameras"
+        ],
+        "title": "RecordingClipCapabilityResponse",
+        "type": "object"
+      },
       "RecordingClipFetchResponse": {
         "properties": {
           "cached": {
@@ -4528,6 +4607,45 @@
           "cached"
         ],
         "title": "RecordingClipFetchResponse",
+        "type": "object"
+      },
+      "ReverseGeocodeResponse": {
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "place_guess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Guess"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "title": "ReverseGeocodeResponse",
         "type": "object"
       },
       "SettingsResponse": {
@@ -9309,6 +9427,24 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "properties": {
+          "base_version": {
+            "title": "Base Version",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "base_version"
+        ],
+        "title": "VersionResponse",
         "type": "object"
       },
       "VideoShareCreateRequest": {
@@ -14136,7 +14272,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingClipCapabilityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14164,7 +14302,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FrigateTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -15522,7 +15662,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReverseGeocodeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -17331,7 +17473,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
               }
             },
             "description": "Successful Response"

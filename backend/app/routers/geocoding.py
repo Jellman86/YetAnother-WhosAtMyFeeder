@@ -3,13 +3,20 @@ state/country/place from a configured latitude/longitude pair.
 """
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app.services.geocoding_service import geocoding_service
 
 router = APIRouter(prefix="/location", tags=["location"])
 
 
-@router.get("/reverse-geocode")
+class ReverseGeocodeResponse(BaseModel):
+    state: str | None = None
+    country: str | None = None
+    place_guess: str | None = None
+
+
+@router.get("/reverse-geocode", response_model=ReverseGeocodeResponse)
 async def reverse_geocode(
     lat: float = Query(..., ge=-90.0, le=90.0),
     lon: float = Query(..., ge=-180.0, le=180.0),
