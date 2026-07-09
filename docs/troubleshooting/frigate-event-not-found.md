@@ -96,11 +96,38 @@ You can control this in **Settings → Data → Media integrity**:
 - **Keep local data unchanged** leaves detections as-is even when Frigate no longer has the event/media.
 - **Delete local data** removes local detections when Frigate no longer has the event/media.
 
+> ⚠️ **"Delete local data" is destructive and irreversible.** Frigate routinely
+> rotates events out of its own (often short) retention, so this option can quietly
+> discard bird detections that YA-WAMF classified perfectly well and still has cached
+> media for. Because it keys off Frigate's retention — not yours — it can delete far
+> more than you expect. Prefer **Mark missing and keep local data** (or **Keep local
+> data unchanged**) unless you specifically want YA-WAMF's history tied to Frigate's.
+
 ---
+
+## Related reason codes
+
+`event_not_found` is one of a family of Frigate media/event conditions. On the
+**Errors** page (and in health telemetry) you may see any of these:
+
+| Reason code | Component | What it means | Detection kept? |
+|---|---|---|---|
+| `precheck_cache_bypass` | event processor | The event was gone from Frigate, but YA-WAMF had cached the clip and classified from it. | ✅ kept |
+| `event_not_found` | event processor / video | Frigate had no event and no cached copy existed. | ⚠️ classify failed |
+| `drop_classify_snapshot_unavailable` | event processor | No snapshot could be fetched from Frigate and none was cached in time, so the detection was **dropped** before classification. | ❌ **dropped** |
+| `clip_not_found` / `clip_not_retained` | video analysis | The event clip is not (or no longer) available in Frigate. Video analysis is skipped; snapshot classification is unaffected. | ✅ kept |
+| `frigate_missing_marked` | frigate-missing policy | A stored detection was flagged because Frigate no longer has its event/media (see Media integrity above). | ✅ kept |
+| `frigate_missing_deleted` | frigate-missing policy | A stored detection was **deleted** because Frigate no longer has it and the policy is set to delete. | ❌ **deleted** |
+
+The two that lose data — `drop_classify_snapshot_unavailable` (a live detection
+dropped) and `frigate_missing_deleted` (a stored detection removed) — are the ones
+worth acting on. Both are reduced by the same steps: make sure `snapshots` are
+enabled in Frigate for the camera, keep the brief-visit tuning above so more objects
+persist, and set the Media integrity policy to **keep**.
 
 ## Checking whether this affected a specific detection
 
-In the YA-WAMF **Errors** page, look for diagnostic entries with:
+In the YA-WAMF **Errors** page, look for the reason codes above. For example:
 
 - `reason_code: precheck_cache_bypass` — classification succeeded from local cache despite `event_not_found`
 - `reason_code: event_not_found` — classification failed because there was no cached copy either
