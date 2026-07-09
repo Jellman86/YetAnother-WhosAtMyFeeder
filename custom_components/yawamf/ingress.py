@@ -7,7 +7,7 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-from aiohttp import ClientConnectionResetError, ClientTimeout, web
+from aiohttp import ClientTimeout, web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
@@ -126,7 +126,7 @@ class YAWAMFIngressView(HomeAssistantView):
                     try:
                         async for chunk in upstream.content.iter_chunked(64 * 1024):
                             await response.write(chunk)
-                    except (ConnectionResetError, ClientConnectionResetError):
+                    except ConnectionResetError:
                         # The browser closed the connection mid-stream — normal when
                         # scrubbing/seeking a video or switching clips. The response is
                         # already partially delivered; nothing more to send.
@@ -135,7 +135,7 @@ class YAWAMFIngressView(HomeAssistantView):
 
                 await response.write_eof()
                 return response
-        except (ConnectionResetError, ClientConnectionResetError):
+        except ConnectionResetError:
             # Client disconnected before/at the start of streaming; not a proxy failure.
             _LOGGER.debug("YA-WAMF ingress client disconnected", exc_info=True)
             raise
@@ -189,12 +189,12 @@ class YAWAMFIngressAssetView(HomeAssistantView):
                 try:
                     async for chunk in upstream.content.iter_chunked(64 * 1024):
                         await response.write(chunk)
-                except (ConnectionResetError, ClientConnectionResetError):
+                except ConnectionResetError:
                     _LOGGER.debug("YA-WAMF ingress asset client disconnected mid-stream", exc_info=True)
                     return response
                 await response.write_eof()
                 return response
-        except (ConnectionResetError, ClientConnectionResetError):
+        except ConnectionResetError:
             _LOGGER.debug("YA-WAMF ingress asset client disconnected", exc_info=True)
             raise
         except Exception as err:  # noqa: BLE001
