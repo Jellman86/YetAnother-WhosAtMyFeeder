@@ -120,6 +120,7 @@
         ['settings.telemetry.payload_nvidia_gpu_detected', 'hardware.nvidia_gpu_detected'],
         ['settings.telemetry.payload_openvino_available', 'hardware.openvino_available'],
         ['settings.telemetry.payload_intel_gpu_available', 'hardware.intel_gpu_available'],
+        ['settings.telemetry.payload_intel_npu_available', 'hardware.intel_npu_available'],
         ['settings.telemetry.payload_openvino_compile', 'hardware.openvino_gpu_compile_ok'],
         ['settings.telemetry.payload_openvino_device', 'hardware.openvino_gpu_compile_device'],
         ['settings.telemetry.payload_gpu_fallback', 'hardware.openvino_gpu_fallback_active'],
@@ -657,6 +658,14 @@
                         </div>
                     {/if}
                     <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
+                    <a
+                        href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                        {$_('settings.telemetry.dashboard_link', { default: 'View the public telemetry dashboard' })} →
+                    </a>
                 </div>
             {/if}
         </SettingsCard>

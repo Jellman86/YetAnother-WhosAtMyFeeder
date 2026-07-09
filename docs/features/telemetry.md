@@ -57,3 +57,12 @@ When you enable Telemetry or Anonymous health diagnostics in the UI (**Settings 
 2. The runtime/device/deployment data points being sent.
 
 You can toggle this feature off at any time, and the background reporting service will stop immediately.
+
+## Public dashboard
+
+The aggregated, anonymised results are published at
+**[yawamf-telemetry.ya-wamf.workers.dev/dashboard](https://yawamf-telemetry.ya-wamf.workers.dev/dashboard)**
+(also linked from the Transparency box in **Settings → Connections → Telemetry**).
+It shows only fleet-wide aggregates — install counts, versions, accelerators, and
+health-issue reason codes grouped by component/severity — with no per-install data,
+payloads, or identifiers. Figures are cached for a few minutes.

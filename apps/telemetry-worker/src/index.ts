@@ -4,8 +4,6 @@ import { cors } from 'hono/cors';
 type Bindings = {
   DB: D1Database;
   HEALTH_DB: D1Database;
-  DASHBOARD_USERNAME?: string;
-  DASHBOARD_PASSWORD?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -75,6 +73,7 @@ interface TelemetryPayload {
     nvidia_gpu_detected?: boolean | null;
     openvino_available?: boolean | null;
     intel_gpu_available?: boolean | null;
+    intel_npu_available?: boolean | null;
     openvino_gpu_compile_ok?: boolean | null;
     openvino_gpu_compile_device?: string | null;
     openvino_gpu_fallback_active?: boolean | null;
@@ -205,33 +204,6 @@ function renderBars(rows: any[], labelKey: string, valueKey: string, total: unkn
   }).join('');
 }
 
-function isDashboardAuthorized(request: Request, env: Bindings): boolean {
-  if (!env.DASHBOARD_USERNAME || !env.DASHBOARD_PASSWORD) return false;
-  const header = request.headers.get('authorization') || '';
-  const [scheme, encoded] = header.split(' ');
-  if (scheme !== 'Basic' || !encoded) return false;
-  try {
-    const decoded = atob(encoded);
-    const separator = decoded.indexOf(':');
-    if (separator < 0) return false;
-    const username = decoded.slice(0, separator);
-    const password = decoded.slice(separator + 1);
-    return username === env.DASHBOARD_USERNAME && password === env.DASHBOARD_PASSWORD;
-  } catch {
-    return false;
-  }
-}
-
-function unauthorizedDashboard(): Response {
-  return new Response('Authentication required', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="YA-WAMF Telemetry Dashboard", charset="UTF-8"',
-      'Cache-Control': 'no-store'
-    }
-  });
-}
-
 function dashboardShell({
   title,
   view,
@@ -255,51 +227,63 @@ function dashboardShell({
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${html(title)}</title>
   <style>
-    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#0f766e; --accent-soft:#ccfbf1; --danger:#dc2626; --warn:#d97706; }
-    @media (prefers-color-scheme: dark) { :root { --bg:#020617; --panel:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --line:#1e293b; --accent:#2dd4bf; --accent-soft:#134e4a; --danger:#f87171; --warn:#fbbf24; } }
+    @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --text:#334155; --heading:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#14b8a6; --brand-strong:#0d9488; --brand-soft:#ccfbf1; --danger:#dc2626; --warn:#d97706; --shadow:0 8px 24px -14px rgba(15,23,42,.22); --font:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-display:'Bricolage Grotesque', 'Instrument Sans', sans-serif; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#030712; --panel:#1e293b; --panel-2:#0f172a; --text:#e2e8f0; --heading:#f1f5f9; --muted:#94a3b8; --line:#334155; --brand:#2dd4bf; --brand-strong:#5eead4; --brand-soft:#134e4a; --danger:#f87171; --warn:#fbbf24; --shadow:0 14px 34px -16px rgba(0,0,0,.7); } }
     * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    main { width:min(1180px, calc(100vw - 32px)); margin:0 auto; padding:24px 0 48px; }
-    header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:20px; }
-    h1 { margin:0; font-size:24px; letter-spacing:0; }
-    h2 { margin:0 0 12px; font-size:15px; }
-    p { color:var(--muted); margin:4px 0 0; }
-    .tabs, .windows { display:flex; gap:8px; flex-wrap:wrap; }
-    .tab, .window-link { color:var(--muted); text-decoration:none; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--panel); font-weight:700; }
-    .tab.active, .window-link.active { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+    main { width:min(1160px, calc(100vw - 32px)); margin:0 auto; padding:28px 0 56px; }
+    a { color:inherit; }
+    header.dash { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:22px; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .brand .mark { width:40px; height:40px; border-radius:13px; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); display:grid; place-items:center; font-size:21px; box-shadow:var(--shadow); }
+    h1 { margin:0; font-family:var(--font-display); font-size:23px; font-weight:800; letter-spacing:-.01em; color:var(--heading); }
+    h1 .accent { background:linear-gradient(90deg, var(--brand), var(--brand-strong)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .subtitle { color:var(--muted); margin:3px 0 0; font-size:12.5px; max-width:58ch; }
+    h2 { margin:0 0 14px; font-family:var(--font-display); font-size:13px; font-weight:700; letter-spacing:.01em; color:var(--heading); }
+    .tabs, .windows { display:flex; gap:6px; flex-wrap:wrap; }
+    .tab, .window-link { color:var(--muted); text-decoration:none; border:1px solid var(--line); border-radius:11px; padding:7px 13px; background:var(--panel); font-weight:600; font-size:13px; transition:border-color .12s, color .12s; }
+    .tab:hover, .window-link:hover { border-color:var(--brand); color:var(--brand); }
+    .tab.active, .window-link.active { color:#fff; border-color:transparent; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); box-shadow:var(--shadow); }
     .toolbar { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
     .grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:14px; }
     .grid.two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-    .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; min-width:0; }
-    .metric { font-size:28px; font-weight:900; letter-spacing:0; }
-    .metric-label { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { text-align:left; border-bottom:1px solid var(--line); padding:8px 6px; vertical-align:top; }
-    th { color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; min-width:0; box-shadow:var(--shadow); }
+    .metric { font-family:var(--font-display); font-size:30px; font-weight:800; letter-spacing:-.02em; line-height:1.05; color:var(--heading); }
+    .metric-label { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; border-bottom:1px solid var(--line); padding:9px 8px; vertical-align:top; }
+    th { color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+    tbody tr:hover { background:var(--panel-2); }
     tr:last-child td { border-bottom:0; }
-    .bar-row { margin:10px 0; }
-    .bar-label { display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
-    .bar-track { height:8px; background:var(--line); border-radius:999px; overflow:hidden; margin-top:4px; }
-    .bar-fill { height:100%; background:var(--accent); border-radius:999px; min-width:2px; }
-    .map-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; }
-    .country { border:1px solid var(--line); border-radius:8px; padding:10px; background:color-mix(in srgb, var(--accent-soft) 45%, transparent); }
-    .country strong { display:block; font-size:18px; }
-    .country span { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
-    .severity-critical { color:var(--danger); font-weight:900; }
-    .severity-error { color:var(--danger); font-weight:800; }
-    .severity-warning { color:var(--warn); font-weight:800; }
-    .empty { color:var(--muted); text-align:center; padding:18px; }
-    .panel-empty { border:1px dashed var(--line); border-radius:8px; }
-    code { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:2px 5px; }
-    @media (max-width: 860px) { header { flex-direction:column; } .toolbar { align-items:flex-start; } .grid, .grid.two { grid-template-columns:1fr; } }
+    .bar-row { margin:11px 0; }
+    .bar-label { display:flex; justify-content:space-between; gap:10px; color:var(--muted); font-size:12px; font-weight:600; }
+    .bar-track { height:9px; background:var(--line); border-radius:999px; overflow:hidden; margin-top:5px; }
+    .bar-fill { height:100%; background:linear-gradient(90deg, var(--brand), var(--brand-strong)); border-radius:999px; min-width:2px; }
+    .map-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:10px; }
+    .country { border:1px solid var(--line); border-radius:13px; padding:12px; background:color-mix(in srgb, var(--brand-soft) 40%, var(--panel)); }
+    .country strong { display:block; font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--heading); }
+    .country span { color:var(--muted); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+    .severity-critical { color:var(--danger); font-weight:800; }
+    .severity-error { color:var(--danger); font-weight:700; }
+    .severity-warning { color:var(--warn); font-weight:700; }
+    .empty { color:var(--muted); text-align:center; padding:22px; }
+    .panel-empty { border:1px dashed var(--line); border-radius:16px; box-shadow:none; }
+    code { background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:12px; }
+    footer.dash { margin-top:28px; color:var(--muted); font-size:12px; text-align:center; border-top:1px solid var(--line); padding-top:16px; }
+    footer.dash a { color:var(--brand); text-decoration:none; font-weight:600; }
+    @media (max-width: 860px) { header.dash { flex-direction:column; } .toolbar { align-items:flex-start; } .grid, .grid.two { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <main>
-    <header>
-      <div>
-        <h1>YA-WAMF Telemetry Dashboard</h1>
-        <p>Aggregate usage and health diagnostics from Cloudflare D1. Window: ${days} days.</p>
+    <header class="dash">
+      <div class="brand">
+        <div class="mark">🐦</div>
+        <div>
+          <h1>YA-WAMF <span class="accent">Telemetry</span></h1>
+          <p class="subtitle">Anonymous, opt-in, aggregate stats from self-hosted installs · last ${days} days</p>
+        </div>
       </div>
       <div class="toolbar">
         <nav class="tabs">${tab('usage', 'Usage')}${tab('health', 'Health')}</nav>
@@ -307,6 +291,10 @@ function dashboardShell({
       </div>
     </header>
     ${body}
+    <footer class="dash">
+      Aggregated, anonymised telemetry — no personal data, hostnames, or media. Enabled per install and cached up to 5&nbsp;minutes.
+      · <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder">YetAnother-WhosAtMyFeeder</a>
+    </footer>
   </main>
 </body>
 </html>`;
@@ -314,16 +302,21 @@ function dashboardShell({
 
 app.get('/', (c) => c.text('YA-WAMF Telemetry Receiver is operational.'));
 
-app.get('/dashboard', async (c) => {
-  if (!c.env.DASHBOARD_USERNAME || !c.env.DASHBOARD_PASSWORD) {
-    return c.text('Dashboard disabled', 404);
-  }
-  if (!isDashboardAuthorized(c.req.raw, c.env)) {
-    return unauthorizedDashboard();
-  }
+// Public, read-only aggregate dashboard. A short per-isolate in-memory cache keeps
+// traffic bursts off D1 so the worker stays comfortably within Cloudflare's free
+// tier (the edge Cache API is a no-op on *.workers.dev, so we cache in-process).
+const DASHBOARD_CACHE = new Map<string, { html: string; expires: number }>();
+const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
+app.get('/dashboard', async (c) => {
   const days = clampDashboardDays(c.req.query('days'));
   const view = c.req.query('view') === 'health' ? 'health' : 'usage';
+
+  const cacheKey = `${view}:${days}`;
+  const cachedDashboard = DASHBOARD_CACHE.get(cacheKey);
+  if (cachedDashboard && cachedDashboard.expires > Date.now()) {
+    return c.html(cachedDashboard.html, 200, { 'Cache-Control': 'public, max-age=300' });
+  }
   const activeThreshold = `datetime('now', '-${days} days')`;
 
   if (view === 'health') {
@@ -423,7 +416,9 @@ app.get('/dashboard', async (c) => {
         <p>Ingestion endpoint: <code>POST /health-issues</code>. Reports are deduped per install and issue fingerprint.</p>
       </section>
     `;
-    return c.html(dashboardShell({ title: 'YA-WAMF Health Diagnostics', view, days, body }));
+    const healthHtml = dashboardShell({ title: 'YA-WAMF Health Diagnostics', view, days, body });
+    DASHBOARD_CACHE.set(cacheKey, { html: healthHtml, expires: Date.now() + DASHBOARD_CACHE_TTL_MS });
+    return c.html(healthHtml, 200, { 'Cache-Control': 'public, max-age=300' });
   }
 
   const totals = await c.env.DB.prepare(`
@@ -495,6 +490,7 @@ app.get('/dashboard', async (c) => {
       sum(nvidia_gpu_detected) as nvidia_gpu,
       sum(openvino_available) as openvino,
       sum(intel_gpu_available) as intel_gpu,
+      sum(intel_npu_available) as intel_npu,
       sum(openvino_gpu_compile_ok) as openvino_compile_ok,
       sum(openvino_gpu_fallback_active) as gpu_fallback
     FROM heartbeats
@@ -599,6 +595,7 @@ app.get('/dashboard', async (c) => {
     ['NVIDIA GPU detected', runtimeSummary?.nvidia_gpu],
     ['OpenVINO available', runtimeSummary?.openvino],
     ['Intel GPU available', runtimeSummary?.intel_gpu],
+    ['Intel NPU available', runtimeSummary?.intel_npu],
     ['OpenVINO GPU compile OK', runtimeSummary?.openvino_compile_ok],
     ['GPU fallback active', runtimeSummary?.gpu_fallback]
   ].map(([name, count]) => ({ name, count }));
@@ -702,7 +699,9 @@ app.get('/dashboard', async (c) => {
     </section>
   `;
 
-  return c.html(dashboardShell({ title: 'YA-WAMF Usage Telemetry', view, days, body }));
+  const usageHtml = dashboardShell({ title: 'YA-WAMF Usage Telemetry', view, days, body });
+  DASHBOARD_CACHE.set(cacheKey, { html: usageHtml, expires: Date.now() + DASHBOARD_CACHE_TTL_MS });
+  return c.html(usageHtml, 200, { 'Cache-Control': 'public, max-age=300' });
 });
 
 app.post('/heartbeat', async (c) => {
@@ -748,6 +747,7 @@ app.post('/heartbeat', async (c) => {
         nvidia_gpu_detected,
         openvino_available,
         intel_gpu_available,
+        intel_npu_available,
         openvino_gpu_compile_ok,
         openvino_gpu_compile_device,
         openvino_gpu_fallback_active,
@@ -764,7 +764,7 @@ app.post('/heartbeat', async (c) => {
         last_recovery_status,
         ip_country,
         last_seen
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(installation_id) DO UPDATE SET
         app_version = excluded.app_version,
         platform_system = excluded.platform_system,
@@ -797,6 +797,7 @@ app.post('/heartbeat', async (c) => {
         nvidia_gpu_detected = excluded.nvidia_gpu_detected,
         openvino_available = excluded.openvino_available,
         intel_gpu_available = excluded.intel_gpu_available,
+        intel_npu_available = excluded.intel_npu_available,
         openvino_gpu_compile_ok = excluded.openvino_gpu_compile_ok,
         openvino_gpu_compile_device = excluded.openvino_gpu_compile_device,
         openvino_gpu_fallback_active = excluded.openvino_gpu_fallback_active,
@@ -853,6 +854,7 @@ app.post('/heartbeat', async (c) => {
       b2i(payload.hardware?.nvidia_gpu_detected ?? undefined),
       b2i(payload.hardware?.openvino_available ?? undefined),
       b2i(payload.hardware?.intel_gpu_available ?? undefined),
+      b2i(payload.hardware?.intel_npu_available ?? undefined),
       b2iNullable(payload.hardware?.openvino_gpu_compile_ok),
       payload.hardware?.openvino_gpu_compile_device || null,
       b2i(payload.hardware?.openvino_gpu_fallback_active ?? undefined),

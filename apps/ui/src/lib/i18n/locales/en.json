@@ -665,6 +665,8 @@
       "payload_nvidia_gpu_detected": "NVIDIA GPU detected",
       "payload_openvino_available": "OpenVINO available",
       "payload_intel_gpu_available": "Intel GPU available",
+      "payload_intel_npu_available": "Intel NPU available",
+      "dashboard_link": "View the public telemetry dashboard",
       "payload_openvino_compile": "OpenVINO GPU compile",
       "payload_openvino_device": "OpenVINO device",
       "payload_gpu_fallback": "GPU fallback active",

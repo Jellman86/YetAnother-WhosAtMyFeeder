@@ -33,6 +33,7 @@ CREATE TABLE heartbeats (
     nvidia_gpu_detected BOOLEAN,
     openvino_available BOOLEAN,
     intel_gpu_available BOOLEAN,
+    intel_npu_available BOOLEAN,
     openvino_gpu_compile_ok BOOLEAN,
     openvino_gpu_compile_device TEXT,
     openvino_gpu_fallback_active BOOLEAN,

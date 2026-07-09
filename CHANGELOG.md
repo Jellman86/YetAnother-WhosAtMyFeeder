@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **Telemetry:** The opt-in telemetry now reports Intel NPU availability (`intel_npu_available`), and the aggregate dashboard is public, cached, and restyled to match the app (teal brand, Instrument Sans / Bricolage Grotesque). It shows the NPU accelerator alongside GPU/CUDA/OpenVINO. Linked from **Settings → Connections → Telemetry** and [the telemetry docs](docs/features/telemetry.md); only anonymous fleet-wide aggregates are exposed.
 - **Unraid (#56):** Added a Community Applications Docker template (`unraid/yawamf.xml`) and an [Unraid setup guide](docs/setup/unraid.md) so Unraid users can install the monolithic image with prefilled ports, `/config` and `/data` paths, and Frigate URL. The container runs as `nobody:users` (`--user 99:100`) to match Unraid's default appdata ownership (the image does not honour `PUID`/`PGID`), and ships no empty `Device` entry (Docker rejects `--device=''`); Intel GPU/NPU acceleration is added by attaching `/dev/dri` or `/dev/accel/accel0` manually. Verified the image starts healthy as uid 99:100.
 - **BirdNET (#53):** Added a persist-time confidence floor for BirdNET-Go audio detections (`frigate.audio_min_confidence`, default `0.0`). Detections below the threshold are neither buffered for correlation nor stored, completing the configurable low-confidence filtering from the audio-history request.
 
