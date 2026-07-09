@@ -23,6 +23,4 @@
   <Config Name="Timezone (TZ)" Target="TZ" Default="" Mode="" Description="Container timezone, e.g. Europe/London. Leave blank for UTC." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the container runs as (Unraid default 'nobody' is 99)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
   <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the container runs as (Unraid default 'users' is 100)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
-  <Config Name="Intel GPU (/dev/dri)" Target="/dev/dri" Default="" Mode="" Description="Optional: pass the Intel integrated GPU for OpenVINO acceleration (inference provider intel_gpu). GPU/NPU access may also need the container user in the render group; see the hardware-acceleration guide." Type="Device" Display="advanced" Required="false" Mask="false"/>
-  <Config Name="Intel NPU (/dev/accel/accel0)" Target="/dev/accel/accel0" Default="" Mode="" Description="Optional: pass the Intel Core Ultra 'AI Boost' NPU for OpenVINO acceleration (inference provider intel_npu). See the hardware-acceleration guide." Type="Device" Display="advanced" Required="false" Mask="false"/>
 </Container>

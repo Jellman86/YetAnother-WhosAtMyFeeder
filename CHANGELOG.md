@@ -7,7 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
-- **Unraid (#56):** Added a Community Applications Docker template (`unraid/yawamf.xml`) and an [Unraid setup guide](docs/setup/unraid.md) so Unraid users can install the monolithic image with prefilled ports, `/config` and `/data` paths, Frigate URL, and optional Intel GPU/NPU device passthrough.
+- **Unraid (#56):** Added a Community Applications Docker template (`unraid/yawamf.xml`) and an [Unraid setup guide](docs/setup/unraid.md) so Unraid users can install the monolithic image with prefilled ports, `/config` and `/data` paths, and Frigate URL. Optional Intel GPU/NPU acceleration is attached by adding the device manually — the template ships no empty `Device` entry, which Docker would otherwise reject as `--device=''`.
 - **BirdNET (#53):** Added a persist-time confidence floor for BirdNET-Go audio detections (`frigate.audio_min_confidence`, default `0.0`). Detections below the threshold are neither buffered for correlation nor stored, completing the configurable low-confidence filtering from the audio-history request.
 
 ### Changed

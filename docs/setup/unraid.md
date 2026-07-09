@@ -45,15 +45,19 @@ Authentication is disabled by default for first-time setup — set a password un
 
 ## Optional: hardware acceleration
 
-Under **Advanced view**, the template exposes optional device passthrough:
+To run inference on an Intel GPU or NPU, add the device yourself (the template
+does not add one, so it never passes an empty `--device` to Docker). In the
+container's edit view, switch to **Advanced view**, click **Add another Path,
+Port, Variable, Label or Device**, and add:
 
-- **Intel GPU (`/dev/dri`)** — OpenVINO on the integrated GPU (`intel_gpu`).
-- **Intel NPU (`/dev/accel/accel0`)** — OpenVINO on a Core Ultra "AI Boost" NPU (`intel_npu`).
+- Config Type **Device**, Value `/dev/dri` — Intel integrated GPU (`intel_gpu`), or
+- Config Type **Device**, Value `/dev/accel/accel0` — Intel Core Ultra "AI Boost" NPU (`intel_npu`).
 
-Add the device you have, then pick the provider under **Settings → Detection →
-Inference Provider**. GPU/NPU access can also require the container user to be in
-the host `render` group — see [Hardware Acceleration](hardware-acceleration.md)
-for the full detail and fallback behaviour.
+Add only the device you actually have. Then pick the provider under
+**Settings → Detection → Inference Provider**. GPU/NPU access can also require the
+container user to be in the host `render` group — see
+[Hardware Acceleration](hardware-acceleration.md) for the full detail and fallback
+behaviour.
 
 ## If it fails
 
