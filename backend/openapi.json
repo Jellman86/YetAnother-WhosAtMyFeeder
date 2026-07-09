@@ -4903,6 +4903,140 @@
         "title": "LeaderboardAnalysisResponse",
         "type": "object"
       },
+      "LeaderboardSpeciesItemResponse": {
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          },
+          "window_avg_confidence": {
+            "title": "Window Avg Confidence",
+            "type": "number"
+          },
+          "window_camera_count": {
+            "title": "Window Camera Count",
+            "type": "integer"
+          },
+          "window_count": {
+            "title": "Window Count",
+            "type": "integer"
+          },
+          "window_delta": {
+            "title": "Window Delta",
+            "type": "integer"
+          },
+          "window_first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window First Seen"
+          },
+          "window_last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Last Seen"
+          },
+          "window_percent": {
+            "title": "Window Percent",
+            "type": "number"
+          },
+          "window_prev_count": {
+            "title": "Window Prev Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "species",
+          "window_count",
+          "window_prev_count",
+          "window_delta",
+          "window_percent",
+          "window_avg_confidence",
+          "window_camera_count"
+        ],
+        "title": "LeaderboardSpeciesItemResponse",
+        "type": "object"
+      },
+      "LeaderboardSpeciesResponse": {
+        "properties": {
+          "span": {
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "title": "Span",
+            "type": "string"
+          },
+          "species": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardSpeciesItemResponse"
+            },
+            "title": "Species",
+            "type": "array"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "span",
+          "window_start",
+          "window_end",
+          "species"
+        ],
+        "title": "LeaderboardSpeciesResponse",
+        "type": "object"
+      },
       "LlmTestRequest": {
         "properties": {
           "llm_api_key": {
@@ -16643,7 +16777,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardSpeciesResponse"
+                }
               }
             },
             "description": "Successful Response"

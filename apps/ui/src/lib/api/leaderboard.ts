@@ -1,87 +1,34 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 
-export type LeaderboardSpan = 'all' | 'day' | 'week' | 'month';
+export type LeaderboardSpan = 'all' | paths['/api/leaderboard/species']['get']['query']['span'];
 
-export interface LeaderboardSpeciesItem {
-    species: string;
-    scientific_name?: string | null;
-    common_name?: string | null;
-    taxa_id?: number | null;
-    window_count: number;
-    window_prev_count: number;
-    window_delta: number;
-    window_percent: number;
-    window_first_seen?: string | null;
-    window_last_seen?: string | null;
-    window_avg_confidence?: number;
-    window_camera_count?: number;
-}
+export type LeaderboardSpeciesItem = paths['/api/leaderboard/species']['get']['response']['species'][number];
 
-export interface LeaderboardSpeciesResponse {
-    span: LeaderboardSpan;
-    window_start: string;
-    window_end: string;
-    species: LeaderboardSpeciesItem[];
-}
+export type LeaderboardSpeciesResponse = paths['/api/leaderboard/species']['get']['response'];
 
 export async function fetchLeaderboardSpecies(span: LeaderboardSpan = 'week'): Promise<LeaderboardSpeciesResponse> {
     const response = await apiFetch(`${API_BASE}/leaderboard/species?span=${encodeURIComponent(span)}`);
     return handleResponse<LeaderboardSpeciesResponse>(response);
 }
 
-export interface DetectionsTimelinePoint {
-    bucket_start: string;
-    label: string;
-    count: number;
-    unique_species?: number;
-    avg_confidence?: number | null;
-}
+export type DetectionsTimelinePoint =
+    paths['/api/stats/detections/timeline']['get']['response']['points'][number];
 
-export interface DetectionsTimelineComparePoint {
-    bucket_start: string;
-    count: number;
-}
+export type DetectionsTimelineComparePoint = NonNullable<
+    paths['/api/stats/detections/timeline']['get']['response']['compare_series']
+>[number]['points'][number];
 
-export interface DetectionsTimelineCompareSeries {
-    species: string;
-    points: DetectionsTimelineComparePoint[];
-}
+export type DetectionsTimelineCompareSeries = NonNullable<
+    paths['/api/stats/detections/timeline']['get']['response']['compare_series']
+>[number];
 
-export interface DetectionsTimelineSpanResponse {
-    span: LeaderboardSpan;
-    bucket: 'hour' | 'halfday' | 'day' | 'month';
-    window_start: string;
-    window_end: string;
-    total_count: number;
-    points: DetectionsTimelinePoint[];
-    compare_series?: DetectionsTimelineCompareSeries[] | null;
-    weather?: {
-        bucket_start: string;
-        temp_avg?: number | null;
-        wind_avg?: number | null;
-        precip_total?: number | null;
-        rain_total?: number | null;
-        snow_total?: number | null;
-        condition_text?: string | null;
-    }[] | null;
-    sunrise_range?: string | null;
-    sunset_range?: string | null;
-}
+export type DetectionsTimelineSpanResponse = paths['/api/stats/detections/timeline']['get']['response'];
 
-export interface DetectionsActivityHeatmapCell {
-    day_of_week: number;
-    hour: number;
-    count: number;
-}
+export type DetectionsActivityHeatmapCell =
+    paths['/api/stats/detections/activity-heatmap']['get']['response']['cells'][number];
 
-export interface DetectionsActivityHeatmapResponse {
-    span: LeaderboardSpan;
-    window_start: string;
-    window_end: string;
-    total_count: number;
-    max_cell_count: number;
-    cells: DetectionsActivityHeatmapCell[];
-}
+export type DetectionsActivityHeatmapResponse = paths['/api/stats/detections/activity-heatmap']['get']['response'];
 
 export async function fetchDetectionsTimelineSpan(
     span: LeaderboardSpan = 'week',
@@ -106,10 +53,7 @@ export async function fetchDetectionsActivityHeatmapSpan(
     return handleResponse<DetectionsActivityHeatmapResponse>(response);
 }
 
-export interface LeaderboardAnalysisResponse {
-    analysis: string;
-    analysis_timestamp: string;
-}
+export type LeaderboardAnalysisResponse = paths['/api/leaderboard/analysis']['get']['response'];
 
 export async function fetchLeaderboardAnalysis(configKey: string): Promise<LeaderboardAnalysisResponse> {
     const response = await apiFetch(`${API_BASE}/leaderboard/analysis?config_key=${encodeURIComponent(configKey)}`);
@@ -119,12 +63,9 @@ export async function fetchLeaderboardAnalysis(configKey: string): Promise<Leade
     return handleResponse<LeaderboardAnalysisResponse>(response);
 }
 
-export async function analyzeLeaderboardGraph(payload: {
-    config: Record<string, unknown>;
-    image_base64: string;
-    force?: boolean;
-    config_key?: string;
-}): Promise<LeaderboardAnalysisResponse> {
+export async function analyzeLeaderboardGraph(
+    payload: paths['/api/leaderboard/analyze']['post']['requestBody']
+): Promise<LeaderboardAnalysisResponse> {
     const response = await apiFetch(`${API_BASE}/leaderboard/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

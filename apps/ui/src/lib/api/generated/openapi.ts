@@ -730,6 +730,26 @@ export interface components {
     analysis: string;
     analysis_timestamp: string;
 };
+    LeaderboardSpeciesItemResponse: {
+    common_name?: string | null;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+    window_avg_confidence: number;
+    window_camera_count: number;
+    window_count: number;
+    window_delta: number;
+    window_first_seen?: string | null;
+    window_last_seen?: string | null;
+    window_percent: number;
+    window_prev_count: number;
+};
+    LeaderboardSpeciesResponse: {
+    span: "day" | "week" | "month";
+    species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
+    window_end: string;
+    window_start: string;
+};
     LlmTestRequest: {
     llm_api_key?: string | null;
     llm_enabled?: boolean | null;
@@ -2504,7 +2524,7 @@ export interface paths {
     span?: "day" | "week" | "month";
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['LeaderboardSpeciesResponse'];
     };
   };
   "/api/location/reverse-geocode": {

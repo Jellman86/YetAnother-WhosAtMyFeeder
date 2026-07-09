@@ -7,6 +7,7 @@ import structlog
 import re
 import unicodedata
 from typing import Literal
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -51,6 +52,28 @@ SCIENTIFIC_NAME_PATTERN = re.compile(r"^[A-Z][a-z]+(?: [a-z][a-z-]+){1,3}$")
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "Background", "Unknown", "No Detection", "Unidentified"}
 SKIP_LOOKUP_NORMALIZED = {name.lower() for name in SKIP_WIKIPEDIA_LOOKUP}
+
+
+class LeaderboardSpeciesItemResponse(BaseModel):
+    species: str
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None
+    window_count: int
+    window_prev_count: int
+    window_delta: int
+    window_percent: float
+    window_first_seen: str | None = None
+    window_last_seen: str | None = None
+    window_avg_confidence: float
+    window_camera_count: int
+
+
+class LeaderboardSpeciesResponse(BaseModel):
+    span: Literal["day", "week", "month"]
+    window_start: str
+    window_end: str
+    species: list[LeaderboardSpeciesItemResponse]
 
 
 def _parse_cached_at(value: object) -> datetime | None:
@@ -1089,7 +1112,7 @@ async def get_species_list(request: Request):
         return filtered_stats
 
 
-@router.get("/leaderboard/species")
+@router.get("/leaderboard/species", response_model=LeaderboardSpeciesResponse)
 @guest_rate_limit()
 async def get_leaderboard_species(
     request: Request,
