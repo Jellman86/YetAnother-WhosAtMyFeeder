@@ -75,6 +75,19 @@ export default defineConfig(({ mode }) => ({
             }
         }
     },
+    // The app is served both at the site root and under the Home Assistant ingress
+    // sub-path (/api/yawamf/ingress). Resolve JS/CSS asset references relative to the
+    // importing module (import.meta.url), so lazily-imported chunks and their CSS
+    // (e.g. Leaflet) load correctly under either base. The entry HTML keeps absolute
+    // /assets/ URLs, which the HA ingress proxy rewrites to the sub-path.
+    experimental: {
+        renderBuiltUrl(_filename, { hostType }) {
+            if (hostType === 'html') {
+                return undefined;
+            }
+            return { relative: true };
+        }
+    },
     server: {
         host: true,
         port: 3000,

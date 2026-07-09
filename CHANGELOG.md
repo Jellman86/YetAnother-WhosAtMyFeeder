@@ -22,6 +22,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 - **Home Assistant:** Video clips now play through the ingress sidebar panel. The proxy stripped `Content-Length` from streamed responses, forcing chunked transfer encoding that broke `<video>` Range/seeking, so clips failed to load and appeared as "cannot be found in Frigate". The proxy now preserves exact byte-length framing for unencoded media/snapshot bodies and treats the browser closing the connection mid-stream (seeking or switching clips) as normal instead of logging a proxy failure.
+- **Home Assistant:** Lazily-loaded assets (e.g. the Leaflet map CSS/JS) now load through the ingress sidebar panel. They were requested from the site root (`/assets/…`) instead of the ingress sub-path, causing "Unable to preload CSS" errors. Vite now resolves JS/CSS asset URLs relative to the importing module (`import.meta.url`), so they load correctly under the ingress base and at the site root.
 
 ## [2.12.0] - 2026-07-07
 
