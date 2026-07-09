@@ -414,6 +414,44 @@ this item promotes that review's implementation plan into a release gate.
 
 ---
 
+### 8.2. Fleet Health: Frigate Media Reliability + Telemetry Signal — Pre-3.0 🩹
+**Priority:** P1 | **Effort:** M | **Status:** Planned — informed by
+[`docs/reviews/2026-07-09-telemetry-health-findings.md`](docs/reviews/2026-07-09-telemetry-health-findings.md)
+
+A review of the opt-in health telemetry (Cloudflare D1 `yawamf-health-issues`, 13
+installs, ~2 months) shows the dominant real-world failure across the fleet is
+**Frigate not having the snapshot/event/clip when YA-WAMF fetches it** — the same
+family we tune per-user via Frigate `threshold`/`min_initialized`, but here it is
+fleet-wide and, at worst, **silently deleting user history**. The telemetry itself
+is also too noisy to triage. Close these before `v3.0`.
+
+**Scope:**
+1. **Never lose history to Frigate media gaps.** Cache the snapshot/clip before the
+   classify stage can drop it, so `event_processor / drop_classify_snapshot_unavailable`
+   (error, 8/13 installs, still active) stops discarding detections. Default the
+   `frigate_missing` policy to **keep** local data, not delete — two installs have
+   deleted local detections ~18k times because Frigate rotated the event.
+2. **Guide users into the fix.** When the event-not-found / snapshot-unavailable rate
+   is high, surface the [Event Not Found guide](docs/troubleshooting/frigate-event-not-found.md)
+   in-app (the Frigate `threshold`/`min_initialized` tuning), rather than only in docs.
+3. **Retire the critical on old builds.** `event_processor / stage_failure @ classify_snapshot`
+   (critical, 4 installs) appears only on `2.9.15`/`2.10.0` and looks resolved by the
+   `2.11` inference-health refactor; confirm, and nudge stale installs to update
+   (~5 are still on released `2.10.0`).
+4. **Clean the telemetry signal.** Classify expected `drop_filter_*` events
+   (low-confidence, blocked-label — ~40k occ of *normal* behaviour) as informational,
+   not health issues; populate `sample_context_json` for stage failures (currently
+   empty `{}` on the critical issue); and recalibrate `severity` so it is triage-able.
+
+**Acceptance Criteria:**
+- A detection is not dropped for a missing live snapshot when a cached copy exists or
+  can be cached first; the `frigate_missing` default never deletes local history.
+- Health telemetry separates configured drops from faults, and critical stage
+  failures carry enough context to diagnose the cause.
+- The `classify_snapshot` critical is confirmed fixed on supported versions.
+
+---
+
 ### 9. Next-Version Accurate Bird Crop Detector Tier 🐦
 **Priority:** P1 | **Effort:** M-L (1-2 weeks) | **Status:** Deferred to next version
 
