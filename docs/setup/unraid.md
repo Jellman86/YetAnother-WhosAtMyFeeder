@@ -35,6 +35,13 @@ LAN, put them behind an authenticated reverse proxy — see
    - **Frigate URL** — set this to your Frigate instance, e.g. `http://192.168.1.10:5000`.
 4. Click **Apply**.
 
+The template runs the container as `nobody:users` (uid `99` / gid `100`) via
+`--user 99:100`, which matches Unraid's default appdata ownership — so `/config`
+and `/data` are writable without any `chown`. If you point appdata at a share with
+different ownership, either set it to `99:100` or run the Unraid **Docker Safe New
+Permissions** tool. (The image does not honour `PUID`/`PGID` environment variables,
+so the run-as user is set with `--user` instead.)
+
 ## Expected result
 
 Unraid pulls `ghcr.io/jellman86/yawamf-monalithic:latest` and starts the

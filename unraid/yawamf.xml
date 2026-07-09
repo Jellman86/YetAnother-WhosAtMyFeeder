@@ -7,6 +7,7 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
+  <ExtraParams>--user 99:100</ExtraParams>
   <Support>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues</Support>
   <Project>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder</Project>
   <Overview>YA-WAMF (Yet Another WhosAtMyFeeder) identifies birds at your feeder from Frigate NVR events using local machine-learning models. It shows a real-time dashboard, correlates visual detections with BirdNET-Go audio, enriches species with taxonomy, and can send notifications.&#13;&#13;This is the monolithic image (web UI and backend in one container). It needs a running Frigate instance publishing events over MQTT; point it at your Frigate URL below. See the Unraid setup guide for the full walkthrough.</Overview>
@@ -21,6 +22,4 @@
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/ya-wamf/data" Mode="rw" Description="Detections database (SQLite) and cached media. Can grow with retention; keep on fast storage." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ya-wamf/data</Config>
   <Config Name="Frigate URL" Target="FRIGATE__FRIGATE_URL" Default="http://frigate:5000" Mode="" Description="Base URL of your Frigate instance (for the MQTT-driven event pipeline and media fetch)." Type="Variable" Display="always" Required="true" Mask="false">http://frigate:5000</Config>
   <Config Name="Timezone (TZ)" Target="TZ" Default="" Mode="" Description="Container timezone, e.g. Europe/London. Leave blank for UTC." Type="Variable" Display="advanced" Required="false" Mask="false"/>
-  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the container runs as (Unraid default 'nobody' is 99)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
-  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the container runs as (Unraid default 'users' is 100)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
 </Container>
