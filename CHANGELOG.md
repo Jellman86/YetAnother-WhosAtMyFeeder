@@ -6,49 +6,33 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-07-09
+
 ### Added
 - **Telemetry:** The opt-in telemetry now reports Intel NPU availability (`intel_npu_available`), and the aggregate dashboard is public, cached, and restyled to match the app (teal brand, Instrument Sans / Bricolage Grotesque). It shows the NPU accelerator alongside GPU/CUDA/OpenVINO. Linked from **Settings → Connections → Telemetry** and [the telemetry docs](docs/features/telemetry.md); only anonymous fleet-wide aggregates are exposed.
 - **Unraid (#56):** Added a Community Applications Docker template (`unraid/yawamf.xml`) and an [Unraid setup guide](docs/setup/unraid.md) so Unraid users can install the monolithic image with prefilled ports, `/config` and `/data` paths, and Frigate URL. The container runs as `nobody:users` (`--user 99:100`) to match Unraid's default appdata ownership (the image does not honour `PUID`/`PGID`), and ships no empty `Device` entry (Docker rejects `--device=''`); Intel GPU/NPU acceleration is added by attaching `/dev/dri` or `/dev/accel/accel0` manually. Verified the image starts healthy as uid 99:100.
 - **BirdNET (#53):** Added a persist-time confidence floor for BirdNET-Go audio detections (`frigate.audio_min_confidence`, default `0.0`). Detections below the threshold are neither buffered for correlation nor stored, completing the configurable low-confidence filtering from the audio-history request.
-
-### Changed
-- **Diagnostics:** Expected, config-driven event drops (`filter_*` — low confidence, blocked labels/species) are now recorded as informational rather than warnings, so they stay out of the health telemetry and no longer bury genuine failures on the Errors page. Health-issue reporting already excludes `info` severity, so the ~40k occurrences of normal filtering that dominated the fleet health data will drop out. Informed by the [telemetry health review](docs/reviews/2026-07-09-telemetry-health-findings.md).
-- **Docs:** Reconciled the roadmap, gold-standard review, and engineering contract against current `dev`: Ruff format and 60% coverage are CI gates, generated frontend OpenAPI types are checked in CI, and the Home Assistant ingress roadmap now reflects media seeking plus lazy chunk asset support.
-- **Classifier worker:** The progress-emit timeout is now injectable (`progress_emit_timeout_seconds`, default unchanged) and the slow-progress test waits on observed state rather than fixed sleeps, fixing a deadlock that hung the test suite when run under `coverage`.
-- **CI:** Applied a Ruff formatting baseline across the backend and Home Assistant integration, and added a `ruff format --check` gate so formatting drift fails CI. Formatting-only commits are listed in `.git-blame-ignore-revs`.
-- **CI:** Raised the backend coverage floor from 20% to 60% (measured coverage is ~65%) so coverage regressions fail the build.
-- **API contract:** Added a generated frontend TypeScript contract (`apps/ui/src/lib/api/generated/openapi.ts`) from `backend/openapi.json`, wired auth, stats, events, classifier/model, backfill, and settings write payload API types to it, and added a CI freshness check so backend contract drift reaches the SPA during review.
-- **API contract:** Added explicit backend response models for maintenance and media-cache endpoints, then migrated the frontend maintenance API client to the generated response types.
-- **API contract:** Added explicit response models for classifier labels/default-download and model download/activate actions, then migrated those frontend API client result types to the generated contract.
-- **API contract:** Added explicit response models for taxonomy sync and timezone-repair endpoints, then migrated those frontend maintenance client types to the generated contract.
-- **API contract:** Added explicit response models for version, Frigate connection/capability, and reverse-geocode endpoints, then migrated the matching frontend system/geocoding types to the generated contract.
-- **API contract:** Added explicit response models for diagnostics history/workspace/bundle/clear endpoints, then migrated the frontend diagnostics API client to generated response types.
-- **API contract:** Added explicit response models for audio recent/history/summary/species/context endpoints, then migrated the frontend audio API client to generated response types.
-- **API contract:** Added an explicit response model for the visual species leaderboard endpoint, then migrated the frontend leaderboard/statistics graph API client to generated response and request types.
-- **API contract:** Migrated the frontend media API client for video-share, recording-clip fetch, and snapshot candidate/status/apply flows to generated response and request types.
-
-### Fixed
-- **Home Assistant:** Video clips now play through the ingress sidebar panel. The proxy stripped `Content-Length` from streamed responses, forcing chunked transfer encoding that broke `<video>` Range/seeking, so clips failed to load and appeared as "cannot be found in Frigate". The proxy now preserves exact byte-length framing for unencoded media/snapshot bodies and treats the browser closing the connection mid-stream (seeking or switching clips) as normal instead of logging a proxy failure.
-- **Home Assistant:** Lazily-loaded assets (e.g. the Leaflet map CSS/JS) now load through the ingress sidebar panel. They were requested from the site root (`/assets/…`) instead of the ingress sub-path, causing "Unable to preload CSS" errors. Vite now resolves JS/CSS asset URLs relative to the importing module (`import.meta.url`), so they load correctly under the ingress base and at the site root.
-
-## [2.12.0] - 2026-07-07
-
-### Added
-- **API:** Build-time OpenAPI artifact (`backend/openapi.json`) exported by `backend/scripts/export_openapi.py`, with a CI drift check so the published API contract stays in sync with the routers under `backend/app/routers`.
-- **Docs & governance:** Added a documentation standard (`docs/documentation-standard.md`), a hardware-acceleration setup guide covering the Intel NPU / Intel GPU / CUDA providers, and `AGENTS.md` and `CODE_OF_CONDUCT.md` governance files.
-- **CI:** Pull-request CI now runs Ruff linting over backend and Home Assistant integration Python code, and reports backend coverage with the existing 20% floor so regressions are visible before merge.
-- **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
 - **BirdNET (#53):** Added a persisted Audio History view backed by the existing BirdNET-Go detection table, including filterable history, confidence/source/species filters, top heard species, source rollups, and hourly activity summaries separate from visual feeder detections.
 - **BirdNET (#53):** Polished the audio history surfaces. The Species leaderboard now merges BirdNET-Go "heard" counts alongside camera "seen" counts with a Seen/Heard/Both toggle and surfaces audio-only species (new `GET /api/audio/species` endpoint). The Audio History view gains real charts — a daily activity timeline, time-of-day distribution, species mix donut, richer top-species cards, and per-detection spectrogram thumbnails. The dashboard audio widget adds an at-a-glance strip with today's heard count, species count, and an hourly sparkline.
 - **BirdNET (#53):** The Audio History "Top heard species" cards now show a species recognition thumbnail, reusing the same lazily-loaded species imagery as the visual leaderboard and degrading silently to a placeholder when enrichment is unavailable.
 - **Classifier:** Intel NPU (OpenVINO) inference provider support. The classifier can run the `rope_vit_b14` model on an Intel "AI Boost" NPU (`/dev/accel`); it was validated on Arrow Lake at f16 with top-5 output matching CPU exactly. The NPU is surfaced in classifier status, the runtime hardware probe, and the Settings device picker (shown as verified or unverified per host), and the runtime falls back to OpenVINO CPU when the NPU is requested but unavailable.
 - **Home Assistant (#54):** Sidebar panel served through a Home Assistant ingress proxy. The integration registers a "YA-WAMF" sidebar entry that proxies the authenticated dashboard under `/api/yawamf/ingress`, rewrites root-relative asset and API paths, and injects the app base path so the SPA's API calls resolve through the proxy.
-
-### Fixed
-- **Maintenance:** BirdNET-Go audio detections now honour the configured retention window. Scheduled cleanup previously deleted only visual detections, so the `audio_detections` table grew without bound; it now also purges audio rows older than `maintenance.retention_days` (chunked, keyed on the audio `timestamp`) in the same cleanup pass.
+- **API:** Build-time OpenAPI artifact (`backend/openapi.json`) exported by `backend/scripts/export_openapi.py`, with a CI drift check so the published API contract stays in sync with the routers under `backend/app/routers`.
+- **Docs & governance:** Added a documentation standard (`docs/documentation-standard.md`), a hardware-acceleration setup guide covering the Intel NPU / Intel GPU / CUDA providers, and `AGENTS.md` and `CODE_OF_CONDUCT.md` governance files.
+- **CI:** Pull-request CI now runs Ruff linting over backend and Home Assistant integration Python code, and reports backend coverage with the existing floor so regressions are visible before merge.
+- **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
 
 ### Changed
+- **Diagnostics:** Expected, config-driven event drops (`filter_*` — low confidence, blocked labels/species) are now recorded as informational rather than warnings, so they stay out of the health telemetry and no longer bury genuine failures on the Errors page. Health-issue reporting already excludes `info` severity, so the ~40k occurrences of normal filtering that dominated the fleet health data will drop out. Informed by the [telemetry health review](docs/reviews/2026-07-09-telemetry-health-findings.md).
+- **API contract:** Generated a frontend TypeScript contract (`apps/ui/src/lib/api/generated/openapi.ts`) from `backend/openapi.json` and migrated the SPA API clients (auth, stats, events, classifier/model, backfill, settings, maintenance, media-cache, taxonomy, timezone-repair, version, Frigate connection, reverse-geocode, diagnostics, audio, leaderboard, media) to the generated response/request types, with a CI freshness check so backend contract drift reaches the SPA during review.
+- **CI:** Applied a Ruff formatting baseline across the backend and Home Assistant integration, added a `ruff format --check` gate, and raised the backend coverage floor from 20% to 60% (measured ~65%) so formatting and coverage regressions fail the build. Formatting-only commits are listed in `.git-blame-ignore-revs`.
+- **Classifier worker:** The progress-emit timeout is now injectable (`progress_emit_timeout_seconds`, default unchanged) and the slow-progress test waits on observed state rather than fixed sleeps, fixing a deadlock that hung the test suite when run under `coverage`.
 - **Contributing:** Rewrote `CONTRIBUTING.md` to point at the `CLAUDE.md` engineering contract, target everyday work at `dev`, and list the concrete backend, frontend, docs, migration, changelog, and CI expectations for pull requests.
+
+### Fixed
+- **Home Assistant:** Video clips now play through the ingress sidebar panel. The proxy stripped `Content-Length` from streamed responses, forcing chunked transfer encoding that broke `<video>` Range/seeking, so clips failed to load and appeared as "cannot be found in Frigate". The proxy now preserves exact byte-length framing for unencoded media/snapshot bodies and treats the browser closing the connection mid-stream (seeking or switching clips) as normal instead of logging a proxy failure.
+- **Home Assistant:** Lazily-loaded assets (e.g. the Leaflet map CSS/JS) now load through the ingress sidebar panel. They were requested from the site root (`/assets/…`) instead of the ingress sub-path, causing "Unable to preload CSS" errors. Vite now resolves JS/CSS asset URLs relative to the importing module (`import.meta.url`), so they load correctly under the ingress base and at the site root.
+- **Maintenance:** BirdNET-Go audio detections now honour the configured retention window. Scheduled cleanup previously deleted only visual detections, so the `audio_detections` table grew without bound; it now also purges audio rows older than `maintenance.retention_days` (chunked, keyed on the audio `timestamp`) in the same cleanup pass.
 
 ## [2.11.0] - 2026-06-22
 
