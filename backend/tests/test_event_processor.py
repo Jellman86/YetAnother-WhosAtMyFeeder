@@ -456,6 +456,26 @@ async def test_process_mqtt_message_logs_filter_drop_reason():
     assert status["drop_reasons"]["filter_low_confidence"] == 1
 
 
+def test_record_drop_classifies_expected_filtering_as_info():
+    from app.services.error_diagnostics import error_diagnostics_history
+
+    processor = EventProcessor(MagicMock())
+    processor._record_drop("evt-drop-info-1", "filter_low_confidence")
+    processor._record_drop("evt-drop-info-2", "filter_blocked_label")
+    processor._record_drop("evt-drop-err", "classify_snapshot_unavailable")
+    processor._record_drop("evt-drop-warn", "live_event_stale")
+
+    events = error_diagnostics_history.snapshot(component="event_processor", limit=1000)["events"]
+    severity_by_reason = {e["reason_code"]: e["severity"] for e in events}
+
+    # Expected, config-driven filtering is informational — kept out of health telemetry.
+    assert severity_by_reason["drop_filter_low_confidence"] == "info"
+    assert severity_by_reason["drop_filter_blocked_label"] == "info"
+    # Genuine failures retain their severity.
+    assert severity_by_reason["drop_classify_snapshot_unavailable"] == "error"
+    assert severity_by_reason["drop_live_event_stale"] == "warning"
+
+
 @pytest.mark.asyncio
 async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     classifier = MagicMock()

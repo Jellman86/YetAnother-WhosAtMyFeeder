@@ -185,11 +185,15 @@ class EventProcessor:
         }
         payload.update(details)
         self._last_drop = payload
-        severity = (
-            "error"
-            if reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}
-            else "warning"
-        )
+        if reason_key.startswith("filter_"):
+            # Expected, config-driven filtering (low confidence, blocked labels/species).
+            # Not a fault — record as informational so normal drops stay out of the
+            # health telemetry and don't bury real failures on the Errors page.
+            severity = "info"
+        elif reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}:
+            severity = "error"
+        else:
+            severity = "warning"
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
