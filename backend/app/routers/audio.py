@@ -30,6 +30,83 @@ class AudioSourceResponse(BaseModel):
     seen_count: int = 1
 
 
+class AudioDetectionResponse(BaseModel):
+    timestamp: str
+    species: str
+    confidence: float
+    sensor_id: str | None = None
+    source_name: str | None = None
+    birdnet_id: int | None = None
+
+
+class AudioHistoryDetectionResponse(AudioDetectionResponse):
+    id: int
+
+
+class AudioHistoryResponse(BaseModel):
+    items: list[AudioHistoryDetectionResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class AudioSpeciesSummaryResponse(BaseModel):
+    species: str
+    count: int
+    avg_confidence: float
+    max_confidence: float
+    first_heard: str | None = None
+    last_heard: str | None = None
+
+
+class AudioDailyCountResponse(BaseModel):
+    date: str
+    count: int
+
+
+class AudioHourlyCountResponse(BaseModel):
+    hour: int
+    count: int
+
+
+class AudioSourceSummaryResponse(BaseModel):
+    source_name: str
+    count: int
+    last_heard: str
+
+
+class AudioSummaryResponse(BaseModel):
+    total: int
+    species_count: int
+    source_count: int
+    top_species: list[AudioSpeciesSummaryResponse]
+    daily_counts: list[AudioDailyCountResponse]
+    hourly_counts: list[AudioHourlyCountResponse]
+    sources: list[AudioSourceSummaryResponse]
+
+
+class AudioSpeciesLeaderboardItemResponse(BaseModel):
+    species: str
+    scientific_name: str | None = None
+    heard_count: int
+    heard_prev_count: int
+    heard_delta: int
+    heard_percent: float
+    avg_confidence: float
+    last_heard: str | None = None
+
+
+class AudioSpeciesLeaderboardResponse(BaseModel):
+    span: Literal["day", "week", "month", "all"]
+    window_start: str
+    window_end: str
+    species: list[AudioSpeciesLeaderboardItemResponse]
+
+
+class AudioContextDetectionResponse(AudioDetectionResponse):
+    offset_seconds: int
+
+
 class AudioHistoryQuery(BaseModel):
     start_date: datetime | None
     end_date: datetime | None
@@ -89,7 +166,7 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
     return source_name, sample_source_id
 
 
-@router.get("/recent")
+@router.get("/recent", response_model=list[AudioDetectionResponse])
 @guest_rate_limit()
 async def get_recent_audio(
     request: Request, limit: int = 10, auth: AuthContext = Depends(get_auth_context_with_legacy)
@@ -110,7 +187,7 @@ async def get_recent_audio(
     return detections
 
 
-@router.get("/history")
+@router.get("/history", response_model=AudioHistoryResponse)
 @guest_rate_limit()
 async def get_audio_history(
     request: Request,
@@ -151,7 +228,7 @@ async def get_audio_history(
     return result
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=AudioSummaryResponse)
 @guest_rate_limit()
 async def get_audio_summary(
     request: Request,
@@ -207,7 +284,7 @@ def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, dateti
     return window_start, now, window_start - window, window_start
 
 
-@router.get("/species")
+@router.get("/species", response_model=AudioSpeciesLeaderboardResponse)
 @guest_rate_limit()
 async def get_audio_species_leaderboard(
     request: Request,
@@ -354,7 +431,7 @@ async def get_audio_clip(
     )
 
 
-@router.get("/context")
+@router.get("/context", response_model=list[AudioContextDetectionResponse])
 @guest_rate_limit()
 async def get_audio_context(
     request: Request,

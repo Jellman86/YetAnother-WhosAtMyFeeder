@@ -1,71 +1,24 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 import type { LeaderboardSpan } from './leaderboard';
 
-export interface AudioDetection {
-    timestamp: string;
-    species: string;
-    confidence: number;
-    sensor_id: string | null;
-    source_name?: string | null;
-    birdnet_id?: number | null;
-}
+export type AudioDetection = paths['/api/audio/recent']['get']['response'][number];
 
-export interface AudioHistoryDetection extends AudioDetection {
-    id: number;
-}
+export type AudioHistoryDetection = paths['/api/audio/history']['get']['response']['items'][number];
 
-export interface AudioHistoryParams {
-    days?: number;
-    start_date?: string;
-    end_date?: string;
-    species?: string;
-    source?: string;
-    min_confidence?: number;
-    limit?: number;
-    offset?: number;
-}
+export type AudioHistoryParams = paths['/api/audio/history']['get']['query'];
 
-export interface AudioHistoryResponse {
-    items: AudioHistoryDetection[];
-    total: number;
-    limit: number;
-    offset: number;
-}
+export type AudioHistoryResponse = paths['/api/audio/history']['get']['response'];
 
-export interface AudioSpeciesSummary {
-    species: string;
-    count: number;
-    avg_confidence: number;
-    max_confidence: number;
-    first_heard?: string | null;
-    last_heard?: string | null;
-}
+export type AudioSpeciesSummary = paths['/api/audio/summary']['get']['response']['top_species'][number];
 
-export interface AudioDailyCount {
-    date: string;
-    count: number;
-}
+export type AudioDailyCount = paths['/api/audio/summary']['get']['response']['daily_counts'][number];
 
-export interface AudioHourlyCount {
-    hour: number;
-    count: number;
-}
+export type AudioHourlyCount = paths['/api/audio/summary']['get']['response']['hourly_counts'][number];
 
-export interface AudioSourceSummary {
-    source_name: string;
-    count: number;
-    last_heard: string;
-}
+export type AudioSourceSummary = paths['/api/audio/summary']['get']['response']['sources'][number];
 
-export interface AudioSummaryResponse {
-    total: number;
-    species_count: number;
-    source_count: number;
-    top_species: AudioSpeciesSummary[];
-    daily_counts: AudioDailyCount[];
-    hourly_counts: AudioHourlyCount[];
-    sources: AudioSourceSummary[];
-}
+export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'];
 
 export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
@@ -93,23 +46,9 @@ export async function fetchAudioSummary(params: Omit<AudioHistoryParams, 'limit'
     return handleResponse<AudioSummaryResponse>(response);
 }
 
-export interface AudioSpeciesLeaderboardItem {
-    species: string;
-    scientific_name?: string | null;
-    heard_count: number;
-    heard_prev_count: number;
-    heard_delta: number;
-    heard_percent: number;
-    avg_confidence: number;
-    last_heard?: string | null;
-}
+export type AudioSpeciesLeaderboardItem = paths['/api/audio/species']['get']['response']['species'][number];
 
-export interface AudioSpeciesLeaderboardResponse {
-    span: LeaderboardSpan;
-    window_start: string;
-    window_end: string;
-    species: AudioSpeciesLeaderboardItem[];
-}
+export type AudioSpeciesLeaderboardResponse = paths['/api/audio/species']['get']['response'];
 
 export async function fetchAudioSpeciesLeaderboard(
     span: LeaderboardSpan = 'week'
@@ -118,17 +57,9 @@ export async function fetchAudioSpeciesLeaderboard(
     return handleResponse<AudioSpeciesLeaderboardResponse>(response);
 }
 
-export interface AudioContextDetection extends AudioDetection {
-    offset_seconds: number;
-}
+export type AudioContextDetection = paths['/api/audio/context']['get']['response'][number];
 
-export interface AudioSourceOption {
-    source_name: string;
-    mapping_value: string;
-    last_seen: string;
-    sample_source_id?: string | null;
-    seen_count?: number;
-}
+export type AudioSourceOption = paths['/api/audio/sources']['get']['response'][number];
 
 export async function fetchAudioContext(
     timestamp: string,

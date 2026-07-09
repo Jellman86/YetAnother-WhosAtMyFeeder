@@ -90,12 +90,90 @@ export interface components {
     status: string;
     total_candidates?: number | null;
 };
+    AudioContextDetectionResponse: {
+    birdnet_id?: number | null;
+    confidence: number;
+    offset_seconds: number;
+    sensor_id?: string | null;
+    source_name?: string | null;
+    species: string;
+    timestamp: string;
+};
+    AudioDailyCountResponse: {
+    count: number;
+    date: string;
+};
+    AudioDetectionResponse: {
+    birdnet_id?: number | null;
+    confidence: number;
+    sensor_id?: string | null;
+    source_name?: string | null;
+    species: string;
+    timestamp: string;
+};
+    AudioHistoryDetectionResponse: {
+    birdnet_id?: number | null;
+    confidence: number;
+    id: number;
+    sensor_id?: string | null;
+    source_name?: string | null;
+    species: string;
+    timestamp: string;
+};
+    AudioHistoryResponse: {
+    items: Array<components['schemas']['AudioHistoryDetectionResponse']>;
+    limit: number;
+    offset: number;
+    total: number;
+};
+    AudioHourlyCountResponse: {
+    count: number;
+    hour: number;
+};
     AudioSourceResponse: {
     last_seen: string;
     mapping_value: string;
     sample_source_id?: string | null;
     seen_count?: number;
     source_name: string;
+};
+    AudioSourceSummaryResponse: {
+    count: number;
+    last_heard: string;
+    source_name: string;
+};
+    AudioSpeciesLeaderboardItemResponse: {
+    avg_confidence: number;
+    heard_count: number;
+    heard_delta: number;
+    heard_percent: number;
+    heard_prev_count: number;
+    last_heard?: string | null;
+    scientific_name?: string | null;
+    species: string;
+};
+    AudioSpeciesLeaderboardResponse: {
+    span: "day" | "week" | "month" | "all";
+    species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
+    window_end: string;
+    window_start: string;
+};
+    AudioSpeciesSummaryResponse: {
+    avg_confidence: number;
+    count: number;
+    first_heard?: string | null;
+    last_heard?: string | null;
+    max_confidence: number;
+    species: string;
+};
+    AudioSummaryResponse: {
+    daily_counts: Array<components['schemas']['AudioDailyCountResponse']>;
+    hourly_counts: Array<components['schemas']['AudioHourlyCountResponse']>;
+    source_count: number;
+    sources: Array<components['schemas']['AudioSourceSummaryResponse']>;
+    species_count: number;
+    top_species: Array<components['schemas']['AudioSpeciesSummaryResponse']>;
+    total: number;
 };
     AuthStatusResponse: {
     accessibility_live_announcements?: boolean;
@@ -1377,7 +1455,7 @@ export interface paths {
     window_seconds?: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['AudioContextDetectionResponse']>;
     };
   };
   "/api/audio/history": {
@@ -1395,7 +1473,7 @@ export interface paths {
     start_date?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AudioHistoryResponse'];
     };
   };
   "/api/audio/recent": {
@@ -1406,7 +1484,7 @@ export interface paths {
     limit?: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['AudioDetectionResponse']>;
     };
   };
   "/api/audio/sources": {
@@ -1428,7 +1506,7 @@ export interface paths {
     span?: "day" | "week" | "month" | "all";
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AudioSpeciesLeaderboardResponse'];
     };
   };
   "/api/audio/spectrogram/{birdnet_id}": {
@@ -1457,7 +1535,7 @@ export interface paths {
     start_date?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AudioSummaryResponse'];
     };
   };
   "/api/auth/initial-setup": {

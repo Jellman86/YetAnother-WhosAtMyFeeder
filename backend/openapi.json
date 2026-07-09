@@ -672,6 +672,251 @@
         "title": "AnalyzeUnknownsResponse",
         "type": "object"
       },
+      "AudioContextDetectionResponse": {
+        "properties": {
+          "birdnet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birdnet Id"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "offset_seconds": {
+            "title": "Offset Seconds",
+            "type": "integer"
+          },
+          "sensor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Id"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "species",
+          "confidence",
+          "offset_seconds"
+        ],
+        "title": "AudioContextDetectionResponse",
+        "type": "object"
+      },
+      "AudioDailyCountResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "count"
+        ],
+        "title": "AudioDailyCountResponse",
+        "type": "object"
+      },
+      "AudioDetectionResponse": {
+        "properties": {
+          "birdnet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birdnet Id"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "sensor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Id"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "species",
+          "confidence"
+        ],
+        "title": "AudioDetectionResponse",
+        "type": "object"
+      },
+      "AudioHistoryDetectionResponse": {
+        "properties": {
+          "birdnet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birdnet Id"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "sensor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensor Id"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "species",
+          "confidence",
+          "id"
+        ],
+        "title": "AudioHistoryDetectionResponse",
+        "type": "object"
+      },
+      "AudioHistoryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AudioHistoryDetectionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AudioHistoryResponse",
+        "type": "object"
+      },
+      "AudioHourlyCountResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hour",
+          "count"
+        ],
+        "title": "AudioHourlyCountResponse",
+        "type": "object"
+      },
       "AudioSourceResponse": {
         "properties": {
           "last_seen": {
@@ -709,6 +954,231 @@
           "last_seen"
         ],
         "title": "AudioSourceResponse",
+        "type": "object"
+      },
+      "AudioSourceSummaryResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "last_heard": {
+            "title": "Last Heard",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_name",
+          "count",
+          "last_heard"
+        ],
+        "title": "AudioSourceSummaryResponse",
+        "type": "object"
+      },
+      "AudioSpeciesLeaderboardItemResponse": {
+        "properties": {
+          "avg_confidence": {
+            "title": "Avg Confidence",
+            "type": "number"
+          },
+          "heard_count": {
+            "title": "Heard Count",
+            "type": "integer"
+          },
+          "heard_delta": {
+            "title": "Heard Delta",
+            "type": "integer"
+          },
+          "heard_percent": {
+            "title": "Heard Percent",
+            "type": "number"
+          },
+          "heard_prev_count": {
+            "title": "Heard Prev Count",
+            "type": "integer"
+          },
+          "last_heard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heard"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "heard_count",
+          "heard_prev_count",
+          "heard_delta",
+          "heard_percent",
+          "avg_confidence"
+        ],
+        "title": "AudioSpeciesLeaderboardItemResponse",
+        "type": "object"
+      },
+      "AudioSpeciesLeaderboardResponse": {
+        "properties": {
+          "span": {
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "all"
+            ],
+            "title": "Span",
+            "type": "string"
+          },
+          "species": {
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeciesLeaderboardItemResponse"
+            },
+            "title": "Species",
+            "type": "array"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "span",
+          "window_start",
+          "window_end",
+          "species"
+        ],
+        "title": "AudioSpeciesLeaderboardResponse",
+        "type": "object"
+      },
+      "AudioSpeciesSummaryResponse": {
+        "properties": {
+          "avg_confidence": {
+            "title": "Avg Confidence",
+            "type": "number"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "first_heard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Heard"
+          },
+          "last_heard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heard"
+          },
+          "max_confidence": {
+            "title": "Max Confidence",
+            "type": "number"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "count",
+          "avg_confidence",
+          "max_confidence"
+        ],
+        "title": "AudioSpeciesSummaryResponse",
+        "type": "object"
+      },
+      "AudioSummaryResponse": {
+        "properties": {
+          "daily_counts": {
+            "items": {
+              "$ref": "#/components/schemas/AudioDailyCountResponse"
+            },
+            "title": "Daily Counts",
+            "type": "array"
+          },
+          "hourly_counts": {
+            "items": {
+              "$ref": "#/components/schemas/AudioHourlyCountResponse"
+            },
+            "title": "Hourly Counts",
+            "type": "array"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AudioSourceSummaryResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "species_count": {
+            "title": "Species Count",
+            "type": "integer"
+          },
+          "top_species": {
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeciesSummaryResponse"
+            },
+            "title": "Top Species",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "species_count",
+          "source_count",
+          "top_species",
+          "daily_counts",
+          "hourly_counts",
+          "sources"
+        ],
+        "title": "AudioSummaryResponse",
         "type": "object"
       },
       "AuthStatusResponse": {
@@ -10528,7 +10998,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioContextDetectionResponse"
+                  },
+                  "title": "Response Get Audio Context Api Audio Context Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -10693,7 +11169,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AudioHistoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -10747,7 +11225,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioDetectionResponse"
+                  },
+                  "title": "Response Get Recent Audio Api Audio Recent Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -10869,7 +11353,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSpeciesLeaderboardResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -11076,7 +11562,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSummaryResponse"
+                }
               }
             },
             "description": "Successful Response"
