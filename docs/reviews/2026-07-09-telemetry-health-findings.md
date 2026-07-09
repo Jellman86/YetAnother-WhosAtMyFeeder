@@ -80,16 +80,21 @@ No action beyond ensuring reconnection stays robust.
 
 ## Recommendations (feed the pre-3.0 roadmap item)
 
-1. **Reduce Frigate media-unavailability drops (finding 1).** Ensure the snapshot/clip
-   is cached before the classify stage can drop it (close the
-   `drop_classify_snapshot_unavailable` gap), and make the `frigate_missing` policy
-   default to *keep* rather than *delete* so history is never silently lost. Surface
-   the [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) in-app
-   when the rate is high.
+1. **Reduce Frigate media-unavailability drops (finding 1).** The classify fallback
+   chain (`_load_snapshot_classification_fallback`) is cropped → uncropped → thumbnail
+   → cached snapshot, and `drop_classify_snapshot_unavailable` fires only when all fail
+   — the transient-object case. Add a **recording-frame** source (the continuous
+   recording usually still covers the moment), so a brief bird is classified from a
+   recording frame instead of dropped. Surface the
+   [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) in-app when
+   the rate is high. (Correction: the `frigate_missing` default is already
+   `mark_missing`, never delete — the ~18k deletions are from installs that explicitly
+   chose *delete*, now clearly warned against in that guide.)
 2. **Push old installs off the critical build (finding 2).** Confirm `classify_snapshot`
    `stage_failure` is fixed on `2.11`+, and nudge `2.9.x`/`2.10.x` installs to update.
-3. **Separate expected drops from problems (finding 3).** Classify `drop_filter_*` as
-   informational, not health issues, so aggregates reflect real faults.
+3. **Separate expected drops from problems (finding 3).** ✅ Done — `filter_*` drops are
+   now recorded as informational, and health reporting excludes `info`, so normal
+   filtering no longer reaches the fleet health data.
 4. **Capture context for critical failures (finding 5).** Populate
    `sample_context_json` for stage failures (exception type, stage inputs) and
    recalibrate severity so it is usable for triage.
