@@ -394,7 +394,7 @@ this item promotes that review's implementation plan into a release gate.
   response/request types. Initial coverage includes auth, stats, events,
   classifier/model, classifier/model actions, backfill, maintenance/cache,
   taxonomy/timezone repair, system/geocoding, diagnostics, audio,
-  leaderboard/statistics graphs, and settings writes.
+  leaderboard/statistics graphs, media/share/snapshot flows, and settings writes.
 
 **Phase 3 — Mature documentation governance:**
 - ✅ Documentation standard published ([`docs/documentation-standard.md`](docs/documentation-standard.md)):

@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, getHeaders, handleResponse, withAuthParams } from './core';
+import type { paths } from './generated/openapi';
 
 export function getSnapshotUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`);
@@ -22,99 +23,36 @@ export function getRecordingClipUrl(frigateEvent: string): string {
 
 export const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';
 
-export interface RecordingClipFetchResponse {
-    event_id: string;
-    status: 'ready';
-    clip_variant: 'recording';
-    cached: boolean;
-}
+export type RecordingClipFetchResponse =
+    paths['/api/frigate/{event_id}/recording-clip/fetch']['post']['response'];
 
 export interface RecordingClipAvailabilityResponse {
     available: boolean;
     fetched: boolean;
 }
 
-export interface SnapshotStatusResponse {
-    event_id: string;
-    cached: boolean;
-    source: string | null;
-    high_quality_event_snapshots_enabled: boolean;
-    high_quality_bird_crop_enabled: boolean;
-    already_hq_bird_crop: boolean;
-    can_generate_hq_bird_crop: boolean;
-    original_frigate_snapshot_available?: boolean | null;
-}
+export type SnapshotStatusResponse = paths['/api/frigate/{event_id}/snapshot/status']['get']['response'];
 
-export interface SnapshotGenerateResponse extends SnapshotStatusResponse {
-    status: 'already_hq_bird_crop' | 'generated_hq_bird_crop' | 'generated_hq_snapshot';
-    result: string;
-}
+export type SnapshotGenerateResponse = paths['/api/frigate/{event_id}/snapshot/hq-bird-crop']['post']['response'];
 
-export interface SnapshotCandidate {
-    candidate_id: string;
-    frame_index: number;
-    frame_offset_seconds?: number | null;
-    source_mode: string;
-    clip_variant: string;
-    crop_box?: number[] | null;
-    crop_confidence?: number | null;
-    classifier_label?: string | null;
-    classifier_score?: number | null;
-    ranking_score: number;
-    selected: boolean;
-    snapshot_source?: string | null;
-    thumbnail_url?: string | null;
-}
+export type SnapshotCandidate =
+    paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response']['candidates'][number];
 
-export interface SnapshotCandidateListResponse {
-    event_id: string;
-    current_source?: string | null;
-    current_candidate_id?: string | null;
-    candidates: SnapshotCandidate[];
-    model_crop_miss_reason?: string | null;
-}
+export type SnapshotCandidateListResponse = paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response'];
 
-export interface SnapshotApplyResponse extends SnapshotStatusResponse {
-    status: 'applied';
-    applied_mode: string;
-    applied_candidate_id?: string | null;
-}
+export type SnapshotApplyResponse = paths['/api/frigate/{event_id}/snapshot/apply']['post']['response'];
 
 export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
 
-export interface VideoShareCreateResponse {
-    link_id: number;
-    event_id: string;
-    token: string;
-    share_url: string;
-    expires_at: string;
-    expires_in_minutes: number;
-    watermark_label?: string | null;
-}
+export type VideoShareCreateResponse = paths['/api/video-share']['post']['response'];
 
-export interface VideoShareInfoResponse {
-    event_id: string;
-    expires_at: string;
-    watermark_label?: string | null;
-}
+export type VideoShareInfoResponse = paths['/api/video-share/{event_id}']['get']['response'];
 
-export interface VideoShareLinkItem {
-    id: number;
-    event_id: string;
-    created_by?: string | null;
-    watermark_label?: string | null;
-    created_at: string;
-    expires_at: string;
-    is_active: boolean;
-    remaining_seconds: number;
-}
+export type VideoShareLinkItem = paths['/api/video-share/{event_id}/links/{link_id}']['patch']['response'];
 
-export interface VideoShareLinkListResponse {
-    event_id: string;
-    links: VideoShareLinkItem[];
-}
+export type VideoShareLinkListResponse = paths['/api/video-share/{event_id}/links']['get']['response'];
 
 export async function createVideoShareLink(
     eventId: string,
@@ -165,11 +103,14 @@ export async function updateVideoShareLink(
     return handleResponse<VideoShareLinkItem>(response);
 }
 
-export async function revokeVideoShareLink(eventId: string, linkId: number): Promise<{ status: string; event_id: string; link_id: number }> {
+export async function revokeVideoShareLink(
+    eventId: string,
+    linkId: number
+): Promise<paths['/api/video-share/{event_id}/links/{link_id}/revoke']['post']['response']> {
     const response = await apiFetch(`${API_BASE}/video-share/${encodeURIComponent(eventId)}/links/${linkId}/revoke`, {
         method: 'POST',
     });
-    return handleResponse<{ status: string; event_id: string; link_id: number }>(response);
+    return handleResponse<paths['/api/video-share/{event_id}/links/{link_id}/revoke']['post']['response']>(response);
 }
 
 export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
@@ -231,7 +172,7 @@ export async function fetchSnapshotCandidates(frigateEvent: string): Promise<Sna
 export async function applySnapshotCandidate(
     frigateEvent: string,
     input: {
-        mode: 'candidate' | 'auto_best' | 'full_frame' | 'frigate_hint_crop' | 'model_crop' | 'revert_original';
+        mode: paths['/api/frigate/{event_id}/snapshot/apply']['post']['requestBody']['mode'];
         candidate_id?: string | null;
     }
 ): Promise<SnapshotApplyResponse> {
