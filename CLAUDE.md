@@ -218,9 +218,9 @@ looser.
   npm, Docker, and Actions.
 
 **Anything in the Definition of Done that can be machine-checked should be a CI
-gate.** Two DoD items are not yet gated and are tracked in the review as
-follow-ups: `ruff` lint/format (§6.3) and a coverage floor. Do not treat "not gated
-yet" as "optional"; run them locally.
+gate.** Ruff lint, Ruff format, backend coverage, OpenAPI artifact freshness, and
+frontend OpenAPI type freshness are all CI gates. Do not treat a missing or future
+gate as permission to skip the local Definition of Done command.
 
 ## 10. Workflow & commit rules
 

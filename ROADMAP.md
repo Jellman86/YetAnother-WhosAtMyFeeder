@@ -376,7 +376,7 @@ engineering bar rather than partial enforcement. The tracked assessment is
 this item promotes that review's implementation plan into a release gate.
 
 **Phase 1 — Enforce what the contract already requires:**
-- ✅ Ruff lint gate and backend coverage floor (20%) in PR CI.
+- ✅ Ruff lint gate and backend coverage floor in PR CI.
 - ✅ `CONTRIBUTING.md` rewritten against the contract.
 - ✅ Ruff **format** gate: applied the formatting baseline across the backend and
   Home Assistant integration and added the `ruff format --check` CI step.
@@ -387,8 +387,13 @@ this item promotes that review's implementation plan into a release gate.
 - ✅ Emit a build-time OpenAPI artifact (`backend/openapi.json` via
   `backend/scripts/export_openapi.py`), with a CI drift check so the schema stays
   in sync with the routers.
-- ☐ Generate or contract-test the SPA's TypeScript API types against it, so an
-  endpoint/type mismatch is caught in CI, not in the browser.
+- ✅ Generate the SPA's TypeScript API contract
+  (`apps/ui/src/lib/api/generated/openapi.ts`) from the committed OpenAPI artifact,
+  with a CI freshness check so backend/frontend contract drift fails review.
+- 🔄 Continue migrating remaining frontend API modules to generated path-level
+  response/request types. Initial coverage includes auth, stats, events,
+  classifier/model, classifier/model actions, backfill, maintenance/cache,
+  taxonomy/timezone repair, system/geocoding, and settings writes.
 
 **Phase 3 — Mature documentation governance:**
 - ✅ Documentation standard published ([`docs/documentation-standard.md`](docs/documentation-standard.md)):
@@ -401,7 +406,8 @@ this item promotes that review's implementation plan into a release gate.
 
 **Acceptance Criteria:**
 - CI fails on lint, format, and coverage regressions before `v3.0` ships.
-- An endpoint/type mismatch between backend and SPA is caught in CI.
+- OpenAPI artifact/type-generation drift between backend and SPA is caught in CI;
+  remaining hand-written frontend DTOs continue moving to generated path types.
 - Every user-facing docs page conforms to `docs/documentation-standard.md`, and
   new settings/API/UI changes update docs in the same PR.
 
@@ -532,7 +538,7 @@ Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost
 ---
 
 ### 11. Home Assistant Proxy / Sidebar Panel 🏠
-**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** ✅ Shipped ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54)) — the `custom_components/yawamf` ingress view proxies the dashboard under `/api/yawamf/ingress`, the SPA resolves its API base from an injected base-path marker (`__YAWAMF_APP_BASE_PATH`), and the "YA-WAMF" sidebar panel is authenticated by HA. Standalone direct-port access still works.
+**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** ✅ Shipped ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54)) — the `custom_components/yawamf` ingress view proxies the dashboard under `/api/yawamf/ingress`, the SPA resolves its API base from an injected base-path marker (`__YAWAMF_APP_BASE_PATH`), Vite emits lazy JS/CSS asset URLs relative to the importing module so split chunks load under the ingress sub-path, and the "YA-WAMF" sidebar panel is authenticated by HA. Standalone direct-port access still works.
 
 Serve the YA-WAMF web UI **through** Home Assistant (like the Frigate integration does) instead of only as a separate site. The integration would register a sidebar panel and an internal reverse proxy, so the full dashboard is embedded in HA, **authenticated by HA**, and reachable via HA's existing secure external access (Nabu Casa / Cloudflare / NPM) — no need to separately expose or secure `yawamf.pownet.uk`.
 
@@ -542,15 +548,15 @@ Serve the YA-WAMF web UI **through** Home Assistant (like the Frigate integratio
 - One place (the HA sidebar) for the whole setup.
 
 **Architecture:**
-1. **Reverse-proxy view** — an `aiohttp` `HomeAssistantView` in `custom_components/yawamf` that forwards `/api/yawamf/ingress/…` to the configured YA-WAMF URL. Must proxy **HTTP, the SSE live-update stream, and any WebSockets**, and strip the ingress prefix.
+1. **Reverse-proxy view** — an `aiohttp` `HomeAssistantView` in `custom_components/yawamf` forwards `/api/yawamf/ingress/…` to the configured YA-WAMF URL, strips the ingress prefix, preserves byte-length framing for media/snapshot responses so video Range/seeking works, and treats browser disconnects while seeking/switching clips as normal.
 2. **Sidebar panel** — register a panel (`panel_custom`/iframe or ingress-style) pointing at the proxied path; HA auth gates it.
-3. **Frontend base-path support (the main effort/risk)** — the Svelte app currently hardcodes `API_BASE = '/api'` and builds with Vite `base: '/'`, i.e. it assumes it's served from root. To live under an ingress sub-path it needs a build-time/runtime base (Vite `base` + `import.meta.env.BASE_URL`) and an API base derived from it, so assets and API calls resolve under the proxied path.
+3. **Frontend base-path support** — the app reads the injected Home Assistant ingress base path at runtime for API calls, the proxy rewrites root HTML asset references, and Vite now resolves lazily-imported JS/CSS assets relative to `import.meta.url` so code-split chunks work both at site root and under `/api/yawamf/ingress`.
 4. **Config** — an opt-in toggle (proxy target defaults to the configured URL); keep the existing standalone access working unchanged.
 
-**Effort notes:** proxy view (HTTP+SSE+WS) ~2 days; frontend base-path refactor ~2–3 days (the variable — currently root-hardcoded); panel + config + auth ~1 day; testing embedded UI, live stream, media, and external access ~1 day. → ~1 week, M–L.
+**Effort notes:** this shipped as a proxy/panel/frontend-base-path slice, followed by ingress hardening for video byte-range playback and lazily-loaded JS/CSS chunk paths. Any future HA work should focus on regression coverage and packaging, not another base-path refactor.
 
 **Success criteria:**
-- A "YA-WAMF" sidebar entry in HA opens the full dashboard, authenticated by HA, with live updates (SSE) and snapshots working through the proxy.
+- A "YA-WAMF" sidebar entry in HA opens the full dashboard, authenticated by HA, with live updates (SSE), snapshots, lazy-loaded assets, and video playback working through the proxy.
 - Works over HA's external access without separately exposing YA-WAMF.
 - Standalone (direct-port) access still works.
 

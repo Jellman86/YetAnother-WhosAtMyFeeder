@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **BirdNET (#53):** Added a persist-time confidence floor for BirdNET-Go audio detections (`frigate.audio_min_confidence`, default `0.0`). Detections below the threshold are neither buffered for correlation nor stored, completing the configurable low-confidence filtering from the audio-history request.
 
 ### Changed
+- **Docs:** Reconciled the roadmap, gold-standard review, and engineering contract against current `dev`: Ruff format and 60% coverage are CI gates, generated frontend OpenAPI types are checked in CI, and the Home Assistant ingress roadmap now reflects media seeking plus lazy chunk asset support.
 - **Classifier worker:** The progress-emit timeout is now injectable (`progress_emit_timeout_seconds`, default unchanged) and the slow-progress test waits on observed state rather than fixed sleeps, fixing a deadlock that hung the test suite when run under `coverage`.
 - **CI:** Applied a Ruff formatting baseline across the backend and Home Assistant integration, and added a `ruff format --check` gate so formatting drift fails CI. Formatting-only commits are listed in `.git-blame-ignore-revs`.
 - **CI:** Raised the backend coverage floor from 20% to 60% (measured coverage is ~65%) so coverage regressions fail the build.

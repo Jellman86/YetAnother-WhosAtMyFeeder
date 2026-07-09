@@ -33,10 +33,10 @@ mostly about *codifying and enforcing* the quality the project already largely
 practises, and closing a small number of specific, low-risk gaps:
 
 - Codify the standards as a clearing-bar contract (done: [`CLAUDE.md`](../../CLAUDE.md)).
-- Enforce Python lint in CI and keep format enforcement tracked, matching the
-  Definition of Done.
+- Enforce Python lint and formatting in CI, matching the Definition of Done
+  (done).
 - Introduce a coverage floor so testing depth cannot silently regress (done in PR
-  CI at the existing 20% floor).
+  CI at the current 60% floor).
 - Rewrite [`CONTRIBUTING.md`](../../CONTRIBUTING.md) into a real bar and fix its
   internal contradictions (done).
 - Keep documentation and this review current as behaviour changes.
@@ -230,7 +230,7 @@ links to the current review.
 | Security boundary | Reasonable (optional API key, redaction, guest controls) | Keep OWASP-informed endpoint review as surfaces grow |
 | UI honesty | Operational and consistent (shared control kit) | Zero-warning `check`; explicit empty/error states everywhere |
 | Docs | Good and gated for drift; documentation standard exists | Continue generated API contract adoption |
-| Workflow & governance | Trunk-based on `dev`; strict commit rules; CONTRIBUTING aligned | Add missing governance files |
+| Workflow & governance | Trunk-based on `dev`; strict commit rules; CONTRIBUTING aligned; governance files present | Keep contributor guidance current |
 
 ## Suggested agent prompt
 
@@ -254,8 +254,9 @@ for docs changes; and git diff --check.
 ## Bottom line
 
 YA-WAMF is already a high-quality, well-tested project with unusually strong
-database and CI discipline. Reaching gold standard is not a rewrite and not a
-testing rescue — it is codifying the bar (done here), enforcing the two Definition
-of Done item CI does not yet fully gate (Ruff formatting), then firming up the API
-contract and documentation governance. Done in that order, YA-WAMF sits
-comfortably in the top tier of self-hosted tooling.
+database and CI discipline. The standards contract, Ruff lint/format gates,
+coverage floor, OpenAPI artifact, generated frontend contract, and governance
+files are now in place. The remaining gold-standard work is incremental: continue
+migrating frontend API clients to generated path types, ratchet coverage as
+low-coverage modules gain focused tests, and keep dated reviews and user-facing
+docs current as behaviour changes.
