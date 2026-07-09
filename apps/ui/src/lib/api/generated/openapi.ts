@@ -125,6 +125,42 @@ export interface components {
     scientific_name_primary?: boolean;
     username?: string | null;
 };
+    BackendDiagnosticEventResponse: {
+    component: string;
+    context?: Record<string, unknown> | null;
+    correlation_key?: string | null;
+    event_id?: string | null;
+    id: string;
+    job_id?: string | null;
+    message: string;
+    reason_code: string;
+    runtime_recovery?: Record<string, unknown> | null;
+    severity: "info" | "warning" | "error" | "critical";
+    snapshot_ref?: string | null;
+    source: string;
+    stage?: string | null;
+    timestamp: string;
+    worker_pool?: string | null;
+};
+    BackendDiagnosticsSnapshotResponse: {
+    capacity: number;
+    captured_at: string;
+    component_counts: Record<string, number>;
+    events: Array<components['schemas']['BackendDiagnosticEventResponse']>;
+    filtered_events: number;
+    returned_events: number;
+    severity_counts: Record<string, number>;
+    total_events: number;
+};
+    BackfillFocusedDiagnosticsResponse: {
+    failed_jobs: Array<Record<string, unknown>>;
+    has_stale_running_job: boolean;
+    jobs: Array<Record<string, unknown>>;
+    recent_errors: Array<components['schemas']['BackendDiagnosticEventResponse']>;
+    running_jobs: Array<Record<string, unknown>>;
+    snapshot_at: string;
+    stale_jobs: Array<Record<string, unknown>>;
+};
     BackfillJobStatus: {
     error_reasons?: Record<string, number>;
     errors?: number;
@@ -267,6 +303,10 @@ export interface components {
     deleted_count: number;
     message?: string | null;
     status: string;
+};
+    ClearDiagnosticsWorkspaceResponse: {
+    cleared_events: number;
+    remaining_events: number;
 };
     ClearFeedbackResponse: {
     deleted_count: number;
@@ -478,6 +518,43 @@ export interface components {
     temp_avg?: number | null;
     wind_avg?: number | null;
 };
+    DiagnosticsBundleResponse: {
+    backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
+    classifier: Record<string, unknown>;
+    focused_diagnostics: components['schemas']['FocusedDiagnosticsResponse'];
+    generated_at: string;
+    health: Record<string, unknown>;
+    maintenance_coordinator: Record<string, unknown>;
+    schema_version: string;
+    server: components['schemas']['DiagnosticsBundleServerResponse'];
+    startup_warnings: Array<Record<string, unknown>>;
+    summary: components['schemas']['DiagnosticsBundleSummaryResponse'];
+    taxonomy_repair: Record<string, unknown>;
+    workspace: components['schemas']['DiagnosticsWorkspaceResponse'];
+};
+    DiagnosticsBundleServerResponse: {
+    service: string;
+    startup_instance_id: string;
+    version: string;
+};
+    DiagnosticsBundleSummaryResponse: {
+    backfill_failed_jobs: number;
+    backfill_running_jobs: number;
+    backfill_stale_jobs: number;
+    diagnostic_events: number;
+    health_status: string;
+    startup_warning_count: number;
+};
+    DiagnosticsWorkspaceResponse: {
+    backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
+    classifier: Record<string, unknown>;
+    focused_diagnostics: components['schemas']['FocusedDiagnosticsResponse'];
+    health: Record<string, unknown>;
+    maintenance_coordinator: Record<string, unknown>;
+    startup_warnings: Array<Record<string, unknown>>;
+    taxonomy_repair: Record<string, unknown>;
+    workspace_schema_version: string;
+};
     DownloadProgress: {
     error?: string | null;
     message?: string | null;
@@ -504,6 +581,10 @@ export interface components {
     event_id: string;
     is_favorite: boolean;
     status: string;
+};
+    FocusedDiagnosticsResponse: {
+    backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
+    video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
 };
     FrigateTestResponse: {
     frigate_url: string;
@@ -1191,6 +1272,17 @@ export interface components {
     base_version: string;
     version: string;
 };
+    VideoClassifierFocusedDiagnosticsResponse: {
+    active: number;
+    candidate_failure_events?: Array<components['schemas']['BackendDiagnosticEventResponse']>;
+    circuit_open: boolean;
+    failure_count: number;
+    latest_circuit_opened?: components['schemas']['BackendDiagnosticEventResponse'] | null;
+    likely_last_error?: string | null;
+    open_until?: string | null;
+    pending: number;
+    recent_events?: Array<components['schemas']['BackendDiagnosticEventResponse']>;
+};
     VideoShareCreateRequest: {
     clip_variant?: "event" | "recording";
     event_id: string;
@@ -1655,7 +1747,7 @@ export interface paths {
     limit?: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DiagnosticsBundleResponse'];
     };
   };
   "/api/diagnostics/clear": {
@@ -1664,7 +1756,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ClearDiagnosticsWorkspaceResponse'];
     };
   };
   "/api/diagnostics/errors": {
@@ -1678,7 +1770,7 @@ export interface paths {
     source?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['BackendDiagnosticsSnapshotResponse'];
     };
   };
   "/api/diagnostics/model-eval/runs": {
@@ -1748,7 +1840,7 @@ export interface paths {
     limit?: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DiagnosticsWorkspaceResponse'];
     };
   };
   "/api/ebird/export": {

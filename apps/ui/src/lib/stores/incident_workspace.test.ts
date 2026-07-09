@@ -9,6 +9,7 @@ describe('incidentWorkspaceStore', () => {
             {
                 id: 'diag-1',
                 component: 'classifier_supervisor',
+                source: 'backend',
                 reason_code: 'background_image_worker_unavailable',
                 severity: 'error',
                 message: 'Background workers unavailable',
@@ -36,6 +37,7 @@ describe('incidentWorkspaceStore', () => {
             {
                 id: 'diag-2',
                 component: 'classifier_supervisor',
+                source: 'backend',
                 reason_code: 'background_image_worker_unavailable',
                 severity: 'error',
                 message: 'Background workers unavailable',
@@ -77,6 +79,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag-3',
                         component: 'classifier_supervisor',
+                        source: 'backend',
                         reason_code: 'background_image_worker_unavailable',
                         severity: 'error',
                         message: 'Background workers unavailable',
@@ -90,6 +93,10 @@ describe('incidentWorkspaceStore', () => {
                 service: 'ya-wamf-backend',
                 version: '2.8.3-dev'
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
         store.ingestJobState({ id: 'job-3', kind: 'backfill_detection', status: 'failed' });
@@ -132,6 +139,7 @@ describe('incidentWorkspaceStore', () => {
             {
                 id: 'diag-info-1',
                 component: 'auto_video_classifier',
+                source: 'backend',
                 reason_code: 'auto_classify_retry_after_late_clip',
                 severity: 'info',
                 message: 'Recording clip arrived after auto-classify failed; re-queueing',
@@ -187,6 +195,10 @@ describe('incidentWorkspaceStore', () => {
                     circuit_open: true
                 }
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
         store.ingestLocalDiagnosticGroups([
@@ -223,6 +235,10 @@ describe('incidentWorkspaceStore', () => {
                     circuit_open: false
                 }
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
 
@@ -247,6 +263,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag-video-open',
                         component: 'auto_video_classifier',
+                        source: 'backend',
                         reason_code: 'video_circuit_open',
                         severity: 'warning',
                         message: 'Video classification skipped because the circuit breaker is open',
@@ -257,6 +274,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag-video-empty',
                         component: 'auto_video_classifier',
+                        source: 'backend',
                         reason_code: 'video_no_results',
                         severity: 'warning',
                         message: 'Video classification completed without any candidate results',
@@ -273,6 +291,10 @@ describe('incidentWorkspaceStore', () => {
                     circuit_open: false
                 }
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
 
@@ -299,6 +321,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag:1773341018219:2',
                         component: 'auto_video_classifier',
+                        source: 'backend',
                         reason_code: 'video_no_results',
                         severity: 'warning',
                         message: 'Video classification completed without any candidate results',
@@ -311,6 +334,10 @@ describe('incidentWorkspaceStore', () => {
             health: {
                 status: 'ok'
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
 
@@ -343,6 +370,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag:evt-2',
                         component: 'auto_video_classifier',
+                        source: 'backend',
                         reason_code: 'video_no_results',
                         severity: 'warning',
                         message: 'Video classification completed without any candidate results',
@@ -354,6 +382,10 @@ describe('incidentWorkspaceStore', () => {
             health: {
                 status: 'ok'
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
         store.ingestLocalDiagnosticGroups([
@@ -391,6 +423,7 @@ describe('incidentWorkspaceStore', () => {
                     {
                         id: 'diag-clear-1',
                         component: 'classifier_supervisor',
+                        source: 'backend',
                         reason_code: 'background_image_worker_unavailable',
                         severity: 'error',
                         message: 'Background workers unavailable',
@@ -402,6 +435,10 @@ describe('incidentWorkspaceStore', () => {
             health: {
                 status: 'degraded'
             },
+            classifier: {},
+            taxonomy_repair: {},
+            maintenance_coordinator: {},
+            focused_diagnostics: {},
             startup_warnings: []
         });
         store.ingestJobState({

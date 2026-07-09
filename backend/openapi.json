@@ -862,6 +862,258 @@
         "title": "AuthStatusResponse",
         "type": "object"
       },
+      "BackendDiagnosticEventResponse": {
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "correlation_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Key"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "runtime_recovery": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Recovery"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning",
+              "error",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "snapshot_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Ref"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "worker_pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Pool"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "component",
+          "reason_code",
+          "message",
+          "severity",
+          "timestamp"
+        ],
+        "title": "BackendDiagnosticEventResponse",
+        "type": "object"
+      },
+      "BackendDiagnosticsSnapshotResponse": {
+        "properties": {
+          "capacity": {
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "captured_at": {
+            "title": "Captured At",
+            "type": "string"
+          },
+          "component_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Component Counts",
+            "type": "object"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "filtered_events": {
+            "title": "Filtered Events",
+            "type": "integer"
+          },
+          "returned_events": {
+            "title": "Returned Events",
+            "type": "integer"
+          },
+          "severity_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Severity Counts",
+            "type": "object"
+          },
+          "total_events": {
+            "title": "Total Events",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "captured_at",
+          "capacity",
+          "total_events",
+          "filtered_events",
+          "returned_events",
+          "severity_counts",
+          "component_counts",
+          "events"
+        ],
+        "title": "BackendDiagnosticsSnapshotResponse",
+        "type": "object"
+      },
+      "BackfillFocusedDiagnosticsResponse": {
+        "properties": {
+          "failed_jobs": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Failed Jobs",
+            "type": "array"
+          },
+          "has_stale_running_job": {
+            "title": "Has Stale Running Job",
+            "type": "boolean"
+          },
+          "jobs": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "recent_errors": {
+            "items": {
+              "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
+            },
+            "title": "Recent Errors",
+            "type": "array"
+          },
+          "running_jobs": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Running Jobs",
+            "type": "array"
+          },
+          "snapshot_at": {
+            "title": "Snapshot At",
+            "type": "string"
+          },
+          "stale_jobs": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Stale Jobs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "jobs",
+          "running_jobs",
+          "failed_jobs",
+          "stale_jobs",
+          "has_stale_running_job",
+          "recent_errors",
+          "snapshot_at"
+        ],
+        "title": "BackfillFocusedDiagnosticsResponse",
+        "type": "object"
+      },
       "BackfillJobStatus": {
         "properties": {
           "error_reasons": {
@@ -1745,6 +1997,24 @@
           "deleted_count"
         ],
         "title": "CleanupResponse",
+        "type": "object"
+      },
+      "ClearDiagnosticsWorkspaceResponse": {
+        "properties": {
+          "cleared_events": {
+            "title": "Cleared Events",
+            "type": "integer"
+          },
+          "remaining_events": {
+            "title": "Remaining Events",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cleared_events",
+          "remaining_events"
+        ],
+        "title": "ClearDiagnosticsWorkspaceResponse",
         "type": "object"
       },
       "ClearFeedbackResponse": {
@@ -3400,6 +3670,182 @@
         "title": "DetectionsTimelineWeatherPoint",
         "type": "object"
       },
+      "DiagnosticsBundleResponse": {
+        "properties": {
+          "backend_diagnostics": {
+            "$ref": "#/components/schemas/BackendDiagnosticsSnapshotResponse"
+          },
+          "classifier": {
+            "title": "Classifier",
+            "type": "object"
+          },
+          "focused_diagnostics": {
+            "$ref": "#/components/schemas/FocusedDiagnosticsResponse"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "health": {
+            "title": "Health",
+            "type": "object"
+          },
+          "maintenance_coordinator": {
+            "title": "Maintenance Coordinator",
+            "type": "object"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "server": {
+            "$ref": "#/components/schemas/DiagnosticsBundleServerResponse"
+          },
+          "startup_warnings": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Startup Warnings",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DiagnosticsBundleSummaryResponse"
+          },
+          "taxonomy_repair": {
+            "title": "Taxonomy Repair",
+            "type": "object"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/DiagnosticsWorkspaceResponse"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "summary",
+          "server",
+          "workspace",
+          "health",
+          "classifier",
+          "taxonomy_repair",
+          "maintenance_coordinator",
+          "startup_warnings",
+          "backend_diagnostics",
+          "focused_diagnostics"
+        ],
+        "title": "DiagnosticsBundleResponse",
+        "type": "object"
+      },
+      "DiagnosticsBundleServerResponse": {
+        "properties": {
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "version",
+          "startup_instance_id"
+        ],
+        "title": "DiagnosticsBundleServerResponse",
+        "type": "object"
+      },
+      "DiagnosticsBundleSummaryResponse": {
+        "properties": {
+          "backfill_failed_jobs": {
+            "title": "Backfill Failed Jobs",
+            "type": "integer"
+          },
+          "backfill_running_jobs": {
+            "title": "Backfill Running Jobs",
+            "type": "integer"
+          },
+          "backfill_stale_jobs": {
+            "title": "Backfill Stale Jobs",
+            "type": "integer"
+          },
+          "diagnostic_events": {
+            "title": "Diagnostic Events",
+            "type": "integer"
+          },
+          "health_status": {
+            "title": "Health Status",
+            "type": "string"
+          },
+          "startup_warning_count": {
+            "title": "Startup Warning Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "health_status",
+          "diagnostic_events",
+          "startup_warning_count",
+          "backfill_stale_jobs",
+          "backfill_running_jobs",
+          "backfill_failed_jobs"
+        ],
+        "title": "DiagnosticsBundleSummaryResponse",
+        "type": "object"
+      },
+      "DiagnosticsWorkspaceResponse": {
+        "properties": {
+          "backend_diagnostics": {
+            "$ref": "#/components/schemas/BackendDiagnosticsSnapshotResponse"
+          },
+          "classifier": {
+            "title": "Classifier",
+            "type": "object"
+          },
+          "focused_diagnostics": {
+            "$ref": "#/components/schemas/FocusedDiagnosticsResponse"
+          },
+          "health": {
+            "title": "Health",
+            "type": "object"
+          },
+          "maintenance_coordinator": {
+            "title": "Maintenance Coordinator",
+            "type": "object"
+          },
+          "startup_warnings": {
+            "items": {
+              "type": "object"
+            },
+            "title": "Startup Warnings",
+            "type": "array"
+          },
+          "taxonomy_repair": {
+            "title": "Taxonomy Repair",
+            "type": "object"
+          },
+          "workspace_schema_version": {
+            "title": "Workspace Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_schema_version",
+          "backend_diagnostics",
+          "focused_diagnostics",
+          "health",
+          "classifier",
+          "taxonomy_repair",
+          "maintenance_coordinator",
+          "startup_warnings"
+        ],
+        "title": "DiagnosticsWorkspaceResponse",
+        "type": "object"
+      },
       "DownloadProgress": {
         "properties": {
           "error": {
@@ -3563,6 +4009,32 @@
           "is_favorite"
         ],
         "title": "FavoriteResponse",
+        "type": "object"
+      },
+      "FocusedDiagnosticsResponse": {
+        "properties": {
+          "backfill": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackfillFocusedDiagnosticsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "video_classifier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoClassifierFocusedDiagnosticsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "FocusedDiagnosticsResponse",
         "type": "object"
       },
       "FrigateTestResponse": {
@@ -9447,6 +9919,80 @@
         "title": "VersionResponse",
         "type": "object"
       },
+      "VideoClassifierFocusedDiagnosticsResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "candidate_failure_events": {
+            "items": {
+              "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
+            },
+            "title": "Candidate Failure Events",
+            "type": "array"
+          },
+          "circuit_open": {
+            "title": "Circuit Open",
+            "type": "boolean"
+          },
+          "failure_count": {
+            "title": "Failure Count",
+            "type": "integer"
+          },
+          "latest_circuit_opened": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "likely_last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Likely Last Error"
+          },
+          "open_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Until"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "recent_events": {
+            "items": {
+              "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
+            },
+            "title": "Recent Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "circuit_open",
+          "failure_count",
+          "pending",
+          "active"
+        ],
+        "title": "VideoClassifierFocusedDiagnosticsResponse",
+        "type": "object"
+      },
       "VideoShareCreateRequest": {
         "properties": {
           "clip_variant": {
@@ -11788,7 +12334,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticsBundleResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -11830,7 +12378,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClearDiagnosticsWorkspaceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -11924,7 +12474,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BackendDiagnosticsSnapshotResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -12299,7 +12851,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticsWorkspaceResponse"
+                }
               }
             },
             "description": "Successful Response"

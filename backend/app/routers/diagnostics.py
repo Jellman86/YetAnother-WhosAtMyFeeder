@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
 from app.services.error_diagnostics import error_diagnostics_history
@@ -15,6 +16,108 @@ _BACKFILL_STALE_JOB_SECONDS = 600.0
 
 _VIDEO_DIAGNOSTIC_COMPONENTS = {"auto_video_classifier", "video_classifier"}
 _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "circuit_open"}
+
+
+class BackendDiagnosticEventResponse(BaseModel):
+    id: str
+    source: str
+    component: str
+    stage: str | None = None
+    reason_code: str
+    message: str
+    severity: Literal["info", "warning", "error", "critical"]
+    event_id: str | None = None
+    context: dict[str, Any] | None = None
+    timestamp: str
+    correlation_key: str | None = None
+    job_id: str | None = None
+    worker_pool: str | None = None
+    runtime_recovery: dict[str, Any] | None = None
+    snapshot_ref: str | None = None
+
+
+class BackendDiagnosticsSnapshotResponse(BaseModel):
+    captured_at: str
+    capacity: int
+    total_events: int
+    filtered_events: int
+    returned_events: int
+    severity_counts: dict[str, int]
+    component_counts: dict[str, int]
+    events: list[BackendDiagnosticEventResponse]
+
+
+class VideoClassifierFocusedDiagnosticsResponse(BaseModel):
+    circuit_open: bool
+    open_until: str | None = None
+    failure_count: int
+    pending: int
+    active: int
+    latest_circuit_opened: BackendDiagnosticEventResponse | None = None
+    likely_last_error: str | None = None
+    candidate_failure_events: list[BackendDiagnosticEventResponse] = Field(default_factory=list)
+    recent_events: list[BackendDiagnosticEventResponse] = Field(default_factory=list)
+
+
+class BackfillFocusedDiagnosticsResponse(BaseModel):
+    jobs: list[dict[str, Any]]
+    running_jobs: list[dict[str, Any]]
+    failed_jobs: list[dict[str, Any]]
+    stale_jobs: list[dict[str, Any]]
+    has_stale_running_job: bool
+    recent_errors: list[BackendDiagnosticEventResponse]
+    snapshot_at: str
+
+
+class FocusedDiagnosticsResponse(BaseModel):
+    video_classifier: VideoClassifierFocusedDiagnosticsResponse | None = None
+    backfill: BackfillFocusedDiagnosticsResponse | None = None
+
+
+class DiagnosticsWorkspaceResponse(BaseModel):
+    workspace_schema_version: str
+    backend_diagnostics: BackendDiagnosticsSnapshotResponse
+    focused_diagnostics: FocusedDiagnosticsResponse
+    health: dict[str, Any]
+    classifier: dict[str, Any]
+    taxonomy_repair: dict[str, Any]
+    maintenance_coordinator: dict[str, Any]
+    startup_warnings: list[dict[str, Any]]
+
+
+class DiagnosticsBundleSummaryResponse(BaseModel):
+    health_status: str
+    diagnostic_events: int
+    startup_warning_count: int
+    backfill_stale_jobs: int
+    backfill_running_jobs: int
+    backfill_failed_jobs: int
+
+
+class DiagnosticsBundleServerResponse(BaseModel):
+    service: str
+    version: str
+    startup_instance_id: str
+
+
+class DiagnosticsBundleResponse(BaseModel):
+    schema_version: str
+    generated_at: str
+    summary: DiagnosticsBundleSummaryResponse
+    server: DiagnosticsBundleServerResponse
+    workspace: DiagnosticsWorkspaceResponse
+    health: dict[str, Any]
+    classifier: dict[str, Any]
+    taxonomy_repair: dict[str, Any]
+    maintenance_coordinator: dict[str, Any]
+    startup_warnings: list[dict[str, Any]]
+    backend_diagnostics: BackendDiagnosticsSnapshotResponse
+    focused_diagnostics: FocusedDiagnosticsResponse
+
+
+class ClearDiagnosticsWorkspaceResponse(BaseModel):
+    cleared_events: int
+    remaining_events: int
 
 
 def _is_video_diagnostic_event(event: dict[str, Any]) -> bool:
@@ -195,7 +298,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
     }
 
 
-@router.get("/errors")
+@router.get("/errors", response_model=BackendDiagnosticsSnapshotResponse)
 async def get_error_diagnostics_history(
     limit: int = Query(default=200, ge=1, le=1000),
     source: str | None = Query(default=None),
@@ -212,7 +315,7 @@ async def get_error_diagnostics_history(
     )
 
 
-@router.get("/workspace")
+@router.get("/workspace", response_model=DiagnosticsWorkspaceResponse)
 async def get_owner_workspace_diagnostics(
     limit: int = Query(default=200, ge=1, le=1000),
     _auth: AuthContext = Depends(require_owner),
@@ -221,7 +324,7 @@ async def get_owner_workspace_diagnostics(
     return await _collect_workspace_payload(limit)
 
 
-@router.get("/bundle")
+@router.get("/bundle", response_model=DiagnosticsBundleResponse)
 async def get_owner_diagnostics_bundle(
     limit: int = Query(default=200, ge=1, le=1000),
     _auth: AuthContext = Depends(require_owner),
@@ -230,7 +333,7 @@ async def get_owner_diagnostics_bundle(
     return await _collect_bundle_payload(limit)
 
 
-@router.post("/clear")
+@router.post("/clear", response_model=ClearDiagnosticsWorkspaceResponse)
 async def clear_owner_workspace_diagnostics(
     _auth: AuthContext = Depends(require_owner),
 ):

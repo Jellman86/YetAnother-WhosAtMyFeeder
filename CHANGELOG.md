@@ -20,6 +20,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **API contract:** Added explicit response models for classifier labels/default-download and model download/activate actions, then migrated those frontend API client result types to the generated contract.
 - **API contract:** Added explicit response models for taxonomy sync and timezone-repair endpoints, then migrated those frontend maintenance client types to the generated contract.
 - **API contract:** Added explicit response models for version, Frigate connection/capability, and reverse-geocode endpoints, then migrated the matching frontend system/geocoding types to the generated contract.
+- **API contract:** Added explicit response models for diagnostics history/workspace/bundle/clear endpoints, then migrated the frontend diagnostics API client to generated response types.
 
 ### Fixed
 - **Home Assistant:** Video clips now play through the ingress sidebar panel. The proxy stripped `Content-Length` from streamed responses, forcing chunked transfer encoding that broke `<video>` Range/seeking, so clips failed to load and appeared as "cannot be found in Frigate". The proxy now preserves exact byte-length framing for unencoded media/snapshot bodies and treats the browser closing the connection mid-stream (seeking or switching clips) as normal instead of logging a proxy failure.

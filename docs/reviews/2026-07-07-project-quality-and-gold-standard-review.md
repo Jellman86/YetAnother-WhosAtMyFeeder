@@ -170,7 +170,9 @@ download/activate action endpoints now also publish explicit response models and
 feed the generated frontend client types. Taxonomy sync and timezone-repair
 endpoints now do the same. Version, Frigate connection/capability, and
 reverse-geocode endpoints now publish explicit response models and feed the
-frontend system/geocoding client types from the generated contract.
+frontend system/geocoding client types from the generated contract. Diagnostics
+history, workspace, bundle, and clear endpoints now publish explicit response
+models and feed the frontend diagnostics client types from the generated contract.
 
 Gold-standard target: continue migrating high-value frontend API modules to the
 generated path contract so "the docs match the routes" becomes "the client matches
@@ -208,8 +210,8 @@ Acceptance: CI fails on lint violations and coverage regressions;
 
 Acceptance: an endpoint/type mismatch is caught in CI, not in the browser. Initial
 auth, stats, events, classifier/model, classifier/model actions, backfill,
-maintenance/cache, taxonomy/timezone repair, system/geocoding, and settings-write
-coverage is in place; broader SPA adoption remains.
+maintenance/cache, taxonomy/timezone repair, system/geocoding, diagnostics, and
+settings-write coverage is in place; broader SPA adoption remains.
 
 ### Phase 3: Mature documentation governance
 - Add a documentation standard and the missing governance files (done).
