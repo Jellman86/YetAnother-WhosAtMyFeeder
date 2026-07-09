@@ -7,7 +7,7 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-from aiohttp import ClientTimeout, web
+from aiohttp import ClientConnectionResetError, ClientTimeout, web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
@@ -114,14 +114,31 @@ class YAWAMFIngressView(HomeAssistantView):
                     _set_ingress_cookie(text_response, self.ingress_token, should_set_cookie)
                     return text_response
 
+                # Preserve exact byte-length framing for unencoded bodies (e.g. media
+                # clips and snapshots). Without a Content-Length the response is sent
+                # chunked, which breaks <video> Range/seeking and makes clips fail to
+                # load through the proxy.
+                _preserve_content_length(response, upstream.headers)
+
                 await response.prepare(request)
 
                 if request.method != "HEAD":
-                    async for chunk in upstream.content.iter_chunked(64 * 1024):
-                        await response.write(chunk)
+                    try:
+                        async for chunk in upstream.content.iter_chunked(64 * 1024):
+                            await response.write(chunk)
+                    except (ConnectionResetError, ClientConnectionResetError):
+                        # The browser closed the connection mid-stream — normal when
+                        # scrubbing/seeking a video or switching clips. The response is
+                        # already partially delivered; nothing more to send.
+                        _LOGGER.debug("YA-WAMF ingress client disconnected mid-stream", exc_info=True)
+                        return response
 
                 await response.write_eof()
                 return response
+        except (ConnectionResetError, ClientConnectionResetError):
+            # Client disconnected before/at the start of streaming; not a proxy failure.
+            _LOGGER.debug("YA-WAMF ingress client disconnected", exc_info=True)
+            raise
         except Exception as err:  # noqa: BLE001 - HA should return a proxy failure, not crash the view
             _LOGGER.exception("YA-WAMF ingress proxy request failed")
             raise web.HTTPBadGateway(text=f"YA-WAMF ingress proxy failed: {err}") from err
@@ -167,11 +184,19 @@ class YAWAMFIngressAssetView(HomeAssistantView):
                     reason=upstream.reason,
                     headers=_response_headers(upstream.headers),
                 )
+                _preserve_content_length(response, upstream.headers)
                 await response.prepare(request)
-                async for chunk in upstream.content.iter_chunked(64 * 1024):
-                    await response.write(chunk)
+                try:
+                    async for chunk in upstream.content.iter_chunked(64 * 1024):
+                        await response.write(chunk)
+                except (ConnectionResetError, ClientConnectionResetError):
+                    _LOGGER.debug("YA-WAMF ingress asset client disconnected mid-stream", exc_info=True)
+                    return response
                 await response.write_eof()
                 return response
+        except (ConnectionResetError, ClientConnectionResetError):
+            _LOGGER.debug("YA-WAMF ingress asset client disconnected", exc_info=True)
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.exception("YA-WAMF ingress asset request failed")
             raise web.HTTPBadGateway(text=f"YA-WAMF ingress asset failed: {err}") from err
@@ -238,6 +263,27 @@ def _response_headers(upstream_headers: Any) -> dict[str, str]:
             continue
         headers[key] = value
     return headers
+
+
+def _preserve_content_length(response: web.StreamResponse, upstream_headers: Any) -> None:
+    """Carry the upstream Content-Length onto a streamed response.
+
+    ``_response_headers`` drops ``Content-Length`` (it is wrong once a body is
+    rewritten or decompressed). For pass-through bodies that are *not* content
+    encoded — media clips, snapshots — the length is exact and must be preserved
+    so the browser receives real byte-length framing instead of chunked transfer.
+    Chunked media breaks ``<video>`` Range/seeking and clip loading through the
+    ingress proxy.
+    """
+    if "Content-Encoding" in upstream_headers:
+        return
+    raw_length = upstream_headers.get("Content-Length")
+    if raw_length is None:
+        return
+    try:
+        response.content_length = int(raw_length)
+    except (TypeError, ValueError):
+        return
 
 
 def _should_rewrite_response(upstream_headers: Any) -> bool:
