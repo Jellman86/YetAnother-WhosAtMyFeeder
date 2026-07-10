@@ -2663,7 +2663,7 @@
           "latest_detection": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DetectionResponse"
+                "$ref": "#/components/schemas/DetectionResponse-Output"
               },
               {
                 "type": "null"
@@ -3360,7 +3360,560 @@
         "title": "Detection",
         "type": "object"
       },
-      "DetectionResponse": {
+      "DetectionListItemResponse": {
+        "properties": {
+          "audio_confirmed": {
+            "default": false,
+            "title": "Audio Confirmed",
+            "type": "boolean"
+          },
+          "audio_context_species": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Context Species"
+          },
+          "audio_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Score"
+          },
+          "audio_species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Species"
+          },
+          "camera_name": {
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "category_name": {
+            "title": "Category Name",
+            "type": "string"
+          },
+          "detection_index": {
+            "title": "Detection Index",
+            "type": "integer"
+          },
+          "detection_time": {
+            "format": "date-time",
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "has_clip": {
+            "default": false,
+            "title": "Has Clip",
+            "type": "boolean"
+          },
+          "has_frigate_event": {
+            "default": true,
+            "title": "Has Frigate Event",
+            "type": "boolean"
+          },
+          "has_snapshot": {
+            "default": true,
+            "title": "Has Snapshot",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "is_favorite": {
+            "default": false,
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "is_hidden": {
+            "default": false,
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "detection_time",
+          "detection_index",
+          "score",
+          "display_name",
+          "category_name",
+          "camera_name",
+          "frigate_event"
+        ],
+        "title": "DetectionListItemResponse",
+        "type": "object"
+      },
+      "DetectionResponse-Input": {
+        "properties": {
+          "ai_analysis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Analysis"
+          },
+          "ai_analysis_timestamp": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Analysis Timestamp"
+          },
+          "audio_confirmed": {
+            "default": false,
+            "title": "Audio Confirmed",
+            "type": "boolean"
+          },
+          "audio_context_species": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Context Species"
+          },
+          "audio_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Score"
+          },
+          "audio_species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Species"
+          },
+          "camera_name": {
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "category_name": {
+            "title": "Category Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detection_index": {
+            "title": "Detection Index",
+            "type": "integer"
+          },
+          "detection_time": {
+            "format": "date-time",
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "frigate_last_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Last Checked At"
+          },
+          "frigate_last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Last Error"
+          },
+          "frigate_missing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Missing Since"
+          },
+          "frigate_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Score"
+          },
+          "frigate_status": {
+            "default": "present",
+            "title": "Frigate Status",
+            "type": "string"
+          },
+          "has_clip": {
+            "default": false,
+            "title": "Has Clip",
+            "type": "boolean"
+          },
+          "has_frigate_event": {
+            "default": true,
+            "title": "Has Frigate Event",
+            "type": "boolean"
+          },
+          "has_snapshot": {
+            "default": true,
+            "title": "Has Snapshot",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "is_favorite": {
+            "default": false,
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "is_hidden": {
+            "default": false,
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "manual_tagged": {
+            "default": false,
+            "title": "Manual Tagged",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "sub_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Label"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "video_classification_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Backend"
+          },
+          "video_classification_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Error"
+          },
+          "video_classification_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Label"
+          },
+          "video_classification_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Model Id"
+          },
+          "video_classification_model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Model Name"
+          },
+          "video_classification_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Provider"
+          },
+          "video_classification_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Score"
+          },
+          "video_classification_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Status"
+          },
+          "video_classification_timestamp": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Timestamp"
+          },
+          "weather_cloud_cover": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Cloud Cover"
+          },
+          "weather_condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Condition"
+          },
+          "weather_precipitation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Precipitation"
+          },
+          "weather_rain": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Rain"
+          },
+          "weather_snowfall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Snowfall"
+          },
+          "weather_wind_direction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Wind Direction"
+          },
+          "weather_wind_speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Wind Speed"
+          }
+        },
+        "required": [
+          "detection_time",
+          "detection_index",
+          "score",
+          "display_name",
+          "category_name",
+          "frigate_event",
+          "camera_name"
+        ],
+        "title": "DetectionResponse",
+        "type": "object"
+      },
+      "DetectionResponse-Output": {
         "properties": {
           "ai_analysis": {
             "anyOf": [
@@ -14354,6 +14907,24 @@
               "title": "Include Hidden",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields.",
+            "in": "query",
+            "name": "fields",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields.",
+              "title": "Fields"
+            }
           }
         ],
         "responses": {
@@ -14361,15 +14932,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DetectionResponse"
-                  },
-                  "title": "Response Get Events Api Events Get",
-                  "type": "array"
+                  "anyOf": [
+                    {
+                      "items": {
+                        "$ref": "#/components/schemas/DetectionResponse-Input"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "items": {
+                        "$ref": "#/components/schemas/DetectionListItemResponse"
+                      },
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response 200 Get Events Api Events Get"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields."
           },
           "422": {
             "content": {
