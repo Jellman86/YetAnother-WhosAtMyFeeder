@@ -1,5 +1,6 @@
 # Stage 1: Build
-FROM node:20 as builder
+# node:22 (LTS) satisfies the vite 8 / vitest 4 engine floor (^20.19 || >=22.12).
+FROM node:22 AS builder
 
 WORKDIR /app
 

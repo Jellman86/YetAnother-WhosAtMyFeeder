@@ -69,8 +69,13 @@ export default defineConfig(({ mode }) => ({
         chunkSizeWarningLimit: 800,
         rollupOptions: {
             output: {
-                manualChunks: {
-                    apexcharts: ['apexcharts']
+                // Function form (not the object form) so this works under both Rollup and
+                // Rolldown, which vite 8 uses by default. Keeps the large apexcharts dependency
+                // in its own chunk.
+                manualChunks(id: string) {
+                    if (id.includes('node_modules/apexcharts')) {
+                        return 'apexcharts'
+                    }
                 }
             }
         }

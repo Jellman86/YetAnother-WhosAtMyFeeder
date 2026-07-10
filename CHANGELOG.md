@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **Frontend toolchain:** Upgraded the UI build/test stack — Vite 5→8, `@sveltejs/vite-plugin-svelte` 4→7, and Vitest 2→4 (supersedes the individual Dependabot bumps). Vite 8 uses the Rolldown bundler, so `manualChunks` moves to the function form (keeping `apexcharts` in its own chunk); the Docker frontend build stages move to `node:22` (LTS) to meet the new engine floor. TypeScript is held on the 5.9 line: TypeScript 7's native compiler is not yet supported by `svelte-check`, so that Dependabot bump is deferred.
+- **CI:** Bumped workflow actions to Node 24-capable versions (`docker/build-push-action` v6→v7, `actions/checkout` v5→v7, `actions/setup-python` v5→v6), clearing the "Node.js 20 is deprecated" runner warning on the image-build jobs.
+
 ### Fixed
 - **Security logging:** The "Authentication enabled over HTTP" warning no longer fires for internal/private clients (loopback or RFC1918/link-local addresses). In the monolithic image the bundled nginx proxies to the backend over loopback, and Docker-network services (e.g. the Home Assistant integration) poll the API over internal HTTP — none of which exposes credentials to an untrusted network. The warning is preserved for genuinely exposed cases: a public client over HTTP, or a trusted reverse proxy reporting that the real client's leg was plaintext.
 
