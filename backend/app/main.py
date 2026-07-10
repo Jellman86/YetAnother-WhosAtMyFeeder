@@ -6,6 +6,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import structlog
 import asyncio
+import ipaddress
 import os
 import json
 import re
@@ -560,6 +561,38 @@ def _classify_https_warning_reason(
     return "direct_http_request"
 
 
+def _is_internal_client_host(client_host: str | None) -> bool:
+    """Return true if the client address is loopback or private (within the trust boundary).
+
+    Such traffic (the monolith's bundled nginx over loopback, or another container on the
+    Docker network) never crosses an untrusted network, so a plaintext-HTTP request from it
+    does not expose credentials to an outside party.
+    """
+    if not client_host:
+        return False
+    try:
+        ip = ipaddress.ip_address(client_host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private or ip.is_link_local
+
+
+def _should_warn_auth_over_http(warning_reason: str, client_host: str | None) -> bool:
+    """Decide whether an authenticated HTTP request warrants a credential-exposure warning.
+
+    A trusted proxy forwarding a non-HTTPS scheme reflects a real client leg over plaintext,
+    so it always warns. Otherwise the request is treated as HTTP based on the direct
+    connection, which is only a genuine exposure when that connection comes from outside the
+    trust boundary — internal/private clients (e.g. the bundled nginx or Docker-network
+    services polling the API) must not raise the alarm.
+    """
+    if warning_reason in {"untrusted_forwarded_proto_ignored", "direct_http_request"}:
+        return not _is_internal_client_host(client_host)
+    if warning_reason == "secure_request":
+        return False
+    return True
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
@@ -617,8 +650,10 @@ async def check_https_warning(request: Request, call_next):
                 trusted_proxy_hosts=resolved_trusted_hosts,
             )
 
-            # Log warning once per minute to avoid spam
-            should_log = (
+            # Internal/private clients (the bundled nginx, Docker-network services) stay within
+            # the trust boundary, so plaintext HTTP from them is not a credential-exposure risk.
+            # Log warning once per minute to avoid spam.
+            should_log = _should_warn_auth_over_http(warning_reason, client_host) and (
                 not hasattr(app.state, "_last_https_warning")
                 or (datetime.now() - app.state._last_https_warning).total_seconds() > 60
             )

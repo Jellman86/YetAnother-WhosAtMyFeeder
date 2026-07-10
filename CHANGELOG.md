@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- **Security logging:** The "Authentication enabled over HTTP" warning no longer fires for internal/private clients (loopback or RFC1918/link-local addresses). In the monolithic image the bundled nginx proxies to the backend over loopback, and Docker-network services (e.g. the Home Assistant integration) poll the API over internal HTTP — none of which exposes credentials to an untrusted network. The warning is preserved for genuinely exposed cases: a public client over HTTP, or a trusted reverse proxy reporting that the real client's leg was plaintext.
+
 ## [2.12.0] - 2026-07-09
 
 ### Added
