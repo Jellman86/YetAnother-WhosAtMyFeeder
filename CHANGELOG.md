@@ -7,9 +7,27 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Changed
-- **Frontend toolchain:** Upgraded the UI build/test stack — Vite 5→8, `@sveltejs/vite-plugin-svelte` 4→7, and Vitest 2→4 (supersedes the individual Dependabot bumps). Vite 8 uses the Rolldown bundler, so `manualChunks` moves to the function form (keeping `apexcharts` in its own chunk); the Docker frontend build stages move to `node:22` (LTS) to meet the new engine floor. TypeScript is held on the 5.9 line: TypeScript 7's native compiler is not yet supported by `svelte-check`, so that Dependabot bump is deferred.
+- **Frontend toolchain:** Upgraded the UI build/test stack (supersedes the individual Dependabot bumps). Vite 8 uses the Rolldown bundler, so `manualChunks` moves to the function form (keeping `apexcharts` in its own chunk); the Docker frontend build stages move from `node:20` to `node:22` (LTS) to meet the new engine floor. TypeScript is held on the 5.9 line: TypeScript 7's native compiler is not yet supported by `svelte-check`, so that Dependabot bump is deferred. Rollback record (from → to):
+  - `vite` ^5.1.4 → ^8.1.4
+  - `@sveltejs/vite-plugin-svelte` ^4.0.0 → ^7.2.0
+  - `vitest` ^2.1.9 → ^4.1.10
+  - `typescript` ^5.4.0 → ^5.9.0 (held on 5.x; TS 7 deferred)
 - **CI:** Bumped workflow actions to Node 24-capable versions (`docker/build-push-action` v6→v7, `actions/checkout` v5→v7, `actions/setup-python` v5→v6), clearing the "Node.js 20 is deprecated" runner warning on the image-build jobs.
-- **Backend dependencies:** Updated the backend stack (consolidating the Dependabot bumps): FastAPI 0.109→0.139 (Starlette 1.x), Pydantic 2.6→2.13, Uvicorn 0.27→0.51, aiosqlite 0.19→0.22, aiomqtt 2.0→2.5 (paho-mqtt 2.x), Alembic 1.13→1.18, httpx 0.28, cryptography 45→49, aiosmtplib 3→5, OpenVINO →2026.2, and pytest 8→9 with pytest-asyncio →1.4. The OpenAPI artifacts are regenerated for FastAPI/Pydantic's more compact schema output (no endpoint changes), and the aiosqlite test-teardown daemon-thread shim now handles both the pre- and post-0.20 threading models.
+- **Backend dependencies:** Updated the backend stack (consolidating the Dependabot bumps). The OpenAPI artifacts are regenerated for FastAPI/Pydantic's more compact schema output (no endpoint changes), and the aiosqlite test-teardown daemon-thread shim now handles both the pre- and post-0.20 threading models. Rollback record (from → to):
+  - `fastapi` 0.109.2 → 0.139.0 (pulls `starlette` 0.36.3 → 1.3.1)
+  - `pydantic` 2.6.1 → 2.13.4; `pydantic-settings` 2.2.1 → 2.14.2
+  - `uvicorn[standard]` 0.27.1 → 0.51.0
+  - `aiosqlite` 0.19.0 → 0.22.1
+  - `aiomqtt` 2.0.1 → 2.5.1 (pulls `paho-mqtt` 1.6.1 → 2.1.0)
+  - `alembic` 1.13.1 → 1.18.5
+  - `httpx` 0.27.0 → 0.28.1; `python-multipart` 0.0.9 → 0.0.32; `slowapi` 0.1.9 → 0.1.10
+  - `cryptography` 45.0.7 → 49.0.0; `aiosmtplib` 3.0.1 → 5.1.2
+  - `openvino` `>=2025.4.0,<2026.0` → `>=2026.2.1,<2027.0`
+  - `pytest` 8.0.0 → 9.1.1 (companion: `pytest-asyncio` 0.23.5 → 1.4.0, required because pytest 9 dropped `FixtureDef.unittest`)
+- **Telemetry worker dependencies:** Updated the Cloudflare Worker toolchain (validated with `wrangler deploy --dry-run`). Rollback record (from → to):
+  - `hono` 3.12.12 → 4.12.29
+  - `wrangler` 3.114.16 → 4.110.0
+  - `@cloudflare/workers-types` 4.20260103.0 → 5.20260710.1
 
 ### Fixed
 - **CI:** The backend test job no longer hangs after a passing run. aiosqlite connection worker threads left open across pytest-asyncio event loops kept the interpreter alive after the tests finished, so the `timeout` wrapper killed the run (exit 124) despite every test passing. Test setup now marks those worker threads daemon so the process exits promptly once testing completes.
