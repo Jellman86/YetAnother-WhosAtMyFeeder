@@ -80,12 +80,14 @@ No action beyond ensuring reconnection stays robust.
 
 ## Recommendations (feed the pre-3.0 roadmap item)
 
-1. **Reduce Frigate media-unavailability drops (finding 1).** The classify fallback
-   chain (`_load_snapshot_classification_fallback`) is cropped → uncropped → thumbnail
-   → cached snapshot, and `drop_classify_snapshot_unavailable` fires only when all fail
-   — the transient-object case. Add a **recording-frame** source (the continuous
-   recording usually still covers the moment), so a brief bird is classified from a
-   recording frame instead of dropped. Surface the
+1. **Reduce Frigate media-unavailability drops (finding 1).** ✅ Recording-frame
+   fallback shipped — the classify fallback chain
+   (`_load_snapshot_classification_fallback`) is cropped → uncropped → thumbnail →
+   cached snapshot → **recording frame**, and `drop_classify_snapshot_unavailable`
+   now fires only when even the continuous recording has no frame (see
+   [design note](../plans/2026-07-10-recording-frame-classification-fallback.md)). A
+   brief bird is classified from a recording frame instead of dropped. Still to do:
+   surface the
    [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) in-app when
    the rate is high. (Correction: the `frigate_missing` default is already
    `mark_missing`, never delete — the ~18k deletions are from installs that explicitly
