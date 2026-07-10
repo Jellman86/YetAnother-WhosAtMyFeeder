@@ -1,5 +1,5 @@
 # node:22 (LTS) satisfies the vite 8 / vitest 4 engine floor (^20.19 || >=22.12).
-FROM node:22 AS ui-builder
+FROM node:26 AS ui-builder
 
 WORKDIR /ui
 
