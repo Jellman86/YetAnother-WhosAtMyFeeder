@@ -24,6 +24,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - `cryptography` 45.0.7 → 49.0.0; `aiosmtplib` 3.0.1 → 5.1.2
   - `openvino` `>=2025.4.0,<2026.0` → `>=2026.2.1,<2027.0`
   - `pytest` 8.0.0 → 9.1.1 (companion: `pytest-asyncio` 0.23.5 → 1.4.0, required because pytest 9 dropped `FixtureDef.unittest`)
+  - `pyjwt` 2.8.0 → 2.13.0; `google-auth` 2.27.0 → 2.55.2; `google-auth-oauthlib` 1.2.0 → 1.4.0; `jinja2` 3.1.3 → 3.1.6 (security)
 - **Telemetry worker dependencies:** Updated the Cloudflare Worker toolchain (validated with `wrangler deploy --dry-run`). Rollback record (from → to):
   - `hono` 3.12.12 → 4.12.29
   - `wrangler` 3.114.16 → 4.110.0
