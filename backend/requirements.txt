@@ -47,7 +47,7 @@ pyjwt==2.8.0
 cryptography==45.0.7
 bcrypt==4.1.2
 # SMTP Email Support
-aiosmtplib==3.0.1
+aiosmtplib==5.1.2
 # OAuth Support for Gmail and Outlook
 google-auth==2.27.0
 google-auth-oauthlib==1.2.0
