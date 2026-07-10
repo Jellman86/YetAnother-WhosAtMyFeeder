@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **CI:** Bumped workflow actions to Node 24-capable versions (`docker/build-push-action` v6→v7, `actions/checkout` v5→v7, `actions/setup-python` v5→v6), clearing the "Node.js 20 is deprecated" runner warning on the image-build jobs.
 
 ### Fixed
+- **CI:** The backend test job no longer hangs after a passing run. aiosqlite connection worker threads left open across pytest-asyncio event loops kept the interpreter alive after the tests finished, so the `timeout` wrapper killed the run (exit 124) despite every test passing. Test setup now marks those worker threads daemon so the process exits promptly once testing completes.
 - **Security logging:** The "Authentication enabled over HTTP" warning no longer fires for internal/private clients (loopback or RFC1918/link-local addresses). In the monolithic image the bundled nginx proxies to the backend over loopback, and Docker-network services (e.g. the Home Assistant integration) poll the API over internal HTTP — none of which exposes credentials to an untrusted network. The warning is preserved for genuinely exposed cases: a public client over HTTP, or a trusted reverse proxy reporting that the real client's leg was plaintext.
 
 ## [2.12.0] - 2026-07-09
