@@ -21,13 +21,29 @@ def _make_aiosqlite_threads_daemon() -> None:
     """
     import aiosqlite.core
 
-    original_start = aiosqlite.core.Connection.start
+    connection_cls = aiosqlite.core.Connection
 
-    def start_as_daemon(self, *args, **kwargs):
-        self.daemon = True
-        return original_start(self, *args, **kwargs)
+    if hasattr(connection_cls, "start"):
+        # aiosqlite < 0.20: Connection subclasses Thread, so it starts itself.
+        original_start = connection_cls.start
 
-    aiosqlite.core.Connection.start = start_as_daemon
+        def start_as_daemon(self, *args, **kwargs):
+            self.daemon = True
+            return original_start(self, *args, **kwargs)
+
+        connection_cls.start = start_as_daemon
+    else:
+        # aiosqlite >= 0.20: Connection composes a worker Thread as self._thread.
+        # Mark it daemon right after construction, before it is started in _connect().
+        original_init = connection_cls.__init__
+
+        def init_with_daemon_thread(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            worker = getattr(self, "_thread", None)
+            if worker is not None:
+                worker.daemon = True
+
+        connection_cls.__init__ = init_with_daemon_thread
 
 
 def pytest_configure(config):

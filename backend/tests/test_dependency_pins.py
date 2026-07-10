@@ -21,7 +21,7 @@ def test_openvino_version_constraint():
     content = _load_requirements()
     openvino_lines = [line.strip() for line in content.splitlines() if line.strip().startswith("openvino")]
     assert openvino_lines, "openvino requirement missing"
-    assert openvino_lines[0] == "openvino>=2025.4.0,<2026.0"
+    assert openvino_lines[0] == "openvino>=2026.2.1,<2027.0"
 
 
 def test_msal_pin_is_compatible_with_cryptography_pin():

@@ -419,7 +419,7 @@ export interface components {
     DailySummaryResponse: {
     audio_confirmations: number;
     hourly_distribution: Array<number>;
-    latest_detection: components['schemas']['DetectionResponseOutput'] | null;
+    latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
 };
@@ -459,7 +459,7 @@ export interface components {
     category_name: string;
     common_name?: string | null;
     detection_index: number;
-    detection_time: string;
+    detection_time: string | null;
     display_name: string;
     frigate_event: string;
     frigate_last_checked_at?: string | null;
@@ -501,7 +501,7 @@ export interface components {
     camera_name: string;
     category_name: string;
     detection_index: number;
-    detection_time: string;
+    detection_time: string | null;
     display_name: string;
     frigate_event: string;
     has_clip?: boolean;
@@ -512,7 +512,7 @@ export interface components {
     is_hidden?: boolean;
     score: number;
 };
-    DetectionResponseInput: {
+    DetectionResponse: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
     audio_confirmed?: boolean;
@@ -523,55 +523,7 @@ export interface components {
     category_name: string;
     common_name?: string | null;
     detection_index: number;
-    detection_time: string;
-    display_name: string;
-    frigate_event: string;
-    frigate_last_checked_at?: string | null;
-    frigate_last_error?: string | null;
-    frigate_missing_since?: string | null;
-    frigate_score?: number | null;
-    frigate_status?: string;
-    has_clip?: boolean;
-    has_frigate_event?: boolean;
-    has_snapshot?: boolean;
-    id?: number | null;
-    is_favorite?: boolean;
-    is_hidden?: boolean;
-    manual_tagged?: boolean;
-    scientific_name?: string | null;
-    score: number;
-    sub_label?: string | null;
-    taxa_id?: number | null;
-    temperature?: number | null;
-    video_classification_backend?: string | null;
-    video_classification_error?: string | null;
-    video_classification_label?: string | null;
-    video_classification_model_id?: string | null;
-    video_classification_model_name?: string | null;
-    video_classification_provider?: string | null;
-    video_classification_score?: number | null;
-    video_classification_status?: string | null;
-    video_classification_timestamp?: string | null;
-    weather_cloud_cover?: number | null;
-    weather_condition?: string | null;
-    weather_precipitation?: number | null;
-    weather_rain?: number | null;
-    weather_snowfall?: number | null;
-    weather_wind_direction?: number | null;
-    weather_wind_speed?: number | null;
-};
-    DetectionResponseOutput: {
-    ai_analysis?: string | null;
-    ai_analysis_timestamp?: string | null;
-    audio_confirmed?: boolean;
-    audio_context_species?: Array<string> | null;
-    audio_score?: number | null;
-    audio_species?: string | null;
-    camera_name: string;
-    category_name: string;
-    common_name?: string | null;
-    detection_index: number;
-    detection_time: string;
+    detection_time: string | null;
     display_name: string;
     frigate_event: string;
     frigate_last_checked_at?: string | null;
@@ -1429,6 +1381,8 @@ export interface components {
     display_name: string;
 };
     ValidationError: {
+    ctx?: Record<string, unknown>;
+    input?: unknown;
     loc: Array<string | number>;
     msg: string;
     type: string;
@@ -2132,7 +2086,7 @@ export interface paths {
     start_date?: string | null;
 };
       requestBody: unknown;
-      response: Array<components['schemas']['DetectionResponseInput']> | Array<components['schemas']['DetectionListItemResponse']>;
+      response: Array<components['schemas']['DetectionResponse']> | Array<components['schemas']['DetectionListItemResponse']>;
     };
   };
   "/api/events/bulk/delete": {

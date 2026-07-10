@@ -1341,6 +1341,7 @@
           "context": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -1397,6 +1398,7 @@
           "runtime_recovery": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -1530,6 +1532,7 @@
         "properties": {
           "failed_jobs": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Failed Jobs",
@@ -1541,6 +1544,7 @@
           },
           "jobs": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Jobs",
@@ -1555,6 +1559,7 @@
           },
           "running_jobs": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Running Jobs",
@@ -1566,6 +1571,7 @@
           },
           "stale_jobs": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Stale Jobs",
@@ -1843,7 +1849,7 @@
       "Body_classify_image_api_classifier_classify_post": {
         "properties": {
           "image": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Image",
             "type": "string"
           }
@@ -1859,7 +1865,7 @@
           "image": {
             "anyOf": [
               {
-                "format": "binary",
+                "contentMediaType": "application/octet-stream",
                 "type": "string"
               },
               {
@@ -1875,7 +1881,7 @@
       "Body_test_bird_classifier_api_classifier_test_post": {
         "properties": {
           "image": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Image",
             "type": "string"
           }
@@ -1889,7 +1895,7 @@
       "Body_test_wildlife_classifier_api_classifier_wildlife_test_post": {
         "properties": {
           "image": {
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Image",
             "type": "string"
           }
@@ -2663,7 +2669,7 @@
           "latest_detection": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DetectionResponse-Output"
+                "$ref": "#/components/schemas/DetectionResponse"
               },
               {
                 "type": "null"
@@ -3036,9 +3042,15 @@
             "type": "integer"
           },
           "detection_time": {
-            "format": "date-time",
-            "title": "Detection Time",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Time"
           },
           "display_name": {
             "title": "Display Name",
@@ -3416,9 +3428,15 @@
             "type": "integer"
           },
           "detection_time": {
-            "format": "date-time",
-            "title": "Detection Time",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Time"
           },
           "display_name": {
             "title": "Display Name",
@@ -3481,439 +3499,7 @@
         "title": "DetectionListItemResponse",
         "type": "object"
       },
-      "DetectionResponse-Input": {
-        "properties": {
-          "ai_analysis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ai Analysis"
-          },
-          "ai_analysis_timestamp": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ai Analysis Timestamp"
-          },
-          "audio_confirmed": {
-            "default": false,
-            "title": "Audio Confirmed",
-            "type": "boolean"
-          },
-          "audio_context_species": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audio Context Species"
-          },
-          "audio_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audio Score"
-          },
-          "audio_species": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audio Species"
-          },
-          "camera_name": {
-            "title": "Camera Name",
-            "type": "string"
-          },
-          "category_name": {
-            "title": "Category Name",
-            "type": "string"
-          },
-          "common_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Common Name"
-          },
-          "detection_index": {
-            "title": "Detection Index",
-            "type": "integer"
-          },
-          "detection_time": {
-            "format": "date-time",
-            "title": "Detection Time",
-            "type": "string"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "frigate_event": {
-            "title": "Frigate Event",
-            "type": "string"
-          },
-          "frigate_last_checked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Frigate Last Checked At"
-          },
-          "frigate_last_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Frigate Last Error"
-          },
-          "frigate_missing_since": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Frigate Missing Since"
-          },
-          "frigate_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Frigate Score"
-          },
-          "frigate_status": {
-            "default": "present",
-            "title": "Frigate Status",
-            "type": "string"
-          },
-          "has_clip": {
-            "default": false,
-            "title": "Has Clip",
-            "type": "boolean"
-          },
-          "has_frigate_event": {
-            "default": true,
-            "title": "Has Frigate Event",
-            "type": "boolean"
-          },
-          "has_snapshot": {
-            "default": true,
-            "title": "Has Snapshot",
-            "type": "boolean"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "is_favorite": {
-            "default": false,
-            "title": "Is Favorite",
-            "type": "boolean"
-          },
-          "is_hidden": {
-            "default": false,
-            "title": "Is Hidden",
-            "type": "boolean"
-          },
-          "manual_tagged": {
-            "default": false,
-            "title": "Manual Tagged",
-            "type": "boolean"
-          },
-          "scientific_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scientific Name"
-          },
-          "score": {
-            "title": "Score",
-            "type": "number"
-          },
-          "sub_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sub Label"
-          },
-          "taxa_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Taxa Id"
-          },
-          "temperature": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Temperature"
-          },
-          "video_classification_backend": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Backend"
-          },
-          "video_classification_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Error"
-          },
-          "video_classification_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Label"
-          },
-          "video_classification_model_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Model Id"
-          },
-          "video_classification_model_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Model Name"
-          },
-          "video_classification_provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Provider"
-          },
-          "video_classification_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Score"
-          },
-          "video_classification_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Status"
-          },
-          "video_classification_timestamp": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Classification Timestamp"
-          },
-          "weather_cloud_cover": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Cloud Cover"
-          },
-          "weather_condition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Condition"
-          },
-          "weather_precipitation": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Precipitation"
-          },
-          "weather_rain": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Rain"
-          },
-          "weather_snowfall": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Snowfall"
-          },
-          "weather_wind_direction": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Wind Direction"
-          },
-          "weather_wind_speed": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weather Wind Speed"
-          }
-        },
-        "required": [
-          "detection_time",
-          "detection_index",
-          "score",
-          "display_name",
-          "category_name",
-          "frigate_event",
-          "camera_name"
-        ],
-        "title": "DetectionResponse",
-        "type": "object"
-      },
-      "DetectionResponse-Output": {
+      "DetectionResponse": {
         "properties": {
           "ai_analysis": {
             "anyOf": [
@@ -4002,9 +3588,15 @@
             "type": "integer"
           },
           "detection_time": {
-            "format": "date-time",
-            "title": "Detection Time",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Time"
           },
           "display_name": {
             "title": "Display Name",
@@ -4699,6 +4291,7 @@
             "$ref": "#/components/schemas/BackendDiagnosticsSnapshotResponse"
           },
           "classifier": {
+            "additionalProperties": true,
             "title": "Classifier",
             "type": "object"
           },
@@ -4710,10 +4303,12 @@
             "type": "string"
           },
           "health": {
+            "additionalProperties": true,
             "title": "Health",
             "type": "object"
           },
           "maintenance_coordinator": {
+            "additionalProperties": true,
             "title": "Maintenance Coordinator",
             "type": "object"
           },
@@ -4726,6 +4321,7 @@
           },
           "startup_warnings": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Startup Warnings",
@@ -4735,6 +4331,7 @@
             "$ref": "#/components/schemas/DiagnosticsBundleSummaryResponse"
           },
           "taxonomy_repair": {
+            "additionalProperties": true,
             "title": "Taxonomy Repair",
             "type": "object"
           },
@@ -4826,6 +4423,7 @@
             "$ref": "#/components/schemas/BackendDiagnosticsSnapshotResponse"
           },
           "classifier": {
+            "additionalProperties": true,
             "title": "Classifier",
             "type": "object"
           },
@@ -4833,21 +4431,25 @@
             "$ref": "#/components/schemas/FocusedDiagnosticsResponse"
           },
           "health": {
+            "additionalProperties": true,
             "title": "Health",
             "type": "object"
           },
           "maintenance_coordinator": {
+            "additionalProperties": true,
             "title": "Maintenance Coordinator",
             "type": "object"
           },
           "startup_warnings": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "title": "Startup Warnings",
             "type": "array"
           },
           "taxonomy_repair": {
+            "additionalProperties": true,
             "title": "Taxonomy Repair",
             "type": "object"
           },
@@ -5407,6 +5009,7 @@
       "LeaderboardAnalysisRequest": {
         "properties": {
           "config": {
+            "additionalProperties": true,
             "title": "Config",
             "type": "object"
           },
@@ -5828,6 +5431,7 @@
           "label_grouping": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -5869,6 +5473,7 @@
           "preprocessing": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -5896,6 +5501,7 @@
             "anyOf": [
               {
                 "additionalProperties": {
+                  "additionalProperties": true,
                   "type": "object"
                 },
                 "type": "object"
@@ -6219,7 +5825,8 @@
           "clip_variant": {
             "const": "recording",
             "default": "recording",
-            "title": "Clip Variant"
+            "title": "Clip Variant",
+            "type": "string"
           },
           "event_id": {
             "title": "Event Id",
@@ -6227,7 +5834,8 @@
           },
           "status": {
             "const": "ready",
-            "title": "Status"
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
@@ -7907,6 +7515,7 @@
           "telemetry_payload_preview": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -9964,7 +9573,8 @@
           },
           "status": {
             "const": "applied",
-            "title": "Status"
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
@@ -11027,6 +10637,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -13021,12 +12638,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/Body_probe_bird_classifier_runtime_api_classifier_probe_post"
-                  }
-                ],
-                "title": "Body"
+                "$ref": "#/components/schemas/Body_probe_bird_classifier_runtime_api_classifier_probe_post"
               }
             }
           }
@@ -13338,6 +12950,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "title": "Response Debug Config Api Debug Config Get",
                   "type": "object"
                 }
@@ -13693,6 +13306,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "title": "Response List Runs Api Diagnostics Model Eval Runs Get",
                   "type": "object"
                 }
@@ -13724,18 +13338,13 @@
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/StartRunRequest"
-                  }
-                ],
+                "$ref": "#/components/schemas/StartRunRequest",
                 "default": {
                   "compat_only": false,
                   "include_per_image": false,
                   "sweep_all_models": false,
                   "sweep_devices": false
-                },
-                "title": "Body"
+                }
               }
             }
           }
@@ -13799,6 +13408,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "title": "Response Delete Run Api Diagnostics Model Eval Runs  Run Id  Delete",
                   "type": "object"
                 }
@@ -13852,6 +13462,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "title": "Response Get Run Api Diagnostics Model Eval Runs  Run Id  Get",
                   "type": "object"
                 }
@@ -13907,6 +13518,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "title": "Response Cancel Run Api Diagnostics Model Eval Runs  Run Id  Cancel Post",
                   "type": "object"
                 }
@@ -14935,7 +14547,7 @@
                   "anyOf": [
                     {
                       "items": {
-                        "$ref": "#/components/schemas/DetectionResponse-Input"
+                        "$ref": "#/components/schemas/DetectionResponse"
                       },
                       "type": "array"
                     },
@@ -18357,6 +17969,7 @@
           "content": {
             "application/json": {
               "schema": {
+                "additionalProperties": true,
                 "title": "Payload",
                 "type": "object"
               }
