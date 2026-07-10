@@ -16,7 +16,7 @@ RUN npm install --legacy-peer-deps
 COPY apps/ui/ .
 RUN npm run build
 
-FROM python:3.12-slim AS backend-builder
+FROM python:3.14-slim AS backend-builder
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
