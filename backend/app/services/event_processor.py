@@ -76,6 +76,10 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
     0,
     int(os.getenv("EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES", "5")),
 )
+# Short window around the detection start used to pull a classification frame from
+# Frigate's continuous recording when no snapshot/thumbnail is available.
+RECORDING_FRAME_FALLBACK_BEFORE_SECONDS = max(0, int(os.getenv("RECORDING_FRAME_FALLBACK_BEFORE_SECONDS", "2")))
+RECORDING_FRAME_FALLBACK_AFTER_SECONDS = max(1, int(os.getenv("RECORDING_FRAME_FALLBACK_AFTER_SECONDS", "8")))
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
 _CLASSIFY_SNAPSHOT_TIMED_OUT = object()
 
@@ -916,7 +920,11 @@ class EventProcessor:
                     break
                 await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
             if not snapshot_data:
-                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(event.frigate_event)
+                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
+                    event.frigate_event,
+                    camera=getattr(event, "camera", None),
+                    start_time_ts=getattr(event, "start_time_ts", None),
+                )
             if not snapshot_data:
                 log.info(
                     "Skipping MQTT event - snapshot unavailable after retry",
@@ -948,7 +956,12 @@ class EventProcessor:
             log.error("Classification failed", event_id=event.frigate_event, error=str(e))
             return None
 
-    async def _load_snapshot_classification_fallback(self, event_id: str) -> tuple[Optional[bytes], str]:
+    async def _load_snapshot_classification_fallback(
+        self,
+        event_id: str,
+        camera: Optional[str] = None,
+        start_time_ts: Optional[float] = None,
+    ) -> tuple[Optional[bytes], str]:
         """Try progressively less ideal snapshot sources before dropping the event."""
         snapshot_data, error = await frigate_client.get_snapshot_with_error(event_id, crop=False, quality=95)
         if snapshot_data:
@@ -968,12 +981,61 @@ class EventProcessor:
             log.info("Using cached snapshot fallback for classification", event_id=event_id)
             return cached_snapshot, "cached_snapshot"
 
+        # Last resort: pull a frame from Frigate's continuous recording, which usually
+        # still covers a briefly-tracked bird whose event snapshot was never persisted.
+        recording_frame = await self._load_recording_frame_fallback(event_id, camera, start_time_ts)
+        if recording_frame:
+            self._record_stage_fallback("classify_snapshot", event_id)
+            log.info("Using Frigate recording-frame fallback for classification", event_id=event_id)
+            return recording_frame, "frigate_recording_frame"
+
         log.debug(
             "No classification snapshot fallback available",
             event_id=event_id,
             uncropped_snapshot_error=error,
         )
         return None, "unavailable"
+
+    async def _load_recording_frame_fallback(
+        self,
+        event_id: str,
+        camera: Optional[str],
+        start_time_ts: Optional[float],
+    ) -> Optional[bytes]:
+        """Extract a representative classification frame from Frigate's continuous recording.
+
+        Returns JPEG bytes, or None when the fallback is disabled, the inputs are
+        missing, the recording is not retained, or frame extraction fails. Any failure
+        leaves the caller to drop the event exactly as before.
+        """
+        if not settings.frigate.recording_frame_classification_fallback:
+            return None
+        if not camera or not start_time_ts:
+            return None
+
+        after = int(start_time_ts) - RECORDING_FRAME_FALLBACK_BEFORE_SECONDS
+        before = int(start_time_ts) + RECORDING_FRAME_FALLBACK_AFTER_SECONDS
+        clip_bytes, error = await frigate_client.get_recording_clip_with_error(camera, after, before)
+        if not clip_bytes:
+            log.debug(
+                "Recording-frame fallback: no recording clip",
+                event_id=event_id,
+                camera=camera,
+                error=error,
+            )
+            return None
+
+        try:
+            frame_bytes = await asyncio.to_thread(high_quality_snapshot_service._extract_snapshot_from_clip, clip_bytes)
+        except Exception as exc:
+            log.warning(
+                "Recording-frame fallback: frame extraction failed",
+                event_id=event_id,
+                camera=camera,
+                error=str(exc),
+            )
+            return None
+        return frame_bytes or None
 
     async def _gather_context_data(self, event: EventData) -> Dict[str, Any]:
         """Gather audio and weather context data in parallel.

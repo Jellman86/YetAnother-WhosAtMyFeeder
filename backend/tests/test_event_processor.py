@@ -1270,3 +1270,123 @@ async def test_classify_snapshot_falls_back_to_cached_snapshot_before_drop():
     assert snapshot_data == b"cached-bytes"
     mock_cache.get_snapshot.assert_awaited_once_with("evt-fallback-cache")
     mock_sleep.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_recording_frame_fallback_extracts_frame_from_recording_window():
+    processor = EventProcessor(MagicMock())
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hqss,
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", True, create=True
+        ),
+    ):
+        mock_frigate.get_recording_clip_with_error = AsyncMock(return_value=(b"clip-bytes", None))
+        mock_hqss._extract_snapshot_from_clip = MagicMock(return_value=b"frame-jpeg")
+
+        frame = await processor._load_recording_frame_fallback("evt-rec", "cam1", 1700000000.0)
+
+    assert frame == b"frame-jpeg"
+    # window is start-2 .. start+8
+    mock_frigate.get_recording_clip_with_error.assert_awaited_once_with("cam1", 1699999998, 1700000008)
+    mock_hqss._extract_snapshot_from_clip.assert_called_once_with(b"clip-bytes")
+
+
+@pytest.mark.asyncio
+async def test_recording_frame_fallback_disabled_skips_recording():
+    processor = EventProcessor(MagicMock())
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", False, create=True
+        ),
+    ):
+        mock_frigate.get_recording_clip_with_error = AsyncMock()
+        frame = await processor._load_recording_frame_fallback("evt-rec", "cam1", 1700000000.0)
+
+    assert frame is None
+    mock_frigate.get_recording_clip_with_error.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recording_frame_fallback_none_when_recording_not_retained():
+    processor = EventProcessor(MagicMock())
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hqss,
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", True, create=True
+        ),
+    ):
+        mock_frigate.get_recording_clip_with_error = AsyncMock(return_value=(None, "clip_not_retained"))
+        mock_hqss._extract_snapshot_from_clip = MagicMock()
+        frame = await processor._load_recording_frame_fallback("evt-rec", "cam1", 1700000000.0)
+
+    assert frame is None
+    mock_hqss._extract_snapshot_from_clip.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_recording_frame_fallback_none_without_camera_or_timestamp():
+    processor = EventProcessor(MagicMock())
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", True, create=True
+        ),
+    ):
+        mock_frigate.get_recording_clip_with_error = AsyncMock()
+        assert await processor._load_recording_frame_fallback("evt", None, 1700000000.0) is None
+        assert await processor._load_recording_frame_fallback("evt", "cam1", None) is None
+    mock_frigate.get_recording_clip_with_error.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_falls_back_to_recording_frame_before_drop():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-rec-frame",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    image_mock = MagicMock()
+    image_mock.convert.return_value = image_mock
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hqss,
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", True, create=True
+        ),
+        patch("app.services.event_processor.Image.open", return_value=image_mock),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache.get_snapshot = AsyncMock(return_value=None)
+        mock_frigate.get_recording_clip_with_error = AsyncMock(return_value=(b"clip-bytes", None))
+        mock_hqss._extract_snapshot_from_clip = MagicMock(return_value=b"recording-frame")
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+
+        result = await processor._classify_snapshot(event)
+
+    assert result is not None
+    _, snapshot_data = result
+    assert snapshot_data == b"recording-frame"
+    mock_frigate.get_recording_clip_with_error.assert_awaited_once_with("cam1", 1699999998, 1700000008)

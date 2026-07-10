@@ -201,6 +201,14 @@ class FrigateSettings(BaseModel):
         le=3600,
         description="Seconds of recording to include after the detection timestamp",
     )
+    recording_frame_classification_fallback: bool = Field(
+        default=True,
+        description=(
+            "When a detection has no snapshot/thumbnail/cached image, extract a frame "
+            "from Frigate's continuous recording at the detection moment and classify "
+            "that instead of dropping the detection. Requires Frigate recordings."
+        ),
+    )
     mqtt_server: str = "mqtt"
     mqtt_port: int = 1883
     mqtt_auth: bool = False

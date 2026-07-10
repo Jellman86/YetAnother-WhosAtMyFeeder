@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Recording-frame classification fallback:** When a detection has no snapshot, thumbnail, or cached image, YA-WAMF now extracts a frame from Frigate's continuous recording at the detection moment and classifies that instead of dropping the detection outright. This targets the fleet's most common real failure (`drop_classify_snapshot_unavailable`, seen on 8 of 13 telemetry installs) — briefly-tracked birds whose event snapshot is never persisted are usually still in the recording. On by default (`frigate.recording_frame_classification_fallback`); requires Frigate recordings, and falls through to the existing drop behaviour when the recording isn't retained. See [the design note](docs/plans/2026-07-10-recording-frame-classification-fallback.md).
+
 ### Changed
 - **Frontend toolchain:** Upgraded the UI build/test stack (supersedes the individual Dependabot bumps). Vite 8 uses the Rolldown bundler, so `manualChunks` moves to the function form (keeping `apexcharts` in its own chunk); the Docker frontend build stages move from `node:20` to `node:22` (LTS) to meet the new engine floor. TypeScript is held on the 5.9 line: TypeScript 7's native compiler is not yet supported by `svelte-check`, so that Dependabot bump is deferred. Rollback record (from → to):
   - `vite` ^5.1.4 → ^8.1.4
