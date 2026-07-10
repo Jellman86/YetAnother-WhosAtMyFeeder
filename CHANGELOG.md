@@ -20,6 +20,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **API:** Build-time OpenAPI artifact (`backend/openapi.json`) exported by `backend/scripts/export_openapi.py`, with a CI drift check so the published API contract stays in sync with the routers under `backend/app/routers`.
 - **Docs & governance:** Added a documentation standard (`docs/documentation-standard.md`), a hardware-acceleration setup guide covering the Intel NPU / Intel GPU / CUDA providers, and `AGENTS.md` and `CODE_OF_CONDUCT.md` governance files.
 - **CI:** Pull-request CI now runs Ruff linting over backend and Home Assistant integration Python code, and reports backend coverage with the existing floor so regressions are visible before merge.
+- **Events API:** Added a documented lightweight `fields=list` event-list shape for clients that only need list-card data, preserving the full event response by default.
 - **CI:** Added PR-focused backend/frontend/docs checks, CodeQL scanning for Python and TypeScript, and Dependabot updates for Python, npm, Docker, and GitHub Actions dependencies.
 
 ### Changed
@@ -33,6 +34,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Home Assistant:** Video clips now play through the ingress sidebar panel. The proxy stripped `Content-Length` from streamed responses, forcing chunked transfer encoding that broke `<video>` Range/seeking, so clips failed to load and appeared as "cannot be found in Frigate". The proxy now preserves exact byte-length framing for unencoded media/snapshot bodies and treats the browser closing the connection mid-stream (seeking or switching clips) as normal instead of logging a proxy failure.
 - **Home Assistant:** Lazily-loaded assets (e.g. the Leaflet map CSS/JS) now load through the ingress sidebar panel. They were requested from the site root (`/assets/…`) instead of the ingress sub-path, causing "Unable to preload CSS" errors. Vite now resolves JS/CSS asset URLs relative to the importing module (`import.meta.url`), so they load correctly under the ingress base and at the site root.
 - **Maintenance:** BirdNET-Go audio detections now honour the configured retention window. Scheduled cleanup previously deleted only visual detections, so the `audio_detections` table grew without bound; it now also purges audio rows older than `maintenance.retention_days` (chunked, keyed on the audio `timestamp`) in the same cleanup pass.
+- **Security:** Recording-clip HEAD response caching now runs only after feature flags, event-id validation, and event access checks, preventing cached availability from bypassing access rules.
+- **Events API:** Filtered event responses now use JSON-mode serialization so timestamp fields keep the explicit UTC `Z` wire format.
 
 ## [2.11.0] - 2026-06-22
 

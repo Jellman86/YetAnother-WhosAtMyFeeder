@@ -97,7 +97,7 @@ async def test_run_background_sync_skips_unknown_bird_rows(taxonomy_service):
     ):
         await taxonomy_service.run_background_sync()
 
-    mock_get_names.assert_awaited_once_with("Blue Jay", db=db)
+    mock_get_names.assert_awaited_once_with("Blue Jay", db=db, force_refresh=True)
     status = taxonomy_service.get_sync_status()
     assert status["total"] == 1
     assert status["processed"] == 1
@@ -145,7 +145,7 @@ async def test_run_background_sync_prefers_stored_scientific_name_for_repair(tax
     async def fake_get_db():
         yield db
 
-    async def lookup(name: str, db=None):
+    async def lookup(name: str, db=None, force_refresh: bool = False):
         if name == "Cyanistes caeruleus":
             return {
                 "scientific_name": "Cyanistes caeruleus",
@@ -168,7 +168,7 @@ async def test_run_background_sync_prefers_stored_scientific_name_for_repair(tax
     ):
         await taxonomy_service.run_background_sync()
 
-    mock_get_names.assert_awaited_once_with("Cyanistes caeruleus", db=db)
+    mock_get_names.assert_awaited_once_with("Cyanistes caeruleus", db=db, force_refresh=True)
 
     async with db.execute(
         "SELECT scientific_name, common_name, taxa_id FROM detections WHERE display_name = ?",

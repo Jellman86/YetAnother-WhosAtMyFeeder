@@ -135,6 +135,7 @@ async def test_reclassify_video_triggers_snapshot_upgrade_when_clip_valid(client
                 )
             )
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -197,6 +198,7 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
         ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -246,6 +248,7 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
         ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -295,6 +298,7 @@ async def test_reclassify_video_prefers_cached_recording_clip_when_available(cli
         ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomevent", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -369,6 +373,7 @@ async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_fails(client: 
         ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(return_value="frame_extract_failed")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -403,6 +408,7 @@ async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_raises(client:
         ):
             mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
             mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
             mock_hq.replace_from_clip_bytes = AsyncMock(side_effect=RuntimeError("boom"))
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 

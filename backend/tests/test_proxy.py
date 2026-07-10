@@ -21,6 +21,13 @@ async def client():
         yield client
 
 
+@pytest.fixture(autouse=True)
+def clear_head_response_cache():
+    proxy_module._head_response_cache.clear()
+    yield
+    proxy_module._head_response_cache.clear()
+
+
 @pytest.mark.asyncio
 async def test_proxy_clip_disabled(client: httpx.AsyncClient):
     """Test that clips return 403 when clips_enabled is False."""
@@ -335,6 +342,22 @@ async def test_check_recording_clip_exists_uses_streaming_probe(client: httpx.As
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_check_recording_clip_exists_ignores_cache_when_disabled(client: httpx.AsyncClient):
+    original_clips = settings.frigate.clips_enabled
+    original_recording = settings.frigate.recording_clip_enabled
+    settings.frigate.clips_enabled = False
+    settings.frigate.recording_clip_enabled = False
+    proxy_module._head_response_cache["test_event_id"] = (time.time(), 200)
+
+    try:
+        response = await client.head("/api/frigate/test_event_id/recording-clip.mp4")
+        assert response.status_code == 403
+    finally:
+        settings.frigate.clips_enabled = original_clips
+        settings.frigate.recording_clip_enabled = original_recording
 
 
 @pytest.mark.asyncio
@@ -1285,9 +1308,12 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert body["current_source"] == "hq_candidate_model_crop"
     assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
-    assert body["candidates"][0]["thumbnail_url"].endswith(
+    thumbnail_url = body["candidates"][0]["thumbnail_url"]
+    # A cache-busting `?v=<mtime>` query is appended so promoted candidates refresh in the browser.
+    assert thumbnail_url.split("?", 1)[0].endswith(
         "/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg"
     )
+    assert "?v=" in thumbnail_url
 
 
 @pytest.mark.asyncio

@@ -13,10 +13,11 @@ export interface FetchEventsOptions {
     includeHidden?: boolean;
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
+    fields?: 'list' | 'detail' | string;
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, fields } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -28,6 +29,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (includeHidden) params.set('include_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
+    if (fields) params.set('fields', fields);
 
     const filterKey = [
         'events',
@@ -37,6 +39,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         includeHidden ? 'hidden' : 'visible',
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
+        fields || 'full',
         startDate || 'none',
         endDate || 'none',
         String(limit),

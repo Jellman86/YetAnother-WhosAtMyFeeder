@@ -4,6 +4,30 @@ from collections.abc import Iterable
 from app.config import settings
 
 
+# Canonical label rewrites: map misspelled/variant model output to the
+# correct form expected by iNaturalist / eBird.  Applied before taxonomy
+# lookup so that stale cache misses caused by typos are avoided.
+_LABEL_REWRITES: dict[str, str] = {
+    "pallass grasshopper warbler": "Pallas's grasshopper warbler",
+    "pallass gull": "Pallas's gull",
+    "pallass leaf warbler": "Pallas's leaf warbler",
+    "pallass reed bunting": "Pallas's reed bunting",
+    "menetriess warbler": "Menetries's warbler",
+    "raddes accentor": "Radde's accentor",
+    "raddes warbler": "Radde's warbler",
+    "ruppells vulture": "Rüppell's vulture",
+    "ruppells warbler": "Rüppell's warbler",
+}
+
+
+def rewrite_label(label: str | None) -> str:
+    """Return the canonical form of *label*, or *label* unchanged."""
+    if not label:
+        return label or ""
+    key = label.strip().casefold()
+    return _LABEL_REWRITES.get(key, label)
+
+
 UNKNOWN_BIRD_DISPLAY_LABEL = "Unknown Bird"
 UNKNOWN_RAW_LABEL = "Unknown"
 ABSTENTION_SPECIES_LABELS = (

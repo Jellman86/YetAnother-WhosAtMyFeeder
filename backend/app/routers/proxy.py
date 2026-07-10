@@ -249,11 +249,16 @@ async def _list_snapshot_candidates(event_id: str) -> list[dict]:
 
 
 def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str) -> str:
-    return request.url_for(
-        "get_snapshot_candidate_thumbnail",
-        event_id=event_id,
-        candidate_id=candidate_id,
-    ).path
+    import time
+
+    return (
+        request.url_for(
+            "get_snapshot_candidate_thumbnail",
+            event_id=event_id,
+            candidate_id=candidate_id,
+        ).path
+        + f"?v={int(time.time())}"
+    )
 
 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
@@ -1756,6 +1761,11 @@ async def check_clip_exists(
         )
 
 
+# Cache for HEAD responses to avoid repeated Frigate checks
+_head_response_cache: dict[str, tuple[float, int]] = {}
+HEAD_CACHE_TTL = 300  # 5 minutes
+
+
 @router.head("/frigate/{event_id}/recording-clip.mp4")
 @guest_rate_limit()
 async def check_recording_clip_exists(
@@ -1774,6 +1784,14 @@ async def check_recording_clip_exists(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
+    import time
+
+    now = time.time()
+    if event_id in _head_response_cache:
+        cached_time, cached_status = _head_response_cache[event_id]
+        if now - cached_time < HEAD_CACHE_TTL:
+            return Response(status_code=cached_status, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
+
     if settings.media_cache.enabled:
         cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
         if cached_path:
@@ -1788,8 +1806,13 @@ async def check_recording_clip_exists(
         if await _is_no_recordings_response(resp):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
         if resp.status_code == 404:
-            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
+            _head_response_cache[event_id] = (now, 404)
+            raise HTTPException(
+                status_code=404,
+                detail=i18n_service.translate("errors.proxy.clip_not_found", lang),
+            )
         resp.raise_for_status()
+        _head_response_cache[event_id] = (now, 200)
         return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "available"})
     except HTTPException:
         raise
