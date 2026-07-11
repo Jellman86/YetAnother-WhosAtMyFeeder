@@ -36,7 +36,11 @@
                     </svg>
                 </div>
                 <div class="min-w-0 flex-1 text-sm text-teal-900 dark:text-teal-100">
-                    <span class="font-semibold">{$_('update_banner.title', { values: { version: status.latest_version }, default: `YA-WAMF ${status.latest_version} is available` })}</span>
+                    {#if status.channel === 'dev'}
+                        <span class="font-semibold">{$_('update_banner.title_dev', { values: { version: status.latest_version }, default: `A newer dev build is available (${status.latest_version})` })}</span>
+                    {:else}
+                        <span class="font-semibold">{$_('update_banner.title', { values: { version: status.latest_version }, default: `YA-WAMF ${status.latest_version} is available` })}</span>
+                    {/if}
                     <span class="ml-1 opacity-90">{$_('update_banner.body', { values: { current: currentDisplay }, default: `You're running ${currentDisplay}. Pull the new image from your container manager to update.` })}</span>
                     <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-black underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.release_notes', { default: 'Release notes →' })}

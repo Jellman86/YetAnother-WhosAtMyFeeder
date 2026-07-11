@@ -4,6 +4,7 @@ import { shouldShowUpdateBanner, type UpdateStatus } from './system';
 
 const status = (overrides: Partial<UpdateStatus>): UpdateStatus => ({
     current_version: '2.10.0',
+    channel: 'stable',
     latest_version: '2.12.0',
     update_available: true,
     release_url: 'https://example/releases',
