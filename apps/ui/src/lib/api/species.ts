@@ -1,6 +1,7 @@
 import { toLocalYMD } from '../utils/date-only';
 import { API_BASE, apiFetch, handleResponse } from './core';
 import type { Detection, SpeciesCount } from './types';
+import type { paths } from './generated/openapi';
 
 export async function fetchSpecies(): Promise<SpeciesCount[]> {
     const response = await apiFetch(`${API_BASE}/species`);
@@ -46,43 +47,9 @@ export interface SpeciesInfo {
     cached_at: string | null;
 }
 
-export interface DailyDetectionCount {
-    date: string;
-    count: number;
-}
-
-export interface DailyWeatherSummary {
-    date: string;
-    condition?: string | null;
-    precip_total?: number | null;
-    rain_total?: number | null;
-    snow_total?: number | null;
-    wind_max?: number | null;
-    wind_avg?: number | null;
-    cloud_avg?: number | null;
-    temp_avg?: number | null;
-    sunrise?: string | null;
-    sunset?: string | null;
-    am_condition?: string | null;
-    am_rain?: number | null;
-    am_snow?: number | null;
-    am_wind?: number | null;
-    am_cloud?: number | null;
-    am_temp?: number | null;
-    pm_condition?: string | null;
-    pm_rain?: number | null;
-    pm_snow?: number | null;
-    pm_wind?: number | null;
-    pm_cloud?: number | null;
-    pm_temp?: number | null;
-}
-
-export interface DetectionsTimeline {
-    days: number;
-    total_count: number;
-    daily: DailyDetectionCount[];
-    weather?: DailyWeatherSummary[] | null;
-}
+export type DetectionsTimeline = paths['/api/stats/detections/daily']['get']['response'];
+export type DailyDetectionCount = DetectionsTimeline['daily'][number];
+export type DailyWeatherSummary = NonNullable<DetectionsTimeline['weather']>[number];
 
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
@@ -94,32 +61,9 @@ export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo
     return handleResponse<SpeciesInfo>(response);
 }
 
-export interface EbirdObservation {
-    species_code?: string | null;
-    common_name?: string | null;
-    scientific_name?: string | null;
-    observed_at?: string | null;
-    location_name?: string | null;
-    how_many?: number | null;
-    lat?: number | null;
-    lng?: number | null;
-    obs_valid?: boolean | null;
-    obs_reviewed?: boolean | null;
-    thumbnail_url?: string | null;
-}
-
-export interface EbirdNearbyResult {
-    status: string;
-    species_name?: string | null;
-    species_code?: string | null;
-    warning?: string | null;
-    results: EbirdObservation[];
-}
-
-export interface EbirdNotableResult {
-    status: string;
-    results: EbirdObservation[];
-}
+export type EbirdNearbyResult = paths['/api/ebird/nearby']['get']['response'];
+export type EbirdNotableResult = paths['/api/ebird/notable']['get']['response'];
+export type EbirdObservation = EbirdNearbyResult['results'][number];
 
 export async function fetchEbirdNearby(speciesName?: string, scientificName?: string): Promise<EbirdNearbyResult> {
     const params = new URLSearchParams();
@@ -168,13 +112,7 @@ export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTime
     return handleResponse<DetectionsTimeline>(response);
 }
 
-export interface SearchResult {
-    id: string;
-    display_name: string;
-    scientific_name?: string | null;
-    common_name?: string | null;
-    taxa_id?: number | null;
-}
+export type SearchResult = paths['/api/species/search']['get']['response'][number];
 
 export async function searchSpecies(query: string, limit?: number, hydrateMissing: boolean = false): Promise<SearchResult[]> {
     const params = new URLSearchParams();
@@ -189,13 +127,7 @@ export async function searchSpecies(query: string, limit?: number, hydrateMissin
     return handleResponse<SearchResult[]>(response);
 }
 
-export interface SeasonalityResult {
-    status: string;
-    taxon_id: number;
-    local: boolean;
-    month_counts: number[];
-    total_observations: number;
-}
+export type SeasonalityResult = paths['/api/inaturalist/seasonality']['get']['response'];
 
 export interface SpeciesRangeMap {
     status: string;

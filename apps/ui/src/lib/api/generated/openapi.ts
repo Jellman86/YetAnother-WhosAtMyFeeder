@@ -659,6 +659,32 @@ export interface components {
     progress: number;
     status: string;
 };
+    EbirdNearbyResponse: {
+    message?: string | null;
+    results: Array<components['schemas']['EbirdObservation']>;
+    species_code?: string | null;
+    species_name?: string | null;
+    status: string;
+    warning?: string | null;
+};
+    EbirdNotableResponse: {
+    message?: string | null;
+    results: Array<components['schemas']['EbirdObservation']>;
+    status: string;
+};
+    EbirdObservation: {
+    common_name?: string | null;
+    how_many?: number | null;
+    lat?: number | null;
+    lng?: number | null;
+    location_name?: string | null;
+    obs_reviewed?: boolean | null;
+    obs_valid?: boolean | null;
+    observed_at?: string | null;
+    scientific_name?: string | null;
+    species_code?: string | null;
+    thumbnail_url?: string | null;
+};
     EventFilterSpecies: {
     common_name?: string | null;
     display_name: string;
@@ -699,6 +725,10 @@ export interface components {
     is_hidden: boolean;
     status: string;
 };
+    InaturalistDisconnectResponse: {
+    deleted: boolean;
+    status: string;
+};
     InaturalistDraftRequest: {
     event_id: string;
 };
@@ -724,6 +754,10 @@ export interface components {
     longitude?: number | null;
     notes?: string | null;
     place_guess?: string | null;
+};
+    InaturalistSubmitResponse: {
+    observation_id?: number | null;
+    status: string;
 };
     InitialPasswordRequest: {
     enable_auth?: boolean;
@@ -791,6 +825,9 @@ export interface components {
     retention_days: number;
     total_detections: number;
 };
+    MessageResponse: {
+    message: string;
+};
     ModelActionResponse: {
     message: string;
     status: string;
@@ -835,6 +872,10 @@ export interface components {
     user_key?: string | null;
     webhook_url?: string | null;
 };
+    OAuthAuthorizeResponse: {
+    authorization_url: string;
+    state?: string | null;
+};
     PurgeMissingMediaResponse: {
     checked: number;
     cleared_missing_count: number;
@@ -872,6 +913,13 @@ export interface components {
     country?: string | null;
     place_guess?: string | null;
     state?: string | null;
+};
+    SeasonalityResponse: {
+    local: boolean;
+    month_counts: Array<number>;
+    status: string;
+    taxon_id: number;
+    total_observations: number;
 };
     SettingsResponse: {
     accessibility_dyslexia_font?: boolean | null;
@@ -1274,6 +1322,26 @@ export interface components {
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
 };
+    SpeciesCountItem: {
+    avg_confidence?: number | null;
+    camera_count?: number | null;
+    common_name?: string | null;
+    count: number;
+    count_1d?: number;
+    count_30d?: number;
+    count_7d?: number;
+    days_seen_14d?: number;
+    days_seen_30d?: number;
+    first_seen?: string | null;
+    last_seen?: string | null;
+    max_confidence?: number | null;
+    min_confidence?: number | null;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+    trend_delta?: number;
+    trend_percent?: number;
+};
     SpeciesInfo: {
     cached_at?: string | null;
     conservation_status?: string | null;
@@ -1296,6 +1364,13 @@ export interface components {
     source_url?: string | null;
     status: string;
     taxon_key?: number | null;
+};
+    SpeciesSearchResult: {
+    common_name?: string | null;
+    display_name: string;
+    id: string;
+    scientific_name?: string | null;
+    taxa_id?: number | null;
 };
     SpeciesStats: {
     avg_confidence: number;
@@ -1341,6 +1416,10 @@ export interface components {
     TestEmailRequest: {
     test_message?: string;
     test_subject?: string;
+};
+    TestEmailResponse: {
+    message: string;
+    to: string;
 };
     TimezoneRepairApplyRequest: {
     confirm?: boolean;
@@ -1989,7 +2068,7 @@ export interface paths {
     species_name?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['EbirdNearbyResponse'];
     };
   };
   "/api/ebird/notable": {
@@ -2004,7 +2083,7 @@ export interface paths {
     max_results?: number | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['EbirdNotableResponse'];
     };
   };
   "/api/email/oauth/gmail/authorize": {
@@ -2013,7 +2092,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/email/oauth/gmail/callback": {
@@ -2034,7 +2113,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/email/oauth/outlook/callback": {
@@ -2057,7 +2136,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/email/test": {
@@ -2066,7 +2145,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['TestEmailRequest'];
-      response: unknown;
+      response: components['schemas']['TestEmailResponse'];
     };
   };
   "/api/events": {
@@ -2463,7 +2542,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/inaturalist/oauth/callback": {
@@ -2484,7 +2563,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['InaturalistDisconnectResponse'];
     };
   };
   "/api/inaturalist/seasonality": {
@@ -2498,7 +2577,7 @@ export interface paths {
     taxon_id: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SeasonalityResponse'];
     };
   };
   "/api/inaturalist/status": {
@@ -2516,7 +2595,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['InaturalistSubmitRequest'];
-      response: unknown;
+      response: components['schemas']['InaturalistSubmitResponse'];
     };
   };
   "/api/leaderboard/analysis": {
@@ -2833,7 +2912,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['SpeciesCountItem']>;
     };
   };
   "/api/species/search": {
@@ -2846,7 +2925,7 @@ export interface paths {
     q?: string;
 };
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['SpeciesSearchResult']>;
     };
   };
   "/api/species/{species_name}/cache": {

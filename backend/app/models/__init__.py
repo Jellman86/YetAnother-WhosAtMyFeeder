@@ -3,6 +3,19 @@ from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
 
 
+class OAuthAuthorizeResponse(BaseModel):
+    """Redirect target returned when starting an OAuth authorization flow."""
+
+    authorization_url: str
+    state: str | None = None
+
+
+class MessageResponse(BaseModel):
+    """Generic single-message result for actions with no structured payload."""
+
+    message: str
+
+
 class APIModel(BaseModel):
     @field_serializer(
         "detection_time",
@@ -154,3 +167,36 @@ class SpeciesRangeMap(APIModel):
     source: str | None = None
     source_url: str | None = None
     message: str | None = None
+
+
+class SpeciesCountItem(APIModel):
+    """One row of the species leaderboard/list with rolling-window metrics."""
+
+    species: str
+    count: int
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    avg_confidence: float | None = None
+    max_confidence: float | None = None
+    min_confidence: float | None = None
+    camera_count: int | None = None
+    count_1d: int = 0
+    count_7d: int = 0
+    count_30d: int = 0
+    days_seen_14d: int = 0
+    days_seen_30d: int = 0
+    trend_delta: int = 0
+    trend_percent: float = 0.0
+
+
+class SpeciesSearchResult(BaseModel):
+    """One taxonomy match returned by the species search / manual-tag picker."""
+
+    id: str
+    display_name: str
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None

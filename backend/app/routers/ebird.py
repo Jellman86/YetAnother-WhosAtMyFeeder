@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.auth import get_auth_context_with_legacy
 from app.database import get_db
@@ -17,6 +18,38 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
+
+
+class EbirdObservation(BaseModel):
+    """A single eBird sighting, simplified from the raw eBird API shape."""
+
+    species_code: str | None = None
+    common_name: str | None = None
+    scientific_name: str | None = None
+    observed_at: str | None = None
+    location_name: str | None = None
+    how_many: int | None = None
+    lat: float | None = None
+    lng: float | None = None
+    obs_valid: bool | None = None
+    obs_reviewed: bool | None = None
+    thumbnail_url: str | None = None
+
+
+class EbirdNearbyResponse(BaseModel):
+    status: str
+    message: str | None = None
+    species_name: str | None = None
+    species_code: str | None = None
+    warning: str | None = None
+    # Both the ok and error paths always return a (possibly empty) results list.
+    results: list[EbirdObservation]
+
+
+class EbirdNotableResponse(BaseModel):
+    status: str
+    message: str | None = None
+    results: list[EbirdObservation]
 
 
 def _require_ebird_api():
@@ -524,7 +557,7 @@ async def export_ebird_csv(
     )
 
 
-@router.get("/nearby")
+@router.get("/nearby", response_model=EbirdNearbyResponse)
 async def get_nearby_observations(
     species_name: Optional[str] = Query(None, description="Species common/scientific name"),
     scientific_name: Optional[str] = Query(None, description="Scientific name fallback"),
@@ -574,7 +607,7 @@ async def get_nearby_observations(
     }
 
 
-@router.get("/notable")
+@router.get("/notable", response_model=EbirdNotableResponse)
 async def get_notable_observations(
     lat: Optional[float] = Query(None, description="Latitude override"),
     lng: Optional[float] = Query(None, description="Longitude override"),

@@ -70,4 +70,6 @@ async def test_ebird_notable_tolerates_thumbnail_enrichment_failure(client: http
     assert payload["status"] == "ok"
     assert len(payload["results"]) == 1
     assert payload["results"][0]["common_name"] == "Eurasian Collared-Dove"
-    assert "thumbnail_url" not in payload["results"][0]
+    # The typed response contract always carries thumbnail_url; it is null when
+    # enrichment fails rather than being omitted from the observation.
+    assert payload["results"][0]["thumbnail_url"] is None

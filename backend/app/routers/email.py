@@ -19,6 +19,7 @@ import httpx
 from google_auth_oauthlib.flow import Flow
 
 from app.config import settings
+from app.models import MessageResponse, OAuthAuthorizeResponse
 from app.services.smtp_service import smtp_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
@@ -60,7 +61,12 @@ class TestEmailRequest(BaseModel):
     test_message: str = "This is a test email from YA-WAMF to verify your email configuration."
 
 
-@router.get("/oauth/gmail/authorize")
+class TestEmailResponse(BaseModel):
+    message: str
+    to: str
+
+
+@router.get("/oauth/gmail/authorize", response_model=OAuthAuthorizeResponse)
 async def gmail_oauth_authorize(request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Initiate Gmail OAuth2 authorization flow. Owner only.
@@ -229,7 +235,7 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
         )
 
 
-@router.get("/oauth/outlook/authorize")
+@router.get("/oauth/outlook/authorize", response_model=OAuthAuthorizeResponse)
 async def outlook_oauth_authorize(request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Initiate Outlook/Office 365 OAuth2 authorization flow. Owner only.
@@ -366,7 +372,7 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
         )
 
 
-@router.delete("/oauth/{provider}/disconnect")
+@router.delete("/oauth/{provider}/disconnect", response_model=MessageResponse)
 async def disconnect_oauth(provider: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Disconnect OAuth email provider and delete stored tokens. Owner only.
@@ -393,7 +399,7 @@ async def disconnect_oauth(provider: str, request: Request, auth: AuthContext = 
         )
 
 
-@router.post("/test")
+@router.post("/test", response_model=TestEmailResponse)
 async def send_test_email(test_request: TestEmailRequest, request: Request, auth: AuthContext = Depends(require_owner)):
     """
     Send a test email to verify configuration. Owner only.

@@ -11,7 +11,15 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
-from app.models import SpeciesStats, SpeciesInfo, CameraStats, Detection, SpeciesRangeMap
+from app.models import (
+    SpeciesStats,
+    SpeciesInfo,
+    CameraStats,
+    Detection,
+    SpeciesRangeMap,
+    SpeciesCountItem,
+    SpeciesSearchResult,
+)
 from app.config import settings
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
@@ -556,7 +564,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
         await db.commit()
 
 
-@router.get("/species/search")
+@router.get("/species/search", response_model=list[SpeciesSearchResult])
 @guest_rate_limit()
 async def search_species(
     request: Request,
@@ -1012,7 +1020,7 @@ def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
     return deduped
 
 
-@router.get("/species")
+@router.get("/species", response_model=list[SpeciesCountItem])
 async def get_species_list(request: Request):
     """Get list of all species with counts."""
     lang = get_user_language(request)

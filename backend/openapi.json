@@ -4516,6 +4516,231 @@
         "title": "DownloadProgress",
         "type": "object"
       },
+      "EbirdNearbyResponse": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/EbirdObservation"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "species_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Code"
+          },
+          "species_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Name"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "status",
+          "results"
+        ],
+        "title": "EbirdNearbyResponse",
+        "type": "object"
+      },
+      "EbirdNotableResponse": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/EbirdObservation"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "results"
+        ],
+        "title": "EbirdNotableResponse",
+        "type": "object"
+      },
+      "EbirdObservation": {
+        "description": "A single eBird sighting, simplified from the raw eBird API shape.",
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "how_many": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "How Many"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "obs_reviewed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obs Reviewed"
+          },
+          "obs_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obs Valid"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Code"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          }
+        },
+        "title": "EbirdObservation",
+        "type": "object"
+      },
       "EventFilterSpecies": {
         "description": "Species filter option with taxonomy data.",
         "properties": {
@@ -4736,6 +4961,24 @@
         "title": "HideResponse",
         "type": "object"
       },
+      "InaturalistDisconnectResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "deleted"
+        ],
+        "title": "InaturalistDisconnectResponse",
+        "type": "object"
+      },
       "InaturalistDraftRequest": {
         "properties": {
           "event_id": {
@@ -4922,6 +5165,30 @@
           "event_id"
         ],
         "title": "InaturalistSubmitRequest",
+        "type": "object"
+      },
+      "InaturalistSubmitResponse": {
+        "properties": {
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "InaturalistSubmitResponse",
         "type": "object"
       },
       "InitialPasswordRequest": {
@@ -5329,6 +5596,20 @@
         "title": "MaintenanceStatsResponse",
         "type": "object"
       },
+      "MessageResponse": {
+        "description": "Generic single-message result for actions with no structured payload.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
       "ModelActionResponse": {
         "properties": {
           "message": {
@@ -5658,6 +5939,31 @@
         "title": "NotificationTestRequest",
         "type": "object"
       },
+      "OAuthAuthorizeResponse": {
+        "description": "Redirect target returned when starting an OAuth authorization flow.",
+        "properties": {
+          "authorization_url": {
+            "title": "Authorization Url",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "authorization_url"
+        ],
+        "title": "OAuthAuthorizeResponse",
+        "type": "object"
+      },
       "PurgeMissingMediaResponse": {
         "properties": {
           "checked": {
@@ -5883,6 +6189,42 @@
           }
         },
         "title": "ReverseGeocodeResponse",
+        "type": "object"
+      },
+      "SeasonalityResponse": {
+        "properties": {
+          "local": {
+            "title": "Local",
+            "type": "boolean"
+          },
+          "month_counts": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Month Counts",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "taxon_id": {
+            "title": "Taxon Id",
+            "type": "integer"
+          },
+          "total_observations": {
+            "title": "Total Observations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "taxon_id",
+          "local",
+          "month_counts",
+          "total_observations"
+        ],
+        "title": "SeasonalityResponse",
         "type": "object"
       },
       "SettingsResponse": {
@@ -9902,6 +10244,159 @@
         "title": "SnapshotStatusResponse",
         "type": "object"
       },
+      "SpeciesCountItem": {
+        "description": "One row of the species leaderboard/list with rolling-window metrics.",
+        "properties": {
+          "avg_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Confidence"
+          },
+          "camera_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Count"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "count_1d": {
+            "default": 0,
+            "title": "Count 1D",
+            "type": "integer"
+          },
+          "count_30d": {
+            "default": 0,
+            "title": "Count 30D",
+            "type": "integer"
+          },
+          "count_7d": {
+            "default": 0,
+            "title": "Count 7D",
+            "type": "integer"
+          },
+          "days_seen_14d": {
+            "default": 0,
+            "title": "Days Seen 14D",
+            "type": "integer"
+          },
+          "days_seen_30d": {
+            "default": 0,
+            "title": "Days Seen 30D",
+            "type": "integer"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "max_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Confidence"
+          },
+          "min_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Confidence"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          },
+          "trend_delta": {
+            "default": 0,
+            "title": "Trend Delta",
+            "type": "integer"
+          },
+          "trend_percent": {
+            "default": 0.0,
+            "title": "Trend Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "species",
+          "count"
+        ],
+        "title": "SpeciesCountItem",
+        "type": "object"
+      },
       "SpeciesInfo": {
         "properties": {
           "cached_at": {
@@ -10113,6 +10608,58 @@
           "status"
         ],
         "title": "SpeciesRangeMap",
+        "type": "object"
+      },
+      "SpeciesSearchResult": {
+        "description": "One taxonomy match returned by the species search / manual-tag picker.",
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "SpeciesSearchResult",
         "type": "object"
       },
       "SpeciesStats": {
@@ -10411,6 +10958,24 @@
           }
         },
         "title": "TestEmailRequest",
+        "type": "object"
+      },
+      "TestEmailResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "to"
+        ],
+        "title": "TestEmailResponse",
         "type": "object"
       },
       "TimezoneRepairApplyRequest": {
@@ -13900,7 +14465,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EbirdNearbyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14039,7 +14606,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EbirdNotableResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14081,7 +14650,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14175,7 +14746,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14280,7 +14853,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -14332,7 +14907,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TestEmailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16540,7 +17117,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAuthorizeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16632,7 +17211,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InaturalistDisconnectResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16725,7 +17306,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonalityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16809,7 +17392,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InaturalistSubmitResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18148,7 +18733,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SpeciesCountItem"
+                  },
+                  "title": "Response Get Species List Api Species Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -18210,7 +18801,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SpeciesSearchResult"
+                  },
+                  "title": "Response Search Species Api Species Search Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
