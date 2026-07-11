@@ -238,7 +238,7 @@ class EventProcessor:
             message=f"Stage {stage} timed out after {timeout_seconds}s",
             severity="error",
             event_id=event_id,
-            context={"timeout_seconds": timeout_seconds},
+            context={"timeout_seconds": timeout_seconds, "error_type": "TimeoutError", "stage": stage},
         )
         self._record_recent_outcome(
             event_id,
@@ -247,16 +247,18 @@ class EventProcessor:
             timeout_seconds=timeout_seconds,
         )
 
-    def _record_stage_failure(self, stage: str, event_id: str, error: str) -> None:
+    def _record_stage_failure(self, stage: str, event_id: str, error: str, error_type: str | None = None) -> None:
         self._stage_failures[stage] += 1
+        error_type = error_type or "UnknownError"
         payload = {
             "event_id": event_id,
             "stage": stage,
             "error": error,
+            "error_type": error_type,
             "timestamp": self._utc_now(),
         }
         self._last_stage_failure = payload
-        self._record_critical_failure(stage, event_id, "failure", error=error)
+        self._record_critical_failure(stage, event_id, "failure", error=error, error_type=error_type)
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -265,9 +267,12 @@ class EventProcessor:
             message=f"Stage {stage} failed: {error}",
             severity="critical",
             event_id=event_id,
-            context={"error": error},
+            # `error` is free text kept for the local Errors view; the telemetry health report
+            # keeps only allow-listed keys, so `error_type` (the exception class) is what makes
+            # a critical stage failure diagnosable in the fleet data instead of empty context.
+            context={"error": error, "error_type": error_type, "stage": stage},
         )
-        self._record_recent_outcome(event_id, "stage_failure", stage=stage, error=error)
+        self._record_recent_outcome(event_id, "stage_failure", stage=stage, error=error, error_type=error_type)
 
     def _record_stage_fallback(self, stage: str, event_id: str) -> None:
         self._stage_fallbacks[stage] += 1
@@ -378,7 +383,7 @@ class EventProcessor:
                     timeout_seconds=timeout_seconds,
                 )
                 return False, _CLASSIFY_SNAPSHOT_TIMED_OUT
-            self._record_stage_failure(stage, event_id, str(e))
+            self._record_stage_failure(stage, event_id, str(e), error_type=type(e).__name__)
             log.error(
                 "MQTT event stage failed",
                 event_id=event_id,

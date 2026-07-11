@@ -1390,3 +1390,28 @@ async def test_classify_snapshot_falls_back_to_recording_frame_before_drop():
     _, snapshot_data = result
     assert snapshot_data == b"recording-frame"
     mock_frigate.get_recording_clip_with_error.assert_awaited_once_with("cam1", 1699999998, 1700000008)
+
+
+def test_record_stage_failure_captures_exception_type_in_context():
+    processor = EventProcessor(MagicMock())
+    with patch("app.services.event_processor.error_diagnostics_history") as mock_history:
+        processor._record_stage_failure("classify_snapshot", "evt-9", "kaboom", error_type="RuntimeError")
+
+    mock_history.record.assert_called_once()
+    kwargs = mock_history.record.call_args.kwargs
+    assert kwargs["reason_code"] == "stage_failure"
+    assert kwargs["severity"] == "critical"
+    # error_type/stage are allow-listed for telemetry so the failure is diagnosable in fleet data;
+    # the free-text error is kept only for the local Errors view.
+    assert kwargs["context"]["error_type"] == "RuntimeError"
+    assert kwargs["context"]["stage"] == "classify_snapshot"
+    assert kwargs["context"]["error"] == "kaboom"
+
+
+def test_record_stage_failure_defaults_unknown_exception_type():
+    processor = EventProcessor(MagicMock())
+    with patch("app.services.event_processor.error_diagnostics_history") as mock_history:
+        processor._record_stage_failure("save_and_notify", "evt-10", "boom")
+
+    kwargs = mock_history.record.call_args.kwargs
+    assert kwargs["context"]["error_type"] == "UnknownError"

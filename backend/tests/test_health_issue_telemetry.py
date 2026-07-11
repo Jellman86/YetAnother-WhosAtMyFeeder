@@ -85,6 +85,53 @@ def test_health_issue_report_groups_and_sanitizes_diagnostics():
     assert "/config" not in rendered
 
 
+def test_health_issue_report_keeps_error_type_for_critical_stage_failures():
+    # A critical classify_snapshot stage failure used to report an empty sample_context
+    # (its only context key, "error", is free text and is stripped). It now also carries the
+    # exception type and stage, which are allow-listed, so the fleet data is diagnosable.
+    snapshot = {
+        "captured_at": "2026-07-11T00:00:00+00:00",
+        "total_events": 1,
+        "returned_events": 1,
+        "severity_counts": {"critical": 1},
+        "component_counts": {"event_processor": 1},
+        "events": [
+            {
+                "timestamp": "2026-07-11T00:00:00+00:00",
+                "source": "event_pipeline",
+                "component": "event_processor",
+                "stage": "classify_snapshot",
+                "reason_code": "stage_failure",
+                "message": "Stage classify_snapshot failed: boom reading /config/media/x.jpg",
+                "severity": "critical",
+                "event_id": "evt-77",
+                "context": {
+                    "error": "boom while reading /config/media/x.jpg",
+                    "error_type": "ValueError",
+                    "stage": "classify_snapshot",
+                },
+            },
+        ],
+    }
+
+    report = build_health_issue_report(
+        installation_id="00000000-0000-0000-0000-000000000000",
+        app_version="2.13.0-dev+abc1234",
+        diagnostics_snapshot=snapshot,
+    )
+
+    assert report is not None
+    issue = report["issues"][0]
+    assert issue["severity"] == "critical"
+    assert issue["reason_code"] == "stage_failure"
+    assert issue["sample_context"] == {"error_type": "ValueError", "stage": "classify_snapshot"}
+
+    rendered = str(report)
+    assert "boom" not in rendered
+    assert "/config" not in rendered
+    assert "evt-77" not in rendered
+
+
 def test_runtime_telemetry_payload_exposes_device_and_runtime_capabilities():
     payload = build_runtime_telemetry_payload(
         model_type="birdnet_v2",
