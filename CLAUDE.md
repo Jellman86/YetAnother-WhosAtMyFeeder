@@ -104,10 +104,25 @@ alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove r
 - **Async by default, no blocking I/O.** Use `async def` for all I/O; never
   `open()`, `requests`, or synchronous DB calls — use `aiofiles`, `httpx`, and async
   SQLAlchemy.
-- **Type hints everywhere**; Pydantic models for request/response DTOs.
+- **Type hints everywhere**; Pydantic models for request/response DTOs. Every endpoint
+  declares a `response_model` so the OpenAPI contract carries a real shape (the generated SPA
+  types depend on it); use `Depends` for DB/auth/settings so handlers stay testable.
 - **Structured logging**: `structlog.get_logger()` with context
   (`log.info("event", event_id=id, score=0.9)`), never bare `print`, never secrets.
+- **TypeScript is strict.** `strict: true`, and `svelte-check` is clean (zero errors/warnings)
+  before commit. **No `any` in application code** — prefer `unknown` at untrusted boundaries and
+  narrow; if `any` is truly unavoidable, comment why. Avoid non-null assertions (`!`); give
+  exported functions explicit return types. SPA types come from the generated OpenAPI contract
+  (`apps/ui/src/lib/api/generated/`), not hand-written DTOs.
+- **Svelte 5 reactivity is disciplined.** Reach for `$derived` before `$effect`. `$effect` is an
+  escape hatch for syncing with systems *outside* Svelte (third-party libs, canvas, manual DOM) —
+  never to sync one piece of state to another, and never to set state that `$derived` could
+  compute. Mark reactive only what drives the view; use `$state.raw` for large immutable API
+  responses.
 - No dead code, no commented-out blocks, no `TODO` without a linked issue.
+
+The full researched standard — Python/FastAPI, TypeScript, and Svelte 5, with authoritative
+sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md).
 
 ## 5. Clean, honest UI
 
@@ -126,13 +141,28 @@ alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove r
   (`onclick={…}`, not `on:click`). TypeScript everywhere; `npm run check` is clean
   (zero errors, zero warnings) before commit.
 - Show loading, empty, and error states explicitly. Empty states tell the user what
-  to do next.
+  to do next. This is **visibility of system status** — the first usability heuristic: every
+  action gets timely feedback (loading/progress/saved/skipped/stale).
+- **Usability follows Nielsen's 10 heuristics** as the baseline: prevent errors rather than only
+  reporting them, favour recognition over recall, keep the default simple with progressive
+  disclosure (basic vs. advanced), and write plain-language errors that state the cause and the
+  next step — not error codes.
+- **Accessibility floor is WCAG 2.2 Level AA.** Everything is keyboard-operable with visible
+  focus; colour contrast meets AA and **meaning is never signalled by colour alone**; controls
+  use semantic HTML first (ARIA only to fill gaps) with labelled inputs and associated error
+  messaging; motion respects `prefers-reduced-motion`.
+- **Visual craft follows Refactoring UI.** Build hierarchy from size, weight, *and* colour (not
+  size alone); design grayscale-first; keep spacing/type/colour on the constrained Tailwind
+  scale (no arbitrary values); be generous with whitespace.
 - **Media/artwork is a recognition aid, not decoration.** Snapshots and spectrograms
   are proxied so no token reaches the browser, must degrade silently to a
   placeholder, must never imply state, and must never shift layout (fixed aspect,
   lazy-loaded).
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
   `apps/ui/src/lib/i18n/locales/en.json` (use `{ default: '…' }` fallbacks).
+
+The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
+craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
 
 ## 6. Definition of done
 

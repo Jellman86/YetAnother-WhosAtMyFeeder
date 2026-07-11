@@ -103,23 +103,24 @@ never clobbers unrelated config). Steps:
 Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
 
 #### UI simplification & polish ✨
-**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started
+**Priority:** P1 | **Effort:** L | **Status:** 🔄 Standard codified; refresh not started
 
 Make the whole UI clean, coherent, and calm — **especially Settings**, which is currently
-bloated with indistinct sections. Approach: *research current UI/UX best practice from
-authoritative sources first*, apply it consistently (information architecture, grouping,
-progressive disclosure, empty/error states), then **codify the resulting UI standards into
-`CLAUDE.md` §5** so future work stays consistent and doesn't re-bloat. This is the "full UI
-refresh" half of the major-version jump.
+bloated with indistinct sections. ✅ The research-and-codify step is done: the UI/UX standard
+(Nielsen's heuristics, WCAG 2.2 AA, Refactoring UI craft) is codified in `CLAUDE.md` §5 and
+[`docs/standards/ui-ux.md`](docs/standards/ui-ux.md). Remaining: apply it consistently across
+the owner and guest surfaces (information architecture, grouping, progressive disclosure,
+empty/error states) — the "full UI refresh" half of the major-version jump.
 
 #### File-by-file code-quality review 🔬
-**Priority:** P1 | **Effort:** XL | **Status:** ☐ Not started
+**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Standard codified; review not started
 
-Research the **gold-standard for our stack** (Python/FastAPI + Svelte 5/TypeScript) from
-authoritative sources, **codify the code-quality standards into `CLAUDE.md`**, then perform a
-**file-by-file** review and refactor: self-documenting, defensive, clean — no dead code,
-commented-out blocks, or leftover scaffolding. Sequenced lowest-risk first; every change is
-test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
+✅ The research-and-codify step is done: the code-quality standard for our stack
+(Python/FastAPI + Svelte 5/TypeScript) is codified in `CLAUDE.md` §4 and
+[`docs/standards/code-quality.md`](docs/standards/code-quality.md). Remaining: perform the
+**file-by-file** review and refactor against it — self-documenting, defensive, clean, with no
+dead code, commented-out blocks, or leftover scaffolding. Sequenced lowest-risk first; every
+change is test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** ☐ Not started
