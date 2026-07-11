@@ -689,5 +689,5 @@ jobs:
             URL="$REPO_URL/releases/tag/${{ github.ref_name }}"
           fi
           echo "Publishing $CHANNEL version=$VERSION commit=$COMMIT"
-          npx wrangler d1 execute yawamf-telemetry --remote --command \
+          npx wrangler d1 execute yawamf-telemetry --remote --yes --command \
             "CREATE TABLE IF NOT EXISTS app_versions (channel TEXT PRIMARY KEY, version TEXT, commit_sha TEXT, url TEXT, updated_at TEXT); INSERT OR REPLACE INTO app_versions (channel, version, commit_sha, url, updated_at) VALUES ('$CHANNEL', '$VERSION', '$COMMIT', '$URL', datetime('now'));"

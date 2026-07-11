@@ -1,28 +1,18 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { shouldShowUpdateBanner } from '../api';
     import { updateStatusStore } from '../stores/update_status.svelte';
 
-    // Keyed on the version so dismissing one update doesn't hide a later, newer one.
-    const DISMISSED_KEY = 'update-banner-dismissed-version';
-
     let status = $derived(updateStatusStore.status);
-    let dismissedVersion = $state<string | null>(null);
-
-    let visible = $derived(shouldShowUpdateBanner(status, dismissedVersion));
+    let visible = $derived(updateStatusStore.shouldShowBanner);
     let currentDisplay = $derived((status?.current_version ?? '').split('+')[0]);
 
     onMount(() => {
-        dismissedVersion = localStorage.getItem(DISMISSED_KEY);
         updateStatusStore.load();
     });
 
     function dismiss() {
-        if (status?.latest_version) {
-            dismissedVersion = status.latest_version;
-            localStorage.setItem(DISMISSED_KEY, status.latest_version);
-        }
+        updateStatusStore.dismiss();
     }
 </script>
 
@@ -45,6 +35,9 @@
                     <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-black underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.release_notes', { default: 'Release notes →' })}
                     </a>
+                    <button type="button" onclick={dismiss} class="ml-2 font-black uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
+                        {$_('update_banner.dismiss', { default: 'Dismiss' })}
+                    </button>
                 </div>
                 <button
                     type="button"
