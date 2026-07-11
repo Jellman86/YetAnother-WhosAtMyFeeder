@@ -1,1207 +1,354 @@
 # YA-WAMF Roadmap
 
-This roadmap outlines planned features and improvements for the YA-WAMF bird classification system. Estimated efforts are provided to help with planning and prioritization.
+The single, forward-looking plan for YA-WAMF. This is where **planned** and
+**in-progress** work lives; **completed** work moves to [`CHANGELOG.md`](CHANGELOG.md)
+and is summarised in the [Delivered](#3-delivered) catalogue at the bottom.
 
-> **Important:** YA-WAMF is already feature-rich! This roadmap focuses on NEW features to be developed. See the [README](README.md) for comprehensive list of existing capabilities.
+> **YA-WAMF is already feature-rich.** This roadmap tracks what's *next*, not what
+> exists — see the [README](README.md) and [Delivered](#3-delivered) for current
+> capabilities.
 
-## Maintenance Mode: Next Up
+It is anchored by two honest assessments of *where we stand*:
 
-These are the top maintenance-mode improvements to prioritize before broader feature expansion.
-
-### 0. Classifier Inference-Health Refactor 🩺
-**Priority:** P0 | **Effort:** Complete | **Status:** All consolidation phases shipped in `v2.11.0`; field validation retests remain
-
-Issue `#33` had accumulated many overlapping mitigation layers (admission lease coordinator, GPU-unhealthy signal counter, maintenance circuit breakers, snapshot-fallback retry loop, outer stage timeout, and live-queue pressure handling). Each was correct in isolation, but the cumulative surface meant any new bundle risked adding another mitigation layer rather than simplifying the model. The consolidation pass is now complete.
-
-**Current state on `dev`:**
-- `backend/app/services/inference_health.py` records runtime outcomes keyed by `(backend, provider, model_id)` and now also carries the most-recent recovery context (failed/recovered backend + provider, reason, diagnostics) per-runtime and at the snapshot top level.
-- `/health` and classifier status expose `ml.inference_health` with per-runtime verdict, latency samples, recent failures, cooldown details, and `last_recovery`. The legacy `_last_runtime_recovery` field, the `WORKER_CIRCUIT_OPEN_RECOVERY_REASON` / `STALE_WORK_RECLAIM_RECOVERY_REASON` sentinels, the `recovery_reason` / `gpu_fallback_active` / `gpu_fallback_cooldown_remaining_seconds` fields on `live_image` health, the top-level `live_image_gpu_fallback_active` and `last_runtime_recovery` keys on classifier status, and the `last_runtime_recovery` block on `openvino_runtime` are all gone.
-- Every former consumer (`_gpu_restore_eligible`, `_live_gpu_fallback_health_key`, the status builders, auto-video diagnostics context, the anonymous telemetry payload, and the UI job-diagnostics store) now reads recovery context from `inference_health.last_recovery` / `most_recent_recovery()`. Worker-process recoveries publish into the main-process `InferenceHealth` from `_latest_worker_runtime_recovery` so subprocess installs surface the same payload.
-- Model hot-swap reads the `InferenceHealth` unhealthy verdict; the legacy `_gpu_unhealthy_signal_times` deque is gone; accelerated runtime startup records `runtime_benchmarks` before mounting OpenVINO Intel GPU or ONNX Runtime CUDA; successful startup benchmarks seed the matching `InferenceHealth` latency baseline; live-image GPU fallback active/cooldown status is backed by `InferenceHealth`.
-- The telemetry-payload builder retains its legacy-key fallback chain to keep older fixtures ingesting, and the Cloudflare telemetry worker accepts both old and new payload shapes; new fields (`inference_health_status`, unhealthy/degraded/total runtime counts, `last_recovery_reason`, `last_recovery_status`) feed two new owner-only `/dashboard` panels.
-- Auto video analysis treats classifier `Unknown` / `Unknown Bird` / `No detection` / `No data` / similar exact abstention outputs as abstentions for frame aggregation, top-frame persistence, promotion, and completion broadcasts.
-- Incomplete downloaded classifier model directories are visible but no longer activatable: `/models/installed` reports `ready` and `reason`, activation rejects missing runtime/labels/config sidecars, stale active incomplete models fall back to the bundled classifier, and the Model Manager exposes a repair-needed state with a repair download action.
-
-**Target (achieved):** one `InferenceHealth` object per `(backend, provider, model_id)` runtime, with rolling latency + error windows, a single `healthy | degraded | unhealthy` verdict, and a startup benchmark that refuses to mount a runtime whose single-frame latency is >5× the CPU baseline. Every inference call site records into it; every fallback reads from it. The health payload has replaced the scattered `gpu_fallback_active`, `last_runtime_recovery`, `recovery_reason`, and per-source signal counters.
-
-**Phased rollout (no flag day):**
-1. ✅ Add `InferenceHealth` alongside existing mechanisms; verify verdict tracks current flags within one sample.
-2. ✅ Switch model hot-swap trigger to `verdict == "unhealthy"`.
-3. ✅ Remove legacy mechanisms now fully covered (legacy classifier-service field, sentinels, status aliases, openvino_runtime block).
-4. ✅ Land pre-flight startup benchmark and `runtime_benchmarks` diagnostics field.
-5. ✅ Seed `InferenceHealth` latency baselines from successful startup benchmarks while excluding load-affected inference samples from latency verdicts.
-6. ✅ Surface inference-health distributions and most-recent recovery context to anonymous telemetry + the Cloudflare `/dashboard`.
-
-**Success criteria:**
-- ✅ A single `ml.inference_health` payload tells an owner why the classifier has degraded, what the evidence is, and how long until recovery.
-- ✅ Grep count for legacy fields collapsed: `last_runtime_recovery` in `classifier_service.py` went from 18+ refs to 1 (docstring); the `_RECOVERY_REASON` sentinels and `_last_runtime_recovery` field are removed entirely.
-- 🔄 The `#33` reporter retest on `v2.11.0+` remains; ask reporters to retest before closing.
-- ✅ The classifier failure model fits in one paragraph: `InferenceHealth` records every inference outcome and produces one verdict per runtime; recoveries publish into the same object; the rest of the system reads from there.
-
-See the full plan for module structure, migration phases, test strategy, risks, and out-of-scope boundaries.
-
-### 0.1. Full-Visit Recording Clip ("Bird Lifecycle View") 🎬
-**Priority:** P0 | **Effort:** M (3-5 days) | **Status:** Completed on `main`
-
-YA-WAMF now auto-generates persisted full-visit clips for eligible completed detections and makes the canonical `/clip.mp4` route prefer that persisted full-visit file once ready.
-
-Frigate's event clips are bounded by its object tracker start/stop. For a feeder camera the bird's full visit is often much longer — the tracker fires briefly when the bird enters, drops when it moves or is occluded, and the clip closes after `post_capture`. The resulting clip can miss the arrival, the full feeding session, or the departure entirely.
-
-**Solution:**
-Add a "Full visit" recording proxy that serves a configurable time window from Frigate's continuous recordings, centered on the detection event, using Frigate's camera-level clip endpoint:
-
-```
-GET /api/{camera}/clip.mp4?after={unix_start}&before={unix_end}
-```
-
-The VideoPlayer gains a toggle so users can switch between the existing short event clip and the full recording window without changing any default behaviour.
-
-**Backend — 1. New proxy endpoint**
-`GET /api/proxy/frigate/{event_id}/recording-clip.mp4`
-- Resolves camera_name and detection_time from the YAWAMF DB (no extra Frigate round-trip needed for the common case).
-- Builds the time window: `detection_time - recording_clip_before_seconds` … `detection_time + recording_clip_after_seconds`.
-- Proxies Frigate's `/{camera}/clip.mp4?after=&before=` with full HTTP Range request pass-through so the VideoPlayer can seek.
-- Returns 404 with a clear JSON error message when Frigate responds with "No recordings found" (recordings not retained or retention window expired).
-- Enforces the same auth and public-access rules as the existing event clip endpoint.
-
-**Backend — 2. FrigateClient method**
-Add `get_camera_recording_clip_url(camera, after, before) -> str` (or equivalent streaming helper) so the proxy endpoint has a single, tested call site.
-
-**Backend — 3. Config**
-Add two new settings under the `frigate` section of `config.py` / Settings UI:
-- `recording_clip_before_seconds: int = 30` — seconds of recording to include before the detection.
-- `recording_clip_after_seconds: int = 90` — seconds of recording to include after the detection.
-
-Expose both as number inputs in the Frigate settings panel with a clear label ("Full-visit clip window").
-
-**Backend — 4. Media cache**
-Cache recording clips under the key `{event_id}_recording.mp4` (separate from `{event_id}.mp4`) so the two clip types don't collide and can be evicted independently.
-
-**Frontend — 5. VideoPlayer toggle**
-- When the player opens, HEAD-probe `/recording-clip.mp4` (same pattern as the existing clip probe).
-- If the probe succeeds, show a segmented control or icon button: **Event clip** / **Full visit**.
-- Default: event clip (no behaviour change for existing users).
-- Switching sources resets playback position to 0 and reloads the player cleanly; no full component remount required.
-- Show a contextual label under the player indicating which mode is active and the clip type (e.g. "Event clip · 8 s" vs "Full visit · ~2 min").
-- If the recording probe returns 404, hide the toggle and show no error — the user simply never sees the option.
-
-**Acceptance Criteria:**
-- Recording clip proxy streams the correct time window from Frigate recordings.
-- Range requests work; the VideoPlayer can seek within the extended clip.
-- When recordings are not retained, the proxy returns a clean 404 and the toggle is hidden in the UI.
-- Switching between event clip and full-visit clip in the VideoPlayer works without error.
-- Settings sliders for before/after seconds persist and are reflected immediately in subsequent recording clip requests.
-- Auth and public-access enforcement is identical to the existing `/clip.mp4` endpoint.
-- Unit tests cover: proxy happy path, recordings-not-retained fallback, auth enforcement, cache key isolation.
+- [Gold-Standard Review (2026-07-07)](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md) — quality assessment and the incremental path.
+- [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
 
 ---
 
-### 1. Blocked Species — Species Picker + Reliable Matching 🚫
-**Priority:** P0 | **Effort:** S (1-2 days) | **Status:** Completed on `main`
+## How to read this roadmap
 
-The current blocked labels feature is broken in practice. It stores raw strings typed by the user and does a single exact string match against the normalized classifier output label. Because different models produce different label formats (common name, scientific name, or hybrids), and because the check is case-sensitive, user-entered values rarely match — particularly when the user types a common name and the model outputs a scientific name or vice versa. A second bug means that manual reclassification can assign a species that is already on the blocked list.
+- **Priority:** `P0` critical · `P1` high · `P2` nice-to-have · `P3` future.
+- **Effort:** `XS` <1d · `S` 1-3d · `M` 4-7d · `L` 1-3wk · `XL` 3wk+.
+- **Status markers:** ✅ done · 🔄 in progress · ☐ not started.
 
-**Root cause (confirmed):**
-- `blocked_labels: list[str]` in config — raw free-text strings.
-- `detection_service.filter_and_label()` checks `if label in blocked_labels` — one exact case-sensitive match on the raw classifier token, before taxonomy enrichment has run.
-- There is no second check after taxonomy enrichment, so blocking by scientific name when the model outputs a common name (or vice versa) never fires.
-- The reclassification path (`_apply_manual_tag_update` in `events.py`) bypasses `filter_and_label` entirely and writes the detection directly, ignoring the blocklist.
-
-**Backend — 1. Config schema**
-Add a new config field `blocked_species: list[dict]` alongside the existing `blocked_labels` for backward compatibility. Each entry stores:
-```json
-{ "scientific_name": "Columba livia", "common_name": "Rock Pigeon", "taxa_id": 3017 }
-```
-Keep `blocked_labels` as a legacy plain-string list; the detection service checks both.
-
-**Backend — 2. Detection service matching**
-Replace the single `label in blocked_labels` check with a helper `_is_blocked(label, scientific_name, common_name, taxa_id)` that:
-1. Checks the raw label (case-insensitive) against `blocked_labels` — preserves backward compat.
-2. After taxonomy enrichment runs in `save_detection()`, checks `scientific_name` and `common_name` (case-insensitive) against both `blocked_labels` and `blocked_species`.
-3. For `blocked_species` entries, prefers `taxa_id` match when available, falls back to `scientific_name` casefold match.
-
-The second check must sit inside `save_detection()` after the taxonomy lookup resolves, so that a user who blocks "Columba livia" catches any model that outputs "Rock Pigeon", "Feral Pigeon", "Rock Dove", or the scientific name directly.
-
-**Backend — 3. Reclassification guard**
-Add the same `_is_blocked` check at the top of `_apply_manual_tag_update` in `events.py`. If the species the user is tagging is on the blocklist, return a 422 with a clear message explaining why ("This species is on your blocked list — remove it from the blocklist first").
-
-**Backend — 4. Settings API**
-Extend the settings read/write endpoints to include `blocked_species` as a structured list alongside `blocked_labels`.
-
-**Frontend — 5. Replace text input with species picker**
-In `DetectionSettings.svelte`, replace the free-text add-label input with the same search-as-you-type species picker used in `DetectionModal.svelte` for manual tagging:
-- Search box calling `/api/species/search` as the user types.
-- Results show localised common name (primary) + scientific name (secondary italic), same row layout as the manual tag dropdown.
-- Selecting a result adds a structured entry to `blocked_species` (not a raw string to `blocked_labels`).
-- Existing `blocked_labels` raw-string entries continue to render as plain-text chips (clearly marked "legacy") with a remove button, so nothing is lost on upgrade.
-- New blocked-species chips render as `Common Name (Scientific name)` with a remove button.
-
-**Acceptance Criteria:**
-- Blocking "Rock Pigeon" via the picker suppresses detections regardless of whether the active model outputs the common name, scientific name, or an alias.
-- Blocking "Columba livia" by scientific name behaves identically to blocking by common name.
-- Attempting to reclassify a detection to a blocked species returns a clear error in the UI.
-- Existing `blocked_labels` string entries continue to work as before (backward compat).
-- Tests cover: the `_is_blocked` helper (label/scientific/common/taxa_id paths), the reclassification guard (422 on blocked species), and the settings API round-trip for `blocked_species`.
+**Issues first.** Before new feature work, clear anything in `ISSUES.md` and the
+[GitHub issue tracker](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues).
+If a section ever claims "none open", treat it as stale and check both sources.
 
 ---
 
-### 2. Labeled Feeder Model Evaluation Harness 📊
-**Priority:** P0 | **Effort:** S-M (2-4 days) | **Status:** Feeder harness and auto-manifest bootstrap shipped on `dev`; the auto-fetch model evaluation harness at `/diagnostics/model-eval` complements it for installs without labeled feeder snapshots; real-dataset feeder runs remain.
+## 1. The Road to 3.0
 
-A second harness shipped alongside the feeder one: an owner-only `/diagnostics/model-eval` page that auto-fetches taxonomy-verified bird images (iNaturalist primary, Wikimedia Commons fallback) for a hand-curated shared core plus a region-aware extension, runs every installed classifier through the live pipeline, and writes persistent artifacts under `/config/yawamf-eval/<run_id>/`. See [docs/features/model-evaluation.md](docs/features/model-evaluation.md) for warning codes and result interpretation. The feeder harness remains the right tool when real labeled feeder snapshots are available.
+`3.0` is the next major version, and **everything below is scoped to ship before it**.
+The plan is a single program of work: finish the open backlog, complete the major
+initiatives that define the release, and — at the release itself — remove the deprecated
+paths. Priorities indicate sequencing within the program; the pre-3.0 quality gates are
+already met.
 
-Current state on `dev`: YA-WAMF includes a generic ONNX evaluation script at `backend/scripts/eval_model_accuracy.py` for raw model checks, plus the feeder-specific `backend/scripts/eval_feeder_model_harness.py` that runs labeled feeder snapshots through `ClassifierService`. The feeder harness can read a curated CSV manifest, or generate `manifest.csv` automatically from the YA-WAMF SQLite DB and cached snapshots when `--manifest` is omitted. It evaluates one or more installed model IDs and crop modes, restores active model/crop settings after each run, emits `summary.json`, `results.csv`, and `failures.csv`, reports high-confidence `Unknown` top-1 outputs as a distinct failure kind, and now also counts abstention labels anywhere in the returned top-K predictions so the medium-birds EU behavior can be measured directly even when a concrete species is ranked nearby.
+The sub-sections are ordered as the program runs: **gates (done) → headline initiatives →
+the remaining backlog (features, performance, tech debt, carry-overs) → the breaking
+removals that land at release.**
 
-Model readiness caveat: harness model discovery now depends on the same installed-model readiness surfaced to the UI. If a downloaded model is missing `labels.txt` or a required `model_config.json`, repair it from Settings -> Detection -> Model Manager before using it for production or accuracy runs.
+### 1.1 Pre-3.0 quality gates — ✅ met
 
-Build a repeatable offline evaluation harness for real feeder snapshots so YA-WAMF can compare models and crop modes using ground-truth labels instead of plausibility checks.
+The engineering and fleet-health gates that had to land before `3.0`. Both are complete;
+kept here for traceability.
 
-**Implemented shape:**
-- `backend/scripts/eval_feeder_model_harness.py` exists rather than expanding the generic ONNX evaluator.
-- Input manifest: CSV with `image_path`, `expected_common_name` or `expected_scientific_name`, optional `taxa_id`, `camera_name`, `source_kind`, and optional notes/tags.
-- Optional `expected_aliases` / `acceptable_labels` manifest values are included in scoring, and controlled common-name qualifiers are matched so model labels like `Eurasian blue tit` and `Common chaffinch` can be evaluated against concise feeder labels.
-- If `--manifest` is omitted, generate the manifest from `DB_PATH` (`/data/speciesid.db` by default) and `MEDIA_CACHE_DIR` (`/config/media_cache` by default), selecting cached snapshots with labels from stored detections.
-- If `--output-dir` is omitted, create a timestamped run directory under `/config/workspace/yawamf-results/feeder-model-eval/`.
-- If `--models` is omitted, evaluate installed classifier models discovered by `ModelManager` and skip managed crop-detector artifacts.
-- Generation filters include `--manual-only`, `--camera`, `--min-confidence`, `--limit`, and `--include-unknown`; unknown labels are excluded by default so accuracy samples stay labeled.
-- Run each case through `ClassifierService` so model selection, preprocessing, crop generation, taxonomy matching, and source context match production behavior.
-- Evaluate one or more active/downloaded model IDs and crop modes in one run, restoring the original active model and settings after every run.
-- Emit `summary.json`, `results.csv`, and optional `failures.csv` under a caller-provided output directory.
-- Keep all source/crop choices explicit in the per-image output so the result can answer "which model/crop mode should become the default?"
-- Count `unknown_top1`, `high_confidence_unknown`, and top-K abstention labels separately from ordinary wrong-species failures.
+#### Gold-Standard engineering gate 🏅
+**Priority:** P0 | **Effort:** M | **Status:** ✅ Gate met
 
-**Scope:**
-- Add a manifest-driven backend evaluation script for labeled feeder images.
-- Reuse the real classifier pipeline, including crop and high-quality source diagnostics.
-- Support temporary per-run crop/source overrides without mutating persisted settings.
-- Write detailed per-image results plus aggregate summary metrics.
+The gap between the `CLAUDE.md` contract and the codebase is closed to the point that the
+release ships against the full bar. Tracked assessment:
+[Gold-Standard Review](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md).
 
-**Acceptance Criteria:**
-- ✅ A labeled CSV manifest can be evaluated against one or more requested models.
-- ✅ The harness can generate a starter CSV manifest from the app DB and cached feeder snapshots without hand-writing paths.
-- ✅ Outputs include top-1/top-3 hit rates, per-species breakdown, inference latency, crop diagnostics, high-confidence Unknown counts, and top-K abstention counts/labels.
-- ✅ The harness leaves live app settings and active model selection unchanged after the run.
-- 🔄 Results are good enough to decide default crop behavior per model based on evidence once a real labeled feeder manifest has been run.
-- ✅ Tests cover manifest parsing, label matching, auto-manifest generation from DB/cache, settings restoration after failure, result aggregation, high-confidence Unknown scoring, top-K abstention reporting, and crop diagnostics capture.
+- ✅ **CI enforcement** — Ruff lint + format gates, backend coverage floor ratcheted 20%→60%
+  (measured ~65%), and `CONTRIBUTING.md` rewritten against the contract.
+- ✅ **API contract** — build-time OpenAPI artifact (`backend/openapi.json`) with a CI drift
+  check, and a generated SPA type contract (`apps/ui/src/lib/api/generated/openapi.ts`) with a
+  CI freshness check, so backend/frontend drift fails review.
+- ✅ **Documentation governance** — documentation standard published, all user-facing docs
+  audited against it, governance files added (`AGENTS.md`, `CODE_OF_CONDUCT.md`), and dated
+  reviews kept current.
 
-**Next validation step:** rerun the live-container harness against the larger auto-generated manifest and compare `high_confidence_unknown_rate`, `abstention_topk_rate`, and ordinary wrong-species failures across crop modes and alternative models.
+The remaining generated-type adoption is a small, non-blocking carry-over — see
+[Engineering carry-overs](#16-engineering-carry-overs).
 
-### 3. Canonical Species Identity Normalization (Scientific Name / Taxa ID) 🔒
-**Priority:** P0 | **Effort:** L (1-2 weeks) | **Status:** Completed on `main`
+#### Fleet health: Frigate media reliability + telemetry signal 🩹
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Complete
 
-Canonical identity is now enforced end to end. Detection writes persist canonical taxonomy fields together, repository filters and rollups use canonical identity instead of raw display-name equality, `species_daily_rollup` stores canonical identity metadata directly, and the existing maintenance taxonomy-repair action now runs an explicit historical canonical-repair pass that backfills missing taxonomy and rebuilds rollups afterward.
+All four recommendations from the
+[Telemetry Health Findings](docs/reviews/2026-07-09-telemetry-health-findings.md) shipped:
 
-Normalize detection identity to canonical taxonomy keys to prevent localization/alias mismatches across audio correlation, filters, and stats.
+- ✅ **Recording-frame classification fallback** — when snapshot, thumbnail, and cached image
+  all fail, a frame is extracted from Frigate's continuous recording at the detection moment and
+  classified, instead of dropping the detection (the fleet's most common real failure).
+- ✅ **In-app Event-Not-Found guidance** — the Errors page surfaces the tuning guide as a calm
+  advisory when the media-unavailability drop rate is genuinely elevated.
+- ✅ **Cleaner telemetry signal** — expected `filter_*` drops are informational and excluded
+  from health reporting; critical stage failures now carry `error_type` + `stage` context.
+- ✅ **Old-build critical retired** — the `classify_snapshot` critical is confirmed
+  `2.9.15`/`2.10.0`-only (resolved on `2.11`+); stale installs are nudged by the in-app update prompt.
 
-**Safety-first rollout plan:**
-1. **Schema + invariants**
-- Treat `taxa_id` as canonical key where available; fallback to `scientific_name`.
-- Add/verify indexes and guardrails for canonical lookups without changing UI-facing names yet.
+### 1.2 Major initiatives (the release-defining work)
 
-2. **Backfill (idempotent + resumable)**
-- Backfill historical detections missing canonical fields via taxonomy cache/lookups.
-- Run in batches with progress logging and retry-safe checkpoints.
+The headline work that makes `3.0` a major version: a guided first run, a cleaner product
+surface, a codebase reviewed to the gold standard, and complete translations.
 
-3. **Write-path hardening**
-- Ensure all new/updated detections persist canonical identity fields first.
-- Keep `display_name/common_name` as presentation fields only.
+#### First-run setup wizard 🧭
+**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started
 
-4. **Read/query migration**
-- Move grouping/filtering/correlation paths to canonical identity matching.
-- Keep localized/common name rendering at response/UI layer.
+A friendly, **skippable** guided setup that configures YA-WAMF end to end and — crucially —
+is **idempotent and re-runnable at any time** from Settings (running a step again is safe and
+never clobbers unrelated config). Steps:
 
-5. **Verification + rollback**
-- Add regression tests for cross-language/alias cases (for example Woodpigeon vs Common Wood-Pigeon).
-- Run dual-read comparison metrics during rollout, then finalize once parity is confirmed.
+- **Model selection with on-hardware validation** — pick a classifier and confirm it actually
+  loads and runs on the detected accelerator (reuse the model-eval / device-sweep machinery:
+  compile + finite-output + latency check per NPU/GPU/CPU), so the user leaves the step on a
+  model proven to work on *their* box.
+- **Integrations** — Frigate, BirdNET-Go, media servers, notifications: guided connect + test.
+- **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
+  drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
+- **Common quality configs** — HQ snapshots, crop selection, verification gates.
 
-### 4. Favourite Detections (Owner Curation) ⭐
-**Priority:** P1 | **Effort:** M (4-6 days) | **Status:** ✅ Completed (v2.8.1)
+Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
 
-Add a first-class way to pin standout detections so users can build a curated set of highlights.
+#### UI simplification & polish ✨
+**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started
 
-**Design Direction (project-aligned):**
-- Use an owner-curated favorites model first (single curated set), with schema choices that can later support per-user favorites.
-- Keep guest access read-only: guests can view favorites, but only owner/admin can toggle.
-- Preserve existing event flow and avoid heavy rewrites to detection pipelines.
+Make the whole UI clean, coherent, and calm — **especially Settings**, which is currently
+bloated with indistinct sections. Approach: *research current UI/UX best practice from
+authoritative sources first*, apply it consistently (information architecture, grouping,
+progressive disclosure, empty/error states), then **codify the resulting UI standards into
+`CLAUDE.md` §5** so future work stays consistent and doesn't re-bloat. This is the "full UI
+refresh" half of the major-version jump.
 
-**Implementation Plan:**
-1. **Database + API contract**
-- Add a favorites table (or equivalent relation) keyed by detection/event id with timestamps and creator metadata.
-- Add idempotent toggle endpoints (`POST` favorite, `DELETE` favorite) and a filtered list/query mode (`favorites=true`).
-- Ensure migration is safe, reversible, and consistent with existing migration standards.
+#### File-by-file code-quality review 🔬
+**Priority:** P1 | **Effort:** XL | **Status:** ☐ Not started
 
-2. **Backend integration**
-- Join favorite metadata into detection responses used by dashboard/explorer/video contexts.
-- Keep performance predictable with indexes and lightweight joins.
-- Enforce permissions at API level (owner/admin write, guest read).
+Research the **gold-standard for our stack** (Python/FastAPI + Svelte 5/TypeScript) from
+authoritative sources, **codify the code-quality standards into `CLAUDE.md`**, then perform a
+**file-by-file** review and refactor: self-documenting, defensive, clean — no dead code,
+commented-out blocks, or leftover scaffolding. Sequenced lowest-risk first; every change is
+test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
 
-3. **Frontend UX**
-- Add a consistent “star/favorite” action in detection cards, modal, and relevant tables.
-- Add “Favorites” filter/preset in Explorer and optional “Highlights” section on Dashboard.
-- Reuse existing toast/feedback patterns for toggle success/failure.
+#### Full translation review 🌍
+**Priority:** P1 | **Effort:** M | **Status:** ☐ Not started
 
-4. **Operations + quality**
-- Add unit/API tests for toggle idempotency, auth boundaries, and filter behavior.
-- Add E2E coverage for mark/unmark flows and guest-mode visibility.
-- Add changelog/docs updates with behavior and permissions.
+Review every locale against the `en.json` source of truth for completeness, accuracy, and
+consistency; fix missing keys, drift, and machine-translation artefacts. Add a CI check that
+flags missing/extra keys per locale so translations can't silently rot.
 
-**Future-safe extension path:**
-- If multi-user ownership expands later, evolve uniqueness from `(detection_id)` to `(user_id, detection_id)` with minimal API change.
+### 1.3 Feature completion
 
-### 5. Settings Architecture Refactor (Stability + Maintainability) 🧱
-**Priority:** P1 | **Effort:** M (3-5 days) | **Status:** ✅ Complete — primitives refactor shipped on `main`, route split (5.1) shipped on `dev` 2026-05-14
+Backlog features to finish before `3.0`. Roughly ordered by value.
 
-Current state on `main`: all 10 settings tabs now route through a shared design system in `apps/ui/src/lib/components/settings/_primitives/` (SettingsCard / SettingsRow / SettingsToggle / SettingsSelect / SettingsSegmented / SettingsInput / SettingsTextarea / AdvancedSection / SettingsPage). Tab code dropped from 5,788 → 4,512 lines, 48 inline `role="switch"` copies removed, and a build-time guard (`settings-style-audit.test.ts`) prevents any tab from drifting back. Six of the tabs got a basic/advanced split behind `AdvancedSection`; the other four are flat by design (already simple). Page chrome (header, status banner, sticky save bar) is owned by `SettingsPage.svelte`. Mobile (<md) collapses the tab strip to a `<select>`.
+#### Saved filter presets 🔍
+**Priority:** P1 | **Effort:** S | **Status:** ☐ Not started
 
-Helper modules under `apps/ui/src/lib/settings/` (location dirty-state, blocked-species handling, crop overrides, LLM model helpers, taxonomy-aware species filter entries) are unchanged. A README at `_primitives/README.md` documents the design system and the basic-vs-advanced rule applied to each tab.
+The Explorer filter panel (date/species/camera/sort/audio) and CSV export are shipped; the one
+remaining piece is letting users **save and recall favourite filter presets**.
 
-Follow-up from issue `#48`: the notification species filter has a taxonomy-aware mode picker. Notifications-tab basic/advanced split shipped 2026-04-25 (Pushover priority+device, Email only-on-end + dashboard URL behind Advanced).
+#### Finish multi-user: password reset + SSO 👥
+**Priority:** P2 | **Effort:** M | **Status:** 🔄 Core shipped (v2.6.0), two gaps remain
 
-Consolidate the large settings implementation into reusable modules to reduce regression risk and improve PR velocity.
+JWT auth, registration/login/logout, Admin (Owner) + Viewer (Guest) roles, rate limiting, and
+session management all shipped. Remaining:
+- Self-service password reset flow (currently a manual `config.json` reset).
+- Optional SSO (OAuth2: Google, GitHub).
 
-**Scope:**
-- Extract Settings page logic into domain-focused modules (`dirty-check`, `secret-state`, `action-feedback`).
-- Standardize async button state/feedback helpers across settings panels.
-- Split high-density settings panels into clearer groups with consistent headings, helper copy, and spacing.
-- Simplify the Notifications panel around distinct sections: delivery policy, species filter, confidence/audio filters, channel credentials, and advanced timing.
-- Reuse the taxonomy-aware species picker pattern consistently for detection blocked species and notification filters.
-- Keep current UI/behavior stable while reducing duplication.
+#### Enhanced notification rules 🔔
+**Priority:** P2 | **Effort:** S | **Status:** ☐ Not started
 
-**Acceptance Criteria:**
-- No behavior regressions in save/dirty/secret indicators/feedback.
-- Reduced repeated logic in component files.
-- Notification settings can be understood without reading precedence rules or scanning unrelated channel credentials.
-- All new Settings copy remains covered by locale audit tests and translated in supported locales.
-- Existing `npm run check`, unit tests, and settings E2E flows remain green.
+Per-platform filters, species whitelist, confidence/audio/camera filters, and delivery modes
+already exist. Add a rule layer on top: time-of-day windows (e.g. only 7am–7pm), per-species
+frequency limits (max 1/hr/species), weather-based rules, and custom message templates with
+variables.
 
-### 5.1. Settings Route Split (`/settings/<tab>`) 🧭
-**Priority:** P2 | **Effort:** S (1 day) | **Status:** ✅ Shipped on `dev` 2026-05-14
+#### Video timeline & highlights 🎬
+**Priority:** P2 | **Effort:** L | **Status:** 🔄 In progress
 
-Settings is still rendered as a single page with all 10 tabs hydrated together and tab state held in component memory. This means:
+Automated highlight reels and time-based browsing. Shipped: video preview pipeline
+(sprite/VTT + caching), expiring share links with watermark overlay + owner management, and a
+day-bucket timeline strip with keyboard nav. Remaining:
+- Fuller grouped-browsing timeline UI + advanced keyboard UX.
+- Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
 
-- Deep links from issues, PRs, release notes, or external docs cannot point at a specific tab — `/settings#tab=detection` doesn't survive a hard reload because the active tab isn't in the URL.
-- The page parses every tab on first load even though the user only ever sees one at a time.
-- Hot-reload during development resets the active tab back to the first one.
+#### Analytics: insights panel + camera comparison 📊
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
 
-**Target:** real routes per tab — `/settings`, `/settings/connection`, `/settings/detection`, `/settings/notifications`, etc. — so each tab becomes a route component that mounts only when active. The shared dirty-tracking/save bar lives in a layout above the route.
+Charts (top visitors, daily histogram, seasonality, leaderboard trends, activity heatmap,
+weather overlays) are shipped. Add: a confidence-distribution histogram, a camera-comparison
+chart, and an insights panel (rarest sighting this week, best detection hour, weather correlation).
 
-**Scope:**
-- Add a settings layout route that owns `SettingsPage` (header, status banner, sticky save bar) and the shared `<load>` flow.
-- Each tab becomes a child route that renders one of the existing `*Settings.svelte` panels.
-- The `<select>` mobile tab strip and the desktop pill nav both navigate via the router instead of swapping component state.
-- Audit every existing in-app link, share-link template, AI-prompt deep-link suggestion, and notification template that points at `/settings` to make sure nothing relied on the hash-based tab signal.
-- Preserve unsaved-changes guard: navigating between tabs while dirty must keep the dirty state and the save bar visible (state lifts into the layout).
+#### Advanced BirdNET-Go visualization 🎵
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
 
-**Out of scope:** any further splitting of the high-density tabs themselves (already done in the 2026-04-25 refactor) and any change to the basic/advanced taxonomy.
+Audio-visual correlation, buffering, camera↔sensor mapping, and the recent-audio widget are
+shipped. Add: spectrogram visualization in the detection modal, audio-clip playback, a
+confidence-fusion score (visual + audio), and a dedicated audio-detection history page.
 
-**Acceptance Criteria (shipped):**
-- ✅ Hard-reloading on `/settings/notifications` lands on the notifications tab. `Settings.svelte` derives `activeTab` from the `currentRoute` prop passed by `App.svelte`.
-- ✅ Tabs the user hasn't visited do not parse / mount — the existing `{#if activeTab === '...'}` lazy-render pattern is preserved.
-- ✅ The unsaved-changes save bar lives inside `SettingsPage` above the tab body, so it stays visible across router-driven tab switches.
-- ✅ `npm run check` clean (0 errors / 0 warnings); a new `Settings.route-split.layout.test.ts` guard locks in the derived activeTab, the legacy-hash canonicalisation paths, and the App-side prop pass-through.
-- ✅ Legacy `/settings#<tab>` deep links from share-link templates and notification job routes (`/settings#data`, `/settings#integrations`) are rewritten to the path form, and the `Settings.svelte` mount handler promotes any older URLs via a single `replaceState`.
+#### Local LLM support (Ollama) 🏠
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
 
-### 6. Explorer Filter: Show Audio Matches Only 🎧
-**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** Completed on `main`
+Self-hosted LLMs via Ollama for privacy-conscious users: Ollama client, model selection UI,
+vision-model support (LLaVA etc.), streaming responses, and clean fallback to cloud LLMs when
+Ollama is unavailable.
 
-The Explorer now supports `audio_confirmed_only` in `/events` and `/events/count`, the API client threads the filter through request params, and the Explorer UI exposes an `Audio Matches` toggle with URL/state integration.
+#### Full DB backup/restore tool 💾
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
 
-Add an Explorer filter toggle to show only detections with direct BirdNET audio confirmation.
+CSV export (eBird format) is shipped. Add a first-class, safe full-database backup and restore
+flow so users can snapshot and recover their detection history and config.
 
-**Scope:**
-- Add `audio_confirmed_only` support to `/events` and `/events/count`.
-- Thread filter through API client and Explorer page state/URL params.
-- Add a clear UI toggle next to existing filter controls.
-- Keep behavior consistent with pagination, count, and SSE refresh flows.
+#### Home Assistant OS add-on 🏠
+**Priority:** P3 | **Effort:** M | **Status:** ☐ Proposed ([#49](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/49))
 
-**Acceptance Criteria:**
-- Explorer list and total count stay in sync when filter is enabled/disabled.
-- Filter composes correctly with date/species/camera/favorites/hidden filters.
-- Guest/public access constraints remain unchanged.
-- Regression tests cover backend list+count filtering and basic frontend flow.
+Wrap the monolithic image as an installable HA Supervisor add-on so HAOS users can deploy from
+the add-on store without a docker-compose stack. A companion `addon-yawamf` repo would carry the
+add-on manifest, a Dockerfile pulling the published image, an apparmor profile, and Ingress
+config; `/data` + `/config` map to the add-on data volume so upgrades preserve data and run
+migrations. The existing `custom_components/yawamf` integration keeps handling the in-HA
+sensor/event surface. **Out of scope:** replacing docker-compose (both ship side-by-side) and
+embedding YA-WAMF in HA core. **Risks:** Ingress path-prefix CSP/CORS under `nginx + backend`;
+ARM64 depends on the RPi image being production-ready (§2); a separate repo means ongoing
+maintenance.
+
+### 1.4 Performance & reliability
+
+#### Performance optimization 🚀
+**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started (connection pooling done)
+
+Tune for large installations: DB query optimization (indexes, optional result caching,
+cursor pagination), backend async hardening + a background task queue (ARQ/Celery), frontend
+lazy-loading/virtual-scrolling/bundle reduction, and a benchmark suite for regression testing.
+
+#### Broader end-to-end coverage 🧪
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
+
+Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
+checks are all in place. The open work is expanding Playwright E2E coverage around
+restart/recovery, GPU/provider fallback paths, and RPi ARM64 startup.
+
+#### High-availability setup 🏗️
+**Priority:** P3 | **Effort:** M | **Status:** ☐ Not started
+
+`/health` + Prometheus `/metrics` exist. Add example Nginx load-balancer config, session-less
+multi-replica support, Grafana dashboard templates, and Kubernetes manifests.
+
+#### Raspberry Pi hardware validation 🍓
+**Priority:** P2 | **Effort:** S | **Status:** 🔄 Image ships; hardware validation remains
+
+See [§2](#2-raspberry-pi-compatibility-best-effort) — the ARM64 image builds in CI; the open
+work is real-device smoke/soak validation before declaring official support.
+
+### 1.5 Technical debt
+
+- **EventProcessor decomposition** (P2, M) — split `_handle_detection_save_and_notify` into
+  smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce
+  coupling and improve testability.
+- **BirdNET-Go audio backfill** (P2, M) — backfill BirdNET-Go audio detections into
+  `audio_detections` so history regains audio context after a DB reset (needs a persistent
+  BirdNET-Go source + importer + re-correlation).
+- **Optional frontend log shipping** (P3, M) — optionally forward UI logs to a backend endpoint
+  for remote debugging.
+- **CSP tightening** (P3, M) — investigate moving from `unsafe-inline` to CSP nonces where feasible.
+
+### 1.6 Engineering carry-overs
+
+Small, incremental gold-standard follow-ups (not headline work, but wanted before `3.0`):
+
+- **Frontend API contract adoption** — most SPA API modules now derive their types from the
+  generated OpenAPI contract. Done: the email/iNaturalist integrations module, and the
+  species module (search, eBird nearby/notable, seasonality, and the detections timeline all now
+  carry backend `response_model`s and are consumed as generated types). Remaining, treated
+  differently on purpose:
+  - **`model_eval.ts` stays hand-written by design** — the model-eval `list_runs`/`get_run`
+    endpoints return open-ended diagnostic JSON (the eval harness's `summary.json`, per-model
+    metrics). A strict `response_model` would be brittle and could truncate diagnostic data, so
+    `dict` is the correct contract; the module keeps a hand-written *view* type over it.
+  - A few already-typed species endpoints (`stats`/`info`/`range`) still keep hand-written
+    mirrors in `species.ts` — cosmetic, low priority.
+- **Coverage ratchet** — raise the backend coverage floor as low-coverage modules gain focused tests.
+- **Keep dated reviews current** as significant subsystems change.
+
+### 1.7 Breaking changes & removals (land at 3.0)
+
+`3.0` is the version where deprecated paths are actually removed. These are already signalled
+in-app and in docs; the release makes them final.
+
+- **Monolith-only deployment.** The monolithic `nginx + backend` image becomes the *only*
+  supported runtime shape. The legacy split `wamf-frontend` / `wamf-backend` deployment is
+  removed from the default setup path and receives no further updates from `3.0`. Compose
+  examples, CI, and reverse-proxy guidance assume the monolith by default.
+  (Already flagged: [`docs/setup/migrate-split-to-monolith.md`](docs/setup/migrate-split-to-monolith.md).)
+- **API-key auth removed.** Optional `X-API-Key` authentication is removed in favour of the
+  password-based auth already available under Settings → Security. The deprecation notice is
+  live today (`backend/app/auth.py`: *"API key support will be removed in v3.0"*); `3.0`
+  deletes the code path.
+- **Migration must be lossless.** Existing split-deployment installs must be able to move to
+  the monolith with unchanged `/config` and `/data` volumes (DB, models, `config.json`), and
+  the [split-to-monolith guide](docs/setup/migrate-split-to-monolith.md) stays the supported
+  path through the transition.
+
+**Acceptance:** `3.0` docs/compose/proxy guidance are monolith-first; the split path and
+`X-API-Key` are gone from the recommended surface; a documented migration preserves all user
+data and runs DB migrations cleanly.
 
 ---
 
-### 7. Manual Tag Picker — Common Name Resolution 🏷️
-**Priority:** P1 | **Effort:** XS (<1 day) | **Status:** ✅ Completed on `main`
+## 2. Raspberry Pi compatibility (best-effort)
 
-When using the manual tag / reclassify picker, results frequently show only a scientific name or a raw parenthetical label (e.g. `"Cassin's Finch (Adult Male)"`) with no clean common-name subtitle. This is caused by three interacting gaps in the search-to-display pipeline.
+**Status:** CI-built ARM64 image available; not yet hardware-validated. Full assessment:
+[`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md).
 
-**Root cause (confirmed):**
+Release builds publish a dedicated ARM64 monolith image
+(`ghcr.io/jellman86/yawamf-monalithic-rpi`); the web stack, MQTT, SQLite, and Nginx run on ARM64
+unmodified, and the inference layer degrades to CPU-only (no CUDA / Intel iGPU-NPU / VideoCore).
 
-1. **Hydration is skipped during typed searches.** The picker calls `searchSpecies(query)` with `hydrate_missing=false` (the default). Hydration — which triggers a live iNaturalist lookup for species missing from the local cache — only fires on the initial empty-query load (first 20 results). Once the user starts typing, uncached species are returned raw.
+**Shipped:** ARM-safe dependency selection (CPU `onnxruntime`, no x86 GPU setup), the multi-arch
+build job, and Pi setup docs + `.env.rpi.example`.
 
-2. **`taxonomy_cache` only contains previously-detected species.** Any species the model knows about but which has never visited the feeder is absent from the cache. For EVA-02/ConvNeXt models (scientific-name labels) this means every undetected species shows only its scientific name. For `medium_birds` (common-name + parenthetical labels) it shows the raw parenthetical string.
-
-3. **Hydration passes the parenthetical label to iNaturalist.** Even when hydration does run (empty query, first 20 results), `_hydrate_one` sends `"Cassin's Finch (Adult Male)"` verbatim to `taxonomy_service.get_names()`. iNaturalist does not recognise the parenthetical form so the lookup silently fails and no common name is stored.
-
-**Shipped fix**
-
-- `backend/app/routers/species.py` now strips trailing parentheticals before taxonomy hydration lookups, so labels like `"Cassin's Finch (Adult Male)"` resolve through the canonical `"Cassin's Finch"` lookup path.
-- `apps/ui/src/lib/components/DetectionModal.svelte` now enables `hydrate_missing=true` for meaningful typed manual-tag queries, so uncached species get live taxonomy hydration while the user searches.
-
-**Acceptance Criteria:**
-- Typing a species name in the manual tag picker shows the clean common name as primary and scientific name as italic subtitle, even for species never previously detected.
-- Parenthetical model labels (`"Cassin's Finch (Adult Male)"`) resolve to `"Cassin's Finch"` in the picker.
-- No regressions to picker performance — debounce and semaphore keep iNaturalist requests bounded.
-
-### 8. Version 3.0 Release Line: Monolith-Only Deployment + Full UI Refresh 🚀
-**Priority:** P0 | **Effort:** L | **Status:** Planned for `v3.0`
-
-Version `3.0` should be the release where YA-WAMF stops treating the split frontend/backend container model as a first-class deployment target. The monolithic container becomes the only supported runtime shape, and the legacy split deployment is formally deprecated and removed from the default setup path.
-
-The same release should also deliver a full UI refresh so the major-version jump reflects both infrastructure simplification and a cleaner, more cohesive product surface.
-
-**Scope:**
-- Promote the monolithic `nginx + backend` image to the canonical deployment artifact.
-- Deprecate the legacy split `wamf-frontend` / `wamf-backend` deployment path in docs, CI, and release guidance.
-- Ship a migration guide so existing two-container installs can move to the monolith without data/config loss.
-- Deliver a full UI refresh across the main owner and guest surfaces, not just isolated component polish.
-
-**Acceptance Criteria:**
-- `v3.0` docs, compose examples, and reverse-proxy guidance assume the monolithic container by default.
-- The split deployment is clearly marked deprecated before release and removed from the primary recommended path at `v3.0`.
-- Existing users can migrate from split to monolith with unchanged `/config` and `/data` volumes.
-- The refreshed UI is applied consistently across dashboard, explorer, video/detection views, settings, and public/guest surfaces.
+**Remaining:** ARM64 startup/migration/inference smoke checks in CI, then a real-hardware exit pass
+(cold start, sustained inference, thermal stability, UI responsiveness) before claiming official
+support. Indicative RPi latency: MobileNetV2 TFLite ~150–200 ms/frame (usable); small ONNX CPU
+~500–800 ms/frame (marginal); ConvNeXt-large >1000 ms/frame (not viable). Recommend
+`CLASSIFICATION_IMAGE_MAX_CONCURRENT=1` and an SSD over microSD.
 
 ---
 
-### 8.1. Gold-Standard Engineering Excellence — Pre-3.0 Gate 🏅
-**Priority:** P0 | **Effort:** M | **Status:** In progress — must land before `v3.0`
+## 3. Delivered
 
-The `v3.0` major version is the point to close the remaining gaps between the
-`CLAUDE.md` contract and the codebase, so the release ships against the full
-engineering bar rather than partial enforcement. The tracked assessment is
-[`docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md`](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md);
-this item promotes that review's implementation plan into a release gate.
+Condensed — see [`CHANGELOG.md`](CHANGELOG.md) and git history for detail. Everything below has
+shipped.
 
-**Phase 1 — Enforce what the contract already requires:**
-- ✅ Ruff lint gate and backend coverage floor in PR CI.
-- ✅ `CONTRIBUTING.md` rewritten against the contract.
-- ✅ Ruff **format** gate: applied the formatting baseline across the backend and
-  Home Assistant integration and added the `ruff format --check` CI step.
-- ✅ Ratcheted the coverage floor from 20% to 60% (measured backend coverage is
-  ~65%); keep raising it as coverage improves.
+**Classification & models:** multi-model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02),
+fast-path mode, manual reclassification with confidence override, canonical species-identity
+normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
+resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolved), the labeled
+feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
+(optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests).
 
-**Phase 2 — Strengthen the API contract:**
-- ✅ Emit a build-time OpenAPI artifact (`backend/openapi.json` via
-  `backend/scripts/export_openapi.py`), with a CI drift check so the schema stays
-  in sync with the routers.
-- ✅ Generate the SPA's TypeScript API contract
-  (`apps/ui/src/lib/api/generated/openapi.ts`) from the committed OpenAPI artifact,
-  with a CI freshness check so backend/frontend contract drift fails review.
-- 🔄 Continue migrating remaining frontend API modules to generated path-level
-  response/request types. Initial coverage includes auth, stats, events,
-  classifier/model, classifier/model actions, backfill, maintenance/cache,
-  taxonomy/timezone repair, system/geocoding, diagnostics, audio,
-  leaderboard/statistics graphs, media/share/snapshot flows, and settings writes.
+**Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
+device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
+clean fallback chains.
 
-**Phase 3 — Mature documentation governance:**
-- ✅ Documentation standard published ([`docs/documentation-standard.md`](docs/documentation-standard.md)):
-  audience, Diátaxis structure, safety-claim rules, and screenshot rules.
-- ✅ Audited all user-facing docs against the standard (compose commands, voice,
-  headings, safety boundaries) and fixed the gaps found; keep the docs-quality
-  gate growing into the standard.
-- ✅ Added the missing governance files (`AGENTS.md`, `CODE_OF_CONDUCT.md`).
-- ☐ Keep dated reviews in `docs/reviews/` current as subsystems change.
+**Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots, recording-frame
+classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
+watermarked share links.
 
-**Acceptance Criteria:**
-- CI fails on lint, format, and coverage regressions before `v3.0` ships.
-- OpenAPI artifact/type-generation drift between backend and SPA is caught in CI;
-  remaining hand-written frontend DTOs continue moving to generated path types.
-- Every user-facing docs page conforms to `docs/documentation-standard.md`, and
-  new settings/API/UI changes update docs in the same PR.
+**Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
+notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,
+maps, CSV export), iNaturalist (taxonomy + owner-reviewed submissions + seasonality), LLM behavioural
+analysis (Gemini/OpenAI/Claude) with conversation history, and the **Home Assistant proxy/sidebar
+panel** (ingress-authenticated dashboard).
+
+**UI & platform:** real-time SSE dashboard, dark mode, advanced search/filtering, statistics +
+leaderboard analytics, species detail modals, PWA baseline, complete i18n (9+ languages), the
+settings architecture refactor + per-tab routing, a dedicated Jobs workspace, favourites, the
+Explorer audio-matches filter, and the in-app channel-aware update prompt.
+
+**Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
++ Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,
+password-based + optional API-key auth (timing-safe), connection pooling, global exception handling,
+background-task visibility, a typed OpenAPI contract with generated SPA types, and the CI enforcement
+suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
 
 ---
 
-### 8.2. Fleet Health: Frigate Media Reliability + Telemetry Signal — Pre-3.0 🩹
-**Priority:** P1 | **Effort:** M | **Status:** Planned — informed by
-[`docs/reviews/2026-07-09-telemetry-health-findings.md`](docs/reviews/2026-07-09-telemetry-health-findings.md)
-
-A review of the opt-in health telemetry (Cloudflare D1 `yawamf-health-issues`, 13
-installs, ~2 months) shows the dominant real-world failure across the fleet is
-**Frigate not having the snapshot/event/clip when YA-WAMF fetches it** — the same
-family we tune per-user via Frigate `threshold`/`min_initialized`, but here it is
-fleet-wide and, at worst, **silently deleting user history**. The telemetry itself
-is also too noisy to triage. Close these before `v3.0`.
-
-**Scope:**
-1. **Recover more snapshots before dropping (`drop_classify_snapshot_unavailable`, error, 8/13 installs, still active).**
-   The classify fallback chain is cropped → uncropped → thumbnail → cached snapshot
-   (`_load_snapshot_classification_fallback`); it drops only when *all* fail, which is
-   exactly the transient-object case (event gone from Frigate, nothing cached yet). Add
-   a **recording-frame** source — the continuous recording usually still covers the
-   moment (`has_recording_clip=True`), so extract a frame at the event timestamp and
-   classify from it. (Needs ffmpeg frame extraction + tests; the meaty remaining item.)
-   Note: the `frigate_missing` policy default is already `mark_missing` (never deletes);
-   the ~18k `frigate_missing_deleted` occurrences are from installs that explicitly opted
-   into **delete**, now clearly warned against in the troubleshooting guide.
-2. **Guide users into the fix.** When the event-not-found / snapshot-unavailable rate
-   is high, surface the [Event Not Found guide](docs/troubleshooting/frigate-event-not-found.md)
-   in-app (the Frigate `threshold`/`min_initialized` tuning), rather than only in docs.
-3. **Retire the critical on old builds.** `event_processor / stage_failure @ classify_snapshot`
-   (critical, 4 installs) appears only on `2.9.15`/`2.10.0` and looks resolved by the
-   `2.11` inference-health refactor; confirm, and nudge stale installs to update
-   (~5 are still on released `2.10.0`).
-4. ✅ **Clean the telemetry signal.** Expected `filter_*` drops (low-confidence,
-   blocked-label/species — ~40k occ of *normal* behaviour) are now recorded as
-   informational, and health reporting already excludes `info`, so they no longer
-   pollute the fleet signal or bury real failures. Still open: populate
-   `sample_context_json` for stage failures (currently empty `{}` on the critical issue).
-
-**Acceptance Criteria:**
-- A transient bird with continuous recording coverage is classified from a recording
-  frame rather than dropped; `drop_classify_snapshot_unavailable` falls materially.
-- Health telemetry separates configured drops from faults (done), and critical stage
-  failures carry enough context to diagnose the cause.
-- The `classify_snapshot` critical is confirmed fixed on supported versions.
-
----
-
-### 9. Next-Version Accurate Bird Crop Detector Tier 🐦
-**Priority:** P1 | **Effort:** M-L (1-2 weeks) | **Status:** Deferred to next version
-
-The current bird-crop detector is intentionally lightweight and fail-soft. It uses the managed crop-detector path to provide a fast CPU-friendly localization stage, but recent HQ snapshot testing shows that the detector can still miss or clip birds in busy feeder scenes, especially when the bird is partly occluded, near the frame edge, or competing with feeder structure/background detail.
-
-This work should be kept out of the current hardening cycle. The immediate priority remains stabilizing the existing HQ snapshot/crop path and issue-33 pressure behavior. The next version can add a more accurate detector tier without destabilizing current installs.
-
-**Current baseline:**
-- Keep the existing lightweight detector as the default crop detector because it is small, fast, CPU-friendly, and already integrated with the managed model flow.
-- Treat crop generation as optional. If the detector is missing, overloaded, or fails inference, YA-WAMF must continue with the original snapshot/frame.
-- Preserve the current HQ snapshot behavior: HQ Event Snapshots should still produce the best available full-frame source, and HQ Bird Crop Snapshots should remain a separate opt-in crop layer.
-
-**Proposed direction:**
-- Add an optional "Accurate" crop detector tier alongside the current "Fast" detector.
-- Use a permissively licensed ONNX detector candidate, with YOLOX-Tiny or YOLOX-S as first candidates to benchmark.
-- Avoid making Ultralytics YOLO models the default bundled path unless licensing is explicitly resolved, because the AGPL/commercial licensing model is not a clean fit for YA-WAMF's current distribution assumptions.
-- Prefer a bird-feeder-specific fine-tuned detector in the long term, but only after the generic accurate tier is proven useful.
-
-**Architecture:**
-1. **Model registry**
-- Extend the crop-detector managed artifact contract to support multiple detector tiers:
-  - `fast`: current lightweight detector, default.
-  - `accurate`: optional heavier detector for users who prefer crop accuracy over speed.
-- Store tier metadata in the existing model-manager style registry rather than hard-coding paths.
-- Expose installed, downloading, healthy, provider, file size, and validation state per detector tier.
-
-2. **Runtime selection**
-- Add a setting such as `bird_crop_detector_tier` with values `fast` and `accurate`.
-- Default to `fast` for all existing installs.
-- If `accurate` is selected but not installed or unhealthy, fall back to `fast` if available.
-- If no healthy detector is available, return the full HQ frame or original classifier input without blocking classification.
-
-3. **Detector adapter layer**
-- Keep detector parsing behind a narrow adapter interface:
-  - load model
-  - preprocess image
-  - run inference
-  - normalize candidate boxes
-  - score candidates
-  - return crop plus diagnostics
-- Add a YOLOX adapter separately from the existing SSD-style parser so output contracts do not become ambiguous.
-- Reject unknown output shapes fail-soft instead of guessing.
-
-4. **Crop quality improvements**
-- Score candidate boxes using confidence, area sanity, frame-edge clipping risk, and optional center/feeder context.
-- Keep a configurable context expansion margin so the bird is not tightly clipped.
-- For HQ Event Snapshots with HQ Bird Crop enabled, evaluate a small bounded set of candidate frames and choose the best crop-confirmed frame.
-- Keep the current issue-33 pressure gate: optional crop scoring should be skipped under MQTT/classifier pressure.
-
-5. **UI and diagnostics**
-- Show detector tier selection in the Model Manager or Detection settings near the crop-detector status.
-- Label the trade-off clearly:
-  - `Fast`: lower CPU/RAM, may miss difficult crops.
-  - `Accurate`: better localization, higher CPU/RAM, optional install.
-- Include detector tier, detector health, chosen crop box, confidence, source frame index, and fallback reason in diagnostics bundles.
-- Keep the setting owner-only and do not expose it on public/guest surfaces.
-
-**Non-goals for first next-version pass:**
-- Do not replace HQ Event Snapshots with crops. Cropping remains a separate opt-in layer.
-- Do not require GPU support for the accurate detector.
-- Do not make the heavier detector mandatory for existing users.
-- Do not increase default background concurrency.
-- Do not introduce Docker socket access or host-level diagnostics requirements.
-
-**Testing strategy:**
-1. **Unit tests**
-- Detector tier selection and fallback behavior.
-- Missing/unhealthy accurate detector falls back to fast.
-- Missing all detectors returns original/full frame.
-- Unknown detector output shape fails soft.
-- Crop context expansion does not exceed image bounds.
-- Pressure gate skips optional accurate crop work.
-
-2. **Integration tests**
-- Managed model install/status flow exposes both detector tiers.
-- HQ Bird Crop Snapshots use the selected healthy detector.
-- Backfill jobs do not exceed configured classifier/crop concurrency.
-- Diagnostic bundle includes detector tier and fallback reason.
-
-3. **Fixture-based crop evaluation**
-- Add a small labeled feeder-image fixture set with expected bird-visible crop bounds.
-- Track miss rate, clipped-bird rate, average crop size, and runtime per detector tier.
-- Compare `fast` vs `accurate` before changing defaults.
-
-4. **Soak tests**
-- Run the issue-33 pressure harness with HQ Event Snapshots and HQ Bird Crop enabled.
-- Confirm MQTT reconnects, classifier queue pressure, and backfill behavior do not regress.
-- Confirm optional crop work backs off under pressure and resumes when the system is quiet.
-
-**Acceptance Criteria:**
-- Existing installs keep the current fast detector behavior unless the owner explicitly selects the accurate tier.
-- The accurate tier can be installed, selected, validated, and diagnosed through the normal managed-model flow.
-- If the accurate tier fails, YA-WAMF falls back cleanly without breaking detections, snapshots, notifications, or backfills.
-- Fixture benchmarks show a measurable reduction in missed/clipped bird crops versus the fast detector.
-- Issue-33 pressure testing remains stable with crop scoring enabled.
-- Docs explain when to use `fast` vs `accurate`, including hardware and CPU-load trade-offs.
-
----
-
-### 10. Intel NPU Inference Support (OpenVINO) 🧠
-**Priority:** P2 | **Effort:** M (plumbing ~1 day + per-model validation) | **Status:** ✅ Shipped — `intel_npu` provider, capability probe (`intel_npu_available`), fallback chain, Settings device picker, and Dockerfile NPU driver are in; `rope_vit_b14` validated on Arrow Lake NPU (2026-07-05, f16, top-5 matching CPU). Per-model validation continues as new models are added.
-
-Intel Core Ultra (Meteor/Arrow/Lunar Lake) parts ship a dedicated NPU ("AI Boost") alongside the iGPU. OpenVINO already treats `NPU` as a first-class device, and the classifier's Intel path uses native OpenVINO (`core.compile_model(model, device_name)`) — so the NPU slots into the same seams the existing `intel_gpu` provider uses. The goal is to let users run classification on the NPU to free the iGPU/CPU (power/thermal efficiency), **without** destabilising existing installs.
-
-**Motivation & caveats:**
-- Payoff is efficiency, not raw latency: for large 384px classifier models the NPU may be no faster (or slower) than the iGPU, and it is *stricter* on unsupported ops (attention/RoPE/LayerNorm/dynamic shapes). Realistically only the pure-CNN models (ConvNeXt, MogaNet, FocalNet, RegNet, MobileNet) are likely NPU-viable.
-- NPU support must be **empirically validated per model** exactly like the iGPU: compiles → finite output → top-k agreement with the CPU baseline. No blanket enablement.
-
-**Architecture:**
-1. **Provider vocabulary** — add `intel_npu` to `SUPPORTED_INFERENCE_PROVIDERS` and both config validators (`config_models.py`, `routers/settings.py`).
-2. **Capability probe** — add `intel_npu_available` (the OpenVINO device list already enumerates `NPU`), gated behind `/dev/accel/accel0` passthrough.
-3. **Resolver** — `intel_npu` branch mirroring `intel_gpu`, with fallback NPU → OpenVINO-CPU → ONNX-Runtime-CPU, and a registry-support constraint so NPU only activates for validated models.
-4. **Device mapping & `OpenVINOModelInstance.load()`** — map `intel_npu → "NPU"`; NPU requires a static-shape reshape (like the GPU branch) and its own compile/precision handling.
-5. **Runtime health** — NPU benchmarks against the OpenVINO-CPU baseline (mirrors GPU) and participates in the fallback chain.
-6. **Validation harness** — new `tests/test_model_openvino_npu.py` (adapted from `test_model_openvino_gpu.py`); run on real NPU hardware, then set `supported_inference_providers` per model accordingly.
-7. **Image / driver** — the container needs the Intel NPU **Level-Zero driver** (`intel-level-zero-npu` + `intel-driver-compiler-npu`); the base image ships the OpenVINO NPU *plugin* and the ze loader but **not** the NPU user-mode driver (verified on hardware 2026-07-05: with `/dev/accel/accel0` passed, OpenVINO enumerated only `['CPU']`). Added best-effort to the Dockerfile.
-8. **Deploy/UX** — document `/dev/accel/accel0` passthrough in the compose examples and add the NPU option to the Settings accelerator selector.
-
-**Success criteria:**
-- Selecting `intel_npu` runs a validated model on the NPU with predictions matching the CPU baseline; unsupported/unvalidated models fall back cleanly with a clear reason.
-- No regression to CPU/iGPU/CUDA paths.
-
----
-
-### 11. Home Assistant Proxy / Sidebar Panel 🏠
-**Priority:** P2 | **Effort:** M–L (~1 week) | **Status:** ✅ Shipped ([#54](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/54)) — the `custom_components/yawamf` ingress view proxies the dashboard under `/api/yawamf/ingress`, the SPA resolves its API base from an injected base-path marker (`__YAWAMF_APP_BASE_PATH`), Vite emits lazy JS/CSS asset URLs relative to the importing module so split chunks load under the ingress sub-path, and the "YA-WAMF" sidebar panel is authenticated by HA. Standalone direct-port access still works.
-
-Serve the YA-WAMF web UI **through** Home Assistant (like the Frigate integration does) instead of only as a separate site. The integration would register a sidebar panel and an internal reverse proxy, so the full dashboard is embedded in HA, **authenticated by HA**, and reachable via HA's existing secure external access (Nabu Casa / Cloudflare / NPM) — no need to separately expose or secure `yawamf.pownet.uk`.
-
-**Motivation:**
-- Single sign-on: users already logged into Home Assistant get YA-WAMF; guests don't. No second auth surface to manage.
-- No extra exposed port/host — YA-WAMF rides on HA's already-secured external access.
-- One place (the HA sidebar) for the whole setup.
-
-**Architecture:**
-1. **Reverse-proxy view** — an `aiohttp` `HomeAssistantView` in `custom_components/yawamf` forwards `/api/yawamf/ingress/…` to the configured YA-WAMF URL, strips the ingress prefix, preserves byte-length framing for media/snapshot responses so video Range/seeking works, and treats browser disconnects while seeking/switching clips as normal.
-2. **Sidebar panel** — register a panel (`panel_custom`/iframe or ingress-style) pointing at the proxied path; HA auth gates it.
-3. **Frontend base-path support** — the app reads the injected Home Assistant ingress base path at runtime for API calls, the proxy rewrites root HTML asset references, and Vite now resolves lazily-imported JS/CSS assets relative to `import.meta.url` so code-split chunks work both at site root and under `/api/yawamf/ingress`.
-4. **Config** — an opt-in toggle (proxy target defaults to the configured URL); keep the existing standalone access working unchanged.
-
-**Effort notes:** this shipped as a proxy/panel/frontend-base-path slice, followed by ingress hardening for video byte-range playback and lazily-loaded JS/CSS chunk paths. Any future HA work should focus on regression coverage and packaging, not another base-path refactor.
-
-**Success criteria:**
-- A "YA-WAMF" sidebar entry in HA opens the full dashboard, authenticated by HA, with live updates (SSE), snapshots, lazy-loaded assets, and video playback working through the proxy.
-- Works over HA's external access without separately exposing YA-WAMF.
-- Standalone (direct-port) access still works.
-
----
-
-## Raspberry Pi Compatibility (Best-Effort Plan)
-
-**Status:** CI-built ARM64 image available; not yet hardware-validated.
-
-YA-WAMF currently does **not** have verified Raspberry Pi support based on direct device testing.  
-At the moment, no physical Raspberry Pi test hardware is available in this project environment, so Pi compatibility is being treated as **best effort** until real-device validation is complete.
-
-### Current Reality
-
-- Release builds now publish a dedicated ARM64 monolith image: `ghcr.io/jellman86/yawamf-monalithic-rpi`.
-- `v2.9.15` successfully built and pushed the Raspberry Pi image in CI.
-- The image should still be treated as **best effort** until it is validated on physical Raspberry Pi 4/5 hardware.
-- The Raspberry Pi path is CPU-only today. CUDA and Intel OpenVINO acceleration are not available on Pi.
-
-### Shipped
-
-1. **Multi-Arch Image Publishing**
-- Dedicated `build-monolith-rpi` CI job publishes `linux/arm64` images.
-- Existing release flow remains unchanged (`dev` for `:dev`, `v*` tags for release tags/`latest`).
-
-2. **ARM-Safe Dependency Strategy**
-- ARM64 installs CPU ONNX Runtime instead of `onnxruntime-gpu`.
-- TensorFlow dependency selection is architecture-aware.
-- x86-only GPU package setup is skipped on ARM64.
-
-3. **Pi-Oriented Runtime Profile**
-- `.env.rpi.example` and `docs/setup/raspberry-pi.md` document the ARM64 monolith image and conservative runtime expectations.
-- Guidance keeps Pi users on CPU-only model paths and warns against heavier model choices until hardware testing exists.
-
-### Remaining Work
-
-1. **CI Validation Without Physical Pi**
-- Add ARM64 container smoke tests beyond image build/push (emulated where needed):
-  - Container startup (`/health`, `/ready`).
-  - Fresh DB migration + idempotency.
-  - Basic inference path smoke check.
-- Treat these as compatibility guards, not performance certification.
-
-2. **Real Hardware Exit Validation (When Available)**
-- Run a final acceptance pass on a physical Raspberry Pi before claiming full support:
-  - Cold start time.
-  - Sustained inference behavior and thermal stability.
-  - End-to-end detection + UI responsiveness under realistic load.
-
-### Support Statement Until Hardware Validation Exists
-
-- Raspberry Pi support is **available as a best-effort ARM64 image**.
-- ARM64 image publishing is working in CI.
-- Official “supported” status will only be declared after successful real-device validation.
-
-## Already Implemented ✅
-
-YA-WAMF already has extensive functionality built-in:
-
-**Core Classification:**
-- ✅ Multiple ML model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02)
-- ✅ Svelte 5 migration
-- ✅ Fast path mode (trust Frigate sublabels)
-- ✅ Manual reclassification with confidence override
-
-**Integrations:**
-- ✅ Frigate NVR integration (MQTT events, media proxy)
-- ✅ BirdNET-Go audio correlation (visual + audio matching)
-- ✅ Multi-platform notifications (Discord, Telegram, Pushover)
-- ✅ BirdWeather community science reporting
-- ✅ Home Assistant custom integration
-- ✅ LLM behavioral analysis (Gemini, OpenAI, Claude)
-- ✅ iNaturalist taxonomy normalization
-- ✅ iNaturalist submission integration (owner-reviewed)
-- ✅ iNaturalist seasonality visualization (histogram data)
-- ✅ eBird integration (nearby sightings, map visualization)
-- ✅ eBird CSV export (bulk import support)
-- ✅ Multiple Language Support (i18n) - Translations for 9+ languages
-- ✅ Built-in Authentication system (Admin/Owner & Guest roles)
-
-**User Interface:**
-- ✅ Real-time dashboard with SSE updates
-- ✅ Global progress bar hardening (sanitized aggregate progress math, localized multi-task summary text, improved accessibility semantics)
-- ✅ Dedicated Jobs workspace (`/jobs`) for active/recent background task tracking with stale-state visibility
-- ✅ Unified frontend job telemetry model (rate + ETA + stale lifecycle) decoupled from notification-history state
-- ✅ Dark mode support
-- ✅ Detection filtering (species, camera, date, confidence, audio)
-- ✅ Advanced Search & Filtering UI
-- ✅ Video playback with seeking (HTTP Range support)
-- ✅ Statistics dashboard (top visitors, daily histogram, recent audio)
-- ✅ Species detail modals with Wikipedia & iNaturalist info
-- ✅ Interactive sightings map (eBird)
-- ✅ Local Seasonality charts (iNaturalist)
-- ✅ Settings management UI
-- ✅ Model download & management
-
-**Backend Services:**
-- ✅ Media caching (snapshots & clips)
-- ✅ Telemetry service (opt-in, anonymous, feature usage tracking)
-- ✅ Backfill service (reprocess historical events)
-- ✅ AI Integration Persistence (Caching) - Avoid redundant LLM API calls
-- ✅ Health checks & Prometheus metrics
-- ✅ Optional API key authentication
-- ✅ Weather data enrichment
-- ✅ Frontend unit-test baseline for background job telemetry (`vitest` + targeted `jobProgressStore` regression coverage)
-
-See [DEVELOPER.md](DEVELOPER.md) for architectural details.
-
----
-
-## Table of Contents
-
-- [Maintenance Mode: Next Up](#maintenance-mode-next-up)
-- [Raspberry Pi Compatibility (Best-Effort Plan)](#raspberry-pi-compatibility-best-effort-plan)
-- [🚨 Issues First](#-issues-first)
-- [🎯 Top Priority Features](#-top-priority-features)
-- [Phase 1: User Experience & Enhancements](#phase-1-user-experience--enhancements)
-- [Phase 2: User Experience Improvements](#phase-2-user-experience-improvements)
-- [Phase 3: Advanced Features](#phase-3-advanced-features)
-- [Phase 4: Data & Integration](#phase-4-data--integration)
-- [Phase 5: Performance & Reliability](#phase-5-performance--reliability)
-- [Phase 6: Ecosystem & Community](#phase-6-ecosystem--community)
-- [Technical Debt & Maintenance](#technical-debt--maintenance)
-- [Recommended Implementation Order](#recommended-implementation-order)
-
----
-
-## Legend
-
-- **Effort Estimates:**
-  - **Small (S):** 1-3 days of development
-  - **Medium (M):** 4-7 days of development
-  - **Large (L):** 1-3 weeks of development
-  - **Extra Large (XL):** 3+ weeks of development
-
-- **Priority:**
-  - **P0:** Critical - Should be addressed immediately
-  - **P1:** High - Important for user experience
-  - **P2:** Medium - Nice to have, improves functionality
-  - **P3:** Low - Future enhancement
-
----
-
-## 🚨 Issues First
-
-Prioritize fixes for anything listed in `ISSUES.md` (known issues, testing gaps) and any open GitHub Issues before new feature work.
-
-If this section ever claims "none", treat it as stale: always check `ISSUES.md` and the GitHub issue tracker.
-
-### Current Execution Focus (Issue Triage + Validation)
-- Snapshot as of **June 22, 2026**: `#33` is the remaining open issue. `v2.11.0` includes the inference-health consolidation, telemetry dashboard, settings backup/import, media authentication, and high-quality snapshot improvements.
-- 🔄 `#33` remains open for field validation. The maintenance-mode consolidation pass on item 0 is complete in `v2.11.0`; ask the reporter to retest on the tagged monolithic image before closing.
-- ✅ `#49` (HAOS add-on?) closed as a roadmap-tracked P3 feature; see Phase 4.5.
-- ✅ `#51` (Home Assistant event-loop warning) reviewed against Home Assistant async I/O guidance and closed as resolved.
-- ✅ `#42` BirdNET-Go MQTT/source mapping follow-up closed since the previous roadmap snapshot.
-- ✅ `#17` (batch reclassify issue) closed after triage confirmed the remaining symptom belonged in `#19`.
-- ✅ `#20` (weather conditions panel text alignment) fixed and reporter-confirmed, then closed.
-- ✅ `#19` follow-up fixes shipped (`76433eb`, `419818f`) and issue closed after filter/state hardening and click-through correction.
-- ✅ `#16` BirdNET-Go mapping improvements were validated and the issue is now closed.
-- ✅ `#21` OpenVINO ConvNeXt load failure remediation landed and the issue is now closed.
-- 🔄 Continue reliability work in parallel: expand E2E coverage around restart/recovery scenarios, GPU/provider fallback paths, and Raspberry Pi ARM64 startup smoke.
-
----
-
-## 🎯 Top Priority Features
-
-These are the highest-impact features planned for the next major release.
-
-### 1. Technical Debt Cleanup Sprint 🧹 (Completed)
-**Status:** ✅ Resolved 100% of frontend TypeScript/Svelte-check errors.
-
-### 2. eBird Integration 🐦 (Completed)
-**Status:** ✅ Implemented nearby sightings, interactive maps, and CSV export.
-
-### 3. iNaturalist Photo Submission 🌿 (Completed)
-**Status:** ✅ Implemented (owner-reviewed, with auto-token refresh for reliability).
-
----
-
-## Phase 1: User Experience & Enhancements
-
-### 1.1 Conversation History for AI Analysis 💬
-**Priority:** P2 | **Effort:** M (4-5 days) | **Status:** ✅ Completed (v2.7.7)
-
-Allow users to have follow-up conversations about specific detections with the AI.
-
-**Implementation:**
-- Persist per-detection threads via an `ai_conversation_turns` table keyed by `frigate_event` (detection ID)
-- Update AI service to maintain context across turns
-- Add chat interface in detection modal
-- Implement streaming responses for better UX
-- Token usage tracking and limits
-
-**Breakdown:**
-- Database schema: 0.5 days
-- Backend conversation logic: 2 days
-- Frontend chat UI: 1.5 days
-- Testing: 1 day
-
----
-
-## Phase 2: User Experience Improvements
-
-### 2.1 Advanced Search & Filtering UI 🔍
-**Priority:** P1 | **Effort:** M (3-4 days)
-
-> **Note:** Backend filtering already exists! Just needs a better UI.
-
-Enhance the detection search interface with an intuitive filter panel.
-
-**Current State:**
-- ✅ Backend supports filtering by species, camera, date, confidence, audio confirmation
-- ✅ Visual filter panel implemented (date presets, species, camera, sort)
-
-**Breakdown:**
-- ✅ Frontend filter panel UI
-- ❌ Saved filter presets (save favorite filters)
-- ✅ Export filtered results to CSV (eBird format)
-
-### 2.2 Enhanced Analytics Dashboard 📊
-**Priority:** P2 | **Effort:** M (5-7 days)
-
-> **Note:** Basic charts already exist! This adds more advanced visualizations.
-
-**Current State:**
-- ✅ Top Visitors bar chart
-- ✅ Daily histogram
-- ✅ Recent audio detections widget
-- ✅ Seasonality histogram (local/global via iNaturalist)
-- ✅ Leaderboard analytics expansion shipped (detections trend modes, species compare trend chart, hour x weekday activity heatmap, weather overlays)
-- ❌ Dedicated insights panel and camera-comparison analytics are still pending
-
-**What to Add:**
-- Confidence score distribution histogram
-- Camera comparison chart
-- Insights panel:
-  - Rarest sighting this week
-  - Best detection hour
-  - Weather correlation (e.g., "50% more birds when sunny")
-
-**Breakdown:**
-- Confidence distribution chart: 1 day
-- Camera comparison chart: 1 day
-- Insights algorithms + UI: 2 days
-- Testing: 1 day
-
-### 2.3 Progressive Web App (PWA) Support 📱
-**Priority:** P1 | **Effort:** M (4-5 days) | **Status:** ✅ Completed (v2.7.7)
-
-### AI Analysis UX Polish ✨
-**Priority:** P2 | **Effort:** S (1-2 days) | **Status:** ✅ Completed (v2.7.7)
-
-Refined AI analysis and follow-up conversation rendering with markdown-aware formatting and improved dark-mode readability.
-
-> **Status note:** PWA baseline is shipped (manifest + service worker + update flow). Further mobile UX ideas should be tracked as separate enhancements, not PWA core.
-
----
-
-## Phase 3: Advanced Features
-
-### 3.1 Multi-User Support & Roles 👥
-**Priority:** P2 | **Effort:** XL (3-4 weeks)
-
-✅ **Implemented in v2.6.0**
-
-- ✅ User authentication system (JWT tokens)
-- ✅ User registration/login/logout
-- ✅ User roles: Admin (Owner) and Viewer (Guest)
-- ✅ Rate limiting and session management
-- ❌ Password reset flow (currently manual reset via config.json)
-- ❌ SSO support (OAuth2: Google, GitHub)
-
-### 3.2 Enhanced Notification Rules 🔔
-**Priority:** P2 | **Effort:** S (2-3 days)
-
-> **Note:** Basic notification filtering already exists! This adds custom rules.
-
-**Current State:**
-- ✅ Per-platform filters (Discord, Telegram, Pushover)
-- ✅ Species whitelist
-- ✅ Minimum confidence threshold
-- ✅ Audio-confirmed only filter
-- ✅ Camera filters
-- ✅ Detailed notification modes (Silent, Final, Standard, Realtime)
-- ❌ Custom rule builder, time-of-day conditions, frequency limits
-
-**What to Add:**
-- Time-based rules (only notify between 7am-7pm)
-- Frequency limits per species (max 1 notification per hour per species)
-- Weather-based rules (only notify when sunny, etc.)
-- Custom message templates with variables
-
-**Breakdown:**
-- Time/frequency logic: 1.5 days
-- Settings UI enhancements: 1 day
-- Testing: 0.5 days
-
-### 3.3 Video Timeline & Highlights 🎬
-**Priority:** P2 | **Effort:** L (1.5-2 weeks)
-
-**Status:** 🔄 In Progress (core player and timeline preview foundation shipped)
-
-Create automated highlight reels and a time-based browsing experience that makes it easy to review activity over a day or week.
-
-**Features:**
-- ✅ Quick-skim mode foundations in player (keyboard seek/play controls)
-- ✅ Expiry-limited share links now supported (`/events?event=<id>&video=1&share=<token>`) with backend token validation.
-- ✅ Shared-link watermark overlay now enforced in player UI (label + expiry context).
-
-**Breakdown:**
-- ✅ Video preview processing pipeline + caching: shipped (sprite/VTT generation, retention integration, metrics)
-- 🔄 Timeline UI component (grouped browsing) + advanced keyboard UX: initial day-bucket timeline strip + `[ ] / 0` navigation shipped; further expansion pending.
-- Highlight scoring logic (confidence, rarity, activity): 2 days
-- Clip stitching + preview thumbnails: 2 days
-- ✅ Sharing & permissions: owner-issued expiring tokens, owner management controls (list/update/revoke), create-rate limiting, and scheduled stale-link cleanup are implemented.
-- Testing: 1 day
-
-### 3.4 Local LLM Support (Ollama) 🏠
-**Priority:** P2 | **Effort:** M (4-5 days)
-
-Add support for self-hosted LLMs via Ollama for privacy-conscious users.
-
-**Implementation:**
-- Ollama client integration
-- Model selection UI (pull models from Ollama registry)
-- Vision model support (LLaVA, etc.)
-- Streaming response handling
-- Fallback to cloud LLMs if Ollama unavailable
-- Performance benchmarking tools
-
-**Breakdown:**
-- Ollama client integration: 2 days
-- UI for model management: 1.5 days
-- Testing with various models: 1 day
-- Documentation: 0.5 days
-
----
-
-## Phase 4: Data & Integration
-
-### 4.1 Advanced BirdNET-Go Visualization 🎵
-**Priority:** P2 | **Effort:** M (3-4 days)
-
-> **Note:** BirdNET-Go integration already works! This adds visualization.
-
-**Current State:**
-- ✅ Audio-visual correlation (matches detections by timestamp)
-- ✅ Audio buffer with configurable window
-- ✅ Camera-to-audio-sensor mapping
-- ✅ Recent audio detections widget
-- ✅ Audio-confirmed badge on detections
-- ❌ Audio spectrogram visualization, audio clip playback
-
-**What to Add:**
-- Audio spectrogram visualization in detection modal
-- Audio clip playback widget (if BirdNET-Go provides clips)
-- Confidence fusion algorithm (combine visual + audio scores)
-- Audio detection history page (separate from visual detections)
-
-**Breakdown:**
-- Spectrogram rendering: 2 days
-- Audio playback widget: 1 day
-- History page: 1 day
-- Testing: 0.5 days
-
-### 4.3 eBird Integration 🐦 (Completed)
-**Status:** ✅ Implemented. Nearby sightings, interactive maps, and CSV export for bulk import are fully operational.
-
-### 4.4 Backup & Export Tools 💾 (Partially Completed)
-**Status:** ✅ CSV Export for eBird added. ❌ Full DB backup/restore tool pending.
-
-### 4.5 Home Assistant OS Add-on 🏠
-**Priority:** P3 | **Effort:** M (3–5 days) | **Status:** Proposed
-
-YA-WAMF currently ships as a Docker container intended for `docker compose` deployment. Home Assistant OS users can run it today via the Portainer add-on or any other path that lets them schedule a third-party container alongside HA, but there is no first-class HA add-on listing — installing YA-WAMF from the HA add-on store with a button-click is not possible.
-
-A proper add-on would wrap the existing monolithic image as an installable HA Supervisor add-on so HAOS users can deploy it without a docker-compose stack, with the existing `custom_components/yawamf` integration continuing to handle the in-HA sensor/event surface separately.
-
-**Scope:**
-- Author an `addon-yawamf` companion repo containing the HA add-on manifest (`config.yaml`), `Dockerfile` that pulls or extends the published monolithic image, an `s6-overlay`/run script if needed, and an `apparmor.txt` profile sized to the actual permissions YA-WAMF requires.
-- Map the existing `/data` and `/config` volumes to HA's add-on data volume so the SQLite DB, models, and `config.json` survive add-on updates.
-- Expose YA-WAMF's port and Ingress entry so it is reachable through the HA UI.
-- Surface the most-used config knobs (Frigate URL, MQTT broker, BirdNET-Go MQTT topic, optional API key) as add-on options that get translated into env vars or `config.json` overrides on first boot.
-- Document the upgrade story: the add-on tracks the YA-WAMF release tag, not `dev` or `latest`.
-
-**Out of scope:**
-- Replacing the docker-compose deployment path. Both ship side-by-side; the add-on is for HAOS users who don't otherwise run Docker.
-- Embedding YA-WAMF inside the HA core. The add-on stays a separate process.
-
-**Risks / open questions:**
-- The monolith image runs `nginx + backend` together. HA Ingress will need to point at the nginx port and CSP/CORS may need adjustment under the Ingress path prefix.
-- ARM64 support requires the existing RPi monolith image to be production-ready (it is currently best-effort, see Raspberry Pi section above).
-- Add-on store listing requires a separate repo and ongoing maintenance — should be considered before committing.
-
-**Acceptance criteria:**
-- HAOS users can add a repository URL, install YA-WAMF, configure Frigate/MQTT through the add-on Options panel, and reach the UI through HA Ingress.
-- Stopping/starting the add-on preserves data; updating to a newer add-on version preserves data and runs DB migrations cleanly.
-- The existing `custom_components/yawamf` integration continues to work whether YA-WAMF runs as the add-on or as a standalone Docker container.
-- Add-on documentation lives in the new repo with a link from the YA-WAMF README's "Home Assistant" section.
-
----
-
-## Phase 5: Performance & Reliability
-
-### 5.1 Performance Optimization 🚀
-**Priority:** P1 | **Effort:** L (1.5-2 weeks)
-
-Optimize system performance for large installations.
-
-**Tasks:**
-- Database query optimization:
-  - Add missing indexes
-  - Implement query result caching (Redis optional)
-  - Pagination cursor optimization
-- Backend improvements:
-  - ✅ Connection pooling (database, HTTP clients)
-  - Async optimization (remove blocking I/O)
-  - Background task queue (Celery or ARQ)
-- Frontend optimizations:
-  - ✅ Resolve TypeScript/Svelte strict typing issues
-  - Lazy loading for images/videos
-  - Virtual scrolling for large lists
-  - Bundle size reduction
-  - Service worker caching
-- Benchmark suite for regression testing
-
-**Breakdown:**
-- Database optimization: 3 days
-- Backend async refactor: 4 days
-- Frontend optimization: 3 days
-- Benchmarking: 2 days
-
-### 5.2 High Availability Setup 🏗️
-**Priority:** P3 | **Effort:** M (1 week)
-
-> **Note:** Health checks and Prometheus metrics already exist!
-
-**Current State:**
-- ✅ `/health` endpoint
-- ✅ `/metrics` Prometheus endpoint
-
-**What to Add:**
-- Nginx load balancer configuration example
-- Multi-replica backend support (session-less architecture)
-- Grafana dashboard templates for metrics
-- Kubernetes deployment manifests (Deployment, Service, Ingress)
-- Database replication guide (for PostgreSQL when implemented)
-
-**Breakdown:**
-- Nginx config & docs: 1 day
-- Grafana dashboards: 2 days
-- K8s manifests: 2 days
-- Documentation: 1 day
-
-### 5.3 Testing Infrastructure 🧪
-**Priority:** P1 | **Effort:** L (1.5-2 weeks)
-
-✅ **Implemented**
-
-- ✅ Unit tests for Service layer, repositories, and utilities
-- ✅ Integration tests for API endpoints and MQTT flow
-- ✅ CI/CD pipeline (GitHub Actions) with automated testing
-- ✅ Code coverage reporting
-- ✅ DB migration safety checks (fresh/idempotent/downgrade-upgrade + sampled historical upgrade paths)
-- ✅ Startup/readiness smoke checks in CI
-- ⚠️ Playwright E2E coverage is improving but still targeted; broader end-to-end regression coverage remains a priority
-
-### 5.4 Raspberry Pi 4/5 (ARM64) Support 🍓
-**Priority:** P2 | **Effort:** S (4–6 hours) | **Status:** CI image path shipped; hardware validation remains
-
-Full assessment: [`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md)
-
-ARM64 support shipped as a dedicated monolithic image path. The inference layer degrades to CPU-only; the web stack, MQTT, SQLite, and Nginx work on ARM64 without modification.
-
-**Shipped changes:**
-
-1. `backend/requirements.txt` selects CPU `onnxruntime` on ARM64 and avoids `onnxruntime-gpu`.
-2. The monolith build skips x86-only GPU runtime setup on ARM64.
-3. `.github/workflows/build-and-push.yml` publishes `ghcr.io/jellman86/yawamf-monalithic-rpi` for release tags.
-4. Raspberry Pi setup docs and `.env.rpi.example` document the best-effort install path.
-
-**Remaining validation:**
-- Add ARM64 startup/migration/inference smoke checks beyond build success.
-- Validate cold start, sustained inference behavior, and UI responsiveness on physical Raspberry Pi hardware before calling the platform officially supported.
-
-**RPi runtime characteristics:**
-- MobileNetV2 TFLite: ~150–200 ms/frame — suitable for event-based detection
-- Small ONNX (CPU provider): ~500–800 ms/frame — marginal but workable
-- ConvNeXt large: >1000 ms/frame — not viable
-- Recommended config: `CLASSIFICATION_IMAGE_MAX_CONCURRENT=1`, 16 GB SSD preferred over microSD
-
-**Not available on RPi:** CUDA, Intel iGPU/OpenVINO, VideoCore GPU inference.
-
----
-
-## Technical Debt & Maintenance
-
-### Harden Background Task Visibility 🔎
-**Priority:** P1 | **Effort:** S (1-2 days) | **Status:** ✅ Completed
-
-Ensure fire-and-forget tasks always surface exceptions in structured logs.
-
-**Notes:**
-- Use a shared `create_background_task()` wrapper across services.
-- Add task naming for easier tracing.
-
-### Global Exception Handler 🧯
-**Priority:** P1 | **Effort:** S (1 day) | **Status:** ✅ Completed
-
-Add a top-level exception handler to capture unexpected 500s with structured context.
-
-### Complete UI Localization (i18n Phase 2) 🌍
-**Priority:** P1 | **Effort:** M (4-7 days) | **Status:** ✅ Completed (v2.7.7)
-
-Audit all UI components and remove hardcoded strings. Move all labels, errors, and chart metadata to locale files, including modal content (e.g., FirstRunWizard, Telemetry banner, Species detail modal).
-
-### EventProcessor Decomposition 🧩
-**Priority:** P2 | **Effort:** M (3-5 days)
-
-Split `_handle_detection_save_and_notify` into smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce coupling and improve testability.
-
-### Detection Query Composite Index 📇
-**Priority:** P2 | **Effort:** S (1-2 days) | **Status:** ✅ Completed (v2.8.0)
-
-Composite index for common event queries (`detections(camera_name, detection_time)`) is in place to speed up Events and export queries.
-
-### Optional Frontend Log Shipping 📡
-**Priority:** P3 | **Effort:** M (3-5 days)
-
-Allow UI logs to be optionally sent to a backend endpoint for better remote debugging.
-
-### CSP Tightening (Nonce-based) 🛡️
-**Priority:** P3 | **Effort:** M (3-5 days)
-
-Investigate moving from `unsafe-inline` to CSP nonces where feasible.
-
-### BirdNET-Go Audio Backfill 🐦🎧
-**Priority:** P2 | **Effort:** M (3-5 days)
-
-Backfill BirdNET-Go audio detections into `audio_detections` so historical detections can regain audio context after a DB reset.
-
-**Notes:**
-- Requires a persistent BirdNET-Go data source (SQLite/JSON logs/API).
-- Add an importer + mapping to camera IDs, then re-correlate detections.
-
-### High Priority Fixes (Completed)
-
-> See [DEVELOPER.md](DEVELOPER.md) for comprehensive technical debt tracking.
-
-| Issue | Effort | Priority | Notes |
-|-------|--------|----------|-------|
-| Settings update secret clearing bug | S (1 day) | P0 | ✅ Fixed |
-| Blocking I/O in config save | S (1 day) | P0 | ✅ Fixed |
-| TypeScript type errors (bool → boolean) | S (0.5 days) | P0 | ✅ Fixed |
-| iNaturalist Token Refresh | S (1 day) | P0 | ✅ Fixed: Auto-rotation implemented |
-| Blank seasonality chart | S (0.5 days) | P0 | ✅ Fixed: Taxa ID propagation |
-| Frontend compilation warnings | S (1 day) | P1 | ✅ Fixed: 0 errors/warnings |
-| EventProcessor refactoring | M (3-4 days) | P1 | ✅ Partial refactor |
-| Memory leak in auto video classifier | M (2 days) | P1 | ✅ Mitigated |
-| Missing database connection pooling | M (2 days) | P1 | ✅ Implemented |
-| Persist UI font theme to backend (used by emails) | S (1 day) | P2 | ✅ Implemented |
-| Leaderboard span chart weather overlays | S (1 day) | P2 | ✅ Implemented |
-| Remove legacy theme/layout subscribe wrappers from Settings | S (0.5 day) | P2 | ✅ Implemented |
-| Guard Settings route for guests (public access) | S (0.5 day) | P1 | ✅ Implemented |
-| Remove hardcoded credentials from debug scripts | S (0.5 day) | P1 | ✅ Implemented |
-
-**Total Effort for High Priority Fixes:** ~2 weeks (Completed)
-
-### Already Fixed ✅
-
-- ✅ API auth timing attack - Already uses `secrets.compare_digest()`
-
----
-
-## Estimated Total Effort by Phase
-
-> **Note:** Effort estimates updated to reflect features already implemented!
-
-| Phase | Total Effort | Duration (if sequential) |
-|-------|--------------|--------------------------|
-| **Top Priority** | **Completed** | Technical Debt + eBird + iNat |
-| Phase 1: UX Enhancements | ~1 week | Conversation history |
-| Phase 2: UX Improvements | ~1-2 weeks | Saved filters, analytics expansion |
-| Phase 3: Advanced Features | ~8 weeks | Multi-user, Alerts, Video, Ollama |
-| Phase 4: Data & Integration | ~2 weeks | Audio viz, PostgreSQL |
-| Phase 5: Performance & Reliability | ~4 weeks | Optimization, HA, Testing |
-| Phase 6: Ecosystem & Community | ~10 weeks | Plugins, Community, Marketplace |
-| **Grand Total** | **~27 weeks** | **6.75 months** |
-
-**Note:** These are rough estimates assuming a single full-time developer. Parallelization, community contributions, and prioritization can significantly reduce time to delivery for critical features.
-
----
-
-## How to Contribute
-
-Interested in helping build any of these features? Check out [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
-
-Have a feature idea not on this list? Open an issue on [GitHub](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) to start a discussion!
-
----
-
-**Last Updated:** 2026-06-22
-**Version:** 2.11.0
+## Contributing
+
+Everyday work happens on `dev`; release tags / `main` are handled separately. Every change clears
+the [`CLAUDE.md`](CLAUDE.md) contract — safety, test-first, reversible migrations, clean UI, and the
+Definition of Done — before it is committed. New roadmap work should land a dated design note under
+[`docs/plans/`](docs/plans/) when it starts, and move to the [`CHANGELOG.md`](CHANGELOG.md) +
+[Delivered](#3-delivered) when it ships.

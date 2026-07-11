@@ -93,8 +93,13 @@ No action beyond ensuring reconnection stays robust.
    (Correction: the `frigate_missing` default is already
    `mark_missing`, never delete — the ~18k deletions are from installs that explicitly
    chose *delete*, now clearly warned against in that guide.)
-2. **Push old installs off the critical build (finding 2).** Confirm `classify_snapshot`
-   `stage_failure` is fixed on `2.11`+, and nudge `2.9.x`/`2.10.x` installs to update.
+2. **Push old installs off the critical build (finding 2).** ✅ Confirmed and served.
+   The `classify_snapshot` `stage_failure` critical appears **only** on `2.9.15`/`2.10.0`
+   in the fleet data and never on `2.11`+ — the signature of a resolved fault, closed by
+   the `v2.11` inference-health consolidation (roadmap item 0). The "nudge stale installs"
+   half is now a product feature rather than a manual ask: the in-app, channel-aware update
+   prompt tells `2.9.x`/`2.10.x` installs a newer build is available. No code change remains
+   for this item; it is confirmation plus the shipped update prompt.
 3. **Separate expected drops from problems (finding 3).** ✅ Done — `filter_*` drops are
    now recorded as informational, and health reporting excludes `info`, so normal
    filtering no longer reaches the fleet health data.

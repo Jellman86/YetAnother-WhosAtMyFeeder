@@ -11,9 +11,9 @@ honest assessment of where the project currently sits against it and the
 prioritised path to close the gaps.
 
 > **Forward-looking plan:** the major initiatives for the next version live in the
-> [Road to 3.0](../roadmap.md) (first-run wizard, UI simplification, a file-by-file
-> code-quality review, and a full translation review). The incremental "gold-standard
-> implementation plan" below feeds into it.
+> [Road to 3.0](../../ROADMAP.md#1-the-road-to-30) (first-run wizard, UI simplification, a
+> file-by-file code-quality review, and a full translation review). The incremental
+> "gold-standard implementation plan" below feeds into it.
 
 ## External standards used as reference points
 
