@@ -86,10 +86,11 @@ No action beyond ensuring reconnection stays robust.
    cached snapshot → **recording frame**, and `drop_classify_snapshot_unavailable`
    now fires only when even the continuous recording has no frame (see
    [design note](../plans/2026-07-10-recording-frame-classification-fallback.md)). A
-   brief bird is classified from a recording frame instead of dropped. Still to do:
-   surface the
-   [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) in-app when
-   the rate is high. (Correction: the `frigate_missing` default is already
+   brief bird is classified from a recording frame instead of dropped. ✅ In-app
+   guidance shipped too — the Errors page surfaces the
+   [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) with a calm
+   advisory when the media-unavailability drop rate is elevated over a real sample.
+   (Correction: the `frigate_missing` default is already
    `mark_missing`, never delete — the ~18k deletions are from installs that explicitly
    chose *delete*, now clearly warned against in that guide.)
 2. **Push old installs off the critical build (finding 2).** Confirm `classify_snapshot`
@@ -97,6 +98,8 @@ No action beyond ensuring reconnection stays robust.
 3. **Separate expected drops from problems (finding 3).** ✅ Done — `filter_*` drops are
    now recorded as informational, and health reporting excludes `info`, so normal
    filtering no longer reaches the fleet health data.
-4. **Capture context for critical failures (finding 5).** Populate
-   `sample_context_json` for stage failures (exception type, stage inputs) and
-   recalibrate severity so it is usable for triage.
+4. **Capture context for critical failures (finding 5).** ✅ Done — critical stage
+   failures now record the exception type (`error_type`) and stage in their
+   allow-listed `sample_context`, so they are diagnosable in fleet data instead of an
+   empty `{}`; the free-text error stays local. Severity was already calibrated
+   (`filter_*` drops are `info` and excluded from health reports).
