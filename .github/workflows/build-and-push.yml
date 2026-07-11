@@ -689,5 +689,12 @@ jobs:
             URL="$REPO_URL/releases/tag/${{ github.ref_name }}"
           fi
           echo "Publishing $CHANNEL version=$VERSION commit=$COMMIT"
-          npx wrangler d1 execute yawamf-telemetry --remote --yes --command \
-            "CREATE TABLE IF NOT EXISTS app_versions (channel TEXT PRIMARY KEY, version TEXT, commit_sha TEXT, url TEXT, updated_at TEXT); INSERT OR REPLACE INTO app_versions (channel, version, commit_sha, url, updated_at) VALUES ('$CHANNEL', '$VERSION', '$COMMIT', '$URL', datetime('now'));"
+          # Best-effort: the /version endpoint falls back to scraping GitHub, so a failed
+          # publish (e.g. a Cloudflare token/permission problem) must not fail the build —
+          # the images have already been built and pushed. Warn instead of erroring.
+          if npx wrangler d1 execute yawamf-telemetry --remote --yes --command \
+            "CREATE TABLE IF NOT EXISTS app_versions (channel TEXT PRIMARY KEY, version TEXT, commit_sha TEXT, url TEXT, updated_at TEXT); INSERT OR REPLACE INTO app_versions (channel, version, commit_sha, url, updated_at) VALUES ('$CHANNEL', '$VERSION', '$COMMIT', '$URL', datetime('now'));"; then
+            echo "Published $CHANNEL version to D1."
+          else
+            echo "::warning title=Version publish skipped::Could not publish the $CHANNEL version to D1 (Cloudflare API not authorized — check the CLOUDFLARE_API_TOKEN secret's D1 scope). The /version endpoint falls back to GitHub, and the images were built and pushed normally."
+          fi
