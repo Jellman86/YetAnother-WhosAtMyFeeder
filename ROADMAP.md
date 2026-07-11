@@ -132,12 +132,6 @@ flags missing/extra keys per locale so translations can't silently rot.
 
 Backlog features to finish before `3.0`. Roughly ordered by value.
 
-#### Saved filter presets 🔍
-**Priority:** P1 | **Effort:** S | **Status:** ☐ Not started
-
-The Explorer filter panel (date/species/camera/sort/audio) and CSV export are shipped; the one
-remaining piece is letting users **save and recall favourite filter presets**.
-
 #### Finish multi-user: password reset + SSO 👥
 **Priority:** P2 | **Effort:** M | **Status:** 🔄 Core shipped (v2.6.0), two gaps remain
 
