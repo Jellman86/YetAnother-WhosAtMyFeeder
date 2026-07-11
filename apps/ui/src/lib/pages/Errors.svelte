@@ -8,8 +8,11 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
-    import { getVideoClassifierCardState } from '../errors/health';
+    import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+
+    const FRIGATE_MISSING_DOCS_URL =
+        'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
     let currentIssues = $derived(incidentWorkspaceStore.currentIssues);
     let recentIncidents = $derived(incidentWorkspaceStore.recentIncidents);
@@ -18,6 +21,8 @@
     let bundles = $derived(jobDiagnosticsStore.bundles);
     let health = $derived((workspacePayload?.health as Record<string, any> | null) ?? null);
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
+    let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
+    let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
     let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
@@ -380,6 +385,26 @@
                     </div>
                 </div>
             </div>
+
+            {#if frigateMediaAdvisory.elevated}
+                <!-- ── Frigate media-unavailability advisory (Event Not Found guidance) ── -->
+                <div class="mt-6 rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
+                            <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
+                            <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-black uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
+                                {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {/if}
 
             <!-- ── Subsystem cards ─────────────────────────────────── -->
             <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
