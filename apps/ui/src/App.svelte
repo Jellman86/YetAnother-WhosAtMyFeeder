@@ -8,6 +8,7 @@
   import Footer from './lib/components/Footer.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
+  import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
@@ -625,14 +626,16 @@
           {/snippet}
       </Sidebar>
 
-      <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
-      <TelemetryBanner />
-
       <!-- Main Content Wrapper -->
       <div
           class="flex-1 flex flex-col transition-all duration-300 {isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}"
           style="--app-chrome-height: {isMobile ? '4rem' : '0rem'};"
       >
+          <!-- Banners live inside the content wrapper so they align to the main column and
+               respect the sidebar offset (like the footer), instead of spanning under it. -->
+          <UpdateBanner />
+          <TelemetryBanner />
+
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
               <div class={globalProgressHasScrolled
                   ? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'

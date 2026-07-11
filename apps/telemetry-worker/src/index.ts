@@ -302,6 +302,42 @@ function dashboardShell({
 
 app.get('/', (c) => c.text('YA-WAMF Telemetry Receiver is operational.'));
 
+// Latest-version lookup for the in-app update prompt. Fetches the latest GitHub release
+// once per TTL (the edge Cache API is a no-op on *.workers.dev, so we cache in-process),
+// serving the last known result if GitHub is briefly unavailable. No telemetry payload —
+// a plain GET, so installs with telemetry disabled can still learn about updates.
+const VERSION_CACHE: { data: { latest_version: string | null; release_url: string | null } | null; expires: number } = {
+  data: null,
+  expires: 0,
+};
+const VERSION_CACHE_TTL_MS = 30 * 60 * 1000;
+const GITHUB_LATEST_RELEASE_URL =
+  'https://api.github.com/repos/Jellman86/YetAnother-WhosAtMyFeeder/releases/latest';
+
+app.get('/version', async (c) => {
+  const now = Date.now();
+  if (VERSION_CACHE.data && VERSION_CACHE.expires > now) {
+    return c.json(VERSION_CACHE.data, 200, { 'Cache-Control': 'public, max-age=1800' });
+  }
+  try {
+    const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
+      headers: { 'User-Agent': 'yawamf-telemetry-worker', Accept: 'application/vnd.github+json' },
+    });
+    if (!response.ok) {
+      if (VERSION_CACHE.data) return c.json(VERSION_CACHE.data, 200);
+      return c.json({ error: `github_http_${response.status}` }, 502);
+    }
+    const data = (await response.json()) as { tag_name?: string; html_url?: string };
+    const payload = { latest_version: data.tag_name ?? null, release_url: data.html_url ?? null };
+    VERSION_CACHE.data = payload;
+    VERSION_CACHE.expires = now + VERSION_CACHE_TTL_MS;
+    return c.json(payload, 200, { 'Cache-Control': 'public, max-age=1800' });
+  } catch {
+    if (VERSION_CACHE.data) return c.json(VERSION_CACHE.data, 200);
+    return c.json({ error: 'fetch_failed' }, 502);
+  }
+});
+
 // Public, read-only aggregate dashboard. A short per-isolate in-memory cache keeps
 // traffic bursts off D1 so the worker stays comfortably within Cloudflare's free
 // tier (the edge Cache API is a no-op on *.workers.dev, so we cache in-process).

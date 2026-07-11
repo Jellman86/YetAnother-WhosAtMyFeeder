@@ -2041,6 +2041,14 @@
     "dismiss": "No Thanks",
     "enable_error": "Failed to enable telemetry. Please try again from Settings."
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} is available",
+    "body": "You're running {current}. Pull the new image from your container manager to update.",
+    "release_notes": "Release notes →",
+    "dismiss": "Dismiss",
+    "sidebar_title": "Update available: {version}",
+    "sidebar_label": "Update available"
+  },
   "pwa": {
     "update_available": "Update available. Refresh to apply."
   },

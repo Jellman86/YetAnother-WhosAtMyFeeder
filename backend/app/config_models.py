@@ -663,6 +663,13 @@ class TelemetrySettings(BaseModel):
         default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues",
         description="Health issue diagnostics endpoint URL",
     )
+    version_url: Optional[str] = Field(
+        default="https://yawamf-telemetry.ya-wamf.workers.dev/version",
+        description=(
+            "Endpoint returning the latest published YA-WAMF version for the in-app update prompt. "
+            "A plain GET with no telemetry payload; the worker fetches and edge-caches it from GitHub."
+        ),
+    )
 
 
 class DiscordSettings(BaseModel):
@@ -792,6 +799,13 @@ class SystemSettings(BaseModel):
         description="Trusted proxy hosts for X-Forwarded-* headers",
     )
     debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
+    update_check_enabled: bool = Field(
+        default=True,
+        description=(
+            "Periodically check GitHub for a newer YA-WAMF release and show an in-app update prompt. "
+            "Makes an anonymous request to the GitHub API (cached); disable to stop all update checks."
+        ),
+    )
 
 
 class AuthSettings(BaseModel):

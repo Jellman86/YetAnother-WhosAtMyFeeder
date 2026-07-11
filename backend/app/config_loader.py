@@ -442,6 +442,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "broadcaster_max_consecutive_full": int(os.environ.get("SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL", "10")),
         "trusted_proxy_hosts": trusted_hosts,
         "debug_ui_enabled": os.environ.get("SYSTEM__DEBUG_UI_ENABLED", "false").lower() == "true",
+        "update_check_enabled": os.environ.get("SYSTEM__UPDATE_CHECK_ENABLED", "true").lower() != "false",
     }
 
     # Appearance settings

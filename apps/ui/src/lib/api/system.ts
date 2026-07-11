@@ -48,6 +48,30 @@ export async function checkHealth(): Promise<HealthStatus> {
     return handleResponse<HealthStatus>(response);
 }
 
+export interface UpdateStatus {
+    current_version: string;
+    latest_version: string | null;
+    update_available: boolean;
+    release_url: string;
+    checked_at: string | null;
+    enabled: boolean;
+    error: string | null;
+}
+
+export async function fetchUpdateStatus(): Promise<UpdateStatus> {
+    const response = await apiFetch(`${API_BASE}/update-status`);
+    return handleResponse<UpdateStatus>(response);
+}
+
+/**
+ * Whether to show the update banner. Dismissal is keyed on the version, so dismissing one
+ * update won't hide the banner when a newer release later becomes available.
+ */
+export function shouldShowUpdateBanner(status: UpdateStatus | null | undefined, dismissedVersion: string | null): boolean {
+    if (!status || !status.update_available || !status.latest_version) return false;
+    return dismissedVersion !== status.latest_version;
+}
+
 export async function testFrigateConnection(): Promise<FrigateTestResult> {
     const response = await apiFetch(`${API_BASE}/frigate/test`);
     return handleResponse<FrigateTestResult>(response);

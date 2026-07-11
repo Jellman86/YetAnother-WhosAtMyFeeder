@@ -7554,6 +7554,11 @@
             ],
             "title": "Trusted Proxy Hosts"
           },
+          "update_check_enabled": {
+            "default": true,
+            "title": "Update Check Enabled",
+            "type": "boolean"
+          },
           "video_classification_circuit_failures": {
             "default": 0,
             "title": "Video Classification Circuit Failures",
@@ -18832,6 +18837,37 @@
           }
         ],
         "summary": "Get Detection Timeline Span",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
+    "/api/update-status": {
+      "get": {
+        "description": "Report whether a newer YA-WAMF release is available (in-app update prompt).\n\nA notification only \u2014 YA-WAMF never updates itself; pulling a new image is left to the\norchestrator. Honours the `system.update_check_enabled` opt-out and never blocks.",
+        "operationId": "get_update_status_api_update_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Update Status",
         "tags": [
           "stats"
         ]

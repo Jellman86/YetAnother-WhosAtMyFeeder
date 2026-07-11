@@ -1037,6 +1037,7 @@ export interface components {
     telemetry_platform?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
+    update_check_enabled?: boolean;
     video_classification_circuit_failures?: number;
     video_classification_circuit_open?: boolean;
     video_classification_circuit_until?: string | null;
@@ -2967,6 +2968,15 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];
+    };
+  };
+  "/api/update-status": {
+    get: {
+      operationId: "get_update_status_api_update_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/version": {

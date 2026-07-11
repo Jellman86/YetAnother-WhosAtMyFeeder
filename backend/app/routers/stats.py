@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends, Query
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
@@ -18,6 +19,19 @@ from app.utils.api_datetime import utc_naive_now
 from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
+
+
+@router.get("/update-status")
+async def get_update_status():
+    """Report whether a newer YA-WAMF release is available (in-app update prompt).
+
+    A notification only — YA-WAMF never updates itself; pulling a new image is left to the
+    orchestrator. Honours the `system.update_check_enabled` opt-out and never blocks.
+    """
+    from app.services.update_service import update_service
+
+    current_version = os.environ.get("APP_VERSION", "unknown")
+    return await update_service.get_status(current_version)
 
 
 class DailySpeciesSummary(APIModel):
