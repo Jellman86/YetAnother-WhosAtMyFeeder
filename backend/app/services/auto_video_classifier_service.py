@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import os
@@ -119,7 +121,11 @@ BackgroundImageClassificationUnavailableError = getattr(
     RuntimeError,
 )
 get_classifier = classifier_service_module.get_classifier
-resolve_live_classifier = classifier_service_module.resolve_live_classifier
+resolve_live_classifier = getattr(
+    classifier_service_module,
+    "resolve_live_classifier",
+    lambda classifier=None: classifier or get_classifier(),
+)
 VideoClassificationWorkerError = classifier_service_module.VideoClassificationWorkerError
 JobSource = Literal["live", "maintenance"]
 

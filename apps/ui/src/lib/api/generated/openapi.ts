@@ -495,6 +495,10 @@ export interface components {
     detections: number | string;
     taxonomy_cache: number | string;
 };
+    DeleteEventResponse: {
+    event_id: string;
+    status: "deleted";
+};
     Detection: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
@@ -883,6 +887,16 @@ export interface components {
     oldest_detection?: string | null;
     retention_days: number;
     total_detections: number;
+};
+    ManualTagResponse: {
+    common_name?: string | null;
+    event_id: string;
+    new_species: string;
+    old_species?: string | null;
+    scientific_name?: string | null;
+    species?: string | null;
+    status: "updated" | "unchanged";
+    taxa_id?: number | null;
 };
     MessageResponse: {
     message: string;
@@ -2086,7 +2100,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
     post: {
       operationId: "start_run_api_diagnostics_model_eval_runs_post";
@@ -2104,7 +2118,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
     delete: {
       operationId: "delete_run_api_diagnostics_model_eval_runs__run_id__delete";
@@ -2113,7 +2127,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, string>;
     };
   };
   "/api/diagnostics/model-eval/runs/{run_id}/cancel": {
@@ -2124,7 +2138,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/diagnostics/model-eval/runs/{run_id}/{artifact}": {
@@ -2340,7 +2354,7 @@ export interface paths {
 };
       query: never;
       requestBody: components['schemas']['UpdateDetectionRequest'];
-      response: unknown;
+      response: components['schemas']['ManualTagResponse'];
     };
     delete: {
       operationId: "delete_event_api_events__event_id__delete";
@@ -2349,7 +2363,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DeleteEventResponse'];
     };
   };
   "/api/events/{event_id}/analyze": {

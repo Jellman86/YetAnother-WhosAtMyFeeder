@@ -3249,6 +3249,26 @@
         "title": "DatabaseStatsResponse",
         "type": "object"
       },
+      "DeleteEventResponse": {
+        "description": "Response returned after deleting one event.",
+        "properties": {
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "deleted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "event_id"
+        ],
+        "title": "DeleteEventResponse",
+        "type": "object"
+      },
       "Detection": {
         "properties": {
           "ai_analysis": {
@@ -5991,6 +6011,89 @@
           "detections_to_cleanup"
         ],
         "title": "MaintenanceStatsResponse",
+        "type": "object"
+      },
+      "ManualTagResponse": {
+        "description": "Response returned after applying or skipping a manual species tag.",
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "new_species": {
+            "title": "New Species",
+            "type": "string"
+          },
+          "old_species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Species"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species"
+          },
+          "status": {
+            "enum": [
+              "updated",
+              "unchanged"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "status",
+          "event_id",
+          "new_species"
+        ],
+        "title": "ManualTagResponse",
         "type": "object"
       },
       "MessageResponse": {
@@ -12454,11 +12557,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -12974,11 +13072,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -14620,7 +14713,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
                   "title": "Response List Runs Api Diagnostics Model Eval Runs Get",
                   "type": "object"
                 }
@@ -14722,7 +14817,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "type": "string"
+                  },
                   "title": "Response Delete Run Api Diagnostics Model Eval Runs  Run Id  Delete",
                   "type": "object"
                 }
@@ -14776,7 +14873,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
                   "title": "Response Get Run Api Diagnostics Model Eval Runs  Run Id  Get",
                   "type": "object"
                 }
@@ -14832,7 +14931,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
                   "title": "Response Cancel Run Api Diagnostics Model Eval Runs  Run Id  Cancel Post",
                   "type": "object"
                 }
@@ -14894,11 +14995,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -15032,11 +15128,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -15447,8 +15538,10 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Successful Response"
@@ -15543,8 +15636,10 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Successful Response"
@@ -15884,7 +15979,18 @@
                       "type": "array"
                     }
                   ],
-                  "title": "Response 200 Get Events Api Events Get"
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/DetectionResponse"
+                      },
+                      {
+                        "$ref": "#/components/schemas/DetectionListItemResponse"
+                      }
+                    ]
+                  },
+                  "title": "Response 200 Get Events Api Events Get",
+                  "type": "array"
                 }
               }
             },
@@ -16269,7 +16375,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteEventResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16326,7 +16434,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ManualTagResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -16901,11 +17011,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -16938,11 +17043,6 @@
         "operationId": "proxy_config_api_frigate_config_get",
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           }
         },
@@ -17038,11 +17138,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17089,11 +17184,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17140,11 +17230,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17240,11 +17325,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17390,11 +17470,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17565,11 +17640,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17667,11 +17737,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17769,11 +17834,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -17913,8 +17973,10 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Successful Response"
