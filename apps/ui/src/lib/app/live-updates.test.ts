@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LiveUpdateCoordinator } from './live-updates';
+import { LiveUpdateCoordinator, toDetection } from './live-updates';
+
+describe('toDetection', () => {
+    it('normalizes required fields at the untrusted SSE boundary', () => {
+        expect(toDetection({ frigate_event: 'event-1', display_name: 'Robin' })).toMatchObject({
+            frigate_event: 'event-1',
+            display_name: 'Robin',
+            score: 0,
+            detection_time: '',
+            camera_name: ''
+        });
+    });
+});
 
 function buildCoordinator(options?: {
     activeJobs?: any[];

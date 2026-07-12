@@ -199,11 +199,11 @@
       s.notifications?.pushover?.enabled ||
       s.notifications?.telegram?.enabled ||
       s.notifications?.email?.enabled;
-      // console.log('Notifications Active:', active);
       return active;
   });
 
-  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
+  type TranslationValue = string | number | boolean | Date | null | undefined;
+  const t = (key: string, values: Record<string, TranslationValue> = {}) => get(_)(key, { values });
 
   function shouldNotify() {
       return !authStore.isGuest;
@@ -317,7 +317,9 @@
                   source: 'runtime',
                   component: 'browser',
                   reasonCode: 'unhandled_rejection',
-                  message: String((payload as any).message || 'Unhandled promise rejection'),
+                  message: 'message' in payload
+                      ? String(payload.message || 'Unhandled promise rejection')
+                      : 'Unhandled promise rejection',
                   severity: 'error',
                   context: payload
               });
@@ -517,7 +519,7 @@
           evtSource.onmessage = (event) => {
               try {
                  // Parse JSON with validation
-                 let payload: any;
+                 let payload: unknown;
                  try {
                      payload = JSON.parse(event.data);
                  } catch (parseError) {
@@ -527,7 +529,12 @@
 
                  // Server signals the JWT has expired — log out cleanly instead of
                  // reconnecting with a dead token and entering a reconnect loop.
-                 if (payload.type === 'session_expired') {
+                 if (
+                     typeof payload === 'object' &&
+                     payload !== null &&
+                     'type' in payload &&
+                     payload.type === 'session_expired'
+                 ) {
                      logger.warn("SSE session expired, logging out");
                      evtSource?.close();
                      evtSource = null;
@@ -543,7 +550,7 @@
 
           evtSource.onerror = (err) => {
               logger.warn("SSE connection issue", {
-                  type: (err as any)?.type ?? 'error',
+                  type: err.type || 'error',
                   attempt: reconnectAttempts + 1
               });
               liveUpdates.handleDisconnect(err, document.hidden);
