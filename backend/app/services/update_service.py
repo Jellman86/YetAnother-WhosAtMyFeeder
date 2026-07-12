@@ -36,11 +36,12 @@ class UpdateService:
     async def get_status(self, current_version: str, branch: str, git_hash: str) -> dict:
         """Return the channel-aware update status for the running build (cached).
 
-        Dev images compare against the latest dev-branch commit; stable images compare
-        against the latest release tag — so a dev install is never nagged about releases.
+        Branch images compare against the D1 row for their installed branch. Release
+        images compare against the D1 stable row — so dev/main/stable installs are
+        only prompted for updates from their own channel.
         """
         enabled = bool(settings.system.update_check_enabled)
-        channel = "dev" if branch == "dev" else "stable"
+        channel = self._channel_for_branch(branch)
         status: dict = {
             "current_version": current_version,
             "channel": channel,
@@ -60,15 +61,18 @@ class UpdateService:
             status["checked_at"] = datetime.fromtimestamp(self._fetched_at, tz=timezone.utc).isoformat()
 
         channels = self._channels or {}
-        if channel == "dev":
-            dev = channels.get("dev") or {}
-            commit = str(dev.get("commit") or "").strip() or None
-            base = str(dev.get("version") or "").strip() or None
+        branch_versions = channels.get("branches") if isinstance(channels.get("branches"), dict) else {}
+        branch_status = branch_versions.get(channel) if isinstance(branch_versions, dict) else None
+        if branch_status is None and channel in channels:
+            branch_status = channels.get(channel)
+
+        if channel != "stable" and isinstance(branch_status, dict):
+            commit = str(branch_status.get("commit") or "").strip() or None
+            base = str(branch_status.get("version") or "").strip() or None
             short = commit[:7] if commit else None
-            status["latest_version"] = f"{base}-dev+{short}" if base and short else short
-            status["release_url"] = str(dev.get("url") or "") or RELEASES_PAGE_URL
-            # A pulled dev image is never ahead of remote dev, so any differing head is newer.
-            status["update_available"] = bool(commit and git_hash and not commit.startswith(git_hash))
+            status["latest_version"] = f"{base}-{channel}+{short}" if base and short else short
+            status["release_url"] = str(branch_status.get("url") or "") or RELEASES_PAGE_URL
+            status["update_available"] = self._is_branch_update_available(git_hash, commit)
         else:
             stable = channels.get("stable") or {}
             latest = str(stable.get("version") or "").strip() or None
@@ -100,7 +104,7 @@ class UpdateService:
                 self._fetched_at = time.time()
 
     async def _fetch_channels(self) -> dict:
-        """Fetch the {stable, dev} version channels from the worker (the patchable I/O boundary)."""
+        """Fetch the D1-backed version channels from the worker (the patchable I/O boundary)."""
         version_url = settings.telemetry.version_url
         if not version_url:
             raise RuntimeError("version_url_not_configured")
@@ -110,6 +114,21 @@ class UpdateService:
             raise RuntimeError(f"version_http_{response.status_code}")
         data = response.json()
         return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _channel_for_branch(branch: str | None) -> str:
+        normalized = str(branch or "").strip()
+        if not normalized or normalized == "unknown":
+            return "stable"
+        return normalized
+
+    @staticmethod
+    def _is_branch_update_available(current_commit: str | None, latest_commit: str | None) -> bool:
+        current = str(current_commit or "").strip()
+        latest = str(latest_commit or "").strip()
+        if not current or not latest:
+            return False
+        return not (latest.startswith(current) or current.startswith(latest))
 
 
 update_service = UpdateService()

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fade } from 'svelte/transition';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
@@ -27,6 +28,14 @@
     let progressPct = $derived(Math.round(setupWizardStore.progress * 100));
     let canExit = $derived(setupWizardStore.mode === 'rerun');
     let steps = $derived(setupWizardStore.steps);
+
+    onMount(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    });
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-teal-950/50 p-4 backdrop-blur-sm">

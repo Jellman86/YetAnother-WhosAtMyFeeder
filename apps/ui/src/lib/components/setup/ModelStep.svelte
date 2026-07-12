@@ -1,7 +1,17 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchClassifierStatus, type ClassifierStatus } from '../../api/classifier';
+    import {
+        activateModel,
+        fetchAvailableModels,
+        fetchClassifierStatus,
+        fetchInstalledModels,
+        summarizeModelMetadata,
+        type ClassifierStatus,
+        type InstalledModel,
+        type ModelMetadata
+    } from '../../api/classifier';
+    import { fetchSettings, updateSettings } from '../../api/settings';
     import {
         startModelEvalRun,
         listModelEvalRuns,
@@ -15,7 +25,15 @@
     let validating = $state(false);
     let progress = $state<{ done: number; total: number; label: string; phase: string } | null>(null);
     let results = $state<ModelEvalModelSummary[] | null>(null);
+    let availableModels = $state<ModelMetadata[]>([]);
+    let installedModels = $state<InstalledModel[]>([]);
+    let selectedModelId = $state('');
+    let selectedProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu' | string>('auto');
+    let executionMode = $state<'in_process' | 'subprocess' | string>('in_process');
     let errorMsg = $state('');
+    let saveMsg = $state('');
+    let validationMsg = $state('');
+    let saving = $state(false);
     let runId = '';
     let poller: ReturnType<typeof setInterval> | null = null;
 
@@ -28,10 +46,24 @@
     let verified = $derived(status?.host_device_eligibility?.verified_providers ?? []);
     let activeModel = $derived(setupWizardStore.detailFor('model'));
     let progressPct = $derived(progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0);
+    let installedIds = $derived(new Set(installedModels.map((model) => model.id)));
+    let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
+    let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
 
     onMount(async () => {
         try {
-            status = await fetchClassifierStatus();
+            const [classifierStatus, available, installed, settings] = await Promise.all([
+                fetchClassifierStatus(),
+                fetchAvailableModels(),
+                fetchInstalledModels(),
+                fetchSettings()
+            ]);
+            status = classifierStatus;
+            availableModels = available;
+            installedModels = installed;
+            selectedModelId = classifierStatus.active_model_id || installed.find((model) => model.is_active)?.id || available[0]?.id || '';
+            selectedProvider = settings.inference_provider || 'auto';
+            executionMode = settings.image_execution_mode || 'in_process';
         } catch {
             status = null;
         }
@@ -59,7 +91,9 @@
             results = summary.models ?? [];
             validating = false;
             progress = null;
+            validationMsg = validationSummary(results);
             await fetchClassifierStatus().then((s) => (status = s)).catch(() => {});
+            await setupWizardStore.refresh();
         } catch {
             // Transient; keep polling until it resolves or the user leaves the step.
         }
@@ -68,6 +102,7 @@
     async function runValidation() {
         errorMsg = '';
         results = null;
+        validationMsg = '';
         validating = true;
         progress = { done: 0, total: 0, label: $_('setup.model.starting', { default: 'Starting…' }), phase: 'starting' };
         try {
@@ -84,6 +119,42 @@
     function rowOk(m: ModelEvalModelSummary): boolean {
         return m.ready && !m.warnings.some((w) => w.severity === 'critical');
     }
+
+    function modelHardwareNote(model: ModelMetadata | null): string {
+        if (!model) return '';
+        const providers = (model.supported_inference_providers || []).join(', ') || 'CPU';
+        const ram = model.estimated_ram_mb ? ` Around ${model.estimated_ram_mb} MB RAM recommended.` : '';
+        return `${model.recommended_for} Runtime: ${model.runtime || 'ONNX/TFLite'}; providers: ${providers}.${ram}`;
+    }
+
+    function validationSummary(models: ModelEvalModelSummary[]): string {
+        if (!models.length) return $_('setup.model.no_results', { default: 'No installed models were evaluated.' });
+        const ok = models.filter(rowOk).length;
+        return ok === models.length
+            ? $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' })
+            : $_('setup.model.validation_partial', { values: { ok, total: models.length }, default: `Hardware validation completed: ${ok}/${models.length} models ready.` });
+    }
+
+    async function saveModelChoices() {
+        errorMsg = '';
+        saveMsg = '';
+        saving = true;
+        try {
+            if (selectedModelId && installedIds.has(selectedModelId) && selectedModelId !== status?.active_model_id) {
+                await activateModel(selectedModelId);
+            }
+            await updateSettings({ inference_provider: selectedProvider, image_execution_mode: executionMode });
+            const [classifierStatus, installed] = await Promise.all([fetchClassifierStatus(), fetchInstalledModels()]);
+            status = classifierStatus;
+            installedModels = installed;
+            await setupWizardStore.refresh();
+            saveMsg = $_('setup.model.saved', { default: 'Model and hardware mode saved.' });
+        } catch (err) {
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+        } finally {
+            saving = false;
+        }
+    }
 </script>
 
 <WizardStepLayout
@@ -95,6 +166,53 @@
     <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('setup.model.active', { default: 'Active model' })}</p>
         <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{activeModel ?? $_('setup.model.bundled', { default: 'Bundled default' })}</p>
+    </div>
+
+    <div class="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+        <div>
+            <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
+            <select id="setup-model-id" bind:value={selectedModelId} class="input-base mt-1">
+                {#each availableModels as model}
+                    <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ' (download in Settings)'}</option>
+                {/each}
+            </select>
+            {#if selectedModel}
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
+                {#if selectedModelSummary}
+                    <p class="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
+                {/if}
+                {#if !installedIds.has(selectedModel.id)}
+                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'This model must be downloaded in Settings before it can be activated.' })}</p>
+                {/if}
+            {/if}
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+                <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+                <select id="setup-provider" bind:value={selectedProvider} class="input-base mt-1">
+                    <option value="auto">{$_('settings.detection.provider_auto', { default: 'Auto' })}</option>
+                    <option value="cpu">{$_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' })}</option>
+                    <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
+                    <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
+                    <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
+                    <option value="intel_npu">{$_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' })}</option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Auto uses validated accelerators first and falls back cleanly to CPU.' })}</p>
+            </div>
+            <div>
+                <label for="setup-execution-mode" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.execution_mode', { default: 'Execution Mode' })}</label>
+                <select id="setup-execution-mode" bind:value={executionMode} class="input-base mt-1">
+                    <option value="in_process">{$_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' })}</option>
+                    <option value="subprocess">{$_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' })}</option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.mode_hint', { default: 'In-process is lighter on RAM; subprocess gives stronger isolation on larger hosts.' })}</p>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-secondary px-4 py-2" disabled={saving || (!!selectedModelId && !installedIds.has(selectedModelId))} onclick={saveModelChoices}>
+            {saving ? $_('setup.working', { default: 'Working…' }) : $_('setup.model.save_choices', { default: 'Save model choices' })}
+        </button>
     </div>
 
     <div>
@@ -130,6 +248,12 @@
 
     {#if errorMsg}
         <div role="status" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
+    {/if}
+    {#if saveMsg}
+        <div role="status" class="rounded-md bg-emerald-50 p-2 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">{saveMsg}</div>
+    {/if}
+    {#if validationMsg}
+        <div role="status" class="rounded-md bg-emerald-50 p-2 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">{validationMsg}</div>
     {/if}
 
     {#if results}

@@ -31,10 +31,11 @@ async def get_update_status():
     from app.services.update_service import update_service
 
     current_version = os.environ.get("APP_VERSION", "unknown")
-    # APP_VERSION is "<base>-<branch>+<hash>" (dev) or "<base>+<hash>" (release); derive the
-    # channel and commit so the check compares against the matching dev/stable channel.
+    # APP_VERSION is "<base>-<branch>+<hash>" (branch image) or "<base>+<hash>" (release).
+    # Prefer APP_BRANCH from the image build because stable releases intentionally omit the
+    # channel from the display version string.
     before_plus, _, git_hash = current_version.partition("+")
-    branch = before_plus.split("-", 1)[1] if "-" in before_plus else "main"
+    branch = os.environ.get("APP_BRANCH", "").strip() or (before_plus.split("-", 1)[1] if "-" in before_plus else "stable")
     return await update_service.get_status(current_version, branch=branch, git_hash=git_hash)
 
 

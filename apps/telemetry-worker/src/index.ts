@@ -302,92 +302,38 @@ function dashboardShell({
 
 app.get('/', (c) => c.text('YA-WAMF Telemetry Receiver is operational.'));
 
-// Channel-aware latest-version lookup for the in-app update prompt. Returns both the latest
-// stable release (highest semver git tag) and the latest dev build (dev-branch head), so each
-// install compares against its own channel. Cached in-process (the edge Cache API is a no-op
-// on *.workers.dev) and served stale on a brief GitHub failure. No telemetry payload — a plain
-// GET, so installs with telemetry disabled can still learn about updates.
+// Channel-aware latest-version lookup for the in-app update prompt. D1 is the source of truth:
+// CI writes one row per published branch (`dev`, `main`) plus the latest release row (`stable`),
+// and installs compare only against the row for their installed branch/channel. No telemetry
+// payload — a plain GET, so installs with telemetry disabled can still learn about updates.
 type VersionChannels = {
   stable: { version: string | null; url: string | null };
   dev: { version: string | null; commit: string | null; url: string | null };
+  branches: Record<string, { version: string | null; commit: string | null; url: string | null }>;
 };
 const VERSION_CACHE: { data: VersionChannels | null; expires: number } = { data: null, expires: 0 };
 const VERSION_CACHE_TTL_MS = 30 * 60 * 1000;
-const REPO = 'Jellman86/YetAnother-WhosAtMyFeeder';
-// Read git tags (not /releases): the repo's only published GitHub Release is a non-version
-// `models` asset holder, while versions ship as tags (v2.12.0, ...). Pick the highest semver.
-const GITHUB_TAGS_URL = `https://api.github.com/repos/${REPO}/tags?per_page=100`;
-const GITHUB_DEV_COMMIT_URL = `https://api.github.com/repos/${REPO}/commits/dev`;
-const GITHUB_DEV_VERSION_FILE_URL = `https://api.github.com/repos/${REPO}/contents/VERSION?ref=dev`;
-const RELEASE_TAG_BASE = `https://github.com/${REPO}/releases/tag/`;
-const DEV_TREE_URL = `https://github.com/${REPO}/tree/dev`;
-const VERSION_TAG_RE = /^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/;
-const GITHUB_HEADERS = { 'User-Agent': 'yawamf-telemetry-worker', Accept: 'application/vnd.github+json' };
 
-function parseSemver(name: string): number[] | null {
-  const match = VERSION_TAG_RE.exec(name);
-  if (!match) return null;
-  return match.slice(1).filter((part) => part !== undefined).map(Number);
-}
-
-function compareSemver(a: number[], b: number[]): number {
-  const length = Math.max(a.length, b.length);
-  for (let i = 0; i < length; i++) {
-    const diff = (a[i] ?? 0) - (b[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-
-async function fetchLatestStableTag(): Promise<{ version: string | null; url: string | null }> {
-  const response = await fetch(GITHUB_TAGS_URL, { headers: GITHUB_HEADERS });
-  if (!response.ok) throw new Error(`tags_http_${response.status}`);
-  const tags = (await response.json()) as Array<{ name?: string }>;
-  let bestName: string | null = null;
-  let bestParsed: number[] | null = null;
-  for (const tag of Array.isArray(tags) ? tags : []) {
-    const parsed = tag.name ? parseSemver(tag.name) : null;
-    if (!parsed) continue;
-    if (!bestParsed || compareSemver(parsed, bestParsed) > 0) {
-      bestParsed = parsed;
-      bestName = tag.name ?? null;
-    }
-  }
-  return { version: bestName, url: bestName ? `${RELEASE_TAG_BASE}${bestName}` : null };
-}
-
-async function fetchLatestDevBuild(): Promise<{ version: string | null; commit: string | null; url: string | null }> {
-  const [commitResp, versionResp] = await Promise.all([
-    fetch(GITHUB_DEV_COMMIT_URL, { headers: GITHUB_HEADERS }),
-    fetch(GITHUB_DEV_VERSION_FILE_URL, { headers: GITHUB_HEADERS }),
-  ]);
-  if (!commitResp.ok) throw new Error(`dev_commit_http_${commitResp.status}`);
-  const commitData = (await commitResp.json()) as { sha?: string };
-  let baseVersion: string | null = null;
-  if (versionResp.ok) {
-    const versionData = (await versionResp.json()) as { content?: string };
-    if (versionData.content) {
-      baseVersion = atob(versionData.content.replace(/\s/g, '')).trim() || null;
-    }
-  }
-  return { version: baseVersion, commit: commitData.sha ?? null, url: DEV_TREE_URL };
-}
-
-// Versions published by CI (the release/dev-push workflow writes app_versions). This is the
-// authoritative source; GitHub scraping is only a fallback for channels CI hasn't written yet.
+// Versions published by CI. D1 is authoritative for update checks; if the table or a branch row
+// is missing, the corresponding channel stays null instead of being guessed from GitHub.
 async function readVersionsFromD1(db: D1Database): Promise<Partial<VersionChannels>> {
   try {
     const { results } = await db
       .prepare('SELECT channel, version, commit_sha, url FROM app_versions')
       .all<{ channel: string; version: string | null; commit_sha: string | null; url: string | null }>();
-    const out: Partial<VersionChannels> = {};
+    const branches: VersionChannels['branches'] = {};
+    const out: Partial<VersionChannels> = { branches };
     for (const row of results ?? []) {
       if (row.channel === 'stable') out.stable = { version: row.version, url: row.url };
-      else if (row.channel === 'dev') out.dev = { version: row.version, commit: row.commit_sha, url: row.url };
+      else {
+        const branchVersion = { version: row.version, commit: row.commit_sha, url: row.url };
+        branches[row.channel] = branchVersion;
+        if (row.channel === 'dev') out.dev = branchVersion;
+      }
     }
     return out;
   } catch {
-    return {}; // table not created yet — fall back to scraping
+    return {};
   }
 }
 
@@ -398,11 +344,11 @@ app.get('/version', async (c) => {
   }
   try {
     const stored = await readVersionsFromD1(c.env.DB);
-    const [stable, dev] = await Promise.all([
-      stored.stable ?? fetchLatestStableTag(),
-      stored.dev ?? fetchLatestDevBuild(),
-    ]);
-    const payload: VersionChannels = { stable, dev };
+    const payload: VersionChannels = {
+      stable: stored.stable ?? { version: null, url: null },
+      dev: stored.dev ?? { version: null, commit: null, url: null },
+      branches: stored.branches ?? {},
+    };
     VERSION_CACHE.data = payload;
     VERSION_CACHE.expires = now + VERSION_CACHE_TTL_MS;
     return c.json(payload, 200, { 'Cache-Control': 'public, max-age=1800' });

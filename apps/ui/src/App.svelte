@@ -9,6 +9,7 @@
   import PageHeader from './lib/components/PageHeader.svelte';
   import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
+  import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
@@ -619,12 +620,15 @@
 
       <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status()}
-              <ConnectionStatus
-                  birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
-                  {notificationsActive}
-                  connected={detectionsStore.connected}
-                  className="gap-4 px-2"
-              />
+              <div class="flex items-center gap-3 px-2">
+                  <ConnectionStatus
+                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                      {notificationsActive}
+                      connected={detectionsStore.connected}
+                      className="gap-3"
+                  />
+                  <UpdateIndicator />
+              </div>
           {/snippet}
       </Sidebar>
 

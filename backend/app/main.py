@@ -133,13 +133,14 @@ APP_BRANCH = get_app_branch()
 if re.fullmatch(r"v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?", APP_BRANCH or ""):
     APP_BRANCH = "main"
 
-# Format: version-branch+hash (omit branch if main or unknown)
-if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:
+# Format: version-branch+hash (omit branch for release-like channels)
+if APP_BRANCH and APP_BRANCH not in ["main", "stable", "unknown"]:
     APP_VERSION = f"{BASE_VERSION}-{APP_BRANCH}+{GIT_HASH}"
 else:
     APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
 os.environ["APP_VERSION"] = APP_VERSION  # Make available to other services
+os.environ["APP_BRANCH"] = APP_BRANCH
 
 
 class VersionResponse(BaseModel):

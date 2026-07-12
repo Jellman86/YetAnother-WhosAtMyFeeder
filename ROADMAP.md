@@ -198,6 +198,39 @@ embedding YA-WAMF in HA core. **Risks:** Ingress path-prefix CSP/CORS under `ngi
 ARM64 depends on the RPi image being production-ready (§2); a separate repo means ongoing
 maintenance.
 
+#### App-store templates & discovery 📦
+**Priority:** P2 | **Effort:** M | **Status:** 🔄 Unraid template shipped; broader distribution not started
+
+Make YA-WAMF easy to find and install where self-hosting, NVR, and media-stack users already
+look. Keep the monolithic Docker contract stable across every template: image tag, web port,
+Frigate URL, `/config`, `/data`, model/cache persistence, health check, optional hardware
+acceleration, update-channel guidance, and a first-run smoke test.
+
+- **Unraid Community Applications follow-through** — the Docker template and setup guide are
+  shipped (`unraid/yawamf.xml`, `docs/setup/unraid.md`). Keep them synced with image names,
+  ports, volume ownership, health checks, and Intel GPU/NPU device guidance; then pursue the
+  normal Community Applications discovery path so users do not need to paste the raw template URL.
+- **TrueNAS custom-app docs, then catalog submission** — first document the low-friction
+  TrueNAS Custom App path for the monolithic image so users can deploy before catalog acceptance.
+  Then submit a community-train app to `truenas/apps` using the current Docker Compose catalog
+  structure: `app.yaml`, `ix_values.yaml`, `questions.yaml`, `README.md`, a Jinja2
+  `templates/docker-compose.yaml`, and `templates/test_values/basic-values.yaml`. The wizard
+  should expose the web port, Frigate URL, storage paths, CPU/memory limits, optional
+  `/dev/dri` / accelerator device settings, a portal link, and a health check against
+  `/health`. Validate with the TrueNAS apps render/deploy CI before opening the PR, and open a
+  draft PR early to catch catalog-review issues.
+- **Container registry discoverability** — continue GHCR publishing and add Docker Hub publishing
+  once release tags are stable, with matching descriptions, README snippets, labels, supported
+  architectures, and copy-paste compose examples for `latest`, pinned release tags, and `dev`.
+- **Additional self-hosting templates** — add a Portainer stack/app-template example and evaluate
+  CasaOS/ZimaOS packaging after the TrueNAS path settles. Consider YunoHost only if install,
+  upgrades, storage, and reverse-proxy behaviour can be made appliance-like enough to maintain.
+- **Project directories and community launch points** — submit or announce YA-WAMF in discovery
+  channels that fit the app: Awesome Selfhosted, selfh.st/apps, AlternativeTo, the Unraid and
+  TrueNAS forums, and relevant communities such as r/selfhosted, r/unRAID, r/truenas, Frigate,
+  Home Assistant, BirdNET-Go, and homelab spaces. Use a short positioning statement, screenshots,
+  setup links, and honest hardware/support notes rather than generic promotion.
+
 ### 1.4 Performance & reliability
 
 #### Performance optimization 🚀
@@ -330,7 +363,8 @@ panel** (ingress-authenticated dashboard).
 **UI & platform:** real-time SSE dashboard, dark mode, advanced search/filtering, statistics +
 leaderboard analytics, species detail modals, PWA baseline, complete i18n (9+ languages), the
 settings architecture refactor + per-tab routing, a dedicated Jobs workspace, favourites, the
-Explorer audio-matches filter, and the in-app channel-aware update prompt.
+Explorer audio-matches filter, the in-app channel-aware update prompt, and the Unraid Docker
+template + setup guide.
 
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,

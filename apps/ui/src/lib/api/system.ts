@@ -50,7 +50,7 @@ export async function checkHealth(): Promise<HealthStatus> {
 
 export interface UpdateStatus {
     current_version: string;
-    channel: 'dev' | 'stable';
+    channel: 'dev' | 'stable' | 'main' | string;
     latest_version: string | null;
     update_available: boolean;
     release_url: string;
