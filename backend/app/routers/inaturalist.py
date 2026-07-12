@@ -100,7 +100,7 @@ async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(re
     return {"authorization_url": authorization_url, "state": state}
 
 
-@router.get("/oauth/callback")
+@router.get("/oauth/callback", response_class=HTMLResponse)
 async def inaturalist_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     lang = get_user_language(request)
     if not state or state not in _oauth_state_cache:

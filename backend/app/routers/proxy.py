@@ -1314,7 +1314,7 @@ async def test_frigate_connection(request: Request, auth: AuthContext = Depends(
         )
 
 
-@router.get("/frigate/config")
+@router.get("/frigate/config", response_class=Response)
 async def proxy_config(request: Request, auth: AuthContext = Depends(require_owner)):
     url = f"{settings.frigate.frigate_url}/api/config"
     client = get_http_client()
@@ -1416,7 +1416,7 @@ async def get_snapshot_candidates(
     return await _build_snapshot_candidates_response(request, event_id)
 
 
-@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg")
+@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg", response_class=Response)
 async def get_snapshot_candidate_thumbnail(
     event_id: str = Path(..., min_length=1, max_length=64),
     candidate_id: str = Path(..., min_length=1, max_length=160),
@@ -1496,7 +1496,7 @@ async def apply_snapshot_candidate(
     )
 
 
-@router.get("/frigate/{event_id}/snapshot/original.jpg")
+@router.get("/frigate/{event_id}/snapshot/original.jpg", response_class=Response)
 async def proxy_original_snapshot(
     event_id: str = Path(..., min_length=1, max_length=64),
     auth: AuthContext = Depends(require_owner),
@@ -1510,7 +1510,7 @@ async def proxy_original_snapshot(
     return Response(content=snapshot_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
-@router.get("/frigate/{event_id}/snapshot.jpg")
+@router.get("/frigate/{event_id}/snapshot.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_snapshot(
     request: Request,
@@ -1574,7 +1574,7 @@ async def proxy_snapshot(
         )
 
 
-@router.get("/frigate/camera/{camera}/latest.jpg")
+@router.get("/frigate/camera/{camera}/latest.jpg", response_class=Response)
 async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(..., min_length=1, max_length=64)):
     """Proxy latest snapshot for a camera from Frigate."""
     lang = get_user_language(request)
@@ -1782,7 +1782,7 @@ async def fetch_recording_clip(
     )
 
 
-@router.get("/frigate/{event_id}/clip.mp4")
+@router.get("/frigate/{event_id}/clip.mp4", response_class=StreamingResponse)
 @guest_rate_limit()
 async def proxy_clip(
     request: Request,
@@ -1976,7 +1976,7 @@ async def proxy_clip(
     )
 
 
-@router.get("/frigate/{event_id}/recording-clip.mp4")
+@router.get("/frigate/{event_id}/recording-clip.mp4", response_class=StreamingResponse)
 @guest_rate_limit()
 async def proxy_recording_clip(
     request: Request,
@@ -2117,7 +2117,7 @@ async def proxy_recording_clip(
     )
 
 
-@router.get("/frigate/{event_id}/clip-thumbnails.vtt")
+@router.get("/frigate/{event_id}/clip-thumbnails.vtt", response_class=Response)
 @guest_rate_limit()
 async def proxy_clip_thumbnails_vtt(
     request: Request,
@@ -2204,7 +2204,7 @@ async def proxy_clip_thumbnails_vtt(
     )
 
 
-@router.get("/frigate/{event_id}/clip-thumbnails.jpg")
+@router.get("/frigate/{event_id}/clip-thumbnails.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_clip_thumbnails_sprite(
     request: Request,
@@ -2255,7 +2255,7 @@ async def proxy_clip_thumbnails_sprite(
     )
 
 
-@router.get("/frigate/{event_id}/thumbnail.jpg")
+@router.get("/frigate/{event_id}/thumbnail.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_thumb(
     request: Request,

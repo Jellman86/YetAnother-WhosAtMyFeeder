@@ -9,7 +9,7 @@ class DebugRepository:
 
     _COUNTABLE_TABLES = ("detections", "taxonomy_cache")
 
-    def __init__(self, db: aiosqlite.Connection):
+    def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
     async def table_counts(self) -> dict[str, int | str]:

@@ -345,7 +345,7 @@ async def get_audio_species_leaderboard(
     }
 
 
-@router.get("/spectrogram/{birdnet_id}")
+@router.get("/spectrogram/{birdnet_id}", response_class=Response)
 async def get_audio_spectrogram(
     birdnet_id: int,
     width: int = Query(default=400, ge=64, le=1600),
@@ -382,7 +382,7 @@ async def get_audio_spectrogram(
     )
 
 
-@router.get("/clip/{birdnet_id}")
+@router.get("/clip/{birdnet_id}", response_class=Response)
 async def get_audio_clip(
     birdnet_id: int,
     request: Request,

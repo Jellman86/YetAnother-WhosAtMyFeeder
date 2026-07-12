@@ -121,7 +121,7 @@ async def gmail_oauth_authorize(request: Request, auth: AuthContext = Depends(re
         )
 
 
-@router.get("/oauth/gmail/callback")
+@router.get("/oauth/gmail/callback", response_class=HTMLResponse)
 async def gmail_oauth_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     """
     Handle Gmail OAuth2 callback and store tokens
@@ -276,7 +276,7 @@ async def outlook_oauth_authorize(request: Request, auth: AuthContext = Depends(
         )
 
 
-@router.get("/oauth/outlook/callback")
+@router.get("/oauth/outlook/callback", response_class=HTMLResponse)
 async def outlook_oauth_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     """
     Handle Outlook OAuth2 callback and store tokens

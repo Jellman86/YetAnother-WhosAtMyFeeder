@@ -15,7 +15,7 @@ class LeaderboardAnalysis:
     created_at: datetime
 
 
-def _parse_datetime(value) -> datetime:
+def _parse_datetime(value: object) -> datetime:
     if isinstance(value, datetime):
         return value
     if isinstance(value, str):
@@ -30,7 +30,7 @@ def _parse_datetime(value) -> datetime:
 
 
 class LeaderboardAnalysisRepository:
-    def __init__(self, db: aiosqlite.Connection):
+    def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
     async def get_by_config_key(self, config_key: str) -> Optional[LeaderboardAnalysis]:
@@ -51,7 +51,9 @@ class LeaderboardAnalysisRepository:
             created_at=_parse_datetime(row[5]) if row[5] else datetime.now(),
         )
 
-    async def upsert_analysis(self, config_key: str, config_json: dict, analysis: str, timestamp: datetime):
+    async def upsert_analysis(
+        self, config_key: str, config_json: dict[str, object], analysis: str, timestamp: datetime
+    ) -> None:
         config_str = json.dumps(config_json, sort_keys=True)
         await self.db.execute(
             """INSERT INTO leaderboard_analyses (config_key, config_json, analysis, analysis_timestamp, created_at)

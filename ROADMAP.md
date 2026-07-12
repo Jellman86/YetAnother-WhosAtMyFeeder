@@ -162,6 +162,9 @@ Completed review tranches:
 - ✅ **Async blocking-I/O review** — database migration/backup work, uploaded and pipeline image
   decoding, video temp-file handling, media-cache cleanup, model-evaluation artifacts, model
   discovery/activation, and AI recording reads now run through async-native APIs or worker threads.
+- ✅ **Backend architecture gates** — permanent AST-backed tests reject router-owned database
+  execution, missing endpoint response contracts, incomplete repository signatures, direct blocking
+  I/O inside async functions, untracked TODO/FIXME notes, and application `print()` calls.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

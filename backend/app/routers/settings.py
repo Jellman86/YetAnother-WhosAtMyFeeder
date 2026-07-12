@@ -990,7 +990,7 @@ async def _broadcast_settings_imported(changed_fields: list[str], username: str)
         log.warning("Failed to broadcast settings import", error=str(e))
 
 
-@router.get("/settings/export")
+@router.get("/settings/export", response_class=JSONResponse)
 async def export_settings(auth: AuthContext = Depends(require_owner)):
     """Export the full persisted configuration, including secrets. Owner only."""
     payload = _config_backup_payload()

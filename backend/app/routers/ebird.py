@@ -229,7 +229,7 @@ def _parse_detection_time(value: object) -> datetime | None:
     return None
 
 
-@router.get("/export")
+@router.get("/export", response_class=StreamingResponse)
 async def export_ebird_csv(
     from_date: Optional[str] = Query(
         None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"
