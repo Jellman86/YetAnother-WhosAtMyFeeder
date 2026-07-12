@@ -22,6 +22,8 @@
   import ModelEvaluation from './lib/pages/ModelEvaluation.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
+  import WizardShell from './lib/components/setup/WizardShell.svelte';
+  import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
@@ -575,7 +577,7 @@
               {$_('auth.loading_status', { default: 'Loading authentication status...' })}
           </div>
       </div>
-  {:else if authStore.needsInitialSetup}
+  {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
       <FirstRunWizard />
   {:else if !authStore.statusHealthy}
       <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
@@ -679,6 +681,10 @@
           
           <Footer />
       </div>
+
+      {#if setupWizardStore.active && setupWizardStore.mode === 'rerun'}
+          <WizardShell />
+      {/if}
   {/if}
 
   <!-- Toast Notifications -->

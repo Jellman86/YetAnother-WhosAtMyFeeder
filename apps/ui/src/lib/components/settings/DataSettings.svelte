@@ -8,6 +8,7 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { setupWizardStore } from '../../stores/setup_wizard.svelte';
 
     let {
         maintenanceStats,
@@ -454,6 +455,16 @@
             {/if}
         </SettingsCard>
     </div>
+
+    <SettingsCard
+        icon="🧭"
+        title={$_('settings.data.setup_wizard_title', { default: 'Setup wizard' })}
+        description={$_('settings.data.setup_wizard_desc', { default: 'Re-run the guided setup any time to reconfigure a section. Only the sections you change are touched.' })}
+    >
+        <button type="button" class="btn btn-secondary" onclick={() => setupWizardStore.open('rerun')}>
+            {$_('settings.data.setup_wizard_launch', { default: 'Open setup wizard' })}
+        </button>
+    </SettingsCard>
 
     <SettingsCard
         icon="💾"
