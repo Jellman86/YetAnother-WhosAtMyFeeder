@@ -45,7 +45,7 @@ slowapi==0.1.10
 # Authentication
 pyjwt==2.13.0
 cryptography==49.0.0
-bcrypt==4.1.2
+bcrypt==5.0.0
 # SMTP Email Support
 aiosmtplib==5.1.2
 # OAuth Support for Gmail and Outlook
