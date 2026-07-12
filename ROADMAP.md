@@ -115,12 +115,11 @@ empty/error states) — the "full UI refresh" half of the major-version jump.
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** 🔄 Review started; owner debug API tranche complete
 
-✅ The research-and-codify step is done: the code-quality standard for our stack
+✅ **Completed.** The code-quality standard for our stack
 (Python/FastAPI + Svelte 5/TypeScript) is codified in `CLAUDE.md` §4 and
-[`docs/standards/code-quality.md`](docs/standards/code-quality.md). Remaining: perform the
-**file-by-file** review and refactor against it — self-documenting, defensive, clean, with no
-dead code, commented-out blocks, or leftover scaffolding. Sequenced lowest-risk first; every
-change is test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
+[`docs/standards/code-quality.md`](docs/standards/code-quality.md). The file-by-file review and
+refactor is complete, with permanent frontend/backend source gates preventing the reviewed
+contract, typing, layering, async-I/O, and hygiene failures from returning.
 
 Completed review tranches:
 
@@ -165,6 +164,10 @@ Completed review tranches:
 - ✅ **Backend architecture gates** — permanent AST-backed tests reject router-owned database
   execution, missing endpoint response contracts, incomplete repository signatures, direct blocking
   I/O inside async functions, untracked TODO/FIXME notes, and application `print()` calls.
+- ✅ **Completion verification** — 1,390 backend tests pass (65 platform/model skips), backend
+  coverage is 79%, 408 frontend tests pass, Svelte reports zero errors/warnings, the production UI
+  builds, Ruff lint/format pass, migration smoke/path-matrix checks pass, documentation is
+  consistent, and committed OpenAPI/client artifacts are current.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
