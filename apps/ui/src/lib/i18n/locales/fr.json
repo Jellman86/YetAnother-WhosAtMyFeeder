@@ -1028,11 +1028,11 @@
       "enabled": "Activer les analyses IA",
       "test_connection": "Tester la connexion IA",
       "recommended_model": "Recommandé : {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Obtenir une clé Google Gemini →",
+      "get_openai_key": "Obtenir une clé OpenAI →",
+      "get_claude_key": "Obtenir une clé Anthropic Claude →",
       "get_openrouter_key": "Obtenir une clé OpenRouter →",
-      "openrouter_model_hint": "Saisissez n'importe quel ID de modèle OpenRouter (ex. google/gemini-2.5-flash). Parcourez les modèles sur openrouter.ai/models."
+      "openrouter_model_hint": "Saisissez n'importe quel ID de modèle OpenRouter (ex. google/gemini-3.1-flash-lite). Parcourez les modèles sur openrouter.ai/models."
     },
     "ai": {
       "usage_title": "Tableau de bord d'utilisation de l'IA",

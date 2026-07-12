@@ -1058,11 +1058,11 @@
       "enabled": "Alternar análisis de IA",
       "test_connection": "Probar conexión de IA",
       "recommended_model": "Recomendado: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Obtener clave de Google Gemini →",
+      "get_openai_key": "Obtener clave de OpenAI →",
+      "get_claude_key": "Obtener clave de Anthropic Claude →",
       "get_openrouter_key": "Obtener clave de OpenRouter →",
-      "openrouter_model_hint": "Introduce cualquier ID de modelo de OpenRouter (p. ej. google/gemini-2.5-flash). Explora modelos en openrouter.ai/models."
+      "openrouter_model_hint": "Introduce cualquier ID de modelo de OpenRouter (p. ej. google/gemini-3.1-flash-lite). Explora modelos en openrouter.ai/models."
     }
   },
   "auth": {

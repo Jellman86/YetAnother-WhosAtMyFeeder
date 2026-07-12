@@ -15,7 +15,7 @@ def test_llm_model_default_matches_current_ui_default(monkeypatch, tmp_path):
 
     loaded = Settings.load()
 
-    assert loaded.llm.model == "gemini-2.5-flash"
+    assert loaded.llm.model == "gemini-3.1-flash-lite"
 
 
 def test_classification_timeout_seconds_env_override(monkeypatch):

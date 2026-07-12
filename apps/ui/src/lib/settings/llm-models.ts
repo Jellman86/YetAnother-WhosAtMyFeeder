@@ -7,47 +7,56 @@ export type LlmModelOption = {
 
 const LLM_MODEL_OPTIONS: Record<LlmProvider, LlmModelOption[]> = {
     gemini: [
-        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-        { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
+        { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite' },
+        { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' }
     ],
     openai: [
-        { value: 'gpt-5.4', label: 'GPT-5.4' },
-        { value: 'gpt-5-mini', label: 'GPT-5 mini' },
-        { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro' }
+        { value: 'gpt-5.6', label: 'GPT-5.6' },
+        { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+        { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' }
     ],
     claude: [
-        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+        { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
         { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-        { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' }
+        { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }
     ],
     openrouter: [
-        { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-        { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-        { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
-        { value: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
-        { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' }
+        { value: 'google/gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite' },
+        { value: 'google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' },
+        { value: 'openai/gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+        { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8' }
     ]
 };
 
 const RECOMMENDED_LLM_MODEL: Record<LlmProvider, string> = {
-    gemini: 'gemini-2.5-flash',
-    openai: 'gpt-5.4',
-    claude: 'claude-sonnet-4-6',
-    openrouter: 'google/gemini-2.5-flash'
+    gemini: 'gemini-3.1-flash-lite',
+    openai: 'gpt-5.6',
+    claude: 'claude-opus-4-8',
+    openrouter: 'google/gemini-3.1-flash-lite'
 };
 
 const LLM_MODEL_ALIASES: Record<LlmProvider, Record<string, string>> = {
-    gemini: {},
+    gemini: {
+        'gemini-2.5-flash': 'gemini-3.1-flash-lite',
+        'gemini-2.5-flash-lite': 'gemini-3.1-flash-lite',
+        'gemini-2.5-pro': 'gemini-3.1-pro-preview'
+    },
     openai: {
-        'gpt-5.2': 'gpt-5.4',
-        'gpt-5.2-pro': 'gpt-5.4-pro'
+        'gpt-5.2': 'gpt-5.6',
+        'gpt-5.2-pro': 'gpt-5.6',
+        'gpt-5.4': 'gpt-5.6',
+        'gpt-5.4-pro': 'gpt-5.6'
     },
     claude: {
-        'claude-sonnet-4-5': 'claude-sonnet-4-6'
+        'claude-sonnet-4-5': 'claude-sonnet-4-6',
+        'claude-opus-4-6': 'claude-opus-4-8',
+        'claude-opus-4-7': 'claude-opus-4-8'
     },
     openrouter: {
-        'google/gemini-2.5-flash-preview': 'google/gemini-2.5-flash'
+        'google/gemini-2.5-flash-preview': 'google/gemini-3.1-flash-lite',
+        'google/gemini-2.5-flash': 'google/gemini-3.1-flash-lite',
+        'openai/gpt-4o-mini': 'openai/gpt-5.6-sol',
+        'anthropic/claude-3.5-haiku': 'anthropic/claude-opus-4.8'
     }
 };
 

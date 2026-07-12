@@ -1070,7 +1070,7 @@
       "get_openai_key": "Get OpenAI Key →",
       "get_claude_key": "Get Anthropic Claude Key →",
       "get_openrouter_key": "Get OpenRouter Key →",
-      "openrouter_model_hint": "Enter any OpenRouter model ID (e.g. google/gemini-2.5-flash). Browse models at openrouter.ai/models."
+      "openrouter_model_hint": "Enter any OpenRouter model ID (e.g. google/gemini-3.1-flash-lite). Browse models at openrouter.ai/models."
     }
   },
   "auth": {

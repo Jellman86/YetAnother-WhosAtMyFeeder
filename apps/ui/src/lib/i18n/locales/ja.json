@@ -30,8 +30,8 @@
     "system": "システム",
     "title": "テーマと外観",
     "layout": "ナビゲーションレイアウト",
-    "horizontal": "Horizontal",
-    "vertical": "Vertical",
+    "horizontal": "横向き",
+    "vertical": "縦向き",
     "horizontal_desc": "上部ナビゲーションバー",
     "vertical_desc": "左サイドバー（折りたたみ可能）",
     "font_title": "タイポグラフィ",
@@ -1028,11 +1028,11 @@
       "enabled": "AI インサイトを切り替える",
       "test_connection": "AI 接続をテスト",
       "recommended_model": "推奨: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Google Gemini キーを取得 →",
+      "get_openai_key": "OpenAI キーを取得 →",
+      "get_claude_key": "Anthropic Claude キーを取得 →",
       "get_openrouter_key": "OpenRouter キーを取得 →",
-      "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-2.5-flash)。モデル一覧は openrouter.ai/models で確認できます。"
+      "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-3.1-flash-lite)。モデル一覧は openrouter.ai/models で確認できます。"
     },
     "ai": {
       "usage_title": "AI使用状況",

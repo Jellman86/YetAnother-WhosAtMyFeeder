@@ -236,7 +236,7 @@
             labelId="setting-llm-model"
             label={$_('settings.llm.model')}
             description={llmProvider === 'openrouter'
-                ? $_('settings.llm.openrouter_model_hint', { default: 'Enter any OpenRouter model ID (e.g. google/gemini-2.5-flash). Browse models at openrouter.ai/models.' })
+                ? $_('settings.llm.openrouter_model_hint', { default: 'Enter any OpenRouter model ID (e.g. google/gemini-3.1-flash-lite). Browse models at openrouter.ai/models.' })
                 : $_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(llmProvider)}` })}
             layout="stacked"
         >

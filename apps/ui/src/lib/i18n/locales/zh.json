@@ -1028,11 +1028,11 @@
       "enabled": "切换 AI 洞察",
       "test_connection": "测试 AI 连接",
       "recommended_model": "推荐：{model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "获取 Google Gemini 密钥 →",
+      "get_openai_key": "获取 OpenAI 密钥 →",
+      "get_claude_key": "获取 Anthropic Claude 密钥 →",
       "get_openrouter_key": "获取 OpenRouter 密钥 →",
-      "openrouter_model_hint": "输入任意 OpenRouter 模型 ID(例如 google/gemini-2.5-flash)。可在 openrouter.ai/models 浏览模型。"
+      "openrouter_model_hint": "输入任意 OpenRouter 模型 ID（例如 google/gemini-3.1-flash-lite）。可在 openrouter.ai/models 浏览模型。"
     },
     "ai": {
       "usage_title": "AI 使用情况",

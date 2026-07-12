@@ -633,7 +633,7 @@ def normalize_blocked_species_entries(raw_value: Any) -> list["BlockedSpeciesEnt
     return normalized
 
 
-DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+DEFAULT_LLM_MODEL = "gemini-3.1-flash-lite"
 
 
 class LLMSettings(BaseModel):

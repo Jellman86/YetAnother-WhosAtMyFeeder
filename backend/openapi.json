@@ -6969,7 +6969,7 @@
                 "type": "null"
               }
             ],
-            "default": "gemini-2.5-flash",
+            "default": "gemini-3.1-flash-lite",
             "title": "Llm Model"
           },
           "llm_provider": {
@@ -8825,7 +8825,7 @@
                 "type": "null"
               }
             ],
-            "default": "gemini-2.5-flash",
+            "default": "gemini-3.1-flash-lite",
             "description": "AI model",
             "title": "Llm Model"
           },

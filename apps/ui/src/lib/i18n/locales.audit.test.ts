@@ -176,6 +176,9 @@ const REQUIRED_ACTIVE_KEYS = [
 ];
 
 const MUST_BE_LOCALIZED = [
+    'settings.llm.get_gemini_key',
+    'settings.llm.get_openai_key',
+    'settings.llm.get_claude_key',
     'settings.cameras.preview_close',
     'settings.telemetry.title',
     'settings.telemetry.desc',

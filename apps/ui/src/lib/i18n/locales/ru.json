@@ -1036,11 +1036,11 @@
       "enabled": "Включить ИИ-аналитику",
       "test_connection": "Проверить подключение к ИИ",
       "recommended_model": "Рекомендуется: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Получить ключ Google Gemini →",
+      "get_openai_key": "Получить ключ OpenAI →",
+      "get_claude_key": "Получить ключ Anthropic Claude →",
       "get_openrouter_key": "Получить ключ OpenRouter →",
-      "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-2.5-flash). Просмотрите модели на openrouter.ai/models."
+      "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-3.1-flash-lite). Просмотрите модели на openrouter.ai/models."
     },
     "ai": {
       "usage_title": "Панель использования ИИ",

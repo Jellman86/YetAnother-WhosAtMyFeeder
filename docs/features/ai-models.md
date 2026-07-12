@@ -108,8 +108,8 @@ If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI c
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".
 
 - **Default Provider:** Google Gemini
-- **Settings UI recommendation:** `gemini-2.5-flash`
-- **Other current presets in the UI:** OpenAI `gpt-5.4`, Claude `claude-sonnet-4-6`, and OpenRouter `google/gemini-2.5-flash`
+- **Settings UI recommendation:** `gemini-3.1-flash-lite`
+- **Other current presets in the UI:** OpenAI `gpt-5.6`, Claude `claude-opus-4-8`, and OpenRouter `google/gemini-3.1-flash-lite`
 - **OpenRouter behavior:** the UI shows a few presets, but accepts any non-empty OpenRouter model ID.
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
