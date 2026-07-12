@@ -43,6 +43,26 @@ from app.utils.canonical_species import (
 router = APIRouter()
 
 
+class DeleteEventResponse(BaseModel):
+    """Response returned after deleting one event."""
+
+    status: Literal["deleted"]
+    event_id: str
+
+
+class ManualTagResponse(BaseModel):
+    """Response returned after applying or skipping a manual species tag."""
+
+    status: Literal["updated", "unchanged"]
+    event_id: str
+    new_species: str
+    species: str | None = None
+    old_species: str | None = None
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None
+
+
 def _build_event_classification_input_context(
     *,
     event_id: str,
@@ -481,6 +501,8 @@ def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
 
 @router.get(
     "/events",
+    response_model=list[DetectionResponse | DetectionListItemResponse],
+    response_model_exclude_unset=True,
     responses={
         200: {
             "description": (
@@ -830,7 +852,7 @@ async def get_events_count(
         return EventsCountResponse(count=count, filtered=filtered)
 
 
-@router.delete("/events/{event_id}")
+@router.delete("/events/{event_id}", response_model=DeleteEventResponse)
 async def delete_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Delete a detection by its Frigate event ID. Owner only."""
     lang = get_user_language(request)
@@ -1810,7 +1832,7 @@ async def bulk_delete_events(body: BulkDeleteRequest, auth: AuthContext = Depend
     )
 
 
-@router.patch("/events/{event_id}")
+@router.patch("/events/{event_id}", response_model=ManualTagResponse)
 async def update_event(
     event_id: str, update_request: UpdateDetectionRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
