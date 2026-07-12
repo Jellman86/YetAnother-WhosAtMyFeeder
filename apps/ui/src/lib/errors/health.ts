@@ -23,6 +23,10 @@ function normalizeStatus(value: unknown): string {
     return normalized;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+}
+
 export interface FrigateMediaAdvisory {
     /** True when Frigate media unavailability is common enough to warrant showing guidance. */
     elevated: boolean;
@@ -49,9 +53,11 @@ const ADVISORY_MIN_RATE = 0.15;
  * Decide whether to surface in-app "Event Not Found" guidance, based on how often the ingest
  * pipeline has dropped detections because Frigate had no snapshot/media for them.
  */
-export function getFrigateMediaAdvisory(health: Record<string, any> | null | undefined): FrigateMediaAdvisory {
-    const pipeline = health?.event_pipeline ?? {};
-    const dropReasons = (pipeline.drop_reasons ?? {}) as Record<string, unknown>;
+export function getFrigateMediaAdvisory(
+    health: Record<string, unknown> | null | undefined
+): FrigateMediaAdvisory {
+    const pipeline = asRecord(health?.event_pipeline);
+    const dropReasons = asRecord(pipeline.drop_reasons);
     const dropped = FRIGATE_MEDIA_DROP_REASONS.reduce((sum, reason) => sum + asNumber(dropReasons[reason]), 0);
     const started = asNumber(pipeline.started_events);
     const rate = started > 0 ? dropped / started : 0;
@@ -59,8 +65,10 @@ export function getFrigateMediaAdvisory(health: Record<string, any> | null | und
     return { elevated, rate, dropped, started };
 }
 
-export function getVideoClassifierCardState(health: Record<string, any> | null | undefined): VideoClassifierCardState {
-    const video = health?.video_classifier ?? {};
+export function getVideoClassifierCardState(
+    health: Record<string, unknown> | null | undefined
+): VideoClassifierCardState {
+    const video = asRecord(health?.video_classifier);
     const pending = asNumber(video.pending);
     const active = asNumber(video.active);
     const failureCount = asNumber(video.failure_count);

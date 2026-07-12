@@ -26,7 +26,7 @@ export interface ReclassificationProgress {
     startedAt: number;
     lastUpdateAt: number;
     completedAt?: number | null;
-    results?: any; // Final results from backend
+    results?: unknown; // Final results from backend
     // Set when the backend downgrades a video run to snapshot mid-flight (e.g.
     // clip_not_retained, event_not_found with no cached clip).  The UI uses
     // this to swap the film-reel "video analysis" framing for a "snapshot
@@ -150,7 +150,9 @@ class DetectionsStore {
         if (index !== -1) {
             // Preserve existing fields when SSE payloads omit optional values.
             const existing = this.detections[index];
-            const changed = definedEntries.some(([key, value]) => (existing as any)[key] !== value);
+            const changed = definedEntries.some(
+                ([key, value]) => existing[key as keyof Detection] !== value
+            );
             if (!changed) return;
             this.detections[index] = { ...existing, ...definedPatch };
             this.markMutated();
@@ -313,7 +315,7 @@ class DetectionsStore {
         }
     }
 
-    completeReclassification(eventId: string, results: any) {
+    completeReclassification(eventId: string, results: unknown) {
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);

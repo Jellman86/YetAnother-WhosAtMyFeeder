@@ -50,7 +50,7 @@ interface JobProgressStoreLike {
 }
 
 interface LoggerLike {
-    warn: (message: string, context?: any) => void;
+    warn: (message: string, context?: Record<string, unknown>) => void;
 }
 
 interface ReclassifyRecoveryOptions {

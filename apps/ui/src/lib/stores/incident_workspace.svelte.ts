@@ -53,6 +53,10 @@ export interface IncidentDiagnosticGroup {
     lastSeen: number;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+}
+
 function localGroupsEqual(a: LocalDiagnosticGroup[], b: LocalDiagnosticGroup[]): boolean {
     if (a === b) return true;
     if (a.length !== b.length) return false;
@@ -158,36 +162,41 @@ function deriveStatus(job?: IncidentJobState): IncidentStatus {
     return 'open';
 }
 
-function isStatefulIncidentOpen(component: string, reasonCode: string, health: Record<string, any> | null): boolean | null {
+function isStatefulIncidentOpen(
+    component: string,
+    reasonCode: string,
+    health: Record<string, unknown> | null
+): boolean | null {
     const normalizedComponent = normalizeString(component).toLowerCase();
     const normalizedReason = normalizeString(reasonCode).toLowerCase();
     const currentHealth = health ?? {};
-    const ml = currentHealth.ml ?? {};
-    const workerPools = ml.worker_pools ?? currentHealth.worker_pools ?? {};
+    const ml = asRecord(currentHealth.ml);
+    const workerPools = asRecord(ml.worker_pools ?? currentHealth.worker_pools);
 
     if (
         (normalizedComponent === 'video_classifier' && normalizedReason === 'circuit_open')
         || (normalizedComponent === 'auto_video_classifier'
             && (normalizedReason === 'video_circuit_open' || normalizedReason === 'video_circuit_opened'))
     ) {
-        return Boolean(currentHealth.video_classifier?.circuit_open);
+        return Boolean(asRecord(currentHealth.video_classifier).circuit_open);
     }
 
     if (normalizedComponent === 'ml_live_image' && normalizedReason === 'recovery_active') {
-        return Boolean(ml.live_image?.recovery_active);
+        return Boolean(asRecord(ml.live_image).recovery_active);
     }
 
     if (normalizedComponent === 'ml_background_image' && normalizedReason === 'throttled_by_live_pressure') {
-        return Boolean(ml.background_image?.background_throttled)
-            && Number(ml.background_image?.queued ?? 0) > 0;
+        const backgroundImage = asRecord(ml.background_image);
+        return Boolean(backgroundImage.background_throttled)
+            && Number(backgroundImage.queued ?? 0) > 0;
     }
 
     if (normalizedComponent === 'ml_worker_live' && normalizedReason === 'circuit_open') {
-        return Boolean(workerPools.live?.circuit_open);
+        return Boolean(asRecord(workerPools.live).circuit_open);
     }
 
     if (normalizedComponent === 'ml_worker_background' && normalizedReason === 'circuit_open') {
-        return Boolean(workerPools.background?.circuit_open);
+        return Boolean(asRecord(workerPools.background).circuit_open);
     }
 
     return null;
@@ -196,7 +205,7 @@ function isStatefulIncidentOpen(component: string, reasonCode: string, health: R
 function deriveEventStatus(
     component: string,
     reasonCode: string,
-    health: Record<string, any> | null,
+    health: Record<string, unknown> | null,
     job?: IncidentJobState
 ): IncidentStatus {
     const statefulOpen = isStatefulIncidentOpen(component, reasonCode, health);
@@ -362,7 +371,7 @@ class IncidentWorkspaceStore {
     private recompute(): void {
         const grouped = new Map<string, IncidentRecord>();
         const currentHealth = this.workspacePayload?.health && typeof this.workspacePayload.health === 'object'
-            ? (this.workspacePayload.health as Record<string, any>)
+            ? (this.workspacePayload.health as Record<string, unknown>)
             : null;
 
         for (const event of this.backendEvents) {

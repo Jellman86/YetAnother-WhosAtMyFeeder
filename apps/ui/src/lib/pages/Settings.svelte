@@ -3076,8 +3076,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         camerasLoading = true;
         try {
             const config = await fetchFrigateConfig();
-            if (config && config.cameras) {
-                availableCameras = Object.keys(config.cameras);
+            if (config && typeof config === 'object' && 'cameras' in config) {
+                const cameras = config.cameras;
+                if (cameras && typeof cameras === 'object') {
+                    availableCameras = Object.keys(cameras);
+                }
             }
         } catch (e) {
             console.error('Failed to load cameras from Frigate', e);

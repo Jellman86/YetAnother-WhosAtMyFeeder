@@ -14,7 +14,7 @@ export interface JobDiagnosticRecordInput {
     context?: Record<string, unknown>;
     timestamp?: number;
     healthSnapshotId?: string;
-    healthSnapshot?: any;
+    healthSnapshot?: unknown;
 }
 
 export interface JobDiagnosticGroup {
@@ -38,7 +38,20 @@ export interface JobDiagnosticHealthSnapshot {
     timestamp: number;
     status: string;
     signature: string;
-    payload: any;
+    payload: SanitizedHealthSnapshot;
+}
+
+interface SanitizedHealthSnapshot extends Record<string, unknown> {
+    ml: {
+        live_image: Record<string, unknown>;
+        worker_pools: {
+            live: Record<string, unknown>;
+            background: Record<string, unknown>;
+            video: Record<string, unknown>;
+            late_results_ignored: number;
+        };
+        [key: string]: unknown;
+    };
 }
 
 export interface JobDiagnosticBundle {
@@ -71,6 +84,10 @@ function asFiniteNumber(value: unknown, fallback = 0): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return parsed;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
 }
 
 function normalizeSeverity(value: unknown): JobDiagnosticSeverity {
@@ -148,7 +165,7 @@ function sumCounterMap(counters: unknown): number {
 function deriveLiveImageRecoveryReason(
     recoveryActive: boolean,
     workerCircuitOpen: boolean,
-    inferenceHealthRecovery: any
+    inferenceHealthRecovery: unknown
 ): string {
     if (workerCircuitOpen) {
         return 'worker_circuit_open';
@@ -156,7 +173,7 @@ function deriveLiveImageRecoveryReason(
     if (!recoveryActive) {
         return '-';
     }
-    const reason = normalizeString(inferenceHealthRecovery?.reason, '');
+    const reason = normalizeString(asRecord(inferenceHealthRecovery).reason, '');
     return reason || 'stale_work_reclaim';
 }
 
@@ -175,32 +192,33 @@ function normalizeWorkerPoolState(pool: unknown): Record<string, unknown> {
     };
 }
 
-function createHealthSignature(health: any): string {
-    const status = normalizeString(health?.status, 'unknown').toLowerCase();
-    const startupInstanceId = normalizeString(health?.startup_instance_id, 'unknown');
-    const eventPipeline = health?.event_pipeline ?? {};
-    const mqtt = health?.mqtt ?? {};
-    const notificationDispatcher = health?.notification_dispatcher ?? {};
-    const dbPool = health?.db_pool ?? {};
-    const ml = health?.ml ?? {};
-    const liveImage = ml?.live_image ?? {};
-    const backgroundImage = ml?.background_image ?? {};
-    const executionMode = normalizeString(ml?.execution_mode ?? health?.execution_mode, 'in_process').toLowerCase();
-    const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
-    const liveWorkerPool = normalizeWorkerPoolState(workerPools?.live);
-    const backgroundWorkerPool = normalizeWorkerPoolState(workerPools?.background);
-    const videoWorkerPool = normalizeWorkerPoolState(workerPools?.video);
-    const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools?.late_results_ignored)));
-    const startupWarningCount = Array.isArray(health?.startup_warnings) ? health.startup_warnings.length : 0;
-    const videoClassifier = health?.video_classifier ?? {};
+function createHealthSignature(health: unknown): string {
+    const root = asRecord(health);
+    const status = normalizeString(root.status, 'unknown').toLowerCase();
+    const startupInstanceId = normalizeString(root.startup_instance_id, 'unknown');
+    const eventPipeline = asRecord(root.event_pipeline);
+    const mqtt = asRecord(root.mqtt);
+    const notificationDispatcher = asRecord(root.notification_dispatcher);
+    const dbPool = asRecord(root.db_pool);
+    const ml = asRecord(root.ml);
+    const liveImage = asRecord(ml.live_image);
+    const backgroundImage = asRecord(ml.background_image);
+    const executionMode = normalizeString(ml.execution_mode ?? root.execution_mode, 'in_process').toLowerCase();
+    const workerPools = asRecord(ml.worker_pools ?? root.worker_pools);
+    const liveWorkerPool = normalizeWorkerPoolState(workerPools.live);
+    const backgroundWorkerPool = normalizeWorkerPoolState(workerPools.background);
+    const videoWorkerPool = normalizeWorkerPoolState(workerPools.video);
+    const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools.late_results_ignored)));
+    const startupWarningCount = Array.isArray(root.startup_warnings) ? root.startup_warnings.length : 0;
+    const videoClassifier = asRecord(root.video_classifier);
 
     const eventCritical = Math.max(0, Math.floor(asFiniteNumber(eventPipeline?.critical_failures)));
     const eventCriticalActive = eventPipeline?.critical_failure_active === true;
     const stageTimeoutTotal = sumCounterMap(eventPipeline?.stage_timeouts);
     const stageFailureTotal = sumCounterMap(eventPipeline?.stage_failures);
-    const lastTimeout = eventPipeline?.last_stage_timeout ?? {};
-    const lastFailure = eventPipeline?.last_stage_failure ?? {};
-    const lastDrop = eventPipeline?.last_drop ?? {};
+    const lastTimeout = asRecord(eventPipeline.last_stage_timeout);
+    const lastFailure = asRecord(eventPipeline.last_stage_failure);
+    const lastDrop = asRecord(eventPipeline.last_drop);
     const mqttPressure = normalizeString(mqtt?.pressure_level, 'unknown').toLowerCase();
     const droppedJobs = Math.max(0, Math.floor(asFiniteNumber(notificationDispatcher?.dropped_jobs)));
     const dbWaitMax = Math.max(0, Math.floor(asFiniteNumber(dbPool?.acquire_wait_max_ms)));
@@ -213,8 +231,8 @@ function createHealthSignature(health: any): string {
     const liveImageInFlight = Math.max(0, Math.floor(asFiniteNumber(liveImage?.in_flight)));
     const liveImageAbandoned = Math.max(0, Math.floor(asFiniteNumber(liveImage?.abandoned)));
     const liveImageRecoveryActive = !!liveImage?.recovery_active;
-    const inferenceHealth = ml?.inference_health ?? {};
-    const inferenceHealthRecovery = inferenceHealth?.last_recovery ?? null;
+    const inferenceHealth = asRecord(ml.inference_health);
+    const inferenceHealthRecovery = inferenceHealth.last_recovery ?? null;
     const liveImageRecoveryReason = deriveLiveImageRecoveryReason(
         liveImageRecoveryActive,
         Boolean(liveWorkerPool.circuit_open),
@@ -269,25 +287,26 @@ function createHealthSignature(health: any): string {
     ].join('|');
 }
 
-function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
-    const eventPipeline = health?.event_pipeline ?? {};
-    const mqtt = health?.mqtt ?? {};
-    const notificationDispatcher = health?.notification_dispatcher ?? {};
-    const dbPool = health?.db_pool ?? {};
-    const ml = health?.ml ?? {};
-    const liveImage = ml?.live_image ?? {};
-    const backgroundImage = ml?.background_image ?? {};
-    const executionMode = normalizeString(ml?.execution_mode ?? health?.execution_mode, 'in_process');
-    const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
-    const videoClassifier = health?.video_classifier ?? {};
-    const startupWarnings = Array.isArray(health?.startup_warnings) ? health.startup_warnings : [];
+function sanitizeHealthSnapshotPayload(health: unknown): SanitizedHealthSnapshot {
+    const root = asRecord(health);
+    const eventPipeline = asRecord(root.event_pipeline);
+    const mqtt = asRecord(root.mqtt);
+    const notificationDispatcher = asRecord(root.notification_dispatcher);
+    const dbPool = asRecord(root.db_pool);
+    const ml = asRecord(root.ml);
+    const liveImage = asRecord(ml.live_image);
+    const backgroundImage = asRecord(ml.background_image);
+    const executionMode = normalizeString(ml.execution_mode ?? root.execution_mode, 'in_process');
+    const workerPools = asRecord(ml.worker_pools ?? root.worker_pools);
+    const videoClassifier = asRecord(root.video_classifier);
+    const startupWarnings = Array.isArray(root.startup_warnings) ? root.startup_warnings : [];
 
     return {
-        status: normalizeString(health?.status, 'unknown'),
-        service: normalizeString(health?.service, 'unknown'),
-        version: normalizeString(health?.version, 'unknown'),
-        startup_instance_id: normalizeString(health?.startup_instance_id, 'unknown'),
-        startup_started_at: normalizeString(health?.startup_started_at, ''),
+        status: normalizeString(root.status, 'unknown'),
+        service: normalizeString(root.service, 'unknown'),
+        version: normalizeString(root.version, 'unknown'),
+        startup_instance_id: normalizeString(root.startup_instance_id, 'unknown'),
+        startup_started_at: normalizeString(root.startup_started_at, ''),
         startup_warnings: startupWarnings.slice(0, 20),
         event_pipeline: {
             status: normalizeString(eventPipeline?.status, 'unknown'),
@@ -347,8 +366,8 @@ function sanitizeHealthSnapshotPayload(health: any): Record<string, unknown> {
                 recovery_active: Boolean(liveImage?.recovery_active),
                 recovery_reason: deriveLiveImageRecoveryReason(
                     Boolean(liveImage?.recovery_active),
-                    Boolean(normalizeWorkerPoolState(workerPools?.live).circuit_open),
-                    (ml?.inference_health ?? {})?.last_recovery ?? null
+                    Boolean(normalizeWorkerPoolState(workerPools.live).circuit_open),
+                    asRecord(ml.inference_health).last_recovery ?? null
                 ).replace(/^-$/, ''),
                 recent_abandoned: Math.floor(asFiniteNumber(liveImage?.recent_abandoned)),
                 recent_late_completions_ignored: Math.floor(asFiniteNumber(liveImage?.recent_late_completions_ignored))
@@ -474,10 +493,11 @@ class JobDiagnosticsStore {
         this.persist();
     }
 
-    ingestHealth(health: any, timestamp: number = Date.now()): void {
+    ingestHealth(health: unknown, timestamp: number = Date.now()): void {
+        const root = asRecord(health);
         const ts = Math.max(0, Math.floor(asFiniteNumber(timestamp, Date.now())));
         const snapshotId = this.recordHealthSnapshot(health, ts);
-        const status = normalizeString(health?.status, 'unknown').toLowerCase();
+        const status = normalizeString(root.status, 'unknown').toLowerCase();
         if (status !== 'ok' && status !== 'healthy') {
             this.recordError({
                 source: 'health',
@@ -491,7 +511,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const mqtt = health?.mqtt ?? {};
+        const mqtt = asRecord(root.mqtt);
         const pressureLevel = normalizeString(mqtt?.pressure_level, '').toLowerCase();
         if (pressureLevel === 'high' || pressureLevel === 'critical') {
             this.recordError({
@@ -511,7 +531,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const eventPipeline = health?.event_pipeline ?? {};
+        const eventPipeline = asRecord(root.event_pipeline);
         const criticalFailures = Math.max(0, Math.floor(asFiniteNumber(eventPipeline?.critical_failures)));
         const criticalFailureActive = eventPipeline?.critical_failure_active === true;
         if (criticalFailureActive && criticalFailures > 0) {
@@ -531,7 +551,7 @@ class JobDiagnosticsStore {
         this.recordStageCounters('stage_failure', eventPipeline?.stage_failures, 'critical', ts, snapshotId);
         this.recordLatestPipelineState(eventPipeline, ts, snapshotId);
 
-        const notificationDispatcher = health?.notification_dispatcher ?? {};
+        const notificationDispatcher = asRecord(root.notification_dispatcher);
         const droppedJobs = Math.max(0, Math.floor(asFiniteNumber(notificationDispatcher?.dropped_jobs)));
         if (droppedJobs > 0) {
             this.recordError({
@@ -546,7 +566,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const videoClassifier = health?.video_classifier ?? {};
+        const videoClassifier = asRecord(root.video_classifier);
         if (videoClassifier?.circuit_open) {
             const failureCount = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.failure_count)));
             const pending = Math.max(0, Math.floor(asFiniteNumber(videoClassifier?.pending)));
@@ -570,7 +590,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const dbPool = health?.db_pool ?? {};
+        const dbPool = asRecord(root.db_pool);
         const waitMaxMs = Math.max(0, Math.floor(asFiniteNumber(dbPool?.acquire_wait_max_ms)));
         if (waitMaxMs >= 5000) {
             this.recordError({
@@ -585,8 +605,8 @@ class JobDiagnosticsStore {
             });
         }
 
-        const ml = health?.ml ?? {};
-        const liveImage = ml?.live_image ?? {};
+        const ml = asRecord(root.ml);
+        const liveImage = asRecord(ml.live_image);
         const liveImagePressure = normalizeString(liveImage?.pressure_level, '').toLowerCase();
         if (liveImagePressure === 'high' || liveImagePressure === 'critical') {
             this.recordError({
@@ -607,11 +627,11 @@ class JobDiagnosticsStore {
         }
 
         if (Boolean(liveImage?.recovery_active)) {
-            const pools = ml?.worker_pools ?? health?.worker_pools ?? {};
+            const pools = asRecord(ml.worker_pools ?? root.worker_pools);
             const recoveryReason = deriveLiveImageRecoveryReason(
                 true,
-                Boolean(normalizeWorkerPoolState(pools?.live).circuit_open),
-                (ml?.inference_health ?? {})?.last_recovery ?? null
+                Boolean(normalizeWorkerPoolState(pools.live).circuit_open),
+                asRecord(ml.inference_health).last_recovery ?? null
             );
             const recoveryMessage = recoveryReason === 'worker_circuit_open'
                 ? 'Live image classifier is recovering worker processes'
@@ -634,7 +654,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const backgroundImage = ml?.background_image ?? {};
+        const backgroundImage = asRecord(ml.background_image);
         if (Boolean(backgroundImage?.background_throttled) && Math.floor(asFiniteNumber(backgroundImage?.queued)) > 0) {
             this.recordError({
                 source: 'health',
@@ -652,8 +672,8 @@ class JobDiagnosticsStore {
             });
         }
 
-        const workerPools = ml?.worker_pools ?? health?.worker_pools ?? {};
-        const liveWorkerPool = normalizeWorkerPoolState(workerPools?.live);
+        const workerPools = asRecord(ml.worker_pools ?? root.worker_pools);
+        const liveWorkerPool = normalizeWorkerPoolState(workerPools.live);
         if (Boolean(liveWorkerPool.circuit_open)) {
             this.recordError({
                 source: 'health',
@@ -672,7 +692,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const backgroundWorkerPool = normalizeWorkerPoolState(workerPools?.background);
+        const backgroundWorkerPool = normalizeWorkerPoolState(workerPools.background);
         if (Boolean(backgroundWorkerPool.circuit_open)) {
             this.recordError({
                 source: 'health',
@@ -691,7 +711,7 @@ class JobDiagnosticsStore {
             });
         }
 
-        const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools?.late_results_ignored)));
+        const lateResultsIgnored = Math.max(0, Math.floor(asFiniteNumber(workerPools.late_results_ignored)));
         if (lateResultsIgnored > 0) {
             this.recordError({
                 source: 'health',
@@ -706,15 +726,16 @@ class JobDiagnosticsStore {
             });
         }
 
-        const startupWarnings = Array.isArray(health?.startup_warnings) ? health.startup_warnings : [];
+        const startupWarnings = Array.isArray(root.startup_warnings) ? root.startup_warnings : [];
         for (const warning of startupWarnings.slice(0, 20)) {
-            const phase = normalizeString(warning?.phase, 'unknown_phase');
+            const warningRecord = asRecord(warning);
+            const phase = normalizeString(warningRecord.phase, 'unknown_phase');
             this.recordError({
                 source: 'health',
                 component: 'startup',
                 stage: phase,
                 reasonCode: 'startup_warning',
-                message: normalizeString(warning?.error, 'Startup warning'),
+                message: normalizeString(warningRecord.error, 'Startup warning'),
                 severity: 'warning',
                 timestamp: ts,
                 healthSnapshotId: snapshotId,
@@ -950,8 +971,8 @@ class JobDiagnosticsStore {
         return undefined;
     }
 
-    private recordHealthSnapshot(health: any, timestamp: number): string {
-        const status = normalizeString(health?.status, 'unknown').toLowerCase();
+    private recordHealthSnapshot(health: unknown, timestamp: number): string {
+        const status = normalizeString(asRecord(health).status, 'unknown').toLowerCase();
         const signature = createHealthSignature(health);
         const latest = this.healthSnapshots[0];
         if (latest && latest.signature === signature) {
@@ -1002,12 +1023,13 @@ class JobDiagnosticsStore {
     }
 
     private recordLatestPipelineState(
-        eventPipeline: any,
+        eventPipelineInput: unknown,
         timestamp: number,
         healthSnapshotId: string
     ): void {
-        const lastTimeout = eventPipeline?.last_stage_timeout;
-        if (lastTimeout && typeof lastTimeout === 'object') {
+        const eventPipeline = asRecord(eventPipelineInput);
+        const lastTimeout = asRecord(eventPipeline.last_stage_timeout);
+        if (Object.keys(lastTimeout).length > 0) {
             const stage = normalizeString(lastTimeout.stage, 'unknown_stage');
             const timeoutSeconds = asFiniteNumber(lastTimeout.timeout_seconds);
             this.recordError({
@@ -1024,8 +1046,8 @@ class JobDiagnosticsStore {
             });
         }
 
-        const lastFailure = eventPipeline?.last_stage_failure;
-        if (lastFailure && typeof lastFailure === 'object') {
+        const lastFailure = asRecord(eventPipeline.last_stage_failure);
+        if (Object.keys(lastFailure).length > 0) {
             const stage = normalizeString(lastFailure.stage, 'unknown_stage');
             const error = normalizeString(lastFailure.error, 'unknown_error');
             this.recordError({
@@ -1042,8 +1064,8 @@ class JobDiagnosticsStore {
             });
         }
 
-        const lastDrop = eventPipeline?.last_drop;
-        if (lastDrop && typeof lastDrop === 'object') {
+        const lastDrop = asRecord(eventPipeline.last_drop);
+        if (Object.keys(lastDrop).length > 0) {
             const reason = normalizeString(lastDrop.reason, 'unknown_reason');
             const stage = normalizeString(lastDrop.stage);
             this.recordError({

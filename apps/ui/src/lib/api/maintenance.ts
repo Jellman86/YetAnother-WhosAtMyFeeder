@@ -19,7 +19,7 @@ export interface ResetDatabaseResult {
     status: string;
     message: string;
     deleted_count: number;
-    cache_stats: any;
+    cache_stats: CacheStats;
 }
 
 export type ClearFeedbackResult = paths['/api/maintenance/feedback/clear']['delete']['response'];

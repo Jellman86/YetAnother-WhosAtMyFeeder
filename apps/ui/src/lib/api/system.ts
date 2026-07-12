@@ -78,9 +78,9 @@ export async function testFrigateConnection(): Promise<FrigateTestResult> {
     return handleResponse<FrigateTestResult>(response);
 }
 
-export async function fetchFrigateConfig(): Promise<any> {
+export async function fetchFrigateConfig(): Promise<unknown> {
     const response = await apiFetch(`${API_BASE}/frigate/config`);
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
 }
 
 export async function fetchRecordingClipCapability(): Promise<RecordingClipCapability> {

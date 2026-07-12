@@ -133,6 +133,9 @@ Completed review tranches:
 - ✅ **Frontend live-update boundary** — replaced `any` across the root SSE wiring and coordinator
   with explicit payload, health, notification, and translation contracts; normalized required
   detection fields at the untrusted JSON boundary and added regression coverage.
+- ✅ **Frontend API and operational stores** — removed `any` from maintenance/system clients,
+  detection state, health interpretation, incident state, diagnostics snapshots, and reclassify
+  recovery; external payloads now enter as `unknown` and are narrowed before use.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
