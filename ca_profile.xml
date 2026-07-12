@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommunityApplications>
+  <!-- Repository overview shown in Community Applications. Markdown is supported. -->
+  <Profile>
+YA-WAMF (Yet Another WhosAtMyFeeder) identifies the birds visiting your feeder from Frigate NVR events using local machine-learning models — no cloud required. It serves a real-time dashboard, correlates visual detections with BirdNET-Go audio, enriches species with iNaturalist taxonomy, and can send notifications.
+
+This repository provides the Unraid Community Applications template for the monolithic Docker image (`ghcr.io/jellman86/yawamf-monalithic`). It needs a reachable Frigate instance publishing events over MQTT.
+
+**Support:** open an issue at https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/custom_components/yawamf/icon.png</Icon>
+  <WebPage>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder</WebPage>
+</CommunityApplications>
