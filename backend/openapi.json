@@ -174,6 +174,28 @@
         "title": "AIUsageResponse",
         "type": "object"
       },
+      "ActionStatusResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ActionStatusResponse",
+        "type": "object"
+      },
       "AnalysisStatusResponse": {
         "additionalProperties": true,
         "properties": {
@@ -6372,6 +6394,28 @@
         "title": "SeasonalityResponse",
         "type": "object"
       },
+      "SettingsImportResponse": {
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "status": {
+            "const": "imported",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "changed_fields"
+        ],
+        "title": "SettingsImportResponse",
+        "type": "object"
+      },
       "SettingsResponse": {
         "properties": {
           "accessibility_dyslexia_font": {
@@ -9970,6 +10014,20 @@
         "title": "SettingsUpdate",
         "type": "object"
       },
+      "SettingsUpdateResponse": {
+        "properties": {
+          "status": {
+            "const": "updated",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SettingsUpdateResponse",
+        "type": "object"
+      },
       "SetupSectionState": {
         "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled.",
         "properties": {
@@ -11498,6 +11556,37 @@
           "base_version"
         ],
         "title": "VersionResponse",
+        "type": "object"
+      },
+      "VideoCircuitResetResponse": {
+        "properties": {
+          "live_circuit": {
+            "additionalProperties": true,
+            "title": "Live Circuit",
+            "type": "object"
+          },
+          "maintenance_circuit": {
+            "additionalProperties": true,
+            "title": "Maintenance Circuit",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "live_circuit",
+          "maintenance_circuit"
+        ],
+        "title": "VideoCircuitResetResponse",
         "type": "object"
       },
       "VideoClassifierFocusedDiagnosticsResponse": {
@@ -18327,7 +18416,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VideoCircuitResetResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18668,7 +18759,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsUpdateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18706,7 +18799,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18744,7 +18839,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18822,7 +18919,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsImportResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18870,7 +18969,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18908,7 +19009,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -18946,7 +19049,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
               }
             },
             "description": "Successful Response"

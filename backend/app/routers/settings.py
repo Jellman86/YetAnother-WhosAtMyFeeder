@@ -116,6 +116,27 @@ class TaxonomySyncStartResponse(BaseModel):
     status: str
 
 
+class ActionStatusResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: str
+
+
+class SettingsUpdateResponse(BaseModel):
+    status: Literal["updated"]
+
+
+class SettingsImportResponse(BaseModel):
+    status: Literal["imported"]
+    changed_fields: list[str]
+
+
+class VideoCircuitResetResponse(BaseModel):
+    status: Literal["ok"]
+    message: str
+    live_circuit: dict[str, Any]
+    maintenance_circuit: dict[str, Any]
+
+
 @router.get("/maintenance/taxonomy/status", response_model=TaxonomySyncStatusResponse)
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
@@ -149,8 +170,10 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthConte
     return {"status": "started"}
 
 
-@router.post("/settings/birdnet/test")
-async def test_birdnet(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/birdnet/test", response_model=ActionStatusResponse)
+async def test_birdnet(
+    background_tasks: BackgroundTasks, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse:
     """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
     from app.services.audio.audio_service import audio_service
 
@@ -165,11 +188,11 @@ async def test_birdnet(background_tasks: BackgroundTasks, auth: AuthContext = De
     # Process it directly through audio service as if it came from MQTT
     background_tasks.add_task(audio_service.add_detection, mock_data)
 
-    return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
+    return ActionStatusResponse(status="ok", message="Mock audio detection injected. Check Discovery feed for updates.")
 
 
-@router.post("/settings/mqtt/test-publish")
-async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/mqtt/test-publish", response_model=ActionStatusResponse)
+async def test_mqtt_publish(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
     """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
@@ -180,7 +203,7 @@ async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
             "yawamf/test", {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
         )
         if success:
-            return {"status": "ok", "message": "Test message published to 'yawamf/test'"}
+            return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
         else:
             return JSONResponse(
                 status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
@@ -359,8 +382,10 @@ class ClearFeedbackResponse(BaseModel):
     deleted_count: int
 
 
-@router.post("/settings/notifications/test")
-async def test_notification(request: NotificationTestRequest, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/notifications/test", response_model=ActionStatusResponse)
+async def test_notification(
+    request: NotificationTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse | JSONResponse:
     """Test notification platform with optional credential overrides. Owner only."""
 
     # Create mock detection data
@@ -447,7 +472,7 @@ async def test_notification(request: NotificationTestRequest, auth: AuthContext 
                 status_code=400, content={"status": "error", "message": f"Unknown platform: {request.platform}"}
             )
 
-        return {"status": "ok", "message": f"Test notification sent to {request.platform}"}
+        return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
         log.error("Notification test failed", error=str(e))
         return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
@@ -457,8 +482,10 @@ class BirdWeatherTestRequest(BaseModel):
     token: Optional[str] = None
 
 
-@router.post("/settings/birdweather/test")
-async def test_birdweather(request: BirdWeatherTestRequest, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/birdweather/test", response_model=ActionStatusResponse)
+async def test_birdweather(
+    request: BirdWeatherTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse | JSONResponse:
     """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
@@ -477,7 +504,7 @@ async def test_birdweather(request: BirdWeatherTestRequest, auth: AuthContext = 
     )
 
     if success:
-        return {"status": "ok", "message": "BirdWeather test succeeded"}
+        return ActionStatusResponse(status="ok", message="BirdWeather test succeeded")
     return JSONResponse(
         status_code=502,
         content={"status": "error", "message": "BirdWeather test failed. Check token and station permissions."},
@@ -491,8 +518,10 @@ class LlmTestRequest(BaseModel):
     llm_api_key: Optional[str] = None
 
 
-@router.post("/settings/llm/test")
-async def test_llm(request: LlmTestRequest, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/llm/test", response_model=ActionStatusResponse)
+async def test_llm(
+    request: LlmTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse | JSONResponse:
     """Test LLM connectivity with optional overrides. Owner only."""
     enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
     if not enabled:
@@ -510,7 +539,7 @@ async def test_llm(request: LlmTestRequest, auth: AuthContext = Depends(require_
     service = AIService()
     ok, message, status_hint = await service.test_connection(provider, model, api_key)
     if ok:
-        return {"status": "ok", "message": message}
+        return ActionStatusResponse(status="ok", message=message)
     return JSONResponse(status_code=status_hint, content={"status": "error", "message": message})
 
 
@@ -975,12 +1004,12 @@ async def export_settings(auth: AuthContext = Depends(require_owner)):
     )
 
 
-@router.post("/settings/import")
+@router.post("/settings/import", response_model=SettingsImportResponse)
 async def import_settings(
     background_tasks: BackgroundTasks,
     payload: dict[str, Any] = Body(...),
     auth: AuthContext = Depends(require_owner),
-):
+) -> SettingsImportResponse:
     """Import a full configuration backup. Owner only."""
     config = _extract_import_config(payload)
     try:
@@ -1006,7 +1035,7 @@ async def import_settings(
         username=auth.username,
         changed_fields=changed_fields,
     )
-    return {"status": "imported", "changed_fields": changed_fields}
+    return SettingsImportResponse(status="imported", changed_fields=changed_fields)
 
 
 @router.get("/settings", response_model=SettingsResponse)
@@ -1227,10 +1256,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
     }
 
 
-@router.post("/settings")
+@router.post("/settings", response_model=SettingsUpdateResponse)
 async def update_settings(
     update: SettingsUpdate, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)
-):
+) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
 
@@ -1754,7 +1783,7 @@ async def update_settings(
         )
     except Exception as e:
         log.warning("Failed to broadcast settings_updated event", error=str(e))
-    return {"status": "updated"}
+    return SettingsUpdateResponse(status="updated")
 
 
 @router.get("/maintenance/stats", response_model=MaintenanceStatsResponse)
@@ -2365,8 +2394,10 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     return {"status": "completed", **stats, "retention_days": retention}
 
 
-@router.post("/maintenance/video-classification/reset-circuit")
-async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
+@router.post("/maintenance/video-classification/reset-circuit", response_model=VideoCircuitResetResponse)
+async def reset_video_circuit(
+    _auth: AuthContext = Depends(require_owner),
+) -> VideoCircuitResetResponse:
     """Reset the live and maintenance video classification breakers without discarding queued jobs. Owner only.
 
     Use this to manually recover from a false-positive open circuit caused by
@@ -2376,12 +2407,12 @@ async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
     auto_video_classifier.reset_circuit()
     live_status = auto_video_classifier.get_circuit_status("live")
     maintenance_status = auto_video_classifier.get_circuit_status("maintenance")
-    return {
-        "status": "ok",
-        "message": "Video classification circuit breakers reset.",
-        "live_circuit": live_status,
-        "maintenance_circuit": maintenance_status,
-    }
+    return VideoCircuitResetResponse(
+        status="ok",
+        message="Video classification circuit breakers reset.",
+        live_circuit=live_status,
+        maintenance_circuit=maintenance_status,
+    )
 
 
 @router.delete("/maintenance/feedback/clear", response_model=ClearFeedbackResponse)

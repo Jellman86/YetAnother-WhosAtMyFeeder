@@ -39,6 +39,10 @@ export interface components {
     to_date: string;
     total_tokens: number;
 };
+    ActionStatusResponse: {
+    message: string;
+    status: "ok" | "error";
+};
     AnalysisStatusResponse: {
     active: number;
     active_maintenance?: number | null;
@@ -945,6 +949,10 @@ export interface components {
     taxon_id: number;
     total_observations: number;
 };
+    SettingsImportResponse: {
+    changed_fields: Array<string>;
+    status: "imported";
+};
     SettingsResponse: {
     accessibility_dyslexia_font?: boolean | null;
     accessibility_high_contrast?: boolean | null;
@@ -1285,6 +1293,9 @@ export interface components {
     video_classification_max_retries?: number | null;
     write_frigate_sublabel?: boolean;
 };
+    SettingsUpdateResponse: {
+    status: "updated";
+};
     SetupSectionState: {
     detail?: string | null;
     id: string;
@@ -1508,6 +1519,12 @@ export interface components {
     VersionResponse: {
     base_version: string;
     version: string;
+};
+    VideoCircuitResetResponse: {
+    live_circuit: Record<string, unknown>;
+    maintenance_circuit: Record<string, unknown>;
+    message: string;
+    status: "ok";
 };
     VideoClassifierFocusedDiagnosticsResponse: {
     active: number;
@@ -2802,7 +2819,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['VideoCircuitResetResponse'];
     };
   };
   "/api/models/available": {
@@ -2878,7 +2895,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['SettingsUpdate'];
-      response: unknown;
+      response: components['schemas']['SettingsUpdateResponse'];
     };
   };
   "/api/settings/birdnet/test": {
@@ -2887,7 +2904,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/birdweather/test": {
@@ -2896,7 +2913,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BirdWeatherTestRequest'];
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/export": {
@@ -2914,7 +2931,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: Record<string, unknown>;
-      response: unknown;
+      response: components['schemas']['SettingsImportResponse'];
     };
   };
   "/api/settings/llm/test": {
@@ -2923,7 +2940,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['LlmTestRequest'];
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/mqtt/test-publish": {
@@ -2932,7 +2949,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/notifications/test": {
@@ -2941,7 +2958,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['NotificationTestRequest'];
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/setup/state": {
