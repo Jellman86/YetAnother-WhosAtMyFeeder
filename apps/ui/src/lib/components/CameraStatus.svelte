@@ -3,6 +3,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { authStore } from '../stores/auth.svelte';
     import { fetchSettings } from '../api/settings';
+    import { fetchEventFilters } from '../api/events';
     import { appApiPath } from '../app/url-base';
 
     let cameras = $state<string[]>([]);
@@ -37,7 +38,18 @@
         try {
             const settings = await fetchSettings();
             const list = (settings as any)?.cameras;
-            cameras = Array.isArray(list) ? list.filter((c: unknown): c is string => typeof c === 'string' && c.length > 0) : [];
+            let resolved = Array.isArray(list) ? list.filter((c: unknown): c is string => typeof c === 'string' && c.length > 0) : [];
+            // An empty camera list means "monitor all cameras" in the pipeline, so fall back to
+            // the cameras that are actually producing detections rather than showing nothing.
+            if (resolved.length === 0) {
+                try {
+                    const filters = await fetchEventFilters();
+                    resolved = (filters.cameras ?? []).filter((c): c is string => typeof c === 'string' && c.length > 0);
+                } catch {
+                    // Keep the empty list; the icon still renders without a status dot.
+                }
+            }
+            cameras = resolved;
             const roles = (settings as any)?.camera_roles;
             cameraRoles = roles && typeof roles === 'object' && !Array.isArray(roles) ? roles : {};
             const next: typeof frames = {};
