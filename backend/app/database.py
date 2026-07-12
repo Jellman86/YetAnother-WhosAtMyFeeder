@@ -439,7 +439,7 @@ async def init_db():
     if os.environ.get("YA_WAMF_TEST_DB_INITIALIZED") == "1":
         log.info("Test DB already initialized, skipping migrations")
     else:
-        backup_path = _backup_db(db_path)
+        backup_path = await asyncio.to_thread(_backup_db, db_path)
 
         log.info("Running database migrations...")
         try:
@@ -448,13 +448,14 @@ async def init_db():
             env = os.environ.copy()
             env["DB_PATH"] = db_path
 
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 [sys.executable, "-m", "alembic", "upgrade", "head"],
                 cwd=backend_dir,
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=60,  # 60 second timeout to prevent indefinite hangs
+                timeout=60,
             )
 
             if result.returncode == 0:

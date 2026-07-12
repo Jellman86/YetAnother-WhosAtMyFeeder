@@ -2,8 +2,10 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import base64
+import asyncio
 import hashlib
 import json
+from pathlib import Path
 import structlog
 from app.services.ai_service import ai_service
 from app.services.frigate_client import frigate_client
@@ -77,9 +79,9 @@ async def _load_ai_analysis_frames(
 
         if recording_path:
             try:
-                with open(recording_path, "rb") as handle:
-                    recording_bytes = handle.read()
-                frames = ai_service.extract_frames_from_clip(
+                recording_bytes = await asyncio.to_thread(Path(recording_path).read_bytes)
+                frames = await asyncio.to_thread(
+                    ai_service.extract_frames_from_clip,
                     recording_bytes,
                     frame_count=frame_count,
                     clip_variant="recording",

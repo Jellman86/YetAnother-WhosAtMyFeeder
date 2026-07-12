@@ -25,8 +25,16 @@ from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
+from app.utils.image_io import decode_image_bytes
 
 log = structlog.get_logger()
+
+
+def _write_temp_clip(contents: bytes) -> Path:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        tmp.write(contents)
+        return Path(tmp.name)
+
 
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
@@ -161,7 +169,7 @@ class HighQualitySnapshotService:
             return None
 
         cached_path = media_cache.get_recording_clip_path(event_id)
-        if cached_path and cached_path.exists():
+        if cached_path and await asyncio.to_thread(cached_path.exists):
             try:
                 return await asyncio.to_thread(cached_path.read_bytes)
             except Exception as e:
@@ -179,7 +187,7 @@ class HighQualitySnapshotService:
 
         try:
             cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
-            if cached_path and cached_path.exists():
+            if cached_path and await asyncio.to_thread(cached_path.exists):
                 return await asyncio.to_thread(cached_path.read_bytes)
 
             ready = await _fetch_recording_clip_ready(event_id, "en")
@@ -187,7 +195,7 @@ class HighQualitySnapshotService:
                 return None
 
             cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
-            if cached_path and cached_path.exists():
+            if cached_path and await asyncio.to_thread(cached_path.exists):
                 return await asyncio.to_thread(cached_path.read_bytes)
         except Exception as e:
             log.warning("High-quality snapshot recording fallback failed", event_id=event_id, error=str(e))
@@ -303,9 +311,7 @@ class HighQualitySnapshotService:
     ) -> dict[str, Any]:
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-            tmp.write(clip_bytes)
-            tmp_path = Path(tmp.name)
+        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
             raw_candidates = await asyncio.to_thread(
                 self._extract_snapshot_candidate_payloads_from_clip_path,
@@ -317,7 +323,7 @@ class HighQualitySnapshotService:
             )
         finally:
             with contextlib.suppress(Exception):
-                tmp_path.unlink(missing_ok=True)
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
 
         scored: list[dict[str, Any]] = []
         for candidate in raw_candidates:
@@ -524,7 +530,7 @@ class HighQualitySnapshotService:
         if not isinstance(image_bytes, (bytes, bytearray)) or not image_bytes:
             return None
         try:
-            image = Image.open(BytesIO(image_bytes)).convert("RGB")
+            image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
         except Exception:
             return None
 
@@ -536,7 +542,8 @@ class HighQualitySnapshotService:
                 getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
             )
             if classifier is not None:
-                results = classifier.classify(
+                results = await asyncio.to_thread(
+                    classifier.classify,
                     image,
                     input_context={"is_cropped": candidate.get("source_mode") != "full_frame"},
                 )

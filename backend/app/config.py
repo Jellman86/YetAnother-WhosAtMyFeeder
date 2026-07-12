@@ -72,13 +72,6 @@ class Settings(BaseSettings):
         payload = self.model_dump_json(indent=2)
         path = CONFIG_PATH
 
-        # Tests run in a sandbox and config persistence isn't what we're validating.
-        # Keep this simple and synchronous to avoid executor/FS edge cases.
-        if "pytest" in sys.modules or os.getenv("YA_WAMF_TESTING") == "1":
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(payload, encoding="utf-8")
-            return
-
         def _write_atomic() -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(path.suffix + ".tmp")

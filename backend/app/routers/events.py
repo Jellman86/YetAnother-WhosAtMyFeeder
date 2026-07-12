@@ -4,7 +4,6 @@ import unicodedata
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta
-from io import BytesIO
 from pathlib import Path
 from pydantic import BaseModel, Field
 import structlog
@@ -41,6 +40,37 @@ from app.utils.canonical_species import (
 )
 
 router = APIRouter()
+
+
+def decode_image_bytes(contents: bytes) -> Image.Image:
+    """Fully decode image bytes outside the async event loop."""
+    from io import BytesIO
+
+    image = Image.open(BytesIO(contents))
+    image.load()
+    return image
+
+
+def _write_validated_temp_clip(contents: bytes) -> tuple[str, bool]:
+    """Write and decode-check a temporary clip outside the async event loop."""
+    import tempfile
+    import cv2
+
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        tmp.write(contents)
+        path = tmp.name
+    cap = cv2.VideoCapture(path)
+    try:
+        valid = cap.isOpened() and cap.read()[0]
+    finally:
+        cap.release()
+    if not valid:
+        Path(path).unlink(missing_ok=True)
+    return path, valid
+
+
+def _unlink_path(path: str) -> None:
+    Path(path).unlink(missing_ok=True)
 
 
 class DeleteEventResponse(BaseModel):
@@ -1326,7 +1356,7 @@ async def reclassify_event(
                     event_id, crop=True, quality=95
                 )
                 if snapshot_data_preflight:
-                    image_preflight = Image.open(BytesIO(snapshot_data_preflight))
+                    image_preflight = await asyncio.to_thread(decode_image_bytes, snapshot_data_preflight)
                     preflight_results = await classifier.classify_async(
                         image_preflight,
                         camera_name=detection.camera_name,
@@ -1363,9 +1393,8 @@ async def reclassify_event(
 
             if effective_strategy == "video":
                 await broadcast_video_status("processing", None)
-                # Fetch clip - check cache first
-                import os
 
+                # Fetch clip - check cache first
                 async def _load_reclassification_clip(
                     *,
                     allow_recording_cache: bool,
@@ -1437,34 +1466,16 @@ async def reclassify_event(
                         effective_strategy = "snapshot"
                     else:
                         # Save to temp file for OpenCV
-                        import tempfile
-                        import cv2
-
-                        def _clip_decodes(path: str) -> bool:
-                            cap = cv2.VideoCapture(path)
-                            if not cap.isOpened():
-                                cap.release()
-                                return False
-                            ok, _frame = cap.read()
-                            cap.release()
-                            return ok
-
-                        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-                            tmp.write(clip_data)
-                            tmp_path = tmp.name
-
-                        valid_clip = _clip_decodes(tmp_path)
+                        tmp_path, valid_clip = await asyncio.to_thread(_write_validated_temp_clip, clip_data)
                         if not valid_clip:
-                            if os.path.exists(tmp_path):
-                                os.remove(tmp_path)
                             log.warning(
                                 "Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source
                             )
                             await broadcast_video_status("failed", "clip_decode_failed")
                             if clip_source in {"recording_cache", "cache"}:
-                                if cached_source_path and os.path.exists(cached_source_path):
+                                if cached_source_path:
                                     try:
-                                        os.remove(cached_source_path)
+                                        await asyncio.to_thread(_unlink_path, cached_source_path)
                                     except OSError:
                                         pass
                                 (
@@ -1480,12 +1491,9 @@ async def reclassify_event(
                                 if clip_data and (
                                     clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]
                                 ):
-                                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-                                        tmp.write(clip_data)
-                                        tmp_path = tmp.name
-                                    valid_clip = _clip_decodes(tmp_path)
-                                    if not valid_clip and os.path.exists(tmp_path):
-                                        os.remove(tmp_path)
+                                    tmp_path, valid_clip = await asyncio.to_thread(
+                                        _write_validated_temp_clip, clip_data
+                                    )
                                 else:
                                     valid_clip = False
                             if not valid_clip:
@@ -1553,8 +1561,7 @@ async def reclassify_event(
                                 # Broadcast completion
                                 await broadcast_reclassification_completed(results)
                             finally:
-                                if os.path.exists(tmp_path):
-                                    os.remove(tmp_path)
+                                await asyncio.to_thread(_unlink_path, tmp_path)
 
                         if not results:
                             log.warning(
@@ -1626,7 +1633,7 @@ async def reclassify_event(
                         status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
                     )
 
-                image = Image.open(BytesIO(snapshot_data))
+                image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
                 results = await classifier.classify_async(
                     image,
                     camera_name=detection.camera_name,
@@ -1886,7 +1893,7 @@ async def classify_wildlife(event_id: str, request: Request, auth: AuthContext =
             )
 
         # Classify with wildlife model
-        image = Image.open(BytesIO(snapshot_data))
+        image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
         classifier = get_classifier()
         results = await classifier.classify_wildlife_async(
             image,

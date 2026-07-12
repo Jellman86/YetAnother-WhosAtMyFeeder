@@ -1,4 +1,5 @@
 import errno
+import asyncio
 import hashlib
 import json
 import os
@@ -14,6 +15,13 @@ from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledMo
 from app.config import settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
 from app.services.bird_model_region_resolver import resolve_bird_model_region
+
+
+def _directory_entries(path: str) -> list[tuple[str, str]]:
+    """Return child directories without leaking synchronous DirEntry calls into async code."""
+    with os.scandir(path) as entries:
+        return [(entry.name, entry.path) for entry in entries if entry.is_dir()]
+
 
 log = structlog.get_logger()
 
@@ -1318,8 +1326,11 @@ class ModelManager:
 
     async def list_installed_models(self) -> List[InstalledModel]:
         """List models currently present in the models directory or bundled assets."""
-        installed = []
         available = await self.list_available_models()
+        return await asyncio.to_thread(self._list_installed_models_sync, available)
+
+    def _list_installed_models_sync(self, available: List[ModelMetadata]) -> List[InstalledModel]:
+        installed: List[InstalledModel] = []
         available_map = {m.id: m for m in available}
 
         # Paths to check
@@ -1765,7 +1776,7 @@ class ModelManager:
                 progress.status = "error"
                 progress.error = str(e)
                 self._update_download_status(model_id, progress)
-            shutil.rmtree(staged_dir, ignore_errors=True)
+            await asyncio.to_thread(shutil.rmtree, staged_dir, ignore_errors=True)
             return False
 
     async def _fetch_and_write_model_config(
@@ -1783,7 +1794,7 @@ class ModelManager:
                     parsed = json.loads(resp.content.decode("utf-8"))
                     if not isinstance(parsed, dict):
                         raise ValueError("model_config.json response was not a JSON object")
-                    self._write_model_config_payload(model_dir, parsed)
+                    await asyncio.to_thread(self._write_model_config_payload, model_dir, parsed)
                     log.info("Model config fetched and written", model_dir=model_dir)
                     return
             except Exception as exc:
@@ -1793,7 +1804,9 @@ class ModelManager:
                     url=model_config_url,
                     error=str(exc),
                 )
-        self._write_model_config_payload(model_dir, self._build_model_config_payload(model_meta))
+        await asyncio.to_thread(
+            self._write_model_config_payload, model_dir, self._build_model_config_payload(model_meta)
+        )
         log.info("Model config synthesized from registry", model_dir=model_dir)
 
     async def ensure_installed_model_configs(self) -> None:
@@ -1804,35 +1817,42 @@ class ModelManager:
         are fetched from model_config_url or synthesized from the in-code
         registry as a fallback.
         """
-        if not os.path.isdir(MODELS_DIR):
+        if not await asyncio.to_thread(os.path.isdir, MODELS_DIR):
             return
-        for entry in os.scandir(MODELS_DIR):
-            if not entry.is_dir():
-                continue
-            model_meta = self._get_registry_model_meta(entry.name)
+        entries = await asyncio.to_thread(_directory_entries, MODELS_DIR)
+        for entry_name, entry_path in entries:
+            model_meta = self._get_registry_model_meta(entry_name)
             if not model_meta:
                 continue  # Not in registry (backup dirs, active_model.json, etc.)
             if self._is_family_model(model_meta):
                 variants = model_meta.get("region_variants") or {}
                 for region in variants:
-                    variant_dir = os.path.join(entry.path, region)
-                    if not os.path.isdir(variant_dir):
+                    variant_dir = os.path.join(entry_path, region)
+                    if not await asyncio.to_thread(os.path.isdir, variant_dir):
                         continue
                     # Only act on variants that have the model weights on disk
                     runtime = str((variants[region] or {}).get("runtime") or model_meta.get("runtime") or "tflite")
-                    if not os.path.exists(os.path.join(variant_dir, self._model_filename_for_runtime(runtime))):
+                    if not await asyncio.to_thread(
+                        os.path.exists, os.path.join(variant_dir, self._model_filename_for_runtime(runtime))
+                    ):
                         continue
-                    if not os.path.exists(os.path.join(variant_dir, "model_config.json")):
+                    if not await asyncio.to_thread(os.path.exists, os.path.join(variant_dir, "model_config.json")):
                         merged = self._merge_family_variant_meta(model_meta, region=region)
                         await self._fetch_and_write_model_config(merged, variant_dir)
             else:
                 runtime = str(model_meta.get("runtime") or "tflite")
-                if not os.path.exists(os.path.join(entry.path, self._model_filename_for_runtime(runtime))):
+                if not await asyncio.to_thread(
+                    os.path.exists, os.path.join(entry_path, self._model_filename_for_runtime(runtime))
+                ):
                     continue
-                if not os.path.exists(os.path.join(entry.path, "model_config.json")):
-                    await self._fetch_and_write_model_config(model_meta, entry.path)
+                if not await asyncio.to_thread(os.path.exists, os.path.join(entry_path, "model_config.json")):
+                    await self._fetch_and_write_model_config(model_meta, entry_path)
 
     async def activate_model(self, model_id: str) -> bool:
+        """Set a model active without blocking the async event loop on filesystem checks."""
+        return await asyncio.to_thread(self._activate_model_sync, model_id)
+
+    def _activate_model_sync(self, model_id: str) -> bool:
         """Set a model as active."""
         # 1. Check if it's a directory-based model in persistent storage
         target_dir = os.path.join(MODELS_DIR, model_id)

@@ -14,6 +14,7 @@ from app.config import settings
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.utils.image_io import decode_image_bytes
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
 
@@ -250,19 +251,18 @@ async def test_bird_classifier(
     image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
 ) -> dict[str, object]:
     """Test bird classifier with an uploaded image. Owner only."""
-    from PIL import Image
-    import io
-
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
         if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
             results = await classifier_service.classify_async_background(
                 pil_image,
                 input_context={"is_cropped": False},
             )
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = await asyncio.to_thread(
+                classifier_service.classify, pil_image, input_context={"is_cropped": False}
+            )
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception as e:
@@ -283,13 +283,11 @@ async def classify_image(
     and model metadata. Useful for validating model accuracy and pipeline health.
     Owner only.
     """
-    import io
     import time as _time
-    from PIL import Image
 
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=True)
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
@@ -303,7 +301,9 @@ async def classify_image(
         if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
             results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = await asyncio.to_thread(
+                classifier_service.classify, pil_image, input_context={"is_cropped": False}
+            )
     except Exception as e:
         import traceback
 
@@ -332,19 +332,17 @@ async def probe_bird_classifier_runtime(
     auth: AuthContext = Depends(require_owner),
 ) -> dict[str, JsonValue]:
     """Run one explicit OpenVINO bird-model probe and return runtime diagnostics. Owner only."""
-    from PIL import Image
-    import io
-
     if image is None and not synthetic_image:
         raise HTTPException(status_code=400, detail="Provide an image upload or set synthetic_image=true")
 
     pil_image = None
     if image is not None:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
 
     try:
-        return classifier_service.probe_bird_runtime(
+        return await asyncio.to_thread(
+            classifier_service.probe_bird_runtime,
             device=device,
             image=pil_image,
             synthetic_image=synthetic_image,
@@ -419,14 +417,13 @@ async def test_wildlife_classifier(
     image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
 ) -> dict[str, object]:
     """Test wildlife classifier with an uploaded image. Owner only."""
-    from PIL import Image
-    import io
-
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
 
-        results = classifier_service.classify_wildlife(pil_image, input_context={"is_cropped": False})
+        results = await asyncio.to_thread(
+            classifier_service.classify_wildlife, pil_image, input_context={"is_cropped": False}
+        )
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception as e:

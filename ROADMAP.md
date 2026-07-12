@@ -159,6 +159,9 @@ Completed review tranches:
   are owned by focused repositories.
 - ✅ **Classifier download I/O** — model-directory inspection, archive extraction, asset writes,
   and synchronous model reloads are dispatched off the async request loop.
+- ✅ **Async blocking-I/O review** — database migration/backup work, uploaded and pipeline image
+  decoding, video temp-file handling, media-cache cleanup, model-evaluation artifacts, model
+  discovery/activation, and AI recording reads now run through async-native APIs or worker threads.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

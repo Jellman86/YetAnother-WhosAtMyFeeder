@@ -5,10 +5,10 @@ import os
 import structlog
 from collections import Counter, deque
 from datetime import datetime, timezone
-from io import BytesIO
-from PIL import Image
 from typing import Optional, Dict, Any, Tuple
 from types import SimpleNamespace
+from io import BytesIO
+from PIL import Image
 
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
@@ -38,6 +38,14 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
+
+
+def decode_image_bytes(contents: bytes) -> Image.Image:
+    image = Image.open(BytesIO(contents))
+    image.load()
+    return image
+
+
 FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
 EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60")))
 EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6")))
@@ -938,7 +946,7 @@ class EventProcessor:
                 )
                 return None
 
-            image = Image.open(BytesIO(snapshot_data))
+            image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,

@@ -31,6 +31,10 @@ _MIN_VALID_CLIP_BYTES = 512
 RecordingClipListener = Callable[[str], Awaitable[None]]
 
 
+def _unlink_if_present(path: Path) -> None:
+    path.unlink(missing_ok=True)
+
+
 def _clip_duration_seconds(path: Path) -> Optional[float]:
     """Return clip duration in seconds when it can be measured cheaply."""
     try:
@@ -280,8 +284,7 @@ class MediaCacheService:
             return path
         except Exception:
             try:
-                if tmp_path.exists():
-                    tmp_path.unlink()
+                await asyncio.to_thread(_unlink_if_present, tmp_path)
             except Exception:
                 pass
             raise
@@ -526,8 +529,7 @@ class MediaCacheService:
             # Clean up partial file
             try:
                 path = self._clip_path(event_id)
-                if path.exists():
-                    path.unlink()
+                await asyncio.to_thread(_unlink_if_present, path)
             except Exception:
                 pass
             return None
@@ -563,8 +565,7 @@ class MediaCacheService:
                 )
                 # Clean up the stub file so it is not treated as a real clip later
                 try:
-                    if path.exists():
-                        path.unlink()
+                    await asyncio.to_thread(_unlink_if_present, path)
                 except Exception:
                     pass
                 return None
@@ -576,8 +577,7 @@ class MediaCacheService:
             # Clean up partial file
             try:
                 path = self._clip_path(event_id)
-                if path.exists():
-                    path.unlink()
+                await asyncio.to_thread(_unlink_if_present, path)
             except Exception:
                 pass
             return None
@@ -607,8 +607,7 @@ class MediaCacheService:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
             try:
                 path = self._recording_clip_path(event_id)
-                if path.exists():
-                    path.unlink()
+                await asyncio.to_thread(_unlink_if_present, path)
                 self._invalidate_recording_clip_duration_cache(path)
             except Exception:
                 pass
@@ -636,8 +635,7 @@ class MediaCacheService:
                     min_valid_bytes=_MIN_VALID_CLIP_BYTES,
                 )
                 try:
-                    if path.exists():
-                        path.unlink()
+                    await asyncio.to_thread(_unlink_if_present, path)
                     self._invalidate_recording_clip_duration_cache(path)
                 except Exception:
                     pass
@@ -651,8 +649,7 @@ class MediaCacheService:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
             try:
                 path = self._recording_clip_path(event_id)
-                if path.exists():
-                    path.unlink()
+                await asyncio.to_thread(_unlink_if_present, path)
                 self._invalidate_recording_clip_duration_cache(path)
             except Exception:
                 pass
@@ -784,11 +781,9 @@ class MediaCacheService:
             log.error("Failed to cache preview assets", event_id=event_id, error=str(e))
             try:
                 sprite_path = self._preview_sprite_path(event_id)
-                if sprite_path.exists():
-                    sprite_path.unlink()
+                await asyncio.to_thread(_unlink_if_present, sprite_path)
                 manifest_path = self._preview_manifest_path(event_id)
-                if manifest_path.exists():
-                    manifest_path.unlink()
+                await asyncio.to_thread(_unlink_if_present, manifest_path)
             except Exception:
                 pass
             return False
@@ -863,6 +858,9 @@ class MediaCacheService:
             log.error("Failed to delete cached media", event_id=event_id, error=str(e))
 
     async def cleanup_empty_files(self) -> dict:
+        return await asyncio.to_thread(self._cleanup_empty_files_sync)
+
+    def _cleanup_empty_files_sync(self) -> dict:
         """Delete empty/corrupt cached files (0-byte files).
 
         Returns:
@@ -912,6 +910,9 @@ class MediaCacheService:
         return stats
 
     async def cleanup_old_media(self, retention_days: int, protected_event_ids: Optional[set[str]] = None) -> dict:
+        return await asyncio.to_thread(self._cleanup_old_media_sync, retention_days, protected_event_ids)
+
+    def _cleanup_old_media_sync(self, retention_days: int, protected_event_ids: Optional[set[str]] = None) -> dict:
         """Delete cached media older than retention period.
 
         Args:
@@ -924,7 +925,7 @@ class MediaCacheService:
         protected_ids = protected_event_ids or set()
 
         # Always clean up empty/corrupt files first
-        empty_stats = await self.cleanup_empty_files()
+        empty_stats = self._cleanup_empty_files_sync()
 
         if retention_days <= 0:
             return {
@@ -992,6 +993,9 @@ class MediaCacheService:
         return stats
 
     async def cleanup_orphaned_media(self, valid_event_ids: set[str]) -> dict:
+        return await asyncio.to_thread(self._cleanup_orphaned_media_sync, valid_event_ids)
+
+    def _cleanup_orphaned_media_sync(self, valid_event_ids: set[str]) -> dict:
         """Delete cached media for events that no longer exist in DB.
 
         Args:
@@ -1044,6 +1048,9 @@ class MediaCacheService:
         return stats
 
     async def clear_all(self) -> dict:
+        return await asyncio.to_thread(self._clear_all_sync)
+
+    def _clear_all_sync(self) -> dict:
         """Delete ALL cached media files."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
 

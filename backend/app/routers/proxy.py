@@ -1081,7 +1081,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
         finally:
             if temp_clip is not None:
                 try:
-                    temp_clip.unlink(missing_ok=True)
+                    await asyncio.to_thread(temp_clip.unlink, missing_ok=True)
                 except Exception:
                     pass
 
