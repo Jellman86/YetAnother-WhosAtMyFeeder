@@ -18,6 +18,10 @@ export interface components {
     provider: string;
     total_tokens: number;
 };
+    AIUsageClearResponse: {
+    deleted_count: number;
+    status: string;
+};
     AIUsageDaily: {
     calls: number;
     day: string;
@@ -264,6 +268,17 @@ export interface components {
     date_range?: string;
     end_date?: string | null;
     start_date?: string | null;
+};
+    BackfillResetCacheStats: {
+    bytes_freed: number;
+    clips_deleted: number;
+    snapshots_deleted: number;
+};
+    BackfillResetResponse: {
+    cache_stats: components['schemas']['BackfillResetCacheStats'];
+    deleted_count: number;
+    message: string;
+    status: string;
 };
     BackfillResponse: {
     error_reasons?: Record<string, number>;
@@ -1390,6 +1405,10 @@ export interface components {
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
 };
+    SpeciesCacheClearResponse: {
+    species: string;
+    status: string;
+};
     SpeciesCountItem: {
     avg_confidence?: number | null;
     camera_count?: number | null;
@@ -1532,6 +1551,16 @@ export interface components {
 };
     UpdateDetectionRequest: {
     display_name: string;
+};
+    UpdateStatusResponse: {
+    channel: string;
+    checked_at?: string | null;
+    current_version: string;
+    enabled: boolean;
+    error?: string | null;
+    latest_version?: string | null;
+    release_url: string;
+    update_available: boolean;
 };
     ValidationError: {
     ctx?: Record<string, unknown>;
@@ -1798,7 +1827,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['BackfillResetResponse'];
     };
   };
   "/api/backfill/status": {
@@ -1809,7 +1838,7 @@ export interface paths {
     kind?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['BackfillJobStatus'] | null;
     };
   };
   "/api/backfill/status/{job_id}": {
@@ -2872,7 +2901,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, Record<string, components['schemas']['JsonValue']>>;
     };
   };
   "/api/models/installed": {
@@ -3024,7 +3053,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SpeciesCacheClearResponse'];
     };
   };
   "/api/species/{species_name}/info": {
@@ -3090,7 +3119,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AIUsageClearResponse'];
     };
   };
   "/api/stats/daily-summary": {
@@ -3143,7 +3172,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['UpdateStatusResponse'];
     };
   };
   "/api/version": {

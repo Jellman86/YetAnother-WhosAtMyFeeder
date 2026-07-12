@@ -67,6 +67,24 @@
         "title": "AIUsageBreakdown",
         "type": "object"
       },
+      "AIUsageClearResponse": {
+        "properties": {
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "deleted_count"
+        ],
+        "title": "AIUsageClearResponse",
+        "type": "object"
+      },
       "AIUsageDaily": {
         "properties": {
           "calls": {
@@ -1755,6 +1773,56 @@
           }
         },
         "title": "BackfillRequest",
+        "type": "object"
+      },
+      "BackfillResetCacheStats": {
+        "properties": {
+          "bytes_freed": {
+            "title": "Bytes Freed",
+            "type": "integer"
+          },
+          "clips_deleted": {
+            "title": "Clips Deleted",
+            "type": "integer"
+          },
+          "snapshots_deleted": {
+            "title": "Snapshots Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshots_deleted",
+          "clips_deleted",
+          "bytes_freed"
+        ],
+        "title": "BackfillResetCacheStats",
+        "type": "object"
+      },
+      "BackfillResetResponse": {
+        "properties": {
+          "cache_stats": {
+            "$ref": "#/components/schemas/BackfillResetCacheStats"
+          },
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "deleted_count",
+          "cache_stats"
+        ],
+        "title": "BackfillResetResponse",
         "type": "object"
       },
       "BackfillResponse": {
@@ -10707,6 +10775,24 @@
         "title": "SnapshotStatusResponse",
         "type": "object"
       },
+      "SpeciesCacheClearResponse": {
+        "properties": {
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "species"
+        ],
+        "title": "SpeciesCacheClearResponse",
+        "type": "object"
+      },
       "SpeciesCountItem": {
         "description": "One row of the species leaderboard/list with rolling-window metrics.",
         "properties": {
@@ -11702,6 +11788,72 @@
           "display_name"
         ],
         "title": "UpdateDetectionRequest",
+        "type": "object"
+      },
+      "UpdateStatusResponse": {
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "current_version": {
+            "title": "Current Version",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "release_url": {
+            "title": "Release Url",
+            "type": "string"
+          },
+          "update_available": {
+            "title": "Update Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "current_version",
+          "channel",
+          "update_available",
+          "release_url",
+          "enabled"
+        ],
+        "title": "UpdateStatusResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -13249,7 +13401,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResetResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13298,7 +13452,17 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BackfillJobStatus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Backfill Status Api Backfill Status Get"
+                }
               }
             },
             "description": "Successful Response"
@@ -18785,7 +18949,16 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "title": "Response Get Resolved Model Families Api Models Families Resolved Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -19480,7 +19653,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SpeciesCacheClearResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -19734,7 +19909,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AIUsageClearResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -20071,7 +20248,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusResponse"
+                }
               }
             },
             "description": "Successful Response"

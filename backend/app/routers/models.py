@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 from typing import List, Optional
 from app.config import settings
 from app.services.model_manager import model_manager
@@ -27,8 +27,10 @@ async def get_installed_models(auth: AuthContext = Depends(require_owner)):
     return await model_manager.list_installed_models()
 
 
-@router.get("/models/families/resolved")
-async def get_resolved_model_families(auth: AuthContext = Depends(require_owner)):
+@router.get("/models/families/resolved", response_model=dict[str, dict[str, JsonValue]])
+async def get_resolved_model_families(
+    _auth: AuthContext = Depends(require_owner),
+) -> dict[str, dict[str, JsonValue]]:
     """Resolve regional bird-model families from settings. Owner only."""
     return await model_manager.get_resolved_bird_model_families(
         country=settings.location.country,

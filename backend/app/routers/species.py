@@ -1471,8 +1471,15 @@ async def get_species_stats(
         )
 
 
-@router.delete("/species/{species_name}/cache")
-async def clear_species_cache(species_name: str, auth: AuthContext = Depends(require_owner)):
+class SpeciesCacheClearResponse(BaseModel):
+    status: str
+    species: str
+
+
+@router.delete("/species/{species_name}/cache", response_model=SpeciesCacheClearResponse)
+async def clear_species_cache(
+    species_name: str, _auth: AuthContext = Depends(require_owner)
+) -> SpeciesCacheClearResponse:
     """Clear the Wikipedia cache for a species."""
     cache_prefix = f"{species_name}:"
     for cache_key in list(_wiki_cache):
@@ -1488,7 +1495,7 @@ async def clear_species_cache(species_name: str, auth: AuthContext = Depends(req
             await db.execute("DELETE FROM species_info_cache WHERE species_name = ?", (species_name,))
         await db.commit()
     log.info("Cleared species cache", species=species_name)
-    return {"status": "cleared", "species": species_name}
+    return SpeciesCacheClearResponse(status="cleared", species=species_name)
 
 
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)

@@ -48,6 +48,19 @@ class BackfillJobStatus(BaseModel):
     finished_at: Optional[str] = None
 
 
+class BackfillResetCacheStats(BaseModel):
+    snapshots_deleted: int
+    clips_deleted: int
+    bytes_freed: int
+
+
+class BackfillResetResponse(BaseModel):
+    status: str
+    message: str
+    deleted_count: int
+    cache_stats: BackfillResetCacheStats
+
+
 _JOB_STORE: dict[str, BackfillJobStatus] = {}
 _LATEST_JOB_BY_KIND: dict[str, str] = {}
 _JOB_TASKS: dict[str, asyncio.Task] = {}
@@ -344,8 +357,8 @@ def _resolve_date_range(
     raise HTTPException(status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang))
 
 
-@router.delete("/backfill/reset")
-async def reset_database(request: Request, auth: AuthContext = Depends(require_owner)):
+@router.delete("/backfill/reset", response_model=BackfillResetResponse)
+async def reset_database(request: Request, _auth: AuthContext = Depends(require_owner)) -> BackfillResetResponse:
     """
     Reset the database: Delete ALL detections and clear media cache. Owner only.
     """
@@ -867,8 +880,10 @@ async def backfill_weather_async(
     return job
 
 
-@router.get("/backfill/status")
-async def get_backfill_status(kind: Optional[str] = None, auth: AuthContext = Depends(require_owner)):
+@router.get("/backfill/status", response_model=BackfillJobStatus | None)
+async def get_backfill_status(
+    kind: Optional[str] = None, _auth: AuthContext = Depends(require_owner)
+) -> BackfillJobStatus | None:
     """Return the latest backfill job status (optionally filtered by kind)."""
     if kind:
         job_id = _LATEST_JOB_BY_KIND.get(kind)

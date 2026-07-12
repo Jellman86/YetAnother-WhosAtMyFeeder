@@ -21,8 +21,19 @@ from app.utils.timezone import get_user_timezone
 router = APIRouter()
 
 
-@router.get("/update-status")
-async def get_update_status():
+class UpdateStatusResponse(APIModel):
+    current_version: str
+    channel: str
+    latest_version: str | None = None
+    update_available: bool
+    release_url: str
+    checked_at: str | None = None
+    enabled: bool
+    error: str | None = None
+
+
+@router.get("/update-status", response_model=UpdateStatusResponse)
+async def get_update_status() -> UpdateStatusResponse:
     """Report whether a newer YA-WAMF release is available (in-app update prompt).
 
     A notification only — YA-WAMF never updates itself; pulling a new image is left to the
@@ -38,7 +49,9 @@ async def get_update_status():
     branch = os.environ.get("APP_BRANCH", "").strip() or (
         before_plus.split("-", 1)[1] if "-" in before_plus else "stable"
     )
-    return await update_service.get_status(current_version, branch=branch, git_hash=git_hash)
+    return UpdateStatusResponse.model_validate(
+        await update_service.get_status(current_version, branch=branch, git_hash=git_hash)
+    )
 
 
 class DailySpeciesSummary(APIModel):
