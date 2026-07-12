@@ -113,7 +113,7 @@ the owner and guest surfaces (information architecture, grouping, progressive di
 empty/error states) — the "full UI refresh" half of the major-version jump.
 
 #### File-by-file code-quality review 🔬
-**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Standard codified; review not started
+**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Review started; owner debug API tranche complete
 
 ✅ The research-and-codify step is done: the code-quality standard for our stack
 (Python/FastAPI + Svelte 5/TypeScript) is codified in `CLAUDE.md` §4 and
@@ -121,6 +121,13 @@ empty/error states) — the "full UI refresh" half of the major-version jump.
 **file-by-file** review and refactor against it — self-documenting, defensive, clean, with no
 dead code, commented-out blocks, or leftover scaffolding. Sequenced lowest-risk first; every
 change is test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
+
+Completed review tranches:
+
+- ✅ **Owner debug API** — extracted database diagnostics behind a repository, added explicit
+  response models for every endpoint, made secret redaction independently testable and consistent
+  with the application-wide `***REDACTED***` contract, and moved filesystem inspection off the
+  async event loop.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

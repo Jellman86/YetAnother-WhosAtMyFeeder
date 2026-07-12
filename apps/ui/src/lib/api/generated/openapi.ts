@@ -391,6 +391,17 @@ export interface components {
     message: string;
     status: string;
 };
+    ConnectivityResponse: {
+    frigate: components['schemas']['ConnectivityResult'];
+    inaturalist: components['schemas']['ConnectivityResult'];
+    telemetry: components['schemas']['ConnectivityResult'];
+};
+    ConnectivityResult: {
+    code?: number | null;
+    error?: string | null;
+    status: "ok" | "error";
+    version?: string | null;
+};
     ConversationRequest: {
     message: string;
 };
@@ -447,6 +458,10 @@ export interface components {
     temp_avg?: number | null;
     wind_avg?: number | null;
     wind_max?: number | null;
+};
+    DatabaseStatsResponse: {
+    detections: number | string;
+    taxonomy_cache: number | string;
 };
     Detection: {
     ai_analysis?: string | null;
@@ -773,6 +788,7 @@ export interface components {
     ready?: boolean;
     reason?: string;
 };
+    JsonValue: unknown;
     LeaderboardAnalysisRequest: {
     config: Record<string, unknown>;
     config_key?: string | null;
@@ -831,6 +847,14 @@ export interface components {
     ModelActionResponse: {
     message: string;
     status: string;
+};
+    ModelFile: {
+    name: string;
+    size_bytes: number;
+};
+    ModelFilesResponse: {
+    error?: string | null;
+    files?: Array<components['schemas']['ModelFile']>;
 };
     ModelMetadata: {
     accuracy_tier: string;
@@ -1408,6 +1432,11 @@ export interface components {
     StartRunResponse: {
     run_id: string;
 };
+    SystemDebugResponse: {
+    disk_usage: Array<unknown>;
+    platform: string;
+    python: string;
+};
     TaxonomySyncStartResponse: {
     status: string;
 };
@@ -1908,7 +1937,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/debug/connectivity": {
@@ -1917,7 +1946,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ConnectivityResponse'];
     };
   };
   "/api/debug/db/stats": {
@@ -1926,7 +1955,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DatabaseStatsResponse'];
     };
   };
   "/api/debug/fs/models": {
@@ -1935,7 +1964,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ModelFilesResponse'];
     };
   };
   "/api/debug/system": {
@@ -1944,7 +1973,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SystemDebugResponse'];
     };
   };
   "/api/diagnostics/bundle": {

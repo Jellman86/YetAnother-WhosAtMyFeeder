@@ -2516,6 +2516,76 @@
         "title": "ClearFeedbackResponse",
         "type": "object"
       },
+      "ConnectivityResponse": {
+        "properties": {
+          "frigate": {
+            "$ref": "#/components/schemas/ConnectivityResult"
+          },
+          "inaturalist": {
+            "$ref": "#/components/schemas/ConnectivityResult"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/ConnectivityResult"
+          }
+        },
+        "required": [
+          "frigate",
+          "inaturalist",
+          "telemetry"
+        ],
+        "title": "ConnectivityResponse",
+        "type": "object"
+      },
+      "ConnectivityResult": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ConnectivityResult",
+        "type": "object"
+      },
       "ConversationRequest": {
         "properties": {
           "message": {
@@ -2951,6 +3021,38 @@
           "date"
         ],
         "title": "DailyWeatherSummary",
+        "type": "object"
+      },
+      "DatabaseStatsResponse": {
+        "properties": {
+          "detections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Detections"
+          },
+          "taxonomy_cache": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Taxonomy Cache"
+          }
+        },
+        "required": [
+          "detections",
+          "taxonomy_cache"
+        ],
+        "title": "DatabaseStatsResponse",
         "type": "object"
       },
       "Detection": {
@@ -5273,6 +5375,7 @@
         "title": "InstalledModel",
         "type": "object"
       },
+      "JsonValue": {},
       "LeaderboardAnalysisRequest": {
         "properties": {
           "config": {
@@ -5626,6 +5729,48 @@
           "message"
         ],
         "title": "ModelActionResponse",
+        "type": "object"
+      },
+      "ModelFile": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "size_bytes"
+        ],
+        "title": "ModelFile",
+        "type": "object"
+      },
+      "ModelFilesResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFile"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "title": "ModelFilesResponse",
         "type": "object"
       },
       "ModelMetadata": {
@@ -10898,6 +11043,42 @@
         "title": "StartRunResponse",
         "type": "object"
       },
+      "SystemDebugResponse": {
+        "properties": {
+          "disk_usage": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Disk Usage",
+            "type": "array"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "python": {
+            "title": "Python",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "python",
+          "disk_usage"
+        ],
+        "title": "SystemDebugResponse",
+        "type": "object"
+      },
       "TaxonomySyncStartResponse": {
         "properties": {
           "status": {
@@ -13576,7 +13757,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
                   "title": "Response Debug Config Api Debug Config Get",
                   "type": "object"
                 }
@@ -13610,7 +13793,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectivityResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13641,7 +13826,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13672,7 +13859,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelFilesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13703,7 +13892,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SystemDebugResponse"
+                }
               }
             },
             "description": "Successful Response"
