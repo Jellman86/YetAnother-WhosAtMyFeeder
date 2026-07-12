@@ -664,8 +664,11 @@ jobs:
     needs: [build-monolith]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     env:
+      # Only the API token is needed: wrangler infers the (single) account it belongs to.
+      # We deliberately do NOT pass CLOUDFLARE_ACCOUNT_ID — a stale/mismatched account-id
+      # secret makes the D1 API reject the request with "account not authorized" (7403)
+      # even when the token is valid, so inference from the token is the robust path.
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
