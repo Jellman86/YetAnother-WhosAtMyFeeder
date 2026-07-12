@@ -3,7 +3,6 @@
     import type { Snippet } from 'svelte';
     import CameraStatus from './CameraStatus.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
-    import UpdateIndicator from './UpdateIndicator.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
 
     type Props = {
@@ -46,7 +45,6 @@
                     </svg>
                 </button>
             {/if}
-            <UpdateIndicator />
             <CameraStatus />
             <NotificationCenter
                 onNavigate={(path) => onNavigate?.(path)}
