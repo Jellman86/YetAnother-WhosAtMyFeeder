@@ -143,6 +143,8 @@ Completed review tranches:
   constructors, instances, DOM extensions, option records, maps, layers, and dynamic-import guards.
 - ✅ **Events and health pages** — typed URL filter admission, naming inputs, operational health
   metrics, and user-facing error extraction across the Events and Health diagnostics surfaces.
+- ✅ **Species analytics page** — typed leaderboard rows, weather buckets, comparison series, chart
+  axes/tooltips/options, stable serialization, chart capture, and analysis errors end to end.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

@@ -37,6 +37,8 @@
     import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { StaleTracker } from '../utils/stale_tracker';
+    import type { ApexOptions } from 'apexcharts';
+    import type { TemperatureUnit } from '../utils/temperature';
 
     type LeaderboardRow = {
         species: string;
@@ -136,7 +138,7 @@
         const preferSci = settingsStore.scientificNamePrimary;
 
         return leaderboardSpecies().map(item => {
-            const naming = getBirdNames(item as any, showCommon, preferSci);
+            const naming = getBirdNames(item, showCommon, preferSci);
             return {
                 ...item,
                 displayName: naming.primary,
@@ -199,7 +201,7 @@
         const usedAudioKeys = new Set<string>();
 
         const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
-            const naming = getBirdNames(item as any, showCommon, preferSci);
+            const naming = getBirdNames(item, showCommon, preferSci);
             const heard = heardForRow(item, map);
             if (heard) {
                 if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);
@@ -615,9 +617,10 @@
         return value;
     }
 
-    function weatherValue(bucketStart: string, key: string): number | null {
-        const w: any = weatherByBucket().get(bucketStart);
-        const val = w?.[key];
+    type TimelineWeather = NonNullable<DetectionsTimelineSpanResponse['weather']>[number];
+    function weatherValue(bucketStart: string, key: keyof TimelineWeather): number | null {
+        const weather = weatherByBucket().get(bucketStart);
+        const val = weather?.[key];
         if (val === undefined || val === null || Number.isNaN(val)) return null;
         return Number(val);
     }
@@ -668,7 +671,7 @@
         ].filter(Boolean).join(' • ');
     });
 
-    let chartOptions = $derived(() => {
+    let chartOptions = $derived((): ApexOptions => {
         const points = timelinePoints();
         const indexedPoints = points
             .map((point, idx) => {
@@ -684,7 +687,12 @@
                 } => !!entry
             );
 
-        const series: any[] = [];
+        const series: Array<{
+            name: string;
+            type: 'bar' | 'area' | 'line';
+            color: string;
+            data: Array<{ x: number; y: number | null }>;
+        }> = [];
         const isBlueTit = themeStore.colorTheme === 'bluetit';
         const primaryColor = isBlueTit ? '#2563eb' : '#16a34a';
         const smoothColor = isBlueTit ? '#1d4ed8' : '#0f766e';
@@ -721,9 +729,14 @@
                 const displayNames = new Map(processedSpecies().map((item) => [item.species, item.displayName] as const));
                 const compareEntries = timeline.compare_series;
                 const compareMaps = compareEntries.map((entry) =>
-                    new Map((entry.points || []).map((p: any) => [p.bucket_start, Math.max(0, Number(p.count ?? 0))] as const))
+                    new Map(
+                        (entry.points || []).map((point) => [
+                            point.bucket_start,
+                            Math.max(0, Number(point.count ?? 0))
+                        ] as const)
+                    )
                 );
-                compareEntries.forEach((entry: any, idx: number) => {
+                compareEntries.forEach((entry, idx) => {
                     series.push({
                         name: displayNames.get(entry.species) ?? entry.species,
                         type: 'bar',
@@ -799,7 +812,17 @@
         const xLabelMap = new Map(indexedPoints.map(({ point, x }) => [x, point.label] as const));
 
         const tickAmount = indexedPoints.length > 1 ? Math.min(6, indexedPoints.length) : undefined;
-        const yAxes: any[] = [
+        const yAxes: Array<{
+            min?: number;
+            seriesName?: string[];
+            opposite?: boolean;
+            tickAmount?: number;
+            labels: {
+                maxWidth?: number;
+                style: { fontSize: string; colors: string };
+                formatter: (value: number) => string;
+            };
+        }> = [
             {
                 min: 0,
                 labels: {
@@ -817,7 +840,7 @@
                 labels: {
                     maxWidth: 52,
                     style: { fontSize: '10px', colors: '#f59e0b' },
-                    formatter: (value: number) => formatTemperature(value, temperatureUnit as any)
+                    formatter: (value: number) => formatTemperature(value, temperatureUnit as TemperatureUnit)
                 }
             });
         }
@@ -843,7 +866,7 @@
                 width: '100%',
                 toolbar: { show: false },
                 zoom: { enabled: false },
-                animations: { enabled: true, easing: 'easeinout', speed: 500 }
+                animations: { enabled: true, speed: 500 }
             },
             colors: seriesColors,
             series,
@@ -898,9 +921,15 @@
                     formatter: (val: number) => xLabelMap.get(val) ?? ''
                 },
                 y: {
-                    formatter: (value: number, opts: any) => {
-                        const seriesName = opts?.w?.globals?.seriesNames?.[opts.seriesIndex] ?? '';
-                        if (seriesName === temperatureName) return formatTemperature(value, temperatureUnit as any);
+                    formatter: (
+                        value: number,
+                        opts?: { seriesIndex?: number; w?: { globals?: { seriesNames?: string[] } } }
+                    ) => {
+                        const seriesIndex = opts?.seriesIndex ?? -1;
+                        const seriesName = opts?.w?.globals?.seriesNames?.[seriesIndex] ?? '';
+                        if (seriesName === temperatureName) {
+                            return formatTemperature(value, temperatureUnit as TemperatureUnit);
+                        }
                         if (seriesName === windName) return `${Math.round(value)} ${windUnitLabel}`;
                         if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value);
                         return `${Math.round(value)} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`;
@@ -963,7 +992,7 @@
         return { labels, series: values };
     });
     let donutHasData = $derived(() => donutSeries().series.some((v) => v > 0));
-    let donutChartOptions = $derived(() => {
+    let donutChartOptions = $derived((): ApexOptions => {
         const { labels, series } = donutSeries();
         const donutPalette = themeStore.colorTheme === 'bluetit'
             ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8']
@@ -974,7 +1003,7 @@
                 height: 260,
                 width: '100%',
                 toolbar: { show: false },
-                animations: { enabled: true, easing: 'easeinout', speed: 450 }
+                animations: { enabled: true, speed: 450 }
             },
             series,
             labels,
@@ -1022,7 +1051,7 @@
                 position: 'bottom',
                 fontSize: '10px',
                 labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
-                markers: { width: 8, height: 8, radius: 2 }
+                markers: { size: 8 }
             },
             tooltip: {
                 theme: isDark() ? 'dark' : 'light',
@@ -1052,7 +1081,7 @@
         }))
     })));
     let heatmapHasData = $derived(() => (activityHeatmap?.total_count ?? 0) > 0);
-    let heatmapChartOptions = $derived(() => {
+    let heatmapChartOptions = $derived((): ApexOptions => {
         const maxCellCount = Math.max(1, activityHeatmap?.max_cell_count ?? 0);
         const midLow = Math.max(1, Math.ceil(maxCellCount * 0.2));
         const mid = Math.max(midLow + 1, Math.ceil(maxCellCount * 0.45));
@@ -1075,7 +1104,7 @@
                 height: 260,
                 width: '100%',
                 toolbar: { show: false },
-                animations: { enabled: true, easing: 'easeinout', speed: 350 }
+                animations: { enabled: true, speed: 350 }
             },
             series: heatmapSeries(),
             dataLabels: { enabled: false },
@@ -1109,15 +1138,16 @@
         };
     });
 
-    function stableStringify(value: any): string {
+    function stableStringify(value: unknown): string {
         if (value === null || typeof value !== 'object') {
             return JSON.stringify(value);
         }
         if (Array.isArray(value)) {
             return `[${value.map(stableStringify).join(',')}]`;
         }
-        const keys = Object.keys(value).sort();
-        return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+        const record = value as Record<string, unknown>;
+        const keys = Object.keys(record).sort();
+        return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`;
     }
 
     async function computeConfigKey(config: Record<string, unknown>): Promise<string> {
@@ -1209,7 +1239,9 @@
             await sleep(200);
             const key = await computeConfigKey(config);
             leaderboardConfigKey = key;
-            const chartInstance = (chartEl as any).__apexchart;
+            const chartInstance = (chartEl as HTMLDivElement & {
+                __apexchart?: { dataURI(): Promise<{ imgURI?: string }> };
+            }).__apexchart;
             const dataUri = await chartInstance?.dataURI();
             const imageBase64 = dataUri?.imgURI ?? null;
             if (!imageBase64) {
@@ -1223,8 +1255,8 @@
             });
             leaderboardAnalysis = result.analysis;
             leaderboardAnalysisTimestamp = result.analysis_timestamp;
-        } catch (e: any) {
-            leaderboardAnalysisError = e?.message || 'Failed to analyze chart';
+        } catch (e) {
+            leaderboardAnalysisError = getErrorMessage(e) || 'Failed to analyze chart';
         } finally {
             leaderboardAnalysisSubtitle = priorSubtitle;
             await tick();
@@ -1585,7 +1617,7 @@
                 <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
-                            <div use:chart={chartOptions() as any} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 380 : 260}px"></div>
+                            <div use:chart={chartOptions()} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 380 : 260}px"></div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
@@ -1747,7 +1779,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div use:chart={donutChartOptions() as any} class="w-full h-[260px]"></div>
+                                <div use:chart={donutChartOptions()} class="w-full h-[260px]"></div>
                             {/key}
                         {:else}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
@@ -1807,7 +1839,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if activityHeatmap && heatmapHasData()}
                             {#key `${span}-${activityHeatmap.total_count}-${activityHeatmap.max_cell_count}-${isDark()}`}
-                                <div use:chart={heatmapChartOptions() as any} class="w-full h-[260px]"></div>
+                                <div use:chart={heatmapChartOptions()} class="w-full h-[260px]"></div>
                             {/key}
                         {:else if activityHeatmap}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
