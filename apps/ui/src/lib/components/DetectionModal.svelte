@@ -48,6 +48,7 @@
     import { onDestroy, onMount, untrack } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
+    import { getErrorMessage } from '../utils/error-handling';
     import { getDetectionClassificationSource } from '../detection-classification-source';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
@@ -754,8 +755,8 @@
         speciesInfoError = null;
         try {
             speciesInfo = await fetchSpeciesInfo(speciesName);
-        } catch (e: any) {
-            speciesInfoError = e?.message || 'Failed to load species info';
+        } catch (e) {
+            speciesInfoError = getErrorMessage(e) || 'Failed to load species info';
         } finally {
             speciesInfoLoading = false;
         }
@@ -767,13 +768,13 @@
         try {
             const res = await fetchEbirdNearby(speciesName, scientificName);
             if (res.status === 'error') {
-                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearbyError = res.message || 'Failed to load eBird sightings';
                 ebirdNearby = null;
             } else {
                 ebirdNearby = res;
             }
-        } catch (e: any) {
-            ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
+        } catch (e) {
+            ebirdNearbyError = getErrorMessage(e) || 'Failed to load eBird sightings';
         } finally {
             ebirdNearbyLoading = false;
         }
@@ -785,13 +786,13 @@
         try {
             const res = await fetchEbirdNotable();
             if (res.status === 'error') {
-                ebirdNotableError = (res as any).message || 'Failed to load eBird notable sightings';
+                ebirdNotableError = res.message || 'Failed to load eBird notable sightings';
                 ebirdNotable = null;
             } else {
                 ebirdNotable = res;
             }
-        } catch (e: any) {
-            ebirdNotableError = e?.message || 'Failed to load eBird notable sightings';
+        } catch (e) {
+            ebirdNotableError = getErrorMessage(e) || 'Failed to load eBird notable sightings';
         } finally {
             ebirdNotableLoading = false;
         }
@@ -803,8 +804,8 @@
         conversationError = null;
         try {
             conversationTurns = await fetchDetectionConversation(detection.frigate_event);
-        } catch (e: any) {
-            conversationError = e?.message || $_('detection.ai.conversation_error');
+        } catch (e) {
+            conversationError = getErrorMessage(e) || $_('detection.ai.conversation_error');
         } finally {
             conversationLoading = false;
         }
@@ -818,8 +819,8 @@
         try {
             conversationTurns = await sendDetectionConversationMessage(detection.frigate_event, message);
             conversationInput = '';
-        } catch (e: any) {
-            conversationError = e?.message || $_('detection.ai.conversation_error');
+        } catch (e) {
+            conversationError = getErrorMessage(e) || $_('detection.ai.conversation_error');
         } finally {
             conversationSending = false;
         }
@@ -876,8 +877,8 @@
             inatLat = inatDraft.latitude ?? defaults?.inaturalist_default_latitude ?? defaults?.location_latitude ?? null;
             inatLon = inatDraft.longitude ?? defaults?.inaturalist_default_longitude ?? defaults?.location_longitude ?? null;
             inatPlace = inatDraft.place_guess ?? defaults?.inaturalist_default_place_guess ?? '';
-        } catch (e: any) {
-            inatError = e?.message || 'Failed to load iNaturalist draft';
+        } catch (e) {
+            inatError = getErrorMessage(e) || 'Failed to load iNaturalist draft';
         } finally {
             inatLoading = false;
         }
@@ -900,15 +901,15 @@
             inatLat = inatDraft.latitude ?? null;
             inatLon = inatDraft.longitude ?? null;
             inatPlace = inatDraft.place_guess ?? '';
-        } catch (e: any) {
-            inatError = e?.message || 'Failed to submit to iNaturalist';
+        } catch (e) {
+            inatError = getErrorMessage(e) || 'Failed to submit to iNaturalist';
         } finally {
             inatSubmitting = false;
         }
     }
 
     // Handle search input
-    let searchTimeout: any;
+    let searchTimeout: ReturnType<typeof setTimeout> | undefined;
     $effect(() => {
         const query = tagSearchQuery.trim();
         if (query.length === 0) {
@@ -951,7 +952,7 @@
     onDestroy(() => {
         if (searchTimeout) {
             clearTimeout(searchTimeout);
-            searchTimeout = null;
+            searchTimeout = undefined;
         }
     });
 
@@ -1046,8 +1047,8 @@
                 ai_analysis_timestamp: result.analysis_timestamp,
             });
             await loadConversation();
-        } catch (e: any) {
-            aiAnalysis = $_('detection.ai.error', { values: { message: e.message || 'Analysis failed' } });
+        } catch (e) {
+            aiAnalysis = $_('detection.ai.error', { values: { message: getErrorMessage(e) || 'Analysis failed' } });
         } finally {
             analyzingAI = false;
         }
@@ -1091,8 +1092,8 @@
             toastStore.success(
                 `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
             );
-        } catch (e: any) {
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
+        } catch (e) {
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
             pendingManualTagId = null;
             updatingTag = false;
@@ -1111,8 +1112,8 @@
             }
             await onHideSuccess?.(detection.frigate_event, detection.detection_time, result.is_hidden);
             onClose();
-        } catch (e: any) {
-            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
+        } catch (e) {
+            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1127,8 +1128,8 @@
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
             await onDeleteSuccess?.(detection.frigate_event, detection.detection_time);
             onClose();
-        } catch (e: any) {
-            alert($_('notifications.reclassify_failed', { values: { message: e.message } }));
+        } catch (e) {
+            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1148,8 +1149,8 @@
                 detectionsStore.updateDetection({ ...detection, is_favorite: true });
                 toastStore.success($_('detection.favorite_added', { default: 'Added to favorites' }));
             }
-        } catch (e: any) {
-            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
             favoritePending = false;
         }
@@ -1279,8 +1280,8 @@
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
             await refreshSnapshotControls(detection.frigate_event);
-        } catch (e: any) {
-            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
             snapshotApplyPending = false;
         }
@@ -1303,8 +1304,8 @@
             } else {
                 toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
             }
-        } catch (e: any) {
-            toastStore.error(e?.message || $_('common.error', { default: 'Action failed' }));
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
             snapshotGeneratePending = false;
         }

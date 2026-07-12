@@ -28,6 +28,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { toAppPath } from '../app/url-base';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
+    import { getErrorMessage } from '../utils/error-handling';
 
     interface Props {
         speciesName: string;
@@ -168,7 +169,7 @@
                 scientific_name: stats.scientific_name,
                 common_name: stats.common_name
             };
-            return getBirdNames(item as any, showCommon, preferSci);
+            return getBirdNames(item, showCommon, preferSci);
         }
         if (info) {
             const item = {
@@ -176,7 +177,7 @@
                 scientific_name: info.scientific_name,
                 common_name: null // info doesn't always have common name separate
             };
-            return getBirdNames(item as any, showCommon, preferSci);
+            return getBirdNames(item, showCommon, preferSci);
         }
         return { primary: speciesName, secondary: null };
     });
@@ -222,13 +223,13 @@
         try {
             const res = await fetchEbirdNearby(name, sciName);
             if (res.status === 'error') {
-                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearbyError = res.message || 'Failed to load eBird sightings';
                 ebirdNearby = null;
             } else {
                 ebirdNearby = res;
             }
-        } catch (e: any) {
-            ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
+        } catch (e) {
+            ebirdNearbyError = getErrorMessage(e) || 'Failed to load eBird sightings';
         } finally {
             ebirdNearbyLoading = false;
         }
@@ -260,8 +261,8 @@
                 rangeMap = null;
                 rangeMapError = res.message || 'Range map unavailable';
             }
-        } catch (e: any) {
-            rangeMapError = e?.message || 'Range map unavailable';
+        } catch (e) {
+            rangeMapError = getErrorMessage(e) || 'Range map unavailable';
             rangeMap = null;
         } finally {
             rangeMapLoading = false;
@@ -301,10 +302,10 @@
                 if (seasonalityEnabled && taxonId) {
                     void loadSeasonality(taxonId);
                 }
-            } catch (e: any) {
+            } catch (e) {
                 console.error('Failed to load species details', e);
                 if (!isUnknownBird) {
-                    error = e.message || 'Failed to load species details';
+                    error = getErrorMessage(e) || 'Failed to load species details';
                 }
             } finally {
                 loading = false;
@@ -358,10 +359,10 @@
             setTimeout(() => {
                 onclose();
             }, 2000);
-        } catch (e: any) {
+        } catch (e) {
             detectionsStore.dismissReclassification(eventId);
             console.error('Failed to reclassify', e);
-            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
+            toastStore.error(`Failed to reclassify: ${getErrorMessage(e)}`);
         } finally {
             reclassifying = false;
         }

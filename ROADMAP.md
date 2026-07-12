@@ -145,6 +145,9 @@ Completed review tranches:
   metrics, and user-facing error extraction across the Events and Health diagnostics surfaces.
 - ✅ **Species analytics page** — typed leaderboard rows, weather buckets, comparison series, chart
   axes/tooltips/options, stable serialization, chart capture, and analysis errors end to end.
+- ✅ **Audio and detection detail surfaces** — typed Audio History chart options and removed `any`
+  from detection/species modals through shared naming inputs, API response fields, timers, and safe
+  unknown-error extraction.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

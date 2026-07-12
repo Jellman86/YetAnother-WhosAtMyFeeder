@@ -19,6 +19,7 @@
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import type { ApexOptions } from 'apexcharts';
 
     const PAGE_SIZE = 100;
 
@@ -184,11 +185,11 @@
     // Teal palette for audio-derived charts, matching the RecentAudio widget.
     const audioPalette = ['#14b8a6', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#94a3b8'];
 
-    let dailyChartOptions = $derived(() => {
+    let dailyChartOptions = $derived((): ApexOptions => {
         const points = summary?.daily_counts ?? [];
         const data = points.map((p) => ({ x: new Date(`${p.date}T00:00:00Z`).getTime(), y: p.count }));
         return {
-            chart: { type: 'area', height: 240, toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 450 }, fontFamily: 'inherit' },
+            chart: { type: 'area', height: 240, toolbar: { show: false }, animations: { enabled: true, speed: 450 }, fontFamily: 'inherit' },
             series: [{ name: $_('audio.chart.heard', { default: 'Heard' }), type: 'area', data }],
             colors: ['#14b8a6'],
             dataLabels: { enabled: false },
@@ -201,7 +202,7 @@
         };
     });
 
-    let hourlyChartOptions = $derived(() => {
+    let hourlyChartOptions = $derived((): ApexOptions => {
         const counts = new Array(24).fill(0);
         for (const item of summary?.hourly_counts ?? []) {
             if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
@@ -227,7 +228,7 @@
         };
     });
 
-    let speciesDonutOptions = $derived(() => {
+    let speciesDonutOptions = $derived((): ApexOptions => {
         const top = (summary?.top_species ?? []).slice(0, 8);
         const labels = top.map((s) => s.species);
         const series = top.map((s) => s.count);
@@ -338,7 +339,7 @@
             <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
         {:else if hasDaily}
             {#key `${days}-${isDark}`}
-                <div use:chart={dailyChartOptions() as any} class="w-full"></div>
+                <div use:chart={dailyChartOptions()} class="w-full"></div>
             {/key}
         {:else}
             <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -353,7 +354,7 @@
                 <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
             {:else if hasHourly}
                 {#key `${days}-${isDark}`}
-                    <div use:chart={hourlyChartOptions() as any} class="w-full"></div>
+                    <div use:chart={hourlyChartOptions()} class="w-full"></div>
                 {/key}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -365,7 +366,7 @@
                 <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
             {:else if hasSpecies}
                 {#key `${days}-${isDark}`}
-                    <div use:chart={speciesDonutOptions() as any} class="w-full"></div>
+                    <div use:chart={speciesDonutOptions()} class="w-full"></div>
                 {/key}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
