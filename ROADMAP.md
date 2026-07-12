@@ -148,6 +148,9 @@ Completed review tranches:
 - ✅ **Audio and detection detail surfaces** — typed Audio History chart options and removed `any`
   from detection/species modals through shared naming inputs, API response fields, timers, and safe
   unknown-error extraction.
+- ✅ **Settings and frontend type gate** — replaced Settings casts with domain normalizers, typed
+  input attributes and timers, standardized unknown-error handling, and added a full-source Vitest
+  gate that rejects explicit `any` in application TypeScript/Svelte outside generated contracts.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

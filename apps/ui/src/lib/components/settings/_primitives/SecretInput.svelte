@@ -1,12 +1,13 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import type { HTMLInputAttributes } from 'svelte/elements';
 
     interface Props {
         id: string;
         value: string;
         saved: boolean;
         ariaLabel?: string;
-        autocomplete?: string;
+        autocomplete?: HTMLInputAttributes['autocomplete'];
         // 'password' masks input. 'text' is for non-secret-but-still-saved
         // fields like OAuth client IDs that we still want to show 'Saved' on
         // for visual consistency with secrets.
@@ -41,9 +42,9 @@
     <input
         {id}
         {type}
-        autocomplete={autocomplete as any}
+        {autocomplete}
         aria-label={ariaLabel}
-        value={value as any}
+        {value}
         placeholder={effectivelySaved ? '***REDACTED***' : emptyPlaceholder}
         oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
         class="w-full px-4 py-3 pr-24 rounded-2xl border font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all

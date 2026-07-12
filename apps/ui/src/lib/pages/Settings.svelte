@@ -64,7 +64,7 @@
         type RecordingClipCapability
     } from '../api';
     import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
-    import { themeStore, type Theme } from '../stores/theme.svelte';
+    import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
@@ -86,6 +86,7 @@
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
     import AccessibilitySettings from '../components/settings/AccessibilitySettings.svelte';
@@ -138,6 +139,33 @@
         'accessibility',
         'debug'
     ];
+
+    function normalizeFontTheme(value: unknown): FontTheme {
+        return value === 'default' || value === 'clean' || value === 'studio'
+            || value === 'classic' || value === 'compact'
+            ? value
+            : 'classic';
+    }
+
+    function normalizeColorTheme(value: unknown): ColorTheme {
+        return value === 'default' || value === 'bluetit' ? value : 'bluetit';
+    }
+
+    function normalizeInferenceProvider(
+        value: unknown
+    ): 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' {
+        return value === 'cpu' || value === 'cuda' || value === 'intel_gpu' || value === 'intel_cpu'
+            ? value
+            : 'auto';
+    }
+
+    function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
+        return value === 'keep' || value === 'delete' ? value : 'mark_missing';
+    }
+
+    function normalizePublicDaysMode(value: unknown): 'retention' | 'custom' {
+        return value === 'custom' ? 'custom' : 'retention';
+    }
 
     function tabFromRoute(route: string | undefined): SettingsTab {
         if (!route) return 'connection';
@@ -279,7 +307,7 @@
     let llmAnalysisPromptTemplate = $state('');
     let llmConversationPromptTemplate = $state('');
     let llmChartPromptTemplate = $state('');
-    let llmPromptStyle = $state('classic');
+    let llmPromptStyle = $state<'classic'>('classic');
     let aiPricingJson = $state('[]');
 
     const promptTemplates = {
@@ -1748,22 +1776,22 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
-            { key: 'fontTheme', val: currentFontTheme, store: (s.appearance_font_theme ?? 'classic') as any },
-            { key: 'colorTheme', val: currentColorTheme, store: (s.appearance_color_theme ?? 'bluetit') as any },
+            { key: 'fontTheme', val: currentFontTheme, store: normalizeFontTheme(s.appearance_font_theme) },
+            { key: 'colorTheme', val: currentColorTheme, store: normalizeColorTheme(s.appearance_color_theme) },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'birdCropDetectorTier', val: birdCropDetectorTier, store: ((s.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast') as any) },
+            { key: 'birdCropDetectorTier', val: birdCropDetectorTier, store: s.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast' },
             {
                 key: 'birdCropSourcePriority',
                 val: birdCropSourcePriority,
-                store: ((s.bird_crop_source_priority === 'crop_model_first'
+                store: (s.bird_crop_source_priority === 'crop_model_first'
                     || s.bird_crop_source_priority === 'crop_model_only'
                     || s.bird_crop_source_priority === 'frigate_hints_only'
                     ? s.bird_crop_source_priority
-                    : 'frigate_hints_first') as any)
+                    : 'frigate_hints_first')
             },
             {
                 key: 'cropModelOverrides',
@@ -1776,12 +1804,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 store: JSON.stringify(resolveCropOverridesFromSettings(s.crop_model_overrides, s.crop_source_overrides).cropSourceOverrides),
             },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
-            { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: (s as any).strict_non_finite_output ?? true },
-            { key: 'inferenceProvider', val: inferenceProvider, store: (s.inference_provider as any) ?? 'auto' },
+            { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
+            { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
-            { key: 'frigateMissingBehavior', val: frigateMissingBehavior, store: (s.frigate_missing_behavior as any) ?? 'mark_missing' },
+            { key: 'frigateMissingBehavior', val: frigateMissingBehavior, store: normalizeFrigateMissingBehavior(s.frigate_missing_behavior) },
             {
                 key: 'autoMediaIntegrityScan',
                 val: autoPurgeMissingClips || autoPurgeMissingSnapshots,
@@ -1841,9 +1869,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
             { key: 'publicAccessAllowClipDownloads', val: publicAccessAllowClipDownloads, store: s.public_access_allow_clip_downloads ?? false },
-            { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: (s.public_access_historical_days_mode as any) ?? 'retention' },
+            { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: normalizePublicDaysMode(s.public_access_historical_days_mode) },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
-            { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: (s.public_access_media_days_mode as any) ?? 'retention' },
+            { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: normalizePublicDaysMode(s.public_access_media_days_mode) },
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
@@ -1971,7 +1999,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
     let analysisStatusSignature = $state('');
-    let analysisPollInterval: any;
+    let analysisPollInterval: ReturnType<typeof setInterval> | undefined;
 
     // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
     let activeTab = $derived<SettingsTab>(tabFromRoute(currentRoute));
@@ -2185,8 +2213,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             await startTaxonomySync();
             await loadTaxonomyStatus();
             message = { type: 'success', text: $_('settings.data.taxonomy_syncing') };
-        } catch (e: any) {
-            message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: e?.message || 'Unknown error' } }) };
+        } catch (e) {
+            message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: getErrorMessage(e) } }) };
         } finally {
             syncingTaxonomy = false;
         }
@@ -2208,10 +2236,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         default: 'No safe timezone repairs were found.'
                     })
             };
-        } catch (e: any) {
+        } catch (e) {
             message = {
                 type: 'error',
-                text: e.message || $_('settings.data.timezone_repair_error', {
+                text: getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
                     default: 'Timezone repair scan failed.'
                 })
             };
@@ -2238,10 +2266,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 })
             };
             await loadMaintenanceStats();
-        } catch (e: any) {
+        } catch (e) {
             message = {
                 type: 'error',
-                text: e.message || $_('settings.data.timezone_repair_error', {
+                text: getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
                     default: 'Timezone repair failed.'
                 })
             };
@@ -2269,8 +2297,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadMaintenanceStats();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cleanup_error') };
         } finally {
             cleaningUp = false;
         }
@@ -2294,8 +2322,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'success', text: result.message || $_('settings.data.clear_favorites_none') };
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.clear_favorites_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.clear_favorites_error') };
         } finally {
             clearingFavorites = false;
         }
@@ -2313,8 +2341,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const result = await purgeMissingMedia();
             message = { type: 'success', text: formatMissingMediaScanResult(result) };
             await loadMaintenanceStats();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.cleanup_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cleanup_error') };
         } finally {
             purgingMissingMedia = false;
         }
@@ -2354,9 +2382,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = { type: 'success', text: result.message };
             toastStore.success(result.message || $_('settings.danger.reset_button'));
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.reset_error') };
-            toastStore.error(e.message || $_('settings.data.reset_error'));
+        } catch (e) {
+            const errorMessage = getErrorMessage(e) || $_('settings.data.reset_error');
+            message = { type: 'error', text: errorMessage };
+            toastStore.error(errorMessage);
         } finally {
             resettingDatabase = false;
         }
@@ -2380,9 +2409,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const result = await clearClassificationFeedback();
             message = { type: 'success', text: result.message };
             toastStore.success(result.message || 'Personalization data cleared');
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to clear personalization data' };
-            toastStore.error(e.message || 'Failed to clear personalization data');
+        } catch (e) {
+            const errorMessage = getErrorMessage(e) || 'Failed to clear personalization data';
+            message = { type: 'error', text: errorMessage };
+            toastStore.error(errorMessage);
         } finally {
             clearingFeedback = false;
         }
@@ -2410,8 +2440,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
             }
             await loadCacheStats();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.cache_cleanup_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cache_cleanup_error') };
         } finally {
             cleaningCache = false;
         }
@@ -2439,8 +2469,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             backfillTotalJobId = scoped.jobId;
             backfillTotal = scoped.total;
             startBackfillPolling();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.backfill_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.backfill_error') };
         }
     }
 
@@ -2467,8 +2497,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             weatherBackfillTotalJobId = scoped.jobId;
             weatherBackfillTotal = scoped.total;
             startBackfillPolling();
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || $_('settings.data.weather_backfill_error') };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.weather_backfill_error') };
         }
     }
 
@@ -2491,8 +2521,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             link.remove();
             URL.revokeObjectURL(url);
             message = { type: 'success', text: 'Configuration backup exported.' };
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to export configuration backup' };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || 'Failed to export configuration backup' };
         } finally {
             exportingConfigBackup = false;
         }
@@ -2515,10 +2545,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 type: 'success',
                 text: `Configuration backup imported (${result.changed_fields.length} sections changed). Run a backfill when you are ready.`
             };
-        } catch (e: any) {
+        } catch (e) {
             const text = e instanceof SyntaxError
                 ? 'Selected file is not valid JSON'
-                : e.message || 'Failed to import configuration backup';
+                : getErrorMessage(e) || 'Failed to import configuration backup';
             message = { type: 'error', text };
         } finally {
             importingConfigBackup = false;
@@ -2635,8 +2665,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 }
                 startAnalysisPolling();
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Analysis failed' };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || 'Analysis failed' };
         } finally {
             analyzingUnknowns = false;
         }
@@ -2671,7 +2701,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (status.pending === 0 && status.active === 0) {
                 if (analysisPollInterval) {
                     clearInterval(analysisPollInterval);
-                    analysisPollInterval = null;
+                    analysisPollInterval = undefined;
                 }
                 if (analysisTotal > 0) {
                     jobProgressStore.markCompleted({
@@ -2806,15 +2836,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 settings.crop_source_overrides
             ));
             imageExecutionMode = settings.image_execution_mode ?? 'in_process';
-            strictNonFiniteOutput = (settings as any).strict_non_finite_output ?? true;
-            inferenceProvider = (settings.inference_provider as any) ?? 'auto';
+            strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
+            inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
             selectedCameras = settings.cameras || [];
             retentionDays = settings.retention_days || 0;
             maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
-            frigateMissingBehavior = (settings.frigate_missing_behavior as any) ?? 'mark_missing';
+            frigateMissingBehavior = normalizeFrigateMissingBehavior(settings.frigate_missing_behavior);
             {
                 const autoMediaIntegrityScan = (settings.auto_purge_missing_clips ?? false) || (settings.auto_purge_missing_snapshots ?? false);
                 autoPurgeMissingClips = autoMediaIntegrityScan;
@@ -2935,9 +2965,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
             publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
-            publicAccessHistoricalDaysMode = (settings.public_access_historical_days_mode === 'custom' ? 'custom' : 'retention') as any;
+            publicAccessHistoricalDaysMode = normalizePublicDaysMode(settings.public_access_historical_days_mode);
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
-            publicAccessMediaDaysMode = (settings.public_access_media_days_mode === 'custom' ? 'custom' : 'retention') as any;
+            publicAccessMediaDaysMode = normalizePublicDaysMode(settings.public_access_media_days_mode);
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
@@ -3061,8 +3091,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             zenMode = settings.accessibility_zen_mode ?? false;
 
             // Appearance (persisted)
-            themeStore.setFontTheme((settings.appearance_font_theme ?? 'classic') as any);
-            themeStore.setColorTheme((settings.appearance_color_theme ?? 'bluetit') as any);
+            themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));
+            themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
@@ -3301,8 +3331,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'error', text: 'Frigate returned unexpected status' };
             }
-        } catch (e: any) {
-            const errorMsg = e.message || 'Failed to connect to Frigate';
+        } catch (e) {
+            const errorMsg = getErrorMessage(e) || 'Failed to connect to Frigate';
             message = { type: 'error', text: errorMsg };
         } finally {
             testing = false;
@@ -3319,8 +3349,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'error', text: result.message };
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to test BirdWeather' };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test BirdWeather' };
         } finally {
             testingBirdWeather = false;
         }
@@ -3343,8 +3373,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'error', text: result.message };
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to test MQTT Pipeline' };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test MQTT Pipeline' };
         } finally {
             testingBirdNET = false;
         }
@@ -3365,8 +3395,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'error', text: result.message };
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || 'Failed to test AI integration' };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test AI integration' };
         } finally {
             testingLlm = false;
         }
@@ -3401,7 +3431,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         testingNotification[platform] = true;
         message = null;
 
-        const credentials: any = {};
+        const credentials: Record<string, string> = {};
         if (platform === 'discord') {
             credentials.webhook_url = discordWebhook;
         } else if (platform === 'pushover') {
@@ -3419,8 +3449,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             } else {
                 message = { type: 'error', text: result.message };
             }
-        } catch (e: any) {
-            message = { type: 'error', text: e.message || `Failed to test ${platform}` };
+        } catch (e) {
+            message = { type: 'error', text: getErrorMessage(e) || `Failed to test ${platform}` };
         } finally {
             testingNotification[platform] = false;
         }
@@ -3669,7 +3699,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:aiPricingJson
                     {availableModels}
                     onTestConnection={handleTestLlm}
-                    onApplyStyle={() => applyPromptTemplates(llmPromptStyle as any)}
+                    onApplyStyle={() => applyPromptTemplates(llmPromptStyle)}
                     onResetDefaults={resetPromptTemplates}
                 />
             {/if}
