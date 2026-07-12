@@ -40,6 +40,7 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
 
@@ -588,16 +589,7 @@ async def _resolve_video_share_token(share_token: str, event_id: str | None = No
 
     token_hash = _hash_share_token(share_token)
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT frigate_event, watermark_label, expires_at, revoked
-            FROM video_share_links
-            WHERE token_hash = ?
-            LIMIT 1
-            """,
-            (token_hash,),
-        ) as cursor:
-            row = await cursor.fetchone()
+        row = await VideoShareRepository(db).get_by_token_hash(token_hash)
 
     if not row:
         return None
@@ -629,20 +621,18 @@ async def _create_video_share_token(
     expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
     async with get_db() as db:
+        repo = VideoShareRepository(db)
         for _ in range(5):
             token = secrets.token_urlsafe(24)
             token_hash = _hash_share_token(token)
             try:
-                cursor = await db.execute(
-                    """
-                    INSERT INTO video_share_links
-                    (token_hash, frigate_event, created_by, watermark_label, expires_at, revoked)
-                    VALUES (?, ?, ?, ?, ?, 0)
-                    """,
-                    (token_hash, event_id, created_by, watermark_label, expires_at),
+                link_id = await repo.create(
+                    token_hash=token_hash,
+                    event_id=event_id,
+                    created_by=created_by,
+                    watermark_label=watermark_label,
+                    expires_at=expires_at,
                 )
-                await db.commit()
-                link_id = int(cursor.lastrowid or 0)
                 return link_id, token, expires_at
             except sqlite3.IntegrityError:
                 # Extremely unlikely hash collision/token replay; retry with a fresh token.
@@ -654,18 +644,7 @@ async def _create_video_share_token(
 async def _list_active_video_share_links(event_id: str) -> list[VideoShareLinkItemResponse]:
     now = datetime.utcnow()
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND revoked = 0
-              AND expires_at > ?
-            ORDER BY created_at DESC, id DESC
-            """,
-            (event_id, now),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        rows = await VideoShareRepository(db).list_active(event_id, now)
 
     return [_build_video_share_link_item(row, now=now) for row in rows]
 
@@ -679,52 +658,22 @@ async def _update_video_share_link(
     watermark_label: str | None,
 ) -> VideoShareLinkItemResponse | None:
     now = datetime.utcnow()
-    updates: list[str] = []
-    params: list[object] = []
-
-    if expires_in_minutes is not None:
-        updates.append("expires_at = ?")
-        params.append(now + timedelta(minutes=expires_in_minutes))
-    if watermark_provided:
-        updates.append("watermark_label = ?")
-        params.append(watermark_label)
-
-    if not updates:
+    if expires_in_minutes is None and not watermark_provided:
         return None
 
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND id = ?
-              AND revoked = 0
-              AND expires_at > ?
-            LIMIT 1
-            """,
-            (event_id, link_id, now),
-        ) as cursor:
-            existing = await cursor.fetchone()
+        repo = VideoShareRepository(db)
+        existing = await repo.get_active(event_id, link_id, now)
 
         if not existing:
             return None
-
-        update_sql = f"UPDATE video_share_links SET {', '.join(updates)} WHERE frigate_event = ? AND id = ?"
-        await db.execute(update_sql, (*params, event_id, link_id))
-        await db.commit()
-
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND id = ?
-            LIMIT 1
-            """,
-            (event_id, link_id),
-        ) as cursor:
-            updated = await cursor.fetchone()
+        updated = await repo.update_active(
+            event_id,
+            link_id,
+            expires_at=now + timedelta(minutes=expires_in_minutes) if expires_in_minutes is not None else None,
+            update_watermark=watermark_provided,
+            watermark_label=watermark_label,
+        )
 
     if not updated:
         return None
@@ -735,41 +684,14 @@ async def _update_video_share_link(
 async def _revoke_video_share_link(event_id: str, link_id: int) -> bool:
     now = datetime.utcnow()
     async with get_db() as db:
-        await db.execute(
-            """
-            UPDATE video_share_links
-            SET revoked = 1
-            WHERE frigate_event = ?
-              AND id = ?
-              AND revoked = 0
-              AND expires_at > ?
-            """,
-            (event_id, link_id, now),
-        )
-        async with db.execute("SELECT changes()") as cursor:
-            row = await cursor.fetchone()
-            changed = int(row[0]) if row else 0
-        await db.commit()
-    return changed > 0
+        return await VideoShareRepository(db).revoke_active(event_id, link_id, now)
 
 
 async def cleanup_expired_video_share_links() -> int:
     """Delete stale share links (expired and revoked) to keep table size bounded."""
     now = datetime.now(timezone.utc)
     async with get_db() as db:
-        await db.execute(
-            """
-            DELETE FROM video_share_links
-            WHERE expires_at <= ?
-               OR revoked = 1
-            """,
-            (now,),
-        )
-        async with db.execute("SELECT changes()") as cursor:
-            row = await cursor.fetchone()
-            deleted = int(row[0]) if row else 0
-        await db.commit()
-    return deleted
+        return await VideoShareRepository(db).delete_expired_or_revoked(now)
 
 
 def _has_valid_share_context(request: Request, event_id: str) -> bool:

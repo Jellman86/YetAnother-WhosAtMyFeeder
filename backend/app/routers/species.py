@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.species_repository import SpeciesRepository
 from app.models import (
     SpeciesStats,
     SpeciesInfo,
@@ -235,30 +236,11 @@ async def _lookup_species_search_taxonomy(
         if text and text not in candidates:
             candidates.append(text)
 
+    repo = SpeciesRepository(db)
     for candidate in candidates:
-        async with db.execute(
-            """
-            SELECT scientific_name, common_name, taxa_id
-            FROM taxonomy_cache
-            WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
-            LIMIT 1
-            """,
-            (candidate, candidate),
-        ) as cursor:
-            row = await cursor.fetchone()
-        if row:
-            scientific_name = row[0]
-            common_name = row[1]
-            taxa_id = row[2]
-            if lang != "en" and taxa_id:
-                async with db.execute(
-                    "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
-                    (taxa_id, lang),
-                ) as cursor:
-                    translated = await cursor.fetchone()
-                if translated and translated[0]:
-                    common_name = translated[0]
-            return scientific_name, common_name, taxa_id
+        taxonomy = await repo.lookup_taxonomy(candidate, lang)
+        if taxonomy:
+            return taxonomy
 
     scientific_name, common_name = _parse_species_alias_label(label)
     return scientific_name, common_name, None
@@ -420,22 +402,7 @@ async def _get_cached_species_info(
             return info
 
     async with get_db() as db:
-        if taxa_id:
-            cursor = await db.execute(
-                """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
-                   FROM species_info_cache WHERE taxa_id = ? AND language = ?
-                   ORDER BY cached_at DESC LIMIT 1""",
-                (taxa_id, language),
-            )
-        else:
-            cursor = await db.execute(
-                """SELECT title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                          summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id
-                   FROM species_info_cache WHERE species_name = ? AND language = ?""",
-                (species_name, language),
-            )
-        row = await cursor.fetchone()
+        row = await SpeciesRepository(db).get_cached_info(species_name=species_name, taxa_id=taxa_id, language=language)
 
     if not row:
         return None
@@ -469,99 +436,13 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
     cached_at = datetime.now()
     info.cached_at = cached_at
     async with get_db() as db:
-        if taxa_id:
-            cursor = await db.execute(
-                "SELECT id FROM species_info_cache WHERE taxa_id = ? AND language = ? LIMIT 1", (taxa_id, language)
-            )
-            existing = await cursor.fetchone()
-        else:
-            existing = None
-
-        if existing:
-            cursor = await db.execute(
-                "SELECT id FROM species_info_cache WHERE species_name = ? AND language = ? LIMIT 1",
-                (species_name, language),
-            )
-            name_row = await cursor.fetchone()
-            if name_row and name_row[0] != existing[0]:
-                await db.execute("DELETE FROM species_info_cache WHERE id = ?", (name_row[0],))
-            await db.execute(
-                """UPDATE species_info_cache SET
-                     species_name = ?,
-                     language = ?,
-                     title = ?,
-                     taxa_id = ?,
-                     description = ?,
-                     extract = ?,
-                     thumbnail_url = ?,
-                     wikipedia_url = ?,
-                     source = ?,
-                     source_url = ?,
-                     summary_source = ?,
-                     summary_source_url = ?,
-                     scientific_name = ?,
-                     conservation_status = ?,
-                     cached_at = ?
-                   WHERE id = ?""",
-                (
-                    species_name,
-                    language,
-                    info.title,
-                    taxa_id,
-                    info.description,
-                    info.extract,
-                    info.thumbnail_url,
-                    info.wikipedia_url,
-                    info.source,
-                    info.source_url,
-                    info.summary_source,
-                    info.summary_source_url,
-                    info.scientific_name,
-                    info.conservation_status,
-                    cached_at,
-                    existing[0],
-                ),
-            )
-        else:
-            await db.execute(
-                """INSERT INTO species_info_cache
-                   (species_name, language, title, taxa_id, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                    summary_source, summary_source_url, scientific_name, conservation_status, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(species_name, language) DO UPDATE SET
-                     language = excluded.language,
-                     title = excluded.title,
-                     taxa_id = excluded.taxa_id,
-                     description = excluded.description,
-                     extract = excluded.extract,
-                     thumbnail_url = excluded.thumbnail_url,
-                     wikipedia_url = excluded.wikipedia_url,
-                     source = excluded.source,
-                     source_url = excluded.source_url,
-                     summary_source = excluded.summary_source,
-                     summary_source_url = excluded.summary_source_url,
-                     scientific_name = excluded.scientific_name,
-                     conservation_status = excluded.conservation_status,
-                     cached_at = excluded.cached_at""",
-                (
-                    species_name,
-                    language,
-                    info.title,
-                    taxa_id,
-                    info.description,
-                    info.extract,
-                    info.thumbnail_url,
-                    info.wikipedia_url,
-                    info.source,
-                    info.source_url,
-                    info.summary_source,
-                    info.summary_source_url,
-                    info.scientific_name,
-                    info.conservation_status,
-                    cached_at,
-                ),
-            )
-        await db.commit()
+        await SpeciesRepository(db).save_cached_info(
+            species_name=species_name,
+            taxa_id=taxa_id,
+            language=language,
+            values=info.model_dump(),
+            cached_at=cached_at,
+        )
 
 
 @router.get("/species/search", response_model=list[SpeciesSearchResult])
@@ -585,64 +466,11 @@ async def search_species(
     async with get_db() as db:
         if q:
             matches = [label for label in labels if q_lower in label.lower()]
-
-            # Include labels whose cached common/scientific names match the query.
-            async with db.execute(
-                """SELECT scientific_name, common_name
-                   FROM taxonomy_cache
-                   WHERE LOWER(scientific_name) LIKE ?
-                      OR LOWER(common_name) LIKE ?""",
-                (f"%{q_lower}%", f"%{q_lower}%"),
-            ) as cursor:
-                cached_rows = await cursor.fetchall()
-
-            for sci_name, common_name in cached_rows:
-                if sci_name and not should_hide_species_label(sci_name):
-                    matches.append(sci_name)
-                if common_name and not should_hide_species_label(common_name):
-                    matches.append(common_name)
-
-            # Include labels whose localized common names match the query.
-            if lang != "en":
-                async with db.execute(
-                    """SELECT tc.scientific_name, tc.common_name
-                       FROM taxonomy_translations tt
-                       JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
-                       WHERE tt.language_code = ?
-                         AND LOWER(tt.common_name) LIKE ?""",
-                    (lang, f"%{q_lower}%"),
-                ) as cursor:
-                    localized_rows = await cursor.fetchall()
-
-                for sci_name, common_name in localized_rows:
-                    if sci_name and not should_hide_species_label(sci_name):
-                        matches.append(sci_name)
-                    if common_name and not should_hide_species_label(common_name):
-                        matches.append(common_name)
-
-            # Include stored detection labels so owners can block taxa that were
-            # previously detected even if the active classifier no longer exposes
-            # them in its current label set.
-            async with db.execute(
-                """
-                SELECT DISTINCT display_name, category_name, scientific_name, common_name
-                FROM detections
-                WHERE is_hidden = 0
-                  AND (
-                    LOWER(COALESCE(display_name, '')) LIKE ?
-                    OR LOWER(COALESCE(category_name, '')) LIKE ?
-                    OR LOWER(COALESCE(scientific_name, '')) LIKE ?
-                    OR LOWER(COALESCE(common_name, '')) LIKE ?
-                  )
-                """,
-                (f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%", f"%{q_lower}%"),
-            ) as cursor:
-                detection_rows = await cursor.fetchall()
-
-            for row in detection_rows:
-                for candidate in row:
-                    if candidate and not should_hide_species_label(candidate):
-                        matches.append(candidate)
+            matches.extend(
+                label
+                for label in await SpeciesRepository(db).search_labels(q_lower, lang)
+                if not should_hide_species_label(label)
+            )
 
             seen = set()
             matches = [m for m in matches if not (m in seen or seen.add(m))]
@@ -1487,13 +1315,7 @@ async def clear_species_cache(
             del _wiki_cache[cache_key]
     taxa_id = await _lookup_taxa_id(species_name)
     async with get_db() as db:
-        if taxa_id:
-            await db.execute(
-                "DELETE FROM species_info_cache WHERE species_name = ? OR taxa_id = ?", (species_name, taxa_id)
-            )
-        else:
-            await db.execute("DELETE FROM species_info_cache WHERE species_name = ?", (species_name,))
-        await db.commit()
+        await SpeciesRepository(db).clear_cached_info(species_name, taxa_id)
     log.info("Cleared species cache", species=species_name)
     return SpeciesCacheClearResponse(status="cleared", species=species_name)
 

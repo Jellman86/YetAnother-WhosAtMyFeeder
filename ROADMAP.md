@@ -154,9 +154,9 @@ Completed review tranches:
 - ✅ **Backend endpoint contracts** — authentication, Settings, classifier, maintenance/status,
   Events, and model-evaluation JSON responses now publish explicit generated contracts; binary
   model-evaluation artifacts are explicitly classified as file responses.
-- 🔄 **Backend persistence boundaries** — cache cleanup and manual event corrections now use
-  `DetectionRepository`, logout token cleanup has a dedicated OAuth repository, and eBird export
-  reads use `EbirdRepository`; the remaining species and video-share router queries are next.
+- ✅ **Backend persistence boundaries** — all HTTP routers are free of direct database execution.
+  Detection, OAuth-token, eBird-export, species taxonomy/cache/search, and video-share persistence
+  are owned by focused repositories.
 - ✅ **Classifier download I/O** — model-directory inspection, archive extraction, asset writes,
   and synchronous model reloads are dispatched off the async request loop.
 
