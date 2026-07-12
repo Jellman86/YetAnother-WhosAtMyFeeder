@@ -14,7 +14,7 @@
   <Category>HomeAutomation: Other:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/unraid/yawamf.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/custom_components/yawamf/icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/apps/ui/public/pwa-512x512.png</Icon>
   <ExtraSearchTerms>bird birds feeder frigate birdnet classification nvr</ExtraSearchTerms>
   <Description>YA-WAMF identifies birds at your feeder from Frigate NVR events using local ML models, with a real-time dashboard, optional BirdNET-Go audio correlation, taxonomy enrichment, and notifications.&#13;&#13;Requirements: a reachable Frigate instance and MQTT broker. Configuration is stored in /config and the detections database and media cache live in /data. Optional Intel GPU or NPU acceleration can be enabled by passing the matching device (see the hardware-acceleration guide).</Description>
   <Config Name="WebUI Port" Target="8080" Default="9852" Mode="tcp" Description="Host port for the YA-WAMF web interface (container listens on 8080)." Type="Port" Display="always" Required="true" Mask="false">9852</Config>
