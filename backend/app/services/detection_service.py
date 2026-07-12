@@ -218,6 +218,54 @@ class DetectionService:
             }, "frigate_fallback"
         return None, last_reason
 
+    async def _is_blocked_with_taxonomy(
+        self,
+        *,
+        label: str,
+        scientific_name: str | None = None,
+        common_name: str | None = None,
+        taxa_id: int | None = None,
+        extra_labels: list[str] | None = None,
+        repo: "DetectionRepository | None" = None,
+    ) -> bool:
+        """Blocked-species check that bridges name variants via the taxonomy cache.
+
+        A species blocked under one name or ``taxa_id`` must still be caught when the
+        incoming label is a different variant. When identity is incomplete — the live
+        taxonomy lookup timed out, or a write path (e.g. video promotion) skipped
+        enrichment — fill the gaps from the taxonomy cache (a local read that never hangs
+        on the network) before deciding. Abstention / unknown labels are never enriched.
+        """
+        extra = list(extra_labels or [])
+        needs_bridge = taxa_id is None or not scientific_name or not common_name
+        if needs_bridge and not should_hide_species_label(label):
+            key = (scientific_name or label or "").strip()
+            if key:
+                cached: dict = {}
+                try:
+                    if repo is not None:
+                        cached = await repo.get_taxonomy_names(key)
+                    else:
+                        async with get_db() as db:
+                            cached = await DetectionRepository(db).get_taxonomy_names(key)
+                except Exception as exc:
+                    log.debug("Blocked-species taxonomy cache lookup failed", label=label, error=str(exc))
+                    cached = {}
+                if isinstance(cached, dict):
+                    scientific_name = scientific_name or cached.get("scientific_name")
+                    common_name = common_name or cached.get("common_name")
+                    if taxa_id is None:
+                        taxa_id = cached.get("taxa_id")
+        return is_blocked_species(
+            blocked_labels=settings.classification.blocked_labels,
+            blocked_species=getattr(settings.classification, "blocked_species", []),
+            label=label,
+            scientific_name=scientific_name,
+            common_name=common_name,
+            taxa_id=taxa_id,
+            extra_labels=extra,
+        )
+
     async def save_detection(
         self,
         frigate_event: str,
@@ -283,9 +331,7 @@ class DetectionService:
         # Re-check blocked list against taxonomy-resolved canonical names so that
         # blocking by scientific name catches models that output common names and vice versa.
         extra_block_labels = [UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(label) else []
-        if is_blocked_species(
-            blocked_labels=settings.classification.blocked_labels,
-            blocked_species=getattr(settings.classification, "blocked_species", []),
+        if await self._is_blocked_with_taxonomy(
             label=label,
             scientific_name=scientific_name,
             common_name=common_name,
@@ -466,14 +512,15 @@ class DetectionService:
                 log.warning("Cannot apply video result: event not found", event_id=frigate_event)
                 return
 
-            # Check whether the video result is a blocked species.  Check both the
-            # raw label and the parenthetical-stripped form so that labels like
-            # "Cassin's Finch (Adult Male)" are caught when "Cassin's Finch" is blocked.
-            is_blocked = is_blocked_species(
-                blocked_labels=settings.classification.blocked_labels,
-                blocked_species=getattr(settings.classification, "blocked_species", []),
+            # Check whether the video result is a blocked species. Resolve taxonomy
+            # (from the cache) so a species blocked by scientific name or taxa_id is still
+            # caught when video analysis promotes it under a different name variant — the
+            # raw label alone can't be bridged to the blocked entry. Parenthetical-stripped
+            # forms (e.g. "Cassin's Finch (Adult Male)") are handled by the matcher.
+            is_blocked = await self._is_blocked_with_taxonomy(
                 label=video_label,
                 extra_labels=[UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(video_label) else [],
+                repo=repo,
             )
 
             normalized_video_label = normalize_classifier_label(video_label)
