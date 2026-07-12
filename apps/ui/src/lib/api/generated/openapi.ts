@@ -1261,6 +1261,15 @@ export interface components {
     video_classification_max_retries?: number | null;
     write_frigate_sublabel?: boolean;
 };
+    SetupSectionState: {
+    detail?: string | null;
+    id: string;
+    status: "ok" | "attention" | "optional";
+};
+    SetupState: {
+    initial_setup_complete: boolean;
+    sections: Array<components['schemas']['SetupSectionState']>;
+};
     SnapshotApplyRequest: {
     candidate_id?: string | null;
     mode?: "candidate" | "auto_best" | "full_frame" | "frigate_hint_crop" | "model_crop" | "revert_original";
@@ -2904,6 +2913,15 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['NotificationTestRequest'];
       response: unknown;
+    };
+  };
+  "/api/setup/state": {
+    get: {
+      operationId: "get_setup_state_api_setup_state_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SetupState'];
     };
   };
   "/api/species": {

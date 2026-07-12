@@ -58,6 +58,7 @@ from app.routers import (
     diagnostics,
     geocoding,
     model_eval,
+    setup as setup_router,
     auth as auth_router,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -491,6 +492,7 @@ app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[De
 
 # Owner-only routers - require authentication
 app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(setup_router.router, prefix="/api", tags=["setup"])
 app.include_router(
     backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)]
 )

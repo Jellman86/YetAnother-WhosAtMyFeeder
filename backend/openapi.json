@@ -9825,6 +9825,62 @@
         "title": "SettingsUpdate",
         "type": "object"
       },
+      "SetupSectionState": {
+        "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "attention",
+              "optional"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "SetupSectionState",
+        "type": "object"
+      },
+      "SetupState": {
+        "properties": {
+          "initial_setup_complete": {
+            "title": "Initial Setup Complete",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SetupSectionState"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "initial_setup_complete",
+          "sections"
+        ],
+        "title": "SetupState",
+        "type": "object"
+      },
       "SnapshotApplyRequest": {
         "properties": {
           "candidate_id": {
@@ -18723,6 +18779,34 @@
           }
         ],
         "summary": "Test Notification"
+      }
+    },
+    "/api/setup/state": {
+      "get": {
+        "description": "Per-section setup readiness for the wizard's section map.\n\nOwner-gated, but open during first run (auth is not yet enabled), so the wizard can render\nbefore a password exists.",
+        "operationId": "get_setup_state_api_setup_state_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Setup State",
+        "tags": [
+          "setup",
+          "setup"
+        ]
       }
     },
     "/api/species": {
