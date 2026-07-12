@@ -1,5 +1,8 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
+import asyncio
+import io
+import tarfile
 from fastapi import APIRouter, UploadFile, File, Depends, Request, HTTPException, Query
 from pydantic import BaseModel, Field, JsonValue
 import structlog
@@ -13,6 +16,38 @@ from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
+
+
+def _prepare_download_paths(models_dir: Path, *paths: Path, replace: bool = False) -> bool:
+    """Create the model directory and optionally remove existing download targets."""
+    models_dir.mkdir(parents=True, exist_ok=True)
+    already_present = all(path.exists() for path in paths)
+    if replace:
+        for path in paths:
+            path.unlink(missing_ok=True)
+    return already_present
+
+
+def _extract_tflite(archive: bytes) -> bytes | None:
+    """Extract the preferred TFLite payload from a downloaded tar archive."""
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        members = [member for member in tar.getmembers() if member.name.endswith(".tflite")]
+        preferred = next((member for member in members if "int8" not in member.name.lower()), None)
+        selected = preferred or next(iter(members), None)
+        if selected is None:
+            return None
+        extracted = tar.extractfile(selected)
+        return extracted.read() if extracted else None
+
+
+def _write_download(path: Path, content: bytes | str) -> None:
+    """Write a downloaded model asset outside the async event loop."""
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    else:
+        path.write_text(content)
+
+
 log = structlog.get_logger()
 
 
@@ -410,8 +445,6 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
     - Model size: ~50MB
     """
     import httpx
-    import tarfile
-    import io
 
     # EfficientNet-Lite4 - well-documented, reliable model
     MODEL_TAR_URL = "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4.tar.gz"
@@ -419,17 +452,9 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
 
     # Use persistent /data/models directory
     models_dir = Path("/data/models")
-    models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / settings.classification.wildlife_model
     labels_path = models_dir / settings.classification.wildlife_labels
-
-    # Delete old model to force re-download
-    if model_path.exists():
-        model_path.unlink()
-        log.info("Deleted old wildlife model for re-download")
-    if labels_path.exists():
-        labels_path.unlink()
-        log.info("Deleted old wildlife labels for re-download")
+    await asyncio.to_thread(_prepare_download_paths, models_dir, model_path, labels_path, replace=True)
 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
@@ -443,39 +468,12 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
             content = model_response.content
             log.info("Downloaded archive", size_mb=len(content) / (1024 * 1024))
 
-            # Extract the float32 TFLite model from the archive
-            tflite_content = None
-            with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
-                for member in tar.getmembers():
-                    log.debug(f"Archive contains: {member.name}")
-                    if member.name.endswith(".tflite") and "int8" not in member.name.lower():
-                        f = tar.extractfile(member)
-                        if f:
-                            tflite_content = f.read()
-                            log.info(
-                                "Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024)
-                            )
-                            break
-
-                # Fallback to any tflite file if no float model found
-                if tflite_content is None:
-                    for member in tar.getmembers():
-                        if member.name.endswith(".tflite"):
-                            f = tar.extractfile(member)
-                            if f:
-                                tflite_content = f.read()
-                                log.info(
-                                    "Found TFLite model (fallback)",
-                                    name=member.name,
-                                    size_mb=len(tflite_content) / (1024 * 1024),
-                                )
-                                break
+            tflite_content = await asyncio.to_thread(_extract_tflite, content)
 
             if tflite_content is None:
                 raise Exception("No TFLite model found in archive")
 
-            with open(model_path, "wb") as f:
-                f.write(tflite_content)
+            await asyncio.to_thread(_write_download, model_path, tflite_content)
             log.info("Wildlife model saved", path=str(model_path))
 
             # Download ImageNet labels
@@ -494,12 +492,10 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
             else:
                 processed_labels = all_labels
 
-            with open(labels_path, "w") as f:
-                for label in processed_labels:
-                    f.write(f"{label}\n")
+            await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
             # Reload the classifier service to pick up the new model
-            classifier_service.reload_wildlife_model()
+            await asyncio.to_thread(classifier_service.reload_wildlife_model)
 
             log.info(
                 "Wildlife model downloaded and ready",
@@ -535,12 +531,11 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
 
     # Use persistent /data/models directory
     models_dir = Path("/data/models")
-    models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / "model.tflite"
     labels_path = models_dir / "labels.txt"
 
     # Check if model already exists
-    if model_path.exists() and labels_path.exists():
+    if await asyncio.to_thread(_prepare_download_paths, models_dir, model_path, labels_path):
         log.info("Model already exists, skipping download", path=str(model_path))
         return {"status": "ok", "message": "Model already downloaded", "path": str(model_path)}
 
@@ -577,19 +572,16 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
             if model_content is None:
                 raise Exception(f"All model download URLs failed. Last error: {last_error}")
 
-            with open(model_path, "wb") as f:
-                f.write(model_content)
+            await asyncio.to_thread(_write_download, model_path, model_content)
 
             # Download labels
             log.info("Downloading labels...")
             labels_response = await client.get(LABELS_URL, headers=headers)
             labels_response.raise_for_status()
-            with open(labels_path, "wb") as f:
-                f.write(labels_response.content)
+            await asyncio.to_thread(_write_download, labels_path, labels_response.content)
 
         # Process labels to extract common names
-        with open(labels_path, "r") as f:
-            lines = f.readlines()
+        lines = (await asyncio.to_thread(labels_path.read_text)).splitlines()
 
         processed_labels = []
         for line in lines:
@@ -605,12 +597,10 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
                 parts = line.split(" ", 1)
                 processed_labels.append(parts[1] if len(parts) > 1 else line)
 
-        with open(labels_path, "w") as f:
-            for label in processed_labels:
-                f.write(f"{label}\n")
+        await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
         # Reload the classifier
-        classifier_service._load_model()
+        await asyncio.to_thread(classifier_service._load_model)
 
         log.info("Model downloaded and loaded successfully")
         return {

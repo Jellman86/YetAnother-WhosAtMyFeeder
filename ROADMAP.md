@@ -157,6 +157,8 @@ Completed review tranches:
 - 🔄 **Backend persistence boundaries** — cache cleanup and manual event corrections now use
   `DetectionRepository`, and logout token cleanup has a dedicated OAuth repository; the remaining
   species, eBird, and video-share router queries are the next review tranche.
+- ✅ **Classifier download I/O** — model-directory inspection, archive extraction, asset writes,
+  and synchronous model reloads are dispatched off the async request loop.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
