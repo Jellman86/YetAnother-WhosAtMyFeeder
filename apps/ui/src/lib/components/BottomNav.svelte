@@ -1,10 +1,16 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
 
+    interface NavItem {
+        path: string;
+        icon: string;
+        label: string;
+    }
+
     let { currentRoute, onNavigate, navItems } = $props<{
         currentRoute: string;
         onNavigate: (path: string) => void;
-        navItems: any[];
+        navItems: NavItem[];
     }>();
 </script>
 

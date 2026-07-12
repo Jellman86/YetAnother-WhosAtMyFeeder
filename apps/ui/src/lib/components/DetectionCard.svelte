@@ -78,17 +78,17 @@
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
-    function handleReclassifyClick(event: MouseEvent) {
+    function handleReclassifyClick(event: Event) {
         event.stopPropagation();
         onReclassify?.(detection);
     }
 
-    function handleRetagClick(event: MouseEvent) {
+    function handleRetagClick(event: Event) {
         event.stopPropagation();
         onRetag?.(detection);
     }
 
-    function handlePlayClick(event: MouseEvent) {
+    function handlePlayClick(event: Event) {
         event.stopPropagation();
         onPlay?.(detection);
     }
@@ -314,7 +314,7 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handlePlayClick(e as any);
+                                handlePlayClick(e);
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
@@ -350,7 +350,7 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleReclassifyClick(e as any);
+                                handleReclassifyClick(e);
                             }
                         }}
                         aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
@@ -370,7 +370,7 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleRetagClick(e as any);
+                                handleRetagClick(e);
                             }
                         }}
                         aria-label="{$_('detection.retag', { values: { species: primaryName } })}"

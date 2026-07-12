@@ -29,8 +29,8 @@
     }
 
     let audioDetections = $state<AudioDetection[]>([]);
-    let pollInterval: any;
-    let summaryInterval: any;
+    let pollInterval: ReturnType<typeof setInterval> | undefined;
+    let summaryInterval: ReturnType<typeof setInterval> | undefined;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
     let summary = $state<AudioSummaryResponse | null>(null);

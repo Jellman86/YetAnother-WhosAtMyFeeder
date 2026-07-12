@@ -37,7 +37,7 @@
     async function loadCameras() {
         try {
             const settings = await fetchSettings();
-            const list = (settings as any)?.cameras;
+            const list = settings.cameras;
             let resolved = Array.isArray(list) ? list.filter((c: unknown): c is string => typeof c === 'string' && c.length > 0) : [];
             // An empty camera list means "monitor all cameras" in the pipeline, so fall back to
             // the cameras that are actually producing detections rather than showing nothing.
@@ -50,8 +50,15 @@
                 }
             }
             cameras = resolved;
-            const roles = (settings as any)?.camera_roles;
-            cameraRoles = roles && typeof roles === 'object' && !Array.isArray(roles) ? roles : {};
+            const roles = settings.camera_roles;
+            cameraRoles = roles && typeof roles === 'object' && !Array.isArray(roles)
+                ? Object.fromEntries(
+                    Object.entries(roles).filter(
+                        (entry): entry is [string, 'feeder' | 'nest'] =>
+                            entry[1] === 'feeder' || entry[1] === 'nest'
+                    )
+                )
+                : {};
             const next: typeof frames = {};
             for (const camera of cameras) {
                 next[camera] = frames[camera] ?? { url: null, ok: false, loading: false };

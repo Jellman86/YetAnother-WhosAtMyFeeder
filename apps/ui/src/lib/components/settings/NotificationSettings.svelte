@@ -18,12 +18,15 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
-    function extractErrorMessage(error: any, fallback: string) {
-        const message = error?.message || fallback;
+    function extractErrorMessage(error: unknown, fallback: string): string {
+        const message = error instanceof Error ? error.message : fallback;
         if (typeof message === 'string' && message.trim().startsWith('{')) {
             try {
                 const parsed = JSON.parse(message);
-                return parsed.detail || parsed.message || fallback;
+                const payload = parsed && typeof parsed === 'object'
+                    ? parsed as Record<string, unknown>
+                    : {};
+                return String(payload.detail || payload.message || fallback);
             } catch {
                 return message;
             }
@@ -284,7 +287,7 @@
             try {
                 speciesSearchResults = await searchSpecies(query, 20, true);
                 speciesSearchError = '';
-            } catch (error: any) {
+            } catch (error) {
                 speciesSearchResults = [];
                 speciesSearchError = extractErrorMessage(error, $_('settings.notifications.species_filter_search_failed'));
             } finally {
@@ -1107,7 +1110,7 @@
                             testingNotification['email'] = true;
                             const result = await sendTestEmail();
                             onActionFeedback('success', result.message || $_('settings.email.test_email_sent'));
-                        } catch (e: any) {
+                        } catch (e) {
                             onActionFeedback('error', extractErrorMessage(e, $_('settings.email.test_email_error_generic')));
                         } finally {
                             testingNotification['email'] = false;

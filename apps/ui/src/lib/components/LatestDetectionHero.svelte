@@ -86,7 +86,12 @@
                 : 'bg-red-500/90 text-white'
     );
 
-    function getRelativeTime(dateString: string, t: any): string {
+    type Translate = (
+        key: string,
+        options?: { values?: Record<string, string | number | boolean | Date | null | undefined> }
+    ) => string;
+
+    function getRelativeTime(dateString: string, t: Translate): string {
         try {
             const date = new Date(dateString);
             const now = new Date();

@@ -2,7 +2,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import {
@@ -28,7 +28,7 @@
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
-    let health = $state<any>(null);
+    let health = $state<HealthStatus | null>(null);
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
@@ -172,7 +172,7 @@
         return `~${model.estimated_ram_mb} MB RAM`;
     }
 
-    let pollInterval: any;
+    let pollInterval: ReturnType<typeof setInterval> | undefined;
 
     onMount(async () => {
         await loadData();
@@ -460,7 +460,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('settings.detection.model_manager_title', { default: 'Model Manager' })}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}</p></div>
         
-        {#if health}
+            {#if health?.ml}
             <div class="flex items-center gap-2">
                 <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title={$_('settings.detection.model_manager_runtime_tflite', { default: 'TFLite Runtime Status' })}>
                     <span class="w-2 h-2 rounded-full {health.ml.runtimes.tflite.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>

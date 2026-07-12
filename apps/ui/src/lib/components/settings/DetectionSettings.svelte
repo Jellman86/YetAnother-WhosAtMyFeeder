@@ -93,7 +93,7 @@
     let compatProgress = $state<{ done: number; total: number; label: string } | null>(null);
     let compatMatrix = $state<DeviceMatrix | null>(null);
     let compatError = $state<string | null>(null);
-    let compatPoll: any = null;
+    let compatPoll: ReturnType<typeof setInterval> | null = null;
 
     async function runCompatCheck() {
         compatError = null;
@@ -116,7 +116,7 @@
                         compatPhase = list.active.phase ?? null;
                         compatProgress = list.active.progress ?? null;
                     } else if (seenActive) {
-                        clearInterval(compatPoll);
+                        clearInterval(compatPoll ?? undefined);
                         compatPoll = null;
                         compatRunning = false;
                         compatPhase = 'complete';
@@ -159,7 +159,7 @@
     let blockedSpeciesSearchResults = $state<SearchResult[]>([]);
     let blockedSpeciesSearching = $state(false);
     let blockedSpeciesSearchError = $state<string | null>(null);
-    let blockedSpeciesSearchTimeout: any;
+    let blockedSpeciesSearchTimeout: ReturnType<typeof setTimeout> | undefined;
 
     $effect(() => {
         const query = blockedSpeciesSearchQuery.trim();
@@ -195,7 +195,7 @@
     onDestroy(() => {
         if (blockedSpeciesSearchTimeout) {
             clearTimeout(blockedSpeciesSearchTimeout);
-            blockedSpeciesSearchTimeout = null;
+            blockedSpeciesSearchTimeout = undefined;
         }
     });
 

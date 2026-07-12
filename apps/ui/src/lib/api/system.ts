@@ -13,6 +13,12 @@ export interface HealthStatus {
     startup_warnings?: { phase: string; error: string }[];
     startup_instance_id?: string;
     startup_started_at?: string;
+    ml?: {
+        runtimes: {
+            tflite: { installed: boolean };
+            onnx: { installed: boolean };
+        };
+    };
 }
 
 export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];

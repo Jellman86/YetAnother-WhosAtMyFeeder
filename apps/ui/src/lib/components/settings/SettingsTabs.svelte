@@ -1,9 +1,12 @@
 <script lang="ts">
     import { _ } from "svelte-i18n";
 
+    type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment'
+        | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+
     interface Props {
         activeTab: string;
-        ontabchange: (tab: any) => void;
+        ontabchange: (tab: SettingsTab) => void;
         debugUiEnabled?: boolean;
     }
 
@@ -32,7 +35,7 @@
     <select
         id="settings-tab-select"
         value={activeTab}
-        onchange={(e) => ontabchange((e.currentTarget as HTMLSelectElement).value)}
+        onchange={(e) => ontabchange((e.currentTarget as HTMLSelectElement).value as SettingsTab)}
         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
     >
         {#each tabs as tab}
@@ -49,7 +52,7 @@
     {#each tabs as tab}
         <button
             type="button"
-            onclick={() => ontabchange(tab.id)}
+            onclick={() => ontabchange(tab.id as SettingsTab)}
             aria-pressed={activeTab === tab.id}
             class="group flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
                    {activeTab === tab.id

@@ -136,6 +136,9 @@ Completed review tranches:
 - ✅ **Frontend API and operational stores** — removed `any` from maintenance/system clients,
   detection state, health interpretation, incident state, diagnostics snapshots, and reclassify
   recovery; external payloads now enter as `unknown` and are narrowed before use.
+- ✅ **Shared frontend components** — typed navigation, settings tabs, camera roles, health runtime
+  state, event handlers, timers, translations, and notification error parsing across the reusable
+  component layer.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
