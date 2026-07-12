@@ -1,7 +1,7 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
 from fastapi import APIRouter, UploadFile, File, Depends, Request, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, JsonValue
 import structlog
 from pathlib import Path
 
@@ -29,6 +29,33 @@ class ClassifierDownloadResponse(BaseModel):
     input_size: str | None = None
 
 
+class ClassifierPredictionResponse(BaseModel):
+    rank: int
+    label: str
+    score: float
+
+
+class ImageClassificationResponse(BaseModel):
+    status: str
+    model_id: str | None = None
+    inference_backend: str | None = None
+    active_provider: str | None = None
+    inference_ms: float | None = None
+    image_size: list[int] | None = None
+    predictions: list[ClassifierPredictionResponse] = Field(default_factory=list)
+    error: str | None = None
+    traceback: str | None = None
+
+
+class ClassifierTestResponse(BaseModel):
+    status: str | None = None
+    image_size: tuple[int, int] | None = None
+    image_mode: str | None = None
+    results: list[dict[str, JsonValue]] = Field(default_factory=list)
+    error: str | None = None
+    traceback: str | None = None
+
+
 class _LiveClassifierProxy:
     """Compatibility proxy that always delegates to the current singleton."""
 
@@ -46,9 +73,11 @@ class _LiveClassifierProxy:
 classifier_service = _LiveClassifierProxy()
 
 
-@router.get("/status")
+@router.get("/status", response_model=dict[str, JsonValue])
 @guest_rate_limit()
-async def classifier_status(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def classifier_status(
+    request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> dict[str, JsonValue]:
     """Return the status of the bird classifier model."""
     status = classifier_service.get_status()
     status["personalized_rerank_enabled"] = bool(getattr(settings.classification, "personalized_rerank_enabled", False))
@@ -71,9 +100,11 @@ async def classifier_labels(request: Request, auth: AuthContext = Depends(get_au
     return {"labels": classifier_service.labels}
 
 
-@router.get("/wildlife/status")
+@router.get("/wildlife/status", response_model=dict[str, JsonValue])
 @guest_rate_limit()
-async def wildlife_classifier_status(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def wildlife_classifier_status(
+    request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> dict[str, JsonValue]:
     """Return the status of the wildlife classifier model."""
     return classifier_service.get_wildlife_status()
 
@@ -85,8 +116,8 @@ async def wildlife_classifier_labels(request: Request, auth: AuthContext = Depen
     return {"labels": classifier_service.get_wildlife_labels()}
 
 
-@router.get("/debug")
-async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
+@router.get("/debug", response_model=dict[str, JsonValue])
+async def bird_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     """Debug endpoint to inspect bird model details. Owner only."""
     if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
         return {
@@ -179,8 +210,10 @@ async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
-@router.post("/test")
-async def test_bird_classifier(image: UploadFile = File(...), auth: AuthContext = Depends(require_owner)):
+@router.post("/test", response_model=ClassifierTestResponse)
+async def test_bird_classifier(
+    image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
+) -> dict[str, object]:
     """Test bird classifier with an uploaded image. Owner only."""
     from PIL import Image
     import io
@@ -203,12 +236,12 @@ async def test_bird_classifier(image: UploadFile = File(...), auth: AuthContext 
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
-@router.post("/classify")
+@router.post("/classify", response_model=ImageClassificationResponse)
 async def classify_image(
     image: UploadFile = File(...),
     top_n: int = Query(default=10, ge=1, le=50),
     auth: AuthContext = Depends(require_owner),
-):
+) -> ImageClassificationResponse | dict[str, str]:
     """Classify an uploaded image through the full pipeline and return rich diagnostics.
 
     Returns top-N predictions with scores, inference timing, active provider,
@@ -256,13 +289,13 @@ async def classify_image(
     }
 
 
-@router.post("/probe")
+@router.post("/probe", response_model=dict[str, JsonValue])
 async def probe_bird_classifier_runtime(
     device: str = Query(default="GPU"),
     synthetic_image: bool = Query(default=False),
     image: UploadFile | None = File(default=None),
     auth: AuthContext = Depends(require_owner),
-):
+) -> dict[str, JsonValue]:
     """Run one explicit OpenVINO bird-model probe and return runtime diagnostics. Owner only."""
     from PIL import Image
     import io
@@ -285,8 +318,8 @@ async def probe_bird_classifier_runtime(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/wildlife/debug")
-async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
+@router.get("/wildlife/debug", response_model=dict[str, JsonValue])
+async def wildlife_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     """Debug endpoint to inspect wildlife model details and test classification. Owner only."""
     import numpy as np
     from PIL import Image
@@ -346,8 +379,10 @@ async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
-@router.post("/wildlife/test")
-async def test_wildlife_classifier(image: UploadFile = File(...), auth: AuthContext = Depends(require_owner)):
+@router.post("/wildlife/test", response_model=ClassifierTestResponse)
+async def test_wildlife_classifier(
+    image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
+) -> dict[str, object]:
     """Test wildlife classifier with an uploaded image. Owner only."""
     from PIL import Image
     import io

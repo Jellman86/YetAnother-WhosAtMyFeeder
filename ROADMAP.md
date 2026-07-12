@@ -151,7 +151,7 @@ Completed review tranches:
 - ✅ **Settings and frontend type gate** — replaced Settings casts with domain normalizers, typed
   input attributes and timers, standardized unknown-error handling, and added a full-source Vitest
   gate that rejects explicit `any` in application TypeScript/Svelte outside generated contracts.
-- 🔄 **Backend endpoint contracts** — authentication and Settings action responses are typed;
+- 🔄 **Backend endpoint contracts** — authentication, Settings, and classifier responses are typed;
   remaining JSON endpoints are being separated from intentional streaming/file/redirect responses.
 
 #### Full translation review 🌍

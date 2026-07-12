@@ -380,6 +380,19 @@ export interface components {
     ClassifierLabelsResponse: {
     labels: Array<string>;
 };
+    ClassifierPredictionResponse: {
+    label: string;
+    rank: number;
+    score: number;
+};
+    ClassifierTestResponse: {
+    error?: string | null;
+    image_mode?: string | null;
+    image_size?: Array<unknown> | null;
+    results?: Array<Record<string, components['schemas']['JsonValue']>>;
+    status?: string | null;
+    traceback?: string | null;
+};
     CleanupResponse: {
     cutoff_date?: string | null;
     deleted_count: number;
@@ -743,6 +756,17 @@ export interface components {
     event_id: string;
     is_hidden: boolean;
     status: string;
+};
+    ImageClassificationResponse: {
+    active_provider?: string | null;
+    error?: string | null;
+    image_size?: Array<number> | null;
+    inference_backend?: string | null;
+    inference_ms?: number | null;
+    model_id?: string | null;
+    predictions?: Array<components['schemas']['ClassifierPredictionResponse']>;
+    status: string;
+    traceback?: string | null;
 };
     InaturalistDisconnectResponse: {
     deleted: boolean;
@@ -1843,7 +1867,7 @@ export interface paths {
     top_n?: number;
 };
       requestBody: components['schemas']['BodyClassifyImageApiClassifierClassifyPost'];
-      response: unknown;
+      response: components['schemas']['ImageClassificationResponse'];
     };
   };
   "/api/classifier/debug": {
@@ -1852,7 +1876,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/download": {
@@ -1882,7 +1906,7 @@ export interface paths {
     synthetic_image?: boolean;
 };
       requestBody: components['schemas']['BodyProbeBirdClassifierRuntimeApiClassifierProbePost'];
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/status": {
@@ -1891,7 +1915,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/test": {
@@ -1900,7 +1924,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BodyTestBirdClassifierApiClassifierTestPost'];
-      response: unknown;
+      response: components['schemas']['ClassifierTestResponse'];
     };
   };
   "/api/classifier/wildlife/debug": {
@@ -1909,7 +1933,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/wildlife/download": {
@@ -1936,7 +1960,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/wildlife/test": {
@@ -1945,7 +1969,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BodyTestWildlifeClassifierApiClassifierWildlifeTestPost'];
-      response: unknown;
+      response: components['schemas']['ClassifierTestResponse'];
     };
   };
   "/api/debug/config": {

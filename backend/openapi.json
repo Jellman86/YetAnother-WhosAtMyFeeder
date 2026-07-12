@@ -2457,6 +2457,110 @@
         "title": "ClassifierLabelsResponse",
         "type": "object"
       },
+      "ClassifierPredictionResponse": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "label",
+          "score"
+        ],
+        "title": "ClassifierPredictionResponse",
+        "type": "object"
+      },
+      "ClassifierTestResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "image_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Mode"
+          },
+          "image_size": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Size"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "traceback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traceback"
+          }
+        },
+        "title": "ClassifierTestResponse",
+        "type": "object"
+      },
       "CleanupResponse": {
         "properties": {
           "cutoff_date": {
@@ -5083,6 +5187,106 @@
           "is_hidden"
         ],
         "title": "HideResponse",
+        "type": "object"
+      },
+      "ImageClassificationResponse": {
+        "properties": {
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "image_size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Size"
+          },
+          "inference_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Backend"
+          },
+          "inference_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Ms"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/ClassifierPredictionResponse"
+            },
+            "title": "Predictions",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "traceback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traceback"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ImageClassificationResponse",
         "type": "object"
       },
       "InaturalistDisconnectResponse": {
@@ -13378,7 +13582,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ImageClassificationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13419,7 +13625,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Bird Classifier Debug Api Classifier Debug Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -13547,7 +13759,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Probe Bird Classifier Runtime Api Classifier Probe Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -13588,7 +13806,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Classifier Status Api Classifier Status Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -13629,7 +13853,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierTestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -13670,7 +13896,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Wildlife Classifier Debug Api Classifier Wildlife Debug Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -13767,7 +13999,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Wildlife Classifier Status Api Classifier Wildlife Status Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -13808,7 +14046,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClassifierTestResponse"
+                }
               }
             },
             "description": "Successful Response"
