@@ -128,6 +128,8 @@ Completed review tranches:
   response models for every endpoint, made secret redaction independently testable and consistent
   with the application-wide `***REDACTED***` contract, and moved filesystem inspection off the
   async event loop.
+- ✅ **Python formatting baseline** — brought the remaining backend files into the enforced Ruff
+  format baseline so the repository-wide formatter check is clean before deeper review batches.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

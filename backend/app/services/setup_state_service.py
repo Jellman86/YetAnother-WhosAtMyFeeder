@@ -70,9 +70,7 @@ def _model(settings) -> SetupSectionState:
 
 def _quality(settings) -> SetupSectionState:
     # HQ snapshot / crop settings have working defaults; always functional.
-    return SetupSectionState(
-        id="quality", status="ok", detail=settings.classification.bird_crop_source_priority
-    )
+    return SetupSectionState(id="quality", status="ok", detail=settings.classification.bird_crop_source_priority)
 
 
 def _integrations(settings) -> SetupSectionState:

@@ -35,7 +35,9 @@ async def get_update_status():
     # Prefer APP_BRANCH from the image build because stable releases intentionally omit the
     # channel from the display version string.
     before_plus, _, git_hash = current_version.partition("+")
-    branch = os.environ.get("APP_BRANCH", "").strip() or (before_plus.split("-", 1)[1] if "-" in before_plus else "stable")
+    branch = os.environ.get("APP_BRANCH", "").strip() or (
+        before_plus.split("-", 1)[1] if "-" in before_plus else "stable"
+    )
     return await update_service.get_status(current_version, branch=branch, git_hash=git_hash)
 
 
