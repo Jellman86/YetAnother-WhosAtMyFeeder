@@ -1,13 +1,18 @@
 
-import type { Detection, DailySpeciesSummary } from './api';
-
 export interface NamingResult {
     primary: string;
     secondary: string | null;
 }
 
+export interface BirdNamingInput {
+    scientific_name?: string | null;
+    common_name?: string | null;
+    display_name?: string | null;
+    species?: string | null;
+}
+
 export function getBirdNames(
-    item: Detection | DailySpeciesSummary,
+    item: BirdNamingInput,
     showCommon: boolean,
     preferSci: boolean
 ): NamingResult {
@@ -16,7 +21,7 @@ export function getBirdNames(
     const commonName = item.common_name || null;
     
     // For Detection, we have display_name. For summary, we have species.
-    const fallback = (item as Detection).display_name || (item as DailySpeciesSummary).species || 'Unknown';
+    const fallback = item.display_name || item.species || 'Unknown';
 
     let primary: string;
     let secondary: string | null = null;

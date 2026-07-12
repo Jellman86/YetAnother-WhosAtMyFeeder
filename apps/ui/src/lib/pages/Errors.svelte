@@ -14,12 +14,47 @@
     const FRIGATE_MISSING_DOCS_URL =
         'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
+    interface MetricGroup extends Record<string, unknown> {
+        status?: unknown;
+        pressure_level?: unknown;
+        started_events?: unknown;
+        completed_events?: unknown;
+        dropped_events?: unknown;
+        critical_failures?: unknown;
+        critical_failure_active?: unknown;
+        in_flight?: unknown;
+        in_flight_capacity?: unknown;
+        topic_liveness_reconnects?: unknown;
+        last_reconnect_reason?: unknown;
+        queued?: unknown;
+        max_concurrent?: unknown;
+        abandoned?: unknown;
+        background_throttled?: unknown;
+        dropped_jobs?: unknown;
+        queue_size?: unknown;
+        queue_max?: unknown;
+        acquire_wait_max_ms?: unknown;
+        acquire_timeouts?: unknown;
+    }
+
+    interface DiagnosticsHealth extends Record<string, unknown> {
+        event_pipeline?: MetricGroup;
+        mqtt?: MetricGroup;
+        ml?: { live_image?: MetricGroup; background_image?: MetricGroup };
+        notification_dispatcher?: MetricGroup;
+        db_pool?: MetricGroup;
+    }
+
     let currentIssues = $derived(incidentWorkspaceStore.currentIssues);
     let recentIncidents = $derived(incidentWorkspaceStore.recentIncidents);
     let workspacePayload = $derived(incidentWorkspaceStore.workspacePayload);
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
-    let health = $derived((workspacePayload?.health as Record<string, any> | null) ?? null);
+    let health = $derived(
+        workspacePayload?.health && typeof workspacePayload.health === 'object'
+            ? workspacePayload.health as DiagnosticsHealth
+            : null
+    );
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));

@@ -34,6 +34,7 @@
     import DetectionModal from '../components/DetectionModal.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
+    import { getErrorMessage } from '../utils/error-handling';
 
     import { getBirdNames } from '../naming';
 
@@ -151,7 +152,7 @@
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
-        } as any, showCommon, preferSci);
+        }, showCommon, preferSci);
         return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
     }
 
@@ -296,7 +297,14 @@
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
-        if (params.get('date')) datePreset = params.get('date') as any;
+        const requestedDatePreset = params.get('date');
+        if (
+            requestedDatePreset === 'all' ||
+            requestedDatePreset === 'today' ||
+            requestedDatePreset === 'week' ||
+            requestedDatePreset === 'month' ||
+            requestedDatePreset === 'custom'
+        ) datePreset = requestedDatePreset;
         if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
         if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
         const deepLinkedEvent = params.get('event');
@@ -578,10 +586,11 @@
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
                 toastStore.warning($_('notifications.reclassify_fallback'));
             }
-        } catch (e: any) {
+        } catch (e) {
+            const message = getErrorMessage(e);
             detectionsStore.dismissReclassification(eventId);
-            console.error('Failed to start reclassification', e.message);
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e.message || 'Unknown error' } }));
+            console.error('Failed to start reclassification', message);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
         }
     }
 
@@ -878,8 +887,8 @@
                     })
                 );
             }
-        } catch (e: any) {
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
+        } catch (e) {
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
             bulkTagPendingId = null;
             bulkTagging = false;
@@ -912,10 +921,11 @@
             }
             selectedEventIds = [];
             await refreshEventMetadata(true, false);
-        } catch (e: any) {
+        } catch (e) {
+            const message = getErrorMessage(e);
             toastStore.error($_('events.bulk_delete_failed', {
-                values: { message: e?.message || 'Unknown error' },
-                default: `Delete failed: ${e?.message || 'Unknown error'}`
+                values: { message },
+                default: `Delete failed: ${message}`
             }));
         } finally {
             bulkDeleting = false;

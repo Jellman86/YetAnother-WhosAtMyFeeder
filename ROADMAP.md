@@ -141,6 +141,8 @@ Completed review tranches:
   component layer.
 - ✅ **Chart and map vendor boundaries** — replaced ApexCharts and Leaflet `any` usage with typed
   constructors, instances, DOM extensions, option records, maps, layers, and dynamic-import guards.
+- ✅ **Events and health pages** — typed URL filter admission, naming inputs, operational health
+  metrics, and user-facing error extraction across the Events and Health diagnostics surfaces.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
