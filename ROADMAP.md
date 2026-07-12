@@ -154,6 +154,9 @@ Completed review tranches:
 - ✅ **Backend endpoint contracts** — authentication, Settings, classifier, maintenance/status,
   Events, and model-evaluation JSON responses now publish explicit generated contracts; binary
   model-evaluation artifacts are explicitly classified as file responses.
+- 🔄 **Backend persistence boundaries** — cache cleanup and manual event corrections now use
+  `DetectionRepository`, and logout token cleanup has a dedicated OAuth repository; the remaining
+  species, eBird, and video-share router queries are the next review tranche.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

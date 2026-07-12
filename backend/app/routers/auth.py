@@ -22,6 +22,7 @@ from app.auth import (
 from app.config import settings
 from app.database import get_db
 from app.models import MessageResponse
+from app.repositories.oauth_token_repository import OAuthTokenRepository
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.ratelimit import login_rate_limit
 
@@ -326,8 +327,7 @@ async def logout(_auth: AuthContext = Depends(require_owner)) -> MessageResponse
     """
     try:
         async with get_db() as db:
-            await db.execute("DELETE FROM oauth_tokens")
-            await db.commit()
+            await OAuthTokenRepository(db).delete_all()
     except aiosqlite.OperationalError:
         pass
     return MessageResponse(message="Logged out successfully. Please clear your token.")

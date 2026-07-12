@@ -1158,26 +1158,16 @@ async def _apply_manual_tag_update(
     detection.common_name = com_name
     detection.taxa_id = t_id
 
-    await db.execute(
-        """
-        UPDATE detections
-        SET display_name = ?, category_name = ?,
-            scientific_name = ?, common_name = ?, taxa_id = ?,
-            audio_confirmed = ?, audio_species = ?, audio_score = ?,
-            manual_tagged = 1
-        WHERE frigate_event = ?
-    """,
-        (
-            stored_display_name,
-            stored_category_name,
-            sci_name,
-            com_name,
-            t_id,
-            1 if audio_confirmed else 0,
-            audio_species,
-            audio_score,
-            event_id,
-        ),
+    await repo.apply_manual_species_tag(
+        frigate_event=event_id,
+        display_name=stored_display_name,
+        category_name=stored_category_name,
+        scientific_name=sci_name,
+        common_name=com_name,
+        taxa_id=t_id,
+        audio_confirmed=audio_confirmed,
+        audio_species=audio_species,
+        audio_score=audio_score,
     )
 
     model_id = _get_active_model_id_for_feedback()

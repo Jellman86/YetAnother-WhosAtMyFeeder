@@ -2378,10 +2378,8 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
 
     # Also run orphaned media cleanup (files not in DB)
     async with get_db() as db:
-        # Fetch all valid event IDs
-        async with db.execute("SELECT frigate_event FROM detections") as cursor:
-            rows = await cursor.fetchall()
-            valid_ids = {row[0] for row in rows}
+        repo = DetectionRepository(db)
+        valid_ids = set(await repo.get_all_frigate_event_ids())
     valid_ids.update(protected_ids)
 
     orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
