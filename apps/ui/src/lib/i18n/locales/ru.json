@@ -9,6 +9,7 @@
     "dashboard": "Дашборд",
     "explorer": "Просмотр",
     "leaderboard": "Рейтинг",
+    "audio_history": "История аудио",
     "settings": "Настройки",
     "about": "О проекте",
     "toggle_menu": "Переключить меню",
@@ -94,8 +95,11 @@
       "empty_title": "Нет аудио-обнаружений в буфере",
       "empty_subtitle": "Буфер очищается каждые 5 мин",
       "unknown_sensor": "Неизвестный датчик",
+      "open_history": "Открыть историю аудио",
       "open_birdnet": "Открыть BirdNET-Go",
-      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go"
+      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go",
+      "heard_today": "услышано",
+      "species": "видов"
     },
     "top_visitors_title": "Частые посетители",
     "top_visitors_empty": "Сегодня посетители ещё не зафиксированы.",
@@ -144,6 +148,9 @@
     "all": "Все",
     "available": "Доступно",
     "clear": "Очистить",
+    "apply": "Применить",
+    "previous": "Назад",
+    "next": "Далее",
     "clearing": "Очистка...",
     "disabled": "Отключено",
     "enabled": "Включено",
@@ -458,6 +465,8 @@
       "payload_nvidia_gpu_detected": "GPU NVIDIA обнаружен",
       "payload_openvino_available": "OpenVINO доступен",
       "payload_intel_gpu_available": "GPU Intel доступен",
+      "payload_intel_npu_available": "NPU Intel доступен",
+      "dashboard_link": "Открыть публичную панель телеметрии",
       "payload_openvino_compile": "Компиляция GPU OpenVINO",
       "payload_openvino_device": "Устройство OpenVINO",
       "payload_gpu_fallback": "Резерв GPU активен",
@@ -1439,7 +1448,42 @@
     "classification_legend": "Источник классификации: вручную, видео, снимок",
     "timeline_keyboard_hint": "Клавиши таймлайна: [ предыдущий день, ] следующий день, 0 сброс"
   },
+  "audio": {
+    "chart": {
+      "heard": "Услышано", "daily_title": "Активность во времени",
+      "daily_sub": "Аудиообнаружения BirdNET-Go по дням", "hourly_title": "Время суток",
+      "species_title": "Распределение видов", "empty": "В этом периоде нет активности."
+    },
+    "stat": {
+      "heard": "Услышано", "heard_sub": "Показанные обнаружения BirdNET", "species": "Виды",
+      "species_sub": "Виды, определённые по аудио", "peak_hour": "Пиковый час",
+      "peak_hour_sub": "{count} обнаружений", "no_activity": "Активности пока нет",
+      "sources": "Источники", "sources_sub": "Микрофоны или потоки"
+    },
+    "filter": {
+      "window": "Период", "24h": "24 часа", "7d": "7 дней", "30d": "30 дней",
+      "90d": "90 дней", "1y": "1 год", "species": "Вид", "source": "Источник",
+      "min_confidence": "Мин. уверенность"
+    },
+    "top_species": "Чаще всего услышанные виды",
+    "card": { "last_heard": "Последний раз", "avg": "сред.", "max": "макс." },
+    "history": {
+      "title": "История обнаружений",
+      "sub": "Сохранённые обнаружения BirdNET-Go, отдельно от визуальных визитов.",
+      "empty": "Нет обнаружений BirdNET, соответствующих этим фильтрам.",
+      "showing": "Показано {from}–{to} из {total}"
+    },
+    "table": {
+      "sound": "Звук", "time": "Время", "species": "Вид", "source": "Источник",
+      "confidence": "Уверенность", "open_birdnet": "Открыть в BirdNET-Go",
+      "unknown_source": "Неизвестный источник"
+    },
+    "sources": { "title": "Источники", "empty": "Источников пока нет." }
+  },
   "leaderboard": {
+    "source_toggle": "Источник обнаружения", "source_seen": "Увидено", "source_heard": "Услышано",
+    "source_both": "Оба", "audio_only": "Только аудио",
+    "audio_only_desc": "Услышано в BirdNET-Go, но не замечено камерой",
     "title": "Рейтинг видов",
     "species_count": "{count} видов",
     "detections_count": "{count} обнаружений",
@@ -1857,6 +1901,9 @@
     "no_video_support": "Ваш браузер не поддерживает воспроизведение видео."
   },
   "jobs": {
+    "frigate_media_advisory_title": "Для обнаружения часто нет снимка Frigate",
+    "frigate_media_advisory_body": "{percent}% недавних обнаружений ({dropped} из {started}) были отброшены, потому что в Frigate не было снимка, миниатюры или записи. Обычно это кратковременно отслеживаемые птицы, которые не сохраняются как события Frigate, либо результат короткого срока хранения записей.",
+    "frigate_media_advisory_link": "Как уменьшить число таких случаев →",
     "title": "Задачи",
     "subtitle": "Следите за активными фоновыми задачами и последними результатами.",
     "open": "Открыть задачи",
@@ -2037,6 +2084,15 @@
   "errors": {
     "stack_trace": "Трассировка стека:"
   },
+  "update_banner": {
+    "title": "Доступна YA-WAMF {version}",
+    "title_dev": "Доступна более новая сборка для разработки ({version})",
+    "body": "Сейчас используется {current}. Для обновления загрузите новый образ через менеджер контейнеров.",
+    "release_notes": "Примечания к выпуску →",
+    "dismiss": "Скрыть",
+    "sidebar_title": "Доступно обновление: {version}",
+    "sidebar_label": "Доступно обновление"
+  },
   "header": {
     "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Подключение.",
     "cameras_label": "Состояние камер",
@@ -2052,6 +2108,7 @@
     "cameras_title": "Камеры"
   },
   "page_subtitle": {
+    "audio_history": "Просматривайте сохранённые обнаружения BirdNET-Go и активность только по аудио.",
     "about": "Версия, журнал изменений, участники и ссылки поддержки.",
     "dashboard": "Обнаружения в реальном времени, недавняя активность и состояние кормушки одним взглядом.",
     "events": "Просматривайте, фильтруйте и управляйте каждым классифицированным визитом.",

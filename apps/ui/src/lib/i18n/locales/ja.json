@@ -9,6 +9,7 @@
     "dashboard": "ダッシュボード",
     "explorer": "エクスプローラー",
     "leaderboard": "リーダーボード",
+    "audio_history": "音声履歴",
     "settings": "設定",
     "about": "このアプリについて",
     "toggle_menu": "メニューの切り替え",
@@ -94,8 +95,11 @@
       "empty_title": "バッファ内に音声検出はありません",
       "empty_subtitle": "バッファは5分ごとにクリア",
       "unknown_sensor": "不明なセンサー",
+      "open_history": "音声履歴を開く",
       "open_birdnet": "BirdNET-Go を開く",
-      "open_in_birdnet": "この検出を BirdNET-Go で開く"
+      "open_in_birdnet": "この検出を BirdNET-Go で開く",
+      "heard_today": "検出",
+      "species": "種"
     },
     "top_visitors_title": "よく来る訪問者",
     "top_visitors_empty": "今日はまだ訪問者が記録されていません。",
@@ -144,6 +148,9 @@
     "all": "すべて",
     "available": "利用可能",
     "clear": "クリア",
+    "apply": "適用",
+    "previous": "前へ",
+    "next": "次へ",
     "clearing": "クリア中...",
     "disabled": "無効",
     "enabled": "有効",
@@ -450,6 +457,8 @@
       "payload_nvidia_gpu_detected": "NVIDIA GPU 検出",
       "payload_openvino_available": "OpenVINO 利用可能",
       "payload_intel_gpu_available": "Intel GPU 利用可能",
+      "payload_intel_npu_available": "Intel NPU 利用可能",
+      "dashboard_link": "公開テレメトリダッシュボードを表示",
       "payload_openvino_compile": "OpenVINO GPU コンパイル",
       "payload_openvino_device": "OpenVINO デバイス",
       "payload_gpu_fallback": "GPU フォールバック有効",
@@ -1431,7 +1440,39 @@
     "classification_legend": "分類ソース: 手動 / 動画 / スナップショット",
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット"
   },
+  "audio": {
+    "chart": {
+      "heard": "検出数", "daily_title": "時間ごとのアクティビティ",
+      "daily_sub": "1日ごとの BirdNET-Go 音声検出数", "hourly_title": "時間帯",
+      "species_title": "種の構成", "empty": "この期間にアクティビティはありません。"
+    },
+    "stat": {
+      "heard": "検出数", "heard_sub": "表示中の BirdNET 検出", "species": "種",
+      "species_sub": "音声から特定された種", "peak_hour": "ピーク時間",
+      "peak_hour_sub": "{count} 件の検出", "no_activity": "まだアクティビティはありません",
+      "sources": "音源", "sources_sub": "マイクまたはストリーム"
+    },
+    "filter": {
+      "window": "期間", "24h": "24時間", "7d": "7日", "30d": "30日", "90d": "90日",
+      "1y": "1年", "species": "種", "source": "音源", "min_confidence": "最低信頼度"
+    },
+    "top_species": "最も多く聞かれた種",
+    "card": { "last_heard": "最終検出", "avg": "平均", "max": "最大" },
+    "history": {
+      "title": "検出履歴", "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
+      "empty": "このフィルターに一致する BirdNET 検出はありません。",
+      "showing": "{total} 件中 {from}～{to} 件を表示"
+    },
+    "table": {
+      "sound": "音声", "time": "時刻", "species": "種", "source": "音源", "confidence": "信頼度",
+      "open_birdnet": "BirdNET-Go で開く", "unknown_source": "不明な音源"
+    },
+    "sources": { "title": "音源", "empty": "音源はまだありません。" }
+  },
   "leaderboard": {
+    "source_toggle": "検出元", "source_seen": "映像", "source_heard": "音声",
+    "source_both": "両方", "audio_only": "音声のみ",
+    "audio_only_desc": "BirdNET-Go では検出されたが、カメラには映っていない種",
     "title": "種のリーダーボード",
     "species_count": "{count} 種",
     "detections_count": "{count} 回の検出",
@@ -1857,6 +1898,9 @@
     "no_video_support": "お使いのブラウザーは動画再生をサポートしていません。"
   },
   "jobs": {
+    "frigate_media_advisory_title": "検出時に Frigate のスナップショットがないことが頻発しています",
+    "frigate_media_advisory_body": "最近の検出の {percent}%（{started} 件中 {dropped} 件）は、Frigate にスナップショット、サムネイル、録画のいずれもなかったため破棄されました。通常は、追跡時間が短く Frigate イベントとして残らなかった鳥、または録画の保存期間が短いことが原因です。",
+    "frigate_media_advisory_link": "減らす方法 →",
     "title": "ジョブ",
     "subtitle": "実行中のバックグラウンドタスクと最近の結果を確認します。",
     "open": "ジョブを開く",
@@ -2037,6 +2081,15 @@
   "errors": {
     "stack_trace": "スタックトレース:"
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} を利用できます",
+    "title_dev": "新しい開発ビルドを利用できます（{version}）",
+    "body": "現在 {current} を実行中です。更新するにはコンテナマネージャーから新しいイメージを取得してください。",
+    "release_notes": "リリースノート →",
+    "dismiss": "閉じる",
+    "sidebar_title": "更新があります: {version}",
+    "sidebar_label": "更新があります"
+  },
   "header": {
     "cameras_empty": "カメラが構成されていません。設定 → 接続 でカメラを追加してください。",
     "cameras_label": "カメラの状態",
@@ -2052,6 +2105,7 @@
     "cameras_title": "カメラ"
   },
   "page_subtitle": {
+    "audio_history": "保存された BirdNET-Go の検出と音声のみのアクティビティを閲覧します。",
     "about": "バージョン、変更履歴、貢献者、サポートリンク。",
     "dashboard": "ライブ検出、最近のアクティビティ、給餌台の状態を一目で確認。",
     "events": "分類されたすべての訪問を閲覧、フィルタリング、管理。",

@@ -123,11 +123,16 @@ dead code, commented-out blocks, or leftover scaffolding. Sequenced lowest-risk 
 change is test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
 
 #### Full translation review 🌍
-**Priority:** P1 | **Effort:** M | **Status:** ☐ Not started
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 In progress ([design](docs/plans/2026-07-12-full-translation-review-design.md))
 
 Review every locale against the `en.json` source of truth for completeness, accuracy, and
 consistency; fix missing keys, drift, and machine-translation artefacts. Add a CI check that
 flags missing/extra keys per locale so translations can't silently rot.
+
+✅ Structural completeness is finished: every locale now exactly matches `en.json`, including
+shared controls, telemetry, update messaging, the Frigate media advisory, Dashboard audio copy,
+Leaderboard source controls, and the complete Audio History surface. CI rejects missing/extra keys
+and placeholder drift. Remaining: the per-language terminology and machine-translation quality pass.
 
 ### 1.3 Feature completion
 

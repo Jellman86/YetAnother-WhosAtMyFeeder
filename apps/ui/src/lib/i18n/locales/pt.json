@@ -9,6 +9,7 @@
     "dashboard": "Painel",
     "explorer": "Explorar",
     "leaderboard": "Ranking",
+    "audio_history": "Histórico de áudio",
     "settings": "Configurações",
     "about": "Sobre",
     "toggle_menu": "Alternar menu",
@@ -94,8 +95,11 @@
       "empty_title": "Nenhuma detecção de áudio no buffer",
       "empty_subtitle": "O buffer é limpo a cada 5 min",
       "unknown_sensor": "Sensor desconhecido",
+      "open_history": "Abrir histórico de áudio",
       "open_birdnet": "Abrir BirdNET-Go",
-      "open_in_birdnet": "Abrir deteção no BirdNET-Go"
+      "open_in_birdnet": "Abrir deteção no BirdNET-Go",
+      "heard_today": "ouvidas",
+      "species": "espécies"
     },
     "top_visitors_title": "Visitantes frequentes",
     "top_visitors_empty": "Ainda não há visitantes registrados hoje.",
@@ -144,6 +148,9 @@
     "all": "Tudo",
     "available": "Disponível",
     "clear": "Limpar",
+    "apply": "Aplicar",
+    "previous": "Anterior",
+    "next": "Seguinte",
     "clearing": "Limpando...",
     "disabled": "Desativado",
     "enabled": "Ativado",
@@ -458,6 +465,8 @@
       "payload_nvidia_gpu_detected": "GPU NVIDIA detetada",
       "payload_openvino_available": "OpenVINO disponível",
       "payload_intel_gpu_available": "GPU Intel disponível",
+      "payload_intel_npu_available": "NPU Intel disponível",
+      "dashboard_link": "Ver o painel público de telemetria",
       "payload_openvino_compile": "Compilação GPU OpenVINO",
       "payload_openvino_device": "Dispositivo OpenVINO",
       "payload_gpu_fallback": "Fallback GPU ativo",
@@ -1439,7 +1448,42 @@
     "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo",
     "timeline_keyboard_hint": "Teclado da linha do tempo: [ dia anterior, ] próximo dia, 0 redefinir"
   },
+  "audio": {
+    "chart": {
+      "heard": "Ouvidas", "daily_title": "Atividade ao longo do tempo",
+      "daily_sub": "Deteções BirdNET-Go ouvidas por dia", "hourly_title": "Hora do dia",
+      "species_title": "Distribuição de espécies", "empty": "Sem atividade neste período."
+    },
+    "stat": {
+      "heard": "Ouvidas", "heard_sub": "Deteções BirdNET apresentadas", "species": "Espécies",
+      "species_sub": "Espécies identificadas por áudio", "peak_hour": "Hora de pico",
+      "peak_hour_sub": "{count} deteções", "no_activity": "Ainda não há atividade",
+      "sources": "Fontes", "sources_sub": "Microfones ou transmissões"
+    },
+    "filter": {
+      "window": "Período", "24h": "24 horas", "7d": "7 dias", "30d": "30 dias",
+      "90d": "90 dias", "1y": "1 ano", "species": "Espécie", "source": "Fonte",
+      "min_confidence": "Confiança mínima"
+    },
+    "top_species": "Espécies mais ouvidas",
+    "card": { "last_heard": "Ouvida pela última vez", "avg": "média", "max": "máx." },
+    "history": {
+      "title": "Histórico de deteções",
+      "sub": "Deteções BirdNET-Go guardadas, separadas das visitas visuais.",
+      "empty": "Nenhuma deteção BirdNET corresponde a estes filtros.",
+      "showing": "A mostrar {from}-{to} de {total}"
+    },
+    "table": {
+      "sound": "Som", "time": "Hora", "species": "Espécie", "source": "Fonte",
+      "confidence": "Confiança", "open_birdnet": "Abrir no BirdNET-Go",
+      "unknown_source": "Fonte desconhecida"
+    },
+    "sources": { "title": "Fontes", "empty": "Ainda não há fontes." }
+  },
   "leaderboard": {
+    "source_toggle": "Fonte da deteção", "source_seen": "Vistas", "source_heard": "Ouvidas",
+    "source_both": "Ambas", "audio_only": "Apenas áudio",
+    "audio_only_desc": "Ouvida no BirdNET-Go, não vista pela câmara",
     "title": "Ranking de Espécies",
     "species_count": "{count} espécies",
     "detections_count": "{count} detecções",
@@ -1857,6 +1901,9 @@
     "no_video_support": "Seu navegador não oferece suporte à reprodução de vídeo."
   },
   "jobs": {
+    "frigate_media_advisory_title": "O Frigate muitas vezes não tem uma imagem para uma deteção",
+    "frigate_media_advisory_body": "{percent}% das deteções recentes ({dropped} de {started}) foram ignoradas porque o Frigate não tinha imagem, miniatura nem gravação. Normalmente, isto acontece com aves seguidas por pouco tempo que não permanecem como eventos do Frigate ou devido a uma retenção curta das gravações.",
+    "frigate_media_advisory_link": "Como reduzir este problema →",
     "title": "Tarefas",
     "subtitle": "Acompanhe tarefas em segundo plano ativas e resultados recentes.",
     "open": "Abrir tarefas",
@@ -2037,6 +2084,15 @@
   "errors": {
     "stack_trace": "Rastreamento de pilha:"
   },
+  "update_banner": {
+    "title": "O YA-WAMF {version} está disponível",
+    "title_dev": "Está disponível uma compilação de desenvolvimento mais recente ({version})",
+    "body": "Estás a usar {current}. Obtém a nova imagem no gestor de contentores para atualizar.",
+    "release_notes": "Notas de lançamento →",
+    "dismiss": "Ignorar",
+    "sidebar_title": "Atualização disponível: {version}",
+    "sidebar_label": "Atualização disponível"
+  },
   "header": {
     "cameras_empty": "Nenhuma câmara configurada. Adiciona câmaras em Definições → Ligação.",
     "cameras_label": "Estado das câmaras",
@@ -2052,6 +2108,7 @@
     "cameras_title": "Câmaras"
   },
   "page_subtitle": {
+    "audio_history": "Consulta deteções BirdNET-Go guardadas e atividade apenas de áudio.",
     "about": "Versão, registo de alterações, colaboradores e ligações de suporte.",
     "dashboard": "Deteções em direto, atividade recente e estado do comedouro num relance.",
     "events": "Procura, filtra e gere cada visita classificada.",

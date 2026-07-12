@@ -9,6 +9,7 @@
     "dashboard": "仪表盘",
     "explorer": "探索",
     "leaderboard": "排行榜",
+    "audio_history": "音频历史",
     "settings": "设置",
     "about": "关于",
     "toggle_menu": "切换菜单",
@@ -94,8 +95,11 @@
       "empty_title": "缓冲区中没有音频检测",
       "empty_subtitle": "缓冲区每5分钟清空",
       "unknown_sensor": "未知传感器",
+      "open_history": "打开音频历史",
       "open_birdnet": "打开 BirdNET-Go",
-      "open_in_birdnet": "在 BirdNET-Go 中打开此检测"
+      "open_in_birdnet": "在 BirdNET-Go 中打开此检测",
+      "heard_today": "次听测",
+      "species": "个物种"
     },
     "top_visitors_title": "常见访客",
     "top_visitors_empty": "今天还没有记录到访客。",
@@ -144,6 +148,9 @@
     "all": "全部",
     "available": "可用",
     "clear": "清除",
+    "apply": "应用",
+    "previous": "上一页",
+    "next": "下一页",
     "clearing": "清除中...",
     "disabled": "已禁用",
     "enabled": "已启用",
@@ -450,6 +457,8 @@
       "payload_nvidia_gpu_detected": "检测到 NVIDIA GPU",
       "payload_openvino_available": "OpenVINO 可用",
       "payload_intel_gpu_available": "Intel GPU 可用",
+      "payload_intel_npu_available": "Intel NPU 可用",
+      "dashboard_link": "查看公开遥测面板",
       "payload_openvino_compile": "OpenVINO GPU 编译",
       "payload_openvino_device": "OpenVINO 设备",
       "payload_gpu_fallback": "GPU 回退活动",
@@ -1431,7 +1440,39 @@
     "classification_legend": "分类来源：手动、视频、快照",
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置"
   },
+  "audio": {
+    "chart": {
+      "heard": "听测", "daily_title": "活动趋势", "daily_sub": "每日 BirdNET-Go 听测次数",
+      "hourly_title": "时段", "species_title": "物种构成", "empty": "此时间范围内没有活动。"
+    },
+    "stat": {
+      "heard": "听测", "heard_sub": "当前显示的 BirdNET 检测", "species": "物种",
+      "species_sub": "通过音频识别的物种", "peak_hour": "高峰时段",
+      "peak_hour_sub": "{count} 次检测", "no_activity": "尚无活动", "sources": "来源",
+      "sources_sub": "麦克风或音频流"
+    },
+    "filter": {
+      "window": "时间范围", "24h": "24 小时", "7d": "7 天", "30d": "30 天",
+      "90d": "90 天", "1y": "1 年", "species": "物种", "source": "来源",
+      "min_confidence": "最低置信度"
+    },
+    "top_species": "听测次数最多的物种",
+    "card": { "last_heard": "最近听测", "avg": "平均", "max": "最高" },
+    "history": {
+      "title": "检测历史", "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+      "empty": "没有符合这些筛选条件的 BirdNET 检测。",
+      "showing": "显示第 {from}-{to} 项，共 {total} 项"
+    },
+    "table": {
+      "sound": "声音", "time": "时间", "species": "物种", "source": "来源",
+      "confidence": "置信度", "open_birdnet": "在 BirdNET-Go 中打开", "unknown_source": "未知来源"
+    },
+    "sources": { "title": "来源", "empty": "尚无来源。" }
+  },
   "leaderboard": {
+    "source_toggle": "检测来源", "source_seen": "看到", "source_heard": "听到",
+    "source_both": "两者", "audio_only": "仅音频",
+    "audio_only_desc": "BirdNET-Go 已听测到，但摄像头未看到",
     "title": "物种排行榜",
     "species_count": "{count} 个物种",
     "detections_count": "{count} 次检测",
@@ -1857,6 +1898,9 @@
     "no_video_support": "你的浏览器不支持视频播放。"
   },
   "jobs": {
+    "frigate_media_advisory_title": "Frigate 经常没有检测对应的快照",
+    "frigate_media_advisory_body": "近期检测中有 {percent}%（{started} 次中的 {dropped} 次）因 Frigate 没有快照、缩略图或录像而被丢弃。这通常是因为鸟只被短暂跟踪，未能保留为 Frigate 事件，或录像保留时间过短。",
+    "frigate_media_advisory_link": "如何减少此类情况 →",
     "title": "任务",
     "subtitle": "跟踪活跃的后台任务与最近结果。",
     "open": "打开任务",
@@ -2037,6 +2081,15 @@
   "errors": {
     "stack_trace": "堆栈跟踪："
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} 已发布",
+    "title_dev": "有更新的开发版本可用（{version}）",
+    "body": "当前运行的是 {current}。请从容器管理器拉取新镜像以更新。",
+    "release_notes": "发行说明 →",
+    "dismiss": "忽略",
+    "sidebar_title": "有可用更新：{version}",
+    "sidebar_label": "有可用更新"
+  },
   "header": {
     "cameras_empty": "尚未配置摄像头。请在 设置 → 连接 中添加。",
     "cameras_label": "摄像头状态",
@@ -2052,6 +2105,7 @@
     "cameras_title": "摄像头"
   },
   "page_subtitle": {
+    "audio_history": "浏览已保存的 BirdNET-Go 检测和纯音频活动。",
     "about": "版本、变更日志、贡献者和支持链接。",
     "dashboard": "实时检测、近期活动和喂食器状态一览。",
     "events": "浏览、筛选并管理每一次已分类的访问。",
