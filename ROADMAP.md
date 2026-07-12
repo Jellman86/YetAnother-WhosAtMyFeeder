@@ -123,16 +123,31 @@ dead code, commented-out blocks, or leftover scaffolding. Sequenced lowest-risk 
 change is test-first per `CLAUDE.md` §2 and preserves the §1 safety model.
 
 #### Full translation review 🌍
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 In progress ([design](docs/plans/2026-07-12-full-translation-review-design.md))
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
 
 Review every locale against the `en.json` source of truth for completeness, accuracy, and
-consistency; fix missing keys, drift, and machine-translation artefacts. Add a CI check that
-flags missing/extra keys per locale so translations can't silently rot.
+consistency; fix missing keys, drift, and machine-translation artefacts. Add CI checks so
+translations can't silently rot.
 
-✅ Structural completeness is finished: every locale now exactly matches `en.json`, including
+✅ **Structural completeness** is finished: every locale now exactly matches `en.json`, including
 shared controls, telemetry, update messaging, the Frigate media advisory, Dashboard audio copy,
-Leaderboard source controls, and the complete Audio History surface. CI rejects missing/extra keys
-and placeholder drift. Remaining: the per-language terminology and machine-translation quality pass.
+Leaderboard source controls, and the complete Audio History surface.
+
+✅ **Anti-rot CI is in place**: the audit rejects missing/extra keys and placeholder drift, asserts
+a curated set of high-risk strings differs from English, and — new — a baseline ratchet
+(`locales.untranslated-regression.test.ts` + `locales.identical-baseline.json`) fails the build if
+any *new* user-facing string lands byte-identical to English, so untranslated copy can't slip in.
+
+✅ **No untranslated leftovers**: a measured sweep found ≈0 full English sentences surviving in any
+locale; the remaining byte-identical strings are legitimately shared (brand/protocol names,
+URL/host placeholders, and real cross-language cognates), which is why the ratchet allowlists them
+rather than forcing a spurious "translation".
+
+**Remaining** is a genuinely smaller, subjective task than the label implies: a **per-language
+native editorial polish** — idiom, terminology consistency, and locale typography (e.g. French
+spacing before `:` `?`, Japanese/Chinese phrasing). Defect density is low, it is not safely
+automatable, and it is best done per language by a native reviewer in reviewable batches rather
+than by bulk machine edits.
 
 ### 1.3 Feature completion
 
