@@ -108,24 +108,6 @@
         {/each}
     </nav>
 
-    <!-- Update available indicator -->
-    {#if updateStatusStore.updateAvailable}
-        <a
-            href={updateStatusStore.status?.release_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="mx-3 mb-1 flex items-center gap-2 rounded-xl border border-teal-300/60 bg-teal-50 px-3 py-2 text-teal-800 transition-colors hover:bg-teal-100 dark:border-teal-500/40 dark:bg-teal-950/40 dark:text-teal-200 dark:hover:bg-teal-900/50 {collapsed ? 'justify-center' : ''}"
-            title={$_('update_banner.sidebar_title', { values: { version: updateStatusStore.latestVersion }, default: `Update available: ${updateStatusStore.latestVersion}` })}
-        >
-            <span class="relative flex h-2.5 w-2.5 shrink-0">
-                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75"></span>
-                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-500"></span>
-            </span>
-            {#if !collapsed}
-                <span class="text-xs font-black uppercase tracking-wider">{$_('update_banner.sidebar_label', { default: 'Update available' })}</span>
-            {/if}
-        </a>
-    {/if}
 
     <!-- Status Section -->
     {#if !collapsed}
