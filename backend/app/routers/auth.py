@@ -21,6 +21,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.database import get_db
+from app.models import MessageResponse
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.ratelimit import login_rate_limit
 
@@ -271,8 +272,8 @@ async def get_auth_status(request: Request):
     )
 
 
-@router.post("/auth/initial-setup")
-async def set_initial_password(request: InitialPasswordRequest):
+@router.post("/auth/initial-setup", response_model=MessageResponse)
+async def set_initial_password(request: InitialPasswordRequest) -> MessageResponse:
     """Set initial password for first-run setup.
 
     Can only be called when auth is disabled OR no password is set.
@@ -313,11 +314,11 @@ async def set_initial_password(request: InitialPasswordRequest):
         event_type="initial_setup",
     )
 
-    return {"message": "Setup completed successfully"}
+    return MessageResponse(message="Setup completed successfully")
 
 
-@router.post("/auth/logout")
-async def logout(auth: AuthContext = Depends(require_owner)):
+@router.post("/auth/logout", response_model=MessageResponse)
+async def logout(_auth: AuthContext = Depends(require_owner)) -> MessageResponse:
     """Logout endpoint (client-side token deletion).
 
     Note: JWT tokens cannot be invalidated server-side without a blacklist.
@@ -329,4 +330,4 @@ async def logout(auth: AuthContext = Depends(require_owner)):
             await db.commit()
     except aiosqlite.OperationalError:
         pass
-    return {"message": "Logged out successfully. Please clear your token."}
+    return MessageResponse(message="Logged out successfully. Please clear your token.")

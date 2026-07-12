@@ -151,6 +151,8 @@ Completed review tranches:
 - ✅ **Settings and frontend type gate** — replaced Settings casts with domain normalizers, typed
   input attributes and timers, standardized unknown-error handling, and added a full-source Vitest
   gate that rejects explicit `any` in application TypeScript/Svelte outside generated contracts.
+- 🔄 **Backend endpoint contracts** — review started with authentication action responses; remaining
+  JSON endpoints are being separated from intentional streaming/file/redirect responses and typed.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))

@@ -1703,7 +1703,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['InitialPasswordRequest'];
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/auth/login": {
@@ -1721,7 +1721,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/auth/status": {
