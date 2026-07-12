@@ -88,7 +88,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   is explicitly documented as a file response.
 - **Code-quality review — persistence boundaries:** Moved cache-cleanup event enumeration and manual
   species corrections behind `DetectionRepository`, and moved logout's OAuth-token purge into a
-  dedicated repository so these HTTP routes no longer own SQL statements.
+  dedicated repository so these HTTP routes no longer own SQL statements. The eBird export query
+  and date filtering now live in `EbirdRepository` as well.
 - **Code-quality review — classifier download I/O:** Moved model-directory operations, archive
   extraction, model/label writes, and synchronous classifier reloads off FastAPI's async event loop.
 - **API contract — typed integration responses:** The email OAuth authorize/disconnect/test and iNaturalist OAuth authorize/disconnect/submit endpoints now declare `response_model`s, so the exported OpenAPI schema carries their real response shapes instead of an untyped body. The SPA's `integrations.ts` now derives its request/response types straight from the generated contract (shared `OAuthAuthorizeResponse`/`MessageResponse` models), removing the last hand-written DTOs in that module. No behaviour change — response bodies are unchanged.

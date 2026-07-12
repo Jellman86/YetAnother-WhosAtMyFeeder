@@ -15,6 +15,7 @@ from app.database import get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.repositories.ebird_repository import EbirdRepository
 
 log = structlog.get_logger()
 router = APIRouter(prefix="/ebird", tags=["ebird"])
@@ -239,9 +240,6 @@ async def export_ebird_csv(
     """
     Export all non-hidden detections in eBird Record Format CSV.
     """
-    params: list[object] = []
-    date_clauses: list[str] = []
-
     try:
         requested_from = date.fromisoformat(from_date) if from_date else None
         requested_to = date.fromisoformat(to_date) if to_date else None
@@ -251,14 +249,8 @@ async def export_ebird_csv(
     if requested_from and requested_to and requested_from > requested_to:
         raise HTTPException(status_code=400, detail="Invalid date range; expected from <= to")
 
-    if requested_from:
-        date_clauses.append("d.detection_time >= ?")
-        params.append(datetime.combine(requested_from, time.min))
-    if requested_to:
-        date_clauses.append("d.detection_time < ?")
-        params.append(datetime.combine(requested_to + timedelta(days=1), time.min))
-
-    date_clause = f" AND {' AND '.join(date_clauses)}" if date_clauses else ""
+    start = datetime.combine(requested_from, time.min) if requested_from else None
+    end_exclusive = datetime.combine(requested_to + timedelta(days=1), time.min) if requested_to else None
 
     async def iter_csv():
         f = io.StringIO()
@@ -271,109 +263,43 @@ async def export_ebird_csv(
         # so this endpoint emits headerless rows in the standard 19-column record format.
 
         async with get_db() as db:
-            async with db.execute(
-                f"""
-                SELECT 
-                    d.display_name,
-                    d.scientific_name,
-                    d.detection_time, 
-                    d.score,
-                    d.camera_name,
-                    d.common_name,
-                    d.video_classification_provider,
-                    d.video_classification_backend,
-                    COALESCE(
-                        -- 1. English name from taxonomy_translations keyed by the
-                        --    detection's taxa_id (most reliable English source when the
-                        --    taxonomy_cache common_name is a localized/non-ASCII name).
-                        (
-                            SELECT tt_by_taxa.common_name
-                            FROM taxonomy_translations tt_by_taxa
-                            WHERE d.taxa_id IS NOT NULL
-                              AND tt_by_taxa.taxa_id = d.taxa_id
-                              AND tt_by_taxa.language_code = 'en'
-                            LIMIT 1
-                        ),
-                        -- 2. English name from taxonomy_translations resolved via
-                        --    scientific_name → taxonomy_cache → taxa_id chain.
-                        (
-                            SELECT tt_by_sci.common_name
-                            FROM taxonomy_translations tt_by_sci
-                            JOIN taxonomy_cache tc_sci
-                              ON tc_sci.taxa_id = tt_by_sci.taxa_id
-                            WHERE d.scientific_name IS NOT NULL
-                              AND LOWER(tc_sci.scientific_name) = LOWER(d.scientific_name)
-                              AND tt_by_sci.language_code = 'en'
-                            LIMIT 1
-                        ),
-                        -- 3. taxonomy_cache common_name matched by scientific_name
-                        --    (may be localized; Python _is_english_safe_name will filter).
-                        (
-                            SELECT tc_by_name.common_name
-                            FROM taxonomy_cache tc_by_name
-                            WHERE d.scientific_name IS NOT NULL
-                              AND LOWER(tc_by_name.scientific_name) = LOWER(d.scientific_name)
-                              -- Exclude broken cache entries where scientific name was
-                              -- stored verbatim as the common name
-                              AND LOWER(tc_by_name.common_name) != LOWER(tc_by_name.scientific_name)
-                            ORDER BY tc_by_name.id ASC
-                            LIMIT 1
-                        ),
-                        -- 4. taxonomy_cache common_name matched by taxa_id.
-                        (
-                            SELECT tc_by_taxa.common_name
-                            FROM taxonomy_cache tc_by_taxa
-                            WHERE d.taxa_id IS NOT NULL
-                              AND tc_by_taxa.taxa_id = d.taxa_id
-                              AND LOWER(tc_by_taxa.common_name) != LOWER(tc_by_taxa.scientific_name)
-                            ORDER BY tc_by_taxa.id ASC
-                            LIMIT 1
-                        )
-                    ) AS english_common_name
-                FROM detections d
-                WHERE d.is_hidden = 0
-                {date_clause}
-                ORDER BY d.detection_time DESC
-                """,
-                params,
-            ) as cursor:
-                async for row in cursor:
+            async for row in EbirdRepository(db).iter_export_rows(start=start, end_exclusive=end_exclusive):
+                (
+                    display_name,
+                    scientific_name,
+                    detection_time,
+                    score,
+                    camera_name,
+                    common_name,
+                    video_classification_provider,
+                    video_classification_backend,
+                    english_common_name,
+                ) = row
+                if not _is_exportable_ebird_detection(
+                    display_name=display_name,
+                    common_name=common_name,
+                    english_common_name=english_common_name,
+                    scientific_name=scientific_name,
+                ):
+                    continue
+                dt = _parse_detection_time(detection_time)
+                if dt is None:
+                    continue
+                bucket = dt.date()
+                parsed_rows.append(
                     (
                         display_name,
                         scientific_name,
-                        detection_time,
+                        dt,
                         score,
                         camera_name,
                         common_name,
                         video_classification_provider,
                         video_classification_backend,
                         english_common_name,
-                    ) = row
-                    if not _is_exportable_ebird_detection(
-                        display_name=display_name,
-                        common_name=common_name,
-                        english_common_name=english_common_name,
-                        scientific_name=scientific_name,
-                    ):
-                        continue
-                    dt = _parse_detection_time(detection_time)
-                    if dt is None:
-                        continue
-                    bucket = dt.date()
-                    parsed_rows.append(
-                        (
-                            display_name,
-                            scientific_name,
-                            dt,
-                            score,
-                            camera_name,
-                            common_name,
-                            video_classification_provider,
-                            video_classification_backend,
-                            english_common_name,
-                            bucket,
-                        )
+                        bucket,
                     )
+                )
 
             # Pre-enrichment pass: for rows where no local source provides a
             # usable English common name (e.g. taxonomy_cache only has a

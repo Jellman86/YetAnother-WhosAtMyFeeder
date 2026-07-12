@@ -155,8 +155,8 @@ Completed review tranches:
   Events, and model-evaluation JSON responses now publish explicit generated contracts; binary
   model-evaluation artifacts are explicitly classified as file responses.
 - 🔄 **Backend persistence boundaries** — cache cleanup and manual event corrections now use
-  `DetectionRepository`, and logout token cleanup has a dedicated OAuth repository; the remaining
-  species, eBird, and video-share router queries are the next review tranche.
+  `DetectionRepository`, logout token cleanup has a dedicated OAuth repository, and eBird export
+  reads use `EbirdRepository`; the remaining species and video-share router queries are next.
 - ✅ **Classifier download I/O** — model-directory inspection, archive extraction, asset writes,
   and synchronous model reloads are dispatched off the async request loop.
 
