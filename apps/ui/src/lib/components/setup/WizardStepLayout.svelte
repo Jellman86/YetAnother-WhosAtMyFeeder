@@ -52,20 +52,20 @@
     <div class="flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-700">
         <div>
             {#if showBack && !setupWizardStore.isFirst}
-                <button type="button" class="btn btn-ghost" onclick={() => setupWizardStore.back()}>
+                <button type="button" class="btn btn-ghost px-4 py-2.5" onclick={() => setupWizardStore.back()}>
                     {$_('setup.back', { default: 'Back' })}
                 </button>
             {/if}
         </div>
         <div class="flex items-center gap-2">
             {#if showSkip}
-                <button type="button" class="btn btn-ghost" onclick={() => setupWizardStore.next()}>
+                <button type="button" class="btn btn-ghost px-4 py-2.5" onclick={() => setupWizardStore.next()}>
                     {$_('setup.skip', { default: 'Skip' })}
                 </button>
             {/if}
             <button
                 type="button"
-                class="btn btn-primary"
+                class="btn btn-primary px-6 py-2.5"
                 disabled={busy || !canContinue}
                 onclick={proceed}
             >

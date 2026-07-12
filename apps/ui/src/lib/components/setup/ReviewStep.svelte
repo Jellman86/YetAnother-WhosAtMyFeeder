@@ -59,7 +59,7 @@
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
                     <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[section.status]}">{statusLabel(section.status)}</span>
-                    <button type="button" class="btn btn-ghost text-xs" onclick={() => setupWizardStore.goto(stepIndexForSection(section.id))}>
+                    <button type="button" class="btn btn-ghost px-3 py-1.5 text-xs" onclick={() => setupWizardStore.goto(stepIndexForSection(section.id))}>
                         {$_('setup.review.edit', { default: 'Review' })}
                     </button>
                 </div>

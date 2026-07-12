@@ -18,6 +18,13 @@
         locale.set(lang);
         localStorage.setItem('preferred-language', lang);
     }
+
+    const covers = [
+        { icon: '🔗', label: $_('setup.welcome.cover_connect', { default: 'Connect Frigate & MQTT' }) },
+        { icon: '📷', label: $_('setup.welcome.cover_cameras', { default: 'Pick your cameras' }) },
+        { icon: '🧠', label: $_('setup.welcome.cover_model', { default: 'Validate the model on your hardware' }) },
+        { icon: '🧩', label: $_('setup.welcome.cover_integrations', { default: 'Turn on integrations' }) }
+    ];
 </script>
 
 <WizardStepLayout
@@ -28,6 +35,15 @@
     showBack={false}
     continueLabel={$_('setup.welcome.start', { default: 'Get started' })}
 >
+    <div class="grid grid-cols-2 gap-2">
+        {#each covers as item}
+            <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200">
+                <span aria-hidden="true">{item.icon}</span>
+                <span>{item.label}</span>
+            </div>
+        {/each}
+    </div>
+
     <div class="space-y-2">
         <label for="setup-language" class="text-sm font-medium text-slate-700 dark:text-slate-300">
             {$_('first_run.language_label', { default: 'Language' })}

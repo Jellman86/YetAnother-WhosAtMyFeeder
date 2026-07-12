@@ -80,7 +80,7 @@
             </div>
         </div>
 
-        <button type="button" class="btn btn-secondary" disabled={busy} onclick={saveAndTest}>
+        <button type="button" class="btn btn-secondary px-5 py-2.5" disabled={busy} onclick={saveAndTest}>
             {$_('setup.connection.save_test', { default: 'Save & test connection' })}
         </button>
 
