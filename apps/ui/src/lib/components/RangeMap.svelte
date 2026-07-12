@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import type { Map as LeafletMap } from 'leaflet';
+
+  type LeafletApi = typeof import('leaflet');
 
   export let tileUrl: string;
   export let opacity: number = 0.65;
@@ -9,8 +12,8 @@
   export let heightClass: string = 'h-[220px]';
 
   let mapElement: HTMLElement;
-  let map: any;
-  let L: any;
+  let map: LeafletMap | null = null;
+  let L: LeafletApi | null = null;
   let resizeObserver: ResizeObserver | null = null;
 
   onDestroy(() => {
@@ -28,7 +31,7 @@
     if (typeof window === 'undefined') return;
 
     const leafletModule = await import('leaflet');
-    L = leafletModule.default;
+    L = leafletModule.default as unknown as LeafletApi;
     await import('leaflet/dist/leaflet.css');
 
     initMap();
@@ -36,6 +39,7 @@
 
   function initMap() {
     if (!mapElement || map) return;
+    if (!L) return;
 
     map = L.map(mapElement, {
       attributionControl: false,

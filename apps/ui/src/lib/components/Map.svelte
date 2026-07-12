@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import type { Layer, Map as LeafletMap } from 'leaflet';
+
+  type LeafletApi = typeof import('leaflet');
 
   // Props
   export let markers: { 
@@ -17,8 +20,8 @@
   export let obfuscate: boolean = false;
 
   let mapElement: HTMLElement;
-  let map: any;
-  let L: any;
+  let map: LeafletMap | null = null;
+  let L: LeafletApi | null = null;
 
   // Track map instance to destroy
   onDestroy(() => {
@@ -37,7 +40,7 @@
     if (typeof window !== 'undefined') {
       // Dynamic import to avoid SSR issues (though this is SPA, it's good practice)
       const leafletModule = await import('leaflet');
-      L = leafletModule.default;
+      L = leafletModule.default as unknown as LeafletApi;
       
       // Import CSS
       await import('leaflet/dist/leaflet.css');
@@ -48,6 +51,7 @@
 
   function initMap() {
     if (!mapElement || map) return;
+    if (!L) return;
 
     // Default center logic
     let initialCenter = center;
@@ -84,23 +88,29 @@
     
     // Auto-fit bounds logic (only if we didn't force a center or obfuscate)
     if (markers.length > 0 && !center && !userLocation && !obfuscate) {
-        const group = new L.featureGroup(markers.map(m => L.marker([m.lat, m.lng])));
+        const group = L.featureGroup(markers.map(m => L!.marker([m.lat, m.lng])));
         map.fitBounds(group.getBounds().pad(0.1));
     }
   }
 
   function updateMarkers() {
     if (!map || !L) return;
+    const mapInstance = map;
+    const leaflet = L;
 
     // Clear existing layers (except tiles)
-    map.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker || layer instanceof L.CircleMarker || layer instanceof L.Circle) {
-        map.removeLayer(layer);
+    mapInstance.eachLayer((layer: Layer) => {
+      if (
+        layer instanceof leaflet.Marker ||
+        layer instanceof leaflet.CircleMarker ||
+        layer instanceof leaflet.Circle
+      ) {
+        mapInstance.removeLayer(layer);
       }
     });
 
     // Custom Icon for Birds
-    const birdIcon = L.divIcon({
+    const birdIcon = leaflet.divIcon({
         className: 'custom-div-icon',
         html: `<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
         iconSize: [12, 12],
@@ -109,7 +119,7 @@
     });
 
     // Custom Icon for User (Home)
-    const homeIcon = L.divIcon({
+    const homeIcon = leaflet.divIcon({
         className: 'custom-div-icon',
         html: `<div style="background-color: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
         iconSize: [14, 14],
@@ -119,16 +129,16 @@
 
     // Draw User Location/Home Radius if available
     if (userLocation) {
-        L.marker(userLocation, { icon: homeIcon })
+        leaflet.marker(userLocation, { icon: homeIcon })
          .bindPopup("Your Location")
-         .addTo(map);
+         .addTo(mapInstance);
          
         // Optional: Draw a subtle circle if we knew the radius (passed via props perhaps?)
     }
 
     // Draw Bird Markers
     markers.forEach(m => {
-        const marker = L.marker([m.lat, m.lng], { icon: birdIcon }).addTo(map);
+        const marker = leaflet.marker([m.lat, m.lng], { icon: birdIcon }).addTo(mapInstance);
         
         if (m.popupText) {
             marker.bindPopup(m.popupText);

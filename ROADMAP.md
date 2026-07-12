@@ -139,6 +139,8 @@ Completed review tranches:
 - ✅ **Shared frontend components** — typed navigation, settings tabs, camera roles, health runtime
   state, event handlers, timers, translations, and notification error parsing across the reusable
   component layer.
+- ✅ **Chart and map vendor boundaries** — replaced ApexCharts and Leaflet `any` usage with typed
+  constructors, instances, DOM extensions, option records, maps, layers, and dynamic-import guards.
 
 #### Full translation review 🌍
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
