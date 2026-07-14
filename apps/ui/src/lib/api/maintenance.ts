@@ -140,18 +140,50 @@ export async function testBirdWeather(token?: string): Promise<{ status: string;
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function testLlm(config: {
-    llm_enabled?: boolean;
-    llm_provider?: string;
-    llm_model?: string;
-    llm_api_key?: string;
-}): Promise<{ status: string; message: string }> {
+type LlmTestApiResponse = paths['/api/settings/llm/test']['post']['response'];
+export type LlmTestFailureStage = NonNullable<LlmTestApiResponse['failure_stage']>;
+export type LlmTestResult = LlmTestApiResponse & {
+    failure_stage: LlmTestFailureStage | null;
+    retryable: boolean;
+    retry_after_seconds: number | null;
+    http_status: number;
+};
+
+function readLlmTestResult(raw: unknown, httpStatus: number): LlmTestResult {
+    const data = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    const failureStage = data.failure_stage;
+    const validFailureStages: LlmTestFailureStage[] = [
+        'configuration',
+        'provider',
+        'vision',
+        'multi_frame',
+        'response'
+    ];
+    return {
+        status: data.status === 'ok' ? 'ok' : 'error',
+        message: typeof data.message === 'string' ? data.message : `AI test failed (HTTP ${httpStatus}).`,
+        provider: typeof data.provider === 'string' ? data.provider : '',
+        model: typeof data.model === 'string' ? data.model : '',
+        frame_count: typeof data.frame_count === 'number' ? data.frame_count : 5,
+        failure_stage: typeof failureStage === 'string' && validFailureStages.includes(failureStage as LlmTestFailureStage)
+            ? failureStage as LlmTestFailureStage
+            : null,
+        retryable: data.retryable === true,
+        retry_after_seconds: typeof data.retry_after_seconds === 'number' ? data.retry_after_seconds : null,
+        http_status: httpStatus
+    };
+}
+
+export async function testLlm(
+    config: paths['/api/settings/llm/test']['post']['requestBody']
+): Promise<LlmTestResult> {
     const response = await apiFetch(`${API_BASE}/settings/llm/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
     });
-    return handleResponse<{ status: string; message: string }>(response);
+    const payload: unknown = await response.json();
+    return readLlmTestResult(payload, response.status);
 }
 
 export async function testBirdNET(): Promise<{ status: string; message: string }> {

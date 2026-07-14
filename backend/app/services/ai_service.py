@@ -1,7 +1,9 @@
 import httpx
 import structlog
 import base64
-from typing import Optional
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Literal, Optional
 import tempfile
 import cv2
 import numpy as np
@@ -12,6 +14,41 @@ from app.repositories.ai_usage_repository import AIUsageRepository
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
+
+
+AIConnectionFailureStage = Literal["configuration", "provider", "vision", "multi_frame", "response"]
+
+
+@dataclass(frozen=True)
+class AIConnectionTestResult:
+    ok: bool
+    message: str
+    http_status_hint: int
+    failure_stage: AIConnectionFailureStage | None = None
+    retryable: bool = False
+    retry_after_seconds: int | None = None
+
+
+class AIAnalysisError(str):
+    """String-compatible provider failure that API routes must not persist as analysis content."""
+
+    http_status_hint: int
+    retryable: bool
+    retry_after_seconds: int | None
+
+    def __new__(
+        cls,
+        message: str,
+        *,
+        http_status_hint: int = 502,
+        retryable: bool = False,
+        retry_after_seconds: int | None = None,
+    ) -> "AIAnalysisError":
+        value = super().__new__(cls, message)
+        value.http_status_hint = http_status_hint
+        value.retryable = retryable
+        value.retry_after_seconds = retry_after_seconds
+        return value
 
 
 class AIService:
@@ -37,25 +74,136 @@ class AIService:
 
         return template.format_map(_SafeDict(context))
 
-    async def test_connection(self, provider: str, model: str, api_key: str) -> tuple[bool, str, int]:
-        """Test LLM connectivity with a lightweight text prompt.
+    # Five repeated 1280x720 JPEGs mirror the default production frame count, dimensions, media
+    # type, and approximate payload size. The deterministic frame is generated lazily so a large
+    # binary fixture does not have to live in source control.
+    TEST_PROBE_FRAME_COUNT = 5
+    TEST_PROBE_FRAME_WIDTH = 1280
+    TEST_PROBE_FRAME_HEIGHT = 720
+    TEST_PROBE_JPEG_QUALITY = 90
 
-        Returns (ok, message, http_status_hint) where http_status_hint is:
-        - 200 on success
-        - 400 for client/config errors (bad key, unsupported provider, missing params)
-        - 502 for upstream/network failures
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _test_probe_frame_b64() -> str:
+        """Build one deterministic, production-sized JPEG with a realistic compressed size."""
+        rng = np.random.default_rng(42)
+        frame = rng.integers(
+            0,
+            256,
+            size=(AIService.TEST_PROBE_FRAME_HEIGHT, AIService.TEST_PROBE_FRAME_WIDTH, 3),
+            dtype=np.uint8,
+        )
+        encoded_ok, encoded = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, AIService.TEST_PROBE_JPEG_QUALITY],
+        )
+        if not encoded_ok:
+            raise RuntimeError("Could not create the AI diagnostic frame.")
+        return base64.b64encode(encoded.tobytes()).decode("ascii")
+
+    @staticmethod
+    def _describe_http_error(status: int | None, model: str, detail: str) -> str:
+        """Actionable, human-readable message for a provider HTTP error, shared by the connection
+        test and a real analysis so both explain the same cause (rate limit, bad key, missing model)."""
+        detail = (detail or "").strip()
+        if status == 429:
+            return (
+                f"'{model}' is rate-limited by the provider. Free models share tight limits, so wait "
+                "a minute and retry, choose a less busy model, or add your own provider API key."
+            )
+        if status == 503:
+            return (
+                f"No provider is currently available for '{model}'. This is usually temporary; "
+                "retry shortly or choose another vision model."
+            )
+        if status in (408, 502, 504):
+            return (
+                f"The provider could not complete a request for '{model}'. Retry shortly; if it "
+                "continues, choose another vision model."
+            )
+        if status in (401, 403):
+            return "The AI API key was rejected. Check the key and that it can access this model."
+        if status == 402:
+            return "The AI account has insufficient credit for this model."
+        if status == 404:
+            return f"Model '{model}' was not found for this provider."
+        suffix = f": {detail[:200]}" if detail else "."
+        return f"AI provider error ({status or 'network'}){suffix}"
+
+    @staticmethod
+    def _failure_stage_for_http_error(status: int | None, detail: str) -> AIConnectionFailureStage:
+        normalized = detail.lower()
+        if any(marker in normalized for marker in ("too many images", "image count", "max_images", "max images")):
+            return "multi_frame"
+        if any(
+            marker in normalized
+            for marker in (
+                "invalid_image",
+                "image_too_large",
+                "image_too_small",
+                "unsupported_image",
+                "image input",
+                "vision",
+            )
+        ):
+            return "vision"
+        if status in (400, 413, 415, 422):
+            return "vision"
+        return "provider"
+
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response | None) -> int | None:
+        if response is None:
+            return None
+        value = response.headers.get("Retry-After")
+        if not value:
+            return None
+        try:
+            seconds = int(value)
+        except ValueError:
+            return None
+        return seconds if seconds > 0 else None
+
+    @staticmethod
+    def _redact_secret(message: str, secret: str | None) -> str:
+        if not secret:
+            return message
+        return message.replace(secret, "***REDACTED***")
+
+    async def test_connection(self, provider: str, model: str, api_key: str) -> AIConnectionTestResult:
+        """Test LLM connectivity with a bounded multi-frame vision prompt.
+
+        The generated 1280x720 JPEG matches the default five-image production request shape without
+        depending on a live camera or detection event.
         """
         if not provider or not model or not api_key:
-            return False, "AI provider, model, or API key is missing.", 400
+            return AIConnectionTestResult(
+                ok=False,
+                message="AI provider, model, or API key is missing.",
+                http_status_hint=400,
+                failure_stage="configuration",
+            )
 
         prompt = "Reply with the single word OK."
+        image_b64 = self._test_probe_frame_b64()
         provider = provider.lower()
 
         try:
             if provider == "gemini":
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
                 payload = {
-                    "contents": [{"parts": [{"text": prompt}]}],
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                *[
+                                    {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}}
+                                    for _ in range(self.TEST_PROBE_FRAME_COUNT)
+                                ],
+                            ]
+                        }
+                    ],
                     "generationConfig": {"temperature": 0.1, "maxOutputTokens": 16},
                 }
                 async with httpx.AsyncClient(timeout=15.0) as client:
@@ -66,13 +214,20 @@ class AIService:
                         content = candidates[0].get("content", {})
                         parts = content.get("parts", [])
                         if parts and parts[0].get("text"):
-                            return True, "AI test succeeded.", 200
-                return False, "AI returned an empty response.", 502
+                            return AIConnectionTestResult(True, "AI test succeeded.", 200)
+                return AIConnectionTestResult(False, "AI returned an empty response.", 502, "response", True)
 
             if provider == "openai":
                 url = "https://api.openai.com/v1/chat/completions"
                 headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-                payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 16}
+                vision_content = [
+                    {"type": "text", "text": prompt},
+                    *[
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                        for _ in range(self.TEST_PROBE_FRAME_COUNT)
+                    ],
+                ]
+                payload = {"model": model, "messages": [{"role": "user", "content": vision_content}], "max_tokens": 16}
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
@@ -80,8 +235,8 @@ class AIService:
                     if choices:
                         content = choices[0].get("message", {}).get("content")
                         if content:
-                            return True, "AI test succeeded.", 200
-                return False, "AI returned an empty response.", 502
+                            return AIConnectionTestResult(True, "AI test succeeded.", 200)
+                return AIConnectionTestResult(False, "AI returned an empty response.", 502, "response", True)
 
             if provider == "claude":
                 url = "https://api.anthropic.com/v1/messages"
@@ -89,15 +244,33 @@ class AIService:
                 payload = {
                     "model": model,
                     "max_tokens": 16,
-                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                *[
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": "image/jpeg",
+                                            "data": image_b64,
+                                        },
+                                    }
+                                    for _ in range(self.TEST_PROBE_FRAME_COUNT)
+                                ],
+                                {"type": "text", "text": prompt},
+                            ],
+                        }
+                    ],
                 }
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
                     content = resp.json().get("content", [])
                     if content and content[0].get("text"):
-                        return True, "AI test succeeded.", 200
-                return False, "AI returned an empty response.", 502
+                        return AIConnectionTestResult(True, "AI test succeeded.", 200)
+                return AIConnectionTestResult(False, "AI returned an empty response.", 502, "response", True)
 
             if provider == "openrouter":
                 url = "https://openrouter.ai/api/v1/chat/completions"
@@ -107,7 +280,14 @@ class AIService:
                     "HTTP-Referer": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
                     "X-Title": "YA-WAMF",
                 }
-                payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": 16}
+                vision_content = [
+                    {"type": "text", "text": prompt},
+                    *[
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                        for _ in range(self.TEST_PROBE_FRAME_COUNT)
+                    ],
+                ]
+                payload = {"model": model, "messages": [{"role": "user", "content": vision_content}], "max_tokens": 16}
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, headers=headers, json=payload)
                     resp.raise_for_status()
@@ -115,20 +295,33 @@ class AIService:
                     if choices:
                         content = choices[0].get("message", {}).get("content")
                         if content:
-                            return True, "AI test succeeded.", 200
-                return False, "AI returned an empty response.", 502
+                            return AIConnectionTestResult(True, "AI test succeeded.", 200)
+                return AIConnectionTestResult(False, "AI returned an empty response.", 502, "response", True)
 
-            return False, "Unsupported AI provider.", 400
+            return AIConnectionTestResult(False, "Unsupported AI provider.", 400, "configuration")
         except httpx.HTTPStatusError as e:
             detail = e.response.text if e.response is not None else str(e)
             status = e.response.status_code if e.response is not None else 502
-            log.error("LLM test failed", status=status, error=detail)
-            # 4xx from the AI provider means a client/config error (bad key, wrong model)
-            hint = 400 if 400 <= status < 500 else 502
-            return False, f"AI test failed: {detail}", hint
+            log.error("LLM test failed", status=status, model=model, error=detail)
+            message = self._describe_http_error(status, model, detail)
+            hint = status if status in (429, 503) else (400 if 400 <= status < 500 else 502)
+            return AIConnectionTestResult(
+                ok=False,
+                message=message,
+                http_status_hint=hint,
+                failure_stage=self._failure_stage_for_http_error(status, detail),
+                retryable=status in (408, 429, 500, 502, 503, 504),
+                retry_after_seconds=self._retry_after_seconds(e.response),
+            )
         except Exception as e:
             log.error("LLM test failed", error=str(e))
-            return False, f"AI test failed: {str(e)}", 502
+            return AIConnectionTestResult(
+                ok=False,
+                message=f"AI test failed: {str(e)}",
+                http_status_hint=502,
+                failure_stage="provider",
+                retryable=True,
+            )
 
     async def analyze_detection(
         self,
@@ -247,10 +440,11 @@ class AIService:
                         return parts[0].get("text")
 
                 log.warning("Gemini returned no candidates", response=resp.text)
-                return "AI returned an empty response."
+                return AIAnalysisError("AI returned an empty response.", retryable=True)
         except Exception as e:
-            log.error("Gemini analysis failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+            safe_error = self._redact_secret(str(e), settings.llm.api_key)
+            log.error("Gemini analysis failed", error=safe_error)
+            return f"Error during AI analysis: {safe_error}"
 
     async def _generate_gemini_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
@@ -288,8 +482,9 @@ class AIService:
                 log.warning("Gemini returned no candidates", response=resp.text)
                 return "AI returned an empty response."
         except Exception as e:
-            log.error("Gemini text generation failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+            safe_error = self._redact_secret(str(e), settings.llm.api_key)
+            log.error("Gemini text generation failed", error=safe_error)
+            return f"Error during AI analysis: {safe_error}"
 
     async def _analyze_openai_prompt(
         self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
@@ -327,7 +522,7 @@ class AIService:
                 if choices:
                     return choices[0].get("message", {}).get("content")
 
-                return "AI returned an empty response."
+                return AIAnalysisError("AI returned an empty response.", retryable=True)
         except Exception as e:
             log.error("OpenAI analysis failed", error=str(e))
             return f"Error during AI analysis: {str(e)}"
@@ -490,22 +685,29 @@ class AIService:
                 if choices:
                     return choices[0].get("message", {}).get("content")
 
-                return "AI returned an empty response."
+                return AIAnalysisError("AI returned an empty response.", retryable=True)
         except httpx.HTTPStatusError as e:
             try:
                 detail = e.response.json().get("error", {}).get("message") or e.response.text
             except Exception:
                 detail = e.response.text if e.response is not None else str(e)
+            status = e.response.status_code if e.response is not None else None
             log.error(
                 "OpenRouter analysis failed",
-                status=e.response.status_code if e.response else None,
+                status=status,
                 model=settings.llm.model,
                 error=detail,
             )
-            return f"AI analysis failed: {detail}"
+            hint = status if status in (429, 503) else (400 if status is not None and 400 <= status < 500 else 502)
+            return AIAnalysisError(
+                self._describe_http_error(status, settings.llm.model, detail),
+                http_status_hint=hint,
+                retryable=status in (408, 429, 500, 502, 503, 504),
+                retry_after_seconds=self._retry_after_seconds(e.response),
+            )
         except Exception as e:
             log.error("OpenRouter analysis failed", error=str(e))
-            return f"AI analysis failed: {str(e)}"
+            return AIAnalysisError(f"AI analysis failed: {str(e)}", retryable=True)
 
     async def _generate_openrouter_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         """Generate text using OpenRouter (OpenAI-compatible API)."""
@@ -540,7 +742,7 @@ class AIService:
                 choices = data.get("choices", [])
                 if choices:
                     return choices[0].get("message", {}).get("content")
-                return "AI returned an empty response."
+                return AIAnalysisError("AI returned an empty response.", retryable=True)
         except httpx.HTTPStatusError as e:
             try:
                 detail = e.response.json().get("error", {}).get("message") or e.response.text
@@ -548,14 +750,21 @@ class AIService:
                 detail = e.response.text if e.response is not None else str(e)
             log.error(
                 "OpenRouter text generation failed",
-                status=e.response.status_code if e.response else None,
+                status=e.response.status_code if e.response is not None else None,
                 model=settings.llm.model,
                 error=detail,
             )
-            return f"AI analysis failed: {detail}"
+            status = e.response.status_code if e.response is not None else None
+            hint = status if status in (429, 503) else (400 if status is not None and 400 <= status < 500 else 502)
+            return AIAnalysisError(
+                self._describe_http_error(status, settings.llm.model, detail),
+                http_status_hint=hint,
+                retryable=status in (408, 429, 500, 502, 503, 504),
+                retry_after_seconds=self._retry_after_seconds(e.response),
+            )
         except Exception as e:
             log.error("OpenRouter text generation failed", error=str(e))
-            return f"AI analysis failed: {str(e)}"
+            return AIAnalysisError(f"AI analysis failed: {str(e)}", retryable=True)
 
     def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:
         """Construct the prompt for the LLM."""

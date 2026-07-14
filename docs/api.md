@@ -177,7 +177,9 @@ Notes:
 - `POST /api/settings/mqtt/test-publish` (owner)
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
-- `POST /api/settings/llm/test` (owner)
+- `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
+  `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
+  Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)

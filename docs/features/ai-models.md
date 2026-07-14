@@ -113,3 +113,12 @@ For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Lan
 - **OpenRouter behavior:** the UI shows a few presets, but accepts any non-empty OpenRouter model ID.
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
+
+Use **Settings → AI → Test AI Connection** before analyzing detections. The diagnostic opens a
+multi-stage result panel covering configuration, provider availability, vision support,
+multi-frame admission, and response generation. It sends five generated 1280×720 JPEG frames,
+matching the count, dimensions, media format, and approximate payload size of the default detection
+analysis without requiring a live event. A successful diagnostic therefore proves that the model
+accepts a representative production request, but it is not a provider load benchmark. Rate limits
+and temporary provider unavailability remain retryable; when the provider supplies `Retry-After`,
+the panel shows it.

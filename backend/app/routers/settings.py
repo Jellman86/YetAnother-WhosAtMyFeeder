@@ -518,29 +518,72 @@ class LlmTestRequest(BaseModel):
     llm_api_key: Optional[str] = None
 
 
-@router.post("/settings/llm/test", response_model=ActionStatusResponse)
+class LlmTestResponse(ActionStatusResponse):
+    provider: str
+    model: str
+    frame_count: int
+    failure_stage: Optional[Literal["configuration", "provider", "vision", "multi_frame", "response"]] = None
+    retryable: bool = False
+    retry_after_seconds: Optional[int] = None
+
+
+@router.post("/settings/llm/test", response_model=LlmTestResponse)
 async def test_llm(
     request: LlmTestRequest, _auth: AuthContext = Depends(require_owner)
-) -> ActionStatusResponse | JSONResponse:
-    """Test LLM connectivity with optional overrides. Owner only."""
+) -> LlmTestResponse | JSONResponse:
+    """Test configuration, provider availability, vision, and multi-frame admission. Owner only."""
     enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
-    if not enabled:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "AI insights are disabled."})
-
     provider = request.llm_provider or settings.llm.provider
     model = request.llm_model or settings.llm.model
+    if not enabled:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "AI insights are disabled.",
+                "provider": provider,
+                "model": model,
+                "frame_count": AIService.TEST_PROBE_FRAME_COUNT,
+                "failure_stage": "configuration",
+                "retryable": False,
+                "retry_after_seconds": None,
+            },
+        )
+
     api_key = request.llm_api_key
     if not api_key or api_key == "***REDACTED***":
         api_key = settings.llm.api_key
 
     if not api_key:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "AI API key is missing."})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "AI API key is missing.",
+                "provider": provider,
+                "model": model,
+                "frame_count": AIService.TEST_PROBE_FRAME_COUNT,
+                "failure_stage": "configuration",
+                "retryable": False,
+                "retry_after_seconds": None,
+            },
+        )
 
     service = AIService()
-    ok, message, status_hint = await service.test_connection(provider, model, api_key)
-    if ok:
-        return ActionStatusResponse(status="ok", message=message)
-    return JSONResponse(status_code=status_hint, content={"status": "error", "message": message})
+    result = await service.test_connection(provider, model, api_key)
+    payload = {
+        "status": "ok" if result.ok else "error",
+        "message": result.message,
+        "provider": provider,
+        "model": model,
+        "frame_count": service.TEST_PROBE_FRAME_COUNT,
+        "failure_stage": result.failure_stage,
+        "retryable": result.retryable,
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+    if result.ok:
+        return LlmTestResponse(**payload)
+    return JSONResponse(status_code=result.http_status_hint, content=payload)
 
 
 class SettingsUpdate(BaseModel):

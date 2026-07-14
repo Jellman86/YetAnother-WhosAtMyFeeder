@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import structlog
-from app.services.ai_service import ai_service
+from app.services.ai_service import AIAnalysisError, ai_service
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.leaderboard_analysis_repository import LeaderboardAnalysisRepository
@@ -56,6 +56,16 @@ class ConversationRequest(BaseModel):
 def _serialize_timestamp(value: datetime | None) -> str:
     serialized = serialize_api_datetime(value)
     return serialized or ""
+
+
+def _raise_for_ai_error(value: str | None) -> None:
+    """Turn marked provider failures into HTTP errors before repositories can persist them."""
+    if not isinstance(value, AIAnalysisError):
+        return
+    headers = None
+    if value.retry_after_seconds is not None:
+        headers = {"Retry-After": str(value.retry_after_seconds)}
+    raise HTTPException(status_code=value.http_status_hint, detail=str(value), headers=headers)
 
 
 def _compute_config_key(config: dict) -> str:
@@ -193,6 +203,7 @@ async def analyze_event(
             language=lang,
             mime_type="image/jpeg",
         )
+        _raise_for_ai_error(analysis)
 
         # Save analysis to database
         analysis_timestamp = await repo.update_ai_analysis(event_id, analysis)
@@ -252,6 +263,7 @@ async def analyze_leaderboard(
             raise HTTPException(status_code=400, detail="Invalid image payload.")
 
         analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang, mime_type=mime_type)
+        _raise_for_ai_error(analysis)
         if not analysis:
             raise HTTPException(status_code=502, detail="AI analysis failed.")
 
@@ -307,6 +319,7 @@ async def post_event_conversation(
             language=lang,
         )
         reply = await ai_service.chat_detection(prompt)
+        _raise_for_ai_error(reply)
         if reply:
             await convo_repo.add_turn(event_id, "assistant", reply)
 

@@ -7,6 +7,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Fixed
+- **AI provider failures are no longer saved as naturalist notes.** Retryable OpenRouter failures
+  now keep their HTTP status and optional `Retry-After` header through the event, leaderboard, and
+  conversation routes, while failed event analysis leaves the cached analysis empty. Gemini
+  exception messages also redact API keys embedded in request URLs.
 - **Bird crops now actually appear as the event image.** One consistent rule now drives both the
   live crop and the displayed snapshot: the configured crop sources are tried in order (Frigate box,
   detector model) and the full frame is used only when no crop could be produced. Previously
@@ -16,6 +20,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   suppressed in favour of the full frame.
 
 ### Added
+- **Guided AI model diagnostic:** Settings → AI now opens a wizard-style diagnostic when testing a
+  model. It reports configuration, provider availability, vision input, five-frame request
+  admission, and response generation as separate stages; preserves retryable 429/503 details and
+  `Retry-After` guidance; and sends five representative 1280×720 JPEG frames so the check matches
+  the production frame count, dimensions, and approximate payload size.
 - **Current LLM model selection:** Settings now offers the current provider families: Gemini 3.1
   (`gemini-3.1-flash-lite` and the Pro preview), OpenAI GPT-5.6 (Sol alias, Terra, and Luna), and
   Claude Opus 4.8 alongside the current Sonnet/Haiku tiers. OpenRouter presets use its verified

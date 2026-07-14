@@ -2,8 +2,9 @@
     import { _ } from 'svelte-i18n';
     import { onMount } from 'svelte';
     import SecretInput from './_primitives/SecretInput.svelte';
-    import { fetchAiUsage, clearAiUsage, type AIUsageResponse } from '../../api';
+    import { fetchAiUsage, clearAiUsage, testLlm, type AIUsageResponse, type LlmTestResult } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
+    import { getErrorMessage } from '../../utils/error-handling';
     import { getRecommendedLlmModel } from '../../settings/llm-models';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
@@ -13,6 +14,7 @@
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import SettingsTextarea from './_primitives/SettingsTextarea.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import AITestModal from './AITestModal.svelte';
 
     let {
         llmEnabled = $bindable(false),
@@ -26,7 +28,6 @@
         llmPromptStyle = $bindable('classic'),
         aiPricingJson = $bindable('[]'),
         availableModels = [],
-        onTestConnection,
         onApplyStyle,
         onResetDefaults
     }: {
@@ -41,7 +42,6 @@
         llmPromptStyle: string;
         aiPricingJson: string;
         availableModels: { value: string; label: string }[];
-        onTestConnection: () => Promise<void>;
         onApplyStyle: () => void;
         onResetDefaults: () => void;
     } = $props();
@@ -50,6 +50,37 @@
     let loadingUsage = $state(true);
     let clearingUsage = $state(false);
     let usageLoadError = $state<string | null>(null);
+    let testModalOpen = $state(false);
+    let testRunning = $state(false);
+    let testResult = $state<LlmTestResult | null>(null);
+
+    async function runConnectionTest(): Promise<void> {
+        testModalOpen = true;
+        testRunning = true;
+        testResult = null;
+        try {
+            testResult = await testLlm({
+                llm_enabled: llmEnabled,
+                llm_provider: llmProvider,
+                llm_model: llmModel,
+                llm_api_key: llmApiKey
+            });
+        } catch (error) {
+            testResult = {
+                status: 'error',
+                message: getErrorMessage(error) || $_('settings.ai.test_network_error', { default: 'The diagnostic request could not reach YA-WAMF.' }),
+                provider: llmProvider,
+                model: llmModel,
+                frame_count: 5,
+                failure_stage: 'provider',
+                retryable: true,
+                retry_after_seconds: null,
+                http_status: 0
+            };
+        } finally {
+            testRunning = false;
+        }
+    }
 
     async function loadUsage() {
         loadingUsage = true;
@@ -268,11 +299,11 @@
 
         <button
             type="button"
-            onclick={onTestConnection}
-            disabled={!llmApiKey && !llmApiKeySaved}
+            onclick={runConnectionTest}
+            disabled={testRunning || (!llmApiKey && !llmApiKeySaved)}
             class="w-full {buttonPrimaryClass}"
         >
-            {$_('settings.llm.test_connection')}
+            {testRunning ? $_('settings.llm.test_loading') : $_('settings.llm.test_connection')}
         </button>
 
         <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 text-xs text-slate-600 dark:text-slate-300">
@@ -391,3 +422,14 @@
         </AdvancedSection>
     </SettingsCard>
 </div>
+
+{#if testModalOpen}
+    <AITestModal
+        provider={llmProvider}
+        model={llmModel}
+        running={testRunning}
+        result={testResult}
+        onClose={() => (testModalOpen = false)}
+        onRetry={runConnectionTest}
+    />
+{/if}

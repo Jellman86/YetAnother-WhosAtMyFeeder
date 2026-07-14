@@ -5927,6 +5927,77 @@
         "title": "LlmTestRequest",
         "type": "object"
       },
+      "LlmTestResponse": {
+        "properties": {
+          "failure_stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "configuration",
+                  "provider",
+                  "vision",
+                  "multi_frame",
+                  "response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Stage"
+          },
+          "frame_count": {
+            "title": "Frame Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After Seconds"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "provider",
+          "model",
+          "frame_count"
+        ],
+        "title": "LlmTestResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "description": "Login credentials.",
         "properties": {
@@ -19428,7 +19499,7 @@
     },
     "/api/settings/llm/test": {
       "post": {
-        "description": "Test LLM connectivity with optional overrides. Owner only.",
+        "description": "Test configuration, provider availability, vision, and multi-frame admission. Owner only.",
         "operationId": "test_llm_api_settings_llm_test_post",
         "requestBody": {
           "content": {
@@ -19445,7 +19516,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ActionStatusResponse"
+                  "$ref": "#/components/schemas/LlmTestResponse"
                 }
               }
             },

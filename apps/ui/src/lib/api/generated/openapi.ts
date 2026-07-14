@@ -872,6 +872,16 @@ export interface components {
     llm_model?: string | null;
     llm_provider?: string | null;
 };
+    LlmTestResponse: {
+    failure_stage?: "configuration" | "provider" | "vision" | "multi_frame" | "response" | null;
+    frame_count: number;
+    message: string;
+    model: string;
+    provider: string;
+    retry_after_seconds?: number | null;
+    retryable?: boolean;
+    status: "ok" | "error";
+};
     LoginRequest: {
     password: string;
     username: string;
@@ -3007,7 +3017,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['LlmTestRequest'];
-      response: components['schemas']['ActionStatusResponse'];
+      response: components['schemas']['LlmTestResponse'];
     };
   };
   "/api/settings/mqtt/test-publish": {

@@ -33,7 +33,6 @@
         fetchAudioSources,
         searchSpecies,
         testBirdWeather,
-        testLlm,
         testBirdNET,
         testMQTTPublish,
         testNotification,
@@ -1528,7 +1527,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let saving = $state(false);
     let testing = $state(false);
     let testingBirdWeather = $state(false);
-    let testingLlm = $state(false);
     let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
@@ -3380,28 +3378,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function handleTestLlm() {
-        testingLlm = true;
-        message = null;
-        try {
-            const result = await testLlm({
-                llm_enabled: llmEnabled,
-                llm_provider: llmProvider,
-                llm_model: llmModel,
-                llm_api_key: llmApiKey
-            });
-            if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test AI integration' };
-        } finally {
-            testingLlm = false;
-        }
-    }
-
     function toggleCamera(camera: string) {
         if (selectedCameras.includes(camera)) {
             selectedCameras = selectedCameras.filter(c => c !== camera);
@@ -3698,7 +3674,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:llmPromptStyle
                     bind:aiPricingJson
                     {availableModels}
-                    onTestConnection={handleTestLlm}
                     onApplyStyle={() => applyPromptTemplates(llmPromptStyle)}
                     onResetDefaults={resetPromptTemplates}
                 />
