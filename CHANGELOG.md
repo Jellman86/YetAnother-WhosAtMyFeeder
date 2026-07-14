@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- **Bird crops now actually appear as the event image.** One consistent rule now drives both the
+  live crop and the displayed snapshot: the configured crop sources are tried in order (Frigate box,
+  detector model) and the full frame is used only when no crop could be produced. Previously
+  `frigate_hints_first` silently fell straight to the full frame whenever the Frigate event was
+  unavailable (common on feeder cams, and with short event retention), so the model crop was
+  generated but never shown. The model crop is now a genuine fallback, and small crops are no longer
+  suppressed in favour of the full frame.
+
 ### Added
 - **Current LLM model selection:** Settings now offers the current provider families: Gemini 3.1
   (`gemini-3.1-flash-lite` and the Pro preview), OpenAI GPT-5.6 (Sol alias, Terra, and Luna), and

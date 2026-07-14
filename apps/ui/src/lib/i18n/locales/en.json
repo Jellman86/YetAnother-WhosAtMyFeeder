@@ -1036,7 +1036,7 @@
       "model_manager_default_source": "Default source:",
       "auto_video_advanced_title": "Auto-video tuning",
       "classification_advanced_title": "Crop source & region overrides",
-      "crop_priority_desc": "Choose whether Frigate hints or the configured crop model are tried first. The selected crop detector tier is always respected whenever the model path is used.",
+      "crop_priority_desc": "Which crop source is tried first. Each option falls back to the next and finally to the full frame, so a bird crop is used whenever one can be produced, even a small one. The selected crop detector tier is respected whenever the model path is used.",
       "crop_priority_title": "Crop source priority",
       "crop_tier_desc": "Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.",
       "crop_tier_title": "Bird crop detector",

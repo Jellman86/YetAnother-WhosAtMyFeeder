@@ -40,9 +40,28 @@ HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
 HQ_MAX_PERSISTED_CANDIDATES = 8
-HQ_TINY_CROP_MIN_SHORT_EDGE = 320
-HQ_TINY_CROP_MIN_FRAME_AREA_RATIO = 0.08
-HQ_TINY_CROP_FULL_FRAME_MARGIN = 0.15
+
+DEFAULT_CROP_SOURCE_PRIORITY = "frigate_hints_first"
+
+# The single source of truth for how bird_crop_source_priority behaves: an ordered list of crop
+# sources to try. Both the live crop and the canonical (displayed) event image walk this same list
+# and take the first source that yields an image, so the two paths always agree. "full_frame" is
+# always last and always available, so a crop is used whenever one was produced — the model crop is
+# a genuine fallback, not a suppressed alternate.
+CROP_SOURCE_ORDERS: dict[str, tuple[str, ...]] = {
+    "frigate_hints_first": ("frigate_hint_crop", "model_crop", "full_frame"),
+    "crop_model_first": ("model_crop", "frigate_hint_crop", "full_frame"),
+    "crop_model_only": ("model_crop", "full_frame"),
+    "frigate_hints_only": ("frigate_hint_crop", "full_frame"),
+}
+
+
+def crop_source_order(priority: str) -> tuple[str, ...]:
+    """Ordered crop sources for a priority setting; unknown values use the default order."""
+    return CROP_SOURCE_ORDERS.get(
+        str(priority or "").strip().lower(),
+        CROP_SOURCE_ORDERS[DEFAULT_CROP_SOURCE_PRIORITY],
+    )
 
 
 class HighQualitySnapshotService:
@@ -350,73 +369,27 @@ class HighQualitySnapshotService:
     def _select_canonical_snapshot_candidate(self, candidates: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
         """Choose the default displayed snapshot.
 
-        The crop source priority controls whether crop-model candidates are
-        promoted to the canonical event snapshot. Otherwise preserve the
-        high-quality scene when one is available and keep crops as alternates.
+        Walk the configured crop-source order and return the best-scored candidate of the first
+        source that is present, falling back to the full frame only when no crop was produced. This
+        is the same order the live crop uses, so the displayed image and the live crop always agree
+        — a crop (even a small one) is shown whenever one exists.
         """
         if not candidates:
             return None
-        priority = self._bird_crop_source_priority()
-        if priority in {"crop_model_first", "crop_model_only"}:
-            best_model_crop = next(
-                (item for item in candidates if str(item.get("source_mode") or "") == "model_crop"),
-                None,
-            )
-            if best_model_crop is not None:
-                return best_model_crop
-        best_full_frame = next(
-            (item for item in candidates if str(item.get("source_mode") or "") == "full_frame"),
-            None,
-        )
-        return best_full_frame or candidates[0]
+        for source_mode in crop_source_order(self._bird_crop_source_priority()):
+            matches = [item for item in candidates if str(item.get("source_mode") or "full_frame") == source_mode]
+            if matches:
+                return max(matches, key=lambda item: float(item.get("ranking_score") or 0.0))
+        return candidates[0]
 
     def _rank_snapshot_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Rank candidates while avoiding unusably small auto-crops.
+        """Rank candidates by score (highest first) for persistence and manual selection.
 
-        A tiny crop can score marginally higher than a full frame because it
-        removes background, but it makes a poor default event image. Keep the
-        crop available for manual selection while preferring a full-frame HQ
-        candidate unless the crop is clearly stronger.
+        The canonical event image is chosen separately by crop-source preference
+        (`_select_canonical_snapshot_candidate`); this ordering only decides which candidates are
+        persisted and the order alternates are offered in.
         """
-        ranked = sorted(candidates, key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
-        if not ranked:
-            return []
-
-        best = ranked[0]
-        if not self._is_tiny_crop_candidate(best):
-            return ranked
-
-        best_full_frame = next((item for item in ranked if str(item.get("source_mode") or "") == "full_frame"), None)
-        if best_full_frame is None:
-            return ranked
-
-        crop_score = float(best.get("ranking_score") or 0.0)
-        full_score = float(best_full_frame.get("ranking_score") or 0.0)
-        if crop_score > full_score + HQ_TINY_CROP_FULL_FRAME_MARGIN:
-            return ranked
-
-        return [best_full_frame, *[item for item in ranked if item is not best_full_frame]]
-
-    def _is_tiny_crop_candidate(self, candidate: dict[str, Any]) -> bool:
-        source_mode = str(candidate.get("source_mode") or "full_frame")
-        if source_mode == "full_frame":
-            return False
-
-        width = int(candidate.get("image_width") or 0)
-        height = int(candidate.get("image_height") or 0)
-        frame_width = int(candidate.get("frame_width") or 0)
-        frame_height = int(candidate.get("frame_height") or 0)
-        if width <= 0 or height <= 0:
-            return False
-
-        if min(width, height) < HQ_TINY_CROP_MIN_SHORT_EDGE:
-            return True
-        if frame_width > 0 and frame_height > 0:
-            frame_area = frame_width * frame_height
-            crop_area = width * height
-            if frame_area > 0 and (crop_area / frame_area) < HQ_TINY_CROP_MIN_FRAME_AREA_RATIO:
-                return True
-        return False
+        return sorted(candidates, key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
 
     def _extract_snapshot_candidate_payloads_from_clip_path(
         self,
@@ -945,18 +918,11 @@ class HighQualitySnapshotService:
 
     def _bird_crop_source_priority(self) -> str:
         configured = (
-            str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "")
+            str(getattr(settings.classification, "bird_crop_source_priority", DEFAULT_CROP_SOURCE_PRIORITY) or "")
             .strip()
             .lower()
         )
-        if configured in {
-            "frigate_hints_first",
-            "crop_model_first",
-            "crop_model_only",
-            "frigate_hints_only",
-        }:
-            return configured
-        return "frigate_hints_first"
+        return configured if configured in CROP_SOURCE_ORDERS else DEFAULT_CROP_SOURCE_PRIORITY
 
     def _crop_snapshot_by_priority(
         self,
@@ -965,26 +931,21 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]],
         event_id: str,
     ) -> Optional[dict[str, Any]]:
-        priority = self._bird_crop_source_priority()
-        if priority == "crop_model_only":
-            return self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-        if priority == "frigate_hints_only":
-            return self._crop_from_event_hints(image, event_data)
-        if priority == "crop_model_first":
-            crop_result = (
-                self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-            )
-            if self._has_crop_image(crop_result):
-                return crop_result
-            hint_result = self._crop_from_event_hints(image, event_data)
-            return hint_result or crop_result
-        hint_result = self._crop_from_event_hints(image, event_data)
-        if self._has_crop_image(hint_result):
-            return hint_result
-        crop_result = (
-            self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-        )
-        return crop_result or hint_result
+        last_result: Optional[dict[str, Any]] = None
+        for source_mode in crop_source_order(self._bird_crop_source_priority()):
+            if source_mode == "full_frame":
+                break
+            if source_mode == "model_crop":
+                if not self._bird_crop_model_available():
+                    continue
+                result = self._crop_from_bird_model(image, event_id=event_id)
+            else:  # frigate_hint_crop
+                result = self._crop_from_event_hints(image, event_data)
+            if self._has_crop_image(result):
+                return result
+            if result is not None:
+                last_result = result
+        return last_result
 
     def _crop_from_bird_model(self, image: Image.Image, *, event_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         try:

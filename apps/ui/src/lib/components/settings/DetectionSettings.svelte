@@ -268,7 +268,7 @@
             <SettingsRow
                 labelId="setting-crop-priority"
                 label={$_('settings.detection.crop_priority_title', { default: 'Crop source priority' })}
-                description={$_('settings.detection.crop_priority_desc', { default: 'Choose whether Frigate hints or the configured crop model are tried first. The selected crop detector tier is always respected whenever the model path is used.' })}
+                description={$_('settings.detection.crop_priority_desc', { default: 'Which crop source is tried first. Each option falls back to the next and finally to the full frame, so a bird crop is used whenever one can be produced — even a small one. The selected crop detector tier is respected whenever the model path is used.' })}
                 layout="stacked"
             >
                 <SettingsSelect
