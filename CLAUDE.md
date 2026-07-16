@@ -255,6 +255,9 @@ gate as permission to skip the local Definition of Done command.
 ## 10. Workflow & commit rules
 
 - **Everyday work happens on `dev`.** Release tags / `main` are handled separately.
+- **Write GitHub Releases for the person updating their feeder, not for the commit
+  history.** Follow [`docs/development/releasing.md`](docs/development/releasing.md)
+  and start from [`.github/RELEASE_NOTES_TEMPLATE.md`](.github/RELEASE_NOTES_TEMPLATE.md).
 - **Git commit rules (unchanged, and strict):**
   - **Never** add `Co-Authored-By:`, `Co-authored-by:`, or any AI attribution
     trailer to commit messages.
