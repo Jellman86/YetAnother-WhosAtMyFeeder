@@ -232,14 +232,14 @@
             ] as stat}
                 <div class="card-base rounded-3xl p-6 text-center backdrop-blur-md">
                     <p class="text-2xl font-black tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
                 </div>
             {/each}
         </div>
     {/if}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <SettingsCard icon="🗂️" title={$_('settings.data.retention_title')}>
+        <SettingsCard title={$_('settings.data.retention_title')}>
             <SettingsRow
                 labelId="setting-retention-days"
                 label={$_('settings.data.history_duration')}
@@ -270,7 +270,7 @@
             >
                 {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
             </button>
-            <p class="text-[10px] text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
+            <p class="text-xs text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
 
             <AdvancedSection
                 id="data-retention-advanced"
@@ -339,7 +339,7 @@
             </AdvancedSection>
         </SettingsCard>
 
-        <SettingsCard icon="📦" title={$_('settings.data.cache_title')}>
+        <SettingsCard title={$_('settings.data.cache_title')}>
             <SettingsRow
                 labelId="setting-cache-enabled"
                 label={$_('settings.data.cache_title')}
@@ -444,7 +444,7 @@
                                     aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
                                     class="w-full accent-teal-500"
                                 />
-                                <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
                                     <span>70</span>
                                     <span>100</span>
                                 </div>
@@ -456,8 +456,12 @@
         </SettingsCard>
     </div>
 
+    <AdvancedSection
+        id="data-tools"
+        title={$_('settings.data.tools_title', { default: 'Setup, backup & maintenance tools' })}
+        openByDefault={backfilling || weatherBackfilling || analyzingUnknowns || syncingTaxonomy || previewingTimezoneRepair || applyingTimezoneRepair || exportingConfigBackup || importingConfigBackup}
+    >
     <SettingsCard
-        icon="🧭"
         title={$_('settings.data.setup_wizard_title', { default: 'Setup wizard' })}
         description={$_('settings.data.setup_wizard_desc', { default: 'Re-run the guided setup any time to reconfigure a section. Only the sections you change are touched.' })}
     >
@@ -467,7 +471,6 @@
     </SettingsCard>
 
     <SettingsCard
-        icon="💾"
         title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
     >
@@ -540,15 +543,14 @@
     </SettingsCard>
 
     <SettingsCard
-        icon="🌳"
         title={$_('settings.data.taxonomy_title')}
         description={$_('settings.data.taxonomy_desc')}
     >
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
                 <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300">
-                    <span class="text-[10px] font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                    <span class="text-[10px] font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                    <span class="text-xs font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                    <span class="text-xs font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
             {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
@@ -576,7 +578,6 @@
     </SettingsCard>
 
     <SettingsCard
-        icon="🕒"
         title={$_('settings.data.timezone_repair_title', { default: 'Timezone Repair' })}
         description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
     >
@@ -588,37 +589,37 @@
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
                     <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
                 <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
                     <p class="text-lg font-black text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
                     <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
                 <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
                     <p class="text-lg font-black text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
                     <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
+                        <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
                     <div class="divide-y divide-slate-200 dark:divide-slate-700">
                         {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="text-sm font-black text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-[10px] font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -660,7 +661,6 @@
     </SettingsCard>
 
     <SettingsCard
-        icon="🔄"
         title={$_('settings.data.backfill_title')}
         description={$_('settings.data.backfill_desc')}
     >
@@ -687,7 +687,7 @@
             <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label for="backfill-from-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-from-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_from', { default: 'From' })}
                         </label>
                         <input
@@ -700,7 +700,7 @@
                         />
                     </div>
                     <div>
-                        <label for="backfill-to-date" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-to-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_to', { default: 'To' })}
                         </label>
                         <input
@@ -715,26 +715,26 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
                 {#if backfillCustomError}
-                    <p class="text-[11px] font-bold text-red-500">{backfillCustomError}</p>
+                    <p class="text-xs font-bold text-red-500">{backfillCustomError}</p>
                 {/if}
             </div>
         {/if}
 
         {#if backfillResult}
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
-                <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
+                <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
             </div>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                 <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
                     <div class="grid grid-cols-1 gap-2">
                         {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
                             <div class="flex justify-between items-center text-xs">
@@ -766,10 +766,10 @@
         >
             {#if weatherBackfillResult}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                    <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
-                    <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                    <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-[8px] font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
+                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
+                    <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
+                    <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
+                    <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
                 </div>
             {/if}
             <button
@@ -786,7 +786,6 @@
     </SettingsCard>
 
     <SettingsCard
-        icon="🧪"
         title={$_('settings.data.batch_analysis_title')}
         description={$_('settings.data.batch_analysis_desc')}
     >
@@ -826,25 +825,25 @@
                     <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
                     <span class="text-slate-500">{processed} / {analysisTotal}</span>
                 </div>
-                <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                <div class="flex justify-between text-xs font-bold text-slate-400">
                     <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
                     <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
                 </div>
                 {#if analysisStatus.maintenance_status_message}
-                    <div class="text-[10px] font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div class="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
                         {analysisStatus.maintenance_status_message}
                     </div>
                 {/if}
                 {#if analysisStatus.circuit_open}
-                    <div class="text-[10px] font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                    <div class="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         {$_('settings.data.batch_analysis_circuit_open')}
                         {#if analysisStatus.open_until}
-                            <span class="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-300">{formatSafeTime(analysisStatus.open_until)}</span>
+                            <span class="ml-auto text-xs font-bold text-amber-600 dark:text-amber-300">{formatSafeTime(analysisStatus.open_until)}</span>
                         {/if}
                     </div>
                     {#if analysisStatus.failure_count !== undefined}
-                        <div class="text-[10px] font-bold text-amber-500/90">
+                        <div class="text-xs font-bold text-amber-500/90">
                             {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
                         </div>
                     {/if}
@@ -852,19 +851,15 @@
             </div>
         {/if}
     </SettingsCard>
+    </AdvancedSection>
 
-    <section class="card-base rounded-3xl p-6 md:p-8 backdrop-blur-md border-2 border-red-500/20 bg-red-500/5">
-        <header class="flex items-start gap-3 mb-6">
-            <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 flex-shrink-0">
-                <span class="text-xl" aria-hidden="true">⚠️</span>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.danger.title')}</h3>
-                <p class="text-[10px] font-black uppercase tracking-widest text-red-500 mt-1">{$_('settings.danger.subtitle')}</p>
-            </div>
-        </header>
-
-        <div class="space-y-4">
+    <AdvancedSection
+        id="data-danger"
+        title={$_('settings.danger.title')}
+        description={$_('settings.danger.subtitle')}
+        openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
+    >
+        <div class="space-y-4 rounded-2xl border-2 border-red-500/20 bg-red-500/5 p-4">
             <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">{$_('settings.danger.reset_desc')}</p>
             <button
                 type="button"
@@ -876,7 +871,7 @@
                 {#if clearingFavorites}{@render spinner()}{/if}
                 {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
             </button>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">{$_('settings.data.clear_favorites_desc')}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold">{$_('settings.data.clear_favorites_desc')}</p>
 
             <div class="h-px bg-red-500/10"></div>
 
@@ -893,7 +888,7 @@
                 {#if clearingFeedback}{@render spinner()}{/if}
                 {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
             </button>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold">
                 {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
             </p>
 
@@ -910,5 +905,5 @@
                 {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
             </button>
         </div>
-    </section>
+    </AdvancedSection>
 </div>

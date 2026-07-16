@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest';
+
+import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
+import detectionSettingsSource from './DetectionSettings.svelte?raw';
+
+describe('Detection settings simplification', () => {
+    it('keeps the default surface focused on active model, confidence, and exclusions', () => {
+        const firstDisclosure = detectionSettingsSource.indexOf('<AdvancedSection');
+        const defaultSurface = detectionSettingsSource.slice(0, firstDisclosure);
+
+        expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(2);
+        expect(defaultSurface).toContain('classifierStatus.active_model_id');
+        expect(defaultSurface).toContain('id="confidence-threshold-slider"');
+        expect(defaultSurface).not.toContain('<ModelManager');
+        expect(defaultSurface).not.toContain('id="min-confidence-slider"');
+        expect(detectionSettingsSource).not.toContain('grid grid-cols-1 md:grid-cols-2');
+    });
+
+    it('progressively discloses model, fine-tuning, and hardware tasks', () => {
+        expect(detectionSettingsSource).toContain('id="detection-classification-advanced"');
+        expect(detectionSettingsSource).toContain('id="detection-fine-tuning-advanced"');
+        expect(detectionSettingsSource).toContain('id="detection-inference-advanced"');
+
+        const modelDisclosure = detectionSettingsSource.indexOf('id="detection-classification-advanced"');
+        const modelManager = detectionSettingsSource.indexOf('<ModelManager');
+        const fineTuningDisclosure = detectionSettingsSource.indexOf('id="detection-fine-tuning-advanced"');
+        const minimumConfidence = detectionSettingsSource.indexOf('id="min-confidence-slider"');
+        const hardwareDisclosure = detectionSettingsSource.indexOf('id="detection-inference-advanced"');
+        const provider = detectionSettingsSource.indexOf('id="inference-provider"');
+        const compatibilityCheck = detectionSettingsSource.indexOf('onclick={runCompatCheck}');
+
+        expect(modelManager).toBeGreaterThan(modelDisclosure);
+        expect(minimumConfidence).toBeGreaterThan(fineTuningDisclosure);
+        expect(provider).toBeGreaterThan(hardwareDisclosure);
+        expect(compatibilityCheck).toBeGreaterThan(hardwareDisclosure);
+    });
+
+    it('retains visible warnings and gold-standard interaction sizing', () => {
+        expect(detectionSettingsSource).toContain('autoVideoClassification && videoCircuitOpen');
+        expect(detectionSettingsSource).toContain('classifierStatus?.fallback_reason');
+        expect(detectionSettingsSource).toContain('role="alert"');
+        expect(detectionSettingsSource).toContain('h-11');
+        expect(detectionSettingsSource).not.toMatch(/text-\[(9|10|11)px\]/);
+        expect(detectionSettingsSource).not.toMatch(/icon="[🎯🎚️⚡🧪🚫]/u);
+    });
+
+    it('keeps shared disclosures semantic, readable, and keyboard visible', () => {
+        expect(advancedSectionSource).toContain('aria-expanded={open}');
+        expect(advancedSectionSource).toContain('aria-controls={contentId}');
+        expect(advancedSectionSource).toContain('id={contentId}');
+        expect(advancedSectionSource).toContain('min-h-11');
+        expect(advancedSectionSource).toContain('focus-visible:ring-2');
+        expect(advancedSectionSource).not.toContain('text-[9px]');
+        expect(advancedSectionSource).not.toContain('<div class="flex items-center gap-2 min-w-0">');
+    });
+});

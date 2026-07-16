@@ -37,7 +37,7 @@
     });
 </script>
 
-<SettingsCard icon="♿" title={$_('settings.accessibility.title')}>
+<SettingsCard title={$_('settings.accessibility.title')}>
     <SettingsRow
         labelId="setting-high-contrast"
         label={$_('settings.accessibility.high_contrast')}

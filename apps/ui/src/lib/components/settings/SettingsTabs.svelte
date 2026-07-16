@@ -1,8 +1,21 @@
 <script lang="ts">
     import { _ } from "svelte-i18n";
+    import { toAppPath } from "../../app/url-base";
 
     type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment'
         | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+
+    interface SettingsTabItem {
+        id: SettingsTab;
+        label: string;
+        iconPath: string;
+    }
+
+    interface SettingsTabGroup {
+        id: 'pipeline' | 'intelligence' | 'operations' | 'interface';
+        label: string;
+        tabs: SettingsTabItem[];
+    }
 
     interface Props {
         activeTab: string;
@@ -12,61 +25,118 @@
 
     let { activeTab, ontabchange, debugUiEnabled = false }: Props = $props();
 
-    const tabs = $derived([
-        { id: "connection", label: $_("settings.tabs.connection"), icon: "🔗" },
-        { id: "detection", label: $_("settings.tabs.detection"), icon: "🎯" },
-        { id: "notifications", label: $_("settings.tabs.notifications"), icon: "🔔" },
-        { id: "health", label: $_("settings.tabs.health"), icon: "🩺" },
-        { id: "integrations", label: $_("settings.tabs.integrations"), icon: "🔌" },
-        { id: "enrichment", label: $_("settings.tabs.enrichment"), icon: "✨" },
-        { id: "ai", label: $_("settings.tabs.ai", { default: 'AI' }), icon: "🤖" },
-        { id: "security", label: $_("settings.tabs.security"), icon: "🔐" },
-        { id: "data", label: $_("settings.tabs.data"), icon: "💾" },
-        { id: "appearance", label: $_("settings.tabs.appearance"), icon: "🎨" },
-        { id: "accessibility", label: $_("settings.tabs.accessibility"), icon: "♿" },
-        ...(debugUiEnabled ? [{ id: "debug", label: $_("settings.tabs.debug"), icon: "🧪" }] : [])
+    const groups = $derived<SettingsTabGroup[]>([
+        {
+            id: "pipeline",
+            label: $_("settings.tabs.groups.pipeline", { default: "Feeder pipeline" }),
+            tabs: [
+                { id: "connection", label: $_("settings.tabs.connection"), iconPath: "M13.5 6H18a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4.5M10.5 18H6a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h4.5M8 12h8" },
+                { id: "detection", label: $_("settings.tabs.detection"), iconPath: "M12 3v3m0 12v3M3 12h3m12 0h3M7.05 7.05l2.12 2.12m5.66 5.66 2.12 2.12m0-9.9-2.12 2.12m-5.66 5.66-2.12 2.12M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" }
+            ]
+        },
+        {
+            id: "intelligence",
+            label: $_("settings.tabs.groups.intelligence", { default: "Intelligence & sharing" }),
+            tabs: [
+                { id: "integrations", label: $_("settings.tabs.integrations"), iconPath: "M8 3v4m8-4v4M6 7h12v3a6 6 0 0 1-6 6v5m-3 0h6" },
+                { id: "enrichment", label: $_("settings.tabs.enrichment"), iconPath: "m12 3 1.4 4.1 4.1 1.4-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Zm6.5 11 .7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1Z" },
+                { id: "ai", label: $_("settings.tabs.ai", { default: "AI" }), iconPath: "M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3M7 7h10v10H7V7Zm3 3h4v4h-4v-4Z" },
+                { id: "notifications", label: $_("settings.tabs.notifications"), iconPath: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" }
+            ]
+        },
+        {
+            id: "operations",
+            label: $_("settings.tabs.groups.operations", { default: "Operations" }),
+            tabs: [
+                { id: "health", label: $_("settings.tabs.health"), iconPath: "M3 12h4l2-5 4 10 2-5h6M12 21C7 18 4 14.5 4 10a4 4 0 0 1 7-2.65A4 4 0 0 1 18 10c0 .7-.08 1.36-.24 2" },
+                { id: "security", label: $_("settings.tabs.security"), iconPath: "m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" },
+                { id: "data", label: $_("settings.tabs.data"), iconPath: "M19 6c0 1.66-3.13 3-7 3S5 7.66 5 6s3.13-3 7-3 7 1.34 7 3Zm0 0v6c0 1.66-3.13 3-7 3s-7-1.34-7-3V6m14 6v6c0 1.66-3.13 3-7 3s-7-1.34-7-3v-6" },
+                ...(debugUiEnabled
+                    ? [{ id: "debug" as const, label: $_("settings.tabs.debug"), iconPath: "M9 3h6m-5 0v5l-5 9a2 2 0 0 0 1.74 3h10.52A2 2 0 0 0 19 17l-5-9V3m-6 11h8" }]
+                    : [])
+            ]
+        },
+        {
+            id: "interface",
+            label: $_("settings.tabs.groups.interface", { default: "Interface" }),
+            tabs: [
+                { id: "appearance", label: $_("settings.tabs.appearance"), iconPath: "M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42M7.06 16.94l-1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" },
+                { id: "accessibility", label: $_("settings.tabs.accessibility"), iconPath: "M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM4 9h16m-8 0v12m0-7-4 7m4-7 4 7" }
+            ]
+        }
     ]);
+
+    function settingsHref(tab: SettingsTab): string {
+        return toAppPath(`/settings/${tab}`);
+    }
+
+    function handleLinkClick(event: MouseEvent, tab: SettingsTab): void {
+        if (
+            event.button !== 0
+            || event.metaKey
+            || event.ctrlKey
+            || event.shiftKey
+            || event.altKey
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+        if (tab !== activeTab) ontabchange(tab);
+    }
 </script>
 
-<!-- Mobile (<md): collapse the wrapping tab strip into a single select to stop
-     it from spilling onto two or three lines on small screens. -->
 <div class="md:hidden">
-    <label for="settings-tab-select" class="sr-only">{$_('settings.tabs.connection')}</label>
+    <label for="settings-tab-select" class="sr-only">{$_('settings.title')}</label>
     <select
         id="settings-tab-select"
         value={activeTab}
         onchange={(e) => ontabchange((e.currentTarget as HTMLSelectElement).value as SettingsTab)}
         class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
     >
-        {#each tabs as tab}
-            <option value={tab.id}>{tab.icon}  {tab.label}</option>
+        {#each groups as group}
+            <optgroup label={group.label}>
+                {#each group.tabs as tab}
+                    <option value={tab.id}>{tab.label}</option>
+                {/each}
+            </optgroup>
         {/each}
     </select>
 </div>
 
-<!-- Desktop (>=md): the existing horizontal pill strip. -->
 <nav
-    class="hidden md:flex card-base flex-wrap justify-center md:justify-start gap-2 p-1 rounded-2xl w-full"
-    aria-label="Settings tabs"
+    class="card-base hidden w-full gap-3 rounded-2xl p-3 md:grid md:grid-cols-2 xl:grid-cols-4"
+    aria-label={$_('settings.title')}
 >
-    {#each tabs as tab}
-        <button
-            type="button"
-            onclick={() => ontabchange(tab.id as SettingsTab)}
-            aria-pressed={activeTab === tab.id}
-            class="group flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200
-                   {activeTab === tab.id
-                ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-700/50'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}"
-            title={tab.label}
-        >
-            <span class="text-lg opacity-80 group-hover:scale-110 transition-transform duration-200" aria-hidden="true">
-                {tab.icon}
-            </span>
-            <span>{tab.label}</span>
-            {#if activeTab === tab.id}
-                <div class="ml-auto w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" aria-hidden="true"></div>
-            {/if}
-        </button>
+    {#each groups as group}
+        <section class="min-w-0 rounded-xl border border-slate-200/70 bg-slate-50/60 p-2 dark:border-slate-700/70 dark:bg-slate-900/30">
+            <h2 class="px-2 pb-1.5 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                {group.label}
+            </h2>
+            <div class="flex flex-wrap gap-1">
+                {#each group.tabs as tab}
+                    <a
+                        href={settingsHref(tab.id)}
+                        onclick={(event) => handleLinkClick(event, tab.id)}
+                        aria-current={activeTab === tab.id ? 'page' : undefined}
+                        class="flex min-h-11 flex-auto items-center justify-start gap-2 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
+                               {activeTab === tab.id
+                            ? 'border-teal-200 bg-white text-teal-700 shadow-sm dark:border-teal-800 dark:bg-slate-800 dark:text-teal-300'
+                            : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white'}"
+                        title={tab.label}
+                    >
+                        <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d={tab.iconPath} />
+                        </svg>
+                        <span class="min-w-0 flex-1">{tab.label}</span>
+                        {#if activeTab === tab.id}
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                            </svg>
+                        {/if}
+                    </a>
+                {/each}
+            </div>
+        </section>
     {/each}
 </nav>

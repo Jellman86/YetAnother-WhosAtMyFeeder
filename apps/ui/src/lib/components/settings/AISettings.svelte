@@ -135,18 +135,18 @@
             type="button"
             onclick={handleClearUsage}
             disabled={clearingUsage || !usage?.calls}
-            class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="min-h-11 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
             {clearingUsage ? $_('common.clearing', { default: 'Clearing...' }) : $_('settings.ai.clear_usage', { default: 'Clear History' })}
         </button>
     {/snippet}
 
-    <SettingsCard
-        icon="📊"
+    <AdvancedSection
+        id="ai-usage"
         title={$_('settings.ai.usage_title', { default: 'AI Usage' })}
         description={$_('settings.ai.usage_subtitle', { default: 'Last 30 days consumption' })}
-        actions={usageActions}
     >
+        <div class="flex justify-end">{@render usageActions()}</div>
         {#if loadingUsage}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
                 <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
@@ -156,22 +156,22 @@
         {:else if usage}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
                     <p class="text-2xl font-black text-slate-900 dark:text-white">{usage.calls.toLocaleString()}</p>
                 </div>
                 <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
                     <p class="text-2xl font-black text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
-                    <p class="text-[9px] font-bold text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
+                    <p class="text-xs font-bold text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
                 </div>
                 <div class="{metricCardClass} bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/10 dark:border-emerald-500/20">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
+                    <p class="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
                     <p class="text-2xl font-black text-emerald-700 dark:text-emerald-300">
                         ${formatEstimatedCost(usage.estimated_cost_usd)}
                         <span class="text-xs ml-1 font-bold text-emerald-600/60 dark:text-emerald-400/40">USD</span>
                     </p>
                     {#if !usage.pricing_configured}
-                        <p class="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
+                        <p class="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
                     {/if}
                 </div>
             </div>
@@ -179,7 +179,7 @@
             {#if usage.breakdown.length > 0}
                 <div class="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700/50">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 dark:bg-slate-900/60 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <thead class="bg-slate-50 dark:bg-slate-900/60 text-xs font-black uppercase tracking-widest text-slate-400">
                             <tr>
                                 <th class="px-4 py-3">{$_('settings.ai.table_model', { default: 'Model' })}</th>
                                 <th class="px-4 py-3">{$_('settings.ai.table_feature', { default: 'Feature' })}</th>
@@ -192,7 +192,7 @@
                             {#each usage.breakdown as item}
                                 <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
                                     <td class="px-4 py-3 font-bold">
-                                        <span class="opacity-50 font-black uppercase text-[9px] mr-1">{item.provider}</span>
+                                        <span class="opacity-50 font-black uppercase text-xs mr-1">{item.provider}</span>
                                         {item.model}
                                     </td>
                                     <td class="px-4 py-3 capitalize">{item.feature}</td>
@@ -212,10 +212,9 @@
                 </p>
             </div>
         {/if}
-    </SettingsCard>
+    </AdvancedSection>
 
     <SettingsCard
-        icon="🤖"
         title={$_('settings.ai.connection_title', { default: 'Model Configuration' })}
     >
         <SettingsRow
@@ -230,6 +229,7 @@
             />
         </SettingsRow>
 
+        {#if llmEnabled}
         <SettingsRow
             labelId="setting-llm-provider"
             label={$_('settings.llm.provider')}
@@ -310,10 +310,10 @@
             <p class="font-bold mb-2 text-slate-700 dark:text-slate-200">{$_('settings.ai.provider_info_title', { default: 'Cloud AI Providers' })}</p>
             <p class="leading-relaxed">{$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}</p>
             <div class="mt-3 grid grid-cols-2 gap-2">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
-                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
-                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
+                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
+                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
             </div>
         </div>
 
@@ -329,7 +329,7 @@
             >
                 <div class="space-y-2">
                     <div class="flex justify-end">
-                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">
+                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">
                             {$_('settings.ai.view_reference_pricing', { default: 'View Reference Pricing →' })}
                         </a>
                     </div>
@@ -420,6 +420,7 @@
                 />
             </SettingsRow>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 </div>
 

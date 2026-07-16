@@ -365,7 +365,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     {#if refreshedAgoText()}
-                        <span class="text-[11px] font-semibold text-slate-400">{refreshedAgoText()}</span>
+                        <span class="text-xs font-semibold text-slate-400">{refreshedAgoText()}</span>
                     {/if}
                     <button
                         type="button"
@@ -408,14 +408,14 @@
                     </div>
                     <div class="grid min-w-[220px] grid-cols-2 gap-3 text-right">
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
+                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
+                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
                         </div>
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
+                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
+                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
                         </div>
                     </div>
                 </div>
@@ -629,7 +629,7 @@
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
                 </div>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
             </div>
             <div class="space-y-3">
                 {#if currentIssues.length === 0}
@@ -641,7 +641,7 @@
                                 <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                     {incident.status}
                                 </span>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
                             <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
@@ -651,7 +651,7 @@
 
                 {#if recentIncidents.length > 0}
                     <div class="pt-3">
-                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
                         <div class="mt-3 space-y-2">
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-900/40">
@@ -659,7 +659,7 @@
                                         <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                             {incident.status}
                                         </span>
-                                        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                                     </div>
                                     <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
                                 </article>
@@ -676,7 +676,7 @@
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
                 </div>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
             </div>
             {#if backendEvents.length === 0}
                 <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
@@ -693,7 +693,7 @@
                                         {event.component} · {event.reason_code}
                                     </span>
                                 </div>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{event.message}</p>
                             {#if event.event_id || event.correlation_key}
@@ -761,10 +761,10 @@
             <div>
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
                         <p class="text-xs text-slate-500">{$_('jobs.errors_bundles_local_desc', { default: 'Distinct snapshots stay local until you download or delete them.' })}</p>
                     </div>
-                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
+                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
                         {bundles.length.toLocaleString()} saved
                     </span>
                 </div>
@@ -779,13 +779,13 @@
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
                                             {#if index === 0}
-                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                     {$_('jobs.errors_newest_badge', { default: 'Newest' })}
                                                 </span>
                                             {/if}
                                             <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
                                         </div>
-                                        <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
                                             {formatDateTime(bundle.createdAt)}
                                         </p>
                                         <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>

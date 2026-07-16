@@ -84,6 +84,10 @@
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
+    import AdvancedSection from '../components/settings/_primitives/AdvancedSection.svelte';
+    import SettingsCard from '../components/settings/_primitives/SettingsCard.svelte';
+    import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
+    import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
     import { getErrorMessage } from '../utils/error-handling';
 
@@ -3810,71 +3814,42 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {/if}
 
             {#if activeTab === 'debug'}
-                <div class="space-y-6">
-                    <section class="card-base p-8">
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3v2.25M14.25 3v2.25M4.5 7.5h15M6 7.5a6 6 0 0 0 12 0m-9 6h6m-3 0v6" /></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{$_('settings.debug.title')}</h3>
-                                <p class="text-xs text-slate-500">{$_('settings.debug.subtitle')}</p>
-                            </div>
-                        </div>
+                <SettingsCard
+                    title={$_('settings.debug.title')}
+                    description={$_('settings.debug.subtitle')}
+                >
+                    <SettingsRow
+                        labelId="setting-strict-non-finite-output"
+                        label={$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}
+                        description={$_('settings.debug.strict_non_finite_output_desc', { default: 'When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging.' })}
+                    >
+                        <SettingsToggle
+                            checked={strictNonFiniteOutput}
+                            labelledBy="setting-strict-non-finite-output"
+                            srLabel={$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}
+                            onchange={(value) => (strictNonFiniteOutput = value)}
+                        />
+                    </SettingsRow>
 
-                        <div class="space-y-4">
-                            <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-                                <div>
-                                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
-                                    <span class="block text-[10px] font-bold text-slate-500 mt-1">{$_('settings.debug.strict_non_finite_output_desc', { default: 'When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging.' })}</span>
-                                </div>
-                                <button
-                                    role="switch"
-                                    aria-checked={strictNonFiniteOutput}
-                                    onclick={() => {
-                                        strictNonFiniteOutput = !strictNonFiniteOutput;
-                                    }}
-                                    onkeydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            strictNonFiniteOutput = !strictNonFiniteOutput;
-                                        }
-                                    }}
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none {strictNonFiniteOutput ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                                >
-                                    <span class="sr-only">{$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}</span>
-                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {strictNonFiniteOutput ? 'translate-x-5' : 'translate-x-0'}"></span>
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="card-base p-8">
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-10 h-10 rounded-2xl bg-slate-900/5 dark:bg-slate-100/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Model Evaluation</h3>
-                                <p class="text-xs text-slate-500">Benchmark every installed classifier against auto-fetched, taxonomy-verified bird images. Persists artifacts under <code class="text-[10px]">/config/yawamf-eval/</code>.</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-                            <div>
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">Open the harness</span>
-                                <span class="block text-[10px] font-bold text-slate-500 mt-1">Run accuracy / latency / sanity checks against every installed model. Owner-only.</span>
-                            </div>
+                    <AdvancedSection
+                        id="debug-model-evaluation"
+                        title={$_('settings.debug.model_eval_title')}
+                        description={$_('settings.debug.model_eval_desc')}
+                    >
+                        <div class="flex items-center justify-between gap-4">
+                            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                {$_('settings.debug.model_eval_action_desc')}
+                            </p>
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-black hover:bg-slate-700 dark:hover:bg-white transition-colors"
+                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
                             >
-                                Open
+                                {$_('settings.debug.model_eval_open')}
                             </button>
                         </div>
-                    </section>
-                </div>
+                    </AdvancedSection>
+                </SettingsCard>
             {/if}
     {/snippet}
 </SettingsPage>

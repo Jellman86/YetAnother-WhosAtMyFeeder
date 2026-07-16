@@ -254,17 +254,80 @@
 </script>
 
 <div class="space-y-6">
-    <SettingsCard icon="🎯" title={$_('settings.detection.classification_engine')}>
-        <ModelManager
-            bind:cropModelOverrides
-            bind:cropSourceOverrides
-            bind:birdCropDetectorTier
-        />
+    <SettingsCard title={$_('settings.detection.classification_engine')}>
+        {#if classifierStatus?.active_model_id}
+            <div class="flex flex-col gap-1 border-b border-slate-200 pb-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-4" role="status">
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {$_('settings.detection.model_manager_active', { default: 'Active model' })}
+                </span>
+                <code class="break-all text-sm font-bold text-slate-800 dark:text-slate-100">{classifierStatus.active_model_id}</code>
+            </div>
+        {/if}
+
+        <SettingsRow
+            labelId="setting-confidence-threshold"
+            label={$_('settings.detection.confidence_threshold')}
+            layout="stacked"
+        >
+            <div class="space-y-2">
+                <div class="flex justify-end">
+                    <output for="confidence-threshold-slider" class="rounded-lg bg-teal-500 px-2 py-1 text-xs font-black text-white">{(threshold * 100).toFixed(0)}%</output>
+                </div>
+                <input
+                    id="confidence-threshold-slider"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    bind:value={threshold}
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={Math.round(threshold * 100)}
+                    aria-valuetext="{(threshold * 100).toFixed(0)} percent"
+                    aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
+                    class="h-11 w-full cursor-pointer accent-teal-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                />
+                <div class="flex justify-between gap-4">
+                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
+                    <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_strict')}</span>
+                </div>
+            </div>
+        </SettingsRow>
+
+        {#if autoVideoClassification && videoCircuitOpen}
+            <div role="alert" class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-slate-700 dark:text-slate-200">
+                <p class="mb-2 text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                    {$_('settings.video_circuit.title')}
+                </p>
+                <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
+                {#if circuitUntil}
+                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('settings.video_circuit.until', { values: { time: circuitUntil } })}</p>
+                {/if}
+            </div>
+        {/if}
+
+        {#if classifierStatus?.fallback_reason || classifierStatus?.model_config_warnings?.length || classifierStatus?.openvino_model_compile_ok === false}
+            <div role="alert" class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-bold text-amber-800 dark:text-amber-200">
+                {#if classifierStatus.fallback_reason}
+                    {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
+                {:else if classifierStatus.model_config_warnings?.length}
+                    {$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {classifierStatus.model_config_warnings[0]}
+                {:else}
+                    {$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}
+                {/if}
+            </div>
+        {/if}
 
         <AdvancedSection
             id="detection-classification-advanced"
-            title={$_('settings.detection.classification_advanced_title', { default: 'Crop source & region overrides' })}
+            title={$_('settings.detection.model_manager_title', { default: 'Model Manager' })}
         >
+            <ModelManager
+                bind:cropModelOverrides
+                bind:cropSourceOverrides
+                bind:birdCropDetectorTier
+            />
+
             <SettingsRow
                 labelId="setting-crop-priority"
                 label={$_('settings.detection.crop_priority_title', { default: 'Crop source priority' })}
@@ -307,40 +370,11 @@
                 />
             </SettingsRow>
         </AdvancedSection>
-    </SettingsCard>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <SettingsCard icon="🎚️" title={$_('settings.detection.fine_tuning')}>
-            <SettingsRow
-                labelId="setting-confidence-threshold"
-                label={$_('settings.detection.confidence_threshold')}
-                layout="stacked"
-            >
-                <div class="space-y-2">
-                    <div class="flex justify-end">
-                        <output for="confidence-threshold-slider" class="px-2 py-1 bg-teal-500 text-white text-[10px] font-black rounded-lg">{(threshold * 100).toFixed(0)}%</output>
-                    </div>
-                    <input
-                        id="confidence-threshold-slider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        bind:value={threshold}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        aria-valuenow={Math.round(threshold * 100)}
-                        aria-valuetext="{(threshold * 100).toFixed(0)} percent"
-                        aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
-                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-teal-500"
-                    />
-                    <div class="flex justify-between">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.threshold_loose')}</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.threshold_strict')}</span>
-                    </div>
-                </div>
-            </SettingsRow>
-
+        <AdvancedSection
+            id="detection-fine-tuning-advanced"
+            title={$_('settings.detection.fine_tuning_advanced_title', { default: 'Advanced fine tuning' })}
+        >
             <SettingsRow
                 labelId="setting-min-confidence"
                 label={$_('settings.detection.min_confidence_floor')}
@@ -349,7 +383,7 @@
             >
                 <div class="space-y-2">
                     <div class="flex justify-end">
-                        <output for="min-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(minConfidence * 100).toFixed(0)}%</output>
+                        <output for="min-confidence-slider" class="rounded-lg bg-amber-500 px-2 py-1 text-xs font-black text-white">{(minConfidence * 100).toFixed(0)}%</output>
                     </div>
                     <input
                         id="min-confidence-slider"
@@ -363,11 +397,11 @@
                         aria-valuenow={Math.round(minConfidence * 100)}
                         aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
                         aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
-                        class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
+                        class="h-11 w-full cursor-pointer accent-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                     />
-                    <div class="flex justify-between">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.floor_capture_all')}</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.detection.floor_reject_unsure')}</span>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_capture_all')}</span>
+                        <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_reject_unsure')}</span>
                     </div>
                 </div>
             </SettingsRow>
@@ -398,22 +432,6 @@
                 />
             </SettingsRow>
 
-            {#if autoVideoClassification && videoCircuitOpen}
-                <div role="alert" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-slate-700 dark:text-slate-200">
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2">
-                        {$_('settings.video_circuit.title')}
-                    </p>
-                    <p class="text-xs font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
-                    {#if circuitUntil}
-                        <p class="text-[10px] text-slate-500 mt-2">{$_('settings.video_circuit.until', { values: { time: circuitUntil } })}</p>
-                    {/if}
-                </div>
-            {/if}
-
-            <AdvancedSection
-                id="detection-fine-tuning-advanced"
-                title={$_('settings.detection.fine_tuning_advanced_title', { default: 'Advanced fine tuning' })}
-            >
                 <SettingsRow
                     labelId="setting-trust-frigate"
                     label={$_('settings.detection.trust_frigate')}
@@ -442,7 +460,7 @@
 
                 {#if autoVideoClassification}
                     <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60">
-                        <p class="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                        <p class="mb-3 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {$_('settings.detection.auto_video_advanced_title', { default: 'Auto-video tuning' })}
                         </p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -505,8 +523,8 @@
                                 />
                             </SettingsRow>
                         </div>
-                        <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400 italic">{$_('settings.detection.video_retry_note')}</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                        <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
+                        <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                             {#if imageExecutionMode === 'in_process'}
                                 {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
                             {:else}
@@ -515,10 +533,12 @@
                         </p>
                     </div>
                 {/if}
-            </AdvancedSection>
-        </SettingsCard>
+        </AdvancedSection>
 
-        <SettingsCard icon="⚡" title={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}>
+        <AdvancedSection
+            id="detection-inference-advanced"
+            title={$_('settings.detection.inference_advanced_title', { default: 'Execution mode & runtime diagnostics' })}
+        >
             <SettingsRow
                 labelId="setting-inference-provider"
                 label={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
@@ -548,10 +568,10 @@
                 class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 px-4 py-3 hover:border-teal-500/40 transition-colors"
             >
                 <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('common.github', { default: 'GitHub' })}</p>
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('common.github', { default: 'GitHub' })}</p>
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">{$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}</p>
                 </div>
-                <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 shrink-0">
+                <span class="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wide text-teal-700 dark:text-teal-300">
                     <span>{$_('common.show', { default: 'Show' })}</span>
                     <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
@@ -560,10 +580,6 @@
                 </span>
             </a>
 
-            <AdvancedSection
-                id="detection-inference-advanced"
-                title={$_('settings.detection.inference_advanced_title', { default: 'Execution mode & runtime diagnostics' })}
-            >
                 <SettingsRow
                     labelId="setting-execution-mode"
                     label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
@@ -584,11 +600,11 @@
 
             {#if classifierStatus}
                 <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60 space-y-3">
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         {$_('settings.detection.inference_diagnostics_title', { default: 'Runtime diagnostics' })}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-500/10 text-slate-500')}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
                             {#if classifierStatus.cuda_available}
                                 {$_('settings.detection.cuda_available')}
                             {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -597,25 +613,25 @@
                                 {$_('settings.detection.cuda_unavailable')}
                             {/if}
                         </span>
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
                         <span>{$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}</span>
                         <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
                         {#if classifierStatus.inference_backend}
                             <span>{$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}</span>
                         {/if}
                     </div>
-                    <p class="text-[10px] font-bold text-slate-500">
+                    <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
                         {$_('settings.detection.personalization_status_label', { default: 'Personalization' })}:
                         {(classifierStatus.personalized_rerank_enabled ?? false) ? $_('common.enabled', { default: 'Enabled' }) : $_('common.disabled', { default: 'Disabled' })}
                         · {$_('settings.detection.personalization_active_pairs', { default: 'Active camera/model pairs' })}: {classifierStatus.personalization_active_camera_models ?? 0}
@@ -623,17 +639,17 @@
                         ({$_('settings.detection.personalization_min_tags', { default: 'min' })} {classifierStatus.personalization_min_feedback_tags ?? 20})
                     </p>
                     {#if classifierStatus.fallback_reason}
-                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
+                        <p class="text-xs font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
                     {/if}
                     {#if classifierStatus.model_config_warnings?.length}
                         {#each classifierStatus.model_config_warnings as modelConfigWarning}
-                            <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
+                            <p class="text-xs font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
                         {/each}
                     {/if}
                     {#if classifierStatus.cuda_probe_error}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
-                            <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">CUDA diagnostics</div>
-                            <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                            <div class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">CUDA diagnostics</div>
+                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">
                                 <p><span class="font-black">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
                                 <p><span class="font-black">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.cuda_probe_error}</p>
                             </div>
@@ -641,37 +657,37 @@
                     {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3 space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
-                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                            <p class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
+                            <p class="break-all text-xs font-medium text-amber-900 dark:text-amber-100">
                                 {$_('settings.detection.openvino_compile_failure_detail', { default: 'Active model' })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
                                 {#if classifierStatus.openvino_model_compile_device}({classifierStatus.openvino_model_compile_device}){/if}
                             </p>
-                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                            <p class="text-xs font-medium text-amber-900 dark:text-amber-100">
                                 Automatic fallback is active: <code>{classifierStatus.inference_backend || 'unknown'}</code> / <code>{classifierStatus.active_provider || 'unknown'}</code>
                             </p>
                             {#if hasOpenvinoOpIncompatibility}
-                                <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">OpenVINO reported unsupported ONNX operators for this model/runtime:</p>
+                                <p class="text-xs font-medium text-amber-900 dark:text-amber-100">OpenVINO reported unsupported ONNX operators for this model/runtime:</p>
                                 <div class="flex flex-wrap gap-1">
                                     {#each openvinoUnsupportedOps as op}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 border border-amber-300/70 dark:border-amber-700/60 text-[10px] font-black text-amber-800 dark:text-amber-200">{op}</span>
+                                        <span class="inline-flex items-center rounded-md border border-amber-300/70 bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">{op}</span>
                                     {/each}
                                 </div>
                             {/if}
-                            <p class="text-[10px] font-medium text-amber-900 dark:text-amber-100">
+                            <p class="text-xs font-medium text-amber-900 dark:text-amber-100">
                                 Next steps: switch to <code>eva02_large_inat21</code> for OpenVINO, or keep this model and set provider to <code>{recommendedFallbackProvider}</code>.
                             </p>
                             {#if classifierStatus.openvino_model_compile_error}
                                 <details class="pt-1">
-                                    <summary class="cursor-pointer text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Technical details</summary>
-                                    <p class="mt-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">{classifierStatus.openvino_model_compile_error}</p>
+                                    <summary class="min-h-11 cursor-pointer py-3 text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">Technical details</summary>
+                                    <p class="mt-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">{classifierStatus.openvino_model_compile_error}</p>
                                 </details>
                             {/if}
                         </div>
                     {/if}
                     {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
                         <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
-                            <div class="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
-                            <div class="mt-2 space-y-1 text-[10px] font-medium text-amber-900 dark:text-amber-100 break-all">
+                            <div class="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
+                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">
                                 {#if classifierStatus.openvino_version}<p><span class="font-black">Version:</span> {classifierStatus.openvino_version}</p>{/if}
                                 {#if classifierStatus.openvino_import_path}<p><span class="font-black">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>{/if}
                                 <p><span class="font-black">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
@@ -686,12 +702,11 @@
                     {/if}
                 </div>
             {/if}
-            </AdvancedSection>
-        </SettingsCard>
-    </div>
-
-    {#if classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))}
-        <SettingsCard icon="🧪" title={$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}>
+            {#if classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))}
+                <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
+                    <h4 class="text-sm font-black text-slate-900 dark:text-white">
+                        {$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}
+                    </h4>
             <div class="space-y-3">
                 <div class="flex items-start justify-between gap-3 flex-wrap">
                     <p class="text-xs text-slate-600 dark:text-slate-400 leading-snug max-w-md">
@@ -702,24 +717,24 @@
                         {/if}
                     </p>
                     <div class="flex items-center gap-2 shrink-0">
-                        <label class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
+                        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
                             <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
                             {$_('settings.detection.compat_all_models', { default: 'test all models' })}
                         </label>
                         <button type="button" onclick={runCompatCheck} disabled={compatRunning}
-                            class="px-3 py-1.5 rounded-md bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">
+                            class="min-h-11 cursor-pointer rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 dark:focus-visible:ring-offset-slate-950 dark:disabled:bg-slate-700">
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
                     </div>
                 </div>
-                {#if compatError}<p class="text-[11px] font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                {#if compatError}<p role="alert" class="text-xs font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
                 {#if compatRunning && compatProgress}
-                    <p class="text-[11px] text-slate-500">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
+                    <p role="status" class="text-xs text-slate-600 dark:text-slate-400">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
                 {/if}
                 {#if compatMatrix}
                     <div class="overflow-x-auto">
-                        <table class="w-full text-[11px]">
-                            <thead class="text-[9px] uppercase text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                        <table class="w-full text-xs">
+                            <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
                                 <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
                             </thead>
                             <tbody>
@@ -737,10 +752,12 @@
                     </div>
                 {/if}
             </div>
-        </SettingsCard>
-    {/if}
+                </div>
+            {/if}
+        </AdvancedSection>
+    </SettingsCard>
 
-    <SettingsCard icon="🚫" title={$_('settings.detection.blocked_labels')}>
+    <SettingsCard title={$_('settings.detection.blocked_labels')}>
         <p class="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
             {$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
         </p>
@@ -764,25 +781,25 @@
                             type="button"
                             onclick={() => addBlockedSpecies(result)}
                             disabled={alreadyBlocked}
-                            class="w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-all hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
                         >
                             <span class="block">
                                 {names.primary}
                                 {#if alreadyBlocked}
-                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-red-500">
+                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-red-600 dark:text-red-300">
                                         {$_('common.added', { default: 'Added' })}
                                     </span>
                                 {/if}
                             </span>
                             {#if names.secondary}
-                                <span class="block text-[11px] italic text-slate-400 dark:text-slate-500">{names.secondary}</span>
+                                <span class="block text-xs italic text-slate-500 dark:text-slate-400">{names.secondary}</span>
                             {/if}
                         </button>
                     {/each}
                     {#if blockedSpeciesSearchError}
-                        <p class="px-4 py-4 text-sm font-medium text-red-500">{blockedSpeciesSearchError}</p>
+                        <p role="alert" class="px-4 py-4 text-sm font-medium text-red-600 dark:text-red-400">{blockedSpeciesSearchError}</p>
                     {:else if blockedSpeciesSearchResults.length === 0}
-                        <p class="px-4 py-4 text-sm italic text-slate-400">
+                        <p role="status" class="px-4 py-4 text-sm italic text-slate-500 dark:text-slate-400">
                             {blockedSpeciesSearching ? $_('common.loading') : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
                         </p>
                     {/if}
@@ -792,18 +809,20 @@
 
         {#if blockedSpecies.length > 0}
             <div>
-                <p class="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}</p>
+                <p class="mb-3 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}</p>
                 <div class="flex flex-wrap gap-2">
                     {#each blockedSpecies as entry}
-                        <span class="group flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+                        <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-red-50 pl-3 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
                             {formatBlockedSpeciesLabel(entry)}
                             <button
                                 type="button"
                                 onclick={() => removeBlockedSpecies(entry)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
-                                class="text-red-400 transition-colors hover:text-red-600 dark:hover:text-red-100"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
                             >
-                                ✕
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                    <path d="M6 6l12 12M18 6 6 18" />
+                                </svg>
                             </button>
                         </span>
                     {/each}
@@ -813,19 +832,21 @@
 
         {#if blockedLabels.length > 0}
             <div>
-                <p class="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}</p>
+                <p class="mb-3 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}</p>
                 <div class="flex flex-wrap gap-2">
                     {#each blockedLabels as label}
-                        <span class="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             {label}
-                            <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300">{$_('common.legacy', { default: 'Legacy' })}</span>
+                            <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">{$_('common.legacy', { default: 'Legacy' })}</span>
                             <button
                                 type="button"
                                 onclick={() => removeLegacyBlockedLabel(label)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
-                                class="text-slate-400 transition-colors hover:text-red-500"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                             >
-                                ✕
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                    <path d="M6 6l12 12M18 6 6 18" />
+                                </svg>
                             </button>
                         </span>
                     {/each}

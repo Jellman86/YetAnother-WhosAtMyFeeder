@@ -20,6 +20,8 @@ It is anchored by two honest assessments of *where we stand*:
 - **Priority:** `P0` critical · `P1` high · `P2` nice-to-have · `P3` future.
 - **Effort:** `XS` <1d · `S` 1-3d · `M` 4-7d · `L` 1-3wk · `XL` 3wk+.
 - **Status markers:** ✅ done · 🔄 in progress · ☐ not started.
+- **Release scope:** only work listed under [3.0 exit criteria](#30-exit-criteria) blocks the
+  release. A priority describes value and sequencing, not whether an item blocks `3.0`.
 
 **Issues first.** Before new feature work, clear anything in `ISSUES.md` and the
 [GitHub issue tracker](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues).
@@ -29,17 +31,32 @@ If a section ever claims "none open", treat it as stale and check both sources.
 
 ## 1. The Road to 3.0
 
-`3.0` is the next major version, and **everything below is scoped to ship before it**.
-The plan is a single program of work: finish the open backlog, complete the major
-initiatives that define the release, and — at the release itself — remove the deprecated
-paths. Priorities indicate sequencing within the program; the pre-3.0 quality gates are
-already met.
+`3.0` is the next major version. It has a deliberately bounded set of exit criteria; the
+P2/P3 feature and platform backlog below does not delay the release unless an item is
+explicitly promoted into those criteria. The release completes the defining product work,
+proves the lossless migration path, and removes deprecated runtime paths.
 
-The sub-sections are ordered as the program runs: **gates (done) → headline initiatives →
-the remaining backlog (features, performance, tech debt, carry-overs) → the breaking
-removals that land at release.**
+The sub-sections are ordered as the program runs: **exit criteria → foundations already
+delivered → release-defining initiatives → non-blocking backlog → breaking removals.**
 
-### 1.1 Pre-3.0 quality gates — ✅ met
+### 3.0 exit criteria
+
+`3.0` can ship when all of the following are true:
+
+- [ ] The UI simplification pass has made Settings and the primary owner/guest journeys coherent,
+  responsive, keyboard-operable, and honest about loading, empty, error, and destructive states.
+- [ ] Native editorial review is complete for locales presented as fully supported, or any residual
+  language-quality limitations are labelled honestly in the release notes.
+- [x] Stable installation and recovery docs match the shipped Compose defaults and first-run auth
+  state machine; all user-facing pages are reachable from the docs hub.
+- [ ] The split-to-monolith migration is exercised against preserved `/config` and `/data` volumes
+  and documented as lossless.
+- [ ] The legacy split deployment and `X-API-Key` path are removed from the recommended/runtime
+  surface, with migration guidance available before users update.
+- [ ] The repository Definition of Done passes, and release notes state the removals, migration
+  path, hardware limits, and any remaining translation limitations.
+
+### 1.1 Engineering foundations — ✅ met
 
 The engineering and fleet-health gates that had to land before `3.0`. Both are complete;
 kept here for traceability.
@@ -56,9 +73,9 @@ release ships against the full bar. Tracked assessment:
 - ✅ **API contract** — build-time OpenAPI artifact (`backend/openapi.json`) with a CI drift
   check, and a generated SPA type contract (`apps/ui/src/lib/api/generated/openapi.ts`) with a
   CI freshness check, so backend/frontend drift fails review.
-- ✅ **Documentation governance** — documentation standard published, all user-facing docs
-  audited against it, governance files added (`AGENTS.md`, `CODE_OF_CONDUCT.md`), and dated
-  reviews kept current.
+- ✅ **Documentation governance** — documentation standard published, governance files added
+  (`AGENTS.md`, `CODE_OF_CONDUCT.md`), local links/API routes checked in CI, and the stable-install
+  plus authentication-recovery paths corrected against current behaviour.
 
 The remaining generated-type adoption is a small, non-blocking carry-over — see
 [Engineering carry-overs](#16-engineering-carry-overs).
@@ -79,7 +96,7 @@ All four recommendations from the
 - ✅ **Old-build critical retired** — the `classify_snapshot` critical is confirmed
   `2.9.15`/`2.10.0`-only (resolved on `2.11`+); stale installs are nudged by the in-app update prompt.
 
-### 1.2 Major initiatives (the release-defining work)
+### 1.2 Required product work
 
 The headline work that makes `3.0` a major version: a guided first run, a cleaner product
 surface, a codebase reviewed to the gold standard, and complete translations.
@@ -103,7 +120,9 @@ never clobbers unrelated config). Steps:
 Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
 
 #### UI simplification & polish ✨
-**Priority:** P1 | **Effort:** L | **Status:** 🔄 Standard codified; refresh not started
+**Priority:** P1 | **Effort:** L | **Status:** 🔄 In progress — Settings simplification complete;
+primary owner and guest journeys next
+([design](docs/plans/2026-07-16-settings-navigation-simplification-design.md))
 
 Make the whole UI clean, coherent, and calm — **especially Settings**, which is currently
 bloated with indistinct sections. ✅ The research-and-codify step is done: the UI/UX standard
@@ -112,8 +131,14 @@ bloated with indistinct sections. ✅ The research-and-codify step is done: the 
 the owner and guest surfaces (information architecture, grouping, progressive disclosure,
 empty/error states) — the "full UI refresh" half of the major-version jump.
 
+✅ **Settings pass:** task-based navigation, semantic camera controls, and progressive disclosure
+now cover every Settings tab. Optional services are toggle-first, inactive credentials and tests stay
+hidden, maintenance/analytics/destructive tools no longer compete with routine policy, nested card
+noise and structural emoji are reduced, and the Settings type floor is 12px. The remaining work is
+the primary owner/guest journey review, including their loading, empty, error, and destructive states.
+
 #### File-by-file code-quality review 🔬
-**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Review started; owner debug API tranche complete
+**Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed
 
 ✅ **Completed.** The code-quality standard for our stack
 (Python/FastAPI + Svelte 5/TypeScript) is codified in `CLAUDE.md` §4 and
@@ -196,9 +221,10 @@ spacing before `:` `?`, Japanese/Chinese phrasing). Defect density is low, it is
 automatable, and it is best done per language by a native reviewer in reviewable batches rather
 than by bulk machine edits.
 
-### 1.3 Feature completion
+### 1.3 Candidate feature backlog — non-blocking for 3.0
 
-Backlog features to finish before `3.0`. Roughly ordered by value.
+Candidate features, roughly ordered by value. These can land before `3.0` when they are ready,
+but otherwise remain post-3.0 backlog; they do not delay the release.
 
 #### Finish multi-user: password reset + SSO 👥
 **Priority:** P2 | **Effort:** M | **Status:** 🔄 Core shipped (v2.6.0), two gaps remain
@@ -233,11 +259,12 @@ weather overlays) are shipped. Add: a confidence-distribution histogram, a camer
 chart, and an insights panel (rarest sighting this week, best detection hour, weather correlation).
 
 #### Advanced BirdNET-Go visualization 🎵
-**Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
+**Priority:** P2 | **Effort:** S | **Status:** 🔄 Mostly shipped; confidence fusion remains
 
-Audio-visual correlation, buffering, camera↔sensor mapping, and the recent-audio widget are
-shipped. Add: spectrogram visualization in the detection modal, audio-clip playback, a
-confidence-fusion score (visual + audio), and a dedicated audio-detection history page.
+Audio-visual correlation, buffering, camera↔sensor mapping, the recent-audio widget, spectrogram
+visualization, authenticated clip playback, and the dedicated Audio History page are shipped.
+Remaining: design and validate an explainable confidence-fusion score that combines visual and
+audio evidence without overstating certainty.
 
 #### Local LLM support (Ollama) 🏠
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
@@ -298,7 +325,10 @@ acceleration, update-channel guidance, and a first-run smoke test.
   Home Assistant, BirdNET-Go, and homelab spaces. Use a short positioning statement, screenshots,
   setup links, and honest hardware/support notes rather than generic promotion.
 
-### 1.4 Performance & reliability
+### 1.4 Performance & reliability targets — non-blocking unless promoted
+
+These are high-value follow-ups. A measured regression can promote a specific item into the 3.0
+exit criteria; the broad initiatives do not block the release by default.
 
 #### Performance optimization 🚀
 **Priority:** P1 | **Effort:** L | **Status:** ☐ Not started (connection pooling done)
@@ -326,7 +356,7 @@ multi-replica support, Grafana dashboard templates, and Kubernetes manifests.
 See [§2](#2-raspberry-pi-compatibility-best-effort) — the ARM64 image builds in CI; the open
 work is real-device smoke/soak validation before declaring official support.
 
-### 1.5 Technical debt
+### 1.5 Technical debt — post-3.0 unless promoted
 
 - **EventProcessor decomposition** (P2, M) — split `_handle_detection_save_and_notify` into
   smaller services (persistence, notification policy, media cache, auto-video trigger) to reduce
@@ -338,9 +368,9 @@ work is real-device smoke/soak validation before declaring official support.
   for remote debugging.
 - **CSP tightening** (P3, M) — investigate moving from `unsafe-inline` to CSP nonces where feasible.
 
-### 1.6 Engineering carry-overs
+### 1.6 Engineering carry-overs — non-blocking
 
-Small, incremental gold-standard follow-ups (not headline work, but wanted before `3.0`):
+Small, incremental gold-standard follow-ups. They may land before `3.0`, but do not block it:
 
 - **Frontend API contract adoption** — most SPA API modules now derive their types from the
   generated OpenAPI contract. Done: the email/iNaturalist integrations module, and the
@@ -356,7 +386,7 @@ Small, incremental gold-standard follow-ups (not headline work, but wanted befor
 - **Coverage ratchet** — raise the backend coverage floor as low-coverage modules gain focused tests.
 - **Keep dated reviews current** as significant subsystems change.
 
-### 1.7 Breaking changes & removals (land at 3.0)
+### 1.7 Breaking changes & removals — required at 3.0
 
 `3.0` is the version where deprecated paths are actually removed. These are already signalled
 in-app and in docs; the release makes them final.

@@ -162,6 +162,9 @@ curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/ma
 cp .env.example .env
 ```
 
+The example environment pins `YAWAMF_MONALITHIC_TAG=latest`, the stable release
+channel. Use `dev` only when you intentionally want development builds.
+
 > This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
 >
 > Installing on Raspberry Pi 4/5? Use the dedicated ARM64 image notes in [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) and start from [.env.rpi.example](.env.rpi.example).
@@ -309,7 +312,7 @@ All settings are managed through the web UI under **Settings**. Configuration is
 
 ### 🔐 Built-in Authentication
 - **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings > Security** and set an admin password before exposing YA-WAMF outside your trusted network.
-- **Initial Setup Wizard:** Shown only when authentication is enabled but no password hash exists, for example after starting with `AUTH__ENABLED=true` on a fresh config volume or after clearing `auth.password_hash` during password recovery.
+- **Initial Setup Wizard:** A fresh installation opens the guided setup automatically. The account step lets you set an owner password or explicitly continue without authentication on a trusted network. You can reopen the wizard later from **Settings → Data**.
 - **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
 - **Security:** Includes login rate limiting, session management, and security headers.
 
@@ -359,7 +362,7 @@ This project is actively developed and your feedback is valuable!
 **How to contribute:**
 - **Report bugs** - [Open an issue](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) for bugs or feature requests
 - **Share feedback** - Let me know what works and what doesn't
-- **Enable telemetry** - Turn on anonymous usage stats in **Settings > Connections** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
+- **Enable telemetry** - Turn on anonymous usage stats in **Settings → Connection** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
 - **Test features** - Try video analysis, notifications, and integrations in your environment
 
 ## Contributing

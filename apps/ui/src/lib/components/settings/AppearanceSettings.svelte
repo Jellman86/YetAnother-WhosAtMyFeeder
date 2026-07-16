@@ -5,6 +5,7 @@
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
     let {
         currentTheme,
@@ -51,7 +52,7 @@
     }
 </script>
 
-<SettingsCard icon="🎨" title={$_('theme.title')}>
+<SettingsCard title={$_('theme.title')}>
     <SettingsRow
         labelId="setting-theme"
         label={$_('theme.title')}
@@ -62,9 +63,9 @@
             ariaLabelTemplate={(label) => $_('theme.select', { values: { theme: label } })}
             onchange={(v) => setTheme(v as Theme)}
             options={[
-                { value: 'light', label: $_('theme.light'), icon: '☀️' },
-                { value: 'dark', label: $_('theme.dark'), icon: '🌙' },
-                { value: 'system', label: $_('theme.system'), icon: '💻' }
+                { value: 'light', label: $_('theme.light') },
+                { value: 'dark', label: $_('theme.dark') },
+                { value: 'system', label: $_('theme.system') }
             ]}
         />
     </SettingsRow>
@@ -132,42 +133,47 @@
         />
     </SettingsRow>
 
-    <SettingsRow
-        labelId="setting-font-theme"
-        label={$_('theme.font_title')}
-        description={$_('theme.font_desc')}
-        layout="stacked"
+    <AdvancedSection
+        id="appearance-typography-and-colour"
+        title={$_('settings.common.advanced_default_title', { default: 'Advanced options' })}
     >
-        <SettingsSegmented
-            value={currentFontTheme}
-            layout="card"
-            ariaLabelTemplate={(label) => label}
-            onchange={(v) => setFontTheme(v as FontTheme)}
-            options={[
-                { value: 'default', label: $_('theme.font_default'), sub: 'Instrument Sans / Bricolage', meta: $_('theme.font_lang_default') },
-                { value: 'clean', label: $_('theme.font_clean'), sub: 'Manrope / Sora', meta: $_('theme.font_lang_clean') },
-                { value: 'studio', label: $_('theme.font_studio'), sub: 'Sora / Bricolage', meta: $_('theme.font_lang_studio') },
-                { value: 'classic', label: $_('theme.font_classic'), sub: 'Source Serif 4 / Playfair', meta: $_('theme.font_lang_classic') },
-                { value: 'compact', label: $_('theme.font_compact'), sub: 'Instrument Sans / Sora', meta: $_('theme.font_lang_compact') }
-            ]}
-        />
-    </SettingsRow>
+        <SettingsRow
+            labelId="setting-font-theme"
+            label={$_('theme.font_title')}
+            description={$_('theme.font_desc')}
+            layout="stacked"
+        >
+            <SettingsSegmented
+                value={currentFontTheme}
+                layout="card"
+                ariaLabelTemplate={(label) => label}
+                onchange={(v) => setFontTheme(v as FontTheme)}
+                options={[
+                    { value: 'default', label: $_('theme.font_default'), sub: 'Instrument Sans / Bricolage', meta: $_('theme.font_lang_default') },
+                    { value: 'clean', label: $_('theme.font_clean'), sub: 'Manrope / Sora', meta: $_('theme.font_lang_clean') },
+                    { value: 'studio', label: $_('theme.font_studio'), sub: 'Sora / Bricolage', meta: $_('theme.font_lang_studio') },
+                    { value: 'classic', label: $_('theme.font_classic'), sub: 'Source Serif 4 / Playfair', meta: $_('theme.font_lang_classic') },
+                    { value: 'compact', label: $_('theme.font_compact'), sub: 'Instrument Sans / Sora', meta: $_('theme.font_lang_compact') }
+                ]}
+            />
+        </SettingsRow>
 
-    <SettingsRow
-        labelId="setting-color-theme"
-        label={$_('theme.color_title')}
-        description={$_('theme.color_desc')}
-        layout="stacked"
-    >
-        <SettingsSegmented
-            value={currentColorTheme}
-            layout="card"
-            ariaLabelTemplate={(label) => label}
-            onchange={(v) => setColorTheme(v as ColorTheme)}
-            options={[
-                { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
-                { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
-            ]}
-        />
-    </SettingsRow>
+        <SettingsRow
+            labelId="setting-color-theme"
+            label={$_('theme.color_title')}
+            description={$_('theme.color_desc')}
+            layout="stacked"
+        >
+            <SettingsSegmented
+                value={currentColorTheme}
+                layout="card"
+                ariaLabelTemplate={(label) => label}
+                onchange={(v) => setColorTheme(v as ColorTheme)}
+                options={[
+                    { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
+                    { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
+                ]}
+            />
+        </SettingsRow>
+    </AdvancedSection>
 </SettingsCard>

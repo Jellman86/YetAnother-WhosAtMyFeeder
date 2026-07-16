@@ -31,7 +31,7 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 
 ## API Connection
 
-In YA-WAMF, set **Settings > Connections > Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
+In YA-WAMF, set **Settings → Connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
 - **Snapshots** — the high-quality still image for each bird event
 - **Video clips** — used for Deep Video Analysis and Full-visit clips
@@ -45,7 +45,7 @@ This can be disabled in **Settings > Detection** if you do not want YA-WAMF writ
 
 ## Camera Selection
 
-After connecting, go to **Settings > Connections** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
+After connecting, go to **Settings → Connection** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
 
 ## Troubleshooting
 

@@ -41,26 +41,25 @@
 </script>
 
 <SettingsCard
-    icon="✨"
     title={$_('settings.enrichment.title')}
     description={$_('settings.enrichment.desc')}
 >
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="divide-y divide-slate-200/70 dark:divide-slate-700/60">
         {#each tiles as tile}
-            <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <div class="flex items-center justify-between gap-4 py-3 first:pt-0">
+                <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
                     {$_(tile.titleKey)}
                 </p>
-                <p class="text-sm font-bold text-slate-900 dark:text-white mt-2">{formatProvider(tile.value)}</p>
+                <p class="text-sm font-black text-slate-900 dark:text-white">{formatProvider(tile.value)}</p>
             </div>
         {/each}
-        <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4">
-            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between gap-4 py-3">
+            <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
                 {$_('settings.enrichment.links_title')}
             </p>
-            <div class="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <div class="flex flex-wrap justify-end gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
                 {#each enrichmentLinksSources as source}
-                    <span class="px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-800">
                         {formatProvider(source)}
                     </span>
                 {/each}
@@ -68,7 +67,7 @@
         </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 text-xs text-slate-600 dark:text-slate-300">
+    <div class="border-t border-slate-200/70 pt-4 text-sm text-slate-600 dark:border-slate-700/60 dark:text-slate-300">
         {#if enrichmentMode === 'single'}
             <strong class="text-slate-700 dark:text-slate-100">{$_('settings.enrichment.mode_single')}:</strong>
             <span class="ml-2">{formatProvider(enrichmentSingleProvider)}</span>

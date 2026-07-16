@@ -203,11 +203,21 @@
       "accessibility": "Acessibilidade",
       "debug": "Debug",
       "enrichment": "Enriquecimento",
-      "ai": "IA"
+      "ai": "IA",
+      "groups": {
+        "pipeline": "Fluxo do comedouro",
+        "intelligence": "Análise e partilha",
+        "operations": "Operações",
+        "interface": "Interface"
+      }
     },
     "debug": {
       "title": "Ferramentas de debug",
       "subtitle": "Interruptores extras para testes e diagnóstico.",
+      "model_eval_title": "Ferramenta de avaliação de modelos",
+      "model_eval_desc": "Avalie os classificadores instalados com imagens de aves verificadas taxonomicamente. Os artefactos são guardados em /config/yawamf-eval/.",
+      "model_eval_action_desc": "Execute testes de precisão, latência e coerência em todos os modelos instalados. Apenas para o proprietário.",
+      "model_eval_open": "Abrir",
       "llm_prompts_title": "Modelos de prompt LLM",
       "llm_prompts_subtitle": "Personalize a estrutura Markdown e o tom para análise de IA e conversas.",
       "llm_prompt_style_label": "Estilo de prompt",
@@ -683,6 +693,7 @@
       "clear_feedback_confirm": "Tens a certeza de que queres limpar todos os dados de re-ranking personalizado? Isto reverte a IA para a sua precisão de base e não pode ser desfeito."
     },
     "data": {
+      "tools_title": "Configuração, backup e manutenção",
       "title": "Gestão de dados",
       "records": "Total de registos",
       "oldest": "Mais antigo",

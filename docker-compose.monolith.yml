@@ -1,17 +1,16 @@
 name: YetAnother-WhosAtMyFeeder-Monolith
 #-----------------------------------------------
-# Yet Another WhosAtMyFeeder - Monolithic Canary
+# Yet Another WhosAtMyFeeder - Monolithic Deployment
 #
-# This compose file is intentionally separate from the existing split-stack
-# docker-compose*.yml files so main/dev users are not disturbed while the
-# monolithic image line is validated.
+# This is the recommended deployment for new installations. The stable image is
+# the safe default; set YAWAMF_MONALITHIC_TAG=dev explicitly to follow development.
 #
 # Usage:
 #   docker compose -f docker-compose.monolith.yml up -d
 #
 # Optional overrides:
 #   YAWAMF_MONALITHIC_IMAGE - Full image repository/name override (default: ghcr.io/jellman86/yawamf-monalithic)
-#   YAWAMF_MONALITHIC_TAG  - Image tag for the canary line (default: dev)
+#   YAWAMF_MONALITHIC_TAG  - Image tag (default: latest; use dev only for testing)
 #   APP_BIND_IP            - Host bind IP for the published app port
 #   APP_PORT               - Host app port (default: 9852)
 #   FRIGATE_URL            - URL to your Frigate instance (default: http://frigate:5000)
@@ -26,7 +25,7 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #-----------------------------------------------
 services:
   yawamf:
-    image: ${YAWAMF_MONALITHIC_IMAGE:-ghcr.io/jellman86/yawamf-monalithic}:${YAWAMF_MONALITHIC_TAG:-dev}
+    image: ${YAWAMF_MONALITHIC_IMAGE:-ghcr.io/jellman86/yawamf-monalithic}:${YAWAMF_MONALITHIC_TAG:-latest}
     container_name: yawamf-monalithic
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

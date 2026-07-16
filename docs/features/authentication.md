@@ -17,7 +17,12 @@ By default, authentication is **disabled** to allow easy first-time setup. To en
 3.  Enable **"Require Authentication"**.
 4.  (Optional) Enable **"Public Access"** if you want to share your dashboard.
 
-Alternatively, you can enable it via the initial setup flow when the backend reports that setup is required. That flow is shown only when authentication is enabled and no password hash is configured. For a fresh Docker deployment, set `AUTH__ENABLED=true` before the first start if you want the browser to show the setup wizard immediately. If authentication remains disabled, YA-WAMF opens directly to the dashboard.
+On a fresh installation, YA-WAMF opens the guided setup automatically because
+`auth.initial_setup_complete` is false and no password exists. The account step
+lets you create the owner account or explicitly continue without authentication
+on a trusted network. You do not need to set `AUTH__ENABLED=true` to display the
+wizard. After setup, you can reopen the non-destructive wizard from
+**Settings → Data**.
 
 ## Quick Start (Recommended)
 
@@ -30,12 +35,16 @@ Alternatively, you can enable it via the initial setup flow when the backend rep
 
 Currently, there is no email-based "Forgot Password" flow. If you lose your password, you must reset it manually via the server file system.
 
-1.  Access your server (SSH or direct access).
-2.  Locate the `config/config.json` file in your mapped Docker volume.
-3.  Find the `"auth"` section.
-4.  Remove the `"password_hash"` line (or set the value to `null`).
-5.  **Restart** the YA-WAMF container.
-6.  Access the web UI. If `"auth.enabled"` is still `true`, you will be prompted with the "Initial Setup" screen to create a new password.
+1. Access your server through SSH or direct access.
+2. Stop YA-WAMF so it cannot overwrite the file while you edit it.
+3. Back up the mapped `config/config.json` file.
+4. In the `auth` object, set `password_hash` to `null` and
+   `initial_setup_complete` to `false`.
+5. Start YA-WAMF again.
+6. Open the web UI. The setup wizard will ask you to create a new owner password.
+
+Both fields are required. Clearing only `password_hash` on an installation that
+has already completed setup does not reopen the wizard.
 
 **Example `config.json` edit:**
 
@@ -44,8 +53,8 @@ Currently, there is no email-based "Forgot Password" flow. If you lose your pass
   "auth": {
     "enabled": true,
     "username": "admin",
-    "password_hash": null,  <-- Set this to null or delete the line
-    ...
+    "password_hash": null,
+    "initial_setup_complete": false
   }
 }
 ```

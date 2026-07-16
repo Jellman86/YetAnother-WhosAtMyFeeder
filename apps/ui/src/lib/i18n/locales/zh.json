@@ -195,11 +195,21 @@
       "accessibility": "辅助功能",
       "debug": "调试",
       "enrichment": "增强信息",
-      "ai": "人工智能"
+      "ai": "人工智能",
+      "groups": {
+        "pipeline": "喂食器流程",
+        "intelligence": "分析与共享",
+        "operations": "运维",
+        "interface": "界面"
+      }
     },
     "debug": {
       "title": "调试工具",
       "subtitle": "用于测试和诊断的额外开关。",
+      "model_eval_title": "模型评估工具",
+      "model_eval_desc": "使用经过分类学验证的鸟类图像评估已安装的分类器。产物保存在 /config/yawamf-eval/ 下。",
+      "model_eval_action_desc": "对每个已安装模型运行准确率、延迟和健全性检查。仅限所有者。",
+      "model_eval_open": "打开",
       "llm_prompts_title": "LLM 提示模板",
       "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
       "llm_prompt_style_label": "提示风格",
@@ -675,6 +685,7 @@
       "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。"
     },
     "data": {
+      "tools_title": "设置、备份与维护",
       "title": "数据管理",
       "records": "记录总数",
       "oldest": "最早记录",

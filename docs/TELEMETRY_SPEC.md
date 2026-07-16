@@ -79,7 +79,7 @@ The heartbeat payload is strictly limited to metadata about the installation and
 ```
 
 ## User Control (Opt-In)
-Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings > Connections > Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
+Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings → Connection → Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
 
 On first launch, you may see a friendly banner inviting you to opt in - this can be dismissed and won't appear again.
 

@@ -195,11 +195,21 @@
       "accessibility": "アクセシビリティ",
       "debug": "デバッグ",
       "enrichment": "情報拡充",
-      "ai": "AI"
+      "ai": "AI",
+      "groups": {
+        "pipeline": "フィーダーパイプライン",
+        "intelligence": "分析と共有",
+        "operations": "運用",
+        "interface": "インターフェース"
+      }
     },
     "debug": {
       "title": "デバッグツール",
       "subtitle": "テストと診断のための追加スイッチ。",
+      "model_eval_title": "モデル評価ツール",
+      "model_eval_desc": "分類学的に検証された鳥の画像で、インストール済み分類器を評価します。成果物は /config/yawamf-eval/ に保存されます。",
+      "model_eval_action_desc": "すべてのインストール済みモデルで精度、遅延、妥当性のチェックを実行します。所有者専用です。",
+      "model_eval_open": "開く",
       "llm_prompts_title": "LLMプロンプトテンプレート",
       "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
       "llm_prompt_style_label": "プロンプトスタイル",
@@ -675,6 +685,7 @@
       "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。"
     },
     "data": {
+      "tools_title": "セットアップ、バックアップ、メンテナンス",
       "title": "データ管理",
       "records": "総レコード数",
       "oldest": "最古の記録",

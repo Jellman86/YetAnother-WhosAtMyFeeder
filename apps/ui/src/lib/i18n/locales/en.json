@@ -193,6 +193,7 @@
     },
     "data": {
       "title": "Data Management",
+      "tools_title": "Setup, backup & maintenance tools",
       "records": "Total Records",
       "oldest": "Oldest Seen",
       "retention": "Retention",
@@ -358,11 +359,21 @@
       "accessibility": "Accessibility",
       "debug": "Debug",
       "enrichment": "Enrichment",
-      "ai": "AI"
+      "ai": "AI",
+      "groups": {
+        "pipeline": "Feeder pipeline",
+        "intelligence": "Intelligence & sharing",
+        "operations": "Operations",
+        "interface": "Interface"
+      }
     },
     "debug": {
       "title": "Debug Tools",
       "subtitle": "Extra switches for testing and diagnostics.",
+      "model_eval_title": "Model evaluation harness",
+      "model_eval_desc": "Benchmark installed classifiers against taxonomy-verified bird images. Artifacts are stored under /config/yawamf-eval/.",
+      "model_eval_action_desc": "Run accuracy, latency, and sanity checks against every installed model. Owner-only.",
+      "model_eval_open": "Open",
       "llm_prompts_title": "LLM Prompt Templates",
       "llm_prompts_subtitle": "Customize the Markdown structure and tone for AI analysis and conversations.",
       "llm_prompt_style_label": "Prompt Style",

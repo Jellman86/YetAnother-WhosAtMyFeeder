@@ -195,11 +195,21 @@
       "accessibility": "Accessibilité",
       "debug": "Debug",
       "enrichment": "Enrichissement",
-      "ai": "IA"
+      "ai": "IA",
+      "groups": {
+        "pipeline": "Chaîne de la mangeoire",
+        "intelligence": "Analyse et partage",
+        "operations": "Exploitation",
+        "interface": "Interface"
+      }
     },
     "debug": {
       "title": "Outils de débogage",
       "subtitle": "Interrupteurs supplémentaires pour tests et diagnostic.",
+      "model_eval_title": "Outil d’évaluation des modèles",
+      "model_eval_desc": "Évaluez les classificateurs installés avec des images d’oiseaux vérifiées sur le plan taxonomique. Les artefacts sont stockés dans /config/yawamf-eval/.",
+      "model_eval_action_desc": "Exécutez des tests de précision, de latence et de cohérence sur chaque modèle installé. Réservé au propriétaire.",
+      "model_eval_open": "Ouvrir",
       "llm_prompts_title": "Modèles de prompt LLM",
       "llm_prompts_subtitle": "Personnalisez la structure Markdown et le ton pour l'analyse IA et les conversations.",
       "llm_prompt_style_label": "Style de prompt",
@@ -675,6 +685,7 @@
       "clear_feedback_confirm": "Voulez-vous vraiment effacer toutes les données de re-classement personnalisé ? L'IA reviendra à sa précision de base et l'opération est irréversible."
     },
     "data": {
+      "tools_title": "Configuration, sauvegarde et maintenance",
       "title": "Gestion des données",
       "records": "Enregistrements totaux",
       "oldest": "Le plus ancien",

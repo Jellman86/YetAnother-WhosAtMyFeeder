@@ -280,7 +280,7 @@
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <SettingsCard icon="🎤" title={$_('settings.integrations.birdnet.title')}>
+    <SettingsCard title={$_('settings.integrations.birdnet.title')}>
         <SettingsRow
             labelId="setting-birdnet-enabled"
             label={$_('settings.integrations.birdnet.title')}
@@ -294,6 +294,7 @@
             />
         </SettingsRow>
 
+        {#if birdnetEnabled}
         <SettingsRow
             labelId="setting-birdnet-url"
             label={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
@@ -402,9 +403,9 @@
                     {#each availableCameras as camera}
                         <div class="py-3 first:pt-0 space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
-                                    <span class="text-[10px] font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
+                                    <span class="text-xs font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
                                 {/if}
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -440,7 +441,7 @@
                                     aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                                 >
                                     {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-mono font-black text-teal-700 dark:text-teal-200">
+                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-xs font-mono font-black text-teal-700 dark:text-teal-200">
                                             <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
@@ -464,19 +465,19 @@
 
                     <div class="pt-3">
                         <div class="flex items-center justify-between mb-1.5">
-                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            <div class="text-xs font-black uppercase tracking-widest text-slate-500">
                                 {$_('settings.integrations.birdnet.source_discovery_title')}
                             </div>
                             {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
-                                <div class="text-[9px] font-bold uppercase tracking-wider text-slate-400">click to add</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">click to add</div>
                             {/if}
                         </div>
                         {#if loadingBirdnetSources}
-                            <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
+                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
                         {:else if birdnetSourcesError}
-                            <p class="text-[10px] text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
+                            <p class="text-xs text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
                         {:else if birdnetSourceOptions.length === 0}
-                            <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
+                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
                             <ul class="max-h-56 overflow-y-auto">
                                 {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
@@ -497,9 +498,9 @@
                                                 ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
                                                 : sourceValue}
                                         >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-[11px] font-black leading-none" aria-hidden="true">+</span>
-                                            <span class="min-w-0 flex-1 text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
-                                            <span class="shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-black leading-none" aria-hidden="true">+</span>
+                                            <span class="min-w-0 flex-1 text-xs font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
+                                            <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                         </button>
                                     </li>
                                 {/each}
@@ -509,9 +510,10 @@
                 </div>
             </SettingsRow>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🌿" title={$_('settings.integrations.inaturalist.title')}>
+    <SettingsCard title={$_('settings.integrations.inaturalist.title')}>
         <SettingsRow
             labelId="setting-inat-enabled"
             label={$_('settings.integrations.inaturalist.title')}
@@ -525,6 +527,7 @@
             />
         </SettingsRow>
 
+        {#if inaturalistEnabled}
         <SettingsRow
             labelId="setting-inat-client-id"
             label={$_('settings.integrations.inaturalist.client_id')}
@@ -558,7 +561,7 @@
 
         <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 p-4 space-y-3">
             <p class="text-xs text-slate-700 dark:text-slate-200">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
-            <p class="text-[10px] text-slate-500 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
+            <p class="text-xs text-slate-500 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
@@ -676,9 +679,10 @@
                 />
             </SettingsRow>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🐦" title={$_('settings.integrations.ebird.title')}>
+    <SettingsCard title={$_('settings.integrations.ebird.title')}>
         <SettingsRow
             labelId="setting-ebird-enabled"
             label={$_('settings.integrations.ebird.title')}
@@ -692,6 +696,7 @@
             />
         </SettingsRow>
 
+        {#if ebirdEnabled}
         <SettingsRow
             labelId="setting-ebird-api-key"
             label={$_('settings.integrations.ebird.api_key')}
@@ -751,9 +756,9 @@
                 />
             </SettingsRow>
         </div>
-        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+        <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
         {#if ebirdExportRangeError}
-            <p class="text-[10px] text-rose-500 font-bold">{ebirdExportRangeError}</p>
+            <p class="text-xs text-rose-500 font-bold">{ebirdExportRangeError}</p>
         {/if}
         <button
             type="button"
@@ -776,7 +781,7 @@
         >
             {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
         </button>
-        <p class="text-[10px] text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
+        <p class="text-xs text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
 
         <AdvancedSection
             id="integrations-ebird-advanced"
@@ -843,9 +848,10 @@
                 </SettingsRow>
             </div>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🌦️" title={$_('settings.integrations.birdweather.title')}>
+    <SettingsCard title={$_('settings.integrations.birdweather.title')}>
         <SettingsRow
             labelId="setting-birdweather-enabled"
             label={$_('settings.integrations.birdweather.title')}
@@ -859,6 +865,7 @@
             />
         </SettingsRow>
 
+        {#if birdweatherEnabled}
         <SettingsRow
             labelId="setting-birdweather-token"
             label={$_('settings.integrations.birdweather.token')}
@@ -884,11 +891,11 @@
         >
             {testingBirdWeather ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
         </button>
+        {/if}
     </SettingsCard>
 
     <div class="md:col-span-2">
         <SettingsCard
-            icon="📍"
             title={$_('settings.location.title')}
             description={$_('settings.location.desc')}
         >
@@ -908,14 +915,12 @@
                         {
                             value: 'auto',
                             label: $_('settings.location.mode_auto', { default: 'Auto-detect' }),
-                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' }),
-                            icon: '📡'
+                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' })
                         },
                         {
                             value: 'manual',
                             label: $_('settings.location.mode_manual', { default: 'Manual entry' }),
-                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' }),
-                            icon: '🎯'
+                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' })
                         }
                     ]}
                 />
@@ -954,7 +959,7 @@
 
             {#if mapPoint}
                 <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
+                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
                     {#if geocodeLoading}
                         <span class="text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
                     {:else if geocodeError}

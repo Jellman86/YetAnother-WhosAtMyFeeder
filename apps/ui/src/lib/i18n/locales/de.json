@@ -184,6 +184,7 @@
       "until": "Neuer Versuch nach: {time}"
     },
     "data": {
+      "tools_title": "Einrichtung, Sicherung und Wartung",
       "title": "Datenverwaltung",
       "records": "Gesamtdatensätze",
       "oldest": "Ältester Eintrag",
@@ -350,11 +351,21 @@
       "accessibility": "Barrierefreiheit",
       "debug": "Debug",
       "enrichment": "Anreicherung",
-      "ai": "KI"
+      "ai": "KI",
+      "groups": {
+        "pipeline": "Futterstellen-Pipeline",
+        "intelligence": "Analyse & Teilen",
+        "operations": "Betrieb",
+        "interface": "Oberfläche"
+      }
     },
     "debug": {
       "title": "Debug-Tools",
       "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
+      "model_eval_title": "Werkzeug zur Modellbewertung",
+      "model_eval_desc": "Bewerten Sie installierte Klassifikatoren mit taxonomisch geprüften Vogelbildern. Artefakte werden unter /config/yawamf-eval/ gespeichert.",
+      "model_eval_action_desc": "Führen Sie Genauigkeits-, Latenz- und Plausibilitätsprüfungen für jedes installierte Modell aus. Nur für Eigentümer.",
+      "model_eval_open": "Öffnen",
       "llm_prompts_title": "LLM-Promptvorlagen",
       "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
       "llm_prompt_style_label": "Prompt-Stil",

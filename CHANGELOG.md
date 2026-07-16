@@ -7,6 +7,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Fixed
+- **Stable installs now pull the stable image.** The recommended monolithic Compose file and
+  `.env.example` now default to `:latest`; following the README or Getting Started guide no longer
+  starts the potentially unstable `:dev` channel unless you explicitly select it. The first-run and
+  password-reset documentation now also matches the guided setup state machine, including the two
+  fields required to reopen setup safely after a lost password.
 - **AI provider failures are no longer saved as naturalist notes.** Retryable OpenRouter failures
   now keep their HTTP status and optional `Retry-After` header through the event, leaderboard, and
   conversation routes, while failed event analysis leaves the cached analysis empty. Gemini
@@ -58,6 +63,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Unraid Community Applications repository profile:** Added `ca_profile.xml` at the repository root — the maintainer/overview metadata (non-empty `<Profile>`, icon, project link) that Community Applications requires for a new repository submission. Uses the current `<CommunityApplications>` schema and complements the existing `unraid/yawamf.xml` Docker template.
 
 ### Changed
+- **Settings navigation now follows the feeder workflow.** The flat eleven-tab strip is grouped into
+  Feeder pipeline, Intelligence & sharing, Operations, and Interface sections on desktop, with the
+  same structure exposed as native option groups on mobile. Desktop destinations are real links with
+  consistent outline icons, 44-pixel targets, visible focus, and a non-colour active cue. The
+  Connection camera selector now uses separate native buttons instead of nesting preview and role
+  actions inside a simulated button, and preview loading/errors are announced. Detection has been
+  reduced from up to five peer-level cards to two: active model, confidence, and species exclusions
+  stay visible, while model/crop management, fine tuning/video recovery, and hardware diagnostics
+  sit behind focused disclosures. Runtime warnings still surface immediately. Routes and saved
+  settings behaviour are unchanged. The same treatment now covers every Settings tab: optional AI,
+  integration, notification, authentication, and public-access fields render only when enabled;
+  telemetry, appearance extras, AI usage, data maintenance, and destructive actions use focused
+  disclosures; active maintenance work reopens its controls automatically; and Enrichment status is
+  a compact divided list instead of nested cards. Structural card emoji and sub-12-pixel Settings
+  text have been removed while preserving the Blue Tit theme and existing configuration contract.
 - **Code-quality review — owner debug API:** Started the roadmap's file-by-file review with the
   contained owner diagnostics surface. Debug endpoints now publish explicit response models,
   database counts live behind a repository instead of router-level SQL, model-directory inspection

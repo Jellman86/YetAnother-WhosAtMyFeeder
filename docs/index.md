@@ -47,6 +47,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
+- [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
@@ -55,6 +56,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 ## Troubleshooting
 Solving common issues and using diagnostic tools.
 - **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
+- **[📼 Frigate Event Not Found](troubleshooting/frigate-event-not-found.md)** - Diagnose short-lived events and missing upstream media.
 
 ## Engineering & Quality
 How the project is built and held to standard.
