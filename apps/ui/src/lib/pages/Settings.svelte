@@ -32,9 +32,6 @@
         fetchAnalysisStatus,
         fetchAudioSources,
         searchSpecies,
-        testBirdWeather,
-        testBirdNET,
-        testMQTTPublish,
         testNotification,
         fetchRecordingClipCapability,
         fetchVersion,
@@ -1525,8 +1522,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let loading = $state(true);
     let saving = $state(false);
     let testing = $state(false);
-    let testingBirdWeather = $state(false);
-    let testingBirdNET = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);
@@ -3306,47 +3301,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function handleTestBirdWeather() {
-        testingBirdWeather = true;
-        message = null;
-        try {
-            const result = await testBirdWeather(birdweatherStationToken);
-            if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test BirdWeather' };
-        } finally {
-            testingBirdWeather = false;
-        }
-    }
-
-    async function handleTestBirdNET() {
-        testingBirdNET = true;
-        message = null;
-        try {
-            // Test generic MQTT first
-            const mqttResult = await testMQTTPublish();
-            if (mqttResult.status !== 'ok') {
-                throw new Error(mqttResult.message);
-            }
-
-            // Then test BirdNET specific pipeline
-            const result = await testBirdNET();
-            if (result.status === 'ok') {
-                message = { type: 'success', text: "MQTT Pipeline Verified: Test message sent to 'yawamf/test' and mock bird injected." };
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Failed to test MQTT Pipeline' };
-        } finally {
-            testingBirdNET = false;
-        }
-    }
-
     function toggleCamera(camera: string) {
         if (selectedCameras.includes(camera)) {
             selectedCameras = selectedCameras.filter(c => c !== camera);
@@ -3573,7 +3527,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {loadingBirdnetSources}
                     {birdnetSourcesError}
                     {availableCameras}
-                    bind:testingBirdNET
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
                     bind:birdweatherStationTokenSaved
@@ -3599,8 +3552,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:locationState
                     bind:locationCountry
                     bind:locationWeatherUnitSystem
-                    handleTestBirdNET={handleTestBirdNET}
-                    handleTestBirdWeather={handleTestBirdWeather}
                     initiateInaturalistOAuth={initiateInaturalistOAuth}
                     disconnectInaturalistOAuth={disconnectInaturalistOAuth}
                     refreshInaturalistStatus={async () => {

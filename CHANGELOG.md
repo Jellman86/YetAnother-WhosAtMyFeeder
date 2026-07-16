@@ -6,7 +6,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **Every connection test now looks and behaves the same.** The AI model test, the BirdNET-Go
+  test (MQTT publish → pipeline), and the BirdWeather test all use one shared guided dialog with a
+  stepped checklist that advances as each check passes. Settings → Integrations also gets calmer
+  card headers with a subtle icon per service, and the settings navigation drops its blue accent
+  stripe for the same teal/emerald used across the rest of settings.
+
 ### Fixed
+- **The AI model diagnostic now dims the whole screen and steps through its checks.** When you
+  tested a model, the frosted backdrop stopped short of the top of the page — the running-jobs banner
+  showed straight through it. The dialog is now rendered above all page chrome, so the blur covers
+  the entire window like the first-run setup. It reads calmer too: the five checks are one connected
+  list that reveals a step at a time as each one resolves (a step only turns green when its check
+  actually passed), instead of five separate cards appearing at once.
+- **Settings → AI leads with what you came for.** The panel now opens on Model Configuration
+  (enable, provider, API key, model, and test) with a matching icon, and the 30-day usage figures
+  move to a collapsed section underneath. The "get an API key" provider links only appear until a
+  key is saved, so a configured install stays uncluttered.
 - **Stable installs now pull the stable image.** The recommended monolithic Compose file and
   `.env.example` now default to `:latest`; following the README or Getting Started guide no longer
   starts the potentially unstable `:dev` channel unless you explicitly select it. The first-run and

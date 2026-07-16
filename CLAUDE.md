@@ -135,6 +135,11 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
   `input-base`, `select-base`, `tab-button`, and `card-base` rather than hand-rolled
   Tailwind, so controls stay consistent across themes. (A bare `btn-primary` without
   the base `btn` renders unstyled — the correct form is `class="btn btn-primary …"`.)
+- **Guided flows share one shape.** Every test/diagnostic flow (AI model, Frigate/MQTT,
+  notifications, integrations) uses the shared `DiagnosticDialog` — a staged checklist with
+  honest auto-progress and a portalled full-screen overlay — and the first-run wizard shares its
+  visual language. Don't hand-roll a modal for a test. The full standard is
+  [`docs/standards/diagnostics-and-dialogs.md`](docs/standards/diagnostics-and-dialogs.md).
 - Never imply a destructive action is reversible when it isn't. The UI must reflect
   the safety model (§1) truthfully.
 - **Svelte 5 runes** (`$state`, `$derived`, `$effect`) and modern events

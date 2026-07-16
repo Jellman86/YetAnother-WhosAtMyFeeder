@@ -109,14 +109,13 @@
     class="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70 md:block"
     aria-label={$_('settings.title')}
 >
-    <div class="h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-sky-400" aria-hidden="true"></div>
     <div class="grid grid-cols-2 xl:grid-cols-4">
         {#each groups as group}
             <div class="min-w-0 border-slate-200/80 p-3 dark:border-slate-700/80 xl:p-4
                         {group.id === 'intelligence' ? 'border-l' : ''}
                         {group.id === 'operations' ? 'border-t xl:border-l xl:border-t-0' : ''}
                         {group.id === 'interface' ? 'border-l border-t xl:border-t-0' : ''}">
-                <h2 class="px-2 pb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <h2 class="px-2 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                     {group.label}
                 </h2>
                 <div class="space-y-0.5">

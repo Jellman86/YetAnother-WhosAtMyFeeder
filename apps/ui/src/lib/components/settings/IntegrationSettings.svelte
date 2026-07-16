@@ -11,6 +11,8 @@
     import Map from '../Map.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import { reverseGeocode } from '../../api/geocoding';
+    import DiagnosticDialog, { type DiagnosticStage, type DiagnosticResult } from '../DiagnosticDialog.svelte';
+    import { testBirdNET, testBirdWeather, testMQTTPublish } from '../../api/maintenance';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -24,7 +26,6 @@
         loadingBirdnetSources = false,
         birdnetSourcesError = null,
         availableCameras = [],
-        testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
         ebirdEnabled = $bindable(false),
@@ -49,8 +50,6 @@
         locationState = $bindable(''),
         locationCountry = $bindable(''),
         locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
-        handleTestBirdNET,
-        handleTestBirdWeather,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
@@ -75,7 +74,6 @@
         loadingBirdnetSources: boolean;
         birdnetSourcesError: string | null;
         availableCameras: string[];
-        testingBirdNET: boolean;
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
         ebirdEnabled: boolean;
@@ -100,8 +98,6 @@
         locationState: string;
         locationCountry: string;
         locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
-        handleTestBirdNET: () => Promise<void>;
-        handleTestBirdWeather: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
@@ -115,7 +111,6 @@
     let inatRefreshing = $state(false);
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
-    let testingBirdWeather = $state(false);
     let ebirdExportEverything = $state(true);
     let ebirdExportFrom = $state('');
     let ebirdExportTo = $state('');
@@ -124,6 +119,94 @@
     function actionErrorMessage(error: unknown) {
         if (error instanceof Error && error.message.trim().length > 0) return error.message;
         return 'Action failed';
+    }
+
+    // Connection tests use the shared DiagnosticDialog (see
+    // docs/standards/diagnostics-and-dialogs.md). Each stage runs a real check and
+    // reports its own outcome, so the progress a user sees is always honest.
+    interface DiagnosticStep {
+        id: string;
+        label: string;
+        run: () => Promise<{ status: string; message: string }>;
+    }
+
+    let bnTestOpen = $state(false);
+    let bnRunning = $state(false);
+    let bnStages = $state<DiagnosticStage[]>([]);
+    let bnResult = $state<DiagnosticResult | null>(null);
+    let bnRunId = $state(0);
+
+    let bwTestOpen = $state(false);
+    let bwRunning = $state(false);
+    let bwStages = $state<DiagnosticStage[]>([]);
+    let bwResult = $state<DiagnosticResult | null>(null);
+    let bwRunId = $state(0);
+
+    async function runDiagnostic(
+        steps: DiagnosticStep[],
+        apply: (stages: DiagnosticStage[]) => void
+    ): Promise<DiagnosticResult> {
+        const stages: DiagnosticStage[] = steps.map((step) => ({
+            id: step.id,
+            label: step.label,
+            state: 'pending',
+            message: ''
+        }));
+        apply([...stages]);
+
+        let failed = false;
+        let finalMessage = '';
+        for (let i = 0; i < steps.length; i++) {
+            if (failed) {
+                stages[i] = { ...stages[i], state: 'skipped', message: $_('settings.integrations.test_skipped', { default: 'Not run because an earlier step failed.' }) };
+                apply([...stages]);
+                continue;
+            }
+            stages[i] = { ...stages[i], state: 'running', message: $_('settings.integrations.test_running', { default: 'Checking…' }) };
+            apply([...stages]);
+            try {
+                const result = await steps[i].run();
+                const ok = result.status === 'ok';
+                stages[i] = { ...stages[i], state: ok ? 'passed' : 'failed', message: result.message };
+                finalMessage = result.message;
+                if (!ok) failed = true;
+            } catch (error) {
+                finalMessage = actionErrorMessage(error);
+                stages[i] = { ...stages[i], state: 'failed', message: finalMessage };
+                failed = true;
+            }
+            apply([...stages]);
+        }
+        return { ok: !failed, message: finalMessage };
+    }
+
+    async function runBirdNetDiagnostic(): Promise<void> {
+        bnTestOpen = true;
+        bnRunning = true;
+        bnResult = null;
+        bnRunId += 1;
+        bnResult = await runDiagnostic(
+            [
+                { id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish },
+                { id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'BirdNET-Go pipeline' }), run: testBirdNET }
+            ],
+            (stages) => (bnStages = stages)
+        );
+        bnRunning = false;
+    }
+
+    async function runBirdWeatherDiagnostic(): Promise<void> {
+        bwTestOpen = true;
+        bwRunning = true;
+        bwResult = null;
+        bwRunId += 1;
+        bwResult = await runDiagnostic(
+            [
+                { id: 'station', label: $_('settings.integrations.birdweather.stage_station', { default: 'BirdWeather station token' }), run: () => testBirdWeather(birdweatherStationToken) }
+            ],
+            (stages) => (bwStages = stages)
+        );
+        bwRunning = false;
     }
 
     $effect(() => {
@@ -279,8 +362,24 @@
     const buttonSecondaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
 </script>
 
+{#snippet birdnetIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h-2" /></svg>
+{/snippet}
+{#snippet inatIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.52-4.48 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6" /></svg>
+{/snippet}
+{#snippet ebirdIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+{/snippet}
+{#snippet birdweatherIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.6A3.5 3.5 0 0 0 6 19Z" /></svg>
+{/snippet}
+{#snippet locationIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>
+{/snippet}
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <SettingsCard title={$_('settings.integrations.birdnet.title')}>
+    <SettingsCard accent iconSnippet={birdnetIcon} title={$_('settings.integrations.birdnet.title')}>
         <SettingsRow
             labelId="setting-birdnet-enabled"
             label={$_('settings.integrations.birdnet.title')}
@@ -344,12 +443,12 @@
 
         <button
             type="button"
-            onclick={handleTestBirdNET}
-            disabled={testingBirdNET}
+            onclick={runBirdNetDiagnostic}
+            disabled={bnRunning}
             aria-label={$_('settings.integrations.birdnet.test_button')}
             class="w-full {buttonPrimaryClass}"
         >
-            {testingBirdNET ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
+            {bnRunning ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
         </button>
 
         <AdvancedSection
@@ -513,7 +612,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.integrations.inaturalist.title')}>
+    <SettingsCard accent iconSnippet={inatIcon} title={$_('settings.integrations.inaturalist.title')}>
         <SettingsRow
             labelId="setting-inat-enabled"
             label={$_('settings.integrations.inaturalist.title')}
@@ -682,7 +781,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.integrations.ebird.title')}>
+    <SettingsCard accent iconSnippet={ebirdIcon} title={$_('settings.integrations.ebird.title')}>
         <SettingsRow
             labelId="setting-ebird-enabled"
             label={$_('settings.integrations.ebird.title')}
@@ -851,7 +950,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.integrations.birdweather.title')}>
+    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.birdweather.title')}>
         <SettingsRow
             labelId="setting-birdweather-enabled"
             label={$_('settings.integrations.birdweather.title')}
@@ -884,18 +983,20 @@
 
         <button
             type="button"
-            onclick={handleTestBirdWeather}
-            disabled={testingBirdWeather || !birdweatherStationToken}
+            onclick={runBirdWeatherDiagnostic}
+            disabled={bwRunning || !birdweatherStationToken}
             aria-label={$_('settings.integrations.birdweather.test_button')}
             class="w-full {buttonPrimaryClass}"
         >
-            {testingBirdWeather ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
+            {bwRunning ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
         </button>
         {/if}
     </SettingsCard>
 
     <div class="md:col-span-2">
         <SettingsCard
+            accent
+            iconSnippet={locationIcon}
             title={$_('settings.location.title')}
             description={$_('settings.location.desc')}
         >
@@ -1014,3 +1115,31 @@
         </SettingsCard>
     </div>
 </div>
+
+{#if bnTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
+        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Publishes a test signal over MQTT and injects a mock detection through the BirdNET-Go pipeline.' })}
+        stages={bnStages}
+        busy={bnRunning}
+        result={bnResult}
+        runId={bnRunId}
+        retryLabel={$_('settings.integrations.birdnet.test_button')}
+        onClose={() => (bnTestOpen = false)}
+        onRetry={runBirdNetDiagnostic}
+    />
+{/if}
+
+{#if bwTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.integrations.birdweather.test_title', { default: 'BirdWeather connection test' })}
+        subtitle={$_('settings.integrations.birdweather.test_subtitle', { default: 'Checks that your station token is accepted by BirdWeather.' })}
+        stages={bwStages}
+        busy={bwRunning}
+        result={bwResult}
+        runId={bwRunId}
+        retryLabel={$_('settings.integrations.birdweather.test_button')}
+        onClose={() => (bwTestOpen = false)}
+        onRetry={runBirdWeatherDiagnostic}
+    />
+{/if}

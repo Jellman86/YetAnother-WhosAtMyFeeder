@@ -12,17 +12,32 @@
         // "Clear history").  Kept in the header so every card has the same
         // top-level affordance position.
         actions?: Snippet;
+        // When true the header renders as the shared "guided" gradient band (the
+        // same teal→emerald language as the setup wizard and DiagnosticDialog) with
+        // a tinted icon tile. Off by default so cards that have not opted in keep
+        // their existing plain header. See docs/standards/diagnostics-and-dialogs.md.
+        accent?: boolean;
         children: Snippet;
     }
 
-    let { title, description, iconSnippet, actions, children }: Props = $props();
+    let { title, description, iconSnippet, actions, accent = false, children }: Props = $props();
 </script>
 
-<section class="card-base rounded-3xl p-6 md:p-8 backdrop-blur-md">
-    <header class="flex items-start justify-between gap-4 mb-6">
+<section class="card-base overflow-hidden rounded-3xl backdrop-blur-md">
+    <header
+        class="flex items-start justify-between gap-4 px-6 md:px-8
+               {accent
+                   ? 'bg-gradient-to-r from-teal-50 via-emerald-50 to-white py-5 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-slate-900'
+                   : 'pt-6 md:pt-8 pb-6'}"
+    >
         <div class="flex items-start gap-3 min-w-0">
             {#if iconSnippet}
-                <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex-shrink-0">
+                <div
+                    class="flex items-center justify-center w-10 h-10 rounded-2xl flex-shrink-0
+                           {accent
+                               ? 'bg-teal-500/15 text-teal-700 dark:bg-teal-400/15 dark:text-teal-300'
+                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}"
+                >
                     {@render iconSnippet()}
                 </div>
             {/if}
@@ -44,7 +59,7 @@
         {/if}
     </header>
 
-    <div class="space-y-4">
+    <div class="space-y-4 px-6 md:px-8 pb-6 md:pb-8 {accent ? 'pt-6' : ''}">
         {@render children()}
     </div>
 </section>
