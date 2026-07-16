@@ -1,13 +1,13 @@
 # Settings navigation simplification design
 
 Date: 2026-07-16
-Status: In progress — Settings pass complete; primary owner and guest journeys remain
+Status: In progress — Settings polish and model policy complete; primary owner and guest journeys remain
 
 ## Outcome
 
-Make Settings easier to scan without changing routes, saved configuration, or the meaning of any
-control. A person running a feeder should be able to answer “where would I change this?” from the
-navigation structure instead of memorising a flat list of eleven tabs.
+Make Settings easier to scan without changing routes or owner-facing outcomes. A person running a
+feeder should be able to answer “where would I change this?” from the navigation structure instead
+of memorising a flat list of eleven tabs.
 
 The subject is a self-hosted bird-detection pipeline. Its Settings page has one job: help an owner
 configure and operate that pipeline safely. The navigation should therefore follow the work, from
@@ -25,7 +25,7 @@ problem.
 
 ## Direction
 
-Keep the established Blue Tit theme, application type scale, shared card surface, and focus tokens.
+Keep the established Blue Tit theme, application type scale, surface treatment, and focus tokens.
 This is an information-architecture change, not a rebrand.
 
 - **Palette:** existing `surface`, `slate`, `teal`, and `brand` tokens; no new one-off colours.
@@ -73,8 +73,8 @@ The implementation follows primary accessibility standards and public-service de
   recommends a clearly contrasting indicator; Settings controls use an explicit two-pixel focus ring
   rather than relying on the browser's least-visible default.
 - [WAI-ARIA `aria-current`](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA26) identifies the
-  current link in a set. The active Settings destination exposes `aria-current="page"` and also shows
-  a checkmark, so colour is not the only state cue.
+  current link in a set. The active Settings destination exposes `aria-current="page"` and also uses
+  a persistent position marker, so colour is not the only state cue.
 - [GOV.UK's tabs guidance](https://design-system.service.gov.uk/components/tabs/) warns against
   wrapping tab bars and requires URL/back-button behaviour. YA-WAMF keeps its route-per-section model
   but uses grouped links at desktop widths and a grouped native select on mobile.
@@ -95,8 +95,8 @@ or changing the established visual system.
 2. Use real route links at desktop widths while intercepting only an unmodified primary click for
    SPA navigation. Modified clicks, link copying, and browser fallback remain available.
 3. Increase navigation and camera action targets to 44 pixels and add explicit two-pixel focus rings.
-4. Add a visible checkmark to the active navigation item so active state is not communicated by
-   colour alone.
+4. Add a visible position marker to the active navigation item so active state is not communicated
+   by colour alone.
 5. Split the Connection camera card's simulated button and nested controls into separate native
    selection, preview, role, and close buttons. Announce preview loading/errors and provide meaningful
    preview alternative text.
@@ -115,10 +115,10 @@ The revised default surface contains two cards and three immediate concerns:
 2. the identification confidence threshold, as the only always-visible tuning control; and
 3. species exclusions, because this is a direct owner policy rather than runtime tuning.
 
-Everything else remains available without changing its binding or saved value:
+Everything else remains available without changing its saved meaning:
 
-- **Model Manager:** model download/activation, crop-detector selection, crop behavior, crop source,
-  and region overrides.
+- **Model Manager:** model selection, download/activation, runtime health, and the automatically
+  selected image-preparation policy. Crop behaviour is application-owned rather than user-tuned.
 - **Advanced fine tuning:** minimum confidence floor, personalised re-ranking, video recovery,
   Frigate sublabel exchange, and video worker limits.
 - **Execution mode & runtime diagnostics:** provider override, execution isolation, GPU guidance,
@@ -163,6 +163,27 @@ Structural emoji have been removed from Settings card headers and segmented choi
 descriptions now use readable sentence case, and the audited tabs no longer use sub-12-pixel text.
 Source-layout tests protect the reveal dependencies, default hierarchy, and typography contract.
 
+## Fifth tranche — navigation and model-manager polish
+
+The first grouped navigation pass still looked like four cards competing with the Settings content.
+The polished navigation is one quiet wizard-style surface: a restrained tinted header edge, thin
+dividers between pipeline groups, sentence-case labels, and a slim active marker. At tablet widths
+the groups form a two-by-two grid; mobile keeps the labelled native select. This preserves the useful
+pipeline structure without making navigation the visual subject of the page.
+
+Model Manager now starts with the owner outcome: choose a recommended model, understand its best fit,
+see whether it is ready, and download or activate it. File size, memory, threshold, and concise notes
+stay visible because they affect the choice. Architecture, providers, detector readiness, runtime
+health, and image preparation move into one closed Technical details disclosure. The old nested model
+cards and crop switches are removed.
+
+Crop behaviour is selected per classifier or regional variant from repeatable evaluation evidence,
+stored in registry metadata, and mirrored to the upstream model sidecars. Legacy crop override fields
+remain accepted by the API for compatibility but no longer alter normal runtime behaviour. Installed
+sidecars cannot override the current application policy, preventing an old download from restoring a
+superseded setting. The supporting measurements and decision rule are recorded in
+[`2026-07-16-model-crop-policy.md`](2026-07-16-model-crop-policy.md).
+
 ## Follow-up tranches
 
 1. Add a concise section summary and “needs attention” state where runtime evidence supports it.
@@ -180,6 +201,9 @@ Source-layout tests protect the reveal dependencies, default hierarchy, and typo
 - Detection exposes no more than two primary cards, and expert controls start closed without losing
   their current values or hiding actionable runtime warnings.
 - Optional Settings features expose their enable decision before dependent credentials or tuning.
+- Model selection exposes only owner-relevant choice and readiness by default; runtime and image
+  preparation details start closed.
+- Crop mode and crop source are automatic per model and are not exposed as routine Settings controls.
 - Data maintenance and destructive actions start closed unless work is already running.
 - Audited Settings tabs contain no structural card emoji or sub-12-pixel text.
 - Svelte check and Settings navigation tests pass.

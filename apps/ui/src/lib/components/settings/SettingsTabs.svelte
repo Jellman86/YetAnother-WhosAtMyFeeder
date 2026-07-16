@@ -86,13 +86,13 @@
     }
 </script>
 
-<div class="md:hidden">
-    <label for="settings-tab-select" class="sr-only">{$_('settings.title')}</label>
+<div class="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-teal-50/70 via-emerald-50/30 to-white p-3 dark:border-slate-700/80 dark:from-teal-950/30 dark:via-emerald-950/10 dark:to-slate-900 md:hidden">
+    <label for="settings-tab-select" class="mb-1.5 block px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.title')}</label>
     <select
         id="settings-tab-select"
         value={activeTab}
         onchange={(e) => ontabchange((e.currentTarget as HTMLSelectElement).value as SettingsTab)}
-        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+        class="select-base w-full"
     >
         {#each groups as group}
             <optgroup label={group.label}>
@@ -105,38 +105,45 @@
 </div>
 
 <nav
-    class="card-base hidden w-full gap-3 rounded-2xl p-3 md:grid md:grid-cols-2 xl:grid-cols-4"
+    data-settings-navigation
+    class="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70 md:block"
     aria-label={$_('settings.title')}
 >
-    {#each groups as group}
-        <section class="min-w-0 rounded-xl border border-slate-200/70 bg-slate-50/60 p-2 dark:border-slate-700/70 dark:bg-slate-900/30">
-            <h2 class="px-2 pb-1.5 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                {group.label}
-            </h2>
-            <div class="flex flex-wrap gap-1">
-                {#each group.tabs as tab}
-                    <a
-                        href={settingsHref(tab.id)}
-                        onclick={(event) => handleLinkClick(event, tab.id)}
-                        aria-current={activeTab === tab.id ? 'page' : undefined}
-                        class="flex min-h-11 flex-auto items-center justify-start gap-2 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
-                               {activeTab === tab.id
-                            ? 'border-teal-200 bg-white text-teal-700 shadow-sm dark:border-teal-800 dark:bg-slate-800 dark:text-teal-300'
-                            : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white'}"
-                        title={tab.label}
-                    >
-                        <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d={tab.iconPath} />
-                        </svg>
-                        <span class="min-w-0 flex-1">{tab.label}</span>
-                        {#if activeTab === tab.id}
-                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+    <div class="h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-sky-400" aria-hidden="true"></div>
+    <div class="grid grid-cols-2 xl:grid-cols-4">
+        {#each groups as group}
+            <div class="min-w-0 border-slate-200/80 p-3 dark:border-slate-700/80 xl:p-4
+                        {group.id === 'intelligence' ? 'border-l' : ''}
+                        {group.id === 'operations' ? 'border-t xl:border-l xl:border-t-0' : ''}
+                        {group.id === 'interface' ? 'border-l border-t xl:border-t-0' : ''}">
+                <h2 class="px-2 pb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {group.label}
+                </h2>
+                <div class="space-y-0.5">
+                    {#each group.tabs as tab}
+                        <a
+                            href={settingsHref(tab.id)}
+                            onclick={(event) => handleLinkClick(event, tab.id)}
+                            aria-current={activeTab === tab.id ? 'page' : undefined}
+                            class="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
+                                   {activeTab === tab.id
+                                ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200'
+                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-white'}"
+                            title={tab.label}
+                        >
+                            <span
+                                data-active-indicator
+                                class="h-5 w-1 shrink-0 rounded-full {activeTab === tab.id ? 'bg-teal-500' : 'bg-transparent'}"
+                                aria-hidden="true"
+                            ></span>
+                            <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d={tab.iconPath} />
                             </svg>
-                        {/if}
-                    </a>
-                {/each}
+                            <span class="min-w-0 flex-1">{tab.label}</span>
+                        </a>
+                    {/each}
+                </div>
             </div>
-        </section>
-    {/each}
+        {/each}
+    </div>
 </nav>

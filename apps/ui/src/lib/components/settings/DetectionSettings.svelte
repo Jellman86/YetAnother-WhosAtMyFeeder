@@ -8,7 +8,6 @@
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
-    import type { CropModelOverride, CropSourceOverride } from '../../settings/crop-overrides';
     import {
         buildBlockedSpeciesEntry,
         formatBlockedSpeciesLabel,
@@ -34,11 +33,8 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
-        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
-        birdCropSourcePriority = $bindable<'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string>('frigate_hints_first'),
+        birdCropDetectorTier = 'fast',
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
-        cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
-        cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
@@ -59,10 +55,7 @@
         videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         birdCropDetectorTier: 'fast' | 'accurate' | string;
-        birdCropSourcePriority: 'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string;
         birdModelRegionOverride: BirdModelRegionOverride;
-        cropModelOverrides: Record<string, CropModelOverride>;
-        cropSourceOverrides: Record<string, CropSourceOverride>;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu';
         classifierStatus: ClassifierStatus | null;
@@ -322,31 +315,7 @@
             id="detection-classification-advanced"
             title={$_('settings.detection.model_manager_title', { default: 'Model Manager' })}
         >
-            <ModelManager
-                bind:cropModelOverrides
-                bind:cropSourceOverrides
-                bind:birdCropDetectorTier
-            />
-
-            <SettingsRow
-                labelId="setting-crop-priority"
-                label={$_('settings.detection.crop_priority_title', { default: 'Crop source priority' })}
-                description={$_('settings.detection.crop_priority_desc', { default: 'Which crop source is tried first. Each option falls back to the next and finally to the full frame, so a bird crop is used whenever one can be produced — even a small one. The selected crop detector tier is respected whenever the model path is used.' })}
-                layout="stacked"
-            >
-                <SettingsSelect
-                    id="bird-crop-source-priority"
-                    value={birdCropSourcePriority}
-                    ariaLabel={$_('settings.detection.crop_priority_title', { default: 'Crop source priority' })}
-                    options={[
-                        { value: 'frigate_hints_first', label: $_('settings.detection.crop_priority_frigate_first', { default: 'Frigate hints first' }) },
-                        { value: 'crop_model_first', label: $_('settings.detection.crop_priority_crop_first', { default: 'Crop model first' }) },
-                        { value: 'crop_model_only', label: $_('settings.detection.crop_priority_crop_only', { default: 'Crop model only' }) },
-                        { value: 'frigate_hints_only', label: $_('settings.detection.crop_priority_frigate_only', { default: 'Frigate hints only' }) }
-                    ]}
-                    onchange={(v) => (birdCropSourcePriority = v)}
-                />
-            </SettingsRow>
+            <ModelManager {birdCropDetectorTier} />
 
             <SettingsRow
                 labelId="setting-region-override"

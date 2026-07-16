@@ -23,4 +23,14 @@ describe('Settings navigation grouping', () => {
         expect(settingsTabsSource).not.toContain('icon: "');
         expect(settingsTabsSource).not.toContain('animate-pulse');
     });
+
+    it('uses one quiet navigation surface instead of a grid of nested cards', () => {
+        expect(settingsTabsSource).toContain('data-settings-navigation');
+        expect(settingsTabsSource).toContain("group.id === 'operations'");
+        expect(settingsTabsSource).toContain('xl:border-t-0');
+        expect(settingsTabsSource).toContain('data-active-indicator');
+        expect(settingsTabsSource).not.toContain('card-base');
+        expect(settingsTabsSource).not.toContain('<section class="min-w-0 rounded-xl border');
+        expect(settingsTabsSource).not.toContain('shadow-sm');
+    });
 });

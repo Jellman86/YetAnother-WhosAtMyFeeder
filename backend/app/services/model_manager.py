@@ -121,6 +121,9 @@ REMOTE_REGISTRY = [
             "padding_color": 0,
             "normalization": "uint8",
         },
+        "crop_generator": {
+            "enabled": True,
+        },
         "tier": "cpu_only",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.70,
@@ -154,6 +157,13 @@ REMOTE_REGISTRY = [
         "status": "planned",
         "family_id": "small_birds",
         "default_region": "na",
+        "crop_generator": {
+            "enabled": True,
+            "source_preference": "high_quality",
+            "input_context": {
+                "is_cropped": True,
+            },
+        },
         "region_variants": {
             "eu": {
                 "region_scope": "eu",
@@ -246,7 +256,7 @@ REMOTE_REGISTRY = [
         "sort_order": 20,
         "status": "stable",
         "crop_generator": {
-            "enabled": True,
+            "enabled": False,
         },
         "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
     },
@@ -283,7 +293,7 @@ REMOTE_REGISTRY = [
         "sort_order": 19,
         "status": "experimental",
         "crop_generator": {
-            "enabled": True,
+            "enabled": False,
         },
         "notes": "CPU, Intel CPU (OpenVINO), and Intel GPU validated (OpenVINO 2025.4.1, static-batch reshape required). CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
     },
@@ -348,6 +358,13 @@ REMOTE_REGISTRY = [
         "status": "planned",
         "family_id": "medium_birds",
         "default_region": "na",
+        "crop_generator": {
+            "enabled": True,
+            "source_preference": "high_quality",
+            "input_context": {
+                "is_cropped": True,
+            },
+        },
         "region_variants": {
             "eu": {
                 "region_scope": "eu",
@@ -442,7 +459,7 @@ REMOTE_REGISTRY = [
         "sort_order": 17,
         "status": "experimental",
         "crop_generator": {
-            "enabled": True,
+            "enabled": False,
         },
         "notes": "CPU, Intel CPU (OpenVINO), and Intel NPU validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported, but the NPU runs it at f16 with top-5 matching CPU exactly (validated 2026-07-05, Arrow Lake). CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
@@ -486,7 +503,7 @@ REMOTE_REGISTRY = [
         "sort_order": 30,
         "status": "stable",
         "crop_generator": {
-            "enabled": True,
+            "enabled": False,
         },
         "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
@@ -524,7 +541,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 22,
         "status": "experimental",
-        "crop_generator": {"enabled": True},
+        "crop_generator": {"enabled": False},
         "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Empirically validated on Intel iGPU 2026-05-08: top-5 overlap with CPU = 5/5 (best of any tested candidate), range_ratio 1.03.",
     },
     {
@@ -561,7 +578,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 23,
         "status": "experimental",
-        "crop_generator": {"enabled": True},
+        "crop_generator": {"enabled": False},
         "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. iGPU produces precision-degraded output (range ratio ~0.53) — registry excludes intel_gpu.",
     },
     {
@@ -598,7 +615,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 24,
         "status": "experimental",
-        "crop_generator": {"enabled": True},
+        "crop_generator": {"enabled": False},
         "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. iGPU output finite but predictions don't agree with CPU — registry excludes intel_gpu.",
     },
     {
@@ -635,7 +652,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 27,
         "status": "experimental",
-        "crop_generator": {"enabled": True},
+        "crop_generator": {"enabled": False},
         "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. iGPU produces NaN logits — registry excludes intel_gpu.",
     },
 ]
@@ -768,6 +785,11 @@ class ModelManager:
         self._active_model_lock = threading.Lock()
         self.active_model_id = self._load_active_model_id()
         self.active_downloads: Dict[str, tuple[DownloadProgress, datetime]] = {}
+        # Crop policy is shipped with each model config. These in-memory maps
+        # exist only so the owner diagnostic can compare candidate policies
+        # without turning an evaluation mechanism into a persistent setting.
+        self._diagnostic_crop_model_overrides: dict[str, str] = {}
+        self._diagnostic_crop_source_overrides: dict[str, str] = {}
         # (model_dir, tuple(sorted(unsupported_providers))) → already-logged marker.
         # get_active_model_spec runs on every inference path; without deduping,
         # the same "unsupported inference providers" warning was emitted on
@@ -904,7 +926,7 @@ class ModelManager:
         return config.model_dump(exclude_none=True)
 
     def _get_crop_model_overrides(self) -> dict[str, str]:
-        raw = getattr(settings.classification, "crop_model_overrides", {}) or {}
+        raw = self._diagnostic_crop_model_overrides
         if not isinstance(raw, dict):
             return {}
         normalized: dict[str, str] = {}
@@ -916,7 +938,7 @@ class ModelManager:
         return normalized
 
     def _get_crop_source_overrides(self) -> dict[str, str]:
-        raw = getattr(settings.classification, "crop_source_overrides", {}) or {}
+        raw = self._diagnostic_crop_source_overrides
         if not isinstance(raw, dict):
             return {}
         normalized: dict[str, str] = {}
@@ -1129,11 +1151,12 @@ class ModelManager:
         elif raw_label_grouping is not None:
             log.warning("Ignoring invalid label_grouping block in installed model config", model_dir=model_dir)
         merged["label_grouping"] = label_grouping
+        # Crop policy is application-owned and empirically selected per model.
+        # Installed sidecars may be stale after an application update, so they
+        # must not override the current registry policy.
         crop_generator = self._normalize_crop_generator_block(spec.get("crop_generator"))
         raw_crop_generator = config.get("crop_generator")
-        if isinstance(raw_crop_generator, dict):
-            crop_generator.update(raw_crop_generator)
-        elif raw_crop_generator is not None:
+        if raw_crop_generator is not None and not isinstance(raw_crop_generator, dict):
             log.warning("Ignoring invalid crop_generator block in installed model config", model_dir=model_dir)
         merged["crop_generator"] = self._normalize_crop_generator_block(crop_generator)
         providers = config.get("supported_inference_providers")

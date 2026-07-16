@@ -441,7 +441,9 @@ fast-path mode, manual reclassification with confidence override, canonical spec
 normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
 resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolved), the labeled
 feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
-(optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests).
+(optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests), plus
+**automatic per-model crop policy** validated on Quark and synchronized between the runtime registry
+and downloadable model sidecars.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and

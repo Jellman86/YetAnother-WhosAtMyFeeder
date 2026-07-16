@@ -65,6 +65,26 @@ Each row is `(expected_taxa, expected_common, predicted_taxa, predicted_common, 
 - Image fetch concurrency is capped at 5; iNat rate limits are the practical floor on overall wall-clock time.
 - The shared-core species list is hand-maintained at `backend/app/services/eval/shared_core_species.json`. Add entries (sci name + common name) to grow coverage; `taxa_id` resolves at runtime.
 
+## Repeatable crop-policy sweep
+
+The feeder-specific CLI harness runs the same `ClassifierService` image-resolution path and can
+compare automatic image preparation without changing saved Settings:
+
+```bash
+python backend/scripts/eval_feeder_model_harness.py \
+  --manifest /config/yawamf-eval/panel/manifest.csv \
+  --output-dir /config/yawamf-eval/crop-policy-eu/results \
+  --models small_birds,medium_birds \
+  --crop-modes on,off \
+  --source-mode standard \
+  --bird-model-region eu
+```
+
+Use `--bird-model-region na` for the NA variants. Crop and source overrides exist only in the harness
+manager instance and are restored after every case group; `summary.json`, `results.csv`, and
+`failures.csv` remain available for review. The current decision rule and baseline measurements are
+documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-model-crop-policy.md).
+
 ## Related files
 
 - Backend service: `backend/app/services/model_eval_service.py`

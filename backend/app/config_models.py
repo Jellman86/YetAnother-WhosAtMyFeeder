@@ -378,11 +378,11 @@ class ClassificationSettings(BaseModel):
     )
     crop_model_overrides: dict[str, str] = Field(
         default_factory=dict,
-        description="Crop enablement overrides keyed by model/family id or variant id",
+        description="Deprecated compatibility field; runtime crop policy comes from the model registry",
     )
     crop_source_overrides: dict[str, str] = Field(
         default_factory=dict,
-        description="Crop source overrides keyed by model/family id or variant id",
+        description="Deprecated compatibility field; runtime crop policy comes from the model registry",
     )
 
     # Classification output settings

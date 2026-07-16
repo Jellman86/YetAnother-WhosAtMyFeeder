@@ -574,11 +574,13 @@ async def temporary_model_settings(
     model_id: str,
     crop_mode: str,
     source_mode: str,
+    region_override: str | None = None,
 ) -> AsyncIterator[None]:
     original_active_model_id = getattr(model_manager, "active_model_id", None)
+    original_crop_model_overrides = dict(getattr(model_manager, "_diagnostic_crop_model_overrides", {}) or {})
+    original_crop_source_overrides = dict(getattr(model_manager, "_diagnostic_crop_source_overrides", {}) or {})
     classification = settings.classification
-    original_crop_model_overrides = dict(getattr(classification, "crop_model_overrides", {}) or {})
-    original_crop_source_overrides = dict(getattr(classification, "crop_source_overrides", {}) or {})
+    original_region_override = getattr(classification, "bird_model_region_override", "auto")
 
     if model_id and model_id != original_active_model_id:
         activated = await model_manager.activate_model(model_id)
@@ -591,14 +593,17 @@ async def temporary_model_settings(
         crop_model_overrides[model_id] = crop_mode
     if source_mode != "default":
         crop_source_overrides[model_id] = source_mode
-    classification.crop_model_overrides = crop_model_overrides
-    classification.crop_source_overrides = crop_source_overrides
+    model_manager._diagnostic_crop_model_overrides = crop_model_overrides
+    model_manager._diagnostic_crop_source_overrides = crop_source_overrides
+    if region_override is not None:
+        classification.bird_model_region_override = region_override
 
     try:
         yield
     finally:
-        classification.crop_model_overrides = original_crop_model_overrides
-        classification.crop_source_overrides = original_crop_source_overrides
+        model_manager._diagnostic_crop_model_overrides = original_crop_model_overrides
+        model_manager._diagnostic_crop_source_overrides = original_crop_source_overrides
+        classification.bird_model_region_override = original_region_override
         if original_active_model_id and getattr(model_manager, "active_model_id", None) != original_active_model_id:
             await model_manager.activate_model(original_active_model_id)
 
@@ -637,6 +642,7 @@ async def run_harness(
     model_ids: list[str],
     crop_modes: list[str],
     source_mode: str,
+    region_override: str | None,
     high_confidence_unknown_threshold: float,
 ) -> dict[str, Any]:
     from app.config import settings
@@ -653,6 +659,7 @@ async def run_harness(
                 model_id=model_id,
                 crop_mode=crop_mode,
                 source_mode=source_mode,
+                region_override=region_override,
             ):
                 classifier = ClassifierService()
                 try:
@@ -778,6 +785,12 @@ def main() -> int:
         help="Optional crop source override, for example default,standard,high_quality",
     )
     parser.add_argument(
+        "--bird-model-region",
+        choices=("auto", "eu", "na"),
+        default=None,
+        help="Optional regional family override for reproducible EU/NA variant sweeps",
+    )
+    parser.add_argument(
         "--high-confidence-unknown-threshold",
         type=float,
         default=0.90,
@@ -812,6 +825,7 @@ def main() -> int:
             model_ids=model_ids,
             crop_modes=_split_csv_arg(args.crop_modes),
             source_mode=args.source_mode,
+            region_override=args.bird_model_region,
             high_confidence_unknown_threshold=args.high_confidence_unknown_threshold,
         )
     )

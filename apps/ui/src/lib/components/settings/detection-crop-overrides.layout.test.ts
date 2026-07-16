@@ -3,49 +3,38 @@ import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 
-describe('detection crop override wiring', () => {
-    it('threads crop override bindings through the settings page into detection settings', () => {
+describe('automatic model crop policy', () => {
+    it('keeps compatibility fields out of the settings UI state and controls', () => {
         expect(settingsPageSource).toContain('birdCropDetectorTier');
         expect(settingsPageSource).toContain('bird_crop_detector_tier');
-        expect(settingsPageSource).toContain('bind:birdCropDetectorTier');
-        expect(settingsPageSource).toContain('birdCropSourcePriority');
-        expect(settingsPageSource).toContain('bird_crop_source_priority');
-        expect(settingsPageSource).toContain('bind:birdCropSourcePriority');
-        expect(settingsPageSource).toContain('cropModelOverrides');
-        expect(settingsPageSource).toContain('cropSourceOverrides');
-        expect(settingsPageSource).toContain('bind:cropModelOverrides');
-        expect(settingsPageSource).toContain('bind:cropSourceOverrides');
-        expect(settingsPageSource).toContain('buildCropOverrideSettings');
-        expect(settingsPageSource).toContain('resolveCropOverridesFromSettings');
-        // The crop-detector tier picker now lives inside ModelManager rendered
-        // as the same prominent dropdown used for the main classifier model
-        // lineup, so DetectionSettings only forwards the binding. The crop
-        // source-priority control still lives in DetectionSettings' Advanced
-        // overflow.
-        expect(detectionSettingsSource).toContain('bind:birdCropDetectorTier');
-        expect(detectionSettingsSource).toContain('id="bird-crop-source-priority"');
-        expect(detectionSettingsSource).toContain('value={birdCropSourcePriority}');
-        expect(detectionSettingsSource).toContain('birdCropSourcePriority = v');
-        expect(detectionSettingsSource).toContain('Frigate hints first');
-        expect(detectionSettingsSource).toContain('bind:cropModelOverrides');
-        expect(detectionSettingsSource).toContain('bind:cropSourceOverrides');
-        // ModelManager owns the tier picker now.
+        expect(settingsPageSource).toContain('{birdCropDetectorTier}');
+        expect(settingsPageSource).not.toContain('birdCropSourcePriority');
+        expect(settingsPageSource).not.toContain('bird_crop_source_priority');
+        expect(settingsPageSource).not.toContain('cropModelOverrides');
+        expect(settingsPageSource).not.toContain('cropSourceOverrides');
+        expect(settingsPageSource).not.toContain('buildCropOverrideSettings');
+        expect(settingsPageSource).not.toContain('resolveCropOverridesFromSettings');
+        expect(detectionSettingsSource).toContain('{birdCropDetectorTier}');
+        expect(detectionSettingsSource).not.toContain('id="bird-crop-source-priority"');
+        expect(detectionSettingsSource).not.toContain('cropModelOverrides');
+        expect(detectionSettingsSource).not.toContain('cropSourceOverrides');
         expect(modelManagerSource).toContain('birdCropDetectorTier');
-        expect(modelManagerSource).toContain('Accurate');
     });
 
-    it('renders crop override controls inside the model manager cards', () => {
-        expect(modelManagerSource).toContain('Crop behavior');
-        expect(modelManagerSource).toContain('Crop source');
-        expect(modelManagerSource).toContain('getCropVariantOverrideEntries(model)');
-        expect(modelManagerSource).toContain('high_quality');
+    it('explains the automatic policy without exposing implementation switches', () => {
+        expect(modelManagerSource).toContain('model_manager_crop_policy_automatic');
+        expect(modelManagerSource).not.toContain('CROP_MODEL_OVERRIDE_VALUES');
+        expect(modelManagerSource).not.toContain('CROP_SOURCE_OVERRIDE_VALUES');
+        expect(modelManagerSource).not.toContain('getCropVariantOverrideEntries(model)');
+        expect(modelManagerSource).not.toContain('Force on');
+        expect(modelManagerSource).not.toContain('Force off');
     });
 
-    it('renders managed crop detector status alongside gated crop controls', () => {
+    it('keeps managed crop detector status behind technical details', () => {
         expect(modelManagerSource).toContain("artifact_kind || 'classifier') === 'crop_detector'");
         expect(modelManagerSource).toContain('cropDetectorModels');
         expect(modelManagerSource).toContain('cropDetectorStatus');
-        expect(modelManagerSource).toContain('Download detector');
-        expect(modelManagerSource).toContain('require at least one installed bird crop detector');
+        expect(modelManagerSource).toContain('model_manager_image_preparation');
+        expect(modelManagerSource).toContain('model_manager_technical_details');
     });
 });

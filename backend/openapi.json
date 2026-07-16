@@ -9049,7 +9049,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Crop enablement overrides keyed by model or variant",
+            "description": "Deprecated compatibility field; ignored by the runtime",
             "title": "Crop Model Overrides",
             "type": "object"
           },
@@ -9057,7 +9057,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Crop source overrides keyed by model or variant",
+            "description": "Deprecated compatibility field; ignored by the runtime",
             "title": "Crop Source Overrides",
             "type": "object"
           },

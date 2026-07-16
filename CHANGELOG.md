@@ -70,14 +70,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Connection camera selector now uses separate native buttons instead of nesting preview and role
   actions inside a simulated button, and preview loading/errors are announced. Detection has been
   reduced from up to five peer-level cards to two: active model, confidence, and species exclusions
-  stay visible, while model/crop management, fine tuning/video recovery, and hardware diagnostics
-  sit behind focused disclosures. Runtime warnings still surface immediately. Routes and saved
-  settings behaviour are unchanged. The same treatment now covers every Settings tab: optional AI,
+  stay visible, while model management, fine tuning/video recovery, and hardware diagnostics sit
+  behind focused disclosures. The grouped navigation is now one quiet wizard-style surface instead
+  of four competing cards. Model Manager has also been rebuilt around selection, readiness, best fit,
+  and one download/activate action, with architecture, providers, runtime health, and automatic image
+  preparation in Technical details. Runtime warnings still surface immediately. The same treatment
+  now covers every Settings tab: optional AI,
   integration, notification, authentication, and public-access fields render only when enabled;
   telemetry, appearance extras, AI usage, data maintenance, and destructive actions use focused
   disclosures; active maintenance work reopens its controls automatically; and Enrichment status is
   a compact divided list instead of nested cards. Structural card emoji and sub-12-pixel Settings
   text have been removed while preserving the Blue Tit theme and existing configuration contract.
+- **Classifier crop policy is now automatic and evidence-based.** Every classifier and EU/NA family
+  variant has an explicit policy from a 4,032-classification Quark sweep of the production pipeline.
+  Crop mode, crop source, and detector-tier tuning are no longer routine Settings controls. The app
+  registry is authoritative over stale installed sidecars, the upstream release sidecars carry the
+  same defaults for new downloads, and legacy override fields remain API-compatible but are ignored
+  during normal runtime. The feeder harness can select EU or NA explicitly for repeatable retests.
 - **Code-quality review — owner debug API:** Started the roadmap's file-by-file review with the
   contained owner diagnostics surface. Debug endpoints now publish explicit response models,
   database counts live behind a repository instead of router-level SQL, model-directory inspection

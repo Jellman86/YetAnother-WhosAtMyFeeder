@@ -686,10 +686,10 @@ class SettingsUpdate(BaseModel):
     )
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
     crop_model_overrides: dict[str, str] = Field(
-        default_factory=dict, description="Crop enablement overrides keyed by model or variant"
+        default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     crop_source_overrides: dict[str, str] = Field(
-        default_factory=dict, description="Crop source overrides keyed by model or variant"
+        default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")

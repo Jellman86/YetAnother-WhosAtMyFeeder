@@ -1,7 +1,19 @@
 import pytest
 
 from app.config import settings
-from app.services.model_manager import ModelManager
+from app.services.model_manager import REMOTE_REGISTRY, ModelManager
+
+
+def test_every_classifier_registry_entry_has_an_explicit_crop_policy():
+    for model in REMOTE_REGISTRY:
+        if (model.get("artifact_kind") or "classifier") != "classifier":
+            continue
+
+        variants = model.get("region_variants") or {}
+        if variants:
+            assert all("crop_generator" in variant for variant in variants.values()), model["id"]
+        else:
+            assert "crop_generator" in model, model["id"]
 
 
 @pytest.mark.asyncio
@@ -27,7 +39,8 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["convnext_large_inat21"].preprocessing["crop_pct"] == pytest.approx(0.95)
     assert by_id["convnext_large_inat21"].preprocessing["mean"] == pytest.approx([0.48145466, 0.4578275, 0.40821073])
     assert by_id["convnext_large_inat21"].preprocessing["std"] == pytest.approx([0.26862954, 0.26130258, 0.27577711])
-    assert by_id["convnext_large_inat21"].crop_generator.enabled is True
+    assert by_id["mobilenet_v2_birds"].crop_generator.enabled is True
+    assert by_id["convnext_large_inat21"].crop_generator.enabled is False
     assert by_id["convnext_large_inat21"].crop_generator.input_context is None
 
     assert by_id["small_birds"].tier == "small"
@@ -77,6 +90,17 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["na"]["crop_generator"]["enabled"] is True
     assert by_id["medium_birds"].region_variants["na"]["crop_generator"]["input_context"]["is_cropped"] is True
     assert by_id["medium_birds"].region_variants["eu"]["crop_generator"]["enabled"] is False
+
+    automatic_crop_ids = {
+        "mobilenet_v2_birds",
+        "small_birds",
+        "flexivit_il_all",
+        "medium_birds",
+    }
+    for model_id, model in by_id.items():
+        if model.artifact_kind != "classifier" or model_id in automatic_crop_ids:
+            continue
+        assert model.crop_generator.enabled is False, model_id
 
     assert by_id["rope_vit_b14_inat21"].tier == "medium"
     assert by_id["rope_vit_b14_inat21"].taxonomy_scope == "wildlife_wide"
@@ -168,7 +192,7 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
 
 
 @pytest.mark.asyncio
-async def test_available_models_apply_crop_overrides_from_settings():
+async def test_available_models_ignore_legacy_crop_overrides_from_settings():
     manager = ModelManager()
 
     original_country = settings.location.country
@@ -178,8 +202,8 @@ async def test_available_models_apply_crop_overrides_from_settings():
     try:
         settings.location.country = "US"
         settings.classification.bird_model_region_override = "auto"
-        settings.classification.crop_model_overrides = {"small_birds": "off", "small_birds.na": "on"}
-        settings.classification.crop_source_overrides = {"small_birds": "standard", "small_birds.na": "high_quality"}
+        settings.classification.crop_model_overrides = {"small_birds.na": "off"}
+        settings.classification.crop_source_overrides = {"small_birds.na": "standard"}
 
         models = await manager.list_available_models()
         by_id = {model.id: model for model in models}
