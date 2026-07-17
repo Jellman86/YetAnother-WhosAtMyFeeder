@@ -6,7 +6,7 @@
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
-    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
+    import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     let {
         birdCropDetectorTier = 'fast',
     }: {
@@ -23,12 +23,14 @@
     let activating = $state<string | null>(null);
     let selectedModelId = $state<string | null>(null);
 
-    // Post-install selection gate: the validate-and-enable guided dialog.
-    let validationModel = $state<ModelMetadata | null>(null);
-    let validationStages = $state<DiagnosticStage[]>([]);
-    let validationBusy = $state(false);
-    let validationResult = $state<DiagnosticResult | null>(null);
-    let validationRunId = $state(0);
+    // Guided install wizard: download (with live progress) → validate on hardware →
+    // enable. Reused for an already-downloaded model by skipping the download stage.
+    let wizardModel = $state<ModelMetadata | null>(null);
+    let wizardStages = $state<DiagnosticStage[]>([]);
+    let wizardBusy = $state(false);
+    let wizardResult = $state<DiagnosticResult | null>(null);
+    let wizardRunId = $state(0);
+    let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
     let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
 
@@ -394,61 +396,119 @@
         }
     }
 
-    // Guided validate-and-enable for a downloaded-but-unvalidated model. Two real
-    // sequential checks: the model must run on this hardware, then it is enabled.
-    async function handleValidate(model: ModelMetadata) {
-        if (validationBusy) return;
-        validationModel = model;
-        validationResult = null;
-        validationBusy = true;
-        validationRunId += 1;
-
-        const outcome = await runSequentialDiagnostic(
-            [
-                {
-                    id: 'validate',
-                    label: t('settings.detection.model_manager_validate_stage_run', 'Run on this hardware'),
-                    run: async () => {
-                        const result = await validateModel(model.id);
-                        return {
-                            status: result.ok ? 'ok' : 'error',
-                            message: result.ok
-                                ? t(
-                                      'settings.detection.model_manager_validate_ran_ok',
-                                      'Ran on {provider} and produced valid output.',
-                                      { provider: result.provider }
-                                  )
-                                : result.reason
-                        };
-                    }
-                },
-                {
-                    id: 'enable',
-                    label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'),
-                    run: async () => {
-                        await activateModel(model.id);
-                        return {
-                            status: 'ok',
-                            message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.')
-                        };
-                    }
-                }
-            ],
-            (stages) => {
-                validationStages = stages;
+    // Poll a download to completion, reporting percent, so the wizard can show live
+    // progress. Resolves on completion; throws on error.
+    async function pollWizardDownload(modelId: string, onPct: (pct: number) => void): Promise<void> {
+        for (;;) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const status = await fetchDownloadStatus(modelId);
+            if (!status) continue;
+            onPct(status.progress ?? 0);
+            if (status.status === 'completed') return;
+            if (status.status === 'error') {
+                throw new Error(status.error || t('settings.detection.model_manager_start_failed', 'Download failed'));
             }
-        );
+        }
+    }
 
-        validationResult = outcome;
-        validationBusy = false;
+    // One guided flow: download the model (with progress), validate it on this
+    // hardware, then enable it. `download: false` reuses it for an already-installed
+    // model that only needs validating — the download stage is shown as skipped.
+    async function runInstallWizard(model: ModelMetadata, opts: { download: boolean }) {
+        if (wizardBusy) return;
+        wizardModel = model;
+        wizardDownload = opts.download;
+        wizardResult = null;
+        wizardBusy = true;
+        wizardRunId += 1;
+
+        const checking = t('common.testing', 'Checking…');
+        const skipped = t('diagnostics.step_skipped', 'Not run because an earlier step failed.');
+        const stages: DiagnosticStage[] = [
+            {
+                id: 'download',
+                label: t('settings.detection.model_manager_install_stage_download', 'Download model'),
+                state: opts.download ? 'pending' : 'skipped',
+                message: opts.download
+                    ? ''
+                    : t('settings.detection.model_manager_install_already_downloaded', 'Already downloaded.')
+            },
+            { id: 'validate', label: t('settings.detection.model_manager_validate_stage_run', 'Run on this hardware'), state: 'pending', message: '' },
+            { id: 'enable', label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'), state: 'pending', message: '' }
+        ];
+        wizardStages = stages;
+        const set = (i: number, patch: Partial<DiagnosticStage>) => {
+            stages[i] = { ...stages[i], ...patch };
+            wizardStages = [...stages];
+        };
+        const fail = async (i: number, message: string) => {
+            set(i, { state: 'failed', message });
+            for (let j = i + 1; j < stages.length; j++) set(j, { state: 'skipped', message: skipped });
+            wizardResult = { ok: false, message };
+            wizardBusy = false;
+            installedModels = await fetchInstalledModels();
+        };
+
+        // Stage 1 — download
+        if (opts.download) {
+            set(0, { state: 'running', message: t('settings.detection.model_manager_installing_pct', 'Downloading… {pct}%', { pct: 0 }) });
+            try {
+                const started = await downloadModel(model.id);
+                if (started.status !== 'pending') {
+                    throw new Error(started.message || t('settings.detection.model_manager_start_failed', 'Failed to start download'));
+                }
+                await pollWizardDownload(model.id, (pct) =>
+                    set(0, { state: 'running', message: t('settings.detection.model_manager_installing_pct', 'Downloading… {pct}%', { pct: Math.round(pct) }) })
+                );
+                set(0, { state: 'passed', message: t('settings.detection.model_manager_install_downloaded', 'Downloaded and verified.') });
+                installedModels = await fetchInstalledModels();
+            } catch (e) {
+                await fail(0, e instanceof Error ? e.message : t('settings.detection.model_manager_start_failed', 'Download failed'));
+                return;
+            }
+        }
+
+        // Stage 2 — validate on this hardware
+        set(1, { state: 'running', message: checking });
+        try {
+            const result = await validateModel(model.id);
+            if (!result.ok) {
+                await fail(1, result.reason);
+                return;
+            }
+            set(1, { state: 'passed', message: t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider} and produced valid output.', { provider: result.provider }) });
+        } catch (e) {
+            await fail(1, e instanceof Error ? e.message : t('settings.detection.model_manager_validate_failed', 'Validation failed.'));
+            return;
+        }
+
+        // Stage 3 — enable for selection
+        set(2, { state: 'running', message: checking });
+        try {
+            await activateModel(model.id);
+            set(2, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
+            wizardResult = { ok: true, message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') };
+        } catch (e) {
+            await fail(2, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
+            return;
+        }
+        wizardBusy = false;
         installedModels = await fetchInstalledModels();
     }
 
-    function closeValidation() {
-        if (validationBusy) return;
-        validationModel = null;
-        validationStages = [];
-        validationResult = null;
+    function handleInstall(model: ModelMetadata) {
+        return runInstallWizard(model, { download: true });
+    }
+
+    function handleValidate(model: ModelMetadata) {
+        return runInstallWizard(model, { download: false });
+    }
+
+    function closeWizard() {
+        if (wizardBusy) return;
+        wizardModel = null;
+        wizardStages = [];
+        wizardResult = null;
     }
 </script>
 
@@ -774,7 +834,7 @@
                                             <button
                                                 type="button"
                                                 onclick={() => handleValidate(model)}
-                                                disabled={validationBusy}
+                                                disabled={wizardBusy}
                                                 class="btn btn-primary min-h-11 px-4"
                                             >
                                                 {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
@@ -785,8 +845,8 @@
                                             </span>
                                         {/if}
                                     {:else}
-                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-primary min-h-11 px-4">
-                                            {$_('settings.detection.model_manager_download', { default: 'Download model' })}
+                                        <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
+                                            {$_('settings.detection.model_manager_download_setup', { default: 'Download & set up' })}
                                         </button>
                                     {/if}
                                 </div>
@@ -805,24 +865,24 @@
     {/if}
 </div>
 
-{#if validationModel}
+{#if wizardModel}
     <DiagnosticDialog
-        title={$_('settings.detection.model_manager_validate_title', { default: 'Validate & enable model' })}
-        subtitle={$_('settings.detection.model_manager_validate_subtitle', {
-            default: 'Confirm this model runs on your hardware, then enable it for selection.'
+        title={$_('settings.detection.model_manager_install_title', { default: 'Set up model' })}
+        subtitle={$_('settings.detection.model_manager_install_subtitle', {
+            default: 'Download, validate on your hardware, and enable this model.'
         })}
-        stages={validationStages}
-        busy={validationBusy}
-        result={validationResult}
-        runId={validationRunId}
-        note={$_('settings.detection.model_manager_validate_note', {
-            default: 'Validation trial-loads the model and runs one frame through it, then restores your current model.'
+        stages={wizardStages}
+        busy={wizardBusy}
+        result={wizardResult}
+        runId={wizardRunId}
+        note={$_('settings.detection.model_manager_install_note', {
+            default: 'Each step runs on your hardware. Nothing becomes active until validation passes.'
         })}
-        onClose={closeValidation}
-        onRetry={() => validationModel && handleValidate(validationModel)}
+        onClose={closeWizard}
+        onRetry={() => wizardModel && runInstallWizard(wizardModel, { download: wizardDownload })}
     >
         {#snippet summary()}
-            {validationModel?.name}
+            {wizardModel?.name}
         {/snippet}
     </DiagnosticDialog>
 {/if}
