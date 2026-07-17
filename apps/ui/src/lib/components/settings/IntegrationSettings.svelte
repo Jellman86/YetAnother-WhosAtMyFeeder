@@ -1080,7 +1080,7 @@
 {#if bnTestOpen}
     <DiagnosticDialog
         title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
-        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Publishes a test signal over MQTT and injects a mock detection through the BirdNET-Go pipeline.' })}
+        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.' })}
         stages={bnStages}
         busy={bnRunning}
         result={bnResult}
