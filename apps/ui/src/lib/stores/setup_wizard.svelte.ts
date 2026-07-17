@@ -21,6 +21,7 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
     { id: 'model', section: 'model', optional: false },
     { id: 'quality', section: 'quality', optional: true },
     { id: 'integrations', section: 'integrations', optional: true },
+    { id: 'telemetry', section: null, optional: true },
     { id: 'review', section: null, optional: false }
 ];
 

@@ -7,7 +7,6 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
-  import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
@@ -647,7 +646,6 @@
           <!-- Banners live inside the content wrapper so they align to the main column and
                respect the sidebar offset (like the footer), instead of spanning under it. -->
           <UpdateBanner />
-          <TelemetryBanner />
 
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
               <div class={globalProgressHasScrolled

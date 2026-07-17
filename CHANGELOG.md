@@ -22,6 +22,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   how Authentication already hides session expiry, trusted proxies, guest day-windows, rate limits,
   and the external URL. Anything hidden this way still has an environment-variable override.
 
+- **Telemetry opt-in moved into first-run setup.** The standalone telemetry banner is gone; new
+  installs are asked once, as a clear opt-in step in the guided wizard (off by default, no personal
+  data). Existing installs enable it any time from Settings.
+
 ### Documentation
 - **Every environment variable is now documented.** A new
   [Environment variables](docs/setup/environment-variables.md) reference lists every override the

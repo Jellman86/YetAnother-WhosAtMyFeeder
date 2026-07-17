@@ -10,6 +10,7 @@
     import ModelStep from './ModelStep.svelte';
     import QualityStep from './QualityStep.svelte';
     import IntegrationsStep from './IntegrationsStep.svelte';
+    import TelemetryStep from './TelemetryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
 
     const STEP_ICONS: Record<string, string> = {
@@ -20,6 +21,7 @@
         model: '🧠',
         quality: '✨',
         integrations: '🧩',
+        telemetry: '📊',
         review: '✅'
     };
 
@@ -89,6 +91,8 @@
                         <QualityStep />
                     {:else if step.id === 'integrations'}
                         <IntegrationsStep />
+                    {:else if step.id === 'telemetry'}
+                        <TelemetryStep />
                     {:else if step.id === 'review'}
                         <ReviewStep />
                     {/if}
