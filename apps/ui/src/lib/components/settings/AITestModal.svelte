@@ -1,7 +1,8 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { LlmTestResult } from '../../api/maintenance';
-    import DiagnosticDialog, { type DiagnosticStage, type DiagnosticResult } from '../DiagnosticDialog.svelte';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
 
     let {
         provider,

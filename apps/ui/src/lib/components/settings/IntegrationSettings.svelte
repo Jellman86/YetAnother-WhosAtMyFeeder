@@ -11,8 +11,9 @@
     import Map from '../Map.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import { reverseGeocode } from '../../api/geocoding';
-    import DiagnosticDialog, { type DiagnosticStage, type DiagnosticResult } from '../DiagnosticDialog.svelte';
-    import { testBirdNET, testBirdWeather, testMQTTPublish } from '../../api/maintenance';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
+    import { testBirdNET, testBirdWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -121,15 +122,9 @@
         return 'Action failed';
     }
 
-    // Connection tests use the shared DiagnosticDialog (see
-    // docs/standards/diagnostics-and-dialogs.md). Each stage runs a real check and
-    // reports its own outcome, so the progress a user sees is always honest.
-    interface DiagnosticStep {
-        id: string;
-        label: string;
-        run: () => Promise<{ status: string; message: string }>;
-    }
-
+    // Connection tests use the shared DiagnosticDialog + runSequentialDiagnostic
+    // (see docs/standards/diagnostics-and-dialogs.md). Each stage runs a real check
+    // and reports its own outcome, so the progress a user sees is always honest.
     let bnTestOpen = $state(false);
     let bnRunning = $state(false);
     let bnStages = $state<DiagnosticStage[]>([]);
@@ -142,56 +137,22 @@
     let bwResult = $state<DiagnosticResult | null>(null);
     let bwRunId = $state(0);
 
-    async function runDiagnostic(
-        steps: DiagnosticStep[],
-        apply: (stages: DiagnosticStage[]) => void
-    ): Promise<DiagnosticResult> {
-        const stages: DiagnosticStage[] = steps.map((step) => ({
-            id: step.id,
-            label: step.label,
-            state: 'pending',
-            message: ''
-        }));
-        apply([...stages]);
-
-        let failed = false;
-        let finalMessage = '';
-        for (let i = 0; i < steps.length; i++) {
-            if (failed) {
-                stages[i] = { ...stages[i], state: 'skipped', message: $_('settings.integrations.test_skipped', { default: 'Not run because an earlier step failed.' }) };
-                apply([...stages]);
-                continue;
-            }
-            stages[i] = { ...stages[i], state: 'running', message: $_('settings.integrations.test_running', { default: 'Checking…' }) };
-            apply([...stages]);
-            try {
-                const result = await steps[i].run();
-                const ok = result.status === 'ok';
-                stages[i] = { ...stages[i], state: ok ? 'passed' : 'failed', message: result.message };
-                finalMessage = result.message;
-                if (!ok) failed = true;
-            } catch (error) {
-                finalMessage = actionErrorMessage(error);
-                stages[i] = { ...stages[i], state: 'failed', message: finalMessage };
-                failed = true;
-            }
-            apply([...stages]);
-        }
-        return { ok: !failed, message: finalMessage };
-    }
-
     async function runBirdNetDiagnostic(): Promise<void> {
         bnTestOpen = true;
         bnRunning = true;
         bnResult = null;
         bnRunId += 1;
-        bnResult = await runDiagnostic(
-            [
-                { id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish },
-                { id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'BirdNET-Go pipeline' }), run: testBirdNET }
-            ],
-            (stages) => (bnStages = stages)
-        );
+        // Reachability first (does BirdNET-Go actually answer?), then the MQTT
+        // transport detections travel on, then our own ingest pipeline. The
+        // reachability stage only runs when a URL is configured — BirdNET-Go is
+        // otherwise reached purely over MQTT, so we don't fabricate a check.
+        const steps = [];
+        if (birdnetUrl.trim()) {
+            steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: checkBirdNetReachability });
+        }
+        steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
+        steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
+        bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages));
         bnRunning = false;
     }
 
@@ -200,7 +161,7 @@
         bwRunning = true;
         bwResult = null;
         bwRunId += 1;
-        bwResult = await runDiagnostic(
+        bwResult = await runSequentialDiagnostic(
             [
                 { id: 'station', label: $_('settings.integrations.birdweather.stage_station', { default: 'BirdWeather station token' }), run: () => testBirdWeather(birdweatherStationToken) }
             ],

@@ -1,27 +1,10 @@
-<script lang="ts" module>
-    export type DiagnosticStageState = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
-
-    export interface DiagnosticStage {
-        id: string;
-        label: string;
-        state: DiagnosticStageState;
-        message: string;
-    }
-
-    export interface DiagnosticResult {
-        ok: boolean;
-        message: string;
-        // Optional secondary line (e.g. a provider "retry after" hint).
-        hint?: string;
-    }
-</script>
-
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
+    import type { DiagnosticStage, DiagnosticStageState, DiagnosticResult } from '../utils/diagnostic-runner';
 
     interface Props {
         title: string;

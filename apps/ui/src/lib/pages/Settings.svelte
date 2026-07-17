@@ -7,7 +7,6 @@
     import {
         fetchSettings,
         updateSettings,
-        testFrigateConnection,
         fetchFrigateConfig,
         fetchClassifierStatus,
         downloadDefaultModel,
@@ -1519,7 +1518,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     let loading = $state(true);
     let saving = $state(false);
-    let testing = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
     let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);
@@ -3281,24 +3279,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function testConnection() {
-        testing = true;
-        message = null;
-        try {
-            const result = await testFrigateConnection();
-            if (result.status === 'ok') {
-                message = { type: 'success', text: `Connected to Frigate v${result.version} at ${result.frigate_url}` };
-            } else {
-                message = { type: 'error', text: 'Frigate returned unexpected status' };
-            }
-        } catch (e) {
-            const errorMsg = getErrorMessage(e) || 'Failed to connect to Frigate';
-            message = { type: 'error', text: errorMsg };
-        } finally {
-            testing = false;
-        }
-    }
-
     function toggleCamera(camera: string) {
         if (selectedCameras.includes(camera)) {
             selectedCameras = selectedCameras.filter(c => c !== camera);
@@ -3364,12 +3344,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
-                    {testing}
                     {telemetryInstallationId}
                     {telemetryPlatform}
                     {telemetryPayloadPreview}
                     {versionInfo}
-                    {testConnection}
                     {loadCameras}
                     {toggleCamera}
                 />

@@ -7,8 +7,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Changed
-- **Every connection test now looks and behaves the same.** The AI model test, the BirdNET-Go
-  test (MQTT publish → pipeline), the BirdWeather test, and the Discord / Telegram / Pushover /
+- **Every connection test now looks and behaves the same.** The AI model test, the Frigate & MQTT
+  connection test, the BirdNET-Go test, the BirdWeather test, and the Discord / Telegram / Pushover /
   Email notification tests all use one shared guided dialog with a stepped checklist that advances
   as each check passes. Settings → Integrations also gets calmer
   card headers with a subtle icon per service, and the settings navigation drops its blue accent
@@ -33,6 +33,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   linked from the configuration guide and docs index.
 
 ### Fixed
+- **The BirdNET-Go test now actually checks BirdNET-Go.** It previously only published to MQTT and
+  injected a mock detection into YA-WAMF's own pipeline — never touching BirdNET-Go. When a
+  BirdNET-Go URL is configured, the test now first confirms the BirdNET-Go server answers over HTTP,
+  then checks the MQTT broker, then the detection pipeline — three honest, separate steps.
 - **The AI model diagnostic now dims the whole screen and steps through its checks.** When you
   tested a model, the frosted backdrop stopped short of the top of the page — the running-jobs banner
   showed straight through it. The dialog is now rendered above all page chrome, so the blur covers

@@ -15,7 +15,8 @@
     } from '../../settings/blocked-species';
     import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
-    import DiagnosticDialog, { type DiagnosticStage, type DiagnosticResult } from '../DiagnosticDialog.svelte';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testNotification } from '../../api/maintenance';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';

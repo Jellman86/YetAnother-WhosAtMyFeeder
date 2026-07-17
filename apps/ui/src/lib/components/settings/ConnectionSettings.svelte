@@ -2,7 +2,10 @@
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
-    import type { RecordingClipCapability } from '../../api/system';
+    import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
+    import { testMQTTPublish } from '../../api/maintenance';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { appApiPath } from '../../app/url-base';
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
@@ -34,12 +37,10 @@
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
-        testing,
         telemetryInstallationId,
         telemetryPlatform,
         telemetryPayloadPreview,
         versionInfo,
-        testConnection,
         loadCameras,
         toggleCamera
     }: {
@@ -63,15 +64,52 @@
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
-        testing: boolean;
         telemetryInstallationId: string | undefined;
         telemetryPlatform: string | undefined;
         telemetryPayloadPreview: Record<string, unknown> | undefined;
         versionInfo: VersionInfo;
-        testConnection: () => Promise<void>;
         loadCameras: () => Promise<void>;
         toggleCamera: (camera: string) => void;
     } = $props();
+
+    // Connection test uses the shared DiagnosticDialog: two genuinely independent
+    // checks — reaching the Frigate API, then publishing to the MQTT broker.
+    let fcTestOpen = $state(false);
+    let fcRunning = $state(false);
+    let fcStages = $state<DiagnosticStage[]>([]);
+    let fcResult = $state<DiagnosticResult | null>(null);
+    let fcRunId = $state(0);
+
+    async function runConnectionDiagnostic(): Promise<void> {
+        fcTestOpen = true;
+        fcRunning = true;
+        fcResult = null;
+        fcRunId += 1;
+        fcResult = await runSequentialDiagnostic(
+            [
+                {
+                    id: 'frigate',
+                    label: $_('settings.frigate.stage_frigate', { default: 'Frigate API' }),
+                    run: async () => {
+                        const r = await testFrigateConnection();
+                        return {
+                            status: r.status,
+                            message: r.status === 'ok'
+                                ? $_('settings.frigate.stage_frigate_ok', { default: 'Connected to Frigate {version}', values: { version: `v${r.version}` } })
+                                : $_('settings.frigate.stage_frigate_bad', { default: 'Frigate returned an unexpected status.' })
+                        };
+                    }
+                },
+                {
+                    id: 'mqtt',
+                    label: $_('settings.frigate.stage_mqtt', { default: 'MQTT broker publish' }),
+                    run: testMQTTPublish
+                }
+            ],
+            (stages) => (fcStages = stages)
+        );
+        fcRunning = false;
+    }
 
     let previewCamera = $state<string | null>(null);
     let previewVisible = $state(false);
@@ -249,12 +287,12 @@
         <div class="grid grid-cols-2 gap-3">
             <button
                 type="button"
-                onclick={testConnection}
-                disabled={testing}
+                onclick={runConnectionDiagnostic}
+                disabled={fcRunning}
                 aria-label={$_('settings.frigate.test_connection')}
                 class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
             >
-                {testing ? $_('common.testing') : $_('settings.frigate.test_connection')}
+                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection')}
             </button>
             <button
                 type="button"
@@ -669,6 +707,20 @@
         </AdvancedSection>
     </div>
 </div>
+
+{#if fcTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.frigate.test_title', { default: 'Frigate & MQTT connection test' })}
+        subtitle={$_('settings.frigate.test_subtitle', { default: 'Checks that the Frigate API answers and that the MQTT broker accepts a publish.' })}
+        stages={fcStages}
+        busy={fcRunning}
+        result={fcResult}
+        runId={fcRunId}
+        retryLabel={$_('settings.frigate.test_connection')}
+        onClose={() => (fcTestOpen = false)}
+        onRetry={runConnectionDiagnostic}
+    />
+{/if}
 
 <style>
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }

@@ -1,6 +1,7 @@
 import platform
 import re
 import asyncio
+import httpx
 from typing import Any, List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -189,6 +190,43 @@ async def test_birdnet(
     background_tasks.add_task(audio_service.add_detection, mock_data)
 
     return ActionStatusResponse(status="ok", message="Mock audio detection injected. Check Discovery feed for updates.")
+
+
+@router.get("/settings/birdnet/reachability", response_model=ActionStatusResponse)
+async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
+    """Verify the configured BirdNET-Go instance answers over HTTP. Owner only.
+
+    BirdNET-Go detections arrive over MQTT, so the URL is optional (it powers
+    spectrograms). When it is set, an HTTP response — any status — proves the
+    BirdNET-Go server itself is up and reachable from the backend.
+    """
+    base_url = (settings.frigate.birdnet_url or "").strip().rstrip("/")
+    if not base_url:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "No BirdNET-Go URL is set. It is optional (detections arrive over MQTT), but set it to enable spectrograms and this check.",
+            },
+        )
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as http_client:
+            resp = await http_client.get(base_url, timeout=10.0)
+        return ActionStatusResponse(
+            status="ok",
+            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {base_url}.",
+        )
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=504,
+            content={"status": "error", "message": f"BirdNET-Go timed out at {base_url}."},
+        )
+    except httpx.RequestError as e:
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "message": f"Could not reach BirdNET-Go at {base_url} ({type(e).__name__})."},
+        )
 
 
 @router.post("/settings/mqtt/test-publish", response_model=ActionStatusResponse)

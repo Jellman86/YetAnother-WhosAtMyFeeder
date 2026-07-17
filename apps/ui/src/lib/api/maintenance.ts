@@ -191,6 +191,11 @@ export async function testBirdNET(): Promise<{ status: string; message: string }
     return handleResponse<{ status: string; message: string }>(response);
 }
 
+export async function checkBirdNetReachability(): Promise<{ status: string; message: string }> {
+    const response = await apiFetch(`${API_BASE}/settings/birdnet/reachability`);
+    return handleResponse<{ status: string; message: string }>(response);
+}
+
 export async function testMQTTPublish(): Promise<{ status: string; message: string }> {
     const response = await apiFetch(`${API_BASE}/settings/mqtt/test-publish`, { method: 'POST' });
     return handleResponse<{ status: string; message: string }>(response);
