@@ -32,7 +32,6 @@
         fetchAnalysisStatus,
         fetchAudioSources,
         searchSpecies,
-        testNotification,
         fetchRecordingClipCapability,
         fetchVersion,
         initiateGmailOAuth,
@@ -1332,7 +1331,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let notifyVideoFallbackTimeout = $state(45);
     let notifyCooldownMinutes = $state(0);
 
-    let testingNotification = $state<Record<string, boolean>>({});
 
     function normalizeNotificationSpeciesMode(value: unknown): NotificationSpeciesFilterMode | null {
         return value === 'none' || value === 'blacklist' || value === 'whitelist' ? value : null;
@@ -3326,47 +3324,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         localStorage.setItem('preferred-language', lang);
     }
 
-    async function handleTestNotification(platform: string) {
-        testingNotification[platform] = true;
-        message = null;
-
-        const credentials: Record<string, string> = {};
-        if (platform === 'discord') {
-            credentials.webhook_url = discordWebhook;
-        } else if (platform === 'pushover') {
-            credentials.user_key = pushoverUser;
-            credentials.api_token = pushoverToken;
-        } else if (platform === 'telegram') {
-            credentials.bot_token = telegramToken;
-            credentials.chat_id = telegramChatId;
-        }
-
-        try {
-            const result = await testNotification(platform, credentials);
-            if (result.status === 'ok') {
-                message = { type: 'success', text: result.message };
-            } else {
-                message = { type: 'error', text: result.message };
-            }
-        } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || `Failed to test ${platform}` };
-        } finally {
-            testingNotification[platform] = false;
-        }
-    }
-
-    // Wrapper functions for notification testing to match component API
-    async function sendTestDiscord() {
-        await handleTestNotification('discord');
-    }
-
-    async function sendTestPushover() {
-        await handleTestNotification('pushover');
-    }
-
-    async function sendTestTelegram() {
-        await handleTestNotification('telegram');
-    }
 </script>
 
 {#snippet pageTabs()}
@@ -3496,10 +3453,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:emailToEmail
                     bind:emailIncludeSnapshot
                     bind:emailDashboardUrl
-                    bind:testingNotification
-                    {sendTestDiscord}
-                    {sendTestPushover}
-                    {sendTestTelegram}
                     {sendTestEmail}
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}

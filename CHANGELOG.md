@@ -8,8 +8,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 - **Every connection test now looks and behaves the same.** The AI model test, the BirdNET-Go
-  test (MQTT publish → pipeline), and the BirdWeather test all use one shared guided dialog with a
-  stepped checklist that advances as each check passes. Settings → Integrations also gets calmer
+  test (MQTT publish → pipeline), the BirdWeather test, and the Discord / Telegram / Pushover /
+  Email notification tests all use one shared guided dialog with a stepped checklist that advances
+  as each check passes. Settings → Integrations also gets calmer
   card headers with a subtle icon per service, and the settings navigation drops its blue accent
   stripe for the same teal/emerald used across the rest of settings.
 - **Settings panels read more consistently.** Each panel card now leads with a matching icon and,

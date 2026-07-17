@@ -15,6 +15,8 @@
     } from '../../settings/blocked-species';
     import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
+    import DiagnosticDialog, { type DiagnosticStage, type DiagnosticResult } from '../DiagnosticDialog.svelte';
+    import { testNotification } from '../../api/maintenance';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
@@ -101,13 +103,7 @@
         emailIncludeSnapshot = $bindable(true),
         emailDashboardUrl = $bindable(''),
 
-        // Testing state
-        testingNotification = $bindable<Record<string, boolean>>({}),
-
         // Functions
-        sendTestDiscord,
-        sendTestPushover,
-        sendTestTelegram,
         sendTestEmail,
         initiateGmailOAuth,
         initiateOutlookOAuth,
@@ -163,16 +159,67 @@
         emailToEmail: string;
         emailIncludeSnapshot: boolean;
         emailDashboardUrl: string;
-        testingNotification: Record<string, boolean>;
-        sendTestDiscord: () => Promise<void>;
-        sendTestPushover: () => Promise<void>;
-        sendTestTelegram: () => Promise<void>;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
         disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
+
+    // Channel tests use the shared DiagnosticDialog (see
+    // docs/standards/diagnostics-and-dialogs.md). Each is a single real delivery
+    // check, so the pass/fail a user sees is exactly what the send returned.
+    let ntOpen = $state(false);
+    let ntRunning = $state(false);
+    let ntChannel = $state<'discord' | 'pushover' | 'telegram' | 'email'>('discord');
+    let ntChannelLabel = $state('');
+    let ntStages = $state<DiagnosticStage[]>([]);
+    let ntResult = $state<DiagnosticResult | null>(null);
+    let ntRunId = $state(0);
+
+    async function runNotificationTest(
+        channel: 'discord' | 'pushover' | 'telegram' | 'email',
+        channelLabel: string,
+        run: () => Promise<{ status: string; message: string }>
+    ): Promise<void> {
+        ntOpen = true;
+        ntRunning = true;
+        ntResult = null;
+        ntChannel = channel;
+        ntChannelLabel = channelLabel;
+        ntRunId += 1;
+        const label = $_('settings.notifications.test_stage_deliver', { default: 'Deliver a test message' });
+        ntStages = [{ id: 'deliver', label, state: 'pending', message: '' }];
+        try {
+            const result = await run();
+            const ok = result.status === 'ok';
+            ntStages = [{ id: 'deliver', label, state: ok ? 'passed' : 'failed', message: result.message }];
+            ntResult = { ok, message: result.message };
+        } catch (error) {
+            const text = error instanceof Error && error.message.trim()
+                ? error.message
+                : $_('settings.notifications.test_failed', { default: 'The test message could not be sent.' });
+            ntStages = [{ id: 'deliver', label, state: 'failed', message: text }];
+            ntResult = { ok: false, message: text };
+        } finally {
+            ntRunning = false;
+        }
+    }
+
+    const runDiscordTest = () => runNotificationTest('discord', 'Discord', () => testNotification('discord', { webhook_url: discordWebhook }));
+    const runPushoverTest = () => runNotificationTest('pushover', 'Pushover', () => testNotification('pushover', { user_key: pushoverUserKey, api_token: pushoverApiToken }));
+    const runTelegramTest = () => runNotificationTest('telegram', 'Telegram', () => testNotification('telegram', { bot_token: telegramBotToken, chat_id: telegramChatId }));
+    const runEmailTest = () => runNotificationTest('email', 'Email', async () => {
+        const result = await sendTestEmail();
+        return { status: 'ok', message: result.message || $_('settings.email.test_email_sent') };
+    });
+
+    function retryNotificationTest(): void {
+        if (ntChannel === 'discord') void runDiscordTest();
+        else if (ntChannel === 'pushover') void runPushoverTest();
+        else if (ntChannel === 'telegram') void runTelegramTest();
+        else void runEmailTest();
+    }
 
     let speciesSearchQuery = $state('');
     let speciesSearchResults = $state<SearchResult[]>([]);
@@ -658,12 +705,12 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestDiscord}
-                    disabled={testingNotification['discord'] || (!discordWebhook && !discordWebhookSaved)}
+                    onclick={runDiscordTest}
+                    disabled={ntRunning || (!discordWebhook && !discordWebhookSaved)}
                     aria-label={$_('settings.discord.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['discord'] ? $_('settings.discord.test_sending') : $_('settings.discord.test_notification')}
+                    {$_('settings.discord.test_notification')}
                 </button>
             </div>
             {/if}
@@ -713,12 +760,12 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestPushover}
-                    disabled={testingNotification['pushover'] || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
+                    onclick={runPushoverTest}
+                    disabled={ntRunning || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
                     aria-label={$_('settings.pushover.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['pushover'] ? $_('settings.pushover.test_sending') : $_('settings.pushover.test_notification')}
+                    {$_('settings.pushover.test_notification')}
                 </button>
 
                 <AdvancedSection
@@ -802,12 +849,12 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestTelegram}
-                    disabled={testingNotification['telegram'] || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
+                    onclick={runTelegramTest}
+                    disabled={ntRunning || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
                     aria-label={$_('settings.telegram.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-sky-500 hover:bg-sky-600 text-white transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['telegram'] ? $_('settings.telegram.test_sending') : $_('settings.telegram.test_notification')}
+                    {$_('settings.telegram.test_notification')}
                 </button>
             </div>
             {/if}
@@ -1116,25 +1163,34 @@
                 </AdvancedSection>
 
                 <button
-                    onclick={async () => {
-                        try {
-                            testingNotification['email'] = true;
-                            const result = await sendTestEmail();
-                            onActionFeedback('success', result.message || $_('settings.email.test_email_sent'));
-                        } catch (e) {
-                            onActionFeedback('error', extractErrorMessage(e, $_('settings.email.test_email_error_generic')));
-                        } finally {
-                            testingNotification['email'] = false;
-                        }
-                    }}
-                    disabled={testingNotification['email'] || !emailToEmail}
+                    onclick={runEmailTest}
+                    disabled={ntRunning || !emailToEmail}
                     aria-label={$_('settings.email.test_email')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
+                    {$_('settings.email.test_email')}
                 </button>
             </div>
             {/if}
         </section>
     </div>
 </div>
+
+{#if ntOpen}
+    <DiagnosticDialog
+        title={$_('settings.notifications.test_title', { default: 'Notification test' })}
+        subtitle={$_('settings.notifications.test_subtitle', { default: 'Sends one test message using the current settings for this channel.' })}
+        stages={ntStages}
+        busy={ntRunning}
+        result={ntResult}
+        runId={ntRunId}
+        retryLabel={$_('settings.notifications.test_retry', { default: 'Send again' })}
+        onClose={() => (ntOpen = false)}
+        onRetry={retryNotificationTest}
+    >
+        {#snippet summary()}
+            <span class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('settings.notifications.test_channel', { default: 'Channel' })}</span>
+            <span class="font-bold text-slate-800 dark:text-slate-100">{ntChannelLabel}</span>
+        {/snippet}
+    </DiagnosticDialog>
+{/if}
