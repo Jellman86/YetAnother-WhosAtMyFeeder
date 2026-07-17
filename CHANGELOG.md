@@ -7,13 +7,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
-- **Guided model install with on-hardware validation.** Setting up a classifier is now one guided
-  wizard: **download** (with live progress in the dialog) → **validate on your hardware** (runs a
-  frame through the model and confirms it produces valid output) → **enable**. A model that has
-  never been validated on this host can no longer be made active (the model already running and the
-  bundled default are unaffected), so you find out a model does not run on your hardware at install
-  time instead of when the next bird shows up. The validation works on every host — CPU-only,
-  NVIDIA CUDA, and Intel/OpenVINO alike.
+- **Guided model install with on-hardware validation and device auto-tuning.** Setting up a
+  classifier is now one guided wizard: **download** (with live progress in the dialog) → **run on
+  your hardware** (pushes frames through the model, confirms valid output, and reports per-frame
+  latency) → **find fastest device** (sweeps CPU / Intel GPU / NPU and sets your inference provider
+  to the fastest one that passed) → **enable**. A model that has never been validated on this host
+  can no longer be made active (the model already running and the bundled default are unaffected),
+  so you find out a model does not run on your hardware at install time instead of when the next
+  bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
 - **Every connection test now looks and behaves the same.** The AI model test, the Frigate & MQTT

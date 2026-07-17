@@ -22,12 +22,13 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).toContain('model_manager_validation_needed');
     });
 
-    it('runs three real stages through the shared DiagnosticDialog with live download progress', () => {
+    it('runs four real stages through the shared DiagnosticDialog with live download progress', () => {
         expect(modelManagerSource).toContain("import DiagnosticDialog from '../../components/DiagnosticDialog.svelte'");
         expect(modelManagerSource).toContain('<DiagnosticDialog');
-        // Ordered checks: download → run on hardware → enable.
+        // Ordered checks: download → run on hardware → find fastest device → enable.
         expect(modelManagerSource).toContain("id: 'download'");
         expect(modelManagerSource).toContain("id: 'validate'");
+        expect(modelManagerSource).toContain("id: 'optimize'");
         expect(modelManagerSource).toContain("id: 'enable'");
         // The download stage streams percent into the dialog.
         expect(modelManagerSource).toContain('model_manager_installing_pct');
@@ -36,6 +37,14 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).toContain('await downloadModel(model.id)');
         expect(modelManagerSource).toContain('await validateModel(model.id)');
         expect(modelManagerSource).toContain('await activateModel(model.id)');
+    });
+
+    it('sweeps the host devices and auto-sets the fastest inference provider', () => {
+        expect(modelManagerSource).toContain('runWizardDeviceSweep');
+        expect(modelManagerSource).toContain('pickFastestProvider');
+        expect(modelManagerSource).toContain("updateSettings({ inference_provider: best.provider })");
+        // Non-fatal: a failed sweep must not fail the install.
+        expect(modelManagerSource).toContain('model_manager_device_skip');
     });
 
     it('cannot be dismissed mid-run', () => {

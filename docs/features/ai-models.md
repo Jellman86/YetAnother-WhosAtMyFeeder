@@ -20,9 +20,14 @@ by the connection tests — with three stages:
 
 1. **Download** — fetches the model with live progress shown in the dialog (skipped when the model
    is already downloaded).
-2. **Run on this hardware** — trial-loads the model and pushes one frame through it on this host,
-   checking it produces finite output (not NaN/garbage on an unsupported accelerator).
-3. **Enable for selection** — makes it active, restoring your previous model if validation fails.
+2. **Run on this hardware** — trial-loads the model and pushes a few frames through it on this host,
+   checking it produces finite output (not NaN/garbage on an unsupported accelerator) and reporting
+   the per-frame inference latency.
+3. **Find fastest device** — sweeps this host's inference devices (CPU / Intel GPU / NPU) with each
+   compile isolated in a subprocess, then sets your inference provider to the fastest one that
+   passed. Hosts with no accelerator simply stay on CPU/Auto; a busy or unavailable sweep is
+   non-fatal and leaves your current setting untouched.
+4. **Enable for selection** — makes it active, restoring your previous model if validation fails.
 
 A model that has never been validated on this host shows **Validate to enable** instead of **Use
 this model**, and the API rejects activating it (`409`). The model already running and bundled

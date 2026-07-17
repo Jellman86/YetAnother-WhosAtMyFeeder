@@ -7,6 +7,9 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
+    import { startModelEvalRun, listModelEvalRuns, getModelEvalDeviceMatrix } from '../../api/model_eval';
+    import { updateSettings } from '../../api/settings';
+    import { pickFastestProvider } from './device_optimize';
     let {
         birdCropDetectorTier = 'fast',
     }: {
@@ -434,6 +437,7 @@
                     : t('settings.detection.model_manager_install_already_downloaded', 'Already downloaded.')
             },
             { id: 'validate', label: t('settings.detection.model_manager_validate_stage_run', 'Run on this hardware'), state: 'pending', message: '' },
+            { id: 'optimize', label: t('settings.detection.model_manager_install_stage_optimize', 'Find fastest device'), state: 'pending', message: '' },
             { id: 'enable', label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'), state: 'pending', message: '' }
         ];
         wizardStages = stages;
@@ -484,18 +488,59 @@
             return;
         }
 
-        // Stage 3 — enable for selection
-        set(2, { state: 'running', message: checking });
+        // Stage 3 — sweep this host's devices and set the fastest as the inference
+        // provider. Non-fatal: a host with no accelerators (or a busy evaluation) just
+        // stays on the current setting; the model still installs.
+        set(2, { state: 'running', message: t('settings.detection.model_manager_device_sweeping', 'Comparing your devices…') });
+        try {
+            const runId = await runWizardDeviceSweep((label) => set(2, { state: 'running', message: label }));
+            const matrix = runId ? await getModelEvalDeviceMatrix(runId) : null;
+            const best = pickFastestProvider(matrix, model.id);
+            if (best) {
+                await updateSettings({ inference_provider: best.provider });
+                set(2, {
+                    state: 'passed',
+                    message: t('settings.detection.model_manager_device_set', 'Fastest: {device} · {ms} ms — set as your inference device.', { device: best.device, ms: Math.round(best.latencyMs) })
+                });
+            } else {
+                set(2, { state: 'passed', message: t('settings.detection.model_manager_device_cpu', 'No faster accelerator validated; staying on CPU/Auto.') });
+            }
+        } catch {
+            set(2, { state: 'warning', message: t('settings.detection.model_manager_device_skip', 'Could not compare devices; keeping your current inference setting.') });
+        }
+
+        // Stage 4 — enable for selection
+        set(3, { state: 'running', message: checking });
         try {
             await activateModel(model.id);
-            set(2, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
+            set(3, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
             wizardResult = { ok: true, message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') };
         } catch (e) {
-            await fail(2, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
+            await fail(3, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
             return;
         }
         wizardBusy = false;
         installedModels = await fetchInstalledModels();
+    }
+
+    // Run the device sweep (compat-only) to completion and return its run id, or null
+    // if it could not run (e.g. another evaluation is already in progress).
+    async function runWizardDeviceSweep(onLabel: (label: string) => void): Promise<string | null> {
+        let runId: string;
+        try {
+            ({ run_id: runId } = await startModelEvalRun({ sweep_devices: true, compat_only: true }));
+        } catch {
+            return null; // 409 conflict or similar — skip optimisation, keep going
+        }
+        const deadline = Date.now() + 10 * 60 * 1000; // safety cap
+        for (;;) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const list = await listModelEvalRuns();
+            const active = list.active;
+            if (!active || active.run_id !== runId) return runId; // finished
+            if (active.progress?.label) onLabel(t('settings.detection.model_manager_device_sweeping_label', 'Comparing your devices… {label}', { label: active.progress.label }));
+            if (Date.now() > deadline) return runId;
+        }
     }
 
     function handleInstall(model: ModelMetadata) {
