@@ -465,7 +465,7 @@
         <button
             type="button"
             onclick={loadData}
-            class="btn btn-secondary min-h-11 self-start"
+            class="btn btn-secondary min-h-11 px-4 self-start"
             aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
             title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
         >
@@ -537,7 +537,7 @@
                                     }
                                 }
                             }}
-                            class="btn btn-secondary min-h-11 shrink-0"
+                            class="btn btn-secondary min-h-11 px-4 shrink-0"
                         >
                             {showAdvancedModels
                                 ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
@@ -708,7 +708,7 @@
                                                 type="button"
                                                 onclick={() => handleDownload(selectedCropDetector)}
                                                 disabled={selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
-                                                class="btn btn-secondary min-h-11 shrink-0"
+                                                class="btn btn-secondary min-h-11 px-4 shrink-0"
                                             >
                                                 {selectedCropDetectorInstalled
                                                     ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
@@ -754,7 +754,7 @@
                                 {/if}
                                 <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                                     {#if installed}
-                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11">
+                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11 px-4">
                                             {ready
                                                 ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
                                                 : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
@@ -764,7 +764,7 @@
                                                 type="button"
                                                 onclick={() => handleActivate(model.id)}
                                                 disabled={activating !== null}
-                                                class="btn btn-primary min-h-11"
+                                                class="btn btn-primary min-h-11 px-4"
                                             >
                                                 {activating === model.id
                                                     ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
@@ -775,7 +775,7 @@
                                                 type="button"
                                                 onclick={() => handleValidate(model)}
                                                 disabled={validationBusy}
-                                                class="btn btn-primary min-h-11"
+                                                class="btn btn-primary min-h-11 px-4"
                                             >
                                                 {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
                                             </button>
@@ -785,7 +785,7 @@
                                             </span>
                                         {/if}
                                     {:else}
-                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-primary min-h-11">
+                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-primary min-h-11 px-4">
                                             {$_('settings.detection.model_manager_download', { default: 'Download model' })}
                                         </button>
                                     {/if}
