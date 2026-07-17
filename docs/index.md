@@ -18,6 +18,7 @@ Everything you need to get the containers running and configured correctly.
 - **[🔌 MQTT Broker Setup](setup/mqtt-broker.md)** - Running Mosquitto alongside Frigate and connecting all three containers.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
+- **[🌱 Environment Variables](setup/environment-variables.md)** - Complete reference for every env override, with defaults.
 - **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Run classification on an Intel GPU, Intel NPU, or NVIDIA CUDA, with device passthrough and fallback behaviour.
 
 ## 🔌 API & Development
