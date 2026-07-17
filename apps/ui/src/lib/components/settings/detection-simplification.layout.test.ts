@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import diagnosticDialogSource from '../DiagnosticDialog.svelte?raw';
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 
@@ -52,5 +53,16 @@ describe('Detection settings simplification', () => {
         expect(advancedSectionSource).toContain('focus-visible:ring-2');
         expect(advancedSectionSource).not.toContain('text-[9px]');
         expect(advancedSectionSource).not.toContain('<div class="flex items-center gap-2 min-w-0">');
+    });
+
+    it('keeps device compatibility warnings and skipped checks honest', () => {
+        expect(detectionSettingsSource).toContain('<DiagnosticDialog');
+        expect(detectionSettingsSource).toContain("state: 'warning'");
+        expect(detectionSettingsSource).not.toContain("if (state === 'skipped') state = 'passed'");
+        expect(detectionSettingsSource).toContain('ok: !failed && !warned && !skipped');
+        expect(detectionSettingsSource).toContain('compat_results_unavailable');
+        expect(detectionSettingsSource.match(/cdRunId \+= 1/g)).toHaveLength(3);
+        expect(diagnosticDialogSource).toContain("s.state === 'skipped'");
+        expect(diagnosticDialogSource).toContain("stage.state === 'warning'");
     });
 });

@@ -19,6 +19,8 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import type { DiagnosticStage, DiagnosticStageState, DiagnosticResult } from '../../utils/diagnostic-runner';
 
     const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
 
@@ -89,6 +91,8 @@
     let compatPoll: ReturnType<typeof setInterval> | null = null;
 
     async function runCompatCheck() {
+        cdOpen = true;
+        cdRunId += 1;
         compatError = null;
         compatMatrix = null;
         compatRunning = true;
@@ -114,9 +118,24 @@
                         compatRunning = false;
                         compatPhase = 'complete';
                         try {
-                            compatMatrix = await getModelEvalDeviceMatrix(run_id);
-                        } catch {
+                            const matrix = await getModelEvalDeviceMatrix(run_id);
+                            if (!matrix) {
+                                throw new Error(
+                                    $_('settings.detection.compat_results_unavailable', {
+                                        default: 'Compatibility results could not be loaded. Please retry.'
+                                    })
+                                );
+                            }
+                            compatMatrix = matrix;
+                            cdRunId += 1;
+                        } catch (error) {
                             compatMatrix = null;
+                            compatError = error instanceof Error && error.message.trim()
+                                ? error.message
+                                : $_('settings.detection.compat_results_unavailable', {
+                                    default: 'Compatibility results could not be loaded. Please retry.'
+                                });
+                            cdRunId += 1;
                         }
                     }
                 } catch {
@@ -143,6 +162,75 @@
         }
         return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
     }
+
+    // Present the compatibility run through the shared DiagnosticDialog: one stage
+    // per device, aggregated from the matrix. `warning` is honest for a device that
+    // runs but whose results differ from the CPU baseline.
+    let cdOpen = $state(false);
+    let cdRunId = $state(0);
+
+    type CompatRow = DeviceMatrix['models'][string];
+
+    function compatCellOutcome(row: CompatRow | undefined, dev: string): { state: DiagnosticStageState; note: string } {
+        if (!row || row.error) return { state: 'skipped', note: '—' };
+        const e = row.devices?.[dev];
+        if (!e) return { state: 'skipped', note: '—' };
+        if (!e.compiles) return { state: 'failed', note: $_('settings.detection.compat_note_fails', { default: 'fails to compile' }) };
+        if (e.finite === false) return { state: 'failed', note: $_('settings.detection.compat_note_nan', { default: 'non-finite output' }) };
+        if (dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
+        const n = e.images_compared;
+        if (e.matches_cpu && n) return { state: 'passed', note: $_('settings.detection.compat_note_match', { default: '{n}/{n} match CPU', values: { n } }) };
+        if (typeof e.top1_match_rate === 'number' && n) {
+            return { state: 'warning', note: $_('settings.detection.compat_note_partial', { default: '{m}/{n} match CPU', values: { m: Math.round(e.top1_match_rate * n), n } }) };
+        }
+        return { state: 'passed', note: $_('settings.detection.compat_note_runs', { default: 'runs' }) };
+    }
+
+    const compatStateRank: Record<DiagnosticStageState, number> = { pending: 0, running: 0, skipped: 1, passed: 2, warning: 3, failed: 4 };
+
+    function compatDeviceStage(matrix: DeviceMatrix, dev: string): DiagnosticStage {
+        let state: DiagnosticStageState = 'skipped';
+        const parts: string[] = [];
+        for (const [mid, row] of Object.entries(matrix.models)) {
+            const outcome = compatCellOutcome(row, dev);
+            if (compatStateRank[outcome.state] > compatStateRank[state]) state = outcome.state;
+            parts.push(`${mid}: ${outcome.note}`);
+        }
+        return { id: dev, label: dev, state, message: parts.join(' · ') };
+    }
+
+    const compatDialogStages = $derived.by((): DiagnosticStage[] => {
+        const matrix = compatMatrix;
+        if (!matrix) {
+            return [{
+                id: 'run',
+                label: $_('settings.detection.compat_stage_run', { default: "Validating this host's devices" }),
+                state: compatRunning ? 'running' : 'pending',
+                message: compatProgress
+                    ? `${compatProgress.done}/${compatProgress.total} · ${compatProgress.label}`
+                    : $_('settings.detection.compat_stage_run_hint', { default: 'Compiling and comparing each device against the CPU baseline…' })
+            }];
+        }
+        return matrix.devices.map((dev) => compatDeviceStage(matrix, dev));
+    });
+
+    const compatDialogResult = $derived.by((): DiagnosticResult | null => {
+        if (compatError) return { ok: false, message: compatError };
+        if (!compatMatrix) return null;
+        const failed = compatDialogStages.some((s) => s.state === 'failed');
+        const warned = compatDialogStages.some((s) => s.state === 'warning');
+        const skipped = compatDialogStages.some((s) => s.state === 'skipped');
+        return {
+            ok: !failed && !warned && !skipped,
+            message: failed
+                ? $_('settings.detection.compat_result_failed', { default: 'Some devices failed validation — see the breakdown below.' })
+                : skipped
+                    ? $_('settings.detection.compat_result_skipped', { default: 'Some devices could not be validated — see the breakdown below.' })
+                    : warned
+                        ? $_('settings.detection.compat_result_warn', { default: 'All devices run, but some differ from the CPU baseline.' })
+                        : $_('settings.detection.compat_result_ok', { default: 'All devices match the CPU baseline.' })
+        };
+    });
 
     onDestroy(() => {
         if (compatPoll) clearInterval(compatPoll);
@@ -840,3 +928,17 @@
         {/if}
     </SettingsCard>
 </div>
+
+{#if cdOpen}
+    <DiagnosticDialog
+        title={$_('settings.detection.compat_test_title', { default: 'Device compatibility check' })}
+        subtitle={$_('settings.detection.compat_test_subtitle', { default: 'Validates each detected device (Intel GPU/NPU, CUDA) against the CPU baseline for the installed model(s).' })}
+        stages={compatDialogStages}
+        busy={compatRunning}
+        result={compatDialogResult}
+        runId={cdRunId}
+        retryLabel={$_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+        onClose={() => (cdOpen = false)}
+        onRetry={runCompatCheck}
+    />
+{/if}

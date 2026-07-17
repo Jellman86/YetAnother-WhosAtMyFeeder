@@ -29,8 +29,8 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   (dark: teal/emerald → slate). A `YA-WAMF` eyebrow in
   `text-[10px] font-black uppercase tracking-[0.22em] text-teal-700`, then a
   `text-2xl font-black` title and a calm `text-sm` subtitle.
-- **Progress:** a row of equal-width segments — teal for passed, red for failed,
-  pulsing teal for the running step, slate for pending. A visually-hidden
+- **Progress:** a row of equal-width segments — teal for passed, amber for warnings,
+  red for failed, pulsing teal for the running step, slate for pending/skipped. A visually-hidden
   `role="progressbar"` mirrors it for assistive tech.
 - **Checklist:** one bordered container with `divide-y` rows — **not** a stack of
   separate cards. Each row is a small status disc (number → ✓ / ! / –) plus a
@@ -49,9 +49,10 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   steps forward. **A step only turns green when its check actually passed** — the
   reveal controls *when* a resolved step appears, never *whether* it passed. This
   is [`CLAUDE.md`](../../CLAUDE.md) §1/§5: never imply state that did not happen.
-- **Every state is legible:** pending, running, passed, failed, skipped. A
+- **Every state is legible:** pending, running, passed, warning, failed, skipped. A
   failure stops the run, colours its row, and states the cause and next step in
-  plain language (Nielsen #9) — not an error code.
+  plain language (Nielsen #9) — not an error code. Warning and skipped outcomes
+  remain terminal but must not be promoted to a pass or produce a green summary.
 - **Keyboard & focus:** `Escape` closes, focus is trapped while open, and body
   scroll is locked. Bump `runId` on each run so the reveal restarts.
 

@@ -6,7 +6,10 @@ import { _ } from 'svelte-i18n';
  * See docs/standards/diagnostics-and-dialogs.md — one stage per *independently
  * verified* check, and a stage only turns green when its check actually passed.
  */
-export type DiagnosticStageState = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
+// `warning` is an honest "it ran, but with a caveat" outcome (e.g. a device that
+// produces results differing from the CPU baseline) — passing would overstate it,
+// failing would understate it.
+export type DiagnosticStageState = 'pending' | 'running' | 'passed' | 'failed' | 'skipped' | 'warning';
 
 export interface DiagnosticStage {
     id: string;

@@ -79,7 +79,11 @@
         })
     );
 
-    const completed = $derived(displayStages.filter((s) => s.state === 'passed' || s.state === 'failed').length);
+    const completed = $derived(
+        displayStages.filter(
+            (s) => s.state === 'passed' || s.state === 'failed' || s.state === 'warning' || s.state === 'skipped'
+        ).length
+    );
     const progress = $derived(stages.length === 0 ? 0 : Math.round((completed / stages.length) * 100));
 
     onMount(() => {
@@ -99,6 +103,7 @@
     function stageIcon(state: DiagnosticStageState): string {
         if (state === 'passed') return '✓';
         if (state === 'failed') return '!';
+        if (state === 'warning') return '!';
         if (state === 'skipped') return '–';
         return '';
     }
@@ -136,7 +141,7 @@
 
             <div class="flex items-center gap-1.5" aria-hidden="true">
                 {#each displayStages as stage}
-                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-teal-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'running' ? 'animate-pulse bg-teal-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
+                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-teal-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'warning' ? 'bg-amber-500' : stage.state === 'running' ? 'animate-pulse bg-teal-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
                 {/each}
             </div>
             <span class="sr-only" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
@@ -151,8 +156,8 @@
 
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
-                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'running' ? 'bg-teal-50/60 dark:bg-teal-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'passed' ? 'bg-emerald-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-teal-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
+                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-teal-50/60 dark:bg-teal-950/15' : ''}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-emerald-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-teal-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">
