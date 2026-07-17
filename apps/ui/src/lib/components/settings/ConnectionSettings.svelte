@@ -226,6 +226,9 @@
     {#snippet frigateIcon()}
         <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-6 h-6 object-contain" />
     {/snippet}
+    {#snippet camerasIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3" /></svg>
+    {/snippet}
 
     <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
         <SettingsRow
@@ -454,7 +457,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.cameras.title')}>
+    <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
         <div class="space-y-3 max-h-[36rem] overflow-y-auto pr-2 custom-scrollbar">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">

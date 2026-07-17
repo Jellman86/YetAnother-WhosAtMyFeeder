@@ -52,7 +52,11 @@
     }
 </script>
 
-<SettingsCard title={$_('theme.title')}>
+{#snippet appearanceIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42M7.06 16.94l-1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" /></svg>
+{/snippet}
+
+<SettingsCard accent iconSnippet={appearanceIcon} title={$_('theme.title')}>
     <SettingsRow
         labelId="setting-theme"
         label={$_('theme.title')}

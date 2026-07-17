@@ -103,8 +103,17 @@
     }
 </script>
 
+{#snippet authIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" /></svg>
+{/snippet}
+{#snippet publicAccessIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3.5 9h17M3.5 15h17M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" /></svg>
+{/snippet}
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
     <SettingsCard
+        accent
+        iconSnippet={authIcon}
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
     >
@@ -264,6 +273,8 @@
     </SettingsCard>
 
     <SettingsCard
+        accent
+        iconSnippet={publicAccessIcon}
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
     >
