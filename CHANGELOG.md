@@ -12,6 +12,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   stepped checklist that advances as each check passes. Settings → Integrations also gets calmer
   card headers with a subtle icon per service, and the settings navigation drops its blue accent
   stripe for the same teal/emerald used across the rest of settings.
+- **Settings panels read more consistently.** Each panel card now leads with a matching icon and,
+  where it helps, a one-line summary of what it does. Settings → Detection opens with a short
+  description and keeps its confidence slider up front, with model management, fine-tuning, and
+  runtime diagnostics tucked into their existing advanced sections.
 
 ### Fixed
 - **The AI model diagnostic now dims the whole screen and steps through its checks.** When you

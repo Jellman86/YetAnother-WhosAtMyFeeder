@@ -247,7 +247,19 @@
 </script>
 
 <div class="space-y-6">
-    <SettingsCard title={$_('settings.detection.classification_engine')}>
+    {#snippet engineIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M7.05 7.05l2.12 2.12m5.66 5.66 2.12 2.12m0-9.9-2.12 2.12m-5.66 5.66-2.12 2.12M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+    {/snippet}
+    {#snippet blockedIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
+    {/snippet}
+
+    <SettingsCard
+        accent
+        iconSnippet={engineIcon}
+        title={$_('settings.detection.classification_engine')}
+        description={$_('settings.detection.classification_engine_desc', { default: 'How feeder snapshots are classified — confidence, model, and hardware acceleration.' })}
+    >
         {#if classifierStatus?.active_model_id}
             <div class="flex flex-col gap-1 border-b border-slate-200 pb-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-4" role="status">
                 <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -726,7 +738,7 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.detection.blocked_labels')}>
+    <SettingsCard accent iconSnippet={blockedIcon} title={$_('settings.detection.blocked_labels')}>
         <p class="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
             {$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
         </p>
