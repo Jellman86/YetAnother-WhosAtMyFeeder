@@ -354,6 +354,10 @@
             />
         </SettingsRow>
 
+        <AdvancedSection
+            id="connection-full-visit"
+            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips (from recordings)' })}
+        >
         <SettingsRow
             labelId="setting-recording-clips"
             label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
@@ -417,10 +421,6 @@
         </div>
 
         {#if recordingClipEnabled}
-        <AdvancedSection
-            id="connection-advanced"
-            title={$_('settings.connection.advanced_title', { default: 'Tuning' })}
-        >
                 <div class="grid grid-cols-2 gap-3">
                     <SettingsRow
                         labelId="setting-recording-before"
@@ -453,8 +453,8 @@
                         />
                     </SettingsRow>
                 </div>
-        </AdvancedSection>
         {/if}
+        </AdvancedSection>
     </SettingsCard>
 
     <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>

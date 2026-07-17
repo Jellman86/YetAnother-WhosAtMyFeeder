@@ -17,6 +17,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   where it helps, a one-line summary of what it does. Settings → Detection opens with a short
   description and keeps its confidence slider up front, with model management, fine-tuning, and
   runtime diagnostics tucked into their existing advanced sections.
+- **Fewer rarely-touched options up front.** Settings → Connection now tucks the full-visit
+  recording-clip feature behind an advanced disclosure (basic "fetch clips" stays visible), matching
+  how Authentication already hides session expiry, trusted proxies, guest day-windows, rate limits,
+  and the external URL. Anything hidden this way still has an environment-variable override.
+
+### Documentation
+- **Every environment variable is now documented.** A new
+  [Environment variables](docs/setup/environment-variables.md) reference lists every override the
+  config loader reads — names, defaults, and the handful of settings that are UI/file-only —
+  linked from the configuration guide and docs index.
 
 ### Fixed
 - **The AI model diagnostic now dims the whole screen and steps through its checks.** When you
