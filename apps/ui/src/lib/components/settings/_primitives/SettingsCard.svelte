@@ -12,10 +12,9 @@
         // "Clear history").  Kept in the header so every card has the same
         // top-level affordance position.
         actions?: Snippet;
-        // When true the header renders as the shared "guided" gradient band (the
-        // same teal→emerald language as the setup wizard and DiagnosticDialog) with
-        // a tinted icon tile. Off by default so cards that have not opted in keep
-        // their existing plain header. See docs/standards/diagnostics-and-dialogs.md.
+        // When true the leading icon tile is tinted teal to give a card a light
+        // brand accent. Off by default (slate tile). The header itself stays plain
+        // either way — no gradient band.
         accent?: boolean;
         children: Snippet;
     }
@@ -24,12 +23,7 @@
 </script>
 
 <section class="card-base overflow-hidden rounded-3xl backdrop-blur-md">
-    <header
-        class="flex items-start justify-between gap-4 px-6 md:px-8
-               {accent
-                   ? 'bg-gradient-to-r from-teal-50 via-emerald-50 to-white py-5 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-slate-900'
-                   : 'pt-6 md:pt-8 pb-6'}"
-    >
+    <header class="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-6">
         <div class="flex items-start gap-3 min-w-0">
             {#if iconSnippet}
                 <div
@@ -59,7 +53,7 @@
         {/if}
     </header>
 
-    <div class="space-y-4 px-6 md:px-8 pb-6 md:pb-8 {accent ? 'pt-6' : ''}">
+    <div class="space-y-4 px-6 md:px-8 pb-6 md:pb-8">
         {@render children()}
     </div>
 </section>
