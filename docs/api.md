@@ -174,6 +174,7 @@ Notes:
 - `GET /api/settings` (owner)
 - `POST /api/settings` (owner)
 - `POST /api/settings/birdnet/test` (owner)
+- `GET /api/settings/birdnet/reachability` (owner) — checks the configured BirdNET-Go URL answers over HTTP
 - `POST /api/settings/mqtt/test-publish` (owner)
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)

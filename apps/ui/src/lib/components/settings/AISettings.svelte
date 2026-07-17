@@ -150,6 +150,7 @@
     {/snippet}
 
     <SettingsCard
+        accent
         title={$_('settings.ai.connection_title', { default: 'Model Configuration' })}
         iconSnippet={aiIcon}
     >
