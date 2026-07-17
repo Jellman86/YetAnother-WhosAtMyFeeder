@@ -77,6 +77,11 @@ class InstalledModel(YAWAMFBaseModel):
     is_active: bool
     ready: bool = True
     reason: str = "ready"
+    # Post-install selection gate: `ready` means the files are present and loadable
+    # (the device sweep relies on this to know what it can probe); `validated` means
+    # this host has proven the model runs here, and is what gates activation.
+    validated: bool = True
+    validation_reason: str = "validated"
     metadata: Optional[ModelMetadata] = None
 
 

@@ -3,6 +3,7 @@ from pydantic import BaseModel, JsonValue
 from typing import List, Optional
 from app.config import settings
 from app.services.model_manager import model_manager
+from app.services.model_validation import run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
 from app.auth import require_owner, AuthContext
@@ -13,6 +14,13 @@ router = APIRouter()
 class ModelActionResponse(BaseModel):
     status: str
     message: str
+
+
+class ModelValidateResponse(BaseModel):
+    model_id: str
+    ok: bool
+    provider: str
+    reason: str
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -55,9 +63,45 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
     return status
 
 
+@router.post("/models/{model_id}/validate", response_model=ModelValidateResponse)
+async def validate_model(model_id: str, auth: AuthContext = Depends(require_owner)):
+    """Validate an installed model on this host: run one frame through it and record
+    whether it produced finite output here. Clears the selection gate on success.
+    Restores the previously active model afterwards. Owner only.
+    """
+    installed = await model_manager.list_installed_models()
+    target = next((m for m in installed if m.id == model_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Model not installed")
+    if not target.ready:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model install is incomplete ({target.reason}); download it before validating.",
+        )
+
+    # The probe trial-activates the candidate and restores the previously active model
+    # (persisting it) before returning, so no extra reconciliation is needed here.
+    return await run_validation_probe(model_id)
+
+
 @router.post("/models/{model_id}/activate", response_model=ModelActionResponse)
 async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
-    """Set a specific model as the active classifier. Owner only."""
+    """Set a specific model as the active classifier. Owner only.
+
+    Post-install selection gate: a model this host has never validated cannot be
+    activated through the API — the caller must run `/validate` first. This guards
+    every path (Model Manager, the settings picker, a raw POST), not just the UI.
+    """
+    installed = await model_manager.list_installed_models()
+    target = next((m for m in installed if m.id == model_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Model not installed")
+    if not target.validated:
+        raise HTTPException(
+            status_code=409,
+            detail="This model has not been validated on your hardware yet. Run validation before selecting it.",
+        )
+
     success = await model_manager.activate_model(model_id)
     if not success:
         raise HTTPException(status_code=404, detail="Model not installed")

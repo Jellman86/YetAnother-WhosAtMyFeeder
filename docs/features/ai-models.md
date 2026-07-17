@@ -12,6 +12,23 @@ You can manage models directly from the **Settings > Detection > Model Manager**
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
+### Validate before you select (post-install gate)
+
+A downloaded model is *installed* (files present) but not yet *validated* (proven to run on your
+specific hardware). Before a model can be made active, the Model Manager runs a guided
+**Validate & enable** step — the same staged dialog used by the connection tests — that:
+
+1. Trial-loads the model and pushes one frame through it on this host, checking it produces finite
+   output (not NaN/garbage on an unsupported accelerator), then
+2. Enables it and makes it active, restoring your previous model if validation fails.
+
+A model that has never been validated on this host shows **Validate to enable** instead of **Use
+this model**, and the API rejects activating it (`409`). The model already running and bundled
+models are grandfathered, so upgrading never blocks a working install. Validation works on every
+host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO — because it exercises the real classifier on
+whatever provider your machine resolves. On Intel/OpenVINO hosts the [device compatibility
+sweep](model-evaluation.md) also clears the gate.
+
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
 For ONNX models, YA-WAMF supports a provider selector in **Settings > Detection**:

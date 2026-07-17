@@ -85,9 +85,20 @@ manager instance and are restored after every case group; `summary.json`, `resul
 `failures.csv` remain available for review. The current decision rule and baseline measurements are
 documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-model-crop-policy.md).
 
+## Post-install validation gate
+
+The `compat_only` device sweep writes a per-host `device_eligibility.json` (Intel/OpenVINO devices
+that compiled and matched the CPU baseline). That record is one of two signals that clear the
+**post-install selection gate** — a model cannot be made active until this host has proven it runs
+here. The other, host-agnostic signal is the Model Manager's **Validate & enable** probe
+(`POST /api/models/{id}/validate`), which trial-loads the model and runs one frame through the live
+classifier, so CPU-only and CUDA hosts (which the OpenVINO sweep does not cover) can also clear the
+gate. See [AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
+
 ## Related files
 
 - Backend service: `backend/app/services/model_eval_service.py`
+- Selection gate + validate probe: `backend/app/services/model_validation.py`
 - Image fetch + species panel: `backend/app/services/eval/`
 - Sanity checks: `backend/app/services/eval/sanity_checks.py`
 - HTTP router: `backend/app/routers/model_eval.py`

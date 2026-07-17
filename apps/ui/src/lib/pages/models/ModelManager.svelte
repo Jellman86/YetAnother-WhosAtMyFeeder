@@ -2,9 +2,11 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
+    import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     let {
         birdCropDetectorTier = 'fast',
     }: {
@@ -19,7 +21,14 @@
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
     let activating = $state<string | null>(null);
-    let selectedModelId = $state<string | null>(null); 
+    let selectedModelId = $state<string | null>(null);
+
+    // Post-install selection gate: the validate-and-enable guided dialog.
+    let validationModel = $state<ModelMetadata | null>(null);
+    let validationStages = $state<DiagnosticStage[]>([]);
+    let validationBusy = $state(false);
+    let validationResult = $state<DiagnosticResult | null>(null);
+    let validationRunId = $state(0);
     let showAdvancedModels = $state(false);
     let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
 
@@ -207,6 +216,13 @@
         return installedModels.some(m => m.id === modelId && m.is_active && m.ready !== false);
     }
 
+    function isValidated(modelId: string): boolean {
+        const installed = getInstalledModel(modelId);
+        // Default to permissive if the field is absent (older backend) so we never
+        // block selection on a contract the server does not yet report.
+        return Boolean(installed && installed.validated !== false);
+    }
+
     function isCropDetectorInstalled(modelId: string): boolean {
         return installedModels.some((model) => model.id === modelId);
     }
@@ -377,6 +393,63 @@
             activating = null;
         }
     }
+
+    // Guided validate-and-enable for a downloaded-but-unvalidated model. Two real
+    // sequential checks: the model must run on this hardware, then it is enabled.
+    async function handleValidate(model: ModelMetadata) {
+        if (validationBusy) return;
+        validationModel = model;
+        validationResult = null;
+        validationBusy = true;
+        validationRunId += 1;
+
+        const outcome = await runSequentialDiagnostic(
+            [
+                {
+                    id: 'validate',
+                    label: t('settings.detection.model_manager_validate_stage_run', 'Run on this hardware'),
+                    run: async () => {
+                        const result = await validateModel(model.id);
+                        return {
+                            status: result.ok ? 'ok' : 'error',
+                            message: result.ok
+                                ? t(
+                                      'settings.detection.model_manager_validate_ran_ok',
+                                      'Ran on {provider} and produced valid output.',
+                                      { provider: result.provider }
+                                  )
+                                : result.reason
+                        };
+                    }
+                },
+                {
+                    id: 'enable',
+                    label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'),
+                    run: async () => {
+                        await activateModel(model.id);
+                        return {
+                            status: 'ok',
+                            message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.')
+                        };
+                    }
+                }
+            ],
+            (stages) => {
+                validationStages = stages;
+            }
+        );
+
+        validationResult = outcome;
+        validationBusy = false;
+        installedModels = await fetchInstalledModels();
+    }
+
+    function closeValidation() {
+        if (validationBusy) return;
+        validationModel = null;
+        validationStages = [];
+        validationResult = null;
+    }
 </script>
 
 <div class="space-y-6">
@@ -481,6 +554,7 @@
                     {@const installed = Boolean(installedEntry)}
                     {@const ready = isReady(model.id)}
                     {@const active = isActive(model.id)}
+                    {@const validated = isValidated(model.id)}
                     {@const download = downloadStatuses[model.id]}
                     {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
                     {@const category = categorizeModel(model)}
@@ -551,6 +625,10 @@
                             {#if installed && !ready}
                                 <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200" role="alert">
                                     {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
+                                </div>
+                            {:else if installed && !active && !validated}
+                                <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-200">
+                                    {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
                                 </div>
                             {/if}
                         </div>
@@ -681,7 +759,7 @@
                                                 ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
                                                 : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
                                         </button>
-                                        {#if ready && !active}
+                                        {#if ready && !active && validated}
                                             <button
                                                 type="button"
                                                 onclick={() => handleActivate(model.id)}
@@ -691,6 +769,15 @@
                                                 {activating === model.id
                                                     ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
                                                     : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
+                                            </button>
+                                        {:else if ready && !active && !validated}
+                                            <button
+                                                type="button"
+                                                onclick={() => handleValidate(model)}
+                                                disabled={validationBusy}
+                                                class="btn btn-primary min-h-11"
+                                            >
+                                                {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
                                             </button>
                                         {:else if active}
                                             <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-teal-700 dark:text-teal-300">
@@ -717,3 +804,25 @@
         {/if}
     {/if}
 </div>
+
+{#if validationModel}
+    <DiagnosticDialog
+        title={$_('settings.detection.model_manager_validate_title', { default: 'Validate & enable model' })}
+        subtitle={$_('settings.detection.model_manager_validate_subtitle', {
+            default: 'Confirm this model runs on your hardware, then enable it for selection.'
+        })}
+        stages={validationStages}
+        busy={validationBusy}
+        result={validationResult}
+        runId={validationRunId}
+        note={$_('settings.detection.model_manager_validate_note', {
+            default: 'Validation trial-loads the model and runs one frame through it, then restores your current model.'
+        })}
+        onClose={closeValidation}
+        onRetry={() => validationModel && handleValidate(validationModel)}
+    >
+        {#snippet summary()}
+            {validationModel?.name}
+        {/snippet}
+    </DiagnosticDialog>
+{/if}

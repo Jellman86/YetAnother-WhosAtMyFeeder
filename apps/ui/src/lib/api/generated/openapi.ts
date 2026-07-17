@@ -834,6 +834,8 @@ export interface components {
     path: string;
     ready?: boolean;
     reason?: string;
+    validated?: boolean;
+    validation_reason?: string;
 };
     JsonValue: unknown;
     LeaderboardAnalysisRequest: {
@@ -954,6 +956,12 @@ export interface components {
     taxonomy_scope: string;
     tier: string;
     weights_url?: string | null;
+};
+    ModelValidateResponse: {
+    model_id: string;
+    ok: boolean;
+    provider: string;
+    reason: string;
 };
     NotificationTestRequest: {
     api_token?: string | null;
@@ -2959,6 +2967,17 @@ export interface paths {
       response: components['schemas']['ModelActionResponse'];
     };
   };
+  "/api/models/{model_id}/validate": {
+    post: {
+      operationId: "validate_model_api_models__model_id__validate_post";
+      path: {
+    model_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelValidateResponse'];
+    };
+  };
   "/api/settings": {
     get: {
       operationId: "get_settings_api_settings_get";
@@ -2973,6 +2992,15 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['SettingsUpdate'];
       response: components['schemas']['SettingsUpdateResponse'];
+    };
+  };
+  "/api/settings/birdnet/reachability": {
+    get: {
+      operationId: "test_birdnet_reachability_api_settings_birdnet_reachability_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/birdnet/test": {

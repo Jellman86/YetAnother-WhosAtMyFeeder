@@ -14,6 +14,7 @@ from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
+from app.services.model_validation import is_model_validated
 from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 
@@ -1442,9 +1443,23 @@ class ModelManager:
 
         # Check persistent storage first (overrides bundled)
         check_dir(MODELS_DIR)
+        persistent_ids = set(seen_ids)
 
-        # Check bundled assets
+        # Check bundled assets. Anything discovered only here ships with the image
+        # and is grandfathered past the selection gate — the default must always run.
         check_dir(assets_dir, is_bundled=True)
+        bundled_ids = seen_ids - persistent_ids
+
+        # Post-install selection gate: mark each model validated / unvalidated for
+        # this host so the API and UI can block activation of never-validated models.
+        for model in installed:
+            validated, reason = is_model_validated(
+                model.id,
+                active_model_id=self.active_model_id,
+                bundled_ids=bundled_ids,
+            )
+            model.validated = validated
+            model.validation_reason = reason
 
         return installed
 

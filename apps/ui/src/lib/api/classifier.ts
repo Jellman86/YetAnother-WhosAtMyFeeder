@@ -341,6 +341,20 @@ export async function activateModel(modelId: string): Promise<ModelActionResult>
     return handleResponse<ModelActionResult>(response);
 }
 
+export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
+
+/**
+ * Validate an installed model on this host: the backend trial-loads it, runs one
+ * frame through it, and records whether it produced finite output here. Clears the
+ * post-install selection gate on success and restores the previously active model.
+ */
+export async function validateModel(modelId: string): Promise<ModelValidateResult> {
+    const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {
+        method: 'POST',
+    });
+    return handleResponse<ModelValidateResult>(response);
+}
+
 export async function analyzeDetection(
     eventId: string,
     force: boolean = false,

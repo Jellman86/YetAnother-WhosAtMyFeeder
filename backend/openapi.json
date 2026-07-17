@@ -5678,6 +5678,16 @@
             "default": "ready",
             "title": "Reason",
             "type": "string"
+          },
+          "validated": {
+            "default": true,
+            "title": "Validated",
+            "type": "boolean"
+          },
+          "validation_reason": {
+            "default": "validated",
+            "title": "Validation Reason",
+            "type": "string"
           }
         },
         "required": [
@@ -6476,6 +6486,34 @@
           "recommended_for"
         ],
         "title": "ModelMetadata",
+        "type": "object"
+      },
+      "ModelValidateResponse": {
+        "properties": {
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id",
+          "ok",
+          "provider",
+          "reason"
+        ],
+        "title": "ModelValidateResponse",
         "type": "object"
       },
       "NotificationTestRequest": {
@@ -19153,7 +19191,7 @@
     },
     "/api/models/{model_id}/activate": {
       "post": {
-        "description": "Set a specific model as the active classifier. Owner only.",
+        "description": "Set a specific model as the active classifier. Owner only.\n\nPost-install selection gate: a model this host has never validated cannot be\nactivated through the API \u2014 the caller must run `/validate` first. This guards\nevery path (Model Manager, the settings picker, a raw POST), not just the UI.",
         "operationId": "activate_model_api_models__model_id__activate_post",
         "parameters": [
           {
@@ -19259,6 +19297,60 @@
         ]
       }
     },
+    "/api/models/{model_id}/validate": {
+      "post": {
+        "description": "Validate an installed model on this host: run one frame through it and record\nwhether it produced finite output here. Clears the selection gate on success.\nRestores the previously active model afterwards. Owner only.",
+        "operationId": "validate_model_api_models__model_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Validate Model",
+        "tags": [
+          "models"
+        ]
+      }
+    },
     "/api/settings": {
       "get": {
         "description": "Get application settings with secrets redacted. Owner only.\nSecrets are never returned via API for security reasons.",
@@ -19335,6 +19427,36 @@
           }
         ],
         "summary": "Update Settings"
+      }
+    },
+    "/api/settings/birdnet/reachability": {
+      "get": {
+        "description": "Verify the configured BirdNET-Go instance answers over HTTP. Owner only.\n\nBirdNET-Go detections arrive over MQTT, so the URL is optional (it powers\nspectrograms). When it is set, an HTTP response \u2014 any status \u2014 proves the\nBirdNET-Go server itself is up and reachable from the backend.",
+        "operationId": "test_birdnet_reachability_api_settings_birdnet_reachability_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Test Birdnet Reachability"
       }
     },
     "/api/settings/birdnet/test": {
