@@ -238,8 +238,15 @@
         </div>
     {/if}
 
+    {#snippet retentionIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l3 1.5" /></svg>
+    {/snippet}
+    {#snippet cacheIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z" /><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg>
+    {/snippet}
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <SettingsCard title={$_('settings.data.retention_title')}>
+        <SettingsCard accent iconSnippet={retentionIcon} title={$_('settings.data.retention_title')}>
             <SettingsRow
                 labelId="setting-retention-days"
                 label={$_('settings.data.history_duration')}
@@ -339,7 +346,7 @@
             </AdvancedSection>
         </SettingsCard>
 
-        <SettingsCard title={$_('settings.data.cache_title')}>
+        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title')}>
             <SettingsRow
                 labelId="setting-cache-enabled"
                 label={$_('settings.data.cache_title')}

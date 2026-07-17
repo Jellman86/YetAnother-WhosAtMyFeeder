@@ -302,8 +302,12 @@
 </script>
 
 <div class="space-y-6">
+    {#snippet notificationsIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>
+    {/snippet}
+
     <!-- Global Notification Filters -->
-    <SettingsCard title={$_('settings.notifications.global_filters')}>
+    <SettingsCard accent iconSnippet={notificationsIcon} title={$_('settings.notifications.global_filters')}>
         <div class="space-y-6">
             <!-- Delivery Policy -->
             <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20">
