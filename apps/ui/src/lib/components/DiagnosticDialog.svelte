@@ -55,7 +55,12 @@
     // the guided setup. This never fabricates a pass — a stage still shows its
     // real state; the reveal only controls *when* a resolved stage appears.
     let tick = $state(0);
-    const resolvedCount = $derived(stages.filter((s) => s.state !== 'pending').length);
+    // Only *terminal* stages count as resolved. A stage that is still `running`
+    // must not advance the reveal, or the dialog would force the next stage to
+    // "running" while the current one (e.g. a live download) is still in flight.
+    const resolvedCount = $derived(
+        stages.filter((s) => s.state === 'passed' || s.state === 'failed' || s.state === 'warning' || s.state === 'skipped').length
+    );
     const revealed = $derived(Math.min(resolvedCount, tick));
 
     $effect(() => {

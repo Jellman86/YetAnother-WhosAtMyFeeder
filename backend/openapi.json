@@ -6490,6 +6490,17 @@
       },
       "ModelValidateResponse": {
         "properties": {
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
           "model_id": {
             "title": "Model Id",
             "type": "string"

@@ -30,6 +30,7 @@ import asyncio
 import json
 import math
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -78,7 +79,9 @@ def read_validation_record(model_id: str) -> dict | None:
         return None
 
 
-def write_validation_record(model_id: str, *, provider: str, ok: bool, reason: str) -> None:
+def write_validation_record(
+    model_id: str, *, provider: str, ok: bool, reason: str, latency_ms: float | None = None
+) -> None:
     """Record the outcome of a host-agnostic validate probe, preserving every other
     model's record. Fail-soft: a write error is logged, never raised."""
     if not model_id:
@@ -98,6 +101,7 @@ def write_validation_record(model_id: str, *, provider: str, ok: bool, reason: s
             "validated": bool(ok),
             "provider": str(provider or "").strip().lower(),
             "reason": reason,
+            "latency_ms": latency_ms,
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
         path.write_text(
@@ -187,7 +191,7 @@ async def run_validation_probe(model_id: str) -> dict:
         if not activated:
             reason = "model files are missing or incomplete"
             write_validation_record(model_id, provider=provider, ok=False, reason=reason)
-            return {"model_id": model_id, "ok": False, "provider": provider, "reason": reason}
+            return {"model_id": model_id, "ok": False, "provider": provider, "reason": reason, "latency_ms": None}
 
         await classifier.reload_bird_model()
         try:
@@ -196,16 +200,25 @@ async def run_validation_probe(model_id: str) -> dict:
         except Exception:
             provider = "cpu"
 
+        # Run a few frames and take the median: the first frame can include one-off
+        # warmup, and the median is what the user will actually experience per bird.
         image = await asyncio.to_thread(_synthetic_probe_image)
-        results = await asyncio.to_thread(classifier.classify, image, input_context={"is_cropped": False})
+        results = None
+        samples: list[float] = []
+        for _ in range(3):
+            t0 = time.perf_counter()
+            results = await asyncio.to_thread(classifier.classify, image, input_context={"is_cropped": False})
+            samples.append((time.perf_counter() - t0) * 1000.0)
+        latency_ms = round(sorted(samples)[len(samples) // 2], 1) if samples else None
+
         ok, reason = _judge_predictions(results)
-        write_validation_record(model_id, provider=provider, ok=ok, reason=reason)
-        return {"model_id": model_id, "ok": ok, "provider": provider, "reason": reason}
+        write_validation_record(model_id, provider=provider, ok=ok, reason=reason, latency_ms=latency_ms)
+        return {"model_id": model_id, "ok": ok, "provider": provider, "reason": reason, "latency_ms": latency_ms}
     except Exception as e:
         reason = f"validation errored: {e}"
         log.warning("model_validation_probe_failed", model_id=model_id, error=str(e))
         write_validation_record(model_id, provider=provider, ok=False, reason=reason)
-        return {"model_id": model_id, "ok": False, "provider": provider, "reason": reason}
+        return {"model_id": model_id, "ok": False, "provider": provider, "reason": reason, "latency_ms": None}
     finally:
         # Restore the model that was active before the trial so a validation run never
         # silently changes what the user is running.

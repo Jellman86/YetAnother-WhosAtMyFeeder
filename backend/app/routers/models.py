@@ -21,6 +21,7 @@ class ModelValidateResponse(BaseModel):
     ok: bool
     provider: str
     reason: str
+    latency_ms: Optional[float] = None
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])

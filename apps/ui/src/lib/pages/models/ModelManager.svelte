@@ -476,7 +476,9 @@
                 await fail(1, result.reason);
                 return;
             }
-            set(1, { state: 'passed', message: t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider} and produced valid output.', { provider: result.provider }) });
+            let ranMsg = t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider} and produced valid output.', { provider: result.provider });
+            if (result.latency_ms) ranMsg += ` · ${Math.round(result.latency_ms)} ms/frame`;
+            set(1, { state: 'passed', message: ranMsg });
         } catch (e) {
             await fail(1, e instanceof Error ? e.message : t('settings.detection.model_manager_validate_failed', 'Validation failed.'));
             return;
@@ -878,6 +880,7 @@
         note={$_('settings.detection.model_manager_install_note', {
             default: 'Each step runs on your hardware. Nothing becomes active until validation passes.'
         })}
+        runningLabel={$_('common.working', { default: 'Working…' })}
         onClose={closeWizard}
         onRetry={() => wizardModel && runInstallWizard(wizardModel, { download: wizardDownload })}
     >

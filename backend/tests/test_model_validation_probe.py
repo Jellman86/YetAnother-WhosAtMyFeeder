@@ -74,9 +74,13 @@ async def test_probe_success_writes_validated_record(tmp_path, monkeypatch):
 
     assert result["ok"] is True
     assert result["provider"] == "intel_gpu"
+    # Inference latency is measured and recorded so the wizard can report it.
+    assert isinstance(result["latency_ms"], float)
+    assert result["latency_ms"] >= 0
     record = mv.read_validation_record("small_birds")
     assert record["validated"] is True
     assert record["provider"] == "intel_gpu"
+    assert "latency_ms" in record
 
 
 @pytest.mark.asyncio

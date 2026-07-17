@@ -958,6 +958,7 @@ export interface components {
     weights_url?: string | null;
 };
     ModelValidateResponse: {
+    latency_ms?: number | null;
     model_id: string;
     ok: boolean;
     provider: string;
