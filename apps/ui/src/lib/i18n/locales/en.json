@@ -2073,8 +2073,8 @@
     "setup_failed": "Setup failed"
   },
   "telemetry_banner": {
-    "title": "Help improve YA-WAMF!",
-    "body": "Enable anonymous usage stats to guide development priorities and validate that this project serves the bird enthusiast community.",
+    "title": "Share anonymous usage stats?",
+    "body": "They show which features actually get used, so time goes to the parts people rely on. Opt-in, no personal data, off by default.",
     "learn_more": "Learn more",
     "enabling": "Enabling...",
     "enable": "Enable",
