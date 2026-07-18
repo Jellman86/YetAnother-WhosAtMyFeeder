@@ -100,6 +100,24 @@ Leaderboards are working data views, not award ceremonies or collections of summ
 - Lazy-load below-fold species images, use stable thumbnail dimensions and quiet vector fallbacks,
   and retain a visible 44px focusable target for every row that opens detail.
 
+## 6. History and log surfaces
+
+History views are working records first and analytics dashboards second:
+
+- Put the filter controls directly above the record they affect. Keep the active window, confidence,
+  species, and source visible without making the user open a configuration panel.
+- Lead with a semantic table when its comparison columns fit. Reflow the same rows into a compact
+  vertical log on phones; do not force horizontal scrolling or duplicate the dataset in separate
+  desktop and mobile markup unless the information genuinely differs.
+- Page long histories in manageable batches so later context stays reachable. Keep current range,
+  total count, previous/next availability, loading, empty, error, retry, and refresh state explicit.
+- Use the most honest per-record artifact as the visual anchor. For audio history this is the
+  spectrogram; stock species artwork is only a secondary recognition aid and must be labelled and
+  positioned accordingly.
+- Put trends, distributions, top-species summaries, and source rollups after the log. Use dividers
+  and whitespace rather than a card around every chart, and keep chart labels readable at phone
+  widths and in both colour themes.
+
 ---
 
 ## References

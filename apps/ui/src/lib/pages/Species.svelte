@@ -1330,6 +1330,8 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex flex-wrap gap-2" aria-label={$_('leaderboard.title')}>
             <button
+                type="button"
+                aria-pressed={span === 'month'}
                 onclick={() => span = 'month'}
                 class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
@@ -1340,6 +1342,8 @@
                 {$_('leaderboard.sort_by_month')}
             </button>
             <button
+                type="button"
+                aria-pressed={span === 'week'}
                 onclick={() => span = 'week'}
                 class="tab-button {span === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
@@ -1349,6 +1353,8 @@
                 {$_('leaderboard.sort_by_week')}
             </button>
             <button
+                type="button"
+                aria-pressed={span === 'day'}
                 onclick={() => span = 'day'}
                 class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
@@ -1359,6 +1365,8 @@
                 {$_('leaderboard.sort_by_day')}
             </button>
             <button
+                type="button"
+                aria-pressed={span === 'all'}
                 onclick={() => span = 'all'}
                 class="tab-button {span === 'all' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
@@ -1374,6 +1382,7 @@
                 <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/70 p-0.5" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
                     <button
                         type="button"
+                        aria-pressed={sourceMode === 'seen'}
                         onclick={() => sourceMode = 'seen'}
                         class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 {sourceMode === 'seen' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
@@ -1382,6 +1391,7 @@
                     </button>
                     <button
                         type="button"
+                        aria-pressed={sourceMode === 'heard'}
                         onclick={() => sourceMode = 'heard'}
                         class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 {sourceMode === 'heard' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
@@ -1390,6 +1400,7 @@
                     </button>
                     <button
                         type="button"
+                        aria-pressed={sourceMode === 'both'}
                         onclick={() => sourceMode = 'both'}
                         class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 {sourceMode === 'both' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
@@ -1550,14 +1561,14 @@
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
                         <tr>
-                            <th class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
-                            <th class="w-[36%] px-3 py-3">{$_('leaderboard.species')}</th>
-                            <th class="px-3 py-3 text-right">{$_('leaderboard.source_seen', { default: 'Seen' })}</th>
-                            {#if birdnetEnabled}<th class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>
-                            <th class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>
-                            <th class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
-                            <th class="hidden w-36 px-3 py-3 lg:table-cell">{$_('leaderboard.last_seen')}</th>
+                            <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
+                            <th scope="col" class="w-[36%] px-3 py-3">{$_('leaderboard.species')}</th>
+                            <th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_seen', { default: 'Seen' })}</th>
+                            {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
+                            <th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>
+                            <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>
+                            <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
+                            <th scope="col" class="hidden w-36 px-3 py-3 lg:table-cell">{$_('leaderboard.last_seen')}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1565,7 +1576,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
-                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold {index < 3 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
+                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
                                         <span class="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
@@ -1574,8 +1585,8 @@
                                         <span class="min-w-0"><span class="flex items-center gap-2"><span class="block truncate font-semibold text-slate-900 group-hover:text-teal-700 dark:text-white dark:group-hover:text-teal-300">{item.displayName}</span>{#if item.audio_only}<svg class="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-label={$_('leaderboard.audio_only', { default: 'Audio only' })}><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0m7 7v4m-4 0h8M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5z" /></svg>{/if}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>
                                     </button>
                                 </td>
-                                <td class="px-3 py-3 text-right"><span class="font-semibold text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-emerald-500/70" style="width: {rowCountPct}%"></span></span></td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right"><span class="font-semibold text-teal-700 dark:text-teal-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-teal-500/70" style="width: {rowHeardPct}%"></span></span></td>{/if}
+                                <td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-emerald-500/70" style="width: {rowCountPct}%"></span></span></td>
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-teal-700 dark:text-teal-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-teal-500/70" style="width: {rowHeardPct}%"></span></span></td>{/if}
                                 <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(item.delta ?? 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : (item.delta ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : formatTrend(item.delta, item.percent)}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.avg_confidence ?? 0).toFixed(2)}</td>

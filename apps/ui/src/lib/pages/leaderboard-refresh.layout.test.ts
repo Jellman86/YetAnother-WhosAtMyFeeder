@@ -39,4 +39,11 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('min-h-11');
         expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
     });
+
+    it('exposes toggle state and table headings to assistive technology', () => {
+        expect(leaderboardSource).toContain("aria-pressed={span === 'month'}");
+        expect(leaderboardSource).toContain("aria-pressed={sourceMode === 'seen'}");
+        expect(leaderboardSource.match(/scope="col"/g)?.length ?? 0).toBeGreaterThanOrEqual(6);
+        expect(leaderboardSource).toContain('tabular-nums');
+    });
 });

@@ -19,9 +19,10 @@
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import type { ApexOptions } from 'apexcharts';
 
-    const PAGE_SIZE = 100;
+    const PAGE_SIZE = 25;
 
     let days = $state(30);
     let speciesFilter = $state('');
@@ -33,8 +34,10 @@
     let error = $state<string | null>(null);
     let offset = $state(0);
     let birdnetExternalUrl = $state('');
+    let reduceMotion = $state(false);
+    let selectedSpecies = $state<string | null>(null);
 
-    // Species recognition thumbnails for the "Top heard species" cards, reusing the
+    // Species recognition thumbnails for the top-species summary, reusing the
     // same lazy per-species fetch + cache the visual leaderboard uses. These are a
     // recognition aid (a stock photo of the species), not the bird that was heard —
     // the spectrogram in the detail table is the honest per-detection artifact.
@@ -61,7 +64,7 @@
             const info = await fetchSpeciesInfo(name);
             speciesInfoCache = { ...speciesInfoCache, [key]: info };
         } catch {
-            // Enrichment disabled or lookup failed — the card falls back to the 🐦 placeholder.
+            // Enrichment disabled or lookup failed — the list falls back to a neutral icon.
         } finally {
             const { [key]: _discarded, ...rest } = speciesInfoPending;
             speciesInfoPending = rest;
@@ -69,7 +72,7 @@
     }
 
     $effect(() => {
-        for (const item of (summary?.top_species ?? []).slice(0, 9)) {
+        for (const item of (summary?.top_species ?? []).slice(0, 6)) {
             if (item.species) void loadSpeciesInfo(item.species);
         }
     });
@@ -189,14 +192,14 @@
         const points = summary?.daily_counts ?? [];
         const data = points.map((p) => ({ x: new Date(`${p.date}T00:00:00Z`).getTime(), y: p.count }));
         return {
-            chart: { type: 'area', height: 240, toolbar: { show: false }, animations: { enabled: true, speed: 450 }, fontFamily: 'inherit' },
+            chart: { type: 'area', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 250 }, fontFamily: 'inherit' },
             series: [{ name: $_('audio.chart.heard', { default: 'Heard' }), type: 'area', data }],
             colors: ['#14b8a6'],
             dataLabels: { enabled: false },
             stroke: { curve: 'smooth', width: 2 },
             fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.03, stops: [0, 100] } },
-            xaxis: { type: 'datetime', labels: { style: { colors: '#94a3b8', fontSize: '10px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
-            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: (v: number) => `${Math.round(v)}` } },
+            xaxis: { type: 'datetime', labels: { style: { colors: '#94a3b8', fontSize: '12px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
+            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '12px' }, formatter: (v: number) => `${Math.round(v)}` } },
             grid: { borderColor: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)', strokeDashArray: 4, padding: { left: 8, right: 8 } },
             tooltip: { theme: isDark ? 'dark' : 'light', x: { format: 'dd MMM yyyy' } }
         };
@@ -208,21 +211,21 @@
             if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
         }
         return {
-            chart: { type: 'bar', height: 240, toolbar: { show: false }, animations: { enabled: true, speed: 350 }, fontFamily: 'inherit' },
+            chart: { type: 'bar', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 200 }, fontFamily: 'inherit' },
             series: [{ name: $_('audio.chart.heard', { default: 'Heard' }), type: 'bar', data: counts.map((c, h) => ({ x: `${String(h).padStart(2, '0')}`, y: c })) }],
             colors: ['#14b8a6'],
             dataLabels: { enabled: false },
             plotOptions: { bar: { borderRadius: 3, columnWidth: '68%' } },
             xaxis: {
                 labels: {
-                    style: { colors: '#94a3b8', fontSize: '9px' },
+                    style: { colors: '#94a3b8', fontSize: '12px' },
                     formatter: (val: string) => (Number(val) % 3 === 0 ? `${val}:00` : '')
                 },
                 axisBorder: { show: false },
                 axisTicks: { show: false },
                 tickPlacement: 'on'
             },
-            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '10px' }, formatter: (v: number) => `${Math.round(v)}` } },
+            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '12px' }, formatter: (v: number) => `${Math.round(v)}` } },
             grid: { borderColor: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)', strokeDashArray: 4 },
             tooltip: { theme: isDark ? 'dark' : 'light', x: { formatter: (val: number) => `${String(val).padStart(2, '0')}:00` } }
         };
@@ -234,67 +237,79 @@
         const series = top.map((s) => s.count);
         const total = series.reduce((a, b) => a + b, 0);
         return {
-            chart: { type: 'donut', height: 240, toolbar: { show: false }, animations: { enabled: true, speed: 450 }, fontFamily: 'inherit' },
+            chart: { type: 'donut', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 250 }, fontFamily: 'inherit' },
             series,
             labels,
             colors: audioPalette.slice(0, labels.length),
-            dataLabels: { enabled: true, formatter: (val: number) => (val >= 6 ? `${Math.round(val)}%` : ''), style: { fontSize: '10px', fontWeight: 600, colors: ['#fff'] }, dropShadow: { enabled: false } },
+            dataLabels: { enabled: true, formatter: (val: number) => (val >= 6 ? `${Math.round(val)}%` : ''), style: { fontSize: '12px', fontWeight: 600, colors: ['#fff'] }, dropShadow: { enabled: false } },
             plotOptions: {
                 pie: {
                     donut: {
                         size: '62%',
                         labels: {
                             show: true,
-                            total: { show: true, showAlways: true, label: $_('audio.chart.heard', { default: 'Heard' }), fontSize: '11px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', formatter: () => total.toLocaleString() },
+                            total: { show: true, showAlways: true, label: $_('audio.chart.heard', { default: 'Heard' }), fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', formatter: () => total.toLocaleString() },
                             value: { show: true, fontSize: '15px', fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b', formatter: (val: string) => Number(val).toLocaleString() },
-                            name: { show: true, fontSize: '10px', color: isDark ? '#94a3b8' : '#64748b' }
+                            name: { show: true, fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b' }
                         }
                     }
                 }
             },
             stroke: { width: 1.5, colors: [isDark ? '#1e293b' : '#ffffff'] },
-            legend: { position: 'bottom', fontSize: '11px', labels: { colors: isDark ? '#94a3b8' : '#64748b' }, itemMargin: { horizontal: 6, vertical: 2 } },
+            legend: { position: 'bottom', fontSize: '12px', labels: { colors: isDark ? '#94a3b8' : '#64748b' }, itemMargin: { horizontal: 6, vertical: 2 } },
             tooltip: { theme: isDark ? 'dark' : 'light' }
         };
     });
 
     onMount(() => {
+        const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const syncMotionPreference = () => {
+            reduceMotion = motionPreference.matches || document.documentElement.classList.contains('reduced-motion');
+        };
+        const classObserver = new MutationObserver(syncMotionPreference);
+        syncMotionPreference();
+        motionPreference.addEventListener('change', syncMotionPreference);
+        classObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         void loadAudioHistory();
         void loadBirdnetUrl();
+        return () => {
+            motionPreference.removeEventListener('change', syncMotionPreference);
+            classObserver.disconnect();
+        };
     });
 </script>
 
-<div class="space-y-6">
-    <!-- Stat tiles -->
-    <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="card-base rounded-2xl p-4">
-            <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</p>
-            <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">{(summary?.total ?? 0).toLocaleString()}</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET detections in view' })}</p>
-        </div>
-        <div class="card-base rounded-2xl p-4">
-            <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</p>
-            <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">{summary?.species_count ?? 0}</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Audio-derived species' })}</p>
-        </div>
-        <div class="card-base rounded-2xl p-4">
-            <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</p>
-            <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">{peakHour ? hourLabel(peakHour.hour) : '—'}</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: `${peakHour.count} detections` }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</p>
-        </div>
-        <div class="card-base rounded-2xl p-4">
-            <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</p>
-            <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">{summary?.source_count ?? 0}</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</p>
-        </div>
+<div class="space-y-10" data-audio-history-page>
+    <section class="border-y border-slate-200/80 dark:border-slate-800" data-audio-history-summary aria-label={$_('audio.history.title')}>
+        <dl class="grid grid-cols-2 lg:grid-cols-4">
+            <div class="border-b border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0">
+                <dt class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
+                <dd class="mt-1 text-2xl font-black tabular-nums text-slate-900 dark:text-white">{(summary?.total ?? 0).toLocaleString()}</dd>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET detections in view' })}</p>
+            </div>
+            <div class="border-b border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0 lg:border-r">
+                <dt class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</dt>
+                <dd class="mt-1 text-2xl font-black tabular-nums text-slate-900 dark:text-white">{summary?.species_count ?? 0}</dd>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Audio-derived species' })}</p>
+            </div>
+            <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
+                <dt class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
+                <dd class="mt-1 text-2xl font-black tabular-nums text-slate-900 dark:text-white">{peakHour ? hourLabel(peakHour.hour) : '—'}</dd>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: `${peakHour.count} detections` }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</p>
+            </div>
+            <div class="px-3 py-4 sm:px-5">
+                <dt class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
+                <dd class="mt-1 text-2xl font-black tabular-nums text-slate-900 dark:text-white">{summary?.source_count ?? 0}</dd>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</p>
+            </div>
+        </dl>
     </section>
 
-    <!-- Filters -->
-    <section class="card-base rounded-2xl p-4">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-5">
-            <label class="space-y-1">
+    <section class="border-b border-slate-200/80 pb-6 dark:border-slate-800" data-audio-history-filters>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto]">
+            <label class="space-y-1.5">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select bind:value={days} class="select-base font-semibold">
+                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-teal-500">
                     <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
                     <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
                     <option value={30}>{$_('audio.filter.30d', { default: '30 days' })}</option>
@@ -302,212 +317,234 @@
                     <option value={365}>{$_('audio.filter.1y', { default: '1 year' })}</option>
                 </select>
             </label>
-            <label class="space-y-1">
+            <label class="space-y-1.5">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
-                <input bind:value={speciesFilter} class="input-base" placeholder="Dunnock" />
+                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-teal-500" placeholder="Dunnock" />
             </label>
-            <label class="space-y-1">
+            <label class="space-y-1.5">
                 <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
-                <input bind:value={sourceFilter} class="input-base" placeholder="BirdCam" />
+                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-teal-500" placeholder="BirdCam" />
             </label>
-            <label class="space-y-1">
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('audio.filter.min_confidence', { default: 'Min confidence' })} · {confidencePercent(minConfidence)}</span>
-                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="h-10 w-full accent-teal-600" />
+            <label class="space-y-1.5">
+                <span class="flex justify-between gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    <span>{$_('audio.filter.min_confidence', { default: 'Min confidence' })}</span>
+                    <span class="tabular-nums text-teal-700 dark:text-teal-300">{confidencePercent(minConfidence)}</span>
+                </span>
+                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-teal-600 focus-visible:ring-2 focus-visible:ring-teal-500" />
             </label>
-            <div class="flex items-end gap-2">
-                <button type="button" class="btn btn-primary flex-1 px-4 py-2.5" onclick={applyFilters}>{$_('common.apply', { default: 'Apply' })}</button>
-                <button type="button" class="btn btn-secondary flex-1 px-4 py-2.5" onclick={clearFilters}>{$_('common.clear', { default: 'Clear' })}</button>
+            <div class="flex items-end gap-2 md:col-span-2 xl:col-span-1">
+                <button type="button" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-teal-500 xl:flex-none" onclick={applyFilters} disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
+                <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-teal-500 xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
         </div>
     </section>
 
-    {#if error}
-        <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-            {error}
-        </div>
-    {/if}
-
-    <!-- Daily activity timeline -->
-    <section class="card-base rounded-2xl p-4">
-        <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-                <h2 class="text-lg font-black text-slate-900 dark:text-white">{$_('audio.chart.daily_title', { default: 'Activity over time' })}</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('audio.chart.daily_sub', { default: 'BirdNET-Go detections heard per day' })}</p>
+    <section class="space-y-5" data-audio-history-log>
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex min-w-0 items-start gap-3">
+                <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300">
+                    <svg data-audio-section-icon aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h3>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
+                </div>
             </div>
+            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={() => void loadAudioHistory()} disabled={loading}>
+                <svg aria-hidden="true" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 10-2.34 5.66M20 12v-5m0 5h-5" /></svg>
+                {$_('common.refresh', { default: 'Refresh' })}
+            </button>
         </div>
-        {#if loading}
-            <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
-        {:else if hasDaily}
-            {#key `${days}-${isDark}`}
-                <div use:chart={dailyChartOptions()} class="w-full"></div>
-            {/key}
+
+        {#if error}
+            <div role="alert" class="flex flex-col gap-3 border-y border-red-200 bg-red-50/70 px-4 py-4 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>{error}</span>
+                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-teal-500" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+            </div>
+        {:else if loading}
+            <div class="space-y-1 border-y border-slate-200/80 py-2 dark:border-slate-800" aria-label={$_('common.loading', { default: 'Loading' })}>
+                {#each Array.from({ length: 8 }) as _}
+                    <div class="h-16 animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+                {/each}
+            </div>
+        {:else if detections.length === 0}
+            <div class="border-y border-dashed border-slate-300 px-4 py-12 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {$_('audio.history.empty', { default: 'No BirdNET detections match these filters.' })}
+            </div>
         {:else}
-            <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+            <table class="block w-full text-sm md:table" data-audio-history-table>
+                <thead class="hidden border-y border-slate-200/80 md:table-header-group dark:border-slate-800">
+                    <tr class="text-left text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        <th scope="col" class="py-3 pr-4">{$_('audio.table.sound', { default: 'Sound' })}</th>
+                        <th scope="col" class="py-3 pr-4">{$_('audio.table.species', { default: 'Species' })}</th>
+                        <th scope="col" class="py-3 pr-4">{$_('audio.table.time', { default: 'Time' })}</th>
+                        <th scope="col" class="py-3 pr-4">{$_('audio.table.source', { default: 'Source' })}</th>
+                        <th scope="col" class="py-3 text-right">{$_('audio.table.confidence', { default: 'Confidence' })}</th>
+                    </tr>
+                </thead>
+                <tbody class="block divide-y divide-slate-200/80 border-y border-slate-200/80 md:table-row-group md:border-0 dark:divide-slate-800 dark:border-slate-800">
+                    {#each detections as detection}
+                        {@const spec = spectrogramUrl(detection.birdnet_id)}
+                        {@const link = birdnetDetectionUrl(detection.birdnet_id)}
+                        <tr class="grid grid-cols-[5rem_minmax(0,1fr)_auto] grid-rows-2 gap-x-3 py-3 text-slate-700 md:table-row md:py-0 dark:text-slate-200">
+                            <td class="row-span-2 flex items-center md:table-cell md:w-28 md:py-3 md:pr-4">
+                                {#if spec}
+                                    {#if link}
+                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
+                                            <img data-audio-spectrogram src={spec} alt={detection.species} loading="lazy" class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
+                                        </a>
+                                    {:else}
+                                        <img data-audio-spectrogram src={spec} alt={detection.species} loading="lazy" class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
+                                    {/if}
+                                {:else}
+                                    <div class="flex h-12 w-20 items-center justify-center rounded-md bg-slate-100 text-slate-400 md:w-24 dark:bg-slate-800 dark:text-slate-500">
+                                        <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
+                                    </div>
+                                {/if}
+                            </td>
+                            <td class="col-start-2 row-start-1 min-w-0 self-end truncate font-black text-slate-900 md:table-cell md:py-3 md:pr-4 dark:text-white">{detection.species}</td>
+                            <td class="col-start-2 row-start-2 min-w-0 self-start text-xs text-slate-500 md:table-cell md:whitespace-nowrap md:py-3 md:pr-4 md:text-sm dark:text-slate-400">
+                                <span class="md:font-bold">{formatDate(detection.timestamp)}</span>
+                                <span class="before:mx-1 before:content-['·'] md:block md:before:content-none">{formatTime(detection.timestamp, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            </td>
+                            <td class="col-start-3 row-start-2 max-w-28 self-start truncate text-right text-xs text-slate-500 md:table-cell md:max-w-48 md:py-3 md:pr-4 md:text-left md:text-sm dark:text-slate-400">
+                                {detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}
+                            </td>
+                            <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right md:table-cell md:py-3">
+                                <span class="font-black tabular-nums {detection.confidence > 0.7 ? 'text-green-600 dark:text-green-300' : 'text-amber-600 dark:text-amber-300'}">{confidencePercent(detection.confidence)}</span>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+            <div class="flex flex-col gap-3 border-b border-slate-200/80 py-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
+                <span class="tabular-nums">{$_('audio.history.showing', { values: { from: offset + 1, to: Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0), total: history?.total ?? 0 }, default: `Showing ${offset + 1}-${Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0)} of ${history?.total ?? 0}` })}</span>
+                <div class="grid grid-cols-2 gap-2 sm:flex">
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
+                </div>
+            </div>
         {/if}
     </section>
 
-    <!-- Hourly + species distribution -->
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section class="card-base rounded-2xl p-4">
-            <h2 class="mb-3 text-base font-black text-slate-900 dark:text-white">{$_('audio.chart.hourly_title', { default: 'Time of day' })}</h2>
+    <section class="min-w-0 space-y-8 border-t border-slate-200/80 pt-8 dark:border-slate-800" data-audio-history-analytics>
+        <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                <svg data-audio-section-icon aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white">{$_('leaderboard.analytics_section')}</h3>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$_('audio.chart.daily_sub', { default: 'BirdNET-Go detections heard per day' })}</p>
+            </div>
+        </div>
+
+        <section class="min-w-0 border-y border-slate-200/80 py-6 dark:border-slate-800">
+            <h4 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.chart.daily_title', { default: 'Activity over time' })}</h4>
             {#if loading}
-                <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
-            {:else if hasHourly}
-                {#key `${days}-${isDark}`}
-                    <div use:chart={hourlyChartOptions()} class="w-full"></div>
+                <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+            {:else if hasDaily}
+                {#key `${days}-${isDark}-${reduceMotion}`}
+                    <div use:chart={dailyChartOptions()} class="mt-3 w-full"></div>
                 {/key}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
             {/if}
         </section>
-        <section class="card-base rounded-2xl p-4">
-            <h2 class="mb-3 text-base font-black text-slate-900 dark:text-white">{$_('audio.chart.species_title', { default: 'Species mix' })}</h2>
-            {#if loading}
-                <div class="h-[240px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
-            {:else if hasSpecies}
-                {#key `${days}-${isDark}`}
-                    <div use:chart={speciesDonutOptions()} class="w-full"></div>
-                {/key}
-            {:else}
-                <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
-            {/if}
-        </section>
-    </div>
 
-    <!-- Top heard species cards -->
-    {#if hasSpecies}
-        <section class="card-base rounded-2xl p-4">
-            <h2 class="mb-4 text-base font-black text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h2>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {#each (summary?.top_species ?? []).slice(0, 9) as item, index}
-                    {@const thumb = cachedSpeciesThumb(item.species)}
-                    <div class="rounded-xl border border-slate-200/70 bg-slate-50/60 p-3 dark:border-slate-700/60 dark:bg-slate-900/30">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex min-w-0 items-start gap-3">
-                                <div class="h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
-                                    {#if thumb}
-                                        <img src={thumb} alt={item.species} loading="lazy" class="h-full w-full object-cover" />
-                                    {:else}
-                                        <div class="flex h-full w-full items-center justify-center text-base text-slate-400 dark:text-slate-500">🐦</div>
-                                    {/if}
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-black text-slate-400 dark:text-slate-500">#{index + 1}</span>
-                                        <span class="truncate font-black text-slate-900 dark:text-white">{item.species}</span>
-                                    </div>
-                                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        {$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}
-                                    </p>
-                                    <div class="mt-1.5 flex items-center gap-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                                        <span>{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
-                                        <span>{$_('audio.card.max', { default: 'max' })} {confidencePercent(item.max_confidence)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <span class="flex-shrink-0 rounded-full bg-teal-100 px-2.5 py-1 text-sm font-black text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">{item.count}</span>
-                        </div>
-                    </div>
-                {/each}
-            </div>
-        </section>
-    {/if}
+        <div class="grid min-w-0 border-b border-slate-200/80 lg:grid-cols-2 lg:divide-x lg:divide-slate-200/80 dark:border-slate-800 dark:lg:divide-slate-800">
+            <section class="min-w-0 border-b border-slate-200/80 py-6 lg:border-b-0 lg:pr-6 dark:border-slate-800">
+                <h4 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.chart.hourly_title', { default: 'Time of day' })}</h4>
+                {#if loading}
+                    <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+                {:else if hasHourly}
+                    {#key `${days}-${isDark}-${reduceMotion}`}
+                        <div use:chart={hourlyChartOptions()} class="mt-3 w-full"></div>
+                    {/key}
+                {:else}
+                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                {/if}
+            </section>
+            <section class="min-w-0 py-6 lg:pl-6">
+                <h4 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.chart.species_title', { default: 'Species mix' })}</h4>
+                {#if loading}
+                    <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+                {:else if hasSpecies}
+                    {#key `${days}-${isDark}-${reduceMotion}`}
+                        <div use:chart={speciesDonutOptions()} class="mt-3 w-full"></div>
+                    {/key}
+                {:else}
+                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                {/if}
+            </section>
+        </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <!-- Detail table -->
-        <section class="card-base rounded-2xl p-4">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <div>
-                    <h2 class="text-lg font-black text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
-                </div>
-                <button type="button" class="btn btn-secondary px-4 py-2 text-sm" onclick={() => void loadAudioHistory()} disabled={loading}>{$_('common.refresh', { default: 'Refresh' })}</button>
-            </div>
-
-            {#if loading}
-                <div class="space-y-2">
-                    {#each Array.from({ length: 8 }) as _}
-                        <div class="h-16 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
-                    {/each}
-                </div>
-            {:else if detections.length === 0}
-                <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    {$_('audio.history.empty', { default: 'No BirdNET detections match these filters.' })}
-                </div>
-            {:else}
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                        <thead>
-                            <tr class="text-left text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                <th class="py-2 pr-4">{$_('audio.table.sound', { default: 'Sound' })}</th>
-                                <th class="py-2 pr-4">{$_('audio.table.time', { default: 'Time' })}</th>
-                                <th class="py-2 pr-4">{$_('audio.table.species', { default: 'Species' })}</th>
-                                <th class="py-2 pr-4">{$_('audio.table.source', { default: 'Source' })}</th>
-                                <th class="py-2 pr-4 text-right">{$_('audio.table.confidence', { default: 'Confidence' })}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            {#each detections as detection}
-                                {@const spec = spectrogramUrl(detection.birdnet_id)}
-                                {@const link = birdnetDetectionUrl(detection.birdnet_id)}
-                                <tr class="text-slate-700 dark:text-slate-200">
-                                    <td class="py-2.5 pr-4">
-                                        {#if spec}
-                                            {#if link}
-                                                <a href={link} target="_blank" rel="noopener noreferrer" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
-                                                    <img src={spec} alt="" loading="lazy" class="h-9 w-24 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-700" />
-                                                </a>
-                                            {:else}
-                                                <img src={spec} alt="" loading="lazy" class="h-9 w-24 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-700" />
-                                            {/if}
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <section>
+                <h4 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h4>
+                {#if hasSpecies}
+                    <ol class="mt-4 grid border-y border-slate-200/80 sm:grid-cols-2 dark:border-slate-800">
+                        {#each (summary?.top_species ?? []).slice(0, 6) as item, index}
+                            {@const thumb = cachedSpeciesThumb(item.species)}
+                            <li class="min-w-0 border-b border-slate-200/80 sm:odd:pr-4 sm:even:border-l sm:even:pl-4 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    data-audio-top-species-button
+                                    onclick={() => selectedSpecies = item.species}
+                                    aria-label={$_('leaderboard.view_species', { values: { species: item.species } })}
+                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:hover:bg-slate-800/35"
+                                >
+                                    <span class="w-6 flex-none text-center text-xs font-black tabular-nums text-slate-400 dark:text-slate-500">{index + 1}</span>
+                                    <span class="h-11 w-11 flex-none overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                        {#if thumb}
+                                            <img src={thumb} alt={item.species} loading="lazy" class="h-full w-full object-cover" />
                                         {:else}
-                                            <div class="flex h-9 w-24 items-center justify-center rounded-md bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
-                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4"/></svg>
-                                            </div>
+                                            <span class="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-500">
+                                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a4 4 0 00-4 4v4a4 4 0 008 0V7a4 4 0 00-4-4Z M6 11a6 6 0 0012 0 M12 17v4 M9 21h6" /></svg>
+                                            </span>
                                         {/if}
-                                    </td>
-                                    <td class="whitespace-nowrap py-2.5 pr-4">
-                                        <div class="font-bold">{formatDate(detection.timestamp)}</div>
-                                        <div class="text-xs text-slate-500 dark:text-slate-400">{formatTime(detection.timestamp, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-                                    </td>
-                                    <td class="py-2.5 pr-4 font-black">{detection.species}</td>
-                                    <td class="py-2.5 pr-4">{detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}</td>
-                                    <td class="whitespace-nowrap py-2.5 pr-4 text-right">
-                                        <span class="font-black {detection.confidence > 0.7 ? 'text-green-600 dark:text-green-300' : 'text-amber-600 dark:text-amber-300'}">{confidencePercent(detection.confidence)}</span>
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    <span>{$_('audio.history.showing', { values: { from: offset + 1, to: Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0), total: history?.total ?? 0 }, default: `Showing ${offset + 1}-${Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0)} of ${history?.total ?? 0}` })}</span>
-                    <div class="flex gap-2">
-                        <button type="button" class="btn btn-secondary px-4 py-1.5 text-sm" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
-                        <button type="button" class="btn btn-secondary px-4 py-1.5 text-sm" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
-                    </div>
-                </div>
-            {/if}
-        </section>
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate font-black text-slate-900 transition-colors group-hover:text-teal-700 dark:text-white dark:group-hover:text-teal-300">{item.species}</span>
+                                        <span class="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}</span>
+                                    </span>
+                                    <span class="flex-none text-right">
+                                        <span class="block font-black tabular-nums text-teal-700 dark:text-teal-300">{item.count.toLocaleString()}</span>
+                                        <span class="block text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
+                                    </span>
+                                    <svg aria-hidden="true" class="h-4 w-4 flex-none text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-slate-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                                </button>
+                            </li>
+                        {/each}
+                    </ol>
+                {:else}
+                    <p class="mt-4 border-y border-slate-200/80 py-6 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</p>
+                {/if}
+            </section>
 
-        <!-- Sources sidebar -->
-        <aside class="space-y-6">
-            <section class="card-base rounded-2xl p-4">
-                <h2 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.sources.title', { default: 'Sources' })}</h2>
-                <div class="mt-4 space-y-3">
-                    {#each (summary?.sources ?? []).slice(0, 10) as item}
-                        <div class="flex items-start justify-between gap-3">
+            <section class="lg:border-l lg:border-slate-200/80 lg:pl-8 dark:lg:border-slate-800">
+                <h4 class="text-base font-black text-slate-900 dark:text-white">{$_('audio.sources.title', { default: 'Sources' })}</h4>
+                <div class="mt-4 divide-y divide-slate-200/80 border-y border-slate-200/80 dark:divide-slate-800 dark:border-slate-800">
+                    {#each (summary?.sources ?? []).slice(0, 8) as item}
+                        <div class="flex items-center justify-between gap-3 py-3">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-black text-slate-800 dark:text-slate-100">{item.source_name}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
+                                <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
                             </div>
-                            <span class="flex-shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">{item.count}</span>
+                            <span class="flex-none text-sm font-black tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span>
                         </div>
                     {:else}
-                        <p class="text-sm text-slate-500 dark:text-slate-400">{$_('audio.sources.empty', { default: 'No sources yet.' })}</p>
+                        <p class="py-6 text-sm text-slate-500 dark:text-slate-400">{$_('audio.sources.empty', { default: 'No sources yet.' })}</p>
                     {/each}
                 </div>
             </section>
-        </aside>
-    </div>
+        </div>
+    </section>
 </div>
+
+{#if selectedSpecies}
+    <SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />
+{/if}

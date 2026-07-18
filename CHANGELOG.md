@@ -22,8 +22,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   record, a divided highlights strip, the complete rankings, and secondary analytics. Desktop keeps
   a semantic comparison table while phones get a native vertical ranking list instead of a
   900-pixel horizontal scroller. Numeric rank markers replace emoji medals, labels and controls are
-  readable and touch-sized, and source switching now genuinely reorders by Seen, Heard, or Both
-  after deduplicating merged BirdNET species.
+  readable and touch-sized, source switching now genuinely reorders by Seen, Heard, or Both after
+  deduplicating merged BirdNET species, and pressed-state / table-heading semantics make those
+  controls clearer to assistive technology.
+- **BirdNET-Go History now works as a listening log, not a card dashboard.** The summary is one
+  quiet divided strip, filters sit directly above the primary detection record, and each page is a
+  manageable 25 detections. Desktop keeps a semantic comparison table while the same rows reflow
+  into a compact, spectrogram-led phone log without horizontal scrolling. Activity charts, top
+  species, and source totals remain available as secondary evidence below the log; top-species rows
+  open the same species-detail record as the Leaderboard. Restrained dividers, readable chart
+  labels, honest loading/empty/error states, and in-place retry complete the view.
 - **Species details now read as a field record, not a card dashboard.** The refreshed full-height
   mobile / wide desktop dialog leads with the feeder's own detection totals and recent sightings,
   then moves into the species photograph, reference material, wild-observation context, activity,
