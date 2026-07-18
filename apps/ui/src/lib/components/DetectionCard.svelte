@@ -301,7 +301,7 @@
 
             <!-- Bottom-left: time + play inline -->
             <div class="absolute bottom-3 left-3 z-20 flex items-center gap-2">
-                <div class="px-2.5 py-1.5 rounded-xl bg-black/60 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -318,9 +318,9 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-white/25 bg-black/55 text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-teal-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
                         </svg>
                     </button>

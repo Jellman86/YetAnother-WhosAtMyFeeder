@@ -1837,6 +1837,7 @@
     "previous_page": "Página anterior",
     "next_page": "Próxima página",
     "page_number": "Página {number}",
+    "showing": "A mostrar {from}-{to} de {total}",
     "page_size_label": "Mostrar:",
     "page_size_aria": "Itens por página"
   },

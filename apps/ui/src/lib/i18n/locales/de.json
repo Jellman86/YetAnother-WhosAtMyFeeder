@@ -1846,6 +1846,7 @@
     "previous_page": "Vorherige Seite",
     "next_page": "Nächste Seite",
     "page_number": "Seite {number}",
+    "showing": "{from}–{to} von {total} werden angezeigt",
     "page_size_label": "Anzeigen:",
     "page_size_aria": "Elemente pro Seite"
   },

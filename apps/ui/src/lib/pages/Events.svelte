@@ -1038,20 +1038,20 @@
 
     <section data-events-filter-bar class="space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
         <div class="grid gap-3 lg:grid-cols-3">
-            <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={datePreset} onchange={loadEvents} aria-label={$_('events.filters.all_time')} class="select-base min-w-0 w-full shadow-none">
                 <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
             </select>
-            <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={speciesFilter} onchange={loadEvents} aria-label={$_('events.filters.all_species')} class="select-base min-w-0 w-full shadow-none">
                 <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
             </select>
-            <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={cameraFilter} onchange={loadEvents} aria-label={$_('events.filters.all_cameras')} class="select-base min-w-0 w-full shadow-none">
                 <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
             </select>
         </div>
         <div class="flex flex-wrap gap-3">
             <button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors
                 {refreshingFilterOptions
                     ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1074,7 +1074,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                 {favoritesOnly
                     ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1093,7 +1093,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                 {audioConfirmedOnly
                     ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1113,7 +1113,7 @@
             {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
                 <button
                     type="button"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                         {showHidden
                             ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
                             : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1158,7 +1158,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                         {selectedTimelineBucket === 'all'
                             ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
                             : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1184,7 +1184,7 @@
                 {#each timelineBuckets as bucket}
                     <button
                         type="button"
-                        class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors
+                        class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === bucket.key
                                 ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1209,7 +1209,7 @@
                     </button>
                 {/each}
             </div>
-            <p class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <path d="M6 7h8M6 10h8M6 13h5"></path>
                     <rect x="3" y="4" width="14" height="12" rx="2"></rect>

@@ -1826,6 +1826,7 @@
     "previous_page": "上一页",
     "next_page": "下一页",
     "page_number": "第 {number} 页",
+    "showing": "显示第 {from}-{to} 项，共 {total} 项",
     "page_size_label": "显示:",
     "page_size_aria": "每页项目数"
   },

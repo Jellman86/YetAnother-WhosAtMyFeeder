@@ -45,7 +45,8 @@ describe('dashboard live observation desk layout', () => {
         expect(visitorsSource).not.toContain('card-base');
         expect(heroSource).toContain('data-dashboard-hero-species-portrait');
         expect(heroSource).toContain('rounded-full');
-        expect(statsSource).not.toContain('data-dashboard-species-icon');
+        expect(statsSource).toContain('data-dashboard-species-icon');
+        expect(statsSource).toContain('data-icon-family="lucide-feather"');
     });
 
     it('finishes the audio preview without a doubled bottom rule', () => {

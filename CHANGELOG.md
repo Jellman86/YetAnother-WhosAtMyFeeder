@@ -28,9 +28,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   replaces the row of repeated metric cards, the newest camera visitor stays the visual anchor, and
   activity plus BirdNET-Go detections form a compact supporting rail instead of competing panels.
   Top visitors are a ranked, touch-friendly field list with circular species recognition portraits
-  and no redundant heading glyph, while the Species metric relies on its plain label instead of an
-  ambiguous miniature bird mark. The separate discovery cards remain only where each detection is
-  genuinely interactive.
+  and no redundant heading glyph, while the Species metric uses a crisp field-guide feather instead
+  of the ambiguous miniature bird mark. The separate discovery cards remain only where each
+  detection is genuinely interactive.
   The Leaderboard now uses the same circular portraits in its featured record and both ranking
   layouts, keeping species recognition consistent across the application.
 - **The service-unavailable screen now belongs to the current application.** The legacy warning card

@@ -1826,6 +1826,7 @@
     "previous_page": "前のページ",
     "next_page": "次のページ",
     "page_number": "ページ {number}",
+    "showing": "{total} 件中 {from}～{to} 件を表示",
     "page_size_label": "表示:",
     "page_size_aria": "ページあたりの項目数"
   },

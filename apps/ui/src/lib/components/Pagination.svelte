@@ -73,10 +73,8 @@
     <div data-pagination class="flex flex-col items-center justify-between gap-4 border-y border-slate-200 py-4 dark:border-slate-700 sm:flex-row">
         <!-- Items info and page size selector -->
         <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
-            <span>
-                Showing <span class="font-medium text-slate-900 dark:text-white">{startItem}</span>
-                - <span class="font-medium text-slate-900 dark:text-white">{endItem}</span>
-                of <span class="font-medium text-slate-900 dark:text-white">{totalItems.toLocaleString()}</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">
+                {$_('pagination.showing', { values: { from: startItem, to: endItem, total: totalItems.toLocaleString() }, default: `Showing ${startItem}-${endItem} of ${totalItems.toLocaleString()}` })}
             </span>
 
             {#if onPageSizeChange && showPageSize}

@@ -1829,6 +1829,7 @@
     "previous_page": "Page précédente",
     "next_page": "Page suivante",
     "page_number": "Page {number}",
+    "showing": "Affichage de {from} à {to} sur {total}",
     "page_size_label": "Afficher:",
     "page_size_aria": "Éléments par page"
   },

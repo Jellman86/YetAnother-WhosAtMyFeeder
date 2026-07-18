@@ -1929,7 +1929,7 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-teal-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -1982,14 +1982,16 @@
                             </div>
                         </div>
                     {:else}
-                        <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-contain" />
+                        <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                        <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
+                        <img src={snapshotImageUrl} alt={detection.display_name} class="relative h-full w-full object-contain" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                         {#if canShowFavoriteAction}
                             <button
                                 type="button"
                                 onclick={handleFavoriteToggle}
                                 disabled={favoritePending}
-                                class="absolute top-4 left-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-all disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+                                class="absolute top-4 left-4 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                             >
@@ -2006,7 +2008,7 @@
                             <button
                                 type="button"
                                 onclick={handleSnapshotRepairToggle}
-                                class="absolute top-4 right-16 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+                                class="absolute top-4 right-[4.5rem] z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
                                 title={$_('detection.snapshot_change', { default: 'Change snapshot' })}
                                 aria-label={$_('detection.snapshot_change', { default: 'Change snapshot' })}
                             >
@@ -2031,7 +2033,7 @@
                             <div class="flex items-center gap-2">
                                 {#if fullVisitFetched}
                                     <div
-                                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
+                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-teal-500/95 text-white shadow-xl shadow-teal-900/30 border border-teal-300/30 backdrop-blur-sm"
                                         title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                                         aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                                     >
@@ -2059,7 +2061,7 @@
                                         e.stopPropagation();
                                     }}
                                     aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                    class="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                                    class="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-teal-500/90 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                         <path d="M8 5v14l11-7z"/>
@@ -2104,7 +2106,7 @@
                     {#if frigateIssueBadgeVisible && !snapshotRepairOpen}
                         <div class="absolute top-4 right-4 z-30">
                             <div
-                                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
                                 title={videoFailureInsight.summary}
                                 aria-label={videoFailureInsight.summary}
                             >
@@ -2116,7 +2118,7 @@
         {#if !snapshotRepairOpen}
             <button
                 onclick={onClose}
-                class="absolute top-4 right-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-all hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 aria-label={$_('common.close')}
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
