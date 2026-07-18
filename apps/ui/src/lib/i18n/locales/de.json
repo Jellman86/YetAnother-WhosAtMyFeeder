@@ -164,7 +164,14 @@
     "no": "Nein",
     "download": "Herunterladen",
     "skip_to_content": "Zum Inhalt springen",
-    "working": "Arbeite…"
+    "working": "Arbeite…",
+    "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
+  },
+  "route_load": {
+    "loading": "{page} wird geöffnet…",
+    "error_title": "Diese Seite konnte nicht geöffnet werden",
+    "error_description": "Die Seitendatei ist nicht angekommen. Prüfe deine Verbindung und versuche es erneut.",
+    "retry": "Erneut öffnen"
   },
   "settings": {
     "title": "Einstellungen",

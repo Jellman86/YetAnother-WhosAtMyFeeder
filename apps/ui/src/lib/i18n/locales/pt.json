@@ -164,7 +164,8 @@
     "no": "Não",
     "download": "Baixar",
     "skip_to_content": "Saltar para o conteúdo",
-    "working": "A processar…"
+    "working": "A processar…",
+    "language_load_error": "Não foi possível carregar esse idioma. Verifique a ligação e tente novamente."
   },
   "error": {
     "boundary_title": "Algo correu mal",
@@ -173,6 +174,12 @@
     "try_again": "Tentar novamente",
     "copy_details": "Copiar detalhes do erro",
     "reload_page": "Recarregar página"
+  },
+  "route_load": {
+    "loading": "A abrir {page}…",
+    "error_title": "Não foi possível abrir esta página",
+    "error_description": "O ficheiro da página não chegou. Verifique a ligação e tente novamente.",
+    "retry": "Tentar abrir novamente"
   },
   "settings": {
     "title": "Configurações",

@@ -46,7 +46,8 @@ describe('settings route split (roadmap 5.1)', () => {
     });
 
     it('App passes currentRoute into Settings so the derived tab tracks the URL', () => {
-        expect(appShellSource).toContain('<Settings onNavigate={navigate} {currentRoute} />');
+        expect(appShellSource).toContain('loader={loadSettingsPage}');
+        expect(appShellSource).toContain('props={{ onNavigate: navigate, currentRoute }}');
     });
 
     it('no source file under apps/ui/src emits the legacy /settings#<tab> form', () => {

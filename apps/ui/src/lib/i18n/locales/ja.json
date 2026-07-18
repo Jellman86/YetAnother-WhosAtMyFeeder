@@ -164,7 +164,14 @@
     "no": "いいえ",
     "download": "ダウンロード",
     "skip_to_content": "コンテンツへスキップ",
-    "working": "処理中…"
+    "working": "処理中…",
+    "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。"
+  },
+  "route_load": {
+    "loading": "{page} を開いています…",
+    "error_title": "このページを開けませんでした",
+    "error_description": "ページファイルを取得できませんでした。接続を確認して、もう一度お試しください。",
+    "retry": "もう一度開く"
   },
   "settings": {
     "title": "設定",

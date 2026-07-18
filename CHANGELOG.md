@@ -17,6 +17,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The interface now arrives quickly instead of loading the whole application up front.** The
+  entry bundle is reduced from roughly 2.4 MB to 157 KB by loading operational pages and
+  translation catalogs only when they are needed. Fingerprinted assets are compressed and cached
+  immutably, while the application document is always revalidated after a deploy. Fast route
+  changes no longer flash a wall of skeletons; slower connections get one quiet status line, and a
+  failed page or language download can be retried in place with an English startup fallback.
 - **Explorer and detection details now put the visit before the interface.** Event filters and the
   timeline use quiet divided toolbars instead of stacked cards, pagination no longer adds another
   floating panel, and detection tiles keep their media-led hierarchy without lift, rotation, or

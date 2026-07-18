@@ -164,7 +164,14 @@
     "no": "否",
     "download": "下载",
     "skip_to_content": "跳到主要内容",
-    "working": "处理中…"
+    "working": "处理中…",
+    "language_load_error": "无法加载该语言。请检查网络连接后重试。"
+  },
+  "route_load": {
+    "loading": "正在打开{page}…",
+    "error_title": "无法打开此页面",
+    "error_description": "页面文件未能加载。请检查网络连接后重试。",
+    "retry": "重新打开"
   },
   "settings": {
     "title": "设置",

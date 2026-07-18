@@ -13,14 +13,7 @@
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
-  import Dashboard from './lib/pages/Dashboard.svelte';
-  import Events from './lib/pages/Events.svelte';
-  import Species from './lib/pages/Species.svelte';
-  import AudioHistory from './lib/pages/AudioHistory.svelte';
-  import Settings from './lib/pages/Settings.svelte';
-  import About from './lib/pages/About.svelte';
-  import Notifications from './lib/pages/Notifications.svelte';
-  import ModelEvaluation from './lib/pages/ModelEvaluation.svelte';
+  import LazyRoute from './lib/components/LazyRoute.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
   import WizardShell from './lib/components/setup/WizardShell.svelte';
@@ -44,6 +37,7 @@
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
+  import { createRetryablePageLoader } from './lib/app/page-loader';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -55,6 +49,15 @@
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
+
+  const loadDashboardPage = createRetryablePageLoader(() => import('./lib/pages/Dashboard.svelte'));
+  const loadEventsPage = createRetryablePageLoader(() => import('./lib/pages/Events.svelte'));
+  const loadSpeciesPage = createRetryablePageLoader(() => import('./lib/pages/Species.svelte'));
+  const loadAudioHistoryPage = createRetryablePageLoader(() => import('./lib/pages/AudioHistory.svelte'));
+  const loadSettingsPage = createRetryablePageLoader(() => import('./lib/pages/Settings.svelte'));
+  const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
+  const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
+  const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -222,6 +225,11 @@
           default: 'The app was updated while this tab was open. Refresh the page to load the latest build.'
       })
   });
+
+  function handleRouteLoadError(error: unknown): void {
+      logger.error('route_load_failed', error);
+      deployRecovery.handleRuntimeFailure(error);
+  }
 
   const liveUpdates = new LiveUpdateCoordinator({
       t,
@@ -644,31 +652,71 @@
               {/if}
               {#if currentRoute === '/'}
                   {#key dashboardRefreshKey}
-                      <Dashboard onnavigate={navigate} />
+                      <LazyRoute
+                          loader={loadDashboardPage}
+                          props={{ onnavigate: navigate }}
+                          label={pageTitle}
+                          onLoadError={handleRouteLoadError}
+                      />
                   {/key}
               {:else if currentRoute.startsWith('/events')}
-                  <Events />
+                  <LazyRoute
+                      loader={loadEventsPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/species')}
-                  <Species />
+                  <LazyRoute
+                      loader={loadSpeciesPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/audio')}
-                  <AudioHistory />
+                  <LazyRoute
+                      loader={loadAudioHistoryPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/settings')}
                    {#if authStore.showSettings}
-                       <Settings onNavigate={navigate} {currentRoute} />
+                       <LazyRoute
+                           loader={loadSettingsPage}
+                           props={{ onNavigate: navigate, currentRoute }}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
                    {:else}
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>
                    {/if}
               {:else if currentRoute.startsWith('/notifications')}
-                  <Notifications onNavigate={navigate} {currentRoute} />
+                  <LazyRoute
+                      loader={loadNotificationsPage}
+                      props={{ onNavigate: navigate, currentRoute }}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/diagnostics/model-eval')}
                    {#if authStore.showSettings}
-                       <ModelEvaluation />
+                       <LazyRoute
+                           loader={loadModelEvaluationPage}
+                           props={{}}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
                    {:else}
                        <div class="h-24"></div>
                    {/if}
               {:else if currentRoute.startsWith('/about')}
-                   <About />
+                   <LazyRoute
+                       loader={loadAboutPage}
+                       props={{}}
+                       label={pageTitle}
+                       onLoadError={handleRouteLoadError}
+                   />
               {/if}
           </main>
           

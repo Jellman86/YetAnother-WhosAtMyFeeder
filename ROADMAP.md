@@ -145,6 +145,12 @@ disclosure, and interactive controls retain touch and keyboard affordances. Rema
 same treatment across the less-frequent owner journeys plus a final cross-route loading, empty,
 error, and destructive-state audit.
 
+✅ **Cross-route loading and delivery pass:** Operational pages and language catalogs now load on
+demand, the entry bundle is about 94% smaller, fingerprinted assets are compressed and
+cached safely, and route-download failures recover in place. Quick navigation avoids loading-state
+flicker; a quiet delayed status replaces page-sized skeleton walls on genuinely slow connections.
+The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
+
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed
 
@@ -470,8 +476,9 @@ panel** (ingress-authenticated dashboard).
 **UI & platform:** real-time SSE dashboard, dark mode, advanced search/filtering, statistics +
 leaderboard analytics, species detail modals, PWA baseline, complete i18n (9+ languages), the
 settings architecture refactor + per-tab routing, a dedicated Jobs workspace, favourites, the
-Explorer audio-matches filter, the in-app channel-aware update prompt, and the Unraid Docker
-template + setup guide.
+Explorer audio-matches filter, route-level and locale-level lazy delivery with resilient retry,
+compressed immutable frontend assets, the in-app channel-aware update prompt, and the Unraid
+Docker template + setup guide.
 
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,

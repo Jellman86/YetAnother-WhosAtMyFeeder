@@ -76,6 +76,7 @@
     } from '../backfill/progress';
     import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
+    import { setAppLocale } from '../i18n';
     import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
@@ -3293,9 +3294,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         themeStore.setColorTheme(color);
     }
 
-    function setLanguage(lang: string) {
-        locale.set(lang);
-        localStorage.setItem('preferred-language', lang);
+    async function setLanguage(lang: string): Promise<void> {
+        if (await setAppLocale(lang)) return;
+        message = {
+            type: 'error',
+            text: $_('common.language_load_error', {
+                default: 'That language could not be loaded. Check your connection and try again.'
+            })
+        };
     }
 
 </script>

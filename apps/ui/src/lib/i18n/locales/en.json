@@ -164,7 +164,8 @@
     "no": "No",
     "download": "Download",
     "skip_to_content": "Skip to content",
-    "working": "Working…"
+    "working": "Working…",
+    "language_load_error": "That language could not be loaded. Check your connection and try again."
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -173,6 +174,12 @@
     "try_again": "Try Again",
     "copy_details": "Copy Error Details",
     "reload_page": "Reload Page"
+  },
+  "route_load": {
+    "loading": "Opening {page}…",
+    "error_title": "This page could not be opened",
+    "error_description": "The page file did not arrive. Check your connection, then try again.",
+    "retry": "Try opening again"
   },
   "settings": {
     "title": "Settings",

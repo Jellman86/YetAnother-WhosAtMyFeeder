@@ -1,71 +1,101 @@
-import { init, locale, _, addMessages } from 'svelte-i18n';
-import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import de from './locales/de.json';
-import ja from './locales/ja.json';
-import zh from './locales/zh.json';
-import ru from './locales/ru.json';
-import pt from './locales/pt.json';
-import it from './locales/it.json';
+import { _, init, locale, register } from 'svelte-i18n';
+
+import { createRetryablePageLoader } from '../app/page-loader';
+
+const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'] as const;
+type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+type LocaleModule = { default: Record<string, unknown> };
 
 const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
 void appVersion; // version available in diagnostics reports and window.__APP_VERSION__
 
-const supportedLocales = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'];
-
-function normalizeLocale(value: unknown): string | null {
-    if (typeof value !== 'string') {
-        return null;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return null;
-    }
-    const base = trimmed.split(/[-_]/)[0].toLowerCase();
-    return supportedLocales.includes(base) ? base : null;
+function normalizeLocale(value: unknown): SupportedLocale | null {
+    if (typeof value !== 'string') return null;
+    const base = value.trim().split(/[-_]/)[0]?.toLowerCase();
+    if (!base) return null;
+    return SUPPORTED_LOCALES.find((candidate) => candidate === base) ?? null;
 }
 
-function determineLocale(): string {
-    let candidate: string | null = null;
+function determineLocale(): SupportedLocale {
+    let candidate: SupportedLocale | null = null;
     try {
         candidate = normalizeLocale(localStorage.getItem('preferred-language'));
     } catch {
-        // localStorage may be unavailable in some contexts.
+        // Storage can be unavailable in private or embedded browser contexts.
     }
 
     if (!candidate && typeof navigator !== 'undefined') {
-        const navLang = Array.isArray(navigator.languages)
+        const browserLanguage = Array.isArray(navigator.languages)
             ? navigator.languages[0]
             : navigator.language;
-        candidate = normalizeLocale(navLang);
+        candidate = normalizeLocale(browserLanguage);
     }
 
-    if (!candidate) {
-        console.warn('[i18n] Could not determine a valid locale; falling back to en');
-        return 'en';
-    }
-    return candidate;
+    return candidate ?? 'en';
 }
 
-// Synchronously load all locales
-addMessages('en', en);
-addMessages('es', es);
-addMessages('fr', fr);
-addMessages('de', de);
-addMessages('ja', ja);
-addMessages('zh', zh);
-addMessages('ru', ru);
-addMessages('pt', pt);
-addMessages('it', it);
+function registerLocaleWithRetry(
+    localeCode: SupportedLocale,
+    importLocale: () => Promise<LocaleModule>
+): void {
+    const loadLocale = createRetryablePageLoader(importLocale);
+    const registeredLoader = async (): Promise<LocaleModule> => {
+        try {
+            return await loadLocale();
+        } catch (error: unknown) {
+            // svelte-i18n consumes a registered loader before awaiting it. Put it
+            // back so a transient network failure can recover on the next choice.
+            register(localeCode, registeredLoader);
+            throw error;
+        }
+    };
+    register(localeCode, registeredLoader);
+}
+
+registerLocaleWithRetry('en', () => import('./locales/en.json'));
+registerLocaleWithRetry('es', () => import('./locales/es.json'));
+registerLocaleWithRetry('fr', () => import('./locales/fr.json'));
+registerLocaleWithRetry('de', () => import('./locales/de.json'));
+registerLocaleWithRetry('ja', () => import('./locales/ja.json'));
+registerLocaleWithRetry('zh', () => import('./locales/zh.json'));
+registerLocaleWithRetry('ru', () => import('./locales/ru.json'));
+registerLocaleWithRetry('pt', () => import('./locales/pt.json'));
+registerLocaleWithRetry('it', () => import('./locales/it.json'));
 
 const initialLocale = determineLocale();
-// Ensure locale store is always a string before any translations run.
-locale.set(initialLocale);
 
-init({
-    fallbackLocale: 'en',
-    initialLocale,
-});
+async function initializeI18n(): Promise<void> {
+    try {
+        await init({
+            fallbackLocale: 'en',
+            initialLocale
+        });
+    } catch (error: unknown) {
+        if (initialLocale === 'en') throw error;
+        console.warn(`[i18n] Could not load ${initialLocale}; falling back to English.`);
+        await locale.set('en');
+    }
+}
 
-export { locale, _ };
+export const i18nReady = initializeI18n();
+
+export async function setAppLocale(value: string): Promise<boolean> {
+    const nextLocale = normalizeLocale(value);
+    if (!nextLocale) return false;
+
+    try {
+        await locale.set(nextLocale);
+    } catch (error: unknown) {
+        console.error(`[i18n] Could not load ${nextLocale}.`, error);
+        return false;
+    }
+
+    try {
+        localStorage.setItem('preferred-language', nextLocale);
+    } catch {
+        // The active language still works when embedded/private storage is blocked.
+    }
+    return true;
+}
+
+export { _, locale };

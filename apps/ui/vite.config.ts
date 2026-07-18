@@ -1,8 +1,45 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { execSync } from 'child_process'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+
+const INITIAL_JAVASCRIPT_BUDGET_BYTES = 500 * 1024;
+
+function enforceInitialJavaScriptBudget(maxBytes: number): Plugin {
+    return {
+        name: 'yawamf-initial-javascript-budget',
+        apply: 'build',
+        generateBundle(_options, bundle) {
+            for (const entryChunk of Object.values(bundle)) {
+                if (entryChunk.type !== 'chunk' || !entryChunk.isEntry) continue;
+
+                const visited = new Set<string>();
+                const pending = [entryChunk.fileName];
+                let initialBytes = 0;
+                while (pending.length > 0) {
+                    const fileName = pending.pop();
+                    if (!fileName || visited.has(fileName)) continue;
+                    visited.add(fileName);
+                    const loadedChunk = bundle[fileName];
+                    if (!loadedChunk || loadedChunk.type !== 'chunk') continue;
+                    initialBytes += loadedChunk.code.length;
+                    pending.push(...loadedChunk.imports);
+                }
+
+                if (initialBytes > maxBytes) {
+                    const actualKiB = Math.ceil(initialBytes / 1024);
+                    const budgetKiB = Math.floor(maxBytes / 1024);
+                    this.error(
+                        `Initial JavaScript for ${entryChunk.fileName} is ${actualKiB} KiB; ` +
+                        `the YA-WAMF initial-load budget is ${budgetKiB} KiB. ` +
+                        'Move route-only code or locale data behind a dynamic import.'
+                    );
+                }
+            }
+        }
+    };
+}
 
 // Get base version from VERSION file
 function getBaseVersion(): string {
@@ -58,7 +95,7 @@ if (appBranch && appBranch !== 'main' && appBranch !== 'unknown') {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-    plugins: [svelte()],
+    plugins: [svelte(), enforceInitialJavaScriptBudget(INITIAL_JAVASCRIPT_BUDGET_BYTES)],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),

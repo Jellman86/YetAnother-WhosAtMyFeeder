@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _, locale } from 'svelte-i18n';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { setAppLocale } from '../../i18n';
 
     const supportedLocales = [
         { value: 'en', label: 'English' },
@@ -14,9 +15,14 @@
         { value: 'it', label: 'Italiano' }
     ];
 
-    function setLanguage(lang: string) {
-        locale.set(lang);
-        localStorage.setItem('preferred-language', lang);
+    let languageChanging = $state(false);
+    let languageError = $state(false);
+
+    async function setLanguage(lang: string): Promise<void> {
+        if (languageChanging) return;
+        languageChanging = true;
+        languageError = !(await setAppLocale(lang));
+        languageChanging = false;
     }
 
     const covers = [
@@ -52,6 +58,7 @@
             id="setup-language"
             value={$locale}
             onchange={(e) => setLanguage(e.currentTarget.value)}
+            disabled={languageChanging}
             class="select-base"
         >
             {#each supportedLocales as opt}
@@ -61,5 +68,10 @@
         <p class="text-xs text-slate-500 dark:text-slate-400">
             {$_('first_run.language_desc', { default: 'You can change this later in Settings.' })}
         </p>
+        {#if languageError}
+            <p class="text-xs font-medium text-amber-700 dark:text-amber-300" role="alert">
+                {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
+            </p>
+        {/if}
     </div>
 </WizardStepLayout>

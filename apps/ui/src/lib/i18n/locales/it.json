@@ -164,7 +164,8 @@
     "no": "No",
     "download": "Scarica",
     "skip_to_content": "Vai al contenuto",
-    "working": "In corso…"
+    "working": "In corso…",
+    "language_load_error": "Impossibile caricare la lingua. Controlla la connessione e riprova."
   },
   "error": {
     "boundary_title": "Qualcosa è andato storto",
@@ -173,6 +174,12 @@
     "try_again": "Riprova",
     "copy_details": "Copia dettagli errore",
     "reload_page": "Ricarica pagina"
+  },
+  "route_load": {
+    "loading": "Apertura di {page}…",
+    "error_title": "Impossibile aprire questa pagina",
+    "error_description": "Il file della pagina non è arrivato. Controlla la connessione e riprova.",
+    "retry": "Prova ad aprire di nuovo"
   },
   "settings": {
     "title": "Impostazioni",

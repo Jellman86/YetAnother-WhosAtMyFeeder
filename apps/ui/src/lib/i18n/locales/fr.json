@@ -164,7 +164,14 @@
     "no": "Non",
     "download": "Télécharger",
     "skip_to_content": "Aller au contenu",
-    "working": "En cours…"
+    "working": "En cours…",
+    "language_load_error": "Cette langue n’a pas pu être chargée. Vérifiez votre connexion et réessayez."
+  },
+  "route_load": {
+    "loading": "Ouverture de {page}…",
+    "error_title": "Cette page n’a pas pu être ouverte",
+    "error_description": "Le fichier de la page n’est pas arrivé. Vérifiez votre connexion et réessayez.",
+    "retry": "Réessayer d’ouvrir"
   },
   "settings": {
     "title": "Paramètres",

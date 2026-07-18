@@ -164,7 +164,14 @@
     "no": "No",
     "download": "Descargar",
     "skip_to_content": "Saltar al contenido",
-    "working": "Trabajando…"
+    "working": "Trabajando…",
+    "language_load_error": "No se ha podido cargar ese idioma. Comprueba la conexión e inténtalo de nuevo."
+  },
+  "route_load": {
+    "loading": "Abriendo {page}…",
+    "error_title": "No se ha podido abrir esta página",
+    "error_description": "El archivo de la página no ha llegado. Comprueba la conexión e inténtalo de nuevo.",
+    "retry": "Intentar abrir de nuevo"
   },
   "settings": {
     "title": "Ajustes",

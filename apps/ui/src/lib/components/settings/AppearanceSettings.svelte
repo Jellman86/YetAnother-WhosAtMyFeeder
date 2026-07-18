@@ -25,7 +25,7 @@
         currentLocale: string;
         currentDateFormat: string;
         setTheme: (theme: Theme) => void;
-        setLanguage: (lang: string) => void;
+        setLanguage: (lang: string) => void | Promise<void>;
         currentFontTheme: FontTheme;
         setFontTheme: (font: FontTheme) => void;
         currentColorTheme: ColorTheme;
@@ -84,7 +84,7 @@
             id="language-select"
             value={currentLocale}
             ariaLabel={$_('settings.language_selector')}
-            onchange={(v) => setLanguage(v)}
+            onchange={(v) => void setLanguage(v)}
             options={[
                 { value: 'en', label: 'English' },
                 { value: 'es', label: 'Español' },
