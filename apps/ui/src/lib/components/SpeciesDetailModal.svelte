@@ -515,7 +515,14 @@
                 {#if stats}
                     <section data-species-record-summary aria-labelledby="species-record-heading">
                         <div class="mb-3 flex items-center justify-between gap-4">
-                            <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
+                            <div class="flex items-center gap-2.5">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+                                    </svg>
+                                </span>
+                                <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
+                            </div>
                             <span class="text-xs font-medium text-teal-700 dark:text-teal-300">{$_('common.detections')}</span>
                         </div>
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
@@ -540,7 +547,15 @@
 
                     {#if stats.recent_sightings.length > 0}
                         <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
-                            <h3 id="recent-sightings-heading" class="mb-4 text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.recent_sightings')}</h3>
+                            <div class="mb-4 flex items-center gap-2.5">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l1.25-2h7.5L17 5h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.5 12.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
+                                    </svg>
+                                </span>
+                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.recent_sightings')}</h3>
+                            </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                                 {#each stats.recent_sightings as sighting}
                                     <button
@@ -584,32 +599,35 @@
                 {/if}
 
                 {#if summaryEnabled && stats}
-                    <!-- Hero Image from Wikipedia -->
+                    <!-- Reference image: preserve the full animal rather than filling a panoramic crop. -->
                     {#if info?.thumbnail_url}
-                        <section class="relative overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
-                            <div class="relative h-56 sm:h-72">
-                                <img
-                                    src={info.thumbnail_url}
-                                    alt={primaryName}
-                                    class="block h-full w-full object-cover object-center"
-                                    onerror={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.parentElement?.classList.add('hidden');
-                                    }}
-                                />
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                                <div class="absolute bottom-4 right-4">
-                                    {#if info.source_url}
-                                        <a
-                                            href={info.source_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 backdrop-blur-sm"
-                                        >
-                                            {info.source || $_('common.source')}
-                                        </a>
-                                    {/if}
-                                </div>
+                        <section
+                            data-species-hero-image
+                            class="relative mx-auto aspect-[4/3] w-full max-w-2xl overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-950/40 dark:ring-slate-700"
+                        >
+                            <img
+                                src={info.thumbnail_url}
+                                alt={primaryName}
+                                class="block h-full w-full object-contain"
+                                onerror={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.parentElement?.classList.add('hidden');
+                                }}
+                            />
+                            <div class="absolute bottom-3 right-3 sm:bottom-4 sm:right-4">
+                                {#if info.source_url}
+                                    <a
+                                        href={info.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:border-teal-300 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                                    >
+                                        {info.source || $_('common.source')}
+                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5h5m0 0v5m0-5L10 14M8 7H6a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-2" />
+                                        </svg>
+                                    </a>
+                                {/if}
                             </div>
                         </section>
                     {/if}
@@ -620,9 +638,9 @@
                     <section data-species-reference class="border-t border-slate-200 pt-8 dark:border-slate-700">
                         <div class="mb-4 flex items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
-                                <div class="rounded-lg bg-teal-500/10 p-1.5 text-teal-600 dark:text-teal-400">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                                <div data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H11v17H6.5A2.5 2.5 0 014 17.5v-12zM20 5.5A2.5 2.5 0 0017.5 3H13v17h4.5a2.5 2.5 0 002.5-2.5v-12z" />
                                     </svg>
                                 </div>
                                 <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('actions.species_info')}</h3>
@@ -848,7 +866,14 @@
                 {#if stats}
                 <!-- Time Distribution Charts -->
                 <section data-species-activity class="border-t border-slate-200 pt-8 dark:border-slate-700">
-                    <h3 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.activity_patterns')}</h3>
+                    <div class="mb-4 flex items-center gap-2.5">
+                        <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+                            </svg>
+                        </span>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.activity_patterns')}</h3>
+                    </div>
 
                     <!-- Hourly chart - full width for better visibility -->
                     <div class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-700">
@@ -915,7 +940,14 @@
                 <!-- Camera Breakdown -->
                 {#if stats.cameras.length > 0}
                     <section class="border-t border-slate-200 pt-8 dark:border-slate-700">
-                        <h3 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.camera_breakdown')}</h3>
+                        <div class="mb-4 flex items-center gap-2.5">
+                            <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.5-2.25A1 1 0 0121 8.65v6.7a1 1 0 01-1.5.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.camera_breakdown')}</h3>
+                        </div>
                         <div class="space-y-3">
                             {#each stats.cameras as camera}
                                 <div class="grid grid-cols-[minmax(5rem,9rem)_minmax(0,1fr)_5rem] items-center gap-3">

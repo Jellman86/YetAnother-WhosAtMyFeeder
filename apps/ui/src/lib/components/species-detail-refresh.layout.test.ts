@@ -33,6 +33,19 @@ describe('species detail field-record layout', () => {
         expect(speciesDetailSource).toContain('@media (prefers-reduced-motion: reduce)');
     });
 
+    it('shows the complete reference image instead of forcing a panoramic crop', () => {
+        expect(speciesDetailSource).toContain('data-species-hero-image');
+        expect(speciesDetailSource).toContain('aspect-[4/3]');
+        expect(speciesDetailSource).toContain('object-contain');
+        expect(speciesDetailSource).not.toContain('object-cover object-center');
+    });
+
+    it('uses a restrained, accessible icon language for primary record sections', () => {
+        expect(speciesDetailSource.match(/data-species-section-icon/g) ?? []).toHaveLength(5);
+        expect(speciesDetailSource.match(/data-species-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(5);
+        expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
+    });
+
     it('labels charts without empty headings or fake keyboard controls', () => {
         expect(speciesDetailSource.match(/ariaLabel=/g) ?? []).toHaveLength(4);
         expect(barChartSource).toContain('{#if title}');

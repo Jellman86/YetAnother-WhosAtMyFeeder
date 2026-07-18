@@ -82,6 +82,24 @@ Detail views such as Species Details are records, not miniature dashboards:
 - On a phone, the dialog may become a full-height sheet using dynamic viewport units. On larger
   screens, constrain its width and height and keep one predictable internal scroll region.
 
+## 5. Rankings and analytical surfaces
+
+Leaderboards are working data views, not award ceremonies or collections of summary cards:
+
+- Put the ranked list before supporting charts. A featured record and a short highlight strip may
+  orient the user, but must not repeat the same top-three data in separate cards.
+- Use styled numeric ranks rather than emoji medals. Keep table headings, units, source state, and
+  time range explicit so colour is never carrying the meaning alone.
+- Use a semantic table at widths where its useful comparison columns fit. On phones, provide a
+  purpose-built vertical list with the core rank, species, active metric, trend, and recency rather
+  than forcing horizontal table scrolling.
+- Changing the active source or time range must reorder the data by that metric, not only recolour
+  a control or swap the displayed value. Deduplicate merged sources before rendering stable lists.
+- Treat charts as secondary evidence. Separate them with dividers, give them readable text context
+  and empty/loading states, and reserve compact disclosures for optional overlays or analysis.
+- Lazy-load below-fold species images, use stable thumbnail dimensions and quiet vector fallbacks,
+  and retain a visible 44px focusable target for every row that opens detail.
+
 ---
 
 ## References

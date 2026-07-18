@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The Leaderboard now prioritises rankings over decoration.** A calmer field-journal layout
+  replaces the repeated featured, highlight, performer, chart, and table cards with one featured
+  record, a divided highlights strip, the complete rankings, and secondary analytics. Desktop keeps
+  a semantic comparison table while phones get a native vertical ranking list instead of a
+  900-pixel horizontal scroller. Numeric rank markers replace emoji medals, labels and controls are
+  readable and touch-sized, and source switching now genuinely reorders by Seen, Heard, or Both
+  after deduplicating merged BirdNET species.
 - **Species details now read as a field record, not a card dashboard.** The refreshed full-height
   mobile / wide desktop dialog leads with the feeder's own detection totals and recent sightings,
   then moves into the species photograph, reference material, wild-observation context, activity,
