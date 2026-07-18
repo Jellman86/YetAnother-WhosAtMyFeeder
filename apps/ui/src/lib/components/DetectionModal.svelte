@@ -1935,7 +1935,7 @@
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+                                    <p class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
                                         {$_('detection.video_analysis.title')}
                                     </p>
                                     <p id="detection-modal-title" class="truncate text-sm font-bold text-slate-900 dark:text-white sm:text-base">
@@ -1947,7 +1947,7 @@
                                 </div>
                                 <div class="shrink-0 flex items-center gap-2 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
                                     <span class="inline-block h-2 w-2 rounded-full bg-indigo-500 motion-safe:animate-pulse"></span>
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                                         {$_('detection.video_analysis.in_progress')}
                                     </span>
                                 </div>
@@ -1965,7 +1965,7 @@
                                                 </svg>
                                             {/if}
                                         </span>
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                                        <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                                             {videoInferenceBadge.label}
                                         </span>
                                     </div>
@@ -1976,7 +1976,7 @@
                                 <VideoAnalysisFilmReel progress={modalVideoAnalysisProgress} variant="detail" />
                             </div>
 
-                            <div class="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            <div class="flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                                 <span>{formatDateTime(detection.detection_time)}</span>
                                 <span>{detection.camera_name}</span>
                             </div>
@@ -2025,7 +2025,7 @@
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
     	                    {/if}
-                        <p class="text-white/50 text-[10px] uppercase font-bold tracking-widest mt-2">
+                        <p class="text-white/50 text-[10px] font-semibold mt-2">
                             {formatDateTime(detection.detection_time)}
                         </p>
                         <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
@@ -2084,7 +2084,7 @@
                                     }}
                                     disabled={fullVisitFetchState === 'fetching'}
                                     aria-label={fullVisitFetchLabel}
-                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
+                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-teal-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-teal-400/70"
                                 >
                                     {#if fullVisitFetchState === 'fetching'}
                                         <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
@@ -2148,8 +2148,8 @@
             {#if currentClassificationSource !== 'manual'}
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.confidence')}</span>
-                        <span class="text-sm font-black text-slate-900 dark:text-white">
+                        <span class="text-xs font-bold text-slate-500">{$_('detection.confidence')}</span>
+                        <span class="text-sm font-bold text-slate-900 dark:text-white">
                             {((detection.score || 0) * 100).toFixed(1)}%
                         </span>
                     </div>
@@ -2198,7 +2198,7 @@
                         {/if}
                     </svg>
                     <div class="flex flex-col gap-1 min-w-0 flex-1">
-                        <span class="text-[10px] font-black uppercase tracking-widest">
+                        <span class="text-[10px] font-semibold">
                             {videoStatusNoticeTitle}
                         </span>
                         <span class="text-[11px] font-semibold leading-snug">
@@ -2213,7 +2213,7 @@
                                     href={FRIGATE_MISSING_DOCS_URL}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="font-black uppercase tracking-widest hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-teal-600 dark:text-teal-400'}"
+                                    class="font-semibold hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-teal-600 dark:text-teal-400'}"
                                 >
                                     {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
                                 </a>
@@ -2276,7 +2276,7 @@
                     </svg>
                     <div class="flex-1 min-w-0 flex flex-col gap-2">
                         <div class="flex flex-col gap-0.5">
-                            <span class="text-[10px] font-black uppercase tracking-widest">
+                            <span class="text-[10px] font-semibold">
                                 {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
                             </span>
                             <span class="text-[11px] font-semibold leading-snug">
@@ -2289,7 +2289,7 @@
                             <button
                                 type="button"
                                 onclick={handleReclassifyClick}
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
                             >
                                 <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2309,11 +2309,11 @@
             {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
                 <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">
+                        <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
                             {$_('detection.video_analysis.title')}
                         </p>
                         {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">
+                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
                                 {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
@@ -2338,7 +2338,7 @@
                                     <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                         <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
                                     </svg>
-                                    <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider" title={detection.video_classification_provider ?? undefined}>
+                                    <span class="text-[9px] font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
                                         {completedVideoInferenceBadge.label}
                                     </span>
                                 {:else}
@@ -2346,7 +2346,7 @@
                                         <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
                                         <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
                                     </svg>
-                                    <span class="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
+                                    <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
                                         {completedVideoInferenceBadge.label}
                                     </span>
                                 {/if}
@@ -2359,7 +2359,7 @@
                                     <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                                 <span
-                                    class="text-[9px] font-black text-slate-600 dark:text-slate-200 tracking-wide"
+                                    class="text-[9px] font-bold text-slate-600 dark:text-slate-200 tracking-wide"
                                     title={detection.video_classification_model_id ?? detection.video_classification_model_name}
                                 >
                                     {detection.video_classification_model_name}
@@ -2371,7 +2371,7 @@
             {:else if (detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending') && !showMediaSlotVideoAnalysis}
                  <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
                     <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('detection.video_analysis.in_progress')}</span>
+                    <span class="text-xs font-bold text-slate-500">{$_('detection.video_analysis.in_progress')}</span>
                  </div>
             {/if}
             <!-- The standalone "Video Analysis Failed" red card has been folded
@@ -2416,7 +2416,7 @@
                             </svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-teal-600/70 dark:text-teal-400/70">
+                            <p class="text-[10px] font-semibold text-teal-600/70 dark:text-teal-400/70">
                                 {detection.audio_confirmed
                                     ? $_('detection.audio_match')
                                     : (audioNearbySummary
@@ -2529,14 +2529,14 @@
                             {/if}
                         </figure>
                     {:else if detection.audio_confirmed && audioContextLoaded && audioContext.length > 0}
-                        <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-semibold text-slate-500">
                             {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
                         </p>
                     {/if}
                     <button
                         type="button"
                         onclick={toggleAudioContext}
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
                         aria-label={$_('detection.audio_context')}
                     >
                         <span class="flex items-center gap-2">
@@ -2545,29 +2545,29 @@
                             </svg>
                             {$_('detection.audio_context')}
                         </span>
-                        <span class="text-[9px] font-black text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
+                        <span class="text-[9px] font-bold text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>
                     {#if audioContextOpen}
                         <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 p-3 space-y-2">
                             {#if audioContextLoading}
-                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_loading')}</p>
+                                <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
                             {:else if audioContextError}
-                                <p class="text-[10px] font-semibold uppercase tracking-widest text-rose-500">{audioContextError}</p>
+                                <p class="text-[10px] font-semibold text-rose-500">{audioContextError}</p>
                             {:else if audioContext.length === 0}
-                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{$_('detection.audio_context_empty')}</p>
+                                <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
                             {:else}
                                 {#each audioContext as audio}
                                     <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
                                         <div class="min-w-0">
                                             <p class="font-semibold truncate">{audio.species}</p>
-                                            <p class="text-[10px] uppercase tracking-widest text-slate-400">
+                                            <p class="text-[10px] text-slate-400">
                                                 {(audio.confidence * 100).toFixed(0)}%
                                                 {#if audio.sensor_id}
                                                     <span class="ml-1 opacity-70">{audio.sensor_id}</span>
                                                 {/if}
                                             </p>
                                         </div>
-                                        <div class="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                        <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                                             {formatAudioOffset(audio.offset_seconds)}
                                         </div>
                                     </div>
@@ -2588,7 +2588,7 @@
                                 </svg>
                             </div>
                             <div class="min-w-0">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-sky-600/70 dark:text-sky-300/70 mb-0.5">
+                                <p class="text-[10px] font-semibold text-sky-600/70 dark:text-sky-300/70 mb-0.5">
                                     {$_('detection.weather_title')}
                                 </p>
                                 <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
@@ -2597,7 +2597,7 @@
                             </div>
                         </div>
                         {#if detection.temperature !== undefined && detection.temperature !== null}
-                            <div class="text-sm font-black text-slate-800 dark:text-slate-100">
+                            <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
                                 {formatTemperature(detection.temperature, temperatureUnit)}
                             </div>
                         {/if}
@@ -2605,7 +2605,7 @@
                     <button
                         type="button"
                         onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
                         aria-label={$_('detection.weather_details')}
                     >
                         <span class="flex items-center gap-2">
@@ -2614,12 +2614,12 @@
                             </svg>
                             {$_('detection.weather_details')}
                         </span>
-                        <span class="text-[9px] font-black text-slate-400">{weatherDetailsOpen ? $_('common.hide') : $_('common.show')}</span>
+                        <span class="text-[9px] font-bold text-slate-400">{weatherDetailsOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>
                     {#if weatherDetailsOpen}
                         <div class="grid grid-cols-2 gap-2">
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
                                     <svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
                                     </svg>
@@ -2637,7 +2637,7 @@
                                 </p>
                             </div>
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
                                     <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
                                     </svg>
@@ -2652,7 +2652,7 @@
                                 </p>
                             </div>
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
                                     <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
                                     </svg>
@@ -2663,7 +2663,7 @@
                                 </p>
                             </div>
                             <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
                                     <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
                                     </svg>
@@ -2695,7 +2695,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</p>
+                                    <p class="text-[10px] font-semibold text-slate-500">{$_('actions.species_info')}</p>
                                 </div>
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
@@ -2704,7 +2704,7 @@
                                             href={speciesInfo.summary_source_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
+                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-semibold text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/30 transition-colors shadow-sm"
                                         >
                                             {summaryLabel}
                                             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2712,7 +2712,7 @@
                                             </svg>
                                         </a>
                                     {:else}
-                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-semibold text-slate-500">
                                             {summaryLabel}
                                         </span>
                                     {/if}
@@ -2753,7 +2753,7 @@
                                                 </span>
                                             {/if}
                                             {#if speciesInfo.conservation_status}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
@@ -2778,9 +2778,9 @@
                                         </svg>
                                     </div>
                                     <div class="flex flex-col">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
+                                        <p class="text-[10px] font-semibold text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60 uppercase tracking-wider">eBird</span>
+                                            <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60">eBird</span>
                                             <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
                                             <span class="text-[9px] font-medium text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
                                         </div>
@@ -2850,7 +2850,7 @@
                                                 </div>
                                             </div>
                                             {#if obs.how_many}
-                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-black text-sky-700 dark:text-sky-300">
+                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-bold text-sky-700 dark:text-sky-300">
                                                     x{obs.how_many}
                                                 </span>
                                             {/if}
@@ -2871,9 +2871,9 @@
                                         </svg>
                                     </div>
                                     <div class="flex flex-col">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
+                                        <p class="text-[10px] font-semibold text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60 uppercase tracking-wider">{$_('detection.ebird_notable_badge')}</span>
+                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60">{$_('detection.ebird_notable_badge')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2928,7 +2928,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
+                                <p class="text-[10px] font-semibold text-emerald-600/80 dark:text-emerald-300/80">{$_('detection.inat.title')}</p>
                                 {#if inatConnectedUser}
                                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
                                 {/if}
@@ -2937,7 +2937,7 @@
                         <button
                             type="button"
                             onclick={openInatPanel}
-                            class="px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
+                            class="px-3 py-2 text-[10px] font-semibold rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
                             aria-label={$_('detection.inat.open_label')}
                         >
                             {inatPanelOpen ? $_('detection.inat.close') : $_('detection.inat.open')}
@@ -2955,17 +2955,17 @@
                                 {#if inatDraft}
                                     <div class="grid grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-300">
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.species')}</p>
+                                            <p class="text-[9px] font-semibold text-slate-400">{$_('detection.inat.species')}</p>
                                             <p class="font-semibold text-slate-700 dark:text-slate-200">{inatDraft.species_guess}</p>
                                         </div>
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">{$_('detection.inat.observed')}</p>
+                                            <p class="text-[9px] font-semibold text-slate-400">{$_('detection.inat.observed')}</p>
                                             <p class="font-semibold text-slate-700 dark:text-slate-200">{formatDateTime(inatDraft.observed_on_string)}</p>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label for="inat-lat" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
+                                            <label for="inat-lat" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
                                             <input
                                                 id="inat-lat"
                                                 type="number"
@@ -2975,7 +2975,7 @@
                                             />
                                         </div>
                                         <div>
-                                            <label for="inat-lon" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
+                                            <label for="inat-lon" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
                                             <input
                                                 id="inat-lon"
                                                 type="number"
@@ -2986,7 +2986,7 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <label for="inat-place" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.place')}</label>
+                                        <label for="inat-place" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.place')}</label>
                                         <input
                                             id="inat-place"
                                             type="text"
@@ -2995,7 +2995,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label for="inat-notes" class="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
+                                        <label for="inat-notes" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
                                         <textarea
                                             id="inat-notes"
                                             rows="3"
@@ -3007,7 +3007,7 @@
                                         type="button"
                                         onclick={submitInat}
                                         disabled={inatSubmitting}
-                                        class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                        class="w-full py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50"
                                     >
                                         {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}
                                     </button>
@@ -3065,7 +3065,7 @@
 
             {#if llmReady && aiAnalysis && authStore.canViewAiConversation}
                 <div class="space-y-3">
-                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                    <p class="text-[10px] font-bold text-slate-500">
                         {$_('detection.ai.conversation_title')}
                     </p>
                     <div class="ai-thread">
@@ -3113,7 +3113,7 @@
                                 type="button"
                                 onclick={sendConversation}
                                 disabled={!conversationInput.trim() || conversationSending}
-                                class="w-full py-2 px-4 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                class="w-full py-2 px-4 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-xs font-semibold disabled:opacity-50"
                             >
                                 {conversationSending ? $_('detection.ai.sending') : $_('detection.ai.send')}
                             </button>
@@ -3181,7 +3181,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20"
+                    class="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-teal-500/20"
                 >
                     {$_('actions.species_info')}
                 </button>
@@ -3201,7 +3201,7 @@
                             <path d="M9 6l1.5-2h3L15 6" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         <div class="min-w-0">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                            <p class="text-[10px] font-semibold text-white/60">
                                 {$_('detection.snapshot_change', { default: 'Choose Snapshot' })}
                             </p>
                             <p class="truncate text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
@@ -3211,7 +3211,7 @@
                         <button
                             type="button"
                             onclick={() => { snapshotRepairOpen = false; resetSnapshotPickerSelection(); }}
-                            class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white/80 transition-colors hover:border-white/30 hover:text-white"
+                            class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:text-white"
                         >
                             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
@@ -3222,7 +3222,7 @@
                             type="button"
                             onclick={handleSaveSnapshotSelection}
                             disabled={!canSaveSnapshotSelection}
-                            class="inline-flex items-center gap-1.5 rounded-full bg-teal-500 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="inline-flex items-center gap-1.5 rounded-full bg-teal-500 px-3 py-1.5 text-[11px] font-semibold text-slate-950 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {#if snapshotApplyPending}
                                 <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
@@ -3247,7 +3247,7 @@
                         <!-- ── Crop type ── -->
                         <div class="space-y-2">
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                                <p class="text-[10px] font-semibold text-white/60">
                                     {$_('detection.snapshot_picker_sources', { default: 'Crop Type' })}
                                 </p>
                                 <p class="mt-0.5 text-[11px] text-white/40">
@@ -3344,7 +3344,7 @@
                         <div class="space-y-2">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                                    <p class="text-[10px] font-semibold text-white/60">
                                         {$_('detection.snapshot_candidate_frames', { default: 'Scored Frames' })}
                                     </p>
                                     <p class="mt-0.5 text-[11px] text-white/40">
@@ -3357,7 +3357,7 @@
                                         onclick={handleGenerateSnapshotCandidates}
                                         disabled={snapshotGeneratePending}
                                         title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                        class="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                        class="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-semibold text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {#if snapshotGeneratePending}
                                             <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
@@ -3391,7 +3391,7 @@
                                             onclick={handleGenerateSnapshotCandidates}
                                             disabled={snapshotGeneratePending}
                                             title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                            class="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                            class="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-teal-300/35 bg-teal-500/15 px-3 py-1.5 text-[11px] font-semibold text-teal-100 transition-colors hover:bg-teal-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {#if snapshotGeneratePending}
                                                 <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
@@ -3450,7 +3450,7 @@
                                                 </span>
                                             {/if}
                                             {#if isFirstModelCrop}
-                                                <span class="absolute left-3 top-3 z-10 rounded-full bg-teal-500/90 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-950 shadow">
+                                                <span class="absolute left-3 top-3 z-10 rounded-full bg-teal-500/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-950 shadow">
                                                     {$_('detection.snapshot_best', { default: 'Best' })}
                                                 </span>
                                             {/if}
@@ -3458,7 +3458,7 @@
                                                 <img src={candidate.thumbnail_url} alt={candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)} class="aspect-video w-full rounded-xl object-cover" />
                                             {/if}
                                             <div class="mt-1.5 flex items-center justify-between gap-1">
-                                                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide {snapshotSourceBadgeClass(candidate.source_mode)}">
+                                                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold {snapshotSourceBadgeClass(candidate.source_mode)}">
                                                     {snapshotSourceShortLabel(candidate.source_mode)}
                                                 </span>
                                                 {#if typeof candidate.classifier_score === 'number'}
@@ -3500,7 +3500,7 @@
                     aria-busy={updatingTag}
                 >
                     <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                        <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {$_('actions.manual_tag')}
                         </h4>
                         <button
@@ -3534,7 +3534,7 @@
                                 <span class="block text-sm leading-tight">
                                     {names.primary}
                                     {#if isPending}
-                                        <span class="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-teal-500">
+                                        <span class="ml-2 inline-flex items-center gap-1 text-[10px] text-teal-500">
                                             <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                             {$_('common.saving')}
                                         </span>

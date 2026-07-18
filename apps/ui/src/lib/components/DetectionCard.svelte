@@ -295,7 +295,7 @@
             <div class="absolute top-3 right-3">
                 <div class="flex items-center gap-1.5 rounded-full border bg-white/90 px-2.5 py-1.5 shadow-sm backdrop-blur-md dark:bg-slate-900/90 {getConfidenceBg(detection.score)}">
                     <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
-                    <span class="text-xs font-black {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
+                    <span class="text-xs font-bold {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
                 </div>
             </div>
 

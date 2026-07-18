@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The refreshed surfaces now share one typographic and control language.** Headings and labels
+  across the Dashboard, Explorer, Species, BirdNET-Go History, and the detection detail dialog now
+  use a single weight the interface font actually ships, so text no longer renders as a synthetic
+  heavier weight on some screens than others. Section eyebrow labels are calm sentence case instead
+  of loud all-caps, and the Explorer multi-select toolbar uses the shared button kit in the app's
+  teal/emerald palette (with the destructive action still clearly styled as destructive) rather than
+  one-off indigo and cyan controls.
 - **The bcrypt 5 upgrade preserves access for existing installations.** Newly configured owner
   passwords are validated against bcrypt's 72-byte UTF-8 limit before they can be saved, while
   sign-in retains bcrypt 4's legacy truncation behaviour for existing longer passwords. Clear

@@ -177,7 +177,7 @@
                 {/if}
             </div>
 
-            <h2 class="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight truncate">
+            <h2 class="text-3xl sm:text-4xl font-bold text-white drop-shadow-lg tracking-tight truncate">
                 {primaryName}
             </h2>
 

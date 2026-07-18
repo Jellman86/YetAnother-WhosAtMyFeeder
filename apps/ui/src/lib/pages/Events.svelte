@@ -975,10 +975,9 @@
             {#if authStore.hasOwnerAccess}
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors
-                        {selectionMode
-                            ? 'bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-100 dark:border-cyan-400/60'
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+                    class="btn px-3 py-2 text-xs {selectionMode
+                        ? 'border border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-400/60 dark:bg-teal-500/20 dark:text-teal-100'
+                        : 'btn-secondary'}"
                     onclick={toggleSelectionMode}
                 >
                     <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
@@ -988,12 +987,12 @@
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
-        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-200/80 dark:border-cyan-500/30 bg-cyan-50/70 dark:bg-cyan-500/10">
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-teal-200/80 dark:border-teal-500/30 bg-teal-50/70 dark:bg-teal-500/10">
             <div>
-                <p class="text-sm font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-100">
+                <p class="text-sm font-semibold text-teal-800 dark:text-teal-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-cyan-700/80 dark:text-cyan-100/80">
+                <p class="text-xs text-teal-700/80 dark:text-teal-100/80">
                     {selectedEventIds.length
                         ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
                         : $_('common.select', { default: 'Select' }) + ' events to act on.'}
@@ -1002,7 +1001,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+                    class="btn btn-ghost px-3 py-2 text-xs"
                     onclick={() => selectedEventIds = []}
                     disabled={selectedEventIds.length === 0}
                 >
@@ -1010,7 +1009,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-primary px-3 py-2 text-xs"
                     onclick={handleBulkReclassify}
                     disabled={selectedEventIds.length === 0 || bulkReclassifying || bulkDeleting}
                 >
@@ -1018,7 +1017,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-cyan-600 text-white border-cyan-500 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-secondary px-3 py-2 text-xs"
                     onclick={() => showBulkTagModal = true}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
@@ -1026,7 +1025,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-red-600 text-white border-red-500 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-danger px-3 py-2 text-xs"
                     onclick={handleBulkDelete}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
@@ -1136,7 +1135,7 @@
                         </svg>
                     {/if}
                     <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
+                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
                         {hiddenCount}
                     </span>
                 </button>
@@ -1160,7 +1159,7 @@
                     type="button"
                     class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                            ? 'bg-teal-100/90 dark:bg-teal-500/20 border-teal-300/80 dark:border-teal-400/60 text-teal-700 dark:text-teal-100 shadow-sm'
                             : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                     onclick={() => selectedTimelineBucket = 'all'}
                 >
@@ -1169,9 +1168,9 @@
                         <path d="M4.5 10h11"></path>
                     </svg>
                     <span>{$_('common.all', { default: 'All' })}</span>
-                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                            ? 'bg-teal-200/80 dark:bg-teal-400/25 text-teal-800 dark:text-teal-100'
                             : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1186,7 +1185,7 @@
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                                ? 'bg-teal-100/90 dark:bg-teal-500/20 border-teal-300/80 dark:border-teal-400/60 text-teal-700 dark:text-teal-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = bucket.key}
                     >
@@ -1195,9 +1194,9 @@
                             <path d="M3 8h14"></path>
                         </svg>
                         <span>{bucket.label}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                                ? 'bg-teal-200/80 dark:bg-teal-400/25 text-teal-800 dark:text-teal-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1330,7 +1329,7 @@
         <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                    <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {$_('actions.manual_tag')}
                     </h4>
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1368,7 +1367,7 @@
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-teal-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-teal-500">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>
