@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The bcrypt 5 upgrade preserves access for existing installations.** Newly configured owner
+  passwords are validated against bcrypt's 72-byte UTF-8 limit before they can be saved, while
+  sign-in retains bcrypt 4's legacy truncation behaviour for existing longer passwords. Clear
+  first-run and Security guidance prevents an accepted password from failing later at hash time.
 - **The interface now arrives quickly instead of loading the whole application up front.** The
   entry bundle is reduced from roughly 2.4 MB to 157 KB by loading operational pages and
   translation catalogs only when they are needed. Fingerprinted assets are compressed and cached

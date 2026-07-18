@@ -1,6 +1,7 @@
 """Tests for authentication module."""
 
 import pytest
+import bcrypt
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 from starlette.requests import Request
@@ -35,6 +36,30 @@ def test_password_hashing_different_hashes():
     assert hash1 != hash2
     assert verify_password(password, hash1)
     assert verify_password(password, hash2)
+
+
+def test_password_hashing_accepts_exactly_72_utf8_bytes():
+    password = "A1" + ("é" * 35)
+
+    hashed = hash_password(password)
+
+    assert len(password.encode("utf-8")) == 72
+    assert verify_password(password, hashed)
+
+
+def test_password_hashing_rejects_more_than_72_utf8_bytes():
+    password = "A1" + ("é" * 36)
+
+    with pytest.raises(ValueError, match="72 UTF-8 bytes or fewer"):
+        hash_password(password)
+
+
+def test_password_verification_preserves_legacy_bcrypt_truncation():
+    password = "A1" + ("é" * 40)
+    legacy_hash = bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+    assert verify_password(password, legacy_hash)
+    assert not verify_password("B1" + password[2:], legacy_hash)
 
 
 def test_jwt_token_creation():

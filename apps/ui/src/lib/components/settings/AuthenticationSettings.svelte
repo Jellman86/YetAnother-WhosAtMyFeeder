@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import SecretInput from './_primitives/SecretInput.svelte';
-    import { AUTH_PASSWORD_COMPLEXITY_MESSAGE } from '../../auth-password-policy';
+    import { AUTH_PASSWORD_REQUIREMENTS_MESSAGE } from '../../auth-password-policy';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -148,7 +148,7 @@
         <SettingsRow
             labelId="setting-auth-password"
             label={$_('settings.auth.password')}
-            description={AUTH_PASSWORD_COMPLEXITY_MESSAGE}
+            description={AUTH_PASSWORD_REQUIREMENTS_MESSAGE}
             layout="stacked"
         >
             <SecretInput

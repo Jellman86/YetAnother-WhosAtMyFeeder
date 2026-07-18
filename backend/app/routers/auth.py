@@ -18,6 +18,7 @@ from app.auth import (
     AuthLevel,
     verify_token,
     require_owner,
+    validate_bcrypt_password_length,
 )
 from app.config import settings
 from app.database import get_db
@@ -90,7 +91,12 @@ class InitialPasswordRequest(BaseModel):
     """Initial password setup request."""
 
     username: str = Field(..., min_length=1, max_length=50)
-    password: Optional[str] = Field(None, min_length=8, max_length=128)
+    password: Optional[str] = Field(
+        None,
+        min_length=8,
+        max_length=128,
+        description="New passwords must use 72 UTF-8 bytes or fewer",
+    )
     enable_auth: bool = True
 
     @field_validator("username")
@@ -110,6 +116,8 @@ class InitialPasswordRequest(BaseModel):
 
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
+
+        validate_bcrypt_password_length(v)
 
         # Check for basic complexity (at least one letter and one number)
         if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):

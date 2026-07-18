@@ -19,6 +19,16 @@ security = HTTPBearer(auto_error=False)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
+BCRYPT_MAX_PASSWORD_BYTES = 72
+BCRYPT_PASSWORD_MAX_BYTES_MESSAGE = "Password must use 72 UTF-8 bytes or fewer"
+
+
+def validate_bcrypt_password_length(password: str) -> str:
+    """Return a password that fits bcrypt's byte limit or raise a safe validation error."""
+    if len(password.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(BCRYPT_PASSWORD_MAX_BYTES_MESSAGE)
+    return password
+
 
 class TokenData(BaseModel):
     """JWT token payload."""
@@ -60,7 +70,8 @@ def hash_password(password: str) -> str:
     Returns:
         Bcrypt hash string
     """
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    password_bytes = validate_bcrypt_password_length(password).encode("utf-8")
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
@@ -74,7 +85,10 @@ def verify_password(password: str, password_hash: str) -> bool:
         True if password matches hash
     """
     try:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+        # bcrypt 4 silently truncated at 72 bytes. Preserve that behaviour only for
+        # verification so existing installations cannot be locked out after upgrading.
+        password_bytes = password.encode("utf-8")[:BCRYPT_MAX_PASSWORD_BYTES]
+        return bcrypt.checkpw(password_bytes, password_hash.encode("utf-8"))
     except Exception as e:
         log.error("Password verification failed", error=str(e))
         return False

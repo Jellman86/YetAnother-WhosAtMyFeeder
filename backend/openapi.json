@@ -5626,6 +5626,7 @@
                 "type": "null"
               }
             ],
+            "description": "New passwords must use 72 UTF-8 bytes or fewer",
             "title": "Password"
           },
           "username": {
@@ -8902,6 +8903,7 @@
                 "type": "null"
               }
             ],
+            "description": "New passwords must use 72 UTF-8 bytes or fewer",
             "title": "Auth Password"
           },
           "auth_session_expiry_hours": {

@@ -187,6 +187,17 @@ async def test_settings_allows_enabling_auth_with_password(client: httpx.AsyncCl
 
 
 @pytest.mark.asyncio
+async def test_settings_rejects_new_password_over_72_utf8_bytes(client: httpx.AsyncClient):
+    response = await client.post(
+        "/api/settings",
+        json={"auth_password": "A1" + ("é" * 36)},
+    )
+
+    assert response.status_code == 422
+    assert "72 UTF-8 bytes or fewer" in response.text
+
+
+@pytest.mark.asyncio
 async def test_settings_export_includes_unredacted_config_secrets(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

@@ -3,7 +3,7 @@
     import { get } from 'svelte/store';
     import { authStore } from '../../stores/auth.svelte';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
-    import { AUTH_PASSWORD_COMPLEXITY_MESSAGE, validateAuthPasswordPolicy } from '../../auth-password-policy';
+    import { AUTH_PASSWORD_REQUIREMENTS_MESSAGE, validateAuthPasswordPolicy } from '../../auth-password-policy';
     import WizardStepLayout from './WizardStepLayout.svelte';
 
     let alreadyConfigured = $derived(!authStore.needsInitialSetup);
@@ -70,7 +70,7 @@
             <div>
                 <label for="setup-password" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.password', { default: 'Password' })}</label>
                 <input id="setup-password" type="password" minlength="8" bind:value={password} class="input-base mt-1" />
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{AUTH_PASSWORD_COMPLEXITY_MESSAGE}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{AUTH_PASSWORD_REQUIREMENTS_MESSAGE}</p>
             </div>
             <div>
                 <label for="setup-confirm" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.confirm_password', { default: 'Confirm password' })}</label>

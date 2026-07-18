@@ -11,7 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
-from app.auth import require_owner, AuthContext, hash_password
+from app.auth import (
+    AuthContext,
+    hash_password,
+    require_owner,
+    validate_bcrypt_password_length,
+)
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -872,7 +877,12 @@ class SettingsUpdate(BaseModel):
     # Authentication
     auth_enabled: Optional[bool] = None
     auth_username: Optional[str] = Field(None, min_length=1, max_length=50)
-    auth_password: Optional[str] = Field(None, min_length=8, max_length=128)
+    auth_password: Optional[str] = Field(
+        None,
+        min_length=8,
+        max_length=128,
+        description="New passwords must use 72 UTF-8 bytes or fewer",
+    )
     auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
     trusted_proxy_hosts: Optional[List[str]] = None
 
@@ -895,6 +905,8 @@ class SettingsUpdate(BaseModel):
 
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
+
+        validate_bcrypt_password_length(v)
 
         # Check for basic complexity (at least one letter and one number)
         if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
