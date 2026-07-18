@@ -7,12 +7,6 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    let {
-        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
-    }: {
-        birdCropDetectorTier: 'fast' | 'accurate' | string;
-    } = $props();
-
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
     let health = $state<HealthStatus | null>(null);
@@ -559,7 +553,7 @@
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
-        {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === birdCropDetectorTier.toLowerCase())
+        {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
             || cropDetectorModels[0]}
         {@const selectedCropDetectorInstalled = selectedCropDetector ? isCropDetectorInstalled(selectedCropDetector.id) : false}
         {@const selectedCropDetectorDownload = selectedCropDetector ? downloadStatuses[selectedCropDetector.id] : undefined}
@@ -833,19 +827,15 @@
                         </svg>
                     </summary>
                     <div class="space-y-5 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
-                        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+                        <div class="grid gap-4">
                             <div>
-                                <label for="thumbnail-crop-quality" class="text-sm font-bold text-slate-900 dark:text-white">
-                                    {$_('settings.detection.model_manager_thumbnail_crop_quality', { default: 'Thumbnail crop quality' })}
-                                </label>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">
+                                    {$_('settings.detection.model_manager_thumbnail_crop_quality', { default: 'Automatic best quality' })}
+                                </p>
                                 <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                                    {$_('settings.detection.model_manager_thumbnail_crop_desc', { default: 'Choose how YA-WAMF locates birds when it generates tight thumbnail crops. Classifier image preparation remains automatic for each model.' })}
+                                    {$_('settings.detection.model_manager_thumbnail_crop_desc', { default: 'YA-WAMF evaluates the accurate detector, fast fallback, and Frigate tracking hints automatically; the clear full frame is used only if none yields a reliable crop.' })}
                                 </p>
                             </div>
-                            <select id="thumbnail-crop-quality" bind:value={birdCropDetectorTier} class="select-base w-full">
-                                <option value="fast">{$_('settings.detection.model_manager_thumbnail_crop_fast', { default: 'Fast · lower CPU use' })}</option>
-                                <option value="accurate">{$_('settings.detection.model_manager_thumbnail_crop_accurate', { default: 'Accurate · tighter crops' })}</option>
-                            </select>
                         </div>
 
                         <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">

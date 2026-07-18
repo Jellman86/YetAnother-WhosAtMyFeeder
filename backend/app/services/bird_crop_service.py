@@ -51,54 +51,82 @@ class BirdCropService:
         self._model_errors: dict[str, str | None] = {}
 
     def generate_crop(self, image: Image.Image, *, detector_tier: str | None = None) -> dict[str, Any]:
-        """Return the best crop candidate or a fail-soft empty result."""
+        """Return the best crop candidate, failing from accurate to fast on any miss."""
         if not isinstance(image, Image.Image):
             return self._empty_result("invalid_image")
 
         requested_tier = self._normalize_detector_tier(detector_tier)
-        resolved_tier = requested_tier
-        fallback_reason: str | None = None
-        try:
-            model = self._ensure_model_for_tier(requested_tier)
-        except Exception as exc:  # pragma: no cover - defensive guard
-            self._model_error = str(exc)
-            self._model_errors[requested_tier] = str(exc)
-            log.warning("Bird crop model load failed", detector_tier=requested_tier, error=str(exc))
-            model = None
+        result, model_available = self._generate_crop_for_tier(image, requested_tier)
+        if requested_tier != "accurate" or (model_available and result.get("reason") == "selected"):
+            return result
 
-        if model is None and requested_tier == "accurate":
-            fallback_reason = "accurate_unavailable"
-            resolved_tier = "fast"
-            try:
-                model = self._ensure_model_for_tier("fast")
-            except Exception as exc:  # pragma: no cover - defensive guard
-                self._model_error = str(exc)
-                self._model_errors["fast"] = str(exc)
-                log.warning("Bird crop fallback model load failed", detector_tier="fast", error=str(exc))
-                model = None
-
-        if model is None:
+        accurate_reason = str(result.get("reason") or "unavailable").removesuffix("_no_fallback")
+        fallback_reason = "accurate_unavailable" if not model_available else f"accurate_{accurate_reason}"
+        fast_result, fast_available = self._generate_crop_for_tier(
+            image,
+            "fast",
+            fallback_reason=fallback_reason,
+        )
+        if fast_available:
+            return fast_result
+        if not model_available:
             return self._empty_result(
                 "load_failed",
                 detector_tier=None,
                 fallback_reason="no_detector_available",
             )
 
+        preserved = dict(result)
+        preserved["fallback_reason"] = f"{fallback_reason}:fast_unavailable"
+        return preserved
+
+    def _generate_crop_for_tier(
+        self,
+        image: Image.Image,
+        detector_tier: str,
+        *,
+        fallback_reason: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Run one detector tier and return its fail-soft result plus availability."""
+        try:
+            model = self._ensure_model_for_tier(detector_tier)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self._model_error = str(exc)
+            self._model_errors[detector_tier] = str(exc)
+            log.warning("Bird crop model load failed", detector_tier=detector_tier, error=str(exc))
+            model = None
+
+        if model is None:
+            return (
+                self._empty_result(
+                    "load_failed",
+                    detector_tier=detector_tier,
+                    fallback_reason=fallback_reason,
+                ),
+                False,
+            )
+
         try:
             candidates = self._infer_candidates(model, image)
         except Exception as exc:
-            log.warning("Bird crop inference failed", detector_tier=resolved_tier, error=str(exc))
-            return self._empty_result(
-                "inference_failed",
-                detector_tier=resolved_tier,
-                fallback_reason=fallback_reason,
+            log.warning("Bird crop inference failed", detector_tier=detector_tier, error=str(exc))
+            return (
+                self._empty_result(
+                    "inference_failed",
+                    detector_tier=detector_tier,
+                    fallback_reason=fallback_reason,
+                ),
+                True,
             )
 
-        return self._select_best_valid_candidate(
-            image,
-            candidates,
-            detector_tier=resolved_tier,
-            fallback_reason=fallback_reason,
+        return (
+            self._select_best_valid_candidate(
+                image,
+                candidates,
+                detector_tier=detector_tier,
+                fallback_reason=fallback_reason,
+            ),
+            True,
         )
 
     def generate_classification_crop(self, image: Image.Image) -> dict[str, Any]:
@@ -274,7 +302,10 @@ class BirdCropService:
         try:
             from app.services.model_manager import model_manager
 
-            status = dict(model_manager.get_crop_detector_spec(self._requested_detector_tier()) or {})
+            try:
+                status = dict(model_manager.get_crop_detector_spec("accurate") or {})
+            except TypeError:
+                status = dict(model_manager.get_crop_detector_spec() or {})
         except Exception:
             model_path = self._resolve_model_path(self._requested_detector_tier())
             status = {
@@ -288,6 +319,7 @@ class BirdCropService:
                 "model_path": str(model_path) if model_path is not None else None,
             }
         status["load_error"] = self._model_error
+        status["policy"] = "accurate_then_fast"
         return status
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:

@@ -116,14 +116,33 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 
 #### Bird Crop Detector Tiers
 - Managed in the same Model Manager as classifier models.
-- Shown separately as **Cropped thumbnails**, not as a classifier model option. Classifier crop-on/off
-  policy remains automatic per model.
+- Shown separately as **Cropped thumbnails**, not as a classifier model option. Crop generation and
+  classifier crop-on/off policy are both automatic.
 - `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
-- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and automatically falls back to `Fast` if the accurate artifact is missing or unhealthy.
-- The selected tier controls generated thumbnail crops only. Crop-enabled classifier models use the
-  separately validated accurate detector path automatically and fall back to the fast detector when
-  necessary; the thumbnail choice cannot change classifier input behaviour.
+- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and
+  automatically retries with `Fast` when the artifact is unavailable or when accurate inference
+  cannot produce a usable crop (including no candidate, low confidence, an undersized/invalid box,
+  or inference failure).
+- Generated crops try `Accurate` first and `Fast` second. Crop-enabled classifier models use the same
+  detector fallback while retaining their separately validated crop-on/off policy. The legacy tier
+  setting remains API-compatible but no longer lowers the automatic quality path.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
+
+#### Best-available event snapshots
+
+**Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
+not a source selector. When enabled, YA-WAMF samples up to three promising main-stream clip frames,
+builds a full-frame candidate plus every valid Frigate-hint and detector crop, reclassifies the
+candidates, and makes the strongest crop canonical. The full high-quality frame is used only when no
+crop source yields a valid image. The old `bird_crop_source_priority` and
+`media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
+configuration compatibility, but do not override this policy.
+
+The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
+can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
+events without generated candidates are reconciled after restart so an in-memory queue loss does not
+permanently strand their upgrade. `/health` exposes `high_quality_snapshots.crop_policy`, selected
+source counts, outcomes, and the recovered-job total for operational verification.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.

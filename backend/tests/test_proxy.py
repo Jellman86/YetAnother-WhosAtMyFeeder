@@ -1141,7 +1141,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
     settings.media_cache.high_quality_event_snapshots = True
-    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = False
 
     with (
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
@@ -1152,7 +1152,6 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             "app.routers.proxy.frigate_client.get_snapshot_with_error",
             new=AsyncMock(return_value=(b"orig-snapshot", None)),
         ),
-        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
     ):
         mock_get_snapshot.return_value = b"cached-hq-frame"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
@@ -1166,6 +1165,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             assert body["source"] == "high_quality_snapshot"
             assert body["already_hq_bird_crop"] is False
             assert body["can_generate_hq_bird_crop"] is True
+            assert body["high_quality_bird_crop_enabled"] is True
             assert body["original_frigate_snapshot_available"] is True
         finally:
             settings.media_cache.enabled = original_cache_enabled
@@ -1211,6 +1211,38 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
 
 
 @pytest.mark.asyncio
+async def test_proxy_snapshot_status_recognizes_generated_candidate_crop(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+    try:
+        with (
+            patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+            patch(
+                "app.services.media_cache.media_cache.get_snapshot_metadata",
+                new=AsyncMock(return_value={"source": "hq_candidate_frigate_hint_crop"}),
+            ),
+            patch(
+                "app.routers.proxy.frigate_client.get_snapshot_with_error",
+                new=AsyncMock(return_value=(b"original", None)),
+            ),
+        ):
+            response = await client.get("/api/frigate/test_event_id/snapshot/status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["already_hq_bird_crop"] is True
+        assert body["can_generate_hq_bird_crop"] is False
+    finally:
+        settings.media_cache.enabled = original_cache_enabled
+        settings.media_cache.cache_snapshots = original_cache_snapshots
+        settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+
+
+@pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
@@ -1230,7 +1262,6 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
             "app.routers.proxy.frigate_client.get_snapshot_with_error",
             new=AsyncMock(return_value=(b"orig-snapshot", None)),
         ),
-        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
         patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process,
     ):
         mock_get_snapshot.return_value = b"cached-hq-frame"

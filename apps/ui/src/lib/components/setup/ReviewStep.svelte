@@ -10,7 +10,7 @@
         connection: 'Frigate & MQTT',
         cameras: 'Cameras & detection',
         model: 'Model & hardware',
-        quality: 'Snapshot & crop quality',
+        quality: 'Best available snapshots',
         integrations: 'Integrations'
     };
 

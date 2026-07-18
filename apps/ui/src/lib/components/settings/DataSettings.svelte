@@ -2,6 +2,7 @@
     import { _ } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
     import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus, TimezoneRepairPreview } from '../../api';
+    import type { ClassifierStatus } from '../../api/classifier';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -26,9 +27,9 @@
         cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
-        cacheHighQualityEventSnapshotBirdCrop = $bindable(false),
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
         cacheStats,
+        classifierStatus,
         cleaningCache,
         taxonomyStatus,
         syncingTaxonomy,
@@ -83,9 +84,9 @@
         cacheSnapshots: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
-        cacheHighQualityEventSnapshotBirdCrop: boolean;
         cacheHighQualityEventSnapshotJpegQuality: number;
         cacheStats: CacheStats | null;
+        classifierStatus: ClassifierStatus | null;
         cleaningCache: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
         syncingTaxonomy: boolean;
@@ -202,6 +203,11 @@
 
     const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
     const autoMediaIntegrityScan = $derived(autoPurgeMissingClips || autoPurgeMissingSnapshots);
+    const cropDetectorReady = $derived(Boolean(
+        classifierStatus?.crop_detector?.installed
+        && classifierStatus?.crop_detector?.healthy
+        && classifierStatus?.crop_detector?.enabled_for_runtime
+    ));
 
     const setAutoMediaIntegrityScan = (enabled: boolean) => {
         autoPurgeMissingClips = enabled;
@@ -400,37 +406,43 @@
 
                 <AdvancedSection
                     id="data-cache-advanced"
-                    title={$_('settings.data.cache_advanced_title', { default: 'High-quality snapshots & quality' })}
+                    title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
                 >
                     <SettingsRow
                         labelId="setting-cache-hq"
-                        label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
-                        description={$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'Replace Frigate snapshots later with a frame from the main-stream clip.' })}
+                        label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                        description={$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
                     >
                         <SettingsToggle
                             checked={cacheHighQualityEventSnapshots}
                             labelledBy="setting-cache-hq"
-                            srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'HQ Event Snapshots' })}
-                            onchange={(v) => {
-                                cacheHighQualityEventSnapshots = v;
-                                if (!v) cacheHighQualityEventSnapshotBirdCrop = false;
-                            }}
+                            srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                            onchange={(v) => (cacheHighQualityEventSnapshots = v)}
                         />
                     </SettingsRow>
 
                     {#if cacheHighQualityEventSnapshots}
-                        <SettingsRow
-                            labelId="setting-cache-hq-bird-crop"
-                            label={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
-                            description={$_('settings.data.cache_high_quality_event_snapshot_bird_crop_help', { default: 'Use the bird crop detector on HQ frames. Falls back to the full HQ frame if no crop is found.' })}
-                        >
-                            <SettingsToggle
-                                checked={cacheHighQualityEventSnapshotBirdCrop}
-                                labelledBy="setting-cache-hq-bird-crop"
-                                srLabel={$_('settings.data.cache_high_quality_event_snapshot_bird_crop', { default: 'HQ Bird Crop Snapshots' })}
-                                onchange={(v) => (cacheHighQualityEventSnapshotBirdCrop = v)}
-                            />
-                        </SettingsRow>
+                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-emerald-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-emerald-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                {#if cropDetectorReady}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                {:else}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
+                                {/if}
+                            </svg>
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {cropDetectorReady
+                                        ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
+                                        : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
+                                </p>
+                                <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                    {cropDetectorReady
+                                        ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
+                                        : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
+                                </p>
+                            </div>
+                        </div>
 
                         <SettingsRow
                             labelId="setting-cache-hq-jpeg-quality"

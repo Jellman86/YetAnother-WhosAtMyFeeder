@@ -40,7 +40,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
-- **High-Quality Event Snapshots** - Optionally replace Frigate's detect-stream snapshot with a later still extracted from the recorded main-stream clip
+- **Best-Available Event Snapshots** - Optionally replace Frigate's detect-stream image with the clearest recorded main-stream frame and strongest valid crop, falling back safely to the full frame
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude/OpenRouter)
 - **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards

@@ -237,7 +237,6 @@
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
-    let birdCropDetectorTier = $state<'fast' | 'accurate'>('fast');
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('in_process');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
@@ -1771,7 +1770,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'birdCropDetectorTier', val: birdCropDetectorTier, store: s.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast' },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
@@ -1791,7 +1789,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
             { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
-            { key: 'cacheHighQualityEventSnapshotBirdCrop', val: cacheHighQualityEventSnapshotBirdCrop, store: s.media_cache_high_quality_event_snapshot_bird_crop ?? false },
             { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
@@ -1939,7 +1936,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheSnapshots = $state(true);
     let cacheClips = $state(false);
     let cacheHighQualityEventSnapshots = $state(false);
-    let cacheHighQualityEventSnapshotBirdCrop = $state(false);
     let cacheHighQualityEventSnapshotJpegQuality = $state(95);
     let cacheRetentionDays = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
@@ -2793,7 +2789,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
-            birdCropDetectorTier = settings.bird_crop_detector_tier === 'accurate' ? 'accurate' : 'fast';
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'in_process';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
@@ -2827,7 +2822,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             cacheSnapshots = settings.media_cache_snapshots ?? true;
             cacheClips = settings.media_cache_clips ?? false;
             cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
-            cacheHighQualityEventSnapshotBirdCrop = settings.media_cache_high_quality_event_snapshot_bird_crop ?? false;
             cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
             // Location settings
@@ -3129,7 +3123,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
-                bird_crop_detector_tier: birdCropDetectorTier,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
@@ -3147,7 +3140,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
                 media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
-                media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots && cacheHighQualityEventSnapshotBirdCrop,
+                // Compatibility field: best-available snapshots always attempt an automatic crop.
+                media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots,
                 media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
                 media_cache_retention_days: cacheRetentionDays,
                 location_latitude: locationLat,
@@ -3366,7 +3360,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
-                    bind:birdCropDetectorTier
                     bind:birdModelRegionOverride
                     bind:imageExecutionMode
                     bind:inferenceProvider
@@ -3579,7 +3572,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheHighQualityEventSnapshots
-                    bind:cacheHighQualityEventSnapshotBirdCrop
                     bind:cacheHighQualityEventSnapshotJpegQuality
                     bind:cacheRetentionDays
                     bind:backfillDateRange
@@ -3589,6 +3581,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {backfillCustomValid}
                     {maintenanceStats}
                     {cacheStats}
+                    {classifierStatus}
                     {cleaningUp}
                     {clearingFavorites}
                     {purgingMissingMedia}

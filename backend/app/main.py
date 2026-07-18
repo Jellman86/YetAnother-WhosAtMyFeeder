@@ -395,6 +395,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
+        await _run_lifecycle_phase(app, "high_quality_snapshot_start", high_quality_snapshot_service.start, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_start", full_visit_clip_service.start, fatal=False)
         await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
         backfill.start_watchdog()

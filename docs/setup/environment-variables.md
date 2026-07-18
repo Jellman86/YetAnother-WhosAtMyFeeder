@@ -67,7 +67,7 @@ driven entirely from `docker-compose` with no clicking.
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |
-| `CLASSIFICATION__BIRD_CROP_SOURCE_PRIORITY` | `frigate_hints_first` | Crop-source order for the displayed image. |
+| `CLASSIFICATION__BIRD_CROP_SOURCE_PRIORITY` | `frigate_hints_first` | Legacy classifier crop-source order; does not override automatic best-available HQ snapshots. |
 | `CLASSIFICATION__MAX_CLASSIFICATION_RESULTS` | `5` | Top-N species kept per detection. |
 | `CLASSIFICATION__AI_PRICING_JSON` | `[]` | Token pricing registry for cost estimates. |
 | `CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION` | `false` | Analyse video frames after a detection. |
@@ -100,8 +100,8 @@ driven entirely from `docker-compose` with no clicking.
 | `MEDIA_CACHE__ENABLED` | `true` | Master switch for media caching. |
 | `MEDIA_CACHE__CACHE_SNAPSHOTS` | `true` | Cache event snapshots locally. |
 | `MEDIA_CACHE__CACHE_CLIPS` | `false` | Cache event clips locally. |
-| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Store full-resolution event snapshots. |
-| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Store a high-quality bird crop. |
+| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Derive the clearest recorded frame and strongest reliable crop automatically. |
+| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Deprecated compatibility flag; crop attempts are automatic whenever HQ snapshots are enabled. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `95` | JPEG quality for high-quality snapshots. |
 | `MEDIA_CACHE__RETENTION_DAYS` | `0` | Days to keep cached media (`0` = keep). |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |

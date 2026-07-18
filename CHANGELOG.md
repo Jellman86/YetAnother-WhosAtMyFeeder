@@ -17,6 +17,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **High-quality snapshots now mean the best crop the system can produce.** Settings exposes one
+  outcome-oriented control instead of separate HQ-frame and crop switches, with a compact detector
+  readiness note. For each candidate frame, YA-WAMF evaluates Frigate's tracked-object crop and the
+  installed crop detector, ranks every valid crop, and uses the strongest one; the full frame is
+  kept only when no reliable crop exists. Legacy crop-source preferences remain API-compatible but
+  can no longer silently force a worse image.
 - **The Leaderboard now prioritises rankings over decoration.** A calmer field-journal layout
   replaces the repeated featured, highlight, performer, chart, and table cards with one featured
   record, a divided highlights strip, the complete rankings, and secondary analytics. Desktop keeps
@@ -49,12 +55,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   top-1 on all 12 real NPU comparison images. TFLite MobileNet stays CPU-only, and regional
   Small/Medium families remain unflagged until EU and NA artifacts are recorded independently.
 - **Classifier cropping and cropped thumbnails are now clearly separate.** Classifier crop-on/off
-  policy remains automatic and evidence-based per model. The crop-detector tier is presented in its
-  own subtle **Cropped thumbnails** disclosure as a Fast/Accurate thumbnail-quality choice, with
-  detector readiness and download status alongside it instead of inside classifier technical
-  details. That choice no longer changes classifier preprocessing; crop-enabled classifiers use the
-  validated accurate tier automatically with a safe fast fallback. The crop-policy harness now
-  rejects runs where crop-on silently fell back to full frames.
+  policy remains automatic and evidence-based per model. The subtle **Cropped thumbnails**
+  disclosure reports the automatic Accurate → Fast fallback and detector readiness instead of
+  asking users to choose an implementation tier. The crop-policy harness rejects runs where crop-on
+  silently fell back to full frames.
 - **Every connection test now looks and behaves the same.** The AI model test, the Frigate & MQTT
   connection test, the BirdNET-Go test, the BirdWeather test, and the Discord / Telegram / Pushover /
   Email notification tests all use one shared guided dialog with a stepped checklist that advances
@@ -81,6 +85,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   linked from the configuration guide and docs index.
 
 ### Fixed
+- **High-quality crop generation recovers from real detector misses and restarts.** The accurate
+  detector now retries with the fast tier after no-candidate, low-confidence, too-small, invalid-box,
+  or inference-failure outcomes—not only when its model file is unavailable. A bounded background
+  reconciliation pass also reschedules recent detections that lost their in-memory HQ job during an
+  application restart, while leaving completed and manually reverted candidate sets alone. Health
+  diagnostics now report the automatic policy, selected source counts, and recovered-job count.
 - **The BirdNET-Go test now actually checks BirdNET-Go.** It previously only published to MQTT and
   injected a mock detection into YA-WAMF's own pipeline — never touching BirdNET-Go. When a
   BirdNET-Go URL is configured, the test now first confirms the BirdNET-Go server answers over HTTP,
@@ -104,13 +114,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   now keep their HTTP status and optional `Retry-After` header through the event, leaderboard, and
   conversation routes, while failed event analysis leaves the cached analysis empty. Gemini
   exception messages also redact API keys embedded in request URLs.
-- **Bird crops now actually appear as the event image.** One consistent rule now drives both the
-  live crop and the displayed snapshot: the configured crop sources are tried in order (Frigate box,
-  detector model) and the full frame is used only when no crop could be produced. Previously
+- **Bird crops now actually appear as the event image.** The displayed snapshot now evaluates every
+  available crop source (Frigate box and detector model), chooses the strongest valid crop, and uses
+  the full frame only when no crop could be produced. Previously
   `frigate_hints_first` silently fell straight to the full frame whenever the Frigate event was
   unavailable (common on feeder cams, and with short event retention), so the model crop was
-  generated but never shown. The model crop is now a genuine fallback, and small crops are no longer
-  suppressed in favour of the full frame.
+  generated but never shown. Small crops are no longer suppressed in favour of the full frame.
 
 ### Added
 - **Guided AI model diagnostic:** Settings → AI now opens a wizard-style diagnostic when testing a
@@ -143,7 +152,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   `locales.untranslated-regression.test.ts`) now fails CI if any *new* user-facing string lands
   byte-identical to English, guiding the change to either translate it or record a genuine
   brand/cognate in the baseline.
-- **Multi-part first-run setup wizard (re-runnable):** The one-screen first-run prompt is now a guided, multi-step wizard that walks a new install through language, admin account, Frigate & MQTT connection (with a live test), cameras & detection threshold, classifier model with on-hardware validation (detected accelerators + a device-sweep compile/latency check), snapshot & crop quality, and optional integrations, ending on a review screen. Every step is skippable, shows determinate progress, and validates in place. Crucially it is **re-runnable at any time** from Settings → Data → Setup wizard: it opens on a section map (Ready / Needs attention / Optional, from the new `GET /api/setup/state`) so you can jump straight to one section and reconfigure it — each step writes only its own slice through the secret-preserving settings write, so re-running one section never touches the others. Built to the codified UI/UX standard (Nielsen wizard/onboarding guidance, WCAG 2.2 AA).
+- **Multi-part first-run setup wizard (re-runnable):** The one-screen first-run prompt is now a guided, multi-step wizard that walks a new install through language, admin account, Frigate & MQTT connection (with a live test), cameras & detection threshold, classifier model with on-hardware validation (detected accelerators + a device-sweep compile/latency check), automatic best-available snapshots, and optional integrations, ending on a review screen. Every step is skippable, shows determinate progress, and validates in place. Crucially it is **re-runnable at any time** from Settings → Data → Setup wizard: it opens on a section map (Ready / Needs attention / Optional, from the new `GET /api/setup/state`) so you can jump straight to one section and reconfigure it — each step writes only its own slice through the secret-preserving settings write, so re-running one section never touches the others. Built to the codified UI/UX standard (Nielsen wizard/onboarding guidance, WCAG 2.2 AA).
 - **Researched engineering standards codified:** Two authoritative-sourced standards now govern how the project is built, ahead of the 3.0 code-quality review and UI refresh. [`docs/standards/code-quality.md`](docs/standards/code-quality.md) sets the code-craft bar for the stack (PEP 8/typing + async + layering for Python/FastAPI, strict TypeScript with no `any`, and disciplined Svelte 5 reactivity — `$derived` before `$effect`), and [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md) sets the interface bar (Nielsen's 10 usability heuristics, WCAG 2.2 Level AA accessibility, and Refactoring UI visual craft). The enforceable rules are pulled into `CLAUDE.md` §4 and §5; both standards cite their sources.
 - **In-app update prompt:** YA-WAMF now detects when a newer build is available and surfaces it — a calm banner (with a link to the release notes) plus a small icon-only indicator in the sidebar status area (an upgrade icon with a pulsing accent and an on-hover version tooltip) — so installs on old builds know to update. It's a *notification only*: YA-WAMF never updates itself; pulling the new image stays with your container orchestrator. It's **channel-aware** — branch images compare against the matching D1-published branch row (`dev` or `main`), while release images compare against the D1-published `stable` row, so a dev box is never nagged about releases. The telemetry worker's `/version` endpoint reads those CI-published rows from D1 as the source of truth. It's a single anonymous request with no telemetry payload — works even with telemetry disabled — and degrades silently if the check fails. Disable via `SYSTEM__UPDATE_CHECK_ENABLED=false`.
 - **Recording-frame classification fallback:** When a detection has no snapshot, thumbnail, or cached image, YA-WAMF now extracts a frame from Frigate's continuous recording at the detection moment and classifies that instead of dropping the detection outright. This targets the fleet's most common real failure (`drop_classify_snapshot_unavailable`, seen on 8 of 13 telemetry installs) — briefly-tracked birds whose event snapshot is never persisted are usually still in the recording. On by default (`frigate.recording_frame_classification_fallback`); requires Frigate recordings, and falls through to the existing drop behaviour when the recording isn't retained. See [the design note](docs/plans/2026-07-10-recording-frame-classification-fallback.md).

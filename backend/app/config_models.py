@@ -263,10 +263,7 @@ class ClassificationSettings(BaseModel):
     )
     bird_crop_detector_tier: Literal["fast", "accurate"] = Field(
         default="fast",
-        description=(
-            "Generated cropped-thumbnail localization quality: fast|accurate. "
-            "Classifier image preparation uses its separately validated automatic policy."
-        ),
+        description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",
@@ -275,7 +272,7 @@ class ClassificationSettings(BaseModel):
         "frigate_hints_only",
     ] = Field(
         default="frigate_hints_first",
-        description="Bird crop source priority: frigate_hints_first|crop_model_first|crop_model_only|frigate_hints_only",
+        description="Deprecated compatibility field; HQ snapshots choose the best available crop automatically",
     )
     blocked_labels: list[str] = Field(default=[], description="Labels to filter out completely (won't be saved)")
     blocked_species: list["BlockedSpeciesEntry"] = Field(
@@ -499,7 +496,7 @@ class MediaCacheSettings(BaseModel):
     )
     high_quality_event_snapshot_bird_crop: bool = Field(
         default=False,
-        description="Run the bird crop detector on derived high-quality event snapshots before caching",
+        description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     high_quality_event_snapshot_jpeg_quality: int = Field(
         default=95,

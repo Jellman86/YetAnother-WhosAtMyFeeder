@@ -714,16 +714,13 @@ class SettingsUpdate(BaseModel):
     )
     bird_crop_detector_tier: Optional[Literal["fast", "accurate"]] = Field(
         "fast",
-        description=(
-            "Generated cropped-thumbnail localization quality: fast|accurate. "
-            "Classifier crop-on/off policy remains automatic per model."
-        ),
+        description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
     bird_crop_source_priority: Optional[
         Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]
     ] = Field(
         "frigate_hints_first",
-        description="Bird crop source priority",
+        description="Deprecated compatibility field; HQ snapshots choose the best available crop automatically",
     )
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
     crop_model_overrides: dict[str, str] = Field(
@@ -742,7 +739,7 @@ class SettingsUpdate(BaseModel):
     )
     media_cache_high_quality_event_snapshot_bird_crop: bool = Field(
         False,
-        description="Run the bird crop detector on high-quality event snapshots before caching",
+        description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
         95,

@@ -21,7 +21,6 @@ import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
 from app.config import settings
-from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.i18n_service import i18n_service
@@ -73,7 +72,12 @@ SNAPSHOT_NO_STORE_HEADERS = {
     "Cache-Control": "no-store, max-age=0",
     "Pragma": "no-cache",
 }
-HIGH_QUALITY_SNAPSHOT_SOURCES = {"high_quality_snapshot", "high_quality_bird_crop"}
+HIGH_QUALITY_SNAPSHOT_SOURCES = {
+    "high_quality_snapshot",
+    "high_quality_bird_crop",
+    "hq_candidate_frigate_hint_crop",
+    "hq_candidate_model_crop",
+}
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -183,25 +187,7 @@ def _hq_bird_crop_feature_enabled() -> bool:
         settings.media_cache.enabled
         and settings.media_cache.cache_snapshots
         and settings.media_cache.high_quality_event_snapshots
-        and settings.media_cache.high_quality_event_snapshot_bird_crop
     )
-
-
-def _bird_crop_runtime_available() -> bool:
-    get_status = getattr(bird_crop_service, "get_status", None)
-    if not callable(get_status):
-        return True
-    try:
-        status = get_status() or {}
-    except Exception:
-        return True
-    if not isinstance(status, dict):
-        return True
-    if status.get("installed") is False:
-        return False
-    if status.get("enabled_for_runtime") is False:
-        return False
-    return True
 
 
 async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapshot: bool = True):
@@ -226,17 +212,19 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         )
         original_frigate_snapshot_available = bool(original_snapshot)
 
-    already_hq_bird_crop = source == "high_quality_bird_crop"
-    can_generate_hq_bird_crop = bool(
-        _hq_bird_crop_feature_enabled() and _bird_crop_runtime_available() and not already_hq_bird_crop
-    )
+    already_hq_bird_crop = source in {
+        "high_quality_bird_crop",
+        "hq_candidate_frigate_hint_crop",
+        "hq_candidate_model_crop",
+    }
+    can_generate_hq_bird_crop = bool(_hq_bird_crop_feature_enabled() and not already_hq_bird_crop)
 
     return SnapshotStatusResponse(
         event_id=event_id,
         cached=cached,
         source=source,
         high_quality_event_snapshots_enabled=bool(settings.media_cache.high_quality_event_snapshots),
-        high_quality_bird_crop_enabled=bool(settings.media_cache.high_quality_event_snapshot_bird_crop),
+        high_quality_bird_crop_enabled=_hq_bird_crop_feature_enabled(),
         already_hq_bird_crop=already_hq_bird_crop,
         can_generate_hq_bird_crop=can_generate_hq_bird_crop,
         original_frigate_snapshot_available=original_frigate_snapshot_available,
@@ -279,7 +267,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
     has_model_crop = any(str(c.get("source_mode") or "") == "model_crop" for c in candidates)
     model_crop_miss_reason: str | None = None
     if not has_model_crop:
-        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+        if not _hq_bird_crop_feature_enabled():
             model_crop_miss_reason = "crop_model_disabled"
         elif not high_quality_snapshot_service._bird_crop_model_available():
             model_crop_miss_reason = "crop_model_unavailable"
@@ -1376,9 +1364,6 @@ async def generate_hq_bird_crop_snapshot(
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     if not _hq_bird_crop_feature_enabled():
         raise HTTPException(status_code=409, detail="HQ bird crop snapshots are not enabled")
-    if not _bird_crop_runtime_available():
-        raise HTTPException(status_code=409, detail="Bird crop detector is not available")
-
     async with _snapshot_generation_lock(event_id):
         before = await _build_snapshot_status(event_id)
         if before.already_hq_bird_crop:

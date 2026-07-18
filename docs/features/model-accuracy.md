@@ -41,9 +41,15 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
-- **Bird Crop Detector (Fast)** remains the default cropped-thumbnail path because it is small, fast, and already validated for fail-soft CPU use.
-- **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier. Its artifact is published and it falls back to the fast detector automatically when unavailable. Direct thumbnail-box quality and isolated detector-latency benchmarks are still pending a hand-labelled box fixture.
-- **Classifier cropping is separate from thumbnail generation.** Classifier crop-on/off is fixed per model from the Quark comparison below. Crop-enabled classifiers use the validated accurate detector path automatically with a safe fast fallback; the thumbnail quality selector cannot alter classifier preprocessing.
+- **Bird Crop Detector (Fast)** remains the fail-soft cropped-thumbnail fallback because it is small,
+  fast, and already validated for CPU use.
+- **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier.
+  Its artifact is published and it retries with the fast detector whenever it is unavailable or
+  returns no usable crop. Direct thumbnail-box quality and isolated detector-latency benchmarks are
+  still pending a hand-labelled box fixture.
+- **Classifier cropping is separate from thumbnail generation.** Classifier crop-on/off is fixed per
+  model from the Quark comparison below. Both crop-enabled classifiers and generated thumbnails try
+  the validated accurate detector path automatically with a safe fast fallback.
 
 > **Note on score changes from previous run (15 March 2026):** Accuracy is 5–7% lower than the March 15 results. This is due to iNaturalist serving different photos on re-download — the fixture set is the same 15 species but the 4 images per species changed. Scores will vary slightly between runs for this reason.
 

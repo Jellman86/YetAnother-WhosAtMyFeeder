@@ -102,6 +102,12 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
+- `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
+- `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner)
+- `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
+- `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `POST /api/frigate/{event_id}/recording-clip/fetch`
@@ -117,6 +123,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/video-share/{event_id}/links`
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
+
+The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
+job totals under `GET /health` → `high_quality_snapshots`.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
