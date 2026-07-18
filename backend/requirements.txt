@@ -8,7 +8,7 @@ aiofiles>=23.0.0
 httpx==0.28.1
 python-multipart==0.0.32
 # Image processing
-Pillow>=10.2.0
+Pillow>=12.3.0
 numpy<2.0.0
 # Machine Learning
 # Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or
