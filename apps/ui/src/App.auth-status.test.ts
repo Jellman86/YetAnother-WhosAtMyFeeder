@@ -20,8 +20,15 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain('if (!authStore.statusLoaded || authStore.statusHealthy) return;');
         expect(appSource).toContain('window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS)');
         expect(appSource).toContain('if (!authStore.statusLoaded || !authStore.statusHealthy) return;');
-        expect(appSource).toContain('void liveUpdates.runOwnerSystemChecks();');
+        expect(appSource).toContain('void runOwnerSystemChecksOnce();');
         expect(appSource).toContain('if (!document.hidden && authStore.statusHealthy)');
         expect(appSource).toContain('if (authStore.statusHealthy) {\n              const accessAdjustedPath');
+    });
+
+    it('does not let operational polling subscribe to the reactive job state it updates', () => {
+        expect(appSource).toContain("import { onMount, untrack } from 'svelte';");
+        expect(appSource).toContain('return untrack(startOperationalPolling);');
+        expect(appSource).toContain('const syncAnalysisQueueStatusOnce = createSingleFlightRunner');
+        expect(appSource).toContain('const runOwnerSystemChecksOnce = createSingleFlightRunner');
     });
 });

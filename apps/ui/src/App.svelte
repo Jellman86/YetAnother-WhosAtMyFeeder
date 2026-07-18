@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
@@ -46,6 +46,7 @@
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
+  import { createSingleFlightRunner } from './lib/app/single-flight';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
@@ -266,39 +267,50 @@
       logger
   });
 
+  const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
+  const syncAnalysisQueueStatusOnce = createSingleFlightRunner(() => liveUpdates.syncAnalysisQueueStatus());
+  const runOwnerSystemChecksOnce = createSingleFlightRunner(() => liveUpdates.runOwnerSystemChecks());
+
   $effect(() => {
       if (!authStore.statusLoaded || authStore.statusHealthy) return;
       const retryInterval = window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS);
       return () => window.clearInterval(retryInterval);
   });
 
-  $effect(() => {
-      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
-
-      void reclassifyRecovery.reconcile();
-      void liveUpdates.syncAnalysisQueueStatus();
-      void liveUpdates.runOwnerSystemChecks();
+  function startOperationalPolling(): () => void {
+      void reconcileReclassificationsOnce();
+      void syncAnalysisQueueStatusOnce();
+      void runOwnerSystemChecksOnce();
 
       const ownerInterval = window.setInterval(() => {
-          void liveUpdates.runOwnerSystemChecks();
+          void runOwnerSystemChecksOnce();
       }, 60_000);
       const analysisInterval = window.setInterval(() => {
-          void liveUpdates.syncAnalysisQueueStatus();
+          void syncAnalysisQueueStatusOnce();
       }, ANALYSIS_QUEUE_POLL_MS);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
           detectionsStore.pruneReclassifications();
       }, 10_000);
       const reclassifyInterval = window.setInterval(() => {
-          void reclassifyRecovery.reconcile();
+          void reconcileReclassificationsOnce();
       }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
-      return () => {
+      return (): void => {
           window.clearInterval(ownerInterval);
           window.clearInterval(analysisInterval);
           window.clearInterval(staleInterval);
           window.clearInterval(reclassifyInterval);
       };
+  }
+
+  $effect(() => {
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
+
+      // Polling reads and updates reactive job state internally. Keep those reads
+      // out of this effect's dependency graph so an active job cannot make the
+      // effect tear down and recreate its own polling loop continuously.
+      return untrack(startOperationalPolling);
   });
 
   // Handle back button and initial load
@@ -399,8 +411,8 @@
                   scheduleReconnect();
               }
               if (!document.hidden && authStore.statusHealthy) {
-                  void reclassifyRecovery.reconcile();
-                  void liveUpdates.syncAnalysisQueueStatus();
+                  void reconcileReclassificationsOnce();
+                  void syncAnalysisQueueStatusOnce();
                   refreshCoordinator.onVisibilityChange();
               }
           };

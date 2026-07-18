@@ -129,6 +129,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   linked from the configuration guide and docs index.
 
 ### Fixed
+- **Owner sessions no longer slow down under an active background job.** Operational polling is
+  isolated from the reactive job state it updates, preventing a feedback loop that could flood the
+  browser and backend with health, cache, analysis, and diagnostics requests. Startup, timer, and
+  tab-focus triggers now share each in-flight request instead of starting overlapping work.
 - **Optional runtime benchmarking can no longer strand application readiness by default.** The
   synthetic accelerated-versus-CPU comparison is now opt-in through
   `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED`; model activation validation, accelerator self-tests, and
