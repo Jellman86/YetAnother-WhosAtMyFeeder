@@ -1901,7 +1901,8 @@
 
 
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-contain"
+    data-detection-detail-modal
+    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 backdrop-blur-sm sm:p-4"
     data-theme={isDarkMode ? 'dark' : 'light'}
     onclick={(e) => {
         if (e.target === e.currentTarget) {
@@ -1911,12 +1912,13 @@
     onkeydown={(e) => e.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
+    aria-labelledby="detection-modal-title"
     tabindex="-1"
 >
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-white/20 overflow-hidden"
+        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:max-h-[92vh] sm:rounded-3xl"
         role="document"
         tabindex="-1"
     >
@@ -1927,7 +1929,7 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative bg-slate-100 dark:bg-slate-700 aspect-video shrink-0 lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60 overflow-hidden">
+	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -1936,7 +1938,7 @@
                                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
                                         {$_('detection.video_analysis.title')}
                                     </p>
-                                    <p class="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                                    <p id="detection-modal-title" class="truncate text-sm font-bold text-slate-900 dark:text-white sm:text-base">
                                         {primaryName}
                                     </p>
                                     {#if subName && subName !== primaryName}
@@ -1980,7 +1982,7 @@
                             </div>
                         </div>
                     {:else}
-                        <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-cover" />
+                        <img src={snapshotImageUrl} alt={detection.display_name} class="w-full h-full object-contain" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                         {#if canShowFavoriteAction}
                             <button
@@ -2017,7 +2019,7 @@
                             </button>
                         {/if}
     	                <div class="absolute bottom-0 left-0 right-0 p-5">
-    	                    <h3 class="text-xl font-black text-white drop-shadow-lg leading-tight truncate">{primaryName}</h3>
+                            <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
     	                    {/if}
@@ -2125,18 +2127,21 @@
 
             </div>
 
-            <div class="flex-1 overflow-y-auto p-6 space-y-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
-            <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50 px-3 py-2">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('detection.id')}</span>
-                    <span class="text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all text-right">{detection.frigate_event}</span>
-                </div>
+            <details data-detection-technical-identity class="group order-last border-t border-slate-200 pt-3 dark:border-slate-700">
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-500 marker:hidden dark:text-slate-400">
+                    <span>{$_('detection.id')}</span>
+                    <svg class="h-4 w-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                    </svg>
+                </summary>
+                <p class="break-all font-mono text-xs text-slate-700 dark:text-slate-300">{detection.frigate_event}</p>
                 <!-- The "Frigate event missing" indicator that used to live here as a
                      standalone pill has been folded into the consolidated snapshot/
                      video-status notice below.  The same information is now shown
                      once instead of three times. -->
-            </div>
+            </details>
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>
@@ -2371,15 +2376,15 @@
                  into the consolidated video-status notice above. -->
 
             <!-- Metadata -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
+            <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                <div class="flex items-center gap-3 px-2 py-3">
                     <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <span class="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{detection.camera_name}</span>
                 </div>
                 {#if detection.temperature !== undefined && detection.temperature !== null}
-                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
+                    <div class="flex items-center gap-3 px-3 py-3">
                         <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
@@ -2389,7 +2394,7 @@
                     </div>
                 {/if}
                 {#if detection.frigate_score != null}
-                    <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/50">
+                    <div class="flex items-center gap-3 border-l-0 border-t border-slate-200 px-2 py-3 dark:border-slate-700">
                         <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -2401,7 +2406,7 @@
             </div>
 
             {#if hasAudioContext}
-                <div class="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 dark:border-teal-500/20 space-y-3">
+                <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
                             <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2568,11 +2573,11 @@
                             {/if}
                         </div>
                     {/if}
-                </div>
+                </section>
             {/if}
 
             {#if hasWeather}
-                <div class="p-4 rounded-2xl bg-sky-50/80 dark:bg-slate-900/40 border border-sky-100/80 dark:border-slate-700/60 space-y-3">
+                <section data-detection-weather-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
@@ -2672,7 +2677,7 @@
                             </div>
                         </div>
                     {/if}
-                </div>
+                </section>
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}

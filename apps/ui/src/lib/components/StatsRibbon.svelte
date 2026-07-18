@@ -53,8 +53,7 @@
         </div>
 
         <div class="min-w-0 border-b border-slate-200/80 p-4 dark:border-slate-700/70 md:border-b-0 sm:p-5">
-            <dt class="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <svg class="h-4 w-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg>
+            <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {$_('dashboard.stats.species')}
             </dt>
             <dd class="mt-2 font-display text-3xl font-bold tabular-nums text-slate-950 dark:text-white">{uniqueSpecies.toLocaleString()}</dd>

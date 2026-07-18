@@ -137,6 +137,14 @@ hidden, maintenance/analytics/destructive tools no longer compete with routine p
 noise and structural emoji are reduced, and the Settings type floor is 12px. The remaining work is
 the primary owner/guest journey review, including their loading, empty, error, and destructive states.
 
+✅ **Primary observation and history pass:** Dashboard, Leaderboard, Species details, BirdNET-Go
+History, Explorer filters, detection tiles, and detection details now share the calmer first-run
+visual language. Repeated cards have become divided information surfaces, media and rankings lead
+their records, small-screen layouts avoid horizontal overflow, technical identifiers use progressive
+disclosure, and interactive controls retain touch and keyboard affordances. Remaining work is the
+same treatment across the less-frequent owner journeys plus a final cross-route loading, empty,
+error, and destructive-state audit.
+
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed
 

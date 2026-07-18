@@ -1036,7 +1036,7 @@
         </div>
     {/if}
 
-    <div class="card-base rounded-2xl p-4 space-y-3">
+    <section data-events-filter-bar class="space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
         <div class="grid gap-3 lg:grid-cols-3">
             <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
                 <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
@@ -1051,7 +1051,7 @@
         <div class="flex flex-wrap gap-3">
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors
                 {refreshingFilterOptions
                     ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1074,7 +1074,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
                 {favoritesOnly
                     ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1093,7 +1093,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
                 {audioConfirmedOnly
                     ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1113,7 +1113,7 @@
             {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors
                         {showHidden
                             ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
                             : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1142,7 +1142,7 @@
                 </button>
             {/if}
         </div>
-    </div>
+    </section>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
 
@@ -1154,11 +1154,11 @@
     {/if}
 
     {#if !loading && timelineBuckets.length > 0}
-        <div class="card-base rounded-2xl p-3">
+        <section data-events-timeline class="border-y border-slate-200 py-3 dark:border-slate-700">
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors
                         {selectedTimelineBucket === 'all'
                             ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
                             : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1184,7 +1184,7 @@
                 {#each timelineBuckets as bucket}
                     <button
                         type="button"
-                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
+                        class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors
                             {selectedTimelineBucket === bucket.key
                                 ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1216,12 +1216,15 @@
                 </svg>
                 {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
             </p>
-        </div>
+        </section>
     {/if}
 
     {#if !loading && visibleEvents.length === 0}
-        <div class="card-base rounded-3xl p-10 text-center">
-            <div class="text-5xl mb-3">🪶</div>
+        <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
+            <svg class="mx-auto mb-4 h-10 w-10 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
+            </svg>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
         </div>

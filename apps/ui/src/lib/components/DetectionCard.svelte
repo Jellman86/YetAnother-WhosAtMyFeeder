@@ -184,13 +184,13 @@
 <div class="relative rounded-[2rem] transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
-        class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
-               shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+        data-detection-card
+        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-3xl
+               shadow-sm hover:shadow-md dark:shadow-slate-950/15
                border border-slate-200/80 dark:border-slate-700/60
-               ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset
-               hover:border-teal-500/30 dark:hover:border-teal-500/20
-               overflow-hidden transition-all duration-500 ease-out
-               hover:-translate-y-1.5 flex flex-col h-full
+               hover:border-teal-500/40 dark:hover:border-teal-500/30
+               overflow-hidden transition-[border-color,box-shadow] duration-200 ease-out
+               flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
@@ -222,8 +222,8 @@
                 src={getThumbnailUrl(detection.frigate_event)}
                 alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
-                class="w-full h-full object-cover transition-transform duration-700 ease-out
-                       group-hover:scale-110 group-hover:rotate-1
+                class="w-full h-full object-cover transition-transform duration-300 ease-out
+                       group-hover:scale-[1.025]
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
@@ -293,8 +293,8 @@
 
             <!-- Top-right: confidence only -->
             <div class="absolute top-3 right-3">
-                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur-md border {getConfidenceBg(detection.score)}">
-                    <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
+                <div class="flex items-center gap-1.5 rounded-full border bg-white/90 px-2.5 py-1.5 shadow-sm backdrop-blur-md dark:bg-slate-900/90 {getConfidenceBg(detection.score)}">
+                    <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
                     <span class="text-xs font-black {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
                 </div>
             </div>
@@ -391,7 +391,7 @@
     <div class="p-4 flex-1 flex flex-col gap-2.5">
         <!-- Species name -->
         <div>
-            <h3 class="text-lg font-black text-slate-900 dark:text-white truncate tracking-tight leading-tight" title={primaryName}>
+            <h3 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={primaryName}>
                 {primaryName}
             </h3>
             {#if subName}

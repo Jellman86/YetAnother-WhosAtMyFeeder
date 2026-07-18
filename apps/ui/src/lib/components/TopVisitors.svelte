@@ -70,19 +70,9 @@
 
 <section class="space-y-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
-        <div class="flex items-center gap-3">
-            <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300" aria-hidden="true">
-                <svg data-top-visitors-ranking-icon class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <circle cx="5" cy="6" r="1.5" />
-                    <circle cx="5" cy="12" r="1.5" />
-                    <circle cx="5" cy="18" r="1.5" />
-                    <path stroke-linecap="round" d="M9 6h10M9 12h7M9 18h4" />
-                </svg>
-            </span>
-            <div>
-                <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.top_visitors_title')}</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.last_24h')}</p>
-            </div>
+        <div>
+            <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.top_visitors_title')}</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.last_24h')}</p>
         </div>
     </header>
 

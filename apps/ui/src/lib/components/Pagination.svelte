@@ -70,7 +70,7 @@
 </script>
 
 {#if totalPages > 0}
-    <div class="card-base rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div data-pagination class="flex flex-col items-center justify-between gap-4 border-y border-slate-200 py-4 dark:border-slate-700 sm:flex-row">
         <!-- Items info and page size selector -->
         <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
             <span>
@@ -87,7 +87,7 @@
                         value={itemsPerPage}
                         onchange={(e) => onPageSizeChange?.(Number(e.currentTarget.value))}
                         aria-label={$_('pagination.page_size_aria', { default: 'Items per page' })}
-                        class="select-base py-1.5 text-xs"
+                        class="select-base min-h-11 py-1.5 text-xs"
                     >
                         {#each pageSizeOptions as size}
                             <option value={size}>{size}</option>
@@ -118,9 +118,9 @@
                 {:else}
                     <button
                         onclick={() => goToPage(page)}
-                        class="min-w-[2.5rem] h-10 px-3 rounded-xl text-sm font-semibold transition-colors
+                        class="h-11 min-w-11 rounded-xl px-3 text-sm font-semibold transition-colors
                                {page === currentPage
-                                   ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm'
+                                   ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-500 dark:text-slate-950'
                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                         aria-current={page === currentPage ? 'page' : undefined}
                         aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}

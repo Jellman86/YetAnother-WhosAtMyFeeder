@@ -38,13 +38,14 @@ describe('dashboard live observation desk layout', () => {
 
     it('uses compact round species portraits for visitor recognition', () => {
         expect(visitorsSource).toContain('fetchSpeciesInfo');
-        expect(visitorsSource).toContain('data-top-visitors-ranking-icon');
+        expect(visitorsSource).not.toContain('data-top-visitors-ranking-icon');
         expect(visitorsSource).toContain('data-dashboard-species-portrait');
         expect(visitorsSource).toContain('<ol');
         expect(visitorsSource).toContain('rounded-full');
         expect(visitorsSource).not.toContain('card-base');
         expect(heroSource).toContain('data-dashboard-hero-species-portrait');
         expect(heroSource).toContain('rounded-full');
+        expect(statsSource).not.toContain('data-dashboard-species-icon');
     });
 
     it('finishes the audio preview without a doubled bottom rule', () => {
