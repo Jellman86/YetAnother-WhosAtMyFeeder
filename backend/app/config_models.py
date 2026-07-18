@@ -263,7 +263,10 @@ class ClassificationSettings(BaseModel):
     )
     bird_crop_detector_tier: Literal["fast", "accurate"] = Field(
         default="fast",
-        description="Bird crop detector tier: fast|accurate",
+        description=(
+            "Generated cropped-thumbnail localization quality: fast|accurate. "
+            "Classifier image preparation uses its separately validated automatic policy."
+        ),
     )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",

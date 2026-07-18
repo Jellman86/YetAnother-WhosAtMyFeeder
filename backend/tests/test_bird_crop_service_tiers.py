@@ -46,6 +46,27 @@ def test_generate_crop_uses_runtime_setting_when_no_explicit_tier_is_bound(monke
     assert result["detector_tier"] == "accurate"
 
 
+def test_generate_classification_crop_uses_validated_tier_independently_of_thumbnail_setting(monkeypatch):
+    service = BirdCropService()
+    original_tier = settings.classification.bird_crop_detector_tier
+    settings.classification.bird_crop_detector_tier = "fast"
+
+    try:
+        monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+        monkeypatch.setattr(
+            service,
+            "_infer_candidates",
+            lambda model, image: [{"box": (8, 8, 120, 120), "confidence": 0.9, "tier": model["tier"]}],
+        )
+
+        result = service.generate_classification_crop(_img())
+    finally:
+        settings.classification.bird_crop_detector_tier = original_tier
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "accurate"
+
+
 def test_generate_crop_falls_back_to_fast_when_accurate_unavailable(monkeypatch):
     service = BirdCropService(detector_tier="accurate")
 

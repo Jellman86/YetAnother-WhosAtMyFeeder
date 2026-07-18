@@ -25,11 +25,14 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
 | **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
-| **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | pending | cpu |
+| **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | not isolated | cpu |
 
 > **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
-> **Intel GPU support:** EU FocalNet-B, Small Birds EU, and Medium Birds EU are validated on Intel integrated GPU. All other ONNX models run on Intel CPU (OpenVINO). See the Intel GPU Support table below.
+> **Intel GPU support:** Support depends on the Intel generation and OpenVINO runtime. RoPE ViT-B14
+> is validated on Arrow Lake-S with OpenVINO 2026.2.1, while older Intel GPU / OpenVINO 2025.4
+> combinations produced NaNs. YA-WAMF's post-install device validation is the authority for a
+> particular host. See the Intel GPU Support table below.
 
 ### Key Takeaways
 
@@ -38,16 +41,53 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
-- **Bird Crop Detector (Fast)** remains the default crop-localization path because it is small, fast, and already validated for fail-soft CPU use.
-- **Bird Crop Detector Accurate (YOLOX-Tiny)** is now wired as an optional experimental tier. It is intended to improve crop quality in harder feeder scenes and falls back to the fast detector automatically when unavailable. Benchmarks are still pending artifact publication and fixture evaluation.
+- **Bird Crop Detector (Fast)** remains the default cropped-thumbnail path because it is small, fast, and already validated for fail-soft CPU use.
+- **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier. Its artifact is published and it falls back to the fast detector automatically when unavailable. Direct thumbnail-box quality and isolated detector-latency benchmarks are still pending a hand-labelled box fixture.
+- **Classifier cropping is separate from thumbnail generation.** Classifier crop-on/off is fixed per model from the Quark comparison below. Crop-enabled classifiers use the validated accurate detector path automatically with a safe fast fallback; the thumbnail quality selector cannot alter classifier preprocessing.
 
 > **Note on score changes from previous run (15 March 2026):** Accuracy is 5–7% lower than the March 15 results. This is due to iNaturalist serving different photos on re-download — the fixture set is the same 15 species but the 4 images per species changed. Scores will vary slightly between runs for this reason.
 
 ---
 
+## Classifier crop policy (18 July 2026)
+
+Quark compared a detector-generated bird crop with the unchanged full frame on the production
+`ClassifierService` path. The fixed panel contains 144 taxonomy-verified images: three images for
+each of 48 common feeder species. Across all standalone models and EU/NA family variants, the run
+produced 4,032 classifications using the accurate YOLOX-Tiny detector.
+
+Top-1 accuracy is primary. Differences below two percentage points are treated as ties, resolved by
+top-3 accuracy, Unknown rate, then median latency.
+
+| Model or variant | Crop on top-1 / top-3 | Full frame top-1 / top-3 | Automatic policy |
+|---|---:|---:|---|
+| MobileNet V2 | 54.86 / 66.67 | 50.00 / 60.42 | **Crop on** |
+| Small Birds NA | 27.78 / 34.72 | 23.61 / 34.03 | **Crop on** |
+| Medium Birds NA | 33.33 / 45.14 | 31.25 / 39.58 | **Crop on** |
+| FlexiViT Global | 19.44 / 21.53 | 17.36 / 20.14 | **Crop on** |
+| Small Birds EU | 25.69 / 28.47 | 25.69 / 29.86 | Full frame |
+| Medium Birds EU | 27.08 / 31.25 | 27.78 / 33.33 | Full frame |
+| ConvNeXt Large | 63.19 / 71.53 | 68.75 / 76.39 | Full frame |
+| FocalNet-B EU | 36.81 / 40.28 | 38.19 / 41.67 | Full frame |
+| RoPE ViT-B14 | 62.50 / 71.53 | 67.36 / 75.00 | Full frame |
+| EVA-02 Large | 68.06 / 77.78 | 67.36 / 79.86 | Full frame |
+| MogaNet-S EU | 27.78 / 31.94 | 27.78 / 34.72 | Full frame |
+| ConvNeXt-V1 Tiny EU | 27.78 / 32.64 | 29.17 / 35.42 | Full frame |
+| RegNet-Y-8G EU | 25.69 / 29.86 | 26.39 / 33.33 | Full frame |
+| UniFormer-S EU | 28.47 / 31.94 | 27.08 / 34.03 | Full frame |
+
+All 2,016 crop-on cases attempted localization. The detector applied 1,736 crops, rejected 182
+images below its confidence threshold, rejected 98 candidates as too small, and recorded zero load
+or inference failures. The complete method, latency measurements, retained artifact paths, limits,
+and follow-up criteria are in the [automatic crop-policy report](../plans/2026-07-16-model-crop-policy.md).
+
+---
+
 ## Intel GPU Support
 
-Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
+The original matrix was tested on OpenVINO 2025.4.1 with an Intel integrated GPU. RoPE ViT-B14 was
+revalidated on 18 July 2026 on Arrow Lake-S with OpenVINO 2026.2.1 using the isolated full-device
+sweep against 12 real images per device:
 
 | Model | Intel GPU Status | Notes |
 |-------|-----------------|-------|
@@ -55,15 +95,27 @@ Models were tested on OpenVINO 2025.4.1 with an Intel integrated GPU:
 | Small Birds EU (MobileNetV4-L) | ✅ Validated | ratio=1.03, Spearman=0.996, top5∩=5. Excellent GPU match. Probed 22 March 2026. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | ratio=0.98, Spearman=0.959, top5∩=3. Smaller kernel avoids ConvNeXt Large's precision issue. Probed 22 March 2026. |
 | ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
-| RoPE ViT-B14 | ❌ Not supported | NaN in both f32 and f16. RoPE attention ops are not finite on this iGPU. |
+| RoPE ViT-B14 | ✅ Host-validated | Arrow Lake-S / OpenVINO 2026.2.1: GPU compiled, produced finite output on 12 real images, matched CPU top-1 on all 12, and averaged 5/5 top-5 overlap. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation is required. |
 | FlexiViT Global | ❌ Not supported | NaN in both f32 and f16. FlexiViT DINOv2 RMSNorm produces non-finite values. |
 | Small Birds NA (EfficientNet-B0) | ❌ Not supported | Non-deterministic crash — first inference after clean state may pass (f32: ratio=0.83, Spearman=0.821), but subsequent GPU compilations crash with `CL_OUT_OF_RESOURCES`. f16 → NaN. Too unreliable for production use. |
 | Medium Birds NA (Binocular) | ❌ Not supported | NaN in both f32 and f16. |
 | EVA-02 Large | ❌ Fatal crash | Non-deterministic: first attempt may return NaN, second attempt crashes the process with `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES`. Not a RAM issue — iGPU can address 28.7 GB with 4 GB max allocation; the 1.2 GB model fits easily. Root cause is an EVA-CLIP attention op incompatibility on this iGPU generation. Confirmed on OV 2024.6.0, 2026.0.0, and 2025.4.1. Do not use with Intel GPU. |
 
-**Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. Set the provider to `Intel CPU (OpenVINO)` for best performance without a GPU.
+**Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
 
 The `auto` provider setting will try GPU first, run the startup self-test, detect failures, and fall back to `Intel CPU (OpenVINO)` or `CPU` automatically.
+
+### Intel NPU support
+
+The 18 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweep validated NPU execution for RoPE ViT-B14,
+ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU,
+and UniFormer-S EU. Each compiled in an isolated process, produced finite output for 12 real images,
+and matched CPU top-1 on all 12. NPU was not the fastest device for most models on this host, so the
+guided validation still benchmarks the available devices and selects the fastest passing provider.
+
+MobileNet V2 remains TFLite/CPU-only. Small and Medium regional families are not given a global NPU
+flag yet because the retained eligibility record is keyed by family ID rather than EU/NA artifact;
+both variants need independent validation before that claim is safe.
 
 ---
 
@@ -208,7 +260,9 @@ docker exec yawamf-monalithic python -m pytest \
 
 The table columns are: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`. A strategy is considered fixed when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
 
-Results from OV 2025.4.1 on an Intel integrated GPU are documented in the Intel GPU Support table above and in the `GPU_NOT_SUPPORTED` dict in `tests/test_model_openvino_gpu.py`.
+Results from OV 2025.4.1 and the newer Arrow Lake-S / OV 2026.2.1 RoPE validation are documented in
+the Intel GPU Support table above and in the validation matrices in
+`tests/test_model_openvino_gpu.py`.
 
 ---
 

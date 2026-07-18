@@ -251,6 +251,66 @@ def test_evaluate_case_uses_classifier_service_and_includes_crop_diagnostics(tmp
     assert result.crop_diagnostics["crop_reason"] == "no_candidate"
 
 
+def test_validate_crop_execution_rejects_crop_on_when_detector_failed() -> None:
+    row = SimpleNamespace(
+        crop_diagnostics={
+            "crop_attempted": True,
+            "crop_applied": False,
+            "crop_reason": "load_failed",
+        }
+    )
+
+    try:
+        harness.validate_crop_execution([row], model_id="small_birds", crop_mode="on")
+    except RuntimeError as exc:
+        assert "load_failed" in str(exc)
+    else:
+        raise AssertionError("crop-on evaluation accepted an unavailable detector")
+
+
+def test_validate_crop_execution_requires_crop_on_to_apply_at_least_once() -> None:
+    rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": True,
+                "crop_applied": False,
+                "crop_reason": "no_candidate",
+            }
+        )
+    ]
+
+    try:
+        harness.validate_crop_execution(rows, model_id="small_birds", crop_mode="on")
+    except RuntimeError as exc:
+        assert "did not apply a crop" in str(exc)
+    else:
+        raise AssertionError("crop-on evaluation accepted a no-op comparison")
+
+
+def test_validate_crop_execution_accepts_real_crop_on_and_clean_crop_off() -> None:
+    crop_on_rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": True,
+                "crop_applied": True,
+                "crop_reason": "selected",
+            }
+        )
+    ]
+    crop_off_rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": False,
+                "crop_applied": False,
+                "crop_reason": "crop_disabled",
+            }
+        )
+    ]
+
+    harness.validate_crop_execution(crop_on_rows, model_id="small_birds", crop_mode="on")
+    harness.validate_crop_execution(crop_off_rows, model_id="small_birds", crop_mode="off")
+
+
 def _create_detection_db(path: Path) -> None:
     conn = sqlite3.connect(path)
     try:

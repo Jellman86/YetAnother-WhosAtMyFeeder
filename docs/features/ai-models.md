@@ -8,7 +8,7 @@ You can manage models directly from the **Settings > Detection > Model Manager**
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models for cleaner feeder-focused confidence
 - A legacy TFLite fallback for very constrained CPU-only systems
-- Separately managed bird-crop detector tiers used by crop-enabled models
+- Separately managed bird-crop detector tiers for generated thumbnails and automatic localization
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
@@ -78,7 +78,9 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 #### Recommended: RoPE ViT-B14 (Default)
 - **Format:** ONNX, 375MB
 - **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
-- **Speed:** ~474ms on Intel CPU
+- **Speed:** ~312ms on the validated Arrow Lake Intel GPU; performance varies by host
+- **Acceleration:** Intel GPU and NPU validated on Arrow Lake with OpenVINO 2026.2.1; older Intel
+  combinations must pass the built-in per-host validation before use
 - **Best for:** General-purpose wildlife identification. This is the configured default model for new installs.
 
 #### Large: ConvNeXt Large
@@ -101,8 +103,10 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - `Medium Birds` trades more RAM for stronger regional accuracy.
 
 #### Advanced Birds-Only Options
-- **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU, and Intel GPU support.
-- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU and Intel CPU validation.
+- **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU,
+  Intel GPU, and Intel NPU support.
+- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
+  Intel CPU, and Intel NPU validation.
 
 #### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
@@ -112,9 +116,13 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 
 #### Bird Crop Detector Tiers
 - Managed in the same Model Manager as classifier models.
+- Shown separately as **Cropped thumbnails**, not as a classifier model option. Classifier crop-on/off
+  policy remains automatic per model.
 - `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
 - `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and automatically falls back to `Fast` if the accurate artifact is missing or unhealthy.
-- Crop-enabled classifier models require at least one installed crop detector.
+- The selected tier controls generated thumbnail crops only. Crop-enabled classifier models use the
+  separately validated accurate detector path automatically and fall back to the fast detector when
+  necessary; the thumbnail choice cannot change classifier input behaviour.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
 
 ## Automatic Video Analysis (Deep Analysis)

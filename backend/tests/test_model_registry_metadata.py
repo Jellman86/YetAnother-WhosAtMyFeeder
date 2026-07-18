@@ -113,7 +113,14 @@ async def test_available_models_expose_tiered_metadata():
     assert "Intel CPU" in by_id["rope_vit_b14_inat21"].notes
     assert "Intel NPU" in by_id["rope_vit_b14_inat21"].notes
     assert "Intel GPU" in by_id["rope_vit_b14_inat21"].notes
-    assert "not supported" in by_id["rope_vit_b14_inat21"].notes
+    assert "validate on each host" in by_id["rope_vit_b14_inat21"].notes
+    assert by_id["rope_vit_b14_inat21"].supported_inference_providers == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
     assert by_id["rope_vit_b14_inat21"].model_config_url
     assert by_id["rope_vit_b14_inat21"].preprocessing["resize_mode"] == "center_crop"
     assert by_id["rope_vit_b14_inat21"].preprocessing["mean"] == pytest.approx([0.5248, 0.5372, 0.5086])

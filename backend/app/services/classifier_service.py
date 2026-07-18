@@ -4349,7 +4349,12 @@ class ClassifierService:
         image: Image.Image,
     ) -> dict[str, Any] | None:
         try:
-            return self._bird_crop_service.generate_crop(image) if self._bird_crop_service is not None else None
+            if self._bird_crop_service is None:
+                return None
+            generate_classification_crop = getattr(self._bird_crop_service, "generate_classification_crop", None)
+            if callable(generate_classification_crop):
+                return generate_classification_crop(image)
+            return self._bird_crop_service.generate_crop(image)
         except Exception as exc:
             raise exc
 

@@ -35,7 +35,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
-        birdCropDetectorTier = 'fast',
+        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
@@ -415,7 +415,7 @@
             id="detection-classification-advanced"
             title={$_('settings.detection.model_manager_title', { default: 'Model Manager' })}
         >
-            <ModelManager {birdCropDetectorTier} />
+            <ModelManager bind:birdCropDetectorTier />
 
             <SettingsRow
                 labelId="setting-region-override"

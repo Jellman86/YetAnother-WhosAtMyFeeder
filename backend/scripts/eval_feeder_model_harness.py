@@ -566,6 +566,44 @@ def evaluate_case(
     )
 
 
+def validate_crop_execution(rows: Iterable[FeederEvalResult], *, model_id: str, crop_mode: str) -> None:
+    """Prove a forced crop arm actually exercised the intended runtime path.
+
+    Accuracy numbers are misleading when a missing detector makes ``on`` silently
+    fall back to the original image. The production classifier remains fail-soft;
+    the diagnostic harness is deliberately strict so it cannot bless a no-op
+    comparison as evidence for a model policy.
+    """
+    mode = _clean(crop_mode).lower()
+    if mode not in {"on", "off"}:
+        return
+
+    evaluated = list(rows)
+    if not evaluated:
+        raise RuntimeError(f"crop-{mode} evaluation for {model_id} produced no rows")
+
+    diagnostics = [dict(row.crop_diagnostics or {}) for row in evaluated]
+    if mode == "off":
+        if any(item.get("crop_attempted") or item.get("crop_applied") for item in diagnostics):
+            raise RuntimeError(f"crop-off evaluation for {model_id} unexpectedly attempted a crop")
+        return
+
+    fatal_reasons = {"load_failed", "inference_failed", "spec_resolution_failed"}
+    observed_fatal = sorted(
+        {
+            str(item.get("crop_reason") or "").strip()
+            for item in diagnostics
+            if str(item.get("crop_reason") or "").strip() in fatal_reasons
+        }
+    )
+    if observed_fatal:
+        raise RuntimeError(
+            f"crop-on evaluation for {model_id} could not exercise the detector: {', '.join(observed_fatal)}"
+        )
+    if not any(bool(item.get("crop_applied")) for item in diagnostics):
+        raise RuntimeError(f"crop-on evaluation for {model_id} did not apply a crop to any image")
+
+
 @asynccontextmanager
 async def temporary_model_settings(
     *,
@@ -653,6 +691,7 @@ async def run_harness(
     rows: list[FeederEvalResult] = []
     for model_id in model_ids:
         for crop_mode in crop_modes:
+            mode_rows: list[FeederEvalResult] = []
             async with temporary_model_settings(
                 model_manager=model_manager,
                 settings=settings,
@@ -664,7 +703,7 @@ async def run_harness(
                 classifier = ClassifierService()
                 try:
                     for case in cases:
-                        rows.append(
+                        mode_rows.append(
                             evaluate_case(
                                 case,
                                 classifier=classifier,
@@ -675,6 +714,8 @@ async def run_harness(
                         )
                 finally:
                     await classifier.shutdown()
+            validate_crop_execution(mode_rows, model_id=model_id, crop_mode=crop_mode)
+            rows.extend(mode_rows)
 
     _write_outputs(rows, output_dir)
     return aggregate_results(rows)

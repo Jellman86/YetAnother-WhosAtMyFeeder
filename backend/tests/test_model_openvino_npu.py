@@ -52,6 +52,21 @@ MIN_LOGIT_RANGE_RATIO = 0.5
 MIN_SPEARMAN_R = 0.90
 MIN_TOP5_OVERLAP = 1
 
+# Models validated on Arrow Lake-S NPU with OpenVINO 2026.2.1 by the isolated
+# full-device sweep on 2026-07-18. Every entry compiled, produced finite output
+# for 12 real images, and matched CPU top-1 on all 12.
+NPU_VALIDATED: set[str] = {
+    "convnext_large_inat21",
+    "convnext_v1_tiny_eu_common",
+    "eu_medium_focalnet_b",
+    "eva02_large_inat21",
+    "flexivit_il_all",
+    "moganet_s_eu_common",
+    "regnet_y_8g_eu_common",
+    "rope_vit_b14_inat21",
+    "uniformer_s_eu_common",
+}
+
 # Models known NOT to work on the NPU — fill in from hardware validation runs.
 # Format: model_id -> documented failure reason (compile crash, NaN, wrong top-1).
 NPU_NOT_SUPPORTED: dict[str, str] = {}
@@ -104,6 +119,18 @@ def test_npu_device_enumerated(npu_available: bool) -> None:
     if not npu_available:
         pytest.skip("No Intel NPU device on this host")
     assert "NPU" in ov.Core().available_devices
+
+
+def test_registry_intel_npu_matches_validation_matrix() -> None:
+    """Every standalone registry model claiming intel_npu has retained evidence."""
+    from app.services.model_manager import REMOTE_REGISTRY
+
+    registry_claims = {
+        str(entry.get("id") or "")
+        for entry in REMOTE_REGISTRY
+        if "intel_npu" in (entry.get("supported_inference_providers") or [])
+    }
+    assert registry_claims == NPU_VALIDATED
 
 
 def test_installed_models_compile_and_agree_on_npu(npu_available: bool) -> None:

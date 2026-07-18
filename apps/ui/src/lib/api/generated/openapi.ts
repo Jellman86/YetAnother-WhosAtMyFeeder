@@ -957,11 +957,20 @@ export interface components {
     tier: string;
     weights_url?: string | null;
 };
+    ModelValidateDevice: {
+    device: string;
+    latency_ms?: number | null;
+    ok: boolean;
+    provider: string;
+};
     ModelValidateResponse: {
+    best_provider?: string | null;
+    devices?: Array<components['schemas']['ModelValidateDevice']>;
     latency_ms?: number | null;
     model_id: string;
     ok: boolean;
     provider: string;
+    provider_set?: boolean;
     reason: string;
 };
     NotificationTestRequest: {

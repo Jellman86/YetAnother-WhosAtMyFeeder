@@ -45,9 +45,10 @@ active classifier through any path, enforced server-side, not just hidden in the
 - **Honest, staged progress.** Each stage turns green only when its check actually passed; the
   reveal controls *when* a resolved stage appears, never *whether* it passed (diagnostics standard
   §3). A failure stops the run and states the cause and the next step in plain language.
-- **Prove it runs here, not in the abstract.** Registry notes tell us a model *can* misbehave on a
-  given accelerator (e.g. RoPE ViT produces NaN on this Intel GPU; EVA-02 crashes it). Validation
-  confirms behaviour on *this* box before the model is trusted.
+- **Prove it runs here, not in the abstract.** Registry notes tell us a model *can* behave
+  differently across accelerator generations (for example, RoPE ViT produced NaNs on an older
+  Intel GPU but passes on Arrow Lake). Validation confirms behaviour on *this* box before the model
+  is trusted.
 - **Never strand the user.** The gate must never leave the installation with zero usable model. CPU
   is the always-eligible baseline (every registry model is CPU-validated); the gate can restrict
   *provider*, never remove the *only* path to running.

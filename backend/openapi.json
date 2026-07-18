@@ -6488,8 +6488,61 @@
         "title": "ModelMetadata",
         "type": "object"
       },
+      "ModelValidateDevice": {
+        "properties": {
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device",
+          "provider",
+          "ok"
+        ],
+        "title": "ModelValidateDevice",
+        "type": "object"
+      },
       "ModelValidateResponse": {
         "properties": {
+          "best_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Provider"
+          },
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelValidateDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
           "latency_ms": {
             "anyOf": [
               {
@@ -6512,6 +6565,11 @@
           "provider": {
             "title": "Provider",
             "type": "string"
+          },
+          "provider_set": {
+            "default": false,
+            "title": "Provider Set",
+            "type": "boolean"
           },
           "reason": {
             "title": "Reason",
@@ -8923,7 +8981,7 @@
               }
             ],
             "default": "fast",
-            "description": "Bird crop detector tier: fast|accurate",
+            "description": "Generated cropped-thumbnail localization quality: fast|accurate. Classifier crop-on/off policy remains automatic per model.",
             "title": "Bird Crop Detector Tier"
           },
           "bird_crop_source_priority": {
@@ -19310,7 +19368,7 @@
     },
     "/api/models/{model_id}/validate": {
       "post": {
-        "description": "Validate an installed model on this host: run one frame through it and record\nwhether it produced finite output here. Clears the selection gate on success.\nRestores the previously active model afterwards. Owner only.",
+        "description": "Validate an installed model on this host and pick its fastest inference device.\n\nSweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,\nand \u2014 when a faster accelerator wins \u2014 sets it as the inference provider so the\nmodel runs on the best hardware for this machine. On a CPU-only / CUDA host it runs\none frame on the resolved provider instead. Clears the selection gate on success and\nrestores the previously active model. Owner only.",
         "operationId": "validate_model_api_models__model_id__validate_post",
         "parameters": [
           {

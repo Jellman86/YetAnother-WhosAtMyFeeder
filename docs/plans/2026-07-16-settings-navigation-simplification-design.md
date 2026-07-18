@@ -173,9 +173,10 @@ pipeline structure without making navigation the visual subject of the page.
 
 Model Manager now starts with the owner outcome: choose a recommended model, understand its best fit,
 see whether it is ready, and download or activate it. File size, memory, threshold, and concise notes
-stay visible because they affect the choice. Architecture, providers, detector readiness, runtime
-health, and image preparation move into one closed Technical details disclosure. The old nested model
-cards and crop switches are removed.
+stay visible because they affect the choice. Architecture, providers, runtime health, and automatic
+classifier image preparation move into one closed Technical details disclosure. Cropped-thumbnail
+quality and detector readiness live in their own quiet disclosure so they are not mistaken for
+classifier model options. The old nested model cards and classifier crop switches are removed.
 
 Crop behaviour is selected per classifier or regional variant from repeatable evaluation evidence,
 stored in registry metadata, and mirrored to the upstream model sidecars. Legacy crop override fields
@@ -203,7 +204,9 @@ superseded setting. The supporting measurements and decision rule are recorded i
 - Optional Settings features expose their enable decision before dependent credentials or tuning.
 - Model selection exposes only owner-relevant choice and readiness by default; runtime and image
   preparation details start closed.
-- Crop mode and crop source are automatic per model and are not exposed as routine Settings controls.
+- Classifier crop mode and crop source are automatic per model and are not exposed as routine
+  Settings controls; crop-detector tier remains a separate cropped-thumbnail quality choice and does
+  not alter classifier preprocessing.
 - Data maintenance and destructive actions start closed unless work is already running.
 - Audited Settings tabs contain no structural card emoji or sub-12-pixel text.
 - Svelte check and Settings navigation tests pass.

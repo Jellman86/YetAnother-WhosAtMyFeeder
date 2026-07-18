@@ -564,9 +564,9 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["runtime"] == "onnx"
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
-    # convnext_large_inat21 is CPU-only (intel_gpu produces wrong predictions
-    # — see tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED).
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    # ConvNeXt Large remains globally excluded from Intel GPU, but its NPU path
+    # is validated on Arrow Lake (see tests/test_model_openvino_npu.py).
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["label_grouping"] == {}
 
 
@@ -628,9 +628,9 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
 
     spec = manager.get_active_model_spec()
 
-    # eva02 stays CPU-only on Intel iGPU (SIGABRT risk) — registry list
-    # excludes intel_gpu by hard requirement.
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    # EVA-02 stays excluded from Intel GPU globally (historical SIGABRT risk),
+    # while the Arrow Lake NPU path is validated.
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["model_config_warnings"] == [
         "Installed model_config.json only advertised providers no longer supported by the current registry: legacy_unsupported. Falling back to registry-supported providers."
     ]

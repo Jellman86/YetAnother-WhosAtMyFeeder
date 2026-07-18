@@ -82,7 +82,9 @@ python backend/scripts/eval_feeder_model_harness.py \
 
 Use `--bird-model-region na` for the NA variants. Crop and source overrides exist only in the harness
 manager instance and are restored after every case group; `summary.json`, `results.csv`, and
-`failures.csv` remain available for review. The current decision rule and baseline measurements are
+`failures.csv` remain available for review. A forced crop-on run now fails if the detector cannot
+load, inference fails, or no image is actually cropped, preventing a fail-soft production fallback
+from becoming false benchmark evidence. The current decision rule and baseline measurements are
 documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-model-crop-policy.md).
 
 ## Post-install validation gate

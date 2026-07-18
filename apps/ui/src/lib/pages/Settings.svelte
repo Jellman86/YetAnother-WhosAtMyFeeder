@@ -3366,7 +3366,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
-                    {birdCropDetectorTier}
+                    bind:birdCropDetectorTier
                     bind:birdModelRegionOverride
                     bind:imageExecutionMode
                     bind:inferenceProvider

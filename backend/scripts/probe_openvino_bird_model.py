@@ -170,6 +170,17 @@ def probe_openvino_bird_model(device: str = "GPU", image_paths: list[str] | None
     output = np.asarray(model._infer_logits(image))
     report["input_summary"] = summarize_array(input_tensor, name="input_tensor")
     report["output_summary"] = summarize_array(output, name="output_logits")
+    # Median per-frame inference latency on this device. The first call above is the
+    # warmup; time a few more and take the median so a device can be compared to the
+    # others on *inference* speed, not one-off compile/spawn cost.
+    import time as _time
+
+    samples: list[float] = []
+    for _ in range(3):
+        t0 = _time.perf_counter()
+        model._infer_logits(image)
+        samples.append((_time.perf_counter() - t0) * 1000.0)
+    report["inference_latency_ms"] = round(sorted(samples)[len(samples) // 2], 1) if samples else None
     # Top-5 class indices on the fixed probe image. Deterministic across devices,
     # so a device's list can be compared to the CPU run to detect silent
     # precision divergence (right compile, wrong predictions).

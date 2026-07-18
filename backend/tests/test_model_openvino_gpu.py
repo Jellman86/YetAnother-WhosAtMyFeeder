@@ -48,7 +48,9 @@ except ImportError:
 # GPU_VALIDATED: models confirmed to compile AND produce correct (non-degenerate)
 # output in full end-to-end inference on Intel GPU with OpenVINO f32.
 #
-# Hardware baseline: Intel integrated GPU, OpenVINO 2025.4.x
+# Hardware baselines:
+# - earlier Intel integrated GPU, OpenVINO 2025.4.x
+# - Arrow Lake-S integrated GPU, OpenVINO 2026.2.1
 #
 # A model should NOT be added here until it passes test_gpu_cpu_comparison
 # with logit_range_ratio >= 0.5 AND spearman_r >= 0.90 AND top5_overlap >= 1
@@ -79,8 +81,14 @@ GPU_VALIDATED: set[str] = {
     "small_birds_na",
     "bird_crop_detector_accurate_yolox_tiny",
     "flexivit_il_all",
-    # convnext_large_inat21 and rope_vit_b14_inat21 were retested but
-    # fail on iGPU — see GPU_NOT_SUPPORTED below for current evidence.
+    # RoPE ViT-B14: full isolated device sweep on Arrow Lake-S with OpenVINO
+    # 2026.2.1, 2026-07-18. GPU compiled, produced finite output for 12 real
+    # images, matched CPU top-1 on all 12, and had mean top-5 overlap 5.0/5.
+    # Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so the
+    # per-host validation gate still decides whether a particular host may use it.
+    "rope_vit_b14_inat21",
+    # convnext_large_inat21 was retested but remains excluded from the global
+    # registry pending validation beyond the Arrow Lake host.
     # eva02_large_inat21 is intentionally excluded everywhere — it
     # SIGABRTs the runtime, killing any in-progress eval run.
 }
@@ -106,15 +114,6 @@ GPU_NOT_SUPPORTED: dict[str, str] = {
         "it (f16 → NaN; HETERO:GPU,CPU → range recovers but rankings still "
         "wrong). Not fixable without OpenVINO depthwise-conv precision "
         "fixes for this iGPU generation."
-    ),
-    "rope_vit_b14_inat21": (
-        "NaN output — harness retest 2026-05-08 on OV 2025.4.1 confirmed "
-        "RoPE attention ops still produce non-finite logits. The OpenVINO "
-        "startup self-test caught the NaN and fell all the way back to "
-        "ONNX Runtime CPU (active_provider=cpu, not intel_cpu). Listing "
-        "intel_gpu in the registry just wastes a compile + self-test "
-        "attempt every model load. Original probe 22 March 2026, OV "
-        "2025.4.1: f32 → NaN, f16 → NaN. Confirmed unchanged."
     ),
     "convnext_v1_tiny_eu_common": (
         "Precision-degraded on Intel iGPU. Probed 2026-05-08: compile and "

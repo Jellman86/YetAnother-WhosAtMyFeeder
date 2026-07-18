@@ -16,12 +16,24 @@ class ModelActionResponse(BaseModel):
     message: str
 
 
+class ModelValidateDevice(BaseModel):
+    device: str
+    provider: str
+    ok: bool
+    latency_ms: Optional[float] = None
+
+
 class ModelValidateResponse(BaseModel):
     model_id: str
     ok: bool
     provider: str
     reason: str
     latency_ms: Optional[float] = None
+    devices: List[ModelValidateDevice] = []
+    # When the host swept multiple devices, the fastest one that passed — set as the
+    # inference provider so the model runs on the best hardware for this machine.
+    best_provider: Optional[str] = None
+    provider_set: bool = False
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -66,9 +78,13 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
 
 @router.post("/models/{model_id}/validate", response_model=ModelValidateResponse)
 async def validate_model(model_id: str, auth: AuthContext = Depends(require_owner)):
-    """Validate an installed model on this host: run one frame through it and record
-    whether it produced finite output here. Clears the selection gate on success.
-    Restores the previously active model afterwards. Owner only.
+    """Validate an installed model on this host and pick its fastest inference device.
+
+    Sweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,
+    and — when a faster accelerator wins — sets it as the inference provider so the
+    model runs on the best hardware for this machine. On a CPU-only / CUDA host it runs
+    one frame on the resolved provider instead. Clears the selection gate on success and
+    restores the previously active model. Owner only.
     """
     installed = await model_manager.list_installed_models()
     target = next((m for m in installed if m.id == model_id), None)
@@ -81,8 +97,20 @@ async def validate_model(model_id: str, auth: AuthContext = Depends(require_owne
         )
 
     # The probe trial-activates the candidate and restores the previously active model
-    # (persisting it) before returning, so no extra reconciliation is needed here.
-    return await run_validation_probe(model_id)
+    # before returning, so no extra reconciliation is needed here.
+    result = await run_validation_probe(model_id)
+
+    # Apply the fastest validated device as the inference provider, but never override
+    # a working setup with a worse one: only change it when the probe chose a provider
+    # and it differs from what is configured.
+    provider_set = False
+    best = result.get("best_provider")
+    if result.get("ok") and best and best != settings.classification.inference_provider:
+        settings.classification.inference_provider = best
+        await settings.save()
+        provider_set = True
+    result["provider_set"] = provider_set
+    return result
 
 
 @router.post("/models/{model_id}/activate", response_model=ModelActionResponse)

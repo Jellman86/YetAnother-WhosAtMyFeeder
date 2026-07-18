@@ -7,11 +7,8 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    import { startModelEvalRun, listModelEvalRuns, getModelEvalDeviceMatrix } from '../../api/model_eval';
-    import { updateSettings } from '../../api/settings';
-    import { pickFastestProvider } from './device_optimize';
     let {
-        birdCropDetectorTier = 'fast',
+        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
     }: {
         birdCropDetectorTier: 'fast' | 'accurate' | string;
     } = $props();
@@ -436,8 +433,7 @@
                     ? ''
                     : t('settings.detection.model_manager_install_already_downloaded', 'Already downloaded.')
             },
-            { id: 'validate', label: t('settings.detection.model_manager_validate_stage_run', 'Run on this hardware'), state: 'pending', message: '' },
-            { id: 'optimize', label: t('settings.detection.model_manager_install_stage_optimize', 'Find fastest device'), state: 'pending', message: '' },
+            { id: 'validate', label: t('settings.detection.model_manager_validate_stage_run', 'Validate & tune on your hardware'), state: 'pending', message: '' },
             { id: 'enable', label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'), state: 'pending', message: '' }
         ];
         wizardStages = stages;
@@ -472,75 +468,38 @@
             }
         }
 
-        // Stage 2 — validate on this hardware
-        set(1, { state: 'running', message: checking });
+        // Stage 2 — validate on this hardware and pick the fastest device. The backend
+        // sweeps just this model's devices (CPU / Intel GPU / NPU), records what passed,
+        // and sets the fastest as the inference provider.
+        set(1, { state: 'running', message: t('settings.detection.model_manager_device_sweeping', 'Comparing your devices…') });
         try {
             const result = await validateModel(model.id);
             if (!result.ok) {
                 await fail(1, result.reason);
                 return;
             }
-            let ranMsg = t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider} and produced valid output.', { provider: result.provider });
-            if (result.latency_ms) ranMsg += ` · ${Math.round(result.latency_ms)} ms/frame`;
-            set(1, { state: 'passed', message: ranMsg });
+            const ms = result.latency_ms ? ` · ${Math.round(result.latency_ms)} ms/frame` : '';
+            const msg = result.provider_set
+                ? t('settings.detection.model_manager_device_set', 'Fastest device: {provider}{ms} — set as your inference device.', { provider: result.provider, ms })
+                : t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider}{ms} and produced valid output.', { provider: result.provider, ms });
+            set(1, { state: 'passed', message: msg });
         } catch (e) {
             await fail(1, e instanceof Error ? e.message : t('settings.detection.model_manager_validate_failed', 'Validation failed.'));
             return;
         }
 
-        // Stage 3 — sweep this host's devices and set the fastest as the inference
-        // provider. Non-fatal: a host with no accelerators (or a busy evaluation) just
-        // stays on the current setting; the model still installs.
-        set(2, { state: 'running', message: t('settings.detection.model_manager_device_sweeping', 'Comparing your devices…') });
-        try {
-            const runId = await runWizardDeviceSweep((label) => set(2, { state: 'running', message: label }));
-            const matrix = runId ? await getModelEvalDeviceMatrix(runId) : null;
-            const best = pickFastestProvider(matrix, model.id);
-            if (best) {
-                await updateSettings({ inference_provider: best.provider });
-                set(2, {
-                    state: 'passed',
-                    message: t('settings.detection.model_manager_device_set', 'Fastest: {device} · {ms} ms — set as your inference device.', { device: best.device, ms: Math.round(best.latencyMs) })
-                });
-            } else {
-                set(2, { state: 'passed', message: t('settings.detection.model_manager_device_cpu', 'No faster accelerator validated; staying on CPU/Auto.') });
-            }
-        } catch {
-            set(2, { state: 'warning', message: t('settings.detection.model_manager_device_skip', 'Could not compare devices; keeping your current inference setting.') });
-        }
-
-        // Stage 4 — enable for selection
-        set(3, { state: 'running', message: checking });
+        // Stage 3 — enable for selection
+        set(2, { state: 'running', message: checking });
         try {
             await activateModel(model.id);
-            set(3, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
+            set(2, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
             wizardResult = { ok: true, message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') };
         } catch (e) {
-            await fail(3, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
+            await fail(2, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
             return;
         }
         wizardBusy = false;
         installedModels = await fetchInstalledModels();
-    }
-
-    // Run the device sweep (compat-only) to completion and return its run id, or null
-    // if it could not run (e.g. another evaluation is already in progress).
-    async function runWizardDeviceSweep(onLabel: (label: string) => void): Promise<string | null> {
-        let runId: string;
-        try {
-            ({ run_id: runId } = await startModelEvalRun({ sweep_devices: true, compat_only: true }));
-        } catch {
-            return null; // 409 conflict or similar — skip optimisation, keep going
-        }
-        const deadline = Date.now() + 10 * 60 * 1000; // safety cap
-        for (;;) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            const list = await listModelEvalRuns();
-            const active = list.active;
-            if (!active || active.run_id !== runId) return runId; // finished
-            if (active.progress?.label) onLabel(t('settings.detection.model_manager_device_sweeping_label', 'Comparing your devices… {label}', { label: active.progress.label }));
-            if (Date.now() > deadline) return runId;
-        }
     }
 
     function handleInstall(model: ModelMetadata) {
@@ -797,44 +756,6 @@
                                     </div>
                                 </div>
 
-                                {#if selectedCropDetector}
-                                    <div class="border-t border-slate-200 pt-5 dark:border-slate-700">
-                                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
-                                                <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                                                    {$_('settings.detection.model_manager_image_preparation', { default: 'Image preparation' })}
-                                                </h4>
-                                                <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                                                    {selectedCropDetector.name} ·
-                                                    {selectedCropDetectorRuntime?.enabled_for_runtime || selectedCropDetectorInstalled
-                                                        ? $_('settings.detection.model_manager_detector_ready', { default: 'Ready' })
-                                                        : $_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onclick={() => handleDownload(selectedCropDetector)}
-                                                disabled={selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
-                                                class="btn btn-secondary min-h-11 px-4 shrink-0"
-                                            >
-                                                {selectedCropDetectorInstalled
-                                                    ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
-                                                    : $_('settings.detection.model_manager_download_detector', { default: 'Download detector' })}
-                                            </button>
-                                        </div>
-                                        {#if selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
-                                            <div class="mt-4" role="status">
-                                                <div class="mb-1 flex justify-between text-xs font-semibold">
-                                                    <span class="text-teal-700 dark:text-teal-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
-                                                    <span class="text-slate-500">{selectedCropDetectorDownload.progress.toFixed(0)}%</span>
-                                                </div>
-                                                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                                    <div class="h-full bg-teal-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
-                                                </div>
-                                            </div>
-                                        {/if}
-                                    </div>
-                                {/if}
                             </div>
                         </details>
 
@@ -901,6 +822,63 @@
                         </div>
                     </section>
                 {/if}
+            {/if}
+
+            {#if selectedCropDetector}
+                <details class="group border-t border-slate-200 dark:border-slate-700">
+                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:text-slate-200 sm:px-6">
+                        <span>{$_('settings.detection.model_manager_thumbnail_crop_title', { default: 'Cropped thumbnails' })}</span>
+                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                        </svg>
+                    </summary>
+                    <div class="space-y-5 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+                            <div>
+                                <label for="thumbnail-crop-quality" class="text-sm font-bold text-slate-900 dark:text-white">
+                                    {$_('settings.detection.model_manager_thumbnail_crop_quality', { default: 'Thumbnail crop quality' })}
+                                </label>
+                                <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {$_('settings.detection.model_manager_thumbnail_crop_desc', { default: 'Choose how YA-WAMF locates birds when it generates tight thumbnail crops. Classifier image preparation remains automatic for each model.' })}
+                                </p>
+                            </div>
+                            <select id="thumbnail-crop-quality" bind:value={birdCropDetectorTier} class="select-base w-full">
+                                <option value="fast">{$_('settings.detection.model_manager_thumbnail_crop_fast', { default: 'Fast · lower CPU use' })}</option>
+                                <option value="accurate">{$_('settings.detection.model_manager_thumbnail_crop_accurate', { default: 'Accurate · tighter crops' })}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-sm text-slate-600 dark:text-slate-300">
+                                <span class="font-semibold text-slate-900 dark:text-white">{selectedCropDetector.name}</span>
+                                · {selectedCropDetectorRuntime?.enabled_for_runtime || selectedCropDetectorInstalled
+                                    ? $_('settings.detection.model_manager_detector_ready', { default: 'Ready' })
+                                    : $_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                            </p>
+                            <button
+                                type="button"
+                                onclick={() => handleDownload(selectedCropDetector)}
+                                disabled={selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
+                                class="btn btn-secondary min-h-11 shrink-0 px-4"
+                            >
+                                {selectedCropDetectorInstalled
+                                    ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
+                                    : $_('settings.detection.model_manager_download_detector', { default: 'Download detector' })}
+                            </button>
+                        </div>
+                        {#if selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
+                            <div role="status">
+                                <div class="mb-1 flex justify-between text-xs font-semibold">
+                                    <span class="text-teal-700 dark:text-teal-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
+                                    <span class="text-slate-500">{selectedCropDetectorDownload.progress.toFixed(0)}%</span>
+                                </div>
+                                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                    <div class="h-full bg-teal-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                </details>
             {/if}
         </div>
 

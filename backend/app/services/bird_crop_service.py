@@ -50,12 +50,12 @@ class BirdCropService:
         self._model_error: str | None = None
         self._model_errors: dict[str, str | None] = {}
 
-    def generate_crop(self, image: Image.Image) -> dict[str, Any]:
+    def generate_crop(self, image: Image.Image, *, detector_tier: str | None = None) -> dict[str, Any]:
         """Return the best crop candidate or a fail-soft empty result."""
         if not isinstance(image, Image.Image):
             return self._empty_result("invalid_image")
 
-        requested_tier = self._requested_detector_tier()
+        requested_tier = self._normalize_detector_tier(detector_tier)
         resolved_tier = requested_tier
         fallback_reason: str | None = None
         try:
@@ -100,6 +100,10 @@ class BirdCropService:
             detector_tier=resolved_tier,
             fallback_reason=fallback_reason,
         )
+
+    def generate_classification_crop(self, image: Image.Image) -> dict[str, Any]:
+        """Use the detector tier validated for automatic classifier image preparation."""
+        return self.generate_crop(image, detector_tier="accurate")
 
     def _ensure_model(self) -> Any | None:
         return self._ensure_model_for_tier("fast")

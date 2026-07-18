@@ -17,6 +17,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **RoPE ViT-B14 can use validated Intel GPUs.** The registry now includes `intel_gpu` after the
+  full Quark Arrow Lake-S sweep on OpenVINO 2026.2.1 compiled RoPE on CPU, GPU, and NPU, produced
+  finite output on 12 real comparison images per device, and matched CPU top-1 on every GPU/NPU
+  image. The older OpenVINO 2025.4 NaN evidence remains documented, so the per-host validation gate
+  still decides whether a specific Intel GPU is safe before selection.
+- **Validated ONNX models now advertise Intel NPU support.** The same Quark sweep adds `intel_npu`
+  to the nine standalone ONNX classifiers that compiled, returned finite output, and matched CPU
+  top-1 on all 12 real NPU comparison images. TFLite MobileNet stays CPU-only, and regional
+  Small/Medium families remain unflagged until EU and NA artifacts are recorded independently.
+- **Classifier cropping and cropped thumbnails are now clearly separate.** Classifier crop-on/off
+  policy remains automatic and evidence-based per model. The crop-detector tier is presented in its
+  own subtle **Cropped thumbnails** disclosure as a Fast/Accurate thumbnail-quality choice, with
+  detector readiness and download status alongside it instead of inside classifier technical
+  details. That choice no longer changes classifier preprocessing; crop-enabled classifiers use the
+  validated accurate tier automatically with a safe fast fallback. The crop-policy harness now
+  rejects runs where crop-on silently fell back to full frames.
 - **Every connection test now looks and behaves the same.** The AI model test, the Frigate & MQTT
   connection test, the BirdNET-Go test, the BirdWeather test, and the Discord / Telegram / Pushover /
   Email notification tests all use one shared guided dialog with a stepped checklist that advances
@@ -133,7 +149,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   text have been removed while preserving the Blue Tit theme and existing configuration contract.
 - **Classifier crop policy is now automatic and evidence-based.** Every classifier and EU/NA family
   variant has an explicit policy from a 4,032-classification Quark sweep of the production pipeline.
-  Crop mode, crop source, and detector-tier tuning are no longer routine Settings controls. The app
+  Classifier crop mode and crop source are no longer routine Settings controls. Crop-detector tier
+  remains a separate cropped-thumbnail quality choice. The app
   registry is authoritative over stale installed sidecars, the upstream release sidecars carry the
   same defaults for new downloads, and legacy override fields remain API-compatible but are ignored
   during normal runtime. The feeder harness can select EU or NA explicitly for repeatable retests.

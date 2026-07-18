@@ -714,7 +714,10 @@ class SettingsUpdate(BaseModel):
     )
     bird_crop_detector_tier: Optional[Literal["fast", "accurate"]] = Field(
         "fast",
-        description="Bird crop detector tier: fast|accurate",
+        description=(
+            "Generated cropped-thumbnail localization quality: fast|accurate. "
+            "Classifier crop-on/off policy remains automatic per model."
+        ),
     )
     bird_crop_source_priority: Optional[
         Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]

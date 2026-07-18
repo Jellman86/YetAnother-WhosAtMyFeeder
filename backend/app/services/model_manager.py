@@ -35,7 +35,7 @@ REMOTE_REGISTRY = [
     {
         "id": "bird_crop_detector",
         "name": "Bird Crop Detector",
-        "description": "Shared bird-localization detector used by crop-enabled classifier models.",
+        "description": "Fast bird-localization detector for generated thumbnail crops.",
         "architecture": "SSD-MobileNet V1 INT8",
         "artifact_kind": "crop_detector",
         "file_size_mb": 12.4,
@@ -55,17 +55,17 @@ REMOTE_REGISTRY = [
         },
         "tier": "fast",
         "taxonomy_scope": "system",
-        "recommended_for": "Required dependency for crop-enabled bird classification.",
+        "recommended_for": "CPU-friendly cropped thumbnails.",
         "estimated_ram_mb": 256,
         "advanced_only": True,
         "sort_order": 5,
         "status": "stable",
-        "notes": "Install this once to enable crop-assisted classification for models that opt into bird cropping.",
+        "notes": "Safe fallback for generated thumbnail crops and for automatic classifier localization when the validated accurate detector is unavailable.",
     },
     {
         "id": "bird_crop_detector_accurate_yolox_tiny",
         "name": "Bird Crop Detector Accurate (YOLOX-Tiny)",
-        "description": "Experimental higher-accuracy bird-localization detector tier for tighter crop proposals.",
+        "description": "Experimental higher-accuracy bird-localization detector for tighter generated thumbnail crops.",
         "architecture": "YOLOX-Tiny",
         "artifact_kind": "crop_detector",
         "file_size_mb": 19.3,
@@ -94,12 +94,12 @@ REMOTE_REGISTRY = [
         },
         "tier": "accurate",
         "taxonomy_scope": "system",
-        "recommended_for": "Optional higher-accuracy crop proposals when CPU budget allows.",
+        "recommended_for": "Tighter generated thumbnail crops when CPU budget allows.",
         "estimated_ram_mb": 512,
         "advanced_only": True,
         "sort_order": 6,
         "status": "experimental",
-        "notes": "Experimental accurate crop-detector tier. Falls back to the fast SSD detector when unavailable.",
+        "notes": "Experimental accurate tier for cropped thumbnails. Automatic classifier localization uses this validated tier independently and falls back to the fast SSD detector when unavailable.",
     },
     {
         "id": "mobilenet_v2_birds",
@@ -232,7 +232,7 @@ REMOTE_REGISTRY = [
         # the depthwise-conv precision issue persists. Compile succeeds on
         # iGPU but top-1 collapses 66.8% → 32.7%; the model produces
         # systematically wrong species. Stays CPU-only.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -259,7 +259,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU is not supported: compiles and runs without crashing (static reshape applied) but produces entirely wrong predictions — logit spread ~3–7 vs ~15 on CPU, top-1 is wrong species. Root cause: numeric precision degradation in depthwise-conv + LayerNorm on this Intel iGPU. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
+        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU is not globally supported: older Intel GPU runs produced systematically wrong species, so only a successful per-host validation may override that restriction. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
     },
     {
         "id": "eu_medium_focalnet_b",
@@ -270,7 +270,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (87%+)",
         "inference_speed": "Medium-Slow (~300-500ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_model_config.json",
@@ -296,7 +296,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU (OpenVINO), and Intel GPU validated (OpenVINO 2025.4.1, static-batch reshape required). CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
+        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated. The Arrow Lake / OpenVINO 2026.2.1 NPU produced finite output and matched CPU top-1 on all 12 real sweep images. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
     },
     {
         "id": "flexivit_il_all",
@@ -307,7 +307,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast (~80-150ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
@@ -334,7 +334,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU and Intel CPU (OpenVINO) validated. Intel GPU produces non-finite outputs (NaN) and is not supported. CUDA unverified. 550 global bird species, uses ONNX external data file.",
+        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU has failed on older hosts and remains subject to per-host validation. CUDA unverified. 550 global bird species, uses ONNX external data file.",
     },
     {
         "id": "medium_birds",
@@ -430,13 +430,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (89%+)",
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
-        # NOT intel_gpu: harness retest 2026-05-08 confirmed RoPE attention
-        # ops still produce non-finite logits on iGPU (OpenVINO startup
-        # self-test caught the NaN and fell all the way back to ONNX
-        # Runtime CPU). The NPU, however, compiles this model at its default
-        # (f16) precision and returns finite output whose top-5 matches CPU
-        # exactly (validated 2026-07-05 on Arrow Lake), so intel_npu is enabled.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        # Intel GPU and NPU are validated on Arrow Lake with OpenVINO 2026.2.1.
+        # The 2026-07-18 full device sweep compiled both accelerators in isolated
+        # subprocesses, produced finite output for 12 real images, and matched the
+        # CPU top-1 on every image. Older Intel GPU / OpenVINO 2025.4 combinations
+        # produced NaNs, so the per-host validation gate remains authoritative.
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -462,7 +461,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU (OpenVINO), and Intel NPU validated. Intel GPU produces non-finite outputs (NaN) with this RoPE-attention architecture and is not supported, but the NPU runs it at f16 with top-5 matching CPU exactly (validated 2026-07-05, Arrow Lake). CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
+        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated on Arrow Lake with OpenVINO 2026.2.1. The 2026-07-18 full device sweep produced finite output and exact CPU top-1 agreement on all 12 real comparison images for both accelerators. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so validate on each host before selection; YA-WAMF falls back safely when validation fails. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "eva02_large_inat21",
@@ -479,7 +478,7 @@ REMOTE_REGISTRY = [
         # 2024.6.0, 2026.0.0, 2025.4.1 — all crash. Hard requirement, do
         # not re-enable without confirming the OpenCL kernel issue is
         # fixed in a future OpenVINO release.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
@@ -506,7 +505,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "Elite accuracy model. CPU and Intel CPU (OpenVINO) validated. Intel GPU causes a fatal process crash (CL_OUT_OF_RESOURCES / clWaitForEvents -14) confirmed on OpenVINO 2024.6, 2025.4, and 2026.0 — do not use with Intel GPU. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
+        "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU caused fatal process crashes on older runtimes and remains globally disabled despite passing this Arrow Lake host's isolated check. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "moganet_s_eu_common",
@@ -517,7 +516,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast on iGPU (~130ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "cuda"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_model_config.json",
@@ -543,18 +542,18 @@ REMOTE_REGISTRY = [
         "sort_order": 22,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Empirically validated on Intel iGPU 2026-05-08: top-5 overlap with CPU = 5/5 (best of any tested candidate), range_ratio 1.03.",
+        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Intel GPU validated 2026-05-08; Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images.",
     },
     {
         "id": "convnext_v1_tiny_eu_common",
-        "name": "ConvNeXt-V1 Tiny EU-Common (CPU)",
-        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. iGPU output is finite but precision-degraded (range ratio 0.53, top-5 overlap 2/5) — kept CPU-only.",
+        "name": "ConvNeXt-V1 Tiny EU-Common",
+        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. Runs on CPU or a host-validated Intel NPU; older iGPU output was precision-degraded.",
         "architecture": "ConvNeXt-V1-Tiny",
         "file_size_mb": 109,
         "accuracy_tier": "High",
         "inference_speed": "Medium (~140ms CPU)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
@@ -574,24 +573,24 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "Architecture comparison reference for ConvNeXt-V2. CPU-only.",
+        "recommended_for": "Architecture comparison reference for ConvNeXt-V2 on CPU or a validated Intel NPU.",
         "estimated_ram_mb": 512,
         "advanced_only": True,
         "sort_order": 23,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. iGPU produces precision-degraded output (range ratio ~0.53) — registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU output was precision-degraded, so the registry excludes intel_gpu.",
     },
     {
         "id": "regnet_y_8g_eu_common",
-        "name": "RegNet-Y-8G EU-Common (CPU)",
-        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. iGPU compiles fine but produces systematically different predictions than CPU (top-5 overlap 0/5, top-1 mismatch) — CPU-only.",
+        "name": "RegNet-Y-8G EU-Common",
+        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. Runs on CPU or a host-validated Intel NPU; older iGPU predictions diverged from CPU.",
         "architecture": "RegNet-Y-8G",
         "file_size_mb": 148,
         "accuracy_tier": "High",
         "inference_speed": "Slow (~200ms CPU)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
@@ -611,24 +610,24 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "Pure CNN reference baseline. CPU-only — iGPU predictions diverge from CPU.",
+        "recommended_for": "Pure CNN reference baseline for CPU or a validated Intel NPU.",
         "estimated_ram_mb": 768,
         "advanced_only": True,
         "sort_order": 24,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. iGPU output finite but predictions don't agree with CPU — registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU predictions diverged, so the registry excludes intel_gpu.",
     },
     {
         "id": "uniformer_s_eu_common",
-        "name": "UniFormer-S EU-Common (CPU)",
-        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. iGPU produces NaN even with f32 hint — CPU-only.",
+        "name": "UniFormer-S EU-Common",
+        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. Runs on CPU or a host-validated Intel NPU; older iGPU runs produced NaNs.",
         "architecture": "UniFormer-S",
         "file_size_mb": 82,
         "accuracy_tier": "High",
         "inference_speed": "Medium (~95ms CPU)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "cuda"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
@@ -648,13 +647,13 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "CPU-only architectural alternative for accuracy comparison.",
+        "recommended_for": "Architectural comparison alternative for CPU or a validated Intel NPU.",
         "estimated_ram_mb": 384,
         "advanced_only": True,
         "sort_order": 27,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. iGPU produces NaN logits — registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU runs produced NaNs, so the registry excludes intel_gpu.",
     },
 ]
 

@@ -62,6 +62,9 @@ def _patch(monkeypatch, tmp_path, manager, classifier):
     monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
     monkeypatch.setattr("app.services.model_manager.model_manager", manager)
     monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: classifier)
+    # These tests exercise the host-agnostic classifier fallback. Keep them
+    # independent of whether the developer machine happens to expose OpenVINO.
+    monkeypatch.setattr(mv, "_openvino_devices", lambda: [])
 
 
 @pytest.mark.asyncio
