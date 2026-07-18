@@ -1518,8 +1518,8 @@
                 </div>
             {/if}
             <div class="flex min-w-0 items-center gap-3 border-t border-slate-200 py-4 dark:border-slate-700 md:border-l md:border-t-0 md:pl-5">
-                <svg class="h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
-                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{mostRecent?.displayName || '—'} <span class="font-normal text-sky-700 dark:text-sky-300">· {formatDate(mostRecent?.last_seen)}</span></dd></div>
+                <svg class="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
+                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{mostRecent?.displayName || '—'} <span class="font-normal text-teal-700 dark:text-teal-300">· {formatDate(mostRecent?.last_seen)}</span></dd></div>
             </div>
         </dl>
 
@@ -1771,7 +1771,7 @@
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-violet-200/80 dark:border-violet-700/60 bg-violet-100/80 dark:bg-violet-900/30 flex items-center justify-center text-violet-700 dark:text-violet-300">
+                            <div class="h-8 w-8 rounded-xl border border-teal-200/80 dark:border-teal-700/60 bg-teal-100/80 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-300">
                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                     <circle cx="10" cy="10" r="7"></circle>
                                     <circle cx="10" cy="10" r="3"></circle>
@@ -1779,7 +1779,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold text-violet-600 dark:text-violet-300">
+                                <p class="text-xs font-semibold text-teal-600 dark:text-teal-300">
                                     {$_('leaderboard.detection_breakdown_title', { default: 'Detection Breakdown' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
@@ -1828,14 +1828,14 @@
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-cyan-200/80 dark:border-cyan-700/60 bg-cyan-100/80 dark:bg-cyan-900/30 flex items-center justify-center text-cyan-700 dark:text-cyan-300">
+                            <div class="h-8 w-8 rounded-xl border border-teal-200/80 dark:border-teal-700/60 bg-teal-100/80 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-300">
                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                     <rect x="3" y="4" width="14" height="12" rx="2"></rect>
                                     <path d="M3 9h14M8 4v12M13 4v12"></path>
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold text-cyan-600 dark:text-cyan-300">
+                                <p class="text-xs font-semibold text-teal-600 dark:text-teal-300">
                                     {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">

@@ -25,6 +25,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The interface leans harder on one calm teal identity.** Decorative accent colours that had
+  drifted into the leaderboard (a violet, cyan, and sky section flourish) are folded back into the
+  teal palette, while colours that actually carry meaning — chart-series keys, the temperature /
+  wind / precipitation overlay legend, up/down trend deltas, and status — are kept exactly as they
+  were. Section-icon shapes are unified, and a set of unused decorative style utilities (a hover
+  card-lift, gradient stat text, an animated header line) is removed so nothing reintroduces the
+  louder look.
 - **The refreshed surfaces now share one typographic and control language.** Headings and labels
   across the Dashboard, Explorer, Species, BirdNET-Go History, and the detection detail dialog now
   use a single weight the interface font actually ships, so text no longer renders as a synthetic

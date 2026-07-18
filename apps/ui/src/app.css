@@ -113,47 +113,6 @@ html[data-theme='dark'] {
     @apply bg-white/95 dark:bg-slate-800/85 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset;
   }
 
-  .card-interactive:hover {
-    @apply shadow-card-hover dark:shadow-card-dark-hover border-teal-500/40 dark:border-teal-500/40 ring-teal-400/30 dark:ring-teal-500/30 -translate-y-1;
-  }
-
-  /* Rich card with enhanced glassmorphism and gradient effects */
-  .card-rich {
-    @apply relative bg-white/80 dark:bg-slate-800/70 rounded-2xl backdrop-blur-xl;
-    @apply border border-white/50 dark:border-slate-700/40;
-    @apply shadow-[0_8px_32px_-8px_rgba(0, 0, 0, 0.1)] dark:shadow-[0_8px_32px_-8px_rgba(0, 0, 0, 0.4)];
-    @apply transition-all duration-300 ease-out;
-  }
-
-  .card-rich:hover {
-    @apply shadow-[0_16px_48px_-12px_rgba(20, 184, 166, 0.15), 0_8px_24px_-8px_rgba(0, 0, 0, 0.1)];
-    @apply dark:shadow-[0_16px_48px_-12px_rgba(20, 184, 166, 0.2), 0_8px_24px_-8px_rgba(0, 0, 0, 0.4)];
-    @apply border-teal-300/50 dark:border-teal-600/40;
-    transform: translateY(-2px);
-  }
-
-  /* Stats number with gradient text */
-  .stat-number {
-    @apply text-4xl font-black bg-clip-text text-transparent;
-    @apply bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400;
-  }
-
-  /* Stats ribbon container */
-  .stats-ribbon {
-    @apply relative overflow-hidden rounded-2xl p-6;
-    @apply bg-gradient-to-r from-white via-slate-50 to-white;
-    @apply dark:from-slate-800/60 dark:via-slate-800/80 dark:to-slate-800/60;
-    @apply border border-slate-200/70 dark:border-slate-700/50 shadow-card dark:shadow-card-dark;
-  }
-
-  /* Animated gradient line */
-  .gradient-line {
-    @apply absolute top-0 left-0 right-0 h-1;
-    @apply bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500;
-    background-size: 200% 100%;
-    animation: gradientShift 3s ease infinite;
-  }
-
   /* Tab button styling */
   .tab-button {
     @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
@@ -339,51 +298,6 @@ html.theme-bluetit.dark {
   border-color: rgba(30, 58, 138, 0.50);
   --tw-ring-color: rgba(30, 58, 138, 0.30);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.28);
-}
-
-/* Card hover */
-.theme-bluetit:not(.dark) .card-interactive:hover {
-  border-color: rgba(59, 130, 246, 0.45);
-  --tw-ring-color: rgba(59, 130, 246, 0.25);
-  box-shadow: 0 20px 30px -8px rgba(37, 99, 235, 0.13), 0 8px 12px -6px rgba(0, 0, 0, 0.05);
-}
-.theme-bluetit.dark .card-interactive:hover {
-  border-color: rgba(96, 165, 250, 0.40);
-  --tw-ring-color: rgba(96, 165, 250, 0.22);
-  box-shadow: 0 20px 30px -8px rgba(37, 99, 235, 0.18), 0 8px 12px -6px rgba(0, 0, 0, 0.4);
-}
-
-/* Rich card hover */
-.theme-bluetit:not(.dark) .card-rich:hover {
-  border-color: rgba(147, 197, 253, 0.55);
-  box-shadow: 0 16px 48px -12px rgba(37, 99, 235, 0.14), 0 8px 24px -8px rgba(0, 0, 0, 0.08);
-}
-.theme-bluetit.dark .card-rich:hover {
-  border-color: rgba(59, 130, 246, 0.35);
-  box-shadow: 0 16px 48px -12px rgba(59, 130, 246, 0.20), 0 8px 24px -8px rgba(0, 0, 0, 0.4);
-}
-
-/* Stat number gradient */
-.theme-bluetit:not(.dark) .stat-number {
-  background-image: linear-gradient(to right, #1d4ed8, #d97706);
-}
-.theme-bluetit.dark .stat-number {
-  background-image: linear-gradient(to right, #60a5fa, #fbbf24);
-}
-
-/* Stats ribbon */
-.theme-bluetit:not(.dark) .stats-ribbon {
-  background-image: linear-gradient(to right, #eff6ff, #f8fafc, #fffbeb);
-  border-color: rgba(191, 219, 254, 0.55);
-}
-.theme-bluetit.dark .stats-ribbon {
-  background-image: linear-gradient(to right, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.7));
-  border-color: rgba(30, 58, 138, 0.40);
-}
-
-/* Gradient line */
-.theme-bluetit .gradient-line {
-  background-image: linear-gradient(to right, #2563eb, #f59e0b, #2563eb);
 }
 
 /* Tab buttons */
