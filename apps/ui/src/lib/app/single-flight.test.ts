@@ -4,7 +4,7 @@ import { createSingleFlightRunner } from './single-flight';
 
 describe('createSingleFlightRunner', () => {
     it('shares one in-flight task across concurrent triggers', async () => {
-        let resolveTask: (() => void) | null = null;
+        let resolveTask!: () => void;
         const task = vi.fn(() => new Promise<void>((resolve) => {
             resolveTask = resolve;
         }));
@@ -15,7 +15,7 @@ describe('createSingleFlightRunner', () => {
 
         expect(task).toHaveBeenCalledTimes(1);
         expect(second).toBe(first);
-        resolveTask?.();
+        resolveTask();
         await first;
     });
 
