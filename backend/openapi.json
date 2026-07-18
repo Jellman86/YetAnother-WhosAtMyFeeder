@@ -8981,7 +8981,7 @@
               }
             ],
             "default": "fast",
-            "description": "Generated cropped-thumbnail localization quality: fast|accurate. Classifier crop-on/off policy remains automatic per model.",
+            "description": "Deprecated compatibility field; crop generation automatically tries accurate then fast",
             "title": "Bird Crop Detector Tier"
           },
           "bird_crop_source_priority": {
@@ -9000,7 +9000,7 @@
               }
             ],
             "default": "frigate_hints_first",
-            "description": "Bird crop source priority",
+            "description": "Deprecated compatibility field; HQ snapshots choose the best available crop automatically",
             "title": "Bird Crop Source Priority"
           },
           "bird_model_region_override": {
@@ -9700,7 +9700,7 @@
           },
           "media_cache_high_quality_event_snapshot_bird_crop": {
             "default": false,
-            "description": "Run the bird crop detector on high-quality event snapshots before caching",
+            "description": "Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
             "title": "Media Cache High Quality Event Snapshot Bird Crop",
             "type": "boolean"
           },
