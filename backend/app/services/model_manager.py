@@ -1161,6 +1161,19 @@ class ModelManager:
         merged["crop_generator"] = self._normalize_crop_generator_block(crop_generator)
         providers = config.get("supported_inference_providers")
         if isinstance(providers, list) and providers:
+            registry_provider_set = {
+                str(provider or "").strip().lower()
+                for provider in (spec.get("supported_inference_providers") or [])
+                if str(provider or "").strip()
+            }
+            registry_unsupported_providers: list[str] = []
+            seen_registry_unsupported: set[str] = set()
+            for provider in providers:
+                normalized = str(provider or "").strip().lower()
+                if not normalized or normalized in registry_provider_set or normalized in seen_registry_unsupported:
+                    continue
+                registry_unsupported_providers.append(normalized)
+                seen_registry_unsupported.add(normalized)
             sanitized_providers, provider_warnings = self._sanitize_installed_inference_providers(
                 installed_providers=providers,
                 registry_providers=list(spec.get("supported_inference_providers") or []),
@@ -1170,6 +1183,8 @@ class ModelManager:
                 merged["supported_inference_providers"] = sanitized_providers
             if provider_warnings:
                 model_config_warnings.extend(provider_warnings)
+                merged["model_config_provider_warnings"] = list(provider_warnings)
+                merged["model_config_registry_unsupported_providers"] = registry_unsupported_providers
         if model_config_warnings:
             merged["model_config_warnings"] = model_config_warnings
         return merged

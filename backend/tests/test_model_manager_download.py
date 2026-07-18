@@ -599,6 +599,8 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
     assert spec["model_config_warnings"] == [
         "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: legacy_unsupported"
     ]
+    assert spec["model_config_provider_warnings"] == spec["model_config_warnings"]
+    assert spec["model_config_registry_unsupported_providers"] == ["legacy_unsupported"]
 
 
 def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(

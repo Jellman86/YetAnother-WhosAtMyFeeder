@@ -72,6 +72,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   finite output on 12 real comparison images per device, and matched CPU top-1 on every GPU/NPU
   image. The older OpenVINO 2025.4 NaN evidence remains documented, so the per-host validation gate
   still decides whether a specific Intel GPU is safe before selection.
+- **Host-validated model devices no longer raise contradictory config warnings.** The shared model
+  registry remains conservative for hardware that has not been tested, but a provider proven by
+  this host's isolated device sweep is now merged before classifier status is assembled. YA-WAMF
+  therefore no longer reports an installed-provider warning while successfully running that same
+  provider; unrelated model-sidecar warnings remain visible.
 - **Validated ONNX models now advertise Intel NPU support.** The same Quark sweep adds `intel_npu`
   to the nine standalone ONNX classifiers that compiled, returned finite output, and matched CPU
   top-1 on all 12 real NPU comparison images. TFLite MobileNet stays CPU-only, and regional

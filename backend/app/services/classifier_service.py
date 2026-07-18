@@ -436,6 +436,39 @@ def _host_validated_providers(model_id: str) -> list[str]:
         return []
 
 
+def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
+    """Merge this host's proven accelerators and retire resolved registry warnings.
+
+    The shared registry stays conservative for hardware generations that have not
+    been tested. A device sweep can safely widen that policy for one model on one
+    host. Once it does, an installed-sidecar warning for the same provider is no
+    longer actionable and must not be presented as an operational fault.
+    """
+    resolved = dict(spec)
+    supported = [str(provider).strip().lower() for provider in spec.get("supported_inference_providers") or []]
+    host_validated = _host_validated_providers(model_id)
+    host_added = [provider for provider in host_validated if provider not in supported]
+    if host_added:
+        supported.extend(host_added)
+    resolved["supported_inference_providers"] = supported
+    resolved["host_added_inference_providers"] = host_added
+
+    registry_unsupported = {
+        str(provider).strip().lower()
+        for provider in spec.get("model_config_registry_unsupported_providers") or []
+        if str(provider).strip()
+    }
+    host_validated_set = set(host_validated)
+    provider_warnings = {
+        str(warning).strip() for warning in spec.get("model_config_provider_warnings") or [] if str(warning).strip()
+    }
+    warnings = [str(warning).strip() for warning in spec.get("model_config_warnings") or [] if str(warning).strip()]
+    if registry_unsupported and registry_unsupported.issubset(host_validated_set):
+        warnings = [warning for warning in warnings if warning not in provider_warnings]
+    resolved["model_config_warnings"] = warnings
+    return resolved
+
+
 def _host_device_eligibility_summary() -> dict[str, Any]:
     """Summary of the per-host compatibility sweep for the UI: the union of
     providers validated across all models, plus when/what run produced it.
@@ -2445,6 +2478,8 @@ class ClassifierService:
         from app.services.model_manager import model_manager
 
         spec = dict(model_manager.get_active_model_spec() or {})
+        model_id = str(spec.get("model_id") or self._resolve_active_model_id())
+        spec = _apply_host_validated_provider_policy(spec, model_id=model_id)
         model_path = str(spec.get("model_path") or "")
         labels_path = str(spec.get("labels_path") or "")
         input_size = int(spec.get("input_size") or 224)
@@ -2473,6 +2508,7 @@ class ClassifierService:
             "resolved_region": spec.get("resolved_region"),
             "supported_inference_providers": supported_inference_providers,
             "model_config_warnings": model_config_warnings,
+            "host_added_inference_providers": list(spec.get("host_added_inference_providers") or []),
             "crop_generator": crop_generator,
         }
 
@@ -3339,18 +3375,12 @@ class ClassifierService:
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
-        # Host-aware: add any providers this machine validated for the active model
-        # via the device sweep (device_eligibility.json). Only extends the list —
-        # never removes registry entries — so older hardware still falls back safely.
-        host_validated = _host_validated_providers(self._resolve_active_model_id())
-        newly_allowed = [p for p in host_validated if p not in supported_inference_providers]
-        if newly_allowed:
-            supported_inference_providers.extend(newly_allowed)
+        host_added = list(spec.get("host_added_inference_providers") or [])
+        if host_added:
             log.info(
                 "Merged host-validated inference providers",
                 model_id=self._resolve_active_model_id(),
-                host_validated=host_validated,
-                added=newly_allowed,
+                added=host_added,
             )
         model_config_warnings = [
             str(item).strip() for item in (spec.get("model_config_warnings") or []) if str(item).strip()

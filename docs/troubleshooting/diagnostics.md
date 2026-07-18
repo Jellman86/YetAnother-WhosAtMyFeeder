@@ -129,11 +129,22 @@ Key fields:
 - `openvino_available`
 - `openvino_devices`
 - `intel_gpu_available`
+- `active_model_id`, `selected_provider`, and `active_provider`
+- `host_device_eligibility`
 - `fallback_reason`
+- `model_config_warnings`
 - `openvino_import_error`
 - `openvino_probe_error`
 - `openvino_gpu_probe_error`
 - `dev_dri_present`, `dev_dri_entries`, `process_groups`
+
+The shared model registry is deliberately conservative across Intel hardware generations. A full
+device sweep can approve an extra provider for one model on this host; that host-specific result is
+reported under `host_device_eligibility` and may become the `active_provider`. YA-WAMF does not show
+an installed-provider warning when the same provider has passed the host sweep. A remaining
+`model_config_warnings` entry is therefore actionable: repair or download the model again in
+**Settings → Detection → Model Manager**, or include it in a diagnostics bundle when asking for
+help.
 
 ### Intel iGPU (OpenVINO) checklist
 
