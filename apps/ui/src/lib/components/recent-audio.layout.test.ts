@@ -6,6 +6,7 @@ describe('RecentAudio dashboard widget layout', () => {
         expect(recentAudioSource).toContain('const RECENT_AUDIO_LIMIT = 4;');
         expect(recentAudioSource).toContain('fetchRecentAudio(RECENT_AUDIO_LIMIT)');
         expect(recentAudioSource).toContain("onNavigate?.('/audio')");
+        expect(recentAudioSource).toMatch(/data-audio-history-action[^>]+rounded-full/);
     });
 
     it('renders spectrograms as images instead of CSS backgrounds', () => {

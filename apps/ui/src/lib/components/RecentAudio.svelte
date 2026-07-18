@@ -120,7 +120,7 @@
     }
 </script>
 
-<section data-dashboard-audio class="flex h-full flex-col border-y border-slate-200 py-5 dark:border-slate-700">
+<section data-dashboard-audio class="flex h-full flex-col border-t border-slate-200 pt-5 dark:border-slate-700">
     <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div class="flex items-center gap-3">
             <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300" aria-hidden="true">
@@ -141,8 +141,9 @@
         </div>
         <div class="flex flex-wrap items-center gap-1">
             <button
+                data-audio-history-action
                 type="button"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-teal-300 dark:hover:bg-teal-950/40"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50/75 px-3.5 py-2 text-sm font-semibold text-sky-800 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:border-sky-700 dark:hover:bg-sky-950/65"
                 title={$_('dashboard.audio_feed.open_history')}
                 onclick={() => onNavigate?.('/audio')}
             >
@@ -165,7 +166,7 @@
     </header>
 
     {#if summary && summary.total > 0}
-        <div class="mb-2 flex items-center gap-4 border-y border-slate-200 bg-slate-50/60 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/30">
+        <div class="mb-3 flex items-center gap-4 rounded-xl bg-slate-100/70 px-3 py-2.5 dark:bg-slate-900/45">
             <div class="flex items-baseline gap-1.5">
                 <span class="font-display text-xl font-bold leading-none tabular-nums text-teal-700 dark:text-teal-300">{summary.total.toLocaleString()}</span>
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('dashboard.audio_feed.heard_today')}</span>
@@ -184,7 +185,7 @@
         </div>
     {/if}
 
-    <div class="flex-1 divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+    <div data-dashboard-audio-list class="flex-1 divide-y divide-slate-200 overflow-hidden rounded-2xl bg-slate-50/75 ring-1 ring-slate-200/80 dark:divide-slate-700 dark:bg-slate-900/35 dark:ring-slate-700/70">
         {#if loading}
             {#each Array.from({ length: RECENT_AUDIO_LIMIT }) as _}
                 <div class="h-16 animate-pulse bg-slate-100/70 dark:bg-slate-800/40"></div>

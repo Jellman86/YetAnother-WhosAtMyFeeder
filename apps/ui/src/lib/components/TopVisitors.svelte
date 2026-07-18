@@ -72,7 +72,12 @@
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div class="flex items-center gap-3">
             <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300" aria-hidden="true">
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /><path stroke-linecap="round" d="M16.5 8.5 20 7l-2.2 3" /></svg>
+                <svg data-top-visitors-ranking-icon class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="5" cy="6" r="1.5" />
+                    <circle cx="5" cy="12" r="1.5" />
+                    <circle cx="5" cy="18" r="1.5" />
+                    <path stroke-linecap="round" d="M9 6h10M9 12h7M9 18h4" />
+                </svg>
             </span>
             <div>
                 <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.top_visitors_title')}</h2>
