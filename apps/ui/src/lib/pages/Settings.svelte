@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import {
         fetchSettings,
         updateSettings,
@@ -28,7 +28,6 @@
         resetDatabase,
         clearClassificationFeedback,
         analyzeUnknowns,
-        fetchAnalysisStatus,
         fetchAudioSources,
         searchSpecies,
         fetchRecordingClipCapability,
@@ -60,6 +59,7 @@
     import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
     import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
@@ -260,6 +260,7 @@
     let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
     let syncingTaxonomy = $state(false);
     let taxonomyPollInterval: ReturnType<typeof setInterval> | undefined;
+    let taxonomyStatusLoading = false;
 
     // Location Settings
     let locationLat = $state<number | null>(null);
@@ -1957,6 +1958,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let weatherBackfillTotalJobId = $state<string | null>(null);
     let weatherBackfillTotal = $state(0);
     let backfillPollInterval: ReturnType<typeof setInterval> | null = null;
+    let backfillStatusLoading = false;
     let resettingDatabase = $state(false);
     let clearingFeedback = $state(false);
     let exportingConfigBackup = $state(false);
@@ -1964,8 +1966,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analyzingUnknowns = $state(false);
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
-    let analysisStatusSignature = $state('');
-    let analysisPollInterval: ReturnType<typeof setInterval> | undefined;
 
     // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
     let activeTab = $derived<SettingsTab>(tabFromRoute(currentRoute));
@@ -2049,22 +2049,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 loadCacheStats(),
                 loadTaxonomyStatus(),
                 loadVersion(),
-                loadAnalysisStatus(), // Check if there's an ongoing job
                 loadBackfillStatus()
             ]);
 
         // Taxonomy polling lifecycle for the data tab is handled by the activeTab
         // $effect below, so no need to start it explicitly here.
-
-        // If there are pending/active items on load, start polling
-        if (analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)) {
-             startAnalysisPolling();
-             // We don't know total if we just reloaded, so maybe set total to pending+active
-             const remaining = analysisStatus.pending + analysisStatus.active;
-             if (analysisTotal === 0 || analysisTotal < remaining) {
-                 analysisTotal = remaining;
-             }
-        }
 
         if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
             startBackfillPolling();
@@ -2074,6 +2063,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     $effect(() => {
         if (isDirty) return;
         return pageRefreshAction.register(() => loadSettings());
+    });
+
+    $effect(() => {
+        const status = analysisQueueStatusStore.analysisStatus;
+        if (!status) return;
+        untrack(() => applyAnalysisStatus(status));
     });
 
     function handleTabChange(tab: SettingsTab) {
@@ -2107,13 +2102,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     onDestroy(() => {
         stopTaxonomyPolling();
-        if (analysisPollInterval) clearInterval(analysisPollInterval);
         if (backfillPollInterval) clearInterval(backfillPollInterval);
     });
 
     function startTaxonomyPolling() {
         if (taxonomyPollInterval) return;
-        taxonomyPollInterval = setInterval(loadTaxonomyStatus, 3000);
+        taxonomyPollInterval = setInterval(() => {
+            if (!document.hidden) void loadTaxonomyStatus();
+        }, 3000);
     }
 
     function stopTaxonomyPolling() {
@@ -2123,6 +2119,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function loadTaxonomyStatus() {
+        if (taxonomyStatusLoading) return;
+        taxonomyStatusLoading = true;
         try {
             taxonomyStatus = await fetchTaxonomyStatus();
             if (taxonomyStatus.is_running) {
@@ -2161,6 +2159,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
         } catch (e) {
             console.error('Failed to load taxonomy status', e);
+        } finally {
+            taxonomyStatusLoading = false;
         }
     }
 
@@ -2525,11 +2525,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (backfillPollInterval) {
             clearInterval(backfillPollInterval);
         }
-        loadBackfillStatus();
-        backfillPollInterval = setInterval(loadBackfillStatus, 2000);
+        void loadBackfillStatus();
+        backfillPollInterval = setInterval(() => {
+            if (!document.hidden) void loadBackfillStatus();
+        }, 2000);
     }
 
     async function loadBackfillStatus() {
+        if (backfillStatusLoading) return;
+        backfillStatusLoading = true;
         try {
             const [detections, weather] = await Promise.all([
                 getBackfillStatus('detections'),
@@ -2614,6 +2618,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 severity: 'warning',
                 context: { route: '/api/backfill/status' }
             });
+        } finally {
+            backfillStatusLoading = false;
         }
     }
 
@@ -2624,12 +2630,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const result = await analyzeUnknowns();
             message = { type: 'success', text: result.message };
             if (result.count > 0 || (result.skipped_duplicate ?? 0) > 0 || (result.dropped_full ?? 0) > 0) {
-                await loadAnalysisStatus();
-                const remaining = (analysisStatus?.pending ?? 0) + (analysisStatus?.active ?? 0);
+                await analysisQueueStatusStore.refresh();
+                const refreshedStatus = analysisQueueStatusStore.analysisStatus;
+                const remaining = (refreshedStatus?.pending ?? 0) + (refreshedStatus?.active ?? 0);
                 if (analysisTotal === 0 || analysisTotal < remaining) {
                     analysisTotal = remaining;
                 }
-                startAnalysisPolling();
             }
         } catch (e) {
             message = { type: 'error', text: getErrorMessage(e) || 'Analysis failed' };
@@ -2638,73 +2644,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    function startAnalysisPolling() {
-        if (analysisPollInterval) clearInterval(analysisPollInterval);
-        loadAnalysisStatus();
-        analysisPollInterval = setInterval(loadAnalysisStatus, 2000);
-    }
-
-    async function loadAnalysisStatus() {
-        try {
-            const status = await fetchAnalysisStatus();
-            const signature = [
-                status.pending,
-                status.active,
-                status.circuit_open ? 1 : 0,
-                status.open_until ?? '',
-                status.failure_count ?? '',
-                status.pending_capacity ?? '',
-                status.pending_available ?? ''
-            ].join('|');
-            if (signature !== analysisStatusSignature) {
-                analysisStatus = status;
-                analysisStatusSignature = signature;
-            }
-            const remaining = status.pending + status.active;
-            if (remaining > 0 && (analysisTotal === 0 || analysisTotal < remaining)) {
-                analysisTotal = remaining;
-            }
-            if (status.pending === 0 && status.active === 0) {
-                if (analysisPollInterval) {
-                    clearInterval(analysisPollInterval);
-                    analysisPollInterval = undefined;
-                }
-                if (analysisTotal > 0) {
-                    jobProgressStore.markCompleted({
-                        id: 'analysis:batch',
-                        kind: 'batch_analysis',
-                        title: $_('settings.data.batch_analysis_title'),
-                        current: analysisTotal,
-                        total: analysisTotal,
-                        source: 'poll'
-                    });
-                } else {
-                    jobProgressStore.closeActiveByPrefix('analysis:', 'stale');
-                }
-                analysisTotal = 0;
-            } else if (remaining > 0) {
-                const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0;
-                jobProgressStore.upsertRunning({
-                    id: 'analysis:batch',
-                    kind: 'batch_analysis',
-                    title: $_('settings.data.batch_analysis_title'),
-                    message: `${processed.toLocaleString()} / ${analysisTotal > 0 ? analysisTotal.toLocaleString() : '?'}`,
-                    current: processed,
-                    total: analysisTotal > 0 ? analysisTotal : 0,
-                    source: 'poll'
-                });
-            }
-        } catch (e) {
-            console.error('Failed to load analysis status', e);
-            jobDiagnosticsStore.recordError({
-                source: 'job',
-                component: 'analysis_status',
-                stage: 'poll',
-                reasonCode: 'status_fetch_failed',
-                message: toErrorMessage(e, 'Failed to load analysis status'),
-                severity: 'warning',
-                context: { route: '/api/maintenance/analysis/status' }
-            });
+    function applyAnalysisStatus(status: AnalysisStatus): void {
+        analysisStatus = status;
+        const remaining = status.pending + status.active;
+        if (remaining > 0 && (analysisTotal === 0 || analysisTotal < remaining)) {
+            analysisTotal = remaining;
+        } else if (remaining === 0) {
+            analysisTotal = 0;
         }
     }
 
@@ -3691,7 +3637,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
+                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

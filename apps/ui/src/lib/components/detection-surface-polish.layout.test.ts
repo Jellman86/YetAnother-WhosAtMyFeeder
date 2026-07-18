@@ -6,7 +6,7 @@ import detectionModalSource from './DetectionModal.svelte?raw';
 describe('detection surface polish', () => {
     it('keeps event cards quiet and media-led', () => {
         expect(detectionCardSource).toContain('data-detection-card');
-        expect(detectionCardSource).toContain('hover:border-teal-500/40');
+        expect(detectionCardSource).toContain('hover:border-brand-500/40');
         expect(detectionCardSource).not.toContain('hover:-translate-y-1.5');
         expect(detectionCardSource).not.toContain('group-hover:rotate-1');
         expect(detectionCardSource).not.toContain('ring-1 ring-slate-200/40');
@@ -20,7 +20,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-media-ambient');
         expect(detectionModalSource).toContain('object-contain');
         expect(detectionModalSource).toContain('max-h-[100dvh]');
-        expect(detectionModalSource).toContain('bg-gradient-to-br from-slate-900 via-slate-950 to-teal-950');
+        expect(detectionModalSource).toContain('bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950');
         expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-11 w-11');
     });
 

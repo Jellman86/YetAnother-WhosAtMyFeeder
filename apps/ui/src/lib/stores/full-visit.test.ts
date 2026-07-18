@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../api', () => ({
     checkRecordingClipAvailable: vi.fn(),
@@ -9,6 +9,10 @@ describe('FullVisitStore', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('marks a recording clip as fetched when the backend reports a persisted full visit', async () => {
@@ -123,5 +127,56 @@ describe('FullVisitStore', () => {
 
         expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(2);
         expect(store.isFetched('evt-3')).toBe(true);
+    });
+
+    it('performs at most one automatic re-probe for an available uncached clip', async () => {
+        vi.useFakeTimers();
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore({ reprobeDelayMs: 8000 });
+
+        await store.ensureAvailability('evt-once');
+        expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(8000);
+        expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(2);
+
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(2);
+    });
+
+    it('bounds cached event state and clears timers for evicted events', async () => {
+        vi.useFakeTimers();
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore({ maxEntries: 3 });
+
+        for (const eventId of ['evt-1', 'evt-2', 'evt-3', 'evt-4', 'evt-5']) {
+            await store.ensureAvailability(eventId);
+        }
+
+        expect(Object.keys(store.availability)).toHaveLength(3);
+        expect(store.getAvailability('evt-1')).toBe('unknown');
+        expect(store.getAvailability('evt-5')).toBe('available');
+
+        await vi.advanceTimersByTimeAsync(8000);
+        expect(api.checkRecordingClipAvailable).toHaveBeenCalledTimes(8);
+    });
+
+    it('contains an automatic fetch failure without leaking an unhandled rejection', async () => {
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.fetchRecordingClip).mockRejectedValue(new Error('upstream unavailable'));
+
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore();
+
+        await store.ensureAvailability('evt-fail', { autoFetch: true });
+
+        await vi.waitFor(() => expect(store.getFetchState('evt-fail')).toBe('failed'));
     });
 });

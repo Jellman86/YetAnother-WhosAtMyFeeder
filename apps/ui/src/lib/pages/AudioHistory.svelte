@@ -309,7 +309,7 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto]">
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-teal-500">
+                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-brand-500">
                     <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
                     <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
                     <option value={30}>{$_('audio.filter.30d', { default: '30 days' })}</option>
@@ -319,22 +319,22 @@
             </label>
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
-                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-teal-500" placeholder="Dunnock" />
+                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-brand-500" placeholder="Dunnock" />
             </label>
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
-                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-teal-500" placeholder="BirdCam" />
+                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-brand-500" placeholder="BirdCam" />
             </label>
             <label class="space-y-1.5">
                 <span class="flex justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     <span>{$_('audio.filter.min_confidence', { default: 'Min confidence' })}</span>
-                    <span class="tabular-nums text-teal-700 dark:text-teal-300">{confidencePercent(minConfidence)}</span>
+                    <span class="tabular-nums text-brand-700 dark:text-brand-300">{confidencePercent(minConfidence)}</span>
                 </span>
-                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-teal-600 focus-visible:ring-2 focus-visible:ring-teal-500" />
+                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500" />
             </label>
             <div class="flex items-end gap-2 md:col-span-2 xl:col-span-1">
-                <button type="button" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-teal-500 xl:flex-none" onclick={applyFilters} disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
-                <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-teal-500 xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
+                <button type="button" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" onclick={applyFilters} disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
+                <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
         </div>
     </section>
@@ -342,7 +342,7 @@
     <section class="space-y-5" data-audio-history-log>
         <div class="flex items-start justify-between gap-4">
             <div class="flex min-w-0 items-start gap-3">
-                <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300">
+                <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
                     <svg data-audio-section-icon aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
                     </svg>
@@ -352,7 +352,7 @@
                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
                 </div>
             </div>
-            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={() => void loadAudioHistory()} disabled={loading}>
+            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={() => void loadAudioHistory()} disabled={loading}>
                 <svg aria-hidden="true" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 10-2.34 5.66M20 12v-5m0 5h-5" /></svg>
                 {$_('common.refresh', { default: 'Refresh' })}
             </button>
@@ -361,7 +361,7 @@
         {#if error}
             <div role="alert" class="flex flex-col gap-3 border-y border-red-200 bg-red-50/70 px-4 py-4 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between">
                 <span>{error}</span>
-                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-teal-500" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-brand-500" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
             </div>
         {:else if loading}
             <div class="space-y-1 border-y border-slate-200/80 py-2 dark:border-slate-800" aria-label={$_('common.loading', { default: 'Loading' })}>
@@ -392,7 +392,7 @@
                             <td class="row-span-2 flex items-center md:table-cell md:w-28 md:py-3 md:pr-4">
                                 {#if spec}
                                     {#if link}
-                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
+                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
                                             <img data-audio-spectrogram src={spec} alt={detection.species} loading="lazy" class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                         </a>
                                     {:else}
@@ -422,8 +422,8 @@
             <div class="flex flex-col gap-3 border-b border-slate-200/80 py-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
                 <span class="tabular-nums">{$_('audio.history.showing', { values: { from: offset + 1, to: Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0), total: history?.total ?? 0 }, default: `Showing ${offset + 1}-${Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0)} of ${history?.total ?? 0}` })}</span>
                 <div class="grid grid-cols-2 gap-2 sm:flex">
-                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
-                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-teal-500" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
                 </div>
             </div>
         {/if}
@@ -495,7 +495,7 @@
                                     data-audio-top-species-button
                                     onclick={() => selectedSpecies = item.species}
                                     aria-label={$_('leaderboard.view_species', { values: { species: item.species } })}
-                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:hover:bg-slate-800/35"
+                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35"
                                 >
                                     <span class="w-6 flex-none text-center text-xs font-bold tabular-nums text-slate-400 dark:text-slate-500">{index + 1}</span>
                                     <span class="h-11 w-11 flex-none overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -508,11 +508,11 @@
                                         {/if}
                                     </span>
                                     <span class="min-w-0 flex-1">
-                                        <span class="block truncate font-bold text-slate-900 transition-colors group-hover:text-teal-700 dark:text-white dark:group-hover:text-teal-300">{item.species}</span>
+                                        <span class="block truncate font-bold text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.species}</span>
                                         <span class="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}</span>
                                     </span>
                                     <span class="flex-none text-right">
-                                        <span class="block font-bold tabular-nums text-teal-700 dark:text-teal-300">{item.count.toLocaleString()}</span>
+                                        <span class="block font-bold tabular-nums text-brand-700 dark:text-brand-300">{item.count.toLocaleString()}</span>
                                         <span class="block text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
                                     </span>
                                     <svg aria-hidden="true" class="h-4 w-4 flex-none text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-slate-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>

@@ -80,7 +80,7 @@
         </div>
 
         {#if usingDetected}
-            <div class="flex items-center justify-between gap-2 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800 dark:bg-teal-950/30 dark:text-teal-200">
+            <div class="flex items-center justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800 dark:bg-brand-950/30 dark:text-brand-200">
                 <span>{$_('setup.cameras.detected_note', { default: 'No camera list set — YA-WAMF is watching all cameras. These are producing detections:' })}</span>
                 <button type="button" class="btn btn-secondary px-3 py-1.5 shrink-0" onclick={useDetected}>{$_('setup.cameras.use_detected', { default: 'Add these' })}</button>
             </div>
@@ -96,16 +96,16 @@
 
         <div>
             <label for="setup-threshold" class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {$_('setup.cameras.threshold', { default: 'Confidence threshold' })}: <span class="font-bold text-teal-600 dark:text-teal-400">{(threshold * 100).toFixed(0)}%</span>
+                {$_('setup.cameras.threshold', { default: 'Confidence threshold' })}: <span class="font-bold text-brand-600 dark:text-brand-400">{(threshold * 100).toFixed(0)}%</span>
             </label>
-            <input id="setup-threshold" type="range" min="0" max="1" step="0.05" bind:value={threshold} class="mt-2 w-full accent-teal-500" />
+            <input id="setup-threshold" type="range" min="0" max="1" step="0.05" bind:value={threshold} class="mt-2 w-full accent-brand-500" />
         </div>
 
         <div class="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
             <span aria-hidden="true">💡</span>
             <span>
                 {$_('setup.cameras.gates_hint', { default: "Missing detections? Frigate's own min_score / threshold / min_initialized gates decide whether a snapshot ever reaches YA-WAMF." })}
-                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-teal-600 underline dark:text-teal-400">{$_('setup.cameras.gates_link', { default: 'Tuning guide →' })}</a>
+                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-600 underline dark:text-brand-400">{$_('setup.cameras.gates_link', { default: 'Tuning guide →' })}</a>
             </span>
         </div>
     {/if}

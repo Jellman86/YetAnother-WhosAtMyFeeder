@@ -29,7 +29,7 @@
                 <div
                     class="flex items-center justify-center w-10 h-10 rounded-2xl flex-shrink-0
                            {accent
-                               ? 'bg-teal-500/15 text-teal-700 dark:bg-teal-400/15 dark:text-teal-300'
+                               ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/15 dark:text-brand-300'
                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}"
                 >
                     {@render iconSnippet()}

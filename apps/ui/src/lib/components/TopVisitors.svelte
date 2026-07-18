@@ -83,28 +83,28 @@
                     <button
                         type="button"
                         onclick={() => onSpeciesClick?.(item.taxa_id ? `taxa:${item.taxa_id}` : item.species)}
-                        class="group flex min-h-24 w-full items-center gap-3 px-3 py-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:hover:bg-slate-800/35 xl:px-4"
+                        class="group flex min-h-24 w-full items-center gap-3 px-3 py-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35 xl:px-4"
                         aria-label={`${item.displayName}, ${$_('dashboard.top_visitors_count', { values: { count: item.count } })}`}
                     >
                         <span class="relative shrink-0">
                             <span
                                 data-dashboard-species-portrait
-                                class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-slate-400 shadow-sm ring-1 ring-teal-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-teal-800"
+                                class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-slate-400 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800"
                             >
                                 {#if cachedSpeciesThumb(item.species)}
                                     <img src={cachedSpeciesThumb(item.species) ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
                                 {:else}
-                                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg>
+                                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
                                 {/if}
                             </span>
-                            <span class="absolute -left-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-teal-600 px-1 text-xs font-bold tabular-nums text-white shadow-sm dark:border-slate-900 dark:bg-teal-500 dark:text-slate-950" aria-hidden="true">{index + 1}</span>
+                            <span class="absolute -left-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-brand-600 px-1 text-xs font-bold tabular-nums text-white shadow-sm dark:border-slate-900 dark:bg-brand-500 dark:text-slate-950" aria-hidden="true">{index + 1}</span>
                         </span>
                         <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-teal-700 dark:text-white dark:group-hover:text-teal-300" title={item.displayName}>{item.displayName}</span>
+                            <span class="block text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300" title={item.displayName}>{item.displayName}</span>
                             {#if item.subName}
                                 <span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400" title={item.subName}>{item.subName}</span>
                             {/if}
-                            <span class="mt-1 block text-xs font-semibold text-teal-700 dark:text-teal-300">{$_('dashboard.top_visitors_count', { values: { count: item.count } })}</span>
+                            <span class="mt-1 block text-xs font-semibold text-brand-700 dark:text-brand-300">{$_('dashboard.top_visitors_count', { values: { count: item.count } })}</span>
                         </span>
                     </button>
                 </li>

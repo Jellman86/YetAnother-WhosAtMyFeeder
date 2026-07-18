@@ -68,15 +68,15 @@
 
     function frameTone(frame?: ReclassificationProgress['frameResults'][number]) {
         if (!frame) return 'bg-slate-200/70 dark:bg-white/10';
-        if (frame.score >= 0.8) return 'bg-emerald-400/75';
-        if (frame.score >= 0.5) return 'bg-teal-400/70';
+        if (frame.score >= 0.8) return 'bg-accent-400/75';
+        if (frame.score >= 0.5) return 'bg-brand-400/70';
         return 'bg-amber-400/75';
     }
 
     function frameScoreTone(frame?: ReclassificationProgress['frameResults'][number]) {
         if (!frame) return 'text-slate-500 dark:text-slate-400';
-        if (frame.score >= 0.8) return 'text-emerald-600 dark:text-emerald-300';
-        if (frame.score >= 0.5) return 'text-teal-700 dark:text-teal-300';
+        if (frame.score >= 0.8) return 'text-accent-600 dark:text-accent-300';
+        if (frame.score >= 0.5) return 'text-brand-700 dark:text-brand-300';
         return 'text-amber-700 dark:text-amber-300';
     }
 </script>
@@ -93,7 +93,7 @@
                     {@const isCurrent = !isComplete && frameIdx === activeIndexZeroBased}
                     <div class="shrink-0 {frameCellClass}">
                         <div
-                            class="aspect-[4/3] rounded-lg overflow-hidden border border-white/10 relative {frameTone(frame)} {isCurrent ? 'ring-2 ring-teal-300/90 shadow-lg shadow-teal-400/20 motion-safe:animate-pulse' : ''}"
+                            class="aspect-[4/3] rounded-lg overflow-hidden border border-white/10 relative {frameTone(frame)} {isCurrent ? 'ring-2 ring-brand-300/90 shadow-lg shadow-brand-400/20 motion-safe:animate-pulse' : ''}"
                             title={frame ? `${frame.label} • ${(frame.score * 100).toFixed(0)}%` : $_('detection.video_analysis.in_progress', { default: 'Analyzing video...' })}
                         >
                             {#if frame?.thumb}
@@ -109,7 +109,7 @@
                                 {frameIdx + 1}
                             </div>
                             {#if isCurrent}
-                                <div class="absolute right-1 top-1 h-2 w-2 rounded-full bg-teal-300 shadow shadow-teal-300/70 motion-safe:animate-pulse"></div>
+                                <div class="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-300 shadow shadow-brand-300/70 motion-safe:animate-pulse"></div>
                             {/if}
                         </div>
                         {#if showFrameScores}
@@ -124,7 +124,7 @@
         <div class="px-2 pb-2">
             <div class="h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
-                    class="h-full rounded-full bg-gradient-to-r from-teal-300 via-cyan-300 to-indigo-300 transition-all duration-300 ease-out motion-reduce:transition-none"
+                    class="h-full rounded-full bg-gradient-to-r from-brand-300 via-cyan-300 to-indigo-300 transition-all duration-300 ease-out motion-reduce:transition-none"
                     style={`width: ${Math.max(2, Math.round((safeCurrentFrame / safeTotalFrames) * 100))}%`}
                 ></div>
             </div>
@@ -136,7 +136,7 @@
             <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                 {$_('detection.reclassification.frame_grid')}
             </span>
-            <span class="text-[10px] font-black text-teal-600 dark:text-teal-300 uppercase tracking-widest">
+            <span class="text-[10px] font-black text-brand-600 dark:text-brand-300 uppercase tracking-widest">
                 {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
             </span>
         </div>

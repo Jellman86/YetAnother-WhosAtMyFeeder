@@ -47,7 +47,7 @@
         {value}
         placeholder={effectivelySaved ? '***REDACTED***' : emptyPlaceholder}
         oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
-        class="w-full px-4 py-3 pr-24 rounded-2xl border font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all
+        class="w-full px-4 py-3 pr-24 rounded-2xl border font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all
                {effectivelySaved
                  ? 'border-slate-200 dark:border-slate-700/60 bg-slate-100/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 placeholder-slate-400 dark:placeholder-slate-500'
                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400'}"
@@ -58,7 +58,7 @@
             aria-hidden="false"
         >
             <span
-                class="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+                class="inline-flex items-center gap-1 rounded-full border border-accent-200/80 bg-accent-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent-700 dark:border-accent-500/40 dark:bg-accent-900/20 dark:text-accent-300"
             >
                 <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />

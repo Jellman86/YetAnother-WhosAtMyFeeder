@@ -40,9 +40,9 @@
     {/if}
 
     <div
-        class="w-full rounded-sm transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-teal-400 ring-offset-1' : ''}"
-        class:bg-teal-500={value > 0 && hoveredIndex !== i}
-        class:bg-teal-400={value > 0 && hoveredIndex === i}
+        class="w-full rounded-sm transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-brand-400 ring-offset-1' : ''}"
+        class:bg-brand-500={value > 0 && hoveredIndex !== i}
+        class:bg-brand-400={value > 0 && hoveredIndex === i}
         class:bg-slate-200={value === 0}
         class:dark:bg-slate-600={value === 0}
         style="height: {value > 0 ? Math.max((value / maxValue) * 100, 8) : 4}%"

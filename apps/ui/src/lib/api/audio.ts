@@ -20,8 +20,11 @@ export type AudioSourceSummary = paths['/api/audio/summary']['get']['response'][
 
 export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'];
 
-export async function fetchRecentAudio(limit: number = 10): Promise<AudioDetection[]> {
-    const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`);
+export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal): Promise<AudioDetection[]> {
+    const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`, {
+        signal,
+        timeoutMs: 10_000
+    });
     return handleResponse<AudioDetection[]>(response);
 }
 
@@ -40,9 +43,15 @@ export async function fetchAudioHistory(params: AudioHistoryParams = {}): Promis
     return handleResponse<AudioHistoryResponse>(response);
 }
 
-export async function fetchAudioSummary(params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {}): Promise<AudioSummaryResponse> {
+export async function fetchAudioSummary(
+    params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {},
+    signal?: AbortSignal
+): Promise<AudioSummaryResponse> {
     const query = buildAudioHistoryParams(params);
-    const response = await apiFetch(`${API_BASE}/audio/summary?${query.toString()}`);
+    const response = await apiFetch(`${API_BASE}/audio/summary?${query.toString()}`, {
+        signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<AudioSummaryResponse>(response);
 }
 
@@ -51,9 +60,13 @@ export type AudioSpeciesLeaderboardItem = paths['/api/audio/species']['get']['re
 export type AudioSpeciesLeaderboardResponse = paths['/api/audio/species']['get']['response'];
 
 export async function fetchAudioSpeciesLeaderboard(
-    span: LeaderboardSpan = 'week'
+    span: LeaderboardSpan = 'week',
+    signal?: AbortSignal
 ): Promise<AudioSpeciesLeaderboardResponse> {
-    const response = await apiFetch(`${API_BASE}/audio/species?span=${encodeURIComponent(span)}`);
+    const response = await apiFetch(`${API_BASE}/audio/species?span=${encodeURIComponent(span)}`, {
+        signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<AudioSpeciesLeaderboardResponse>(response);
 }
 

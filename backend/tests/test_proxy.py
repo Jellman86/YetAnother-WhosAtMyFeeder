@@ -12,6 +12,7 @@ import pytest_asyncio
 import httpx
 import time
 from PIL import Image
+from app.auth import AuthLevel, create_access_token
 
 
 @pytest_asyncio.fixture
@@ -252,6 +253,60 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_latest_camera_snapshot_requires_owner_when_public_access_is_enabled(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    try:
+        with patch("app.routers.proxy.get_http_client") as mock_get_client:
+            response = await client.get("/api/frigate/camera/birdcam/latest.jpg")
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Owner privileges required for this operation"
+        mock_get_client.assert_not_called()
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_latest_camera_snapshot_allows_owner_and_disables_caching(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    token = create_access_token("owner", AuthLevel.OWNER)
+
+    upstream = MagicMock()
+    upstream.content = b"camera-frame"
+    upstream.headers = {"content-type": "image/jpeg"}
+    upstream.raise_for_status = MagicMock()
+    http_client = MagicMock()
+    http_client.get = AsyncMock(return_value=upstream)
+
+    try:
+        with (
+            patch("app.routers.proxy.get_http_client", return_value=http_client),
+            patch("app.routers.proxy.frigate_client") as mock_frigate,
+        ):
+            mock_frigate._get_headers = MagicMock(return_value={})
+            response = await client.get(
+                "/api/frigate/camera/birdcam/latest.jpg",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        assert response.content == b"camera-frame"
+        assert response.headers["cache-control"] == "no-store, max-age=0"
+        assert response.headers["pragma"] == "no-cache"
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
 
 
 @pytest.mark.asyncio

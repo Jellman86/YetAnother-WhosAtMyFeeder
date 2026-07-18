@@ -45,7 +45,7 @@
 >
     {#if loaded}
         <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={enabled} class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+            <input type="checkbox" bind:checked={enabled} class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             <span>
                 {$_('setup.telemetry.opt_in', { default: 'Yes, share anonymous usage stats to help guide development.' })}
                 <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
@@ -57,7 +57,7 @@
             href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/TELEMETRY_SPEC.md"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-block text-xs font-semibold text-teal-700 hover:underline dark:text-teal-300"
+            class="inline-block text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300"
         >
             {$_('telemetry_banner.learn_more', { default: 'Learn more' })}
         </a>

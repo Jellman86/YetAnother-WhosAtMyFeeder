@@ -46,6 +46,19 @@ export function getClipPreviewTrackUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
 }
 
+export async function fetchLatestCameraSnapshot(camera: string, signal?: AbortSignal): Promise<Blob> {
+    const response = await apiFetch(`${API_BASE}/frigate/camera/${encodeURIComponent(camera)}/latest.jpg`, {
+        cache: 'no-store',
+        signal,
+        timeoutMs: 10_000
+    });
+    if (!response.ok) {
+        await handleResponse<never>(response);
+        throw new Error(`Failed to load camera snapshot (${response.status})`);
+    }
+    return response.blob();
+}
+
 export type VideoShareCreateResponse = paths['/api/video-share']['post']['response'];
 
 export type VideoShareInfoResponse = paths['/api/video-share/{event_id}']['get']['response'];
@@ -126,8 +139,9 @@ export async function checkClipAvailable(frigateEvent: string): Promise<boolean>
 
 export async function checkRecordingClipAvailable(frigateEvent: string): Promise<RecordingClipAvailabilityResponse> {
     try {
-        const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`, {
-            method: 'HEAD'
+        const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-clip.mp4`, {
+            method: 'HEAD',
+            timeoutMs: 10_000
         });
         return {
             available: response.ok,
@@ -139,8 +153,9 @@ export async function checkRecordingClipAvailable(frigateEvent: string): Promise
 }
 
 export async function fetchRecordingClip(frigateEvent: string): Promise<RecordingClipFetchResponse> {
-    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/recording-clip/fetch`, {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-clip/fetch`, {
         method: 'POST',
+        timeoutMs: 60_000
     });
     return handleResponse<RecordingClipFetchResponse>(response);
 }

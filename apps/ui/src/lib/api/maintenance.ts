@@ -69,7 +69,10 @@ export async function analyzeUnknowns(): Promise<AnalyzeUnknownsResult> {
 }
 
 export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
-    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`, { cache: 'no-store' });
+    const response = await apiFetch(`${API_BASE}/maintenance/analysis/status`, {
+        cache: 'no-store',
+        timeoutMs: 10_000
+    });
     return handleResponse<AnalysisStatus>(response);
 }
 
@@ -89,7 +92,7 @@ export async function clearClassificationFeedback(): Promise<ClearFeedbackResult
 }
 
 export async function fetchCacheStats(): Promise<CacheStats> {
-    const response = await apiFetch(`${API_BASE}/cache/stats`);
+    const response = await apiFetch(`${API_BASE}/cache/stats`, { timeoutMs: 10_000 });
     return handleResponse<CacheStats>(response);
 }
 
@@ -99,7 +102,7 @@ export async function runCacheCleanup(): Promise<CacheCleanupResult> {
 }
 
 export async function fetchTaxonomyStatus(): Promise<TaxonomySyncStatus> {
-    const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/status`);
+    const response = await apiFetch(`${API_BASE}/maintenance/taxonomy/status`, { timeoutMs: 10_000 });
     return handleResponse<TaxonomySyncStatus>(response);
 }
 

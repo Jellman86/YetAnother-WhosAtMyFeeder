@@ -33,7 +33,7 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource.match(/data-audio-section-icon/g) ?? []).toHaveLength(2);
         expect(audioHistorySource.match(/data-audio-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
         expect(audioHistorySource).toContain('min-h-11');
-        expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
+        expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
         expect(audioHistorySource).toContain('role="alert"');
         expect(audioHistorySource).toContain("$_('common.retry')");
         expect(audioHistorySource).toContain('animations: { enabled: !reduceMotion');

@@ -109,7 +109,7 @@
 
             <button
                 onclick={() => visible = false}
-                class="w-full px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-teal-500/20"
+                class="w-full px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-500/20"
             >
                 {$_('common.close', { default: 'Close' })}
             </button>

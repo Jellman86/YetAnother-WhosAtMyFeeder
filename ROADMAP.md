@@ -149,6 +149,14 @@ error, and destructive-state audit.
 demand, the entry bundle is about 94% smaller, fingerprinted assets are compressed and
 cached safely, and route-download failures recover in place. Quick navigation avoids loading-state
 flicker; a quiet delayed status replaces page-sized skeleton walls on genuinely slow connections.
+Long-lived authenticated tabs now replace stale live connections when identity changes, use one
+adaptive analysis-status poller, pause routine polling while hidden, bound background requests with
+timeouts, and load live camera frames only on demand. Explorer and Leaderboard loads now cancel or
+ignore superseded responses, portrait enrichment has bounded concurrency and memory, shared
+detection startup is single-flight, and full-visit checks no longer accumulate recurring timers or
+unbounded per-event state while browsing history. Dashboard audio, Settings maintenance status, and
+model-download status refreshes are also bounded against hidden tabs, stalled requests, overlapping
+ticks, and navigation cleanup.
 The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
 
 #### File-by-file code-quality review 🔬

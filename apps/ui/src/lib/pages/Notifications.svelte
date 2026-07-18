@@ -97,7 +97,7 @@
                     >
                         {$_('jobs.title', { default: 'Jobs' })}
                         {#if activeJobs.length > 0}
-                            <span class="ml-1 text-[10px] font-black text-emerald-600 dark:text-emerald-300">{activeJobs.length}</span>
+                            <span class="ml-1 text-[10px] font-black text-accent-600 dark:text-accent-300">{activeJobs.length}</span>
                         {/if}
                     </button>
                 {/if}
@@ -133,7 +133,7 @@
             <div class="grid grid-cols-1 gap-6">
                 <section class="card-base p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('notifications.page_ongoing')}</h3>
+                        <h3 class="text-xs font-black uppercase tracking-widest text-accent-600/80 dark:text-accent-300/80">{$_('notifications.page_ongoing')}</h3>
                         <span class="text-[10px] font-semibold text-slate-400">{ongoingItems.length}</span>
                     </div>
                     {#if ongoingItems.length === 0}
@@ -142,14 +142,14 @@
                         <div class="space-y-3">
                             {#each ongoingItems as item (item.id)}
                                 {@const progress = getProgress(item)}
-                                <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm">
+                                <div class="rounded-2xl border border-accent-100/80 dark:border-accent-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm">
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="flex items-center gap-2">
                                             <span class="text-lg">{getIcon(item.type)}</span>
                                             <span class="text-sm font-semibold text-slate-900 dark:text-white">{item.title}</span>
                                         </div>
                                         {#if progress}
-                                            <span class="text-[10px] font-black text-emerald-600 dark:text-emerald-300">{progress.percent}%</span>
+                                            <span class="text-[10px] font-black text-accent-600 dark:text-accent-300">{progress.percent}%</span>
                                         {/if}
                                     </div>
                                     {#if item.message}
@@ -160,8 +160,8 @@
                                         <p class="text-[10px] text-brand-600 dark:text-brand-400 mt-1 font-semibold">{$_('notifications.open_action')}</p>
                                     {/if}
                                     {#if progress}
-                                        <div class="mt-3 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
-                                            <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${progress.percent}%`}></div>
+                                        <div class="mt-3 h-2 rounded-full bg-accent-100 dark:bg-accent-950/60 overflow-hidden">
+                                            <div class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500" style={`width: ${progress.percent}%`}></div>
                                         </div>
                                         <div class="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-400">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>

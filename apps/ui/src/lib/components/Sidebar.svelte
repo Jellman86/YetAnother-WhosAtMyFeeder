@@ -135,7 +135,7 @@
             </button>
         {:else if authStore.isGuest}
             <button
-                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/30 group"
+                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-accent-600 dark:hover:text-accent-400 hover:bg-accent-50/80 dark:hover:bg-accent-900/30 group"
                 onclick={() => authStore.requestLogin()} 
                 title={collapsed ? $_('auth.login') : ''}
             >

@@ -17,8 +17,8 @@ describe('AnalysisQueueStatusStore', () => {
         notificationCenter.clear();
     });
 
-    it('shares a single poller across multiple retainers and stops when released', async () => {
-        const fetchAnalysisStatus = vi.fn(async (): Promise<AnalysisStatus> => ({
+    it('ingests status supplied by the single application poller', async () => {
+        const status: AnalysisStatus = {
             pending: 12,
             active: 2,
             circuit_open: false,
@@ -29,37 +29,16 @@ describe('AnalysisQueueStatusStore', () => {
             throttled_for_live_pressure: true,
             live_in_flight: 1,
             live_queued: 3
-        }));
-        const recordError = vi.fn();
-        const store = new AnalysisQueueStatusStore({
-            fetchAnalysisStatus,
-            pollIntervalMs: 5000,
-            hasOwnerAccess: () => true,
-            recordError
-        });
+        };
+        const store = new AnalysisQueueStatusStore();
 
-        const releaseOne = store.retain();
-        const releaseTwo = store.retain();
-        await Promise.resolve();
+        store.ingest(status);
 
-        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(1);
         expect(store.analysisStatus?.pending).toBe(12);
         expect(store.queueByKind.reclassify?.maxConcurrentConfigured).toBe(4);
         expect(store.queueByKind.reclassify?.throttledForLivePressure).toBe(true);
         expect(store.queueByKind.reclassify?.liveInFlight).toBe(1);
         expect(store.queueByKind.reclassify?.liveQueued).toBe(3);
-
-        await vi.advanceTimersByTimeAsync(5000);
-        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(2);
-
-        releaseOne();
-        await vi.advanceTimersByTimeAsync(5000);
-        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(3);
-
-        releaseTwo();
-        await vi.advanceTimersByTimeAsync(5000);
-        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(3);
-        expect(recordError).not.toHaveBeenCalled();
     });
 
     it('settles a stale synthetic batch job when fresh queue status is empty', async () => {
@@ -88,16 +67,12 @@ describe('AnalysisQueueStatusStore', () => {
             }
         });
 
-        const store = new AnalysisQueueStatusStore({
-            fetchAnalysisStatus: async (): Promise<AnalysisStatus> => ({
-                pending: 0,
-                active: 0,
-                circuit_open: false
-            }),
-            hasOwnerAccess: () => true
+        const store = new AnalysisQueueStatusStore();
+        store.ingest({
+            pending: 0,
+            active: 0,
+            circuit_open: false
         });
-
-        await store.refresh();
 
         expect(jobProgressStore.activeJobs.find((job) => job.id === 'reclassify:progress')).toBeUndefined();
         const completed = jobProgressStore.historyJobs.find((job) => job.id === 'reclassify:progress');

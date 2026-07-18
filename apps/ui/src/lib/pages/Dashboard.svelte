@@ -391,7 +391,7 @@
             {:else}
                 <div class="flex h-full min-h-[420px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200/80 bg-white/35 px-6 text-center dark:border-slate-700/60 dark:bg-slate-900/20">
                     <div>
-                        <svg class="mx-auto mb-3 h-9 w-9 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /><path stroke-linecap="round" d="M16.5 8.5 20 7l-2.2 3" /></svg>
+                        <svg class="mx-auto mb-3 h-9 w-9 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
                         <p class="font-medium text-slate-500 dark:text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
                     </div>
                 </div>
@@ -426,7 +426,7 @@
     <section data-dashboard-discovery-feed class="space-y-6">
         <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-4 dark:border-slate-700/50">
             <div class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300" aria-hidden="true">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-accent-200 bg-accent-50 text-accent-700 dark:border-accent-800 dark:bg-accent-950/40 dark:text-accent-300" aria-hidden="true">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
                 </span>
                 <div>
@@ -434,7 +434,7 @@
                     <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.showing_last_3_days')}</p>
                 </div>
             </div>
-            <button onclick={() => onnavigate?.('/events')} class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-teal-300 dark:hover:bg-teal-950/40">
+            <button onclick={() => onnavigate?.('/events')} class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-950/40">
                 {$_('dashboard.see_full_history')}
                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
             </button>

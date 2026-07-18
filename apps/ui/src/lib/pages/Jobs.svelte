@@ -17,11 +17,9 @@
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const release = analysisQueueStatusStore.retain();
         const releaseBackfill = backfillStatusStore.retain();
 
         return () => {
-            release();
             releaseBackfill();
             clearInterval(tick);
         };
@@ -195,7 +193,7 @@
 
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.work_lanes', { default: 'Work Lanes' })}</h3>
+            <h3 class="text-xs font-black uppercase tracking-widest text-accent-600/80 dark:text-accent-300/80">{$_('jobs.work_lanes', { default: 'Work Lanes' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{presentedWorkLanes.length}</span>
         </div>
         {#if presentedWorkLanes.length === 0}
@@ -209,7 +207,7 @@
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <p class="text-sm font-black text-slate-900 dark:text-white">{presentation.title}</p>
-                                    <span class="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider {item.row.running > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}">
+                                    <span class="rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider {item.row.running > 0 ? 'bg-accent-100 text-accent-700 dark:bg-accent-950/70 dark:text-accent-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>
@@ -241,7 +239,7 @@
 
     <section class="card-base p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600/80 dark:text-emerald-300/80">{$_('jobs.active', { default: 'Active Work' })}</h3>
+            <h3 class="text-xs font-black uppercase tracking-widest text-accent-600/80 dark:text-accent-300/80">{$_('jobs.active', { default: 'Active Work' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{activeJobs.length}</span>
         </div>
         {#if activeJobs.length === 0}
@@ -251,10 +249,10 @@
                 {#each presentedActiveJobs as job (job.id)}
                     {@const presentation = presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)}
                     {@const jobKindIcon = presentJobKindIcon(job.kind)}
-                    <div class="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm min-h-[10.5rem]">
+                    <div class="rounded-2xl border border-accent-100/80 dark:border-accent-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm min-h-[10.5rem]">
                         <div class="flex items-start justify-between gap-2">
                             <div class="inline-flex items-center gap-2 min-w-0">
-                                <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-100/80 text-accent-700 dark:bg-accent-950/70 dark:text-accent-300">
                                     {#if jobKindIcon.key === 'reclassify'}
                                         <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                             <path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
@@ -289,8 +287,8 @@
                                     {/if}
                                 </p>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'}">
-                                <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-emerald-500 dark:bg-emerald-300'}`}></span>
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-accent-600 dark:text-accent-300'}">
+                                <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-accent-500 dark:bg-accent-300'}`}></span>
                                 {job.status}
                             </span>
                         </div>
@@ -305,15 +303,15 @@
                                     <span>{presentation.percent}%</span>
                                 {/if}
                             </div>
-                            <div class="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 overflow-hidden">
+                            <div class="mt-2 h-2 rounded-full bg-accent-100 dark:bg-accent-950/60 overflow-hidden">
                                 {#if presentation.determinate && presentation.percent !== null}
-                                    <div class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500" style={`width: ${presentation.percent}%`}></div>
+                                    <div class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500" style={`width: ${presentation.percent}%`}></div>
                                 {:else}
-                                    <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                                    <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 animate-pulse"></div>
                                 {/if}
                             </div>
                             {#if isBackfillKind(job.kind)}
-                                <p class="mt-2 text-[10px] font-semibold text-emerald-700/80 dark:text-emerald-300/80">
+                                <p class="mt-2 text-[10px] font-semibold text-accent-700/80 dark:text-accent-300/80">
                                     {$_('jobs.coordinator_detail', { default: 'One coordinator job manages classifier worker capacity for this backfill.' })}
                                 </p>
                             {/if}
@@ -323,7 +321,7 @@
                                 </p>
                             {/if}
                             {#if job.route}
-                                <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline" onclick={() => openRoute(job)}>
+                                <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline" onclick={() => openRoute(job)}>
                                     <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                         <path d="M6 4H12V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
                                         <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
@@ -397,7 +395,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'failed' ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}">
+                            <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'failed' ? 'text-rose-600 dark:text-rose-300' : 'text-accent-600 dark:text-accent-300'}">
                                 {job.status}
                             </span>
                         </div>

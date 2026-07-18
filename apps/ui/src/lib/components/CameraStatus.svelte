@@ -1,16 +1,17 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { authStore } from '../stores/auth.svelte';
     import { fetchSettings } from '../api/settings';
     import { fetchEventFilters } from '../api/events';
-    import { appApiPath } from '../app/url-base';
+    import { fetchLatestCameraSnapshot } from '../api/media';
 
     let cameras = $state<string[]>([]);
     let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
     let frames = $state<Record<string, { url: string | null; ok: boolean; loading: boolean }>>({});
     let popoverOpen = $state(false);
     let refreshTimer: ReturnType<typeof setInterval> | null = null;
+    let refreshController: AbortController | null = null;
+    let refreshPromise: Promise<void> | null = null;
     let triggerEl: HTMLButtonElement | null = $state(null);
     let menuId = 'camera-status-menu';
 
@@ -69,54 +70,79 @@
         }
     }
 
-    async function refreshFrame(camera: string) {
-        const headers = authStore.token ? { Authorization: `Bearer ${authStore.token}` } : undefined;
+    async function refreshFrame(camera: string, signal: AbortSignal) {
         frames = { ...frames, [camera]: { ...(frames[camera] ?? { url: null, ok: false, loading: false }), loading: true } };
         try {
-            const resp = await fetch(`${appApiPath(`/frigate/camera/${encodeURIComponent(camera)}/latest.jpg`)}?cache=${Date.now()}`, { headers });
-            if (!resp.ok) {
-                frames = { ...frames, [camera]: { ...frames[camera], ok: false, loading: false } };
-                return;
-            }
-            const blob = await resp.blob();
+            const blob = await fetchLatestCameraSnapshot(camera, signal);
             const previousUrl = frames[camera]?.url;
             const url = URL.createObjectURL(blob);
             if (previousUrl) URL.revokeObjectURL(previousUrl);
             frames = { ...frames, [camera]: { url, ok: true, loading: false } };
-        } catch {
+        } catch (error) {
+            if (signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                frames = { ...frames, [camera]: { ...frames[camera], loading: false } };
+                return;
+            }
             frames = { ...frames, [camera]: { ...frames[camera], ok: false, loading: false } };
         }
     }
 
-    async function refreshAll() {
-        await Promise.all(cameras.map((c) => refreshFrame(c)));
+    async function refreshAll(): Promise<void> {
+        if (refreshPromise) return refreshPromise;
+        const controller = new AbortController();
+        refreshController = controller;
+        const currentRefresh = Promise.all(cameras.map((camera) => refreshFrame(camera, controller.signal))).then(() => undefined);
+        refreshPromise = currentRefresh;
+        try {
+            await currentRefresh;
+        } finally {
+            if (refreshController === controller) refreshController = null;
+            if (refreshPromise === currentRefresh) refreshPromise = null;
+        }
+    }
+
+    function startFrameRefresh(): void {
+        const pendingRefresh = refreshPromise;
+        if (pendingRefresh) {
+            void pendingRefresh.finally(() => {
+                if (popoverOpen) void refreshAll();
+            });
+        } else {
+            void refreshAll();
+        }
+        if (refreshTimer) return;
+        refreshTimer = setInterval(() => void refreshAll(), 15_000);
+    }
+
+    function stopFrameRefresh(): void {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        refreshController?.abort();
+        refreshController = null;
     }
 
     onMount(async () => {
         await loadCameras();
-        await refreshAll();
-        // Refresh frames every 15s while the page is open. Cheap — one cached jpg per camera.
-        refreshTimer = setInterval(() => {
-            if (!popoverOpen && document.visibilityState !== 'visible') return;
-            refreshAll();
-        }, 15_000);
     });
 
     onDestroy(() => {
-        if (refreshTimer) clearInterval(refreshTimer);
+        stopFrameRefresh();
         for (const entry of Object.values(frames)) {
             if (entry?.url) URL.revokeObjectURL(entry.url);
         }
     });
 
     function open() {
+        if (popoverOpen) return;
         popoverOpen = true;
-        // Force-refresh on open so the user always sees fresh frames.
-        refreshAll();
+        startFrameRefresh();
     }
 
     function close() {
         popoverOpen = false;
+        stopFrameRefresh();
     }
 
     function toggle() {

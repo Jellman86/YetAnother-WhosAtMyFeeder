@@ -7,6 +7,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Fixed
+- **Logged-in sessions no longer grow progressively slower in long-lived tabs.** Authentication
+  changes now replace the live Server-Sent Events connection and discard owner-only settings when
+  a session becomes a guest session. Analysis queue status has one single-flight, adaptive poller
+  instead of competing five-second loops, hidden tabs pause routine network work, and health,
+  diagnostics, cache, analysis, and camera-preview requests have bounded timeouts. Camera preview
+  images are fetched only while their popover is open rather than continuously in the background.
+  Full-visit availability now performs one bounded follow-up check instead of re-probing every
+  visible historical event indefinitely, keeps a finite event-state cache, and contains automatic
+  fetch failures. Explorer requests cancel superseded pages without letting stale results overwrite
+  current filters, shared detection loading is single-flight, and Leaderboard enrichment is
+  concurrency-limited with stale loads aborted and its portrait cache bounded. Auth recovery and
+  status endpoints now time out defensively; dashboard audio refreshes wait for the previous request,
+  stop while hidden, and abort on navigation; slow Settings and model-download status checks cannot
+  overlap and accumulate work.
+- **Live camera previews remain owner-only when Guest Mode is enabled.** The latest-frame endpoint
+  now enforces the same owner dependency as other administrative Frigate routes and returns
+  explicit no-store headers, so an unauthenticated visitor cannot retrieve a current camera frame
+  merely because read-only public browsing is enabled.
 - **Authenticated tabs now converge safely after every dev deployment.** YA-WAMF compares the
   concrete frontend and backend Git identities instead of ignoring build metadata, registers the
   service worker against the exact build with uncached update checks, and rate-limits operational

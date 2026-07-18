@@ -330,7 +330,9 @@ export async function downloadModel(modelId: string): Promise<ModelActionResult>
 }
 
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
-    const response = await apiFetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`);
+    const response = await apiFetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`, {
+        timeoutMs: 10_000
+    });
     return handleResponse<DownloadProgress | null>(response);
 }
 

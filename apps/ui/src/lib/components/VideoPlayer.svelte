@@ -733,7 +733,7 @@
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold border
-                        {playbackState === 'playing' ? 'bg-emerald-400/15 text-emerald-200 border-emerald-400/35' :
+                        {playbackState === 'playing' ? 'bg-accent-400/15 text-accent-200 border-accent-400/35' :
                          playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
                          playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
                          'bg-cyan-400/15 text-cyan-100 border-cyan-400/30'}"
@@ -852,7 +852,7 @@
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl bg-emerald-500/18 border border-emerald-400/45 px-3 text-emerald-100 hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl bg-accent-500/18 border border-accent-400/45 px-3 text-accent-100 hover:bg-accent-500/25 focus:outline-none focus:ring-2 focus:ring-accent-400/60"
                             aria-label={$_('video_player.download', { default: 'Download clip' })}
                             title={$_('video_player.download', { default: 'Download clip' })}
                         >
@@ -956,7 +956,7 @@
                                                 type="button"
                                                 onclick={() => void updateManagedShareLink(link.id)}
                                                 disabled={shareManagerBusyLinkId !== null || shareManagerCreating}
-                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/20 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-accent-400/40 bg-accent-500/20 px-3 text-sm font-semibold text-accent-100 hover:bg-accent-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                                             >
                                                 {$_('video_player.share_manage_save', { default: 'Save' })}
                                             </button>

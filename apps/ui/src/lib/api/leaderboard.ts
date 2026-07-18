@@ -7,8 +7,14 @@ export type LeaderboardSpeciesItem = paths['/api/leaderboard/species']['get']['r
 
 export type LeaderboardSpeciesResponse = paths['/api/leaderboard/species']['get']['response'];
 
-export async function fetchLeaderboardSpecies(span: LeaderboardSpan = 'week'): Promise<LeaderboardSpeciesResponse> {
-    const response = await apiFetch(`${API_BASE}/leaderboard/species?span=${encodeURIComponent(span)}`);
+export async function fetchLeaderboardSpecies(
+    span: LeaderboardSpan = 'week',
+    signal?: AbortSignal
+): Promise<LeaderboardSpeciesResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/species?span=${encodeURIComponent(span)}`, {
+        signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<LeaderboardSpeciesResponse>(response);
 }
 
@@ -32,7 +38,7 @@ export type DetectionsActivityHeatmapResponse = paths['/api/stats/detections/act
 
 export async function fetchDetectionsTimelineSpan(
     span: LeaderboardSpan = 'week',
-    opts: { includeWeather?: boolean; compareSpecies?: string[] } = {}
+    opts: { includeWeather?: boolean; compareSpecies?: string[]; signal?: AbortSignal } = {}
 ): Promise<DetectionsTimelineSpanResponse> {
     const params = new URLSearchParams();
     params.set('span', span);
@@ -40,16 +46,23 @@ export async function fetchDetectionsTimelineSpan(
     for (const species of opts.compareSpecies ?? []) {
         if (species) params.append('compare_species', species);
     }
-    const response = await apiFetch(`${API_BASE}/stats/detections/timeline?${params.toString()}`);
+    const response = await apiFetch(`${API_BASE}/stats/detections/timeline?${params.toString()}`, {
+        signal: opts.signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<DetectionsTimelineSpanResponse>(response);
 }
 
 export async function fetchDetectionsActivityHeatmapSpan(
-    span: LeaderboardSpan = 'week'
+    span: LeaderboardSpan = 'week',
+    signal?: AbortSignal
 ): Promise<DetectionsActivityHeatmapResponse> {
     const params = new URLSearchParams();
     params.set('span', span);
-    const response = await apiFetch(`${API_BASE}/stats/detections/activity-heatmap?${params.toString()}`);
+    const response = await apiFetch(`${API_BASE}/stats/detections/activity-heatmap?${params.toString()}`, {
+        signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<DetectionsActivityHeatmapResponse>(response);
 }
 

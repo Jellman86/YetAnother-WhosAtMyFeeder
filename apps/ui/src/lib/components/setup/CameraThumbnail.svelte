@@ -46,7 +46,7 @@
     {:else}
         <div class="flex h-full w-full items-center justify-center">
             {#if frameState === 'loading'}
-                <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-teal-500"></div>
+                <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-brand-500"></div>
             {:else}
                 <span class="text-xs font-medium text-slate-400">{$_('setup.cameras.offline', { default: 'No preview' })}</span>
             {/if}
@@ -54,6 +54,6 @@
     {/if}
     <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
         <span class="truncate text-xs font-semibold text-white">{camera}</span>
-        <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-emerald-400' : frameState === 'loading' ? 'bg-slate-300' : 'bg-rose-400'}"></span>
+        <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-accent-400' : frameState === 'loading' ? 'bg-slate-300' : 'bg-rose-400'}"></span>
     </div>
 </div>

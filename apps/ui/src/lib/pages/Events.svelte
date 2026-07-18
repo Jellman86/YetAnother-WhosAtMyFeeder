@@ -105,6 +105,7 @@
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
     let eventMetadataRefreshTimeout: number | null = null;
+    let eventsLoadGeneration = 0;
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
 
@@ -167,6 +168,7 @@
     });
 
     async function loadEvents() {
+        const loadGeneration = ++eventsLoadGeneration;
         loading = true;
         error = null;
         try {
@@ -183,7 +185,8 @@
                     includeHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
-                    fields: 'list'
+                    fields: 'list',
+                    requestKey: 'events-page:list'
                 }),
                 fetchEventsCount({
                     startDate: range.start,
@@ -192,9 +195,11 @@
                     camera: cameraFilter || undefined,
                     includeHidden: showHidden,
                     favoritesOnly,
-                    audioConfirmedOnly
+                    audioConfirmedOnly,
+                    requestKey: 'events-page:count'
                 })
             ]);
+            if (loadGeneration !== eventsLoadGeneration) return;
             events = newEvents;
             totalCount = countRes.count;
             if (pendingEventId) {
@@ -206,6 +211,7 @@
                 }
             }
         } catch (e) {
+            if (loadGeneration !== eventsLoadGeneration) return;
             if (e instanceof Error && e.name === 'AbortError') {
                 // Request cancellation is expected when filter changes trigger a newer fetch.
                 return;
@@ -214,7 +220,7 @@
             error = $_('events.load_failed');
             console.error('Failed to load events', e);
         } finally {
-            loading = false;
+            if (loadGeneration === eventsLoadGeneration) loading = false;
         }
     }
 
@@ -976,7 +982,7 @@
                 <button
                     type="button"
                     class="btn px-3 py-2 text-xs {selectionMode
-                        ? 'border border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-400/60 dark:bg-teal-500/20 dark:text-teal-100'
+                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
                         : 'btn-secondary'}"
                     onclick={toggleSelectionMode}
                 >
@@ -987,12 +993,12 @@
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
-        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-teal-200/80 dark:border-teal-500/30 bg-teal-50/70 dark:bg-teal-500/10">
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-brand-200/80 dark:border-brand-500/30 bg-brand-50/70 dark:bg-brand-500/10">
             <div>
-                <p class="text-sm font-semibold text-teal-800 dark:text-teal-100">
+                <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-teal-700/80 dark:text-teal-100/80">
+                <p class="text-xs text-brand-700/80 dark:text-brand-100/80">
                     {selectedEventIds.length
                         ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
                         : $_('common.select', { default: 'Select' }) + ' events to act on.'}
@@ -1159,7 +1165,7 @@
                     type="button"
                     class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-teal-100/90 dark:bg-teal-500/20 border-teal-300/80 dark:border-teal-400/60 text-teal-700 dark:text-teal-100 shadow-sm'
+                            ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                             : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                     onclick={() => selectedTimelineBucket = 'all'}
                 >
@@ -1170,7 +1176,7 @@
                     <span>{$_('common.all', { default: 'All' })}</span>
                     <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-teal-200/80 dark:bg-teal-400/25 text-teal-800 dark:text-teal-100'
+                            ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                             : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1185,7 +1191,7 @@
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-teal-100/90 dark:bg-teal-500/20 border-teal-300/80 dark:border-teal-400/60 text-teal-700 dark:text-teal-100 shadow-sm'
+                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = bucket.key}
                     >
@@ -1196,7 +1202,7 @@
                         <span>{bucket.label}</span>
                         <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-teal-200/80 dark:bg-teal-400/25 text-teal-800 dark:text-teal-100'
+                                ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1220,7 +1226,7 @@
 
     {#if !loading && visibleEvents.length === 0}
         <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
-            <svg class="mx-auto mb-4 h-10 w-10 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
             </svg>
@@ -1351,7 +1357,7 @@
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
@@ -1362,12 +1368,12 @@
                         type="button"
                         onclick={() => applyBulkManualTag(result)}
                         disabled={bulkTagging}
-                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
                     >
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-teal-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-500">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>

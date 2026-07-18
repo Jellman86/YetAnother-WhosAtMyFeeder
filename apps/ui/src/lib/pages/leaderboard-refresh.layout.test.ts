@@ -37,7 +37,7 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(3);
         expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(3);
         expect(leaderboardSource).toContain('min-h-11');
-        expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
+        expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
     });
 
     it('uses round species portraits throughout the ranking surface', () => {

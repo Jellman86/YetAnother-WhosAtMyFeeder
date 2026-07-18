@@ -174,7 +174,7 @@
                 ariaLabelTemplate={(label) => label}
                 onchange={(v) => setColorTheme(v as ColorTheme)}
                 options={[
-                    { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-teal-500' },
+                    { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-brand-500' },
                     { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
                 ]}
             />

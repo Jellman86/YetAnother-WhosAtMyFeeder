@@ -12,7 +12,9 @@ export type VideoClassifierFocusedDiagnostics = NonNullable<
 export type DiagnosticsBundlePayload = paths['/api/diagnostics/bundle']['get']['response'];
 
 export async function fetchDiagnosticsWorkspace(limit = 200): Promise<DiagnosticsWorkspacePayload> {
-    const response = await apiFetch(`${API_BASE}/diagnostics/workspace?limit=${Math.max(1, Math.floor(limit))}`);
+    const response = await apiFetch(`${API_BASE}/diagnostics/workspace?limit=${Math.max(1, Math.floor(limit))}`, {
+        timeoutMs: 15_000
+    });
     return handleResponse<DiagnosticsWorkspacePayload>(response);
 }
 

@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, getHeaders, setAuthToken } from './core';
+import { API_BASE, apiFetch, setAuthToken } from './core';
 import { readApiErrorMessage } from './error-message';
 import type { paths } from './generated/openapi';
 
@@ -7,9 +7,7 @@ export type AuthStatusResponse = paths['/api/auth/status']['get']['response'];
 export type LoginResponse = paths['/api/auth/login']['post']['response'];
 
 export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
-    const response = await fetch(`${API_BASE}/auth/status`, {
-        headers: getHeaders()
-    });
+    const response = await apiFetch(`${API_BASE}/auth/status`, { timeoutMs: 10_000 });
 
     if (!response.ok) {
         throw new Error('Failed to fetch auth status');

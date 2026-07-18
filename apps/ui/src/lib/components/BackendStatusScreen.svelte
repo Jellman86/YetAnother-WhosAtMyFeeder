@@ -31,8 +31,8 @@
     id="main-content"
     class="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface-light px-4 py-10 text-slate-900 dark:bg-surface-dark dark:text-white sm:px-6"
 >
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-teal-100/70 to-transparent dark:from-teal-950/30" aria-hidden="true"></div>
-    <div class="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-emerald-100/40 blur-3xl dark:bg-emerald-950/20" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-100/70 to-transparent dark:from-brand-950/30" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-accent-100/40 blur-3xl dark:bg-accent-950/20" aria-hidden="true"></div>
 
     <section
         class="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white/95 shadow-xl ring-1 ring-slate-900/5 dark:border-slate-700/70 dark:bg-slate-900/95 dark:ring-white/5"
@@ -40,21 +40,21 @@
         aria-live={unavailable ? 'assertive' : 'polite'}
         aria-busy={busy || !unavailable}
     >
-        <header class="flex items-center justify-between gap-4 bg-gradient-to-r from-teal-50 via-emerald-50/70 to-white px-6 py-4 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-slate-900 sm:px-8">
+        <header class="flex items-center justify-between gap-4 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-8">
             <div class="flex min-w-0 items-center gap-3">
                 <img src={APP_ICON_192_URL} alt="" class="h-9 w-9 shrink-0 object-contain" />
                 <div class="min-w-0">
-                    <p class="truncate font-display text-sm font-bold tracking-tight text-teal-800 dark:text-teal-200">YA-WAMF</p>
+                    <p class="truncate font-display text-sm font-bold tracking-tight text-brand-800 dark:text-brand-200">YA-WAMF</p>
                     <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
                         {$_('auth.status_check_eyebrow', { default: 'Service connection' })}
                     </p>
                 </div>
             </div>
 
-            <div class="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold {unavailable ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-200' : 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800/70 dark:bg-teal-950/40 dark:text-teal-200'}">
+            <div class="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold {unavailable ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-200' : 'border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-800/70 dark:bg-brand-950/40 dark:text-brand-200'}">
                 <span class="relative flex h-2 w-2" aria-hidden="true">
-                    <span class="absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping {unavailable ? 'bg-amber-500' : 'bg-teal-500'}"></span>
-                    <span class="relative inline-flex h-2 w-2 rounded-full {unavailable ? 'bg-amber-600 dark:bg-amber-400' : 'bg-teal-600 dark:bg-teal-400'}"></span>
+                    <span class="absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping {unavailable ? 'bg-amber-500' : 'bg-brand-500'}"></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full {unavailable ? 'bg-amber-600 dark:bg-amber-400' : 'bg-brand-600 dark:bg-brand-400'}"></span>
                 </span>
                 {unavailable
                     ? $_('auth.status_unavailable_badge', { default: 'Not responding' })
@@ -91,7 +91,7 @@
                     </p>
 
                     {#if unavailable}
-                        <div class="mt-6 border-l-2 border-teal-300 pl-4 dark:border-teal-700">
+                        <div class="mt-6 border-l-2 border-brand-300 pl-4 dark:border-brand-700">
                             <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 {$_('auth.status_unavailable_auto_retry', { default: 'YA-WAMF checks again automatically every five seconds.' })}
                             </p>

@@ -81,7 +81,7 @@
 
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-100/70 dark:bg-white/10">
         <div
-            class="h-full rounded-full bg-gradient-to-r from-amber-300 via-teal-300 to-cyan-300 transition-all duration-300 ease-out motion-reduce:transition-none"
+            class="h-full rounded-full bg-gradient-to-r from-amber-300 via-brand-300 to-cyan-300 transition-all duration-300 ease-out motion-reduce:transition-none"
             style={`width: ${progressPercent}%`}
         ></div>
     </div>

@@ -36,7 +36,7 @@ export interface ReclassificationProgress {
 }
 
 // Svelte 5 shared state
-class DetectionsStore {
+export class DetectionsStore {
     detections = $state<Detection[]>([]);
     totalToday = $state(0);
     isLoading = $state(false);
@@ -48,6 +48,7 @@ class DetectionsStore {
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
     private MAX_PATCH_ITEMS = 2000;
+    private loadPromise: Promise<void> | null = null;
 
     private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
     private readonly unregister: () => void;
@@ -88,39 +89,46 @@ class DetectionsStore {
         await this.loadInitial();
     }
 
-    async loadInitial() {
-        this.isLoading = true;
-        try {
-            // Filter to last 3 days
-            const d = new Date();
-            d.setDate(d.getDate() - 3);
-            const startDate = toLocalYMD(d);
+    async loadInitial(): Promise<void> {
+        if (this.loadPromise) return this.loadPromise;
+        this.loadPromise = (async () => {
+            this.isLoading = true;
+            try {
+                // Filter to last 3 days
+                const d = new Date();
+                d.setDate(d.getDate() - 3);
+                const startDate = toLocalYMD(d);
 
-            const [recent, countResult] = await Promise.all([
-                fetchEvents({ 
-                    limit: this.MAX_ITEMS,
-                    startDate 
-                }),
-                fetchEventsCount({ 
-                    startDate: toLocalYMD(),
-                    endDate: toLocalYMD()
-                })
-            ]);
-            this.detections = recent;
-            this.totalToday = countResult.count;
-            this.markMutated();
-            this.staleTracker.touch();
-        } catch (e) {
-            if (isTransientRequestError(e)) {
-                logger.warn('Initial detections fetch failed (transient)', {
-                    message: getErrorMessage(e)
-                });
-            } else {
-                logger.error('Failed to load initial detections', e);
+                const [recent, countResult] = await Promise.all([
+                    fetchEvents({
+                        limit: this.MAX_ITEMS,
+                        startDate,
+                        requestKey: 'detections-store:list'
+                    }),
+                    fetchEventsCount({
+                        startDate: toLocalYMD(),
+                        endDate: toLocalYMD(),
+                        requestKey: 'detections-store:count'
+                    })
+                ]);
+                this.detections = recent;
+                this.totalToday = countResult.count;
+                this.markMutated();
+                this.staleTracker.touch();
+            } catch (e) {
+                if (isTransientRequestError(e)) {
+                    logger.warn('Initial detections fetch failed (transient)', {
+                        message: getErrorMessage(e)
+                    });
+                } else {
+                    logger.error('Failed to load initial detections', e);
+                }
+            } finally {
+                this.isLoading = false;
+                this.loadPromise = null;
             }
-        } finally {
-            this.isLoading = false;
-        }
+        })();
+        return this.loadPromise;
     }
 
     addDetection(detection: Detection) {

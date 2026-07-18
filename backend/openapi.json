@@ -12716,7 +12716,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.12.0"
+    "version": "2.12.1"
   },
   "openapi": "3.1.0",
   "paths": {

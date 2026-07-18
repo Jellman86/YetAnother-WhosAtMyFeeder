@@ -13,6 +13,8 @@
     let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     const RECENT_AUDIO_LIMIT = 4;
+    const RECENT_AUDIO_POLL_MS = 5_000;
+    const AUDIO_SUMMARY_POLL_MS = 60_000;
 
     function detectionKey(d: AudioDetection, index: number): string {
         // birdnet_id is stable when present; otherwise compose a key that is
@@ -26,8 +28,11 @@
     }
 
     let audioDetections = $state<AudioDetection[]>([]);
-    let pollInterval: ReturnType<typeof setInterval> | undefined;
-    let summaryInterval: ReturnType<typeof setInterval> | undefined;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    let summaryTimer: ReturnType<typeof setTimeout> | undefined;
+    let audioController: AbortController | null = null;
+    let summaryController: AbortController | null = null;
+    let stopped = false;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
     let summary = $state<AudioSummaryResponse | null>(null);
@@ -47,10 +52,11 @@
         return { points: points.join(' '), area: `0,${h} ${points.join(' ')} ${w},${h}`, hasData: counts.some((c) => c > 0) };
     });
 
-    async function loadAudio() {
+    async function loadAudio(signal?: AbortSignal) {
         try {
-            audioDetections = await fetchRecentAudio(RECENT_AUDIO_LIMIT);
+            audioDetections = await fetchRecentAudio(RECENT_AUDIO_LIMIT, signal);
         } catch (e) {
+            if (signal?.aborted) return;
             if (isTransientRequestError(e)) {
                 logger.warn('Recent audio fetch failed (transient)', {
                     message: getErrorMessage(e)
@@ -63,10 +69,11 @@
         }
     }
 
-    async function loadSummary() {
+    async function loadSummary(signal?: AbortSignal) {
         try {
-            summary = await fetchAudioSummary({ days: 1 });
+            summary = await fetchAudioSummary({ days: 1 }, signal);
         } catch (e) {
+            if (signal?.aborted) return;
             if (isTransientRequestError(e)) {
                 logger.warn('Audio summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
@@ -101,18 +108,61 @@
         return `${birdnetExternalUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
     }
 
+    function scheduleAudioPoll(delay = RECENT_AUDIO_POLL_MS): void {
+        if (stopped) return;
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(async () => {
+            pollTimer = undefined;
+            if (!document.hidden) {
+                const controller = new AbortController();
+                audioController = controller;
+                await loadAudio(controller.signal);
+                if (audioController === controller) audioController = null;
+            }
+            scheduleAudioPoll();
+        }, delay);
+    }
+
+    function scheduleSummaryPoll(delay = AUDIO_SUMMARY_POLL_MS): void {
+        if (stopped) return;
+        if (summaryTimer) clearTimeout(summaryTimer);
+        summaryTimer = setTimeout(async () => {
+            summaryTimer = undefined;
+            if (!document.hidden) {
+                const controller = new AbortController();
+                summaryController = controller;
+                await loadSummary(controller.signal);
+                if (summaryController === controller) summaryController = null;
+            }
+            scheduleSummaryPoll();
+        }, delay);
+    }
+
     onMount(() => {
-        loadAudio();
-        loadSummary();
-        loadBirdnetUrl();
-        pollInterval = setInterval(loadAudio, 5000);
-        // Summary rollups change slowly — refresh on a longer cadence to limit load.
-        summaryInterval = setInterval(loadSummary, 60000);
+        stopped = false;
+        const initialAudioController = new AbortController();
+        const initialSummaryController = new AbortController();
+        audioController = initialAudioController;
+        summaryController = initialSummaryController;
+        void loadAudio(initialAudioController.signal).finally(() => {
+            if (audioController === initialAudioController) audioController = null;
+            scheduleAudioPoll();
+        });
+        void loadSummary(initialSummaryController.signal).finally(() => {
+            if (summaryController === initialSummaryController) summaryController = null;
+            scheduleSummaryPoll();
+        });
+        void loadBirdnetUrl();
     });
 
     onDestroy(() => {
-        if (pollInterval) clearInterval(pollInterval);
-        if (summaryInterval) clearInterval(summaryInterval);
+        stopped = true;
+        if (pollTimer) clearTimeout(pollTimer);
+        if (summaryTimer) clearTimeout(summaryTimer);
+        audioController?.abort();
+        summaryController?.abort();
+        audioController = null;
+        summaryController = null;
     });
 
     function formatTimeWithSeconds(dateString: string): string {
@@ -130,8 +180,8 @@
                 <div class="flex items-center gap-2">
                     <h3 class="font-display text-lg font-bold text-slate-950 dark:text-white">{$_('dashboard.audio_feed.title')}</h3>
                     {#if !loading && audioDetections.length > 0}
-                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                            <span class="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-700 dark:text-accent-300">
+                            <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
                             {$_('dashboard.audio_feed.active')}
                         </span>
                     {/if}
@@ -155,7 +205,7 @@
                     href={birdnetExternalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-teal-300"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                     title={$_('dashboard.audio_feed.open_birdnet')}
                 >
                     BirdNET-Go
@@ -168,7 +218,7 @@
     {#if summary && summary.total > 0}
         <div class="mb-3 flex items-center gap-4 rounded-xl bg-slate-100/70 px-3 py-2.5 dark:bg-slate-900/45">
             <div class="flex items-baseline gap-1.5">
-                <span class="font-display text-xl font-bold leading-none tabular-nums text-teal-700 dark:text-teal-300">{summary.total.toLocaleString()}</span>
+                <span class="font-display text-xl font-bold leading-none tabular-nums text-brand-700 dark:text-brand-300">{summary.total.toLocaleString()}</span>
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('dashboard.audio_feed.heard_today')}</span>
             </div>
             <div class="h-6 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true"></div>
@@ -178,8 +228,8 @@
             </div>
             {#if sparkline.hasData}
                 <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="ml-auto h-6 w-24 shrink-0 overflow-visible" aria-hidden="true">
-                    <polyline points={sparkline.area} fill="currentColor" class="text-teal-500/15" stroke="none" />
-                    <polyline points={sparkline.points} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" class="text-teal-500 dark:text-teal-400" vector-effect="non-scaling-stroke" />
+                    <polyline points={sparkline.area} fill="currentColor" class="text-brand-500/15" stroke="none" />
+                    <polyline points={sparkline.points} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" class="text-brand-500 dark:text-brand-400" vector-effect="non-scaling-stroke" />
                 </svg>
             {/if}
         </div>
@@ -216,14 +266,14 @@
                                 <span class="truncate">{detection.sensor_id || $_('dashboard.audio_feed.unknown_sensor')}</span>
                             </p>
                         </div>
-                        <span class="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold tabular-nums {detection.confidence > 0.7 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">
-                            <span class="h-2 w-2 rounded-full {detection.confidence > 0.7 ? 'bg-emerald-500' : 'bg-amber-500'}" aria-hidden="true"></span>
+                        <span class="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold tabular-nums {detection.confidence > 0.7 ? 'text-accent-700 dark:text-accent-300' : 'text-amber-700 dark:text-amber-300'}">
+                            <span class="h-2 w-2 rounded-full {detection.confidence > 0.7 ? 'bg-accent-500' : 'bg-amber-500'}" aria-hidden="true"></span>
                             {(detection.confidence * 100).toFixed(0)}%
                         </span>
                     </div>
                 {/snippet}
                 {#if link}
-                    <a href={link} target="_blank" rel="noopener noreferrer" class="relative block min-h-16 overflow-hidden transition-colors hover:bg-teal-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:hover:bg-teal-950/20" title={$_('dashboard.audio_feed.open_in_birdnet')}>
+                    <a href={link} target="_blank" rel="noopener noreferrer" class="relative block min-h-16 overflow-hidden transition-colors hover:bg-brand-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-brand-950/20" title={$_('dashboard.audio_feed.open_in_birdnet')}>
                         {@render body()}
                     </a>
                 {:else}

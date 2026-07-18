@@ -36,6 +36,7 @@
     let validationMsg = $state('');
     let runId = '';
     let poller: ReturnType<typeof setInterval> | null = null;
+    let pollInFlight = false;
 
     let accelerators = $derived([
         { id: 'intel_npu', label: 'Intel NPU', available: status?.intel_npu_available },
@@ -82,6 +83,8 @@
     }
 
     async function poll() {
+        if (pollInFlight || document.hidden) return;
+        pollInFlight = true;
         try {
             const list = await listModelEvalRuns();
             if (list.active && list.active.run_id === runId) {
@@ -99,6 +102,8 @@
             await setupWizardStore.refresh();
         } catch {
             // Transient; keep polling until it resolves or the user leaves the step.
+        } finally {
+            pollInFlight = false;
         }
     }
 
@@ -213,26 +218,26 @@
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
             <div class="mt-1.5 flex flex-wrap gap-2">
                 {#each accelerators as acc (acc.id)}
-                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold {acc.available ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">
+                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold {acc.available ? 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">
                         <span aria-hidden="true">{acc.available ? '✓' : '—'}</span> {acc.label}
                     </span>
                 {/each}
             </div>
             {#if verified.length}
-                <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
+                <p class="mt-2 text-xs text-accent-700 dark:text-accent-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
             {/if}
         </div>
 
         {#if validating && progress}
-            <div class="space-y-2 rounded-lg bg-teal-50 p-3 dark:bg-teal-950/20">
+            <div class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20">
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-teal-800 dark:text-teal-200">{progress.label}</span>
-                    {#if progress.total > 0}<span class="text-xs text-teal-600 dark:text-teal-400">{progress.done}/{progress.total}</span>{/if}
+                    <span class="font-medium text-brand-800 dark:text-brand-200">{progress.label}</span>
+                    {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-teal-100 dark:bg-teal-900/40">
-                    <div class="h-full rounded-full bg-teal-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
+                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
                 </div>
-                <p class="text-xs capitalize text-teal-600 dark:text-teal-400">{progress.phase.replace(/_/g, ' ')}</p>
+                <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
             <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation}>
@@ -244,7 +249,7 @@
             <div role="status" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
         {/if}
         {#if validationMsg}
-            <div role="status" class="rounded-md bg-emerald-50 p-2 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">{validationMsg}</div>
+            <div role="status" class="rounded-md bg-accent-50 p-2 text-sm text-accent-800 dark:bg-accent-900/20 dark:text-accent-200">{validationMsg}</div>
         {/if}
 
         {#if results}
@@ -260,7 +265,7 @@
                                     {m.device ?? m.active_provider ?? 'cpu'}{#if m.mean_latency_ms} · {m.mean_latency_ms.toFixed(0)} ms{/if}
                                 </p>
                             </div>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
                                 {rowOk(m) ? $_('setup.model.row_ok', { default: 'Runs' }) : $_('setup.model.row_warn', { default: 'Check' })}
                             </span>
                         </li>

@@ -387,7 +387,7 @@
         tabindex="-1"
     >
         <!-- Header -->
-        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-teal-100 bg-gradient-to-r from-teal-50 via-emerald-50/70 to-white px-4 py-3 dark:border-slate-800 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-slate-900 sm:px-6">
+        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-4 py-3 dark:border-slate-800 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-6">
             <div class="min-w-0">
                 <h2 id="modal-title" class="truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                     {primaryName}
@@ -404,7 +404,7 @@
             <button
                 type="button"
                 onclick={onclose}
-                class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/80 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:hover:bg-slate-800 dark:hover:text-white"
+                class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/80 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={$_('shortcuts.close_modal')}
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -470,7 +470,7 @@
                                     <button
                                         onclick={() => handleReclassify('snapshot')}
                                         disabled={reclassifying || !stats?.recent_sightings?.[0]}
-                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -516,19 +516,19 @@
                     <section data-species-record-summary aria-labelledby="species-record-heading">
                         <div class="mb-3 flex items-center justify-between gap-4">
                             <div class="flex items-center gap-2.5">
-                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
                                     </svg>
                                 </span>
                                 <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
                             </div>
-                            <span class="text-xs font-medium text-teal-700 dark:text-teal-300">{$_('common.detections')}</span>
+                            <span class="text-xs font-medium text-brand-700 dark:text-brand-300">{$_('common.detections')}</span>
                         </div>
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
                             <div class="border-b border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:px-4">
                                 <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('common.detections')}</dt>
-                                <dd class="mt-1 text-2xl font-bold tracking-tight text-teal-700 dark:text-teal-300">{stats.total_sightings}</dd>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight text-brand-700 dark:text-brand-300">{stats.total_sightings}</dd>
                             </div>
                             <div class="border-b border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:border-r sm:px-4">
                                 <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('species_detail.avg_confidence')}</dt>
@@ -548,7 +548,7 @@
                     {#if stats.recent_sightings.length > 0}
                         <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
                             <div class="mb-4 flex items-center gap-2.5">
-                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l1.25-2h7.5L17 5h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.5 12.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
@@ -560,7 +560,7 @@
                                 {#each stats.recent_sightings as sighting}
                                     <button
                                         type="button"
-                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-teal-700"
+                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
                                         aria-label={sighting.has_clip
                                             ? $_('detection.play_video', { values: { species: sighting.display_name } })
                                             : $_('species_detail.video_unavailable')}
@@ -582,7 +582,7 @@
                                                 }}
                                             />
                                             {#if sighting.has_clip}
-                                                <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-teal-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-teal-300">
+                                                <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
                                                     <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
                                                 </span>
                                             {/if}
@@ -620,7 +620,7 @@
                                         href={info.source_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:border-teal-300 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                                     >
                                         {info.source || $_('common.source')}
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -638,7 +638,7 @@
                     <section data-species-reference class="border-t border-slate-200 pt-8 dark:border-slate-700">
                         <div class="mb-4 flex items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
-                                <div data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                                <div data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H11v17H6.5A2.5 2.5 0 014 17.5v-12zM20 5.5A2.5 2.5 0 0017.5 3H13v17h4.5a2.5 2.5 0 002.5-2.5v-12z" />
                                     </svg>
@@ -654,7 +654,7 @@
                                                 href={chip.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                class="badge border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-teal-500/40 hover:text-teal-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-teal-400"
+                                                class="badge border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
                                             >
                                                 {chip.label}
                                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -768,7 +768,7 @@
                                                         <div class="flex items-center gap-2 mt-0.5">
                                                             <p class="text-xs font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                             {#if obs.obs_valid}
-                                                                <span class="w-1 h-1 rounded-full bg-emerald-400" title="{$_('species_detail.valid_observation')}"></span>
+                                                                <span class="w-1 h-1 rounded-full bg-accent-400" title="{$_('species_detail.valid_observation')}"></span>
                                                             {/if}
                                                         </div>
                                                     </div>
@@ -817,7 +817,7 @@
                                 <div class="lg:flex lg:flex-1 lg:flex-col">
                                     <div class="relative flex items-center justify-between gap-3 mb-3">
                                         <div class="flex items-center gap-2">
-                                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                            <div class="p-1.5 rounded-lg bg-accent-500/10 text-accent-600 dark:text-accent-400">
                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3" />
                                                 </svg>
@@ -830,7 +830,7 @@
                                                     href={rangeMap.sourceUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-emerald-500/30 hover:text-emerald-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:text-emerald-400"
+                                                    class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-accent-500/30 hover:text-accent-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:text-accent-400"
                                                 >
                                                     {rangeMap.source}
                                                     <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -867,7 +867,7 @@
                 <!-- Time Distribution Charts -->
                 <section data-species-activity class="border-t border-slate-200 pt-8 dark:border-slate-700">
                     <div class="mb-4 flex items-center gap-2.5">
-                        <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                        <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h4l2.5-6 5 12 2.5-6h4" />
                             </svg>
@@ -878,7 +878,7 @@
                     <!-- Hourly chart - full width for better visibility -->
                     <div class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-700">
                         <div class="mb-3 flex items-center gap-2">
-                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <div class="p-1.5 rounded-lg bg-accent-500/10 text-accent-600 dark:text-accent-400">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
@@ -941,7 +941,7 @@
                 {#if stats.cameras.length > 0}
                     <section class="border-t border-slate-200 pt-8 dark:border-slate-700">
                         <div class="mb-4 flex items-center gap-2.5">
-                            <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400" aria-hidden="true">
+                            <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.5-2.25A1 1 0 0121 8.65v6.7a1 1 0 01-1.5.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
@@ -956,7 +956,7 @@
                                     </span>
                                     <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                                         <div
-                                            class="h-full rounded-full bg-teal-500 transition-all duration-500"
+                                            class="h-full rounded-full bg-brand-500 transition-all duration-500"
                                             style="width: {camera.percentage}%"
                                         ></div>
                                     </div>

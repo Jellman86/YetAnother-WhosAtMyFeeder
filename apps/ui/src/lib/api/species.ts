@@ -3,8 +3,8 @@ import { API_BASE, apiFetch, handleResponse } from './core';
 import type { Detection, SpeciesCount } from './types';
 import type { paths } from './generated/openapi';
 
-export async function fetchSpecies(): Promise<SpeciesCount[]> {
-    const response = await apiFetch(`${API_BASE}/species`);
+export async function fetchSpecies(signal?: AbortSignal): Promise<SpeciesCount[]> {
+    const response = await apiFetch(`${API_BASE}/species`, { signal, timeoutMs: 15_000 });
     return handleResponse<SpeciesCount[]>(response);
 }
 
@@ -56,8 +56,11 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
     return handleResponse<SpeciesStats>(response);
 }
 
-export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
-    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
+export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal): Promise<SpeciesInfo> {
+    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`, {
+        signal,
+        timeoutMs: 15_000
+    });
     return handleResponse<SpeciesInfo>(response);
 }
 

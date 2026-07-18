@@ -28,6 +28,7 @@
   import { jobProgressStore } from './lib/stores/job_progress.svelte';
   import { jobDiagnosticsStore } from './lib/stores/job_diagnostics.svelte';
   import { incidentWorkspaceStore } from './lib/stores/incident_workspace.svelte';
+  import { analysisQueueStatusStore } from './lib/stores/analysis_queue_status.svelte';
   import { toastStore } from './lib/stores/toast.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
@@ -176,6 +177,7 @@
   const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
   const ANALYSIS_QUEUE_POLL_MS = 5_000;
+  const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;
   const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
   const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
@@ -183,6 +185,7 @@
   let showKeyboardShortcuts = $state(false);
 
   let appInitialized = $state(false);
+  let activeAccessIdentity: string | null = null;
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
   let requiresLogin = $derived(
       authStore.statusHealthy && (
@@ -271,7 +274,10 @@
 
   const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
   const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner(
-      () => liveUpdates.syncAnalysisQueueStatus(),
+      async () => {
+          const status = await liveUpdates.syncAnalysisQueueStatus();
+          if (status) analysisQueueStatusStore.ingest(status);
+      },
       ANALYSIS_QUEUE_POLL_COOLDOWN_MS
   );
   const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner(
@@ -281,32 +287,50 @@
 
   $effect(() => {
       if (!authStore.statusLoaded || authStore.statusHealthy) return;
-      const retryInterval = window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS);
+      const retryInterval = window.setInterval(() => {
+          if (!document.hidden) void authStore.loadStatus();
+      }, BACKEND_STATUS_RETRY_MS);
       return () => window.clearInterval(retryInterval);
   });
 
   function startOperationalPolling(): () => void {
       void reconcileReclassificationsOnce();
-      void syncAnalysisQueueStatusOnce();
       void runOwnerSystemChecksOnce();
 
+      let stopped = false;
+      let analysisPollTimeout: number | null = null;
+      const scheduleAnalysisPoll = (): void => {
+          if (stopped) return;
+          const status = analysisQueueStatusStore.analysisStatus;
+          const hasActiveAnalysis = Number(status?.pending ?? 0) > 0 || Number(status?.active ?? 0) > 0;
+          const delay = document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS
+              : hasActiveAnalysis ? ANALYSIS_QUEUE_POLL_MS
+              : ANALYSIS_QUEUE_IDLE_POLL_MS;
+          analysisPollTimeout = window.setTimeout(async () => {
+              if (stopped) return;
+              if (!document.hidden) await syncAnalysisQueueStatusOnce();
+              scheduleAnalysisPoll();
+          }, delay);
+      };
+      void syncAnalysisQueueStatusOnce().finally(scheduleAnalysisPoll);
+
       const ownerInterval = window.setInterval(() => {
+          if (document.hidden) return;
           void runOwnerSystemChecksOnce();
       }, 60_000);
-      const analysisInterval = window.setInterval(() => {
-          void syncAnalysisQueueStatusOnce();
-      }, ANALYSIS_QUEUE_POLL_MS);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
           detectionsStore.pruneReclassifications();
       }, 10_000);
       const reclassifyInterval = window.setInterval(() => {
+          if (document.hidden) return;
           void reconcileReclassificationsOnce();
       }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
       return (): void => {
+          stopped = true;
+          if (analysisPollTimeout !== null) window.clearTimeout(analysisPollTimeout);
           window.clearInterval(ownerInterval);
-          window.clearInterval(analysisInterval);
           window.clearInterval(staleInterval);
           window.clearInterval(reclassifyInterval);
       };
@@ -458,14 +482,7 @@
                   mediaQuery.removeEventListener('change', updateMobile);
               }
               window.removeEventListener('scroll', syncGlobalProgressSticky);
-              if (evtSource) {
-                  evtSource.close();
-                  evtSource = null;
-              }
-              if (reconnectTimeout) {
-                  clearTimeout(reconnectTimeout);
-                  reconnectTimeout = null;
-              }
+              closeLiveConnection();
           };
       })();
 
@@ -485,24 +502,49 @@
           return;
       }
 
-      if (canAccess && !appInitialized) {
-          if (authStore.isAuthenticated || !authStore.authRequired) {
-              settingsStore.load();
+      const accessIdentity = `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`;
+
+      if (canAccess) {
+          if (!appInitialized || activeAccessIdentity !== accessIdentity) {
+              closeLiveConnection();
+              if (authStore.isAuthenticated || !authStore.authRequired) {
+                  settingsStore.load();
+              } else {
+                  settingsStore.clear();
+              }
+              detectionsStore.loadInitial();
+              connectSSE();
+              if (authStore.showSettings) {
+                  void syncAnalysisQueueStatusOnce();
+                  void runOwnerSystemChecksOnce();
+              }
+              activeAccessIdentity = accessIdentity;
+              appInitialized = true;
           }
-          detectionsStore.loadInitial();
-          connectSSE();
-          appInitialized = true;
+          return;
       }
 
       if (!canAccess && appInitialized) {
-          if (evtSource) {
-              evtSource.close();
-              evtSource = null;
-          }
-          detectionsStore.setConnected(false);
+          closeLiveConnection();
+          settingsStore.clear();
+          activeAccessIdentity = null;
           appInitialized = false;
       }
   });
+
+  function closeLiveConnection(): void {
+      if (evtSource) {
+          evtSource.close();
+          evtSource = null;
+      }
+      if (reconnectTimeout !== null) {
+          window.clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+      }
+      isReconnecting = false;
+      reconnectAttempts = 0;
+      detectionsStore.setConnected(false);
+  }
 
   function scheduleReconnect() {
       // Prevent multiple reconnection attempts
@@ -538,15 +580,18 @@
           const token = authStore.token;
           const sseBase = appApiPath('/api/sse');
           const sseUrl = token ? `${sseBase}?token=${encodeURIComponent(token)}` : sseBase;
-          evtSource = new EventSource(sseUrl);
+          const source = new EventSource(sseUrl);
+          evtSource = source;
 
-          evtSource.onopen = () => {
+          source.onopen = () => {
+              if (evtSource !== source) return;
               logger.sseEvent("connection_opened");
               notificationCenter.remove('system:sse-disconnected');
               refreshCoordinator.onSseReconnect();
           };
 
-          evtSource.onmessage = (event) => {
+          source.onmessage = (event) => {
+              if (evtSource !== source) return;
               try {
                  // Parse JSON with validation
                  let payload: unknown;
@@ -566,8 +611,8 @@
                      payload.type === 'session_expired'
                  ) {
                      logger.warn("SSE session expired, logging out");
-                     evtSource?.close();
-                     evtSource = null;
+                     source.close();
+                     if (evtSource === source) evtSource = null;
                      void authStore.logout();
                      return;
                  }
@@ -578,17 +623,16 @@
               }
           };
 
-          evtSource.onerror = (err) => {
+          source.onerror = (err) => {
+              if (evtSource !== source) return;
               logger.warn("SSE connection issue", {
                   type: err.type || 'error',
                   attempt: reconnectAttempts + 1
               });
               liveUpdates.handleDisconnect(err, document.hidden);
 
-              if (evtSource) {
-                  evtSource.close();
-                  evtSource = null;
-              }
+              source.close();
+              evtSource = null;
 
               // Schedule reconnection with backoff
               scheduleReconnect();

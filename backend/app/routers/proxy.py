@@ -30,7 +30,6 @@ from app.auth import (
     AuthContext,
     AuthLevel,
     require_owner,
-    verify_token,
     security,
     get_auth_context_with_legacy,
     api_key_header,
@@ -1560,25 +1559,13 @@ async def proxy_snapshot(
 
 
 @router.get("/frigate/camera/{camera}/latest.jpg", response_class=Response)
-async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(..., min_length=1, max_length=64)):
+async def proxy_latest_camera_snapshot(
+    request: Request,
+    camera: str = Path(..., min_length=1, max_length=64),
+    _auth: AuthContext = Depends(require_owner),
+):
     """Proxy latest snapshot for a camera from Frigate."""
     lang = get_user_language(request)
-
-    # Require owner access (query token or Authorization header). Avoid Depends so query token works.
-    if settings.auth.enabled and not settings.public_access.enabled:
-        token = request.query_params.get("token")
-        if not token:
-            auth_header = request.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-        if not token:
-            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
-        try:
-            token_data = verify_token(token)
-            if token_data.auth_level != AuthLevel.OWNER:
-                raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
-        except HTTPException:
-            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
 
     if not validate_camera_name(camera):
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
@@ -1589,7 +1576,11 @@ async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(...,
     try:
         resp = await client.get(url, headers=headers)
         resp.raise_for_status()
-        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers=SNAPSHOT_NO_STORE_HEADERS,
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:

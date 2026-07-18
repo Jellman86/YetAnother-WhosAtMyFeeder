@@ -85,7 +85,7 @@
         </button>
 
         {#each [frigateResult, mqttResult].filter(Boolean) as result}
-            <div role="status" class="rounded-md p-2 text-sm {result?.ok ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
+            <div role="status" class="rounded-md p-2 text-sm {result?.ok ? 'bg-accent-50 text-accent-800 dark:bg-accent-900/20 dark:text-accent-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
                 {result?.ok ? '✓' : '⚠'} {result?.message}
             </div>
         {/each}

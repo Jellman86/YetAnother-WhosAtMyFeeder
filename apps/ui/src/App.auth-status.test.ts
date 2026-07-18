@@ -18,7 +18,7 @@ describe('App auth status failure handling', () => {
     it('retries status automatically without starting operational polling while offline', () => {
         expect(appSource).toContain('const BACKEND_STATUS_RETRY_MS = 5_000;');
         expect(appSource).toContain('if (!authStore.statusLoaded || authStore.statusHealthy) return;');
-        expect(appSource).toContain('window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS)');
+        expect(appSource).toContain('if (!document.hidden) void authStore.loadStatus();');
         expect(appSource).toContain('if (!authStore.statusLoaded || !authStore.statusHealthy) return;');
         expect(appSource).toContain('void runOwnerSystemChecksOnce();');
         expect(appSource).toContain('if (!document.hidden && authStore.statusHealthy)');
@@ -30,11 +30,27 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain('return untrack(startOperationalPolling);');
         expect(appSource).toContain('const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner');
         expect(appSource).toContain('const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner');
+        expect(appSource).toContain('if (!document.hidden) void authStore.loadStatus();');
     });
 
     it('rate-limits authenticated polling even if its lifecycle is retriggered', () => {
         expect(appSource).toContain('createCooldownSingleFlightRunner');
         expect(appSource).toContain('ANALYSIS_QUEUE_POLL_COOLDOWN_MS');
         expect(appSource).toContain('OWNER_SYSTEM_CHECK_COOLDOWN_MS');
+    });
+
+    it('replaces live state whenever the authenticated session identity changes', () => {
+        expect(appSource).toContain('let activeAccessIdentity: string | null = null;');
+        expect(appSource).toContain('const accessIdentity = `${authStore.isAuthenticated ? \'owner\' : \'guest\'}:${authStore.token ?? \'anonymous\'}`;');
+        expect(appSource).toContain('if (!appInitialized || activeAccessIdentity !== accessIdentity)');
+        expect(appSource).toContain('closeLiveConnection();');
+        expect(appSource).toContain('settingsStore.clear();');
+    });
+
+    it('uses one adaptive analysis polling path and pauses network work in hidden tabs', () => {
+        expect(appSource).toContain('const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;');
+        expect(appSource).toContain('analysisQueueStatusStore.ingest(status);');
+        expect(appSource).toContain('document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS');
+        expect(appSource).not.toContain('const analysisInterval = window.setInterval');
     });
 });

@@ -90,7 +90,7 @@
                             <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{item.name}</span>
                             <span class="block text-xs text-slate-500 dark:text-slate-400">{item.note}</span>
                         </span>
-                        <input type="checkbox" checked={item.get()} onchange={(e) => item.set(e.currentTarget.checked)} class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+                        <input type="checkbox" checked={item.get()} onchange={(e) => item.set(e.currentTarget.checked)} class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
                     </label>
 
                     {#if item.name === 'BirdNET-Go' && birdnetEnabled}
@@ -98,7 +98,7 @@
                             <input type="url" placeholder="http://birdnet-go:8080" bind:value={birdnetUrl} class="input-base" aria-label="BirdNET-Go URL" />
                             <button type="button" class="btn btn-secondary px-4 py-2" onclick={testBirdnet}>{$_('setup.integrations.birdnet_test', { default: 'Test BirdNET-Go' })}</button>
                             {#if testResult}
-                                <div role="status" class="rounded-md p-2 text-xs {testResult.ok ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
+                                <div role="status" class="rounded-md p-2 text-xs {testResult.ok ? 'bg-accent-50 text-accent-800 dark:bg-accent-900/20 dark:text-accent-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
                                     {testResult.ok ? '✓' : '⚠'} {testResult.message}
                                 </div>
                             {/if}

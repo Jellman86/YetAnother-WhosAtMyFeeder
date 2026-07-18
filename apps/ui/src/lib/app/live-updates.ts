@@ -352,13 +352,14 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    async syncAnalysisQueueStatus() {
-        if (!this.deps.shouldNotify()) return;
-        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
+    async syncAnalysisQueueStatus(): Promise<AnalysisStatus | null> {
+        if (!this.deps.shouldNotify()) return null;
+        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return null;
 
         try {
             const status = await this.deps.fetchAnalysisStatus();
             this.reconcileAnalysisQueueStatus(status);
+            return status;
         } catch (error) {
             this.deps.logger.warn('analysis_status_check_failed', { error });
             if (!isTransientGatewayError(error)) {
@@ -372,6 +373,7 @@ export class LiveUpdateCoordinator {
                     context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
                 });
             }
+            return null;
         }
     }
 

@@ -12,7 +12,6 @@ const DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE = 'Batch analysis complete';
 
 interface AnalysisQueueStatusStoreOptions {
     fetchAnalysisStatus?: () => Promise<AnalysisStatus>;
-    pollIntervalMs?: number;
     hasOwnerAccess?: () => boolean;
     recordError?: (input: {
         source: 'job';
@@ -95,86 +94,68 @@ export class AnalysisQueueStatusStore {
     analysisStatus = $state<AnalysisStatus | null>(null);
     queueByKind = $state<QueueTelemetryByKind>({});
     private analysisStatusSignature = '';
-    private refCount = 0;
-    private pollTimer: ReturnType<typeof setInterval> | null = null;
     private readonly fetcher: () => Promise<AnalysisStatus>;
-    private readonly pollIntervalMs: number;
     private readonly hasOwnerAccess: () => boolean;
     private readonly recordError?: AnalysisQueueStatusStoreOptions['recordError'];
 
     constructor(options: AnalysisQueueStatusStoreOptions = {}) {
         this.fetcher = options.fetchAnalysisStatus ?? fetchAnalysisStatus;
-        this.pollIntervalMs = options.pollIntervalMs ?? 5000;
         this.hasOwnerAccess = options.hasOwnerAccess ?? (() => authStore.showSettings);
         this.recordError = options.recordError;
     }
 
-    retain(): () => void {
-        this.refCount += 1;
-        if (this.refCount === 1) {
-            void this.refresh();
-            this.pollTimer = setInterval(() => {
-                void this.refresh();
-            }, this.pollIntervalMs);
+    ingest(status: AnalysisStatus): void {
+        settleSyntheticBatchProgress(status);
+        const signature = [
+            status.pending ?? 0,
+            status.active ?? 0,
+            status.circuit_open ? 1 : 0,
+            status.open_until ?? '',
+            status.failure_count ?? '',
+            status.pending_capacity ?? '',
+            status.pending_available ?? '',
+            status.max_concurrent_configured ?? '',
+            status.max_concurrent_effective ?? '',
+            status.mqtt_pressure_level ?? '',
+            status.throttled_for_mqtt_pressure ? 1 : 0,
+            status.throttled_for_live_pressure ? 1 : 0,
+            status.maintenance_starvation_relief_active ? 1 : 0,
+            status.live_pressure_active ? 1 : 0,
+            status.live_in_flight ?? '',
+            status.live_queued ?? '',
+            status.mqtt_in_flight ?? '',
+            status.mqtt_in_flight_capacity ?? '',
+            status.oldest_maintenance_pending_age_seconds ?? ''
+        ].join('|');
+        if (signature !== this.analysisStatusSignature) {
+            this.analysisStatus = status;
+            this.analysisStatusSignature = signature;
         }
-
-        return () => {
-            this.refCount = Math.max(0, this.refCount - 1);
-            if (this.refCount === 0 && this.pollTimer) {
-                clearInterval(this.pollTimer);
-                this.pollTimer = null;
+        this.queueByKind = {
+            ...this.queueByKind,
+            reclassify: {
+                queued: normalizeCount(status.pending),
+                running: normalizeCount(status.active),
+                queueDepthKnown: true,
+                updatedAt: Date.now(),
+                maxConcurrentConfigured: normalizeCount(status.max_concurrent_configured),
+                maxConcurrentEffective: normalizeCount(status.max_concurrent_effective),
+                mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
+                throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
+                throttledForLivePressure: status.throttled_for_live_pressure === true,
+                liveInFlight: normalizeCount(status.live_in_flight),
+                liveQueued: normalizeCount(status.live_queued),
+                mqttInFlight: normalizeCount(status.mqtt_in_flight),
+                mqttInFlightCapacity: normalizeCount(status.mqtt_in_flight_capacity)
             }
         };
     }
 
-    async refresh() {
+    async refresh(): Promise<void> {
         if (!this.hasOwnerAccess()) return;
         try {
             const status = await this.fetcher();
-            settleSyntheticBatchProgress(status);
-            const signature = [
-                status.pending ?? 0,
-                status.active ?? 0,
-                status.circuit_open ? 1 : 0,
-                status.open_until ?? '',
-                status.failure_count ?? '',
-                status.pending_capacity ?? '',
-                status.pending_available ?? '',
-                status.max_concurrent_configured ?? '',
-                status.max_concurrent_effective ?? '',
-                status.mqtt_pressure_level ?? '',
-                status.throttled_for_mqtt_pressure ? 1 : 0,
-                status.throttled_for_live_pressure ? 1 : 0,
-                status.maintenance_starvation_relief_active ? 1 : 0,
-                status.live_pressure_active ? 1 : 0,
-                status.live_in_flight ?? '',
-                status.live_queued ?? '',
-                status.mqtt_in_flight ?? '',
-                status.mqtt_in_flight_capacity ?? '',
-                status.oldest_maintenance_pending_age_seconds ?? ''
-            ].join('|');
-            if (signature !== this.analysisStatusSignature) {
-                this.analysisStatus = status;
-                this.analysisStatusSignature = signature;
-            }
-            this.queueByKind = {
-                ...this.queueByKind,
-                reclassify: {
-                    queued: normalizeCount(status.pending),
-                    running: normalizeCount(status.active),
-                    queueDepthKnown: true,
-                    updatedAt: Date.now(),
-                    maxConcurrentConfigured: normalizeCount(status.max_concurrent_configured),
-                    maxConcurrentEffective: normalizeCount(status.max_concurrent_effective),
-                    mqttPressureLevel: typeof status.mqtt_pressure_level === 'string' ? status.mqtt_pressure_level : undefined,
-                    throttledForMqttPressure: status.throttled_for_mqtt_pressure === true,
-                    throttledForLivePressure: status.throttled_for_live_pressure === true,
-                    liveInFlight: normalizeCount(status.live_in_flight),
-                    liveQueued: normalizeCount(status.live_queued),
-                    mqttInFlight: normalizeCount(status.mqtt_in_flight),
-                    mqttInFlightCapacity: normalizeCount(status.mqtt_in_flight_capacity)
-                }
-            };
+            this.ingest(status);
         } catch (error) {
             // Transient gateway errors (502/503/504) are startup/infra noise — self-heal on next tick.
             if (!isTransientGatewayError(error)) {

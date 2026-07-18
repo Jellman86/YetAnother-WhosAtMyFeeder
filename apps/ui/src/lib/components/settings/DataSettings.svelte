@@ -214,7 +214,7 @@
         autoPurgeMissingSnapshots = enabled;
     };
 
-    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
     const buttonNeutralClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
     const buttonAmberClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
     const buttonDangerClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
@@ -422,8 +422,8 @@
                     </SettingsRow>
 
                     {#if cacheHighQualityEventSnapshots}
-                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-emerald-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-emerald-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-accent-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-accent-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 {#if cropDetectorReady}
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 {:else}
@@ -461,7 +461,7 @@
                                     step="1"
                                     bind:value={cacheHighQualityEventSnapshotJpegQuality}
                                     aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                    class="w-full accent-teal-500"
+                                    class="w-full accent-brand-500"
                                 />
                                 <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
                                     <span>70</span>
@@ -567,7 +567,7 @@
     >
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
-                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300">
+                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300">
                     <span class="text-xs font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
                     <span class="text-xs font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
@@ -577,7 +577,7 @@
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
                     {:else}
-                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        <div class="w-2 h-2 rounded-full bg-accent-500"></div>
                         <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
                     {/if}
                 </div>
@@ -715,7 +715,7 @@
                             bind:value={backfillStartDate}
                             max={backfillEndDate || todayDateOnly()}
                             aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                         />
                     </div>
                     <div>
@@ -729,14 +729,14 @@
                             min={backfillStartDate || undefined}
                             max={todayDateOnly()}
                             aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                         />
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(7)}>7D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={() => setCustomRangeDays(30)}>30D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-teal-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={() => setCustomRangeDays(7)}>7D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={() => setCustomRangeDays(30)}>30D</button>
+                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
                 {#if backfillCustomError}
                     <p class="text-xs font-bold text-red-500">{backfillCustomError}</p>
@@ -747,7 +747,7 @@
         {#if backfillResult}
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
                 <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                <div><p class="text-sm font-black text-emerald-500">{safeCount(backfillResult.new_detections)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
+                <div><p class="text-sm font-black text-accent-500">{safeCount(backfillResult.new_detections)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
                 <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
                 <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
             </div>
@@ -786,7 +786,7 @@
             {#if weatherBackfillResult}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
                     <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                    <div><p class="text-sm font-black text-emerald-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
+                    <div><p class="text-sm font-black text-accent-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
                     <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
                     <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
                 </div>

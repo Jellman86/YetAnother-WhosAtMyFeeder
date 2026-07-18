@@ -43,7 +43,7 @@ describe('species detail field-record layout', () => {
     it('uses a restrained, accessible icon language for primary record sections', () => {
         expect(speciesDetailSource.match(/data-species-section-icon/g) ?? []).toHaveLength(5);
         expect(speciesDetailSource.match(/data-species-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(5);
-        expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
+        expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
     });
 
     it('labels charts without empty headings or fake keyboard controls', () => {

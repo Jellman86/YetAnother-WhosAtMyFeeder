@@ -67,7 +67,7 @@
     function tierChipClass(tier: string): string {
         switch (tier) {
             case 'cpu_only':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'large':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'advanced':
@@ -80,7 +80,7 @@
     function statusChipClass(status: string | undefined): string {
         switch (status ?? 'stable') {
             case 'stable':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'beta':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'experimental':
@@ -101,6 +101,7 @@
     }
 
     let pollInterval: ReturnType<typeof setInterval> | undefined;
+    let pollingDownloads = false;
 
     onMount(async () => {
         await loadData();
@@ -148,50 +149,56 @@
     }
 
     async function pollDownloads() {
+        if (pollingDownloads || document.hidden) return;
+        pollingDownloads = true;
         const activeIds = Object.keys(downloadStatuses).filter(id => 
             downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'
         );
 
-        for (const id of activeIds) {
-            try {
-                const status = await fetchDownloadStatus(id);
-                const model = availableModels.find((entry) => entry.id === id);
-                if (status) {
-                    downloadStatuses[id] = status;
-                    if (model) {
-                        syncModelDownloadProgress(jobProgressStore, model, status);
+        try {
+            for (const id of activeIds) {
+                try {
+                    const status = await fetchDownloadStatus(id);
+                    const model = availableModels.find((entry) => entry.id === id);
+                    if (status) {
+                        downloadStatuses[id] = status;
+                        if (model) {
+                            syncModelDownloadProgress(jobProgressStore, model, status);
+                        }
+                        if (status.status === 'completed') {
+                            // Refresh installed list
+                            installedModels = await fetchInstalledModels();
+                        }
+                    } else {
+                        const errorStatus = {
+                            model_id: id,
+                            status: 'error' as const,
+                            progress: downloadStatuses[id]?.progress ?? 0,
+                            error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
+                        };
+                        downloadStatuses[id] = errorStatus;
+                        if (model) {
+                            syncModelDownloadProgress(jobProgressStore, model, errorStatus);
+                        }
                     }
-                    if (status.status === 'completed') {
-                        // Refresh installed list
-                        installedModels = await fetchInstalledModels();
-                    }
-                } else {
+                } catch (e) {
+                    console.error(`Failed to poll status for ${id}`, e);
+                    const model = availableModels.find((entry) => entry.id === id);
+                    const message = e instanceof Error ? e.message : t('settings.detection.model_manager_status_refresh_failed', 'Failed to refresh download status');
                     const errorStatus = {
                         model_id: id,
                         status: 'error' as const,
                         progress: downloadStatuses[id]?.progress ?? 0,
-                        error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
+                        error: message
                     };
                     downloadStatuses[id] = errorStatus;
                     if (model) {
                         syncModelDownloadProgress(jobProgressStore, model, errorStatus);
                     }
                 }
-            } catch (e) {
-                console.error(`Failed to poll status for ${id}`, e);
-                const model = availableModels.find((entry) => entry.id === id);
-                const message = e instanceof Error ? e.message : t('settings.detection.model_manager_status_refresh_failed', 'Failed to refresh download status');
-                const errorStatus = {
-                    model_id: id,
-                    status: 'error' as const,
-                    progress: downloadStatuses[id]?.progress ?? 0,
-                    error: message
-                };
-                downloadStatuses[id] = errorStatus;
-                if (model) {
-                    syncModelDownloadProgress(jobProgressStore, model, errorStatus);
-                }
             }
+        } finally {
+            pollingDownloads = false;
         }
     }
 
@@ -250,7 +257,7 @@
     function providerChipClass(provider: string): string {
         switch (provider) {
             case 'cuda':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'intel_gpu':
                 return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
             case 'intel_cpu':
@@ -279,7 +286,7 @@
                 if (isActive) {
                     return {
                         label: `${baseLabel}: ${t('settings.detection.model_manager_provider_active_suffix', 'Active')}`,
-                        className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+                        className: 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20',
                         title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }
@@ -538,7 +545,7 @@
 
     {#if loading}
         <div class="flex min-h-32 items-center justify-center" role="status">
-            <div class="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent"></div>
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
         </div>
     {:else if error}
@@ -562,7 +569,7 @@
             : null}
 
         <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70">
-            <div class="border-b border-slate-200/80 bg-gradient-to-r from-teal-50/80 via-emerald-50/35 to-white p-5 dark:border-slate-700/80 dark:from-teal-950/30 dark:via-emerald-950/10 dark:to-slate-900 sm:p-6">
+            <div class="border-b border-slate-200/80 bg-gradient-to-r from-brand-50/80 via-accent-50/35 to-white p-5 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 sm:p-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div class="max-w-2xl flex-1">
                         <label for="classifier-model-select" class="block text-base font-bold text-slate-900 dark:text-white">
@@ -629,7 +636,7 @@
                                             {model.name}
                                         </h3>
                                         {#if active}
-                                            <span class="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800 dark:bg-teal-950/60 dark:text-teal-200">
+                                            <span class="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-950/60 dark:text-brand-200">
                                                 {$_('settings.detection.model_manager_active', { default: 'Active' })}
                                             </span>
                                         {/if}
@@ -694,7 +701,7 @@
                         </div>
 
                         <details class="group border-t border-slate-200 dark:border-slate-700">
-                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:text-slate-200 sm:px-6">
+                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
                                 <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
                                 <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
@@ -757,7 +764,7 @@
                             {#if inProgress}
                                 <div class="w-full" role="status">
                                     <div class="mb-2 flex justify-between text-sm">
-                                        <span class="font-semibold text-teal-700 dark:text-teal-300">
+                                        <span class="font-semibold text-brand-700 dark:text-brand-300">
                                             {installed
                                                 ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
                                                 : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
@@ -765,7 +772,7 @@
                                         <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
                                     </div>
                                     <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                        <div class="h-full bg-teal-500 transition-all duration-300" style="width: {download.progress}%"></div>
+                                        <div class="h-full bg-brand-500 transition-all duration-300" style="width: {download.progress}%"></div>
                                     </div>
                                 </div>
                             {:else}
@@ -802,7 +809,7 @@
                                                 {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
                                             </button>
                                         {:else if active}
-                                            <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-teal-700 dark:text-teal-300">
+                                            <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300">
                                                 {$_('settings.detection.model_manager_currently_active', { default: 'Currently active' })}
                                             </span>
                                         {/if}
@@ -820,7 +827,7 @@
 
             {#if selectedCropDetector}
                 <details class="group border-t border-slate-200 dark:border-slate-700">
-                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 dark:text-slate-200 sm:px-6">
+                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
                         <span>{$_('settings.detection.model_manager_thumbnail_crop_title', { default: 'Cropped thumbnails' })}</span>
                         <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
@@ -859,11 +866,11 @@
                         {#if selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
                             <div role="status">
                                 <div class="mb-1 flex justify-between text-xs font-semibold">
-                                    <span class="text-teal-700 dark:text-teal-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
+                                    <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
                                     <span class="text-slate-500">{selectedCropDetectorDownload.progress.toFixed(0)}%</span>
                                 </div>
                                 <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                    <div class="h-full bg-teal-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
+                                    <div class="h-full bg-brand-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
                                 </div>
                             </div>
                         {/if}

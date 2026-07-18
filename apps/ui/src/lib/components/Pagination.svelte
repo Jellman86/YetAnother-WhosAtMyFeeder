@@ -118,7 +118,7 @@
                         onclick={() => goToPage(page)}
                         class="h-11 min-w-11 rounded-xl px-3 text-sm font-semibold transition-colors
                                {page === currentPage
-                                   ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-500 dark:text-slate-950'
+                                   ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500 dark:text-slate-950'
                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
                         aria-current={page === currentPage ? 'page' : undefined}
                         aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}

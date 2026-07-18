@@ -40,12 +40,12 @@
     });
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-teal-950/50 p-4 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-brand-950/50 p-4 backdrop-blur-sm">
     <div class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900">
         <!-- Header -->
-        <div class="space-y-3 bg-gradient-to-r from-teal-50 via-emerald-50 to-white px-6 py-4 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-slate-900">
+        <div class="space-y-3 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900">
             <div class="flex items-center justify-between">
-                <span class="flex items-center gap-1.5 text-sm font-black tracking-tight text-teal-700 dark:text-teal-300">
+                <span class="flex items-center gap-1.5 text-sm font-black tracking-tight text-brand-700 dark:text-brand-300">
                     <span aria-hidden="true">🐦</span> YA-WAMF
                 </span>
                 <div class="flex items-center gap-3">
@@ -64,7 +64,7 @@
             <div class="flex items-center gap-1.5">
                 {#each steps as s, i}
                     <div
-                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 {i < index ? 'bg-teal-500' : i === index ? 'bg-teal-400' : 'bg-slate-200 dark:bg-slate-700'}"
+                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
                         title={s.id}
                     ></div>
                 {/each}

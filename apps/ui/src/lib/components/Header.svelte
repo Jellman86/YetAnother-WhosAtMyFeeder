@@ -39,7 +39,7 @@
     }
 </script>
 
-<header class="bg-white/90 dark:bg-slate-900/90 shadow-sm sticky top-0 z-50 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 transition-all duration-300 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-gradient-to-r before:from-brand-500/50 before:via-teal-400/50 before:to-brand-500/50">
+<header class="bg-white/90 dark:bg-slate-900/90 shadow-sm sticky top-0 z-50 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 transition-all duration-300 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-gradient-to-r before:from-brand-500/50 before:via-brand-400/50 before:to-brand-500/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="h-[var(--app-chrome-height,4rem)] flex items-center justify-between">
             <!-- Logo -->
@@ -82,10 +82,10 @@
                 <!-- User Badge -->
                 {#if authStore.isAuthenticated && authStore.username}
                     <div class="hidden md:flex badge badge-success">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-accent-600 dark:text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        <span class="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        <span class="text-xs font-bold text-accent-700 dark:text-accent-300">
                             {authStore.username}
                         </span>
                     </div>
@@ -121,7 +121,7 @@
                     </button>
                 {:else if authStore.isGuest}
                     <button
-                        class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/30"
+                        class="btn btn-ghost btn-icon text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400 hover:bg-accent-100/70 dark:hover:bg-accent-900/30"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login', { default: 'Login' })}
                         aria-label={$_('auth.login', { default: 'Login' })}

@@ -19,7 +19,6 @@
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const release = analysisQueueStatusStore.retain();
         const hoverQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
         const syncHoverCapability = () => {
             canHoverExpand = hoverQuery.matches;
@@ -29,7 +28,6 @@
 
         return () => {
             hoverQuery.removeEventListener?.('change', syncHoverCapability);
-            release();
             clearInterval(tick);
         };
     });
@@ -74,21 +72,21 @@
         role="status"
         aria-live="polite"
     >
-        <div class="absolute inset-0 bg-emerald-500/5 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-accent-500/5 pointer-events-none"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative z-10">
             <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        class="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-lg"
+                        class="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-accent-500 rounded-lg"
                         onmouseenter={() => { if (canHoverExpand) showDetails = true; }}
                         onmouseleave={() => { if (canHoverExpand) showDetails = false; }}
                         onclick={() => showDetails = !showDetails}
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
-                        <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                        <div class="w-6 h-6 rounded-lg bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center text-accent-600 dark:text-accent-400 flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
@@ -108,7 +106,7 @@
 
                     <button
                         type="button"
-                        class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/50 transition-colors"
+                        class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-accent-100 text-accent-800 dark:bg-accent-900/40 dark:text-accent-300 hover:bg-accent-200 dark:hover:bg-accent-800/50 transition-colors"
                         onclick={openJobsPage}
                     >
                         {$_('jobs.open', { default: 'Open Jobs' })}
@@ -117,14 +115,14 @@
 
                 <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
 
-                <div class="h-2 w-full bg-emerald-100 dark:bg-emerald-950/60 rounded-full overflow-hidden relative">
+                <div class="h-2 w-full bg-accent-100 dark:bg-accent-950/60 rounded-full overflow-hidden relative">
                     {#if aggregate.determinate && aggregate.percent !== null}
                         <div
-                            class="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 transition-all duration-500"
+                            class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500"
                             style="width: {aggregate.percent}%"
                         ></div>
                     {:else}
-                        <div class="h-full w-2/5 bg-gradient-to-r from-emerald-500/70 via-teal-500/70 to-sky-500/70 animate-pulse"></div>
+                        <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 animate-pulse"></div>
                     {/if}
                 </div>
 
@@ -135,7 +133,7 @@
                             <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
                                 <div class="flex items-center justify-between gap-2">
                                     <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{presentation.title}</p>
-                                    <span class="text-[9px] font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                                    <span class="text-[9px] font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-accent-600 dark:text-accent-300' : 'text-slate-500 dark:text-slate-400'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>
@@ -158,7 +156,7 @@
                         {#if pipeline.kinds.length > detailLimit}
                             <button
                                 type="button"
-                                class="text-left text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-300 hover:underline"
+                                class="text-left text-[10px] font-black uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
                                 onclick={openJobsPage}
                             >
                                 {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count} more work lanes' })}

@@ -89,7 +89,7 @@
       type="button"
       onclick={zoomIn}
       aria-label={$_('common.zoom_in')}
-      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-accent-500"
     >
       +
     </button>
@@ -97,7 +97,7 @@
       type="button"
       onclick={zoomOut}
       aria-label={$_('common.zoom_out')}
-      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-accent-500"
     >
       −
     </button>

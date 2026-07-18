@@ -14,7 +14,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('Full visit');
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
         expect(detectionModalSource).toContain("title={$_('video_player.full_visit_ready'");
-        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full bg-teal-500/95');
+        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/95');
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
         expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}\n                            <div class="flex items-center gap-2">');
@@ -79,7 +79,7 @@ describe('detection modal full-visit fetch wiring', () => {
     });
 
     it('normalizes media overlay circular controls to a consistent size', () => {
-        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full bg-teal-500/95');
+        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/95');
         expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full');
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85');
     });

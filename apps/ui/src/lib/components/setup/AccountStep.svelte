@@ -58,7 +58,7 @@
     onContinue={save}
 >
     {#if alreadyConfigured}
-        <div class="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
+        <div class="rounded-md bg-accent-50 p-3 text-sm text-accent-800 dark:bg-accent-900/20 dark:text-accent-200">
             {$_('setup.account.already', { default: 'Authentication is already configured. Manage it in Settings → Security.' })}
         </div>
     {:else}
@@ -83,7 +83,7 @@
         {/if}
 
         <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={skipAuth} class="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+            <input type="checkbox" bind:checked={skipAuth} class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             {$_('first_run.skip_auth', { default: 'Run without a password (trusted network only)' })}
         </label>
     {/if}

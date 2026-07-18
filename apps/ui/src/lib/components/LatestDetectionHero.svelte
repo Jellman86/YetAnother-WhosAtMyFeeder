@@ -80,7 +80,7 @@
     let confidencePct = $derived(hasScore ? Math.round(detection.score! * 100) : 0);
     let confidencePillClass = $derived(
         confidencePct >= 80
-            ? 'bg-emerald-500/90 text-white'
+            ? 'bg-accent-500/90 text-white'
             : confidencePct >= 60
                 ? 'bg-amber-500/90 text-white'
                 : 'bg-red-500/90 text-white'
@@ -127,7 +127,7 @@
             onclick?.();
         }
     }}
-    class="relative w-full h-[360px] sm:h-full rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
+    class="relative w-full h-[360px] sm:h-full rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-500/30 transition-all"
 >
     <!-- Reclassification Overlay -->
     {#if reclassifyProgress}
@@ -152,9 +152,9 @@
             <!-- Badge row: time, confidence, audio -->
             <div class="flex flex-wrap items-center gap-2 mb-2">
                 <!-- Time badge with optional live pulse -->
-                <span class="inline-flex items-center gap-1.5 rounded-md bg-teal-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
+                <span class="inline-flex items-center gap-1.5 rounded-md bg-brand-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                     {#if isFresh}
-                        <span class="h-2 w-2 shrink-0 rounded-full bg-teal-200" aria-hidden="true"></span>
+                        <span class="h-2 w-2 shrink-0 rounded-full bg-brand-200" aria-hidden="true"></span>
                     {/if}
                     {getRelativeTime(detection.detection_time, $_)}
                 </span>
@@ -189,7 +189,7 @@
 
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-white/80 text-xs sm:text-sm font-medium">
                 <span class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                    <span class="w-2 h-2 rounded-full bg-brand-400"></span>
                     {formatTime(detection.detection_time)}
                 </span>
                 <span class="flex items-center gap-1.5">
@@ -233,11 +233,11 @@
                     </div>
                 {:else}
                     <div class="flex h-full w-full items-center justify-center rounded-full border-2 border-white/35 bg-black/20 text-white/75 shadow-lg ring-1 ring-black/10" aria-hidden="true">
-                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg>
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
                     </div>
                 {/if}
             </div>
-            <div class="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
+            <div class="px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold uppercase tracking-widest rounded-full transition-colors shadow-lg">
                 {$_('dashboard.hero.view_details')}
             </div>
         </div>

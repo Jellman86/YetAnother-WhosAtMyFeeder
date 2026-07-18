@@ -127,7 +127,7 @@
     const formatEstimatedCost = (value: number | null | undefined) => (value ?? 0).toFixed(4);
 
     const metricCardClass = 'p-6 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5';
-    const buttonPrimaryClass = 'px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
+    const buttonPrimaryClass = 'px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
     const buttonSecondaryClass = 'px-6 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
 </script>
 
@@ -221,7 +221,7 @@
                     bind:value={llmModel}
                     placeholder={getRecommendedLlmModel(llmProvider)}
                     aria-label={$_('settings.llm.model')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                 />
             {:else}
                 <SettingsSelect
@@ -248,10 +248,10 @@
             <p class="font-bold mb-2 text-slate-700 dark:text-slate-200">{$_('settings.ai.provider_info_title', { default: 'Cloud AI Providers' })}</p>
             <p class="leading-relaxed">{$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}</p>
             <div class="mt-3 grid grid-cols-2 gap-2">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
-                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
-                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline focus:outline-none focus:ring-2 focus:ring-teal-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
+                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
+                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
             </div>
         </div>
         {/if}
@@ -268,7 +268,7 @@
             >
                 <div class="space-y-2">
                     <div class="flex justify-end">
-                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-teal-600 dark:text-teal-400 hover:underline uppercase tracking-widest">
+                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-xs font-black text-brand-600 dark:text-brand-400 hover:underline uppercase tracking-widest">
                             {$_('settings.ai.view_reference_pricing', { default: 'View Reference Pricing →' })}
                         </a>
                     </div>
@@ -385,11 +385,11 @@
                     <p class="text-2xl font-black text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
                     <p class="text-xs font-bold text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
                 </div>
-                <div class="{metricCardClass} bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/10 dark:border-emerald-500/20">
-                    <p class="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
-                    <p class="text-2xl font-black text-emerald-700 dark:text-emerald-300">
+                <div class="{metricCardClass} bg-accent-500/5 dark:bg-accent-500/10 border-accent-500/10 dark:border-accent-500/20">
+                    <p class="text-xs font-black uppercase tracking-widest text-accent-600 dark:text-accent-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
+                    <p class="text-2xl font-black text-accent-700 dark:text-accent-300">
                         ${formatEstimatedCost(usage.estimated_cost_usd)}
-                        <span class="text-xs ml-1 font-bold text-emerald-600/60 dark:text-emerald-400/40">USD</span>
+                        <span class="text-xs ml-1 font-bold text-accent-600/60 dark:text-accent-400/40">USD</span>
                     </p>
                     {#if !usage.pricing_configured}
                         <p class="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
@@ -419,7 +419,7 @@
                                     <td class="px-4 py-3 capitalize">{item.feature}</td>
                                     <td class="px-4 py-3 text-right">{item.calls}</td>
                                     <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">${formatEstimatedCost(item.estimated_cost_usd)}</td>
+                                    <td class="px-4 py-3 text-right font-bold text-accent-600 dark:text-accent-400">${formatEstimatedCost(item.estimated_cost_usd)}</td>
                                 </tr>
                             {/each}
                         </tbody>

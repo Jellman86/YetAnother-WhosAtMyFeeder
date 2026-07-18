@@ -50,7 +50,7 @@ export async function fetchVersion(): Promise<VersionInfo> {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
-    const response = await apiFetch('/health');
+    const response = await apiFetch('/health', { timeoutMs: 10_000 });
     return handleResponse<HealthStatus>(response);
 }
 

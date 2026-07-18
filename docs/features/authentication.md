@@ -80,6 +80,10 @@ When Public Access is enabled, guests can see:
 - **Camera names** *only if* "Show camera names to public users" is enabled.
 - **Clip downloads** *only if* "Allow clip downloads" is enabled.
 
+Guests cannot request the current live frame from a camera. Header camera previews and the
+`/api/frigate/camera/{camera}/latest.jpg` endpoint always require owner access, even when camera
+names or historical detection media are visible to guests.
+
 ### Guest Mode: Recommended Safety Checklist
 
 1. **Limit the history window** (e.g., 7–30 days) to reduce exposure.

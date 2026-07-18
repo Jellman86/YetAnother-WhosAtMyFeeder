@@ -87,6 +87,7 @@
     let compatMatrix = $state<DeviceMatrix | null>(null);
     let compatError = $state<string | null>(null);
     let compatPoll: ReturnType<typeof setInterval> | null = null;
+    let compatPollInFlight = false;
 
     async function runCompatCheck() {
         cdOpen = true;
@@ -104,6 +105,8 @@
                 sweep_all_models: compatAllModels,
             });
             compatPoll = window.setInterval(async () => {
+                if (compatPollInFlight || document.hidden) return;
+                compatPollInFlight = true;
                 try {
                     const list = await listModelEvalRuns();
                     if (list.active && list.active.run_id === run_id) {
@@ -138,6 +141,8 @@
                     }
                 } catch {
                     /* transient — keep polling */
+                } finally {
+                    compatPollInFlight = false;
                 }
             }, 2000);
         } catch (e) {
@@ -154,11 +159,11 @@
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
         if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
         const n = e.images_compared;
-        if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-emerald-600 dark:text-emerald-400' };
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
         if (typeof e.top1_match_rate === 'number' && n) {
             return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
         }
-        return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
+        return { label: '✓ runs', cls: 'text-accent-600 dark:text-accent-400' };
     }
 
     // Present the compatibility run through the shared DiagnosticDialog: one stage
@@ -362,7 +367,7 @@
         >
             <div class="space-y-2">
                 <div class="flex justify-end">
-                    <output for="confidence-threshold-slider" class="rounded-lg bg-teal-500 px-2 py-1 text-xs font-black text-white">{(threshold * 100).toFixed(0)}%</output>
+                    <output for="confidence-threshold-slider" class="rounded-lg bg-brand-500 px-2 py-1 text-xs font-black text-white">{(threshold * 100).toFixed(0)}%</output>
                 </div>
                 <input
                     id="confidence-threshold-slider"
@@ -376,7 +381,7 @@
                     aria-valuenow={Math.round(threshold * 100)}
                     aria-valuetext="{(threshold * 100).toFixed(0)} percent"
                     aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
-                    class="h-11 w-full cursor-pointer accent-teal-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                    class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                 />
                 <div class="flex justify-between gap-4">
                     <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
@@ -632,13 +637,13 @@
                 href={GPU_DOCS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 px-4 py-3 hover:border-teal-500/40 transition-colors"
+                class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 px-4 py-3 hover:border-brand-500/40 transition-colors"
             >
                 <div class="min-w-0">
                     <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('common.github', { default: 'GitHub' })}</p>
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">{$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}</p>
                 </div>
-                <span class="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                <span class="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wide text-brand-700 dark:text-brand-300">
                     <span>{$_('common.show', { default: 'Show' })}</span>
                     <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
@@ -671,7 +676,7 @@
                         {$_('settings.detection.inference_diagnostics_title', { default: 'Runtime diagnostics' })}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.cuda_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.cuda_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
                             {#if classifierStatus.cuda_available}
                                 {$_('settings.detection.cuda_available')}
                             {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -680,13 +685,13 @@
                                 {$_('settings.detection.cuda_unavailable')}
                             {/if}
                         </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.openvino_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.openvino_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                             {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                     </div>
@@ -789,7 +794,7 @@
                             {$_('settings.detection.compat_all_models', { default: 'test all models' })}
                         </label>
                         <button type="button" onclick={runCompatCheck} disabled={compatRunning}
-                            class="min-h-11 cursor-pointer rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 dark:focus-visible:ring-offset-slate-950 dark:disabled:bg-slate-700">
+                            class="min-h-11 cursor-pointer rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 dark:focus-visible:ring-offset-slate-950 dark:disabled:bg-slate-700">
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
                     </div>
@@ -848,7 +853,7 @@
                             type="button"
                             onclick={() => addBlockedSpecies(result)}
                             disabled={alreadyBlocked}
-                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
                         >
                             <span class="block">
                                 {names.primary}
