@@ -64,6 +64,24 @@ The baseline checklist for every screen, feature, and flow:
 - **Stable layout for media** — fixed aspect ratios, lazy-loaded, silent placeholder fallback;
   artwork is a recognition aid and must never shift layout or imply state (`CLAUDE.md` §5).
 
+## 4. Content-detail surfaces
+
+Detail views such as Species Details are records, not miniature dashboards:
+
+- Lead with the user's own data and likely next action. Put third-party reference and enrichment
+  below the local record rather than making users scroll past it.
+- Use one strong media anchor where it helps recognition. Do not repeat the same title or
+  description over both the header and image.
+- Group the main facts in a semantic list or table and separate later sections with whitespace and
+  dividers. Reserve a bordered or tinted card for a genuinely distinct interactive object or state;
+  do not wrap every section in one.
+- Keep secondary provider labels and source links visible but quiet. External data must never look
+  like a local detection.
+- Detail dialogs use the established teal/emerald header language, a strong scrim, a 44px minimum
+  close target, trapped focus, `Escape` dismissal, body-scroll locking, and reduced-motion support.
+- On a phone, the dialog may become a full-height sheet using dynamic viewport units. On larger
+  screens, constrain its width and height and keep one predictable internal scroll region.
+
 ---
 
 ## References

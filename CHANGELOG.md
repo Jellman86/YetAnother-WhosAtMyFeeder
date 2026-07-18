@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **Species details now read as a field record, not a card dashboard.** The refreshed full-height
+  mobile / wide desktop dialog leads with the feeder's own detection totals and recent sightings,
+  then moves into the species photograph, reference material, wild-observation context, activity,
+  and camera breakdown. Repeated coloured cards and duplicate headings are replaced by restrained
+  dividers and one clear content hierarchy, while video affordances, focus states, reduced motion,
+  body-scroll locking, readable labels, and in-place error recovery make the view work better by
+  touch, keyboard, and assistive technology.
 - **RoPE ViT-B14 can use validated Intel GPUs.** The registry now includes `intel_gpu` after the
   full Quark Arrow Lake-S sweep on OpenVINO 2026.2.1 compiled RoPE on CPU, GPU, and NPU, produced
   finite output on 12 real comparison images per device, and matched CPU top-1 on every GPU/NPU
