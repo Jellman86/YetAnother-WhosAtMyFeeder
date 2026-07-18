@@ -384,7 +384,7 @@ def _openvino_gpu_startup_self_test_enabled() -> bool:
 
 
 def _runtime_benchmark_enabled() -> bool:
-    return os.getenv("CLASSIFIER_RUNTIME_BENCHMARK_ENABLED", "1").strip().lower() not in {
+    return os.getenv("CLASSIFIER_RUNTIME_BENCHMARK_ENABLED", "0").strip().lower() not in {
         "0",
         "false",
         "no",

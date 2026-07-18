@@ -1144,9 +1144,17 @@
     "secure_access": "YA-WAMF 安全なアクセス",
     "public_view": "公開ビュー",
     "public_viewing_mode": "公開閲覧モード",
-    "loading_status": "認証状態を読み込み中…",
-    "status_unavailable_desc": "コンテナが起動中、またはモデル変更後に再起動中の場合は、少し待ってから再試行してください。",
-    "status_unavailable_title": "YA-WAMF バックエンドに接続できません。"
+    "loading_status": "YA-WAMF を起動しています",
+    "loading_status_desc": "フィーダーを開く前に、サービスとアクセス設定を確認しています。",
+    "status_check_eyebrow": "サービス接続",
+    "status_checking_badge": "確認中",
+    "status_unavailable_badge": "応答なし",
+    "status_unavailable_title": "YA-WAMF はまだ応答していません",
+    "status_unavailable_desc": "更新またはモデル変更後で、サービスがまだ起動中の可能性があります。オンラインに戻るまでフィーダーのデータは安全に保たれます。",
+    "status_unavailable_auto_retry": "YA-WAMF は 5 秒ごとに自動で再確認します。",
+    "status_unavailable_help": "オフラインが続く場合は、コンテナの状態と起動ログを確認してください。",
+    "status_checking_again": "再確認中…",
+    "status_check_again": "再確認"
   },
   "status": {
     "audio_active": "音声分析中",

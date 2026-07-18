@@ -1144,9 +1144,17 @@
     "secure_access": "Acceso Seguro YA-WAMF",
     "public_view": "Vista pública",
     "public_viewing_mode": "Modo de visualización pública",
-    "loading_status": "Cargando estado de autenticación…",
-    "status_unavailable_desc": "Si el contenedor aún se está iniciando o reiniciando después de cambios de modelo, espera un momento y reinténtalo.",
-    "status_unavailable_title": "No se puede contactar con el backend de YA-WAMF."
+    "loading_status": "Iniciando YA-WAMF",
+    "loading_status_desc": "Comprobando el servicio y tus ajustes de acceso antes de abrir el comedero.",
+    "status_check_eyebrow": "Conexión del servicio",
+    "status_checking_badge": "Comprobando",
+    "status_unavailable_badge": "Sin respuesta",
+    "status_unavailable_title": "YA-WAMF todavía no responde",
+    "status_unavailable_desc": "Es posible que el servicio siga iniciándose tras una actualización o un cambio de modelo. Los datos de tu comedero están seguros mientras vuelve a conectarse.",
+    "status_unavailable_auto_retry": "YA-WAMF vuelve a comprobar la conexión automáticamente cada cinco segundos.",
+    "status_unavailable_help": "Si sigue sin conexión, comprueba el estado del contenedor y los registros de inicio.",
+    "status_checking_again": "Comprobando de nuevo…",
+    "status_check_again": "Comprobar de nuevo"
   },
   "status": {
     "audio_active": "Análisis de audio activo",

@@ -12,6 +12,7 @@
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
+  import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import Dashboard from './lib/pages/Dashboard.svelte';
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
@@ -136,7 +137,7 @@
   // Route guard: settings page should only be accessible when authenticated
   // (or when auth is disabled entirely).
   $effect(() => {
-      if (!authStore.statusLoaded) return;
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
       const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval');
       if (!isOwnerOnly) return;
@@ -153,7 +154,7 @@
   });
 
   $effect(() => {
-      if (!authStore.statusLoaded) return;
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (!currentRoute.startsWith('/notifications') && !currentRoute.startsWith('/jobs')) return;
 
       const allowedRoute = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
@@ -166,12 +167,9 @@
   let evtSource: EventSource | null = $state(null);
   let reconnectAttempts = $state(0);
   let reconnectTimeout: number | null = $state(null);
-  let stalePruneInterval: number | null = $state(null);
-  let staleReclassifyPollInterval: number | null = $state(null);
-  let ownerChecksInterval: number | null = $state(null);
-  let analysisQueueInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
+  const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
   const ANALYSIS_QUEUE_POLL_MS = 5_000;
 
@@ -260,6 +258,41 @@
       logger
   });
 
+  $effect(() => {
+      if (!authStore.statusLoaded || authStore.statusHealthy) return;
+      const retryInterval = window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS);
+      return () => window.clearInterval(retryInterval);
+  });
+
+  $effect(() => {
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
+
+      void reclassifyRecovery.reconcile();
+      void liveUpdates.syncAnalysisQueueStatus();
+      void liveUpdates.runOwnerSystemChecks();
+
+      const ownerInterval = window.setInterval(() => {
+          void liveUpdates.runOwnerSystemChecks();
+      }, 60_000);
+      const analysisInterval = window.setInterval(() => {
+          void liveUpdates.syncAnalysisQueueStatus();
+      }, ANALYSIS_QUEUE_POLL_MS);
+      const staleInterval = window.setInterval(() => {
+          liveUpdates.pruneStaleProcessNotifications();
+          detectionsStore.pruneReclassifications();
+      }, 10_000);
+      const reclassifyInterval = window.setInterval(() => {
+          void reclassifyRecovery.reconcile();
+      }, STALE_RECLASSIFY_STATUS_POLL_MS);
+
+      return () => {
+          window.clearInterval(ownerInterval);
+          window.clearInterval(analysisInterval);
+          window.clearInterval(staleInterval);
+          window.clearInterval(reclassifyInterval);
+      };
+  });
+
   // Handle back button and initial load
   onMount(() => {
       (async () => {
@@ -339,30 +372,16 @@
           }
 
           await authStore.loadStatus();
-          const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
-          if (accessAdjustedPath !== currentRoute) {
-              currentRoute = accessAdjustedPath;
-              window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
+          if (authStore.statusHealthy) {
+              const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
+              if (accessAdjustedPath !== currentRoute) {
+                  currentRoute = accessAdjustedPath;
+                  window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
+              }
           }
           notificationCenter.hydrate();
           jobDiagnosticsStore.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
-          void reclassifyRecovery.reconcile();
-          await liveUpdates.syncAnalysisQueueStatus();
-          await liveUpdates.runOwnerSystemChecks();
-          ownerChecksInterval = window.setInterval(() => {
-              void liveUpdates.runOwnerSystemChecks();
-          }, 60_000);
-          analysisQueueInterval = window.setInterval(() => {
-              void liveUpdates.syncAnalysisQueueStatus();
-          }, ANALYSIS_QUEUE_POLL_MS);
-          stalePruneInterval = window.setInterval(() => {
-              liveUpdates.pruneStaleProcessNotifications();
-              detectionsStore.pruneReclassifications();
-          }, 10_000);
-          staleReclassifyPollInterval = window.setInterval(() => {
-              void reclassifyRecovery.reconcile();
-          }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -371,7 +390,7 @@
                   reconnectAttempts = 0; // Reset backoff when user returns to tab
                   scheduleReconnect();
               }
-              if (!document.hidden) {
+              if (!document.hidden && authStore.statusHealthy) {
                   void reclassifyRecovery.reconcile();
                   void liveUpdates.syncAnalysisQueueStatus();
                   refreshCoordinator.onVisibilityChange();
@@ -418,22 +437,6 @@
               if (reconnectTimeout) {
                   clearTimeout(reconnectTimeout);
                   reconnectTimeout = null;
-              }
-              if (stalePruneInterval) {
-                  clearInterval(stalePruneInterval);
-                  stalePruneInterval = null;
-              }
-              if (staleReclassifyPollInterval) {
-                  clearInterval(staleReclassifyPollInterval);
-                  staleReclassifyPollInterval = null;
-              }
-              if (ownerChecksInterval) {
-                  clearInterval(ownerChecksInterval);
-                  ownerChecksInterval = null;
-              }
-              if (analysisQueueInterval) {
-                  clearInterval(analysisQueueInterval);
-                  analysisQueueInterval = null;
               }
           };
       })();
@@ -579,34 +582,15 @@
   </a>
 
   {#if !authStore.statusLoaded}
-      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
-          <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {$_('auth.loading_status', { default: 'Loading authentication status...' })}
-          </div>
-      </div>
+      <BackendStatusScreen mode="loading" />
   {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
       <FirstRunWizard />
   {:else if !authStore.statusHealthy}
-      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
-          <div role="alert" class="w-full max-w-lg rounded-3xl border border-amber-200 bg-white/95 p-8 text-center shadow-lg dark:border-amber-700/70 dark:bg-slate-900/95">
-              <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-100">
-                  !
-              </div>
-              <h1 class="text-xl font-semibold text-slate-900 dark:text-amber-100">
-                  {$_('auth.status_unavailable_title', { default: 'Unable to reach the YA-WAMF backend.' })}
-              </h1>
-              <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                  {$_('auth.status_unavailable_desc', { default: 'If the container is still starting or restarting after model changes, wait a moment and retry.' })}
-              </p>
-              <button
-                  type="button"
-                  class="mt-6 inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-surface-900"
-                  onclick={() => void authStore.loadStatus()}
-              >
-                  {$_('common.retry', { default: 'Retry' })}
-              </button>
-          </div>
-      </div>
+      <BackendStatusScreen
+          mode="unavailable"
+          retrying={authStore.statusLoading}
+          onRetry={() => authStore.loadStatus()}
+      />
   {:else if requiresLogin}
       <Login />
   {:else}

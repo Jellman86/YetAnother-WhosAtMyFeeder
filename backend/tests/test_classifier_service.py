@@ -82,6 +82,12 @@ def force_in_process_mode():
         settings.classification.image_execution_mode = original_mode
 
 
+def test_runtime_benchmark_is_opt_in_by_default(monkeypatch):
+    monkeypatch.delenv("CLASSIFIER_RUNTIME_BENCHMARK_ENABLED", raising=False)
+
+    assert classifier_service_module._runtime_benchmark_enabled() is False
+
+
 def _stub_init_bird_model(self):
     self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
 

@@ -1152,9 +1152,17 @@
     "public_viewing_mode": "Public viewing mode",
     "continue_guest": "Continue as Guest",
     "secure_access": "YA-WAMF Secure Access",
-    "loading_status": "Loading authentication status...",
-    "status_unavailable_desc": "If the container is still starting or restarting after model changes, wait a moment and retry.",
-    "status_unavailable_title": "Unable to reach the YA-WAMF backend."
+    "loading_status": "Starting YA-WAMF",
+    "loading_status_desc": "Checking the service and your access settings before opening the feeder.",
+    "status_check_eyebrow": "Service connection",
+    "status_checking_badge": "Checking",
+    "status_unavailable_badge": "Not responding",
+    "status_unavailable_title": "YA-WAMF isn't responding yet",
+    "status_unavailable_desc": "The service may still be starting after an update or model change. Your feeder data is safe while it comes back online.",
+    "status_unavailable_auto_retry": "YA-WAMF checks again automatically every five seconds.",
+    "status_unavailable_help": "If it stays offline, check the container health and startup logs.",
+    "status_checking_again": "Checking again…",
+    "status_check_again": "Check again"
   },
   "status": {
     "audio_active": "Audio Analysis Active",

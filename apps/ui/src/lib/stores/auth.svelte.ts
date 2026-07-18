@@ -24,6 +24,7 @@ class AuthStore {
     username = $state<string | null>(null);
     statusLoaded = $state(false);
     statusHealthy = $state(false);
+    statusLoading = $state(false);
     token = $state(getAuthToken());
     httpsWarning = $state(false);
     forceLogin = $state(false);
@@ -69,7 +70,9 @@ class AuthStore {
         this.forceLogin = false;
     }
 
-    async loadStatus() {
+    async loadStatus(): Promise<void> {
+        if (this.statusLoading) return;
+        this.statusLoading = true;
         try {
             const status = await fetchAuthStatus();
             this.authRequired = status.auth_required;
@@ -116,6 +119,7 @@ class AuthStore {
         } finally {
             this.token = getAuthToken();
             this.statusLoaded = true;
+            this.statusLoading = false;
         }
     }
 

@@ -1152,9 +1152,17 @@
     "secure_access": "Acesso Seguro YA-WAMF",
     "public_view": "Visualização pública",
     "public_viewing_mode": "Modo de visualização pública",
-    "loading_status": "A carregar estado de autenticação…",
-    "status_unavailable_desc": "Se o contentor ainda está a iniciar ou a reiniciar após alterações de modelo, aguarda um momento e tenta novamente.",
-    "status_unavailable_title": "Não foi possível alcançar o backend do YA-WAMF."
+    "loading_status": "A iniciar o YA-WAMF",
+    "loading_status_desc": "A verificar o serviço e as definições de acesso antes de abrir o alimentador.",
+    "status_check_eyebrow": "Ligação ao serviço",
+    "status_checking_badge": "A verificar",
+    "status_unavailable_badge": "Sem resposta",
+    "status_unavailable_title": "O YA-WAMF ainda não está a responder",
+    "status_unavailable_desc": "O serviço pode ainda estar a iniciar após uma atualização ou mudança de modelo. Os dados do alimentador permanecem seguros enquanto volta a ficar online.",
+    "status_unavailable_auto_retry": "O YA-WAMF volta a verificar automaticamente a cada cinco segundos.",
+    "status_unavailable_help": "Se continuar offline, verifica o estado do contentor e os registos de arranque.",
+    "status_checking_again": "A verificar novamente…",
+    "status_check_again": "Verificar novamente"
   },
   "status": {
     "audio_active": "Análise de Áudio Ativa",

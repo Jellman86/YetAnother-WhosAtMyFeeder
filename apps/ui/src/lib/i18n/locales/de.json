@@ -1144,9 +1144,17 @@
     "secure_access": "YA-WAMF Sicherer Zugriff",
     "public_view": "Öffentliche Ansicht",
     "public_viewing_mode": "Öffentlicher Ansichtsmodus",
-    "loading_status": "Authentifizierungsstatus wird geladen…",
-    "status_unavailable_desc": "Falls der Container gerade startet oder nach Modelländerungen neu gestartet wird, kurz warten und erneut versuchen.",
-    "status_unavailable_title": "YA-WAMF-Backend nicht erreichbar."
+    "loading_status": "YA-WAMF wird gestartet",
+    "loading_status_desc": "Der Dienst und die Zugriffseinstellungen werden geprüft, bevor der Feeder geöffnet wird.",
+    "status_check_eyebrow": "Dienstverbindung",
+    "status_checking_badge": "Wird geprüft",
+    "status_unavailable_badge": "Keine Antwort",
+    "status_unavailable_title": "YA-WAMF antwortet noch nicht",
+    "status_unavailable_desc": "Der Dienst wird möglicherweise nach einem Update oder Modellwechsel noch gestartet. Die Feeder-Daten bleiben sicher, während er wieder online geht.",
+    "status_unavailable_auto_retry": "YA-WAMF prüft die Verbindung automatisch alle fünf Sekunden erneut.",
+    "status_unavailable_help": "Bleibt der Dienst offline, prüfe den Containerstatus und die Startprotokolle.",
+    "status_checking_again": "Erneute Prüfung…",
+    "status_check_again": "Erneut prüfen"
   },
   "status": {
     "audio_active": "Audio-Analyse aktiv",

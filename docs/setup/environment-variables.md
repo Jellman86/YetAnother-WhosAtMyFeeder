@@ -64,6 +64,7 @@ driven entirely from `docker-compose` with no clicking.
 | `CLASSIFICATION__INFERENCE_PROVIDER` | `auto` | `auto`, `cpu`, `cuda`, `intel_gpu`, `intel_cpu`, `intel_npu`. |
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
 | `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `in_process` | `in_process` (shared RAM) or `subprocess` (isolated). |
+| `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |

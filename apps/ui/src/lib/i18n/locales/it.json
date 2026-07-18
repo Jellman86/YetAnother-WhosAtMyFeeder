@@ -1152,9 +1152,17 @@
     "secure_access": "Accesso Sicuro YA-WAMF",
     "public_view": "Vista pubblica",
     "public_viewing_mode": "Modalità vista pubblica",
-    "loading_status": "Caricamento stato di autenticazione…",
-    "status_unavailable_desc": "Se il container è ancora in avvio o si sta riavviando dopo modifiche al modello, attendi un momento e riprova.",
-    "status_unavailable_title": "Impossibile raggiungere il backend YA-WAMF."
+    "loading_status": "Avvio di YA-WAMF",
+    "loading_status_desc": "Verifica del servizio e delle impostazioni di accesso prima di aprire la mangiatoia.",
+    "status_check_eyebrow": "Connessione al servizio",
+    "status_checking_badge": "Verifica in corso",
+    "status_unavailable_badge": "Nessuna risposta",
+    "status_unavailable_title": "YA-WAMF non risponde ancora",
+    "status_unavailable_desc": "Il servizio potrebbe essere ancora in avvio dopo un aggiornamento o un cambio di modello. I dati della mangiatoia restano al sicuro mentre torna online.",
+    "status_unavailable_auto_retry": "YA-WAMF ricontrolla automaticamente la connessione ogni cinque secondi.",
+    "status_unavailable_help": "Se resta offline, controlla lo stato del container e i log di avvio.",
+    "status_checking_again": "Nuova verifica…",
+    "status_check_again": "Controlla di nuovo"
   },
   "status": {
     "audio_active": "Analisi Audio Attiva",

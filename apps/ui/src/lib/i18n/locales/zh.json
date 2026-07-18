@@ -1144,9 +1144,17 @@
     "secure_access": "YA-WAMF 安全访问",
     "public_view": "公开视图",
     "public_viewing_mode": "公开浏览模式",
-    "loading_status": "正在加载身份验证状态…",
-    "status_unavailable_desc": "如果容器仍在启动,或在更改模型后正在重启,请稍候再试。",
-    "status_unavailable_title": "无法连接到 YA-WAMF 后端。"
+    "loading_status": "正在启动 YA-WAMF",
+    "loading_status_desc": "正在检查服务和访问设置，随后将打开喂食器。",
+    "status_check_eyebrow": "服务连接",
+    "status_checking_badge": "正在检查",
+    "status_unavailable_badge": "暂无响应",
+    "status_unavailable_title": "YA-WAMF 暂时没有响应",
+    "status_unavailable_desc": "更新或更换模型后，服务可能仍在启动。恢复在线期间，喂食器数据会保持安全。",
+    "status_unavailable_auto_retry": "YA-WAMF 每五秒自动重新检查一次。",
+    "status_unavailable_help": "如果仍然离线，请检查容器健康状态和启动日志。",
+    "status_checking_again": "正在重新检查…",
+    "status_check_again": "重新检查"
   },
   "status": {
     "audio_active": "音频分析活跃",

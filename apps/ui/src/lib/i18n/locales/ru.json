@@ -1152,9 +1152,17 @@
     "secure_access": "YA-WAMF Безопасный доступ",
     "public_view": "Публичный просмотр",
     "public_viewing_mode": "Режим публичного просмотра",
-    "loading_status": "Загрузка статуса аутентификации…",
-    "status_unavailable_desc": "Если контейнер всё ещё запускается или перезапускается после смены модели, подождите немного и повторите попытку.",
-    "status_unavailable_title": "Не удалось связаться с бэкендом YA-WAMF."
+    "loading_status": "Запуск YA-WAMF",
+    "loading_status_desc": "Проверяем сервис и параметры доступа перед открытием кормушки.",
+    "status_check_eyebrow": "Подключение к сервису",
+    "status_checking_badge": "Проверка",
+    "status_unavailable_badge": "Нет ответа",
+    "status_unavailable_title": "YA-WAMF пока не отвечает",
+    "status_unavailable_desc": "Возможно, сервис ещё запускается после обновления или смены модели. Данные кормушки останутся в безопасности, пока он возвращается в сеть.",
+    "status_unavailable_auto_retry": "YA-WAMF автоматически повторяет проверку каждые пять секунд.",
+    "status_unavailable_help": "Если сервис остаётся офлайн, проверьте состояние контейнера и журналы запуска.",
+    "status_checking_again": "Повторная проверка…",
+    "status_check_again": "Проверить снова"
   },
   "status": {
     "audio_active": "Аудиоанализ активен",

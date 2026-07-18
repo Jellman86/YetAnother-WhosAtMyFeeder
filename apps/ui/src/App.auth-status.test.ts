@@ -9,16 +9,19 @@ describe('App auth status failure handling', () => {
 
     it('renders a backend-unavailable state before the login view', () => {
         expect(appSource).toContain('{:else if !authStore.statusHealthy}');
-        expect(appSource).toContain("Unable to reach the YA-WAMF backend.");
-        expect(appSource).toContain("If the container is still starting or restarting after model changes, wait a moment and retry.");
-        expect(appSource).toContain("onclick={() => void authStore.loadStatus()}");
+        expect(appSource).toContain('<BackendStatusScreen');
+        expect(appSource).toContain("mode=\"unavailable\"");
+        expect(appSource).toContain('retrying={authStore.statusLoading}');
+        expect(appSource).toContain('onRetry={() => authStore.loadStatus()}');
     });
 
-    it('uses valid themed classes for the backend-unavailable error surface', () => {
-        expect(appSource).not.toContain('bg-surface-50');
-        expect(appSource).not.toContain('dark:bg-surface-900');
-        expect(appSource).toContain('role="alert"');
-        expect(appSource).toContain('dark:bg-slate-900/95');
-        expect(appSource).toContain('dark:text-amber-100');
+    it('retries status automatically without starting operational polling while offline', () => {
+        expect(appSource).toContain('const BACKEND_STATUS_RETRY_MS = 5_000;');
+        expect(appSource).toContain('if (!authStore.statusLoaded || authStore.statusHealthy) return;');
+        expect(appSource).toContain('window.setInterval(() => void authStore.loadStatus(), BACKEND_STATUS_RETRY_MS)');
+        expect(appSource).toContain('if (!authStore.statusLoaded || !authStore.statusHealthy) return;');
+        expect(appSource).toContain('void liveUpdates.runOwnerSystemChecks();');
+        expect(appSource).toContain('if (!document.hidden && authStore.statusHealthy)');
+        expect(appSource).toContain('if (authStore.statusHealthy) {\n              const accessAdjustedPath');
     });
 });

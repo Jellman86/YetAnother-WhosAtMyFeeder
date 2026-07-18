@@ -17,6 +17,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The service-unavailable screen now belongs to the current application.** The legacy warning card
+  is replaced by the same restrained teal, typography, spacing, and application identity used by
+  first-run setup. It explains that feeder data remains safe, checks recovery automatically every
+  five seconds, shows progress on manual checks, and gives the operator a useful container-health
+  next step. Operational polling now waits for a healthy backend instead of multiplying a startup
+  outage into repeated failing requests.
 - **High-quality snapshots now mean the best crop the system can produce.** Settings exposes one
   outcome-oriented control instead of separate HQ-frame and crop switches, with a compact detector
   readiness note. For each candidate frame, YA-WAMF evaluates Frigate's tracked-object crop and the
@@ -85,6 +91,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   linked from the configuration guide and docs index.
 
 ### Fixed
+- **Optional runtime benchmarking can no longer strand application readiness by default.** The
+  synthetic accelerated-versus-CPU comparison is now opt-in through
+  `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED`; model activation validation, accelerator self-tests, and
+  runtime health fallback remain active. This prevents a slow OpenVINO CPU baseline probe from
+  holding Uvicorn before it can serve `/health` or the API.
 - **High-quality crop generation recovers from real detector misses and restarts.** The accurate
   detector now retries with the fast tier after no-candidate, low-confidence, too-small, invalid-box,
   or inference-failure outcomes—not only when its model file is unavailable. A bounded background
