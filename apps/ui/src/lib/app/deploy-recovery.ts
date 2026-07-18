@@ -33,15 +33,35 @@ function normalizeString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-/**
- * Strip SemVer build metadata (the `+...` suffix) for comparison.
- * Per SemVer 2.0.0 §10, build metadata MUST be ignored when determining
- * precedence. Without this, every dev rebuild (which rewrites the git-hash
- * suffix) triggered a false deploy_refresh_required prompt.
- */
 function stripBuildMetadata(version: string): string {
     const plusIdx = version.indexOf('+');
     return plusIdx >= 0 ? version.slice(0, plusIdx) : version;
+}
+
+function getBuildMetadata(version: string): string {
+    const plusIdx = version.indexOf('+');
+    return plusIdx >= 0 ? version.slice(plusIdx + 1).trim().toLowerCase() : '';
+}
+
+function hasConcreteBuildMetadata(version: string): boolean {
+    const metadata = getBuildMetadata(version);
+    return metadata.length > 0 && metadata !== 'unknown';
+}
+
+/**
+ * SemVer build metadata does not affect release precedence, but YA-WAMF's Git
+ * suffix identifies the deployed frontend bundle. Two concrete, different
+ * suffixes therefore mean an open tab is running stale code. Local/unknown
+ * builds fall back to the SemVer identity to avoid reload loops in development.
+ */
+function isSameDeployment(appVersion: string, backendVersion: string): boolean {
+    if (stripBuildMetadata(appVersion) !== stripBuildMetadata(backendVersion)) {
+        return false;
+    }
+    if (hasConcreteBuildMetadata(appVersion) && hasConcreteBuildMetadata(backendVersion)) {
+        return appVersion === backendVersion;
+    }
+    return true;
 }
 
 function collectErrorText(input: unknown): string {
@@ -117,7 +137,7 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
         observeHealth(health: HealthLike | null | undefined): DeployRecoveryAction {
             const backendVersion = normalizeString(health?.version);
             if (!appVersion || !backendVersion || backendVersion === 'unknown') return 'ignore';
-            if (stripBuildMetadata(backendVersion) === stripBuildMetadata(appVersion)) {
+            if (isSameDeployment(appVersion, backendVersion)) {
                 if (getStoredAttempt() === attemptSignature) {
                     setStoredAttempt('');
                 }

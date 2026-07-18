@@ -46,7 +46,7 @@
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
-  import { createSingleFlightRunner } from './lib/app/single-flight';
+  import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './lib/app/single-flight';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
@@ -176,6 +176,8 @@
   const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
   const ANALYSIS_QUEUE_POLL_MS = 5_000;
+  const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
+  const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
@@ -268,8 +270,14 @@
   });
 
   const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
-  const syncAnalysisQueueStatusOnce = createSingleFlightRunner(() => liveUpdates.syncAnalysisQueueStatus());
-  const runOwnerSystemChecksOnce = createSingleFlightRunner(() => liveUpdates.runOwnerSystemChecks());
+  const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner(
+      () => liveUpdates.syncAnalysisQueueStatus(),
+      ANALYSIS_QUEUE_POLL_COOLDOWN_MS
+  );
+  const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner(
+      () => liveUpdates.runOwnerSystemChecks(),
+      OWNER_SYSTEM_CHECK_COOLDOWN_MS
+  );
 
   $effect(() => {
       if (!authStore.statusLoaded || authStore.statusHealthy) return;

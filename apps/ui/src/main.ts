@@ -40,7 +40,10 @@ try {
 if (import.meta.env.PROD && !APP_BASE_PATH && 'serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const serviceWorkerBuild = encodeURIComponent(__APP_VERSION__);
+      const registration = await navigator.serviceWorker.register(`/sw.js?v=${serviceWorkerBuild}`, {
+        updateViaCache: 'none'
+      });
 
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -65,6 +68,11 @@ if (import.meta.env.PROD && !APP_BASE_PATH && 'serviceWorker' in navigator) {
           }
         });
       });
+
+      // Safari can otherwise retain a worker across multiple dev deployments.
+      // An explicit uncached check makes every newly loaded tab converge on the
+      // worker associated with its exact frontend build.
+      await registration.update();
     } catch {
       // Ignore service worker registration failures
     }

@@ -28,7 +28,13 @@ describe('App auth status failure handling', () => {
     it('does not let operational polling subscribe to the reactive job state it updates', () => {
         expect(appSource).toContain("import { onMount, untrack } from 'svelte';");
         expect(appSource).toContain('return untrack(startOperationalPolling);');
-        expect(appSource).toContain('const syncAnalysisQueueStatusOnce = createSingleFlightRunner');
-        expect(appSource).toContain('const runOwnerSystemChecksOnce = createSingleFlightRunner');
+        expect(appSource).toContain('const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner');
+        expect(appSource).toContain('const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner');
+    });
+
+    it('rate-limits authenticated polling even if its lifecycle is retriggered', () => {
+        expect(appSource).toContain('createCooldownSingleFlightRunner');
+        expect(appSource).toContain('ANALYSIS_QUEUE_POLL_COOLDOWN_MS');
+        expect(appSource).toContain('OWNER_SYSTEM_CHECK_COOLDOWN_MS');
     });
 });

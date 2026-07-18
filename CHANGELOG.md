@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- **Authenticated tabs now converge safely after every dev deployment.** YA-WAMF compares the
+  concrete frontend and backend Git identities instead of ignoring build metadata, registers the
+  service worker against the exact build with uncached update checks, and rate-limits operational
+  polls even if their lifecycle is retriggered. Existing `2.12.0` tabs are forced onto `2.12.1`,
+  preventing stale owner sessions from flooding health and diagnostics endpoints and progressively
+  slowing the interface.
+
 ### Added
 - **Guided model install with on-hardware validation and device auto-tuning.** Setting up a
   classifier is now one guided wizard: **download** (with live progress in the dialog) → **run on

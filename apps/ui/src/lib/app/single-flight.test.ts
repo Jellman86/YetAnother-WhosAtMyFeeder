@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSingleFlightRunner } from './single-flight';
+import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './single-flight';
 
 describe('createSingleFlightRunner', () => {
     it('shares one in-flight task across concurrent triggers', async () => {
@@ -39,5 +39,37 @@ describe('createSingleFlightRunner', () => {
         await expect(run()).resolves.toBeUndefined();
 
         expect(task).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('createCooldownSingleFlightRunner', () => {
+    it('suppresses settled retriggers until the cooldown expires', async () => {
+        let now = 1_000;
+        const task = vi.fn().mockResolvedValue(undefined);
+        const run = createCooldownSingleFlightRunner(task, 5_000, () => now);
+
+        await run();
+        now = 1_250;
+        await run();
+        now = 6_000;
+        await run();
+
+        expect(task).toHaveBeenCalledTimes(2);
+    });
+
+    it('still shares an active task during the cooldown window', async () => {
+        let resolveTask!: () => void;
+        const task = vi.fn(() => new Promise<void>((resolve) => {
+            resolveTask = resolve;
+        }));
+        const run = createCooldownSingleFlightRunner(task, 5_000, () => 1_000);
+
+        const first = run();
+        const second = run();
+
+        expect(second).toBe(first);
+        expect(task).toHaveBeenCalledTimes(1);
+        resolveTask();
+        await first;
     });
 });
