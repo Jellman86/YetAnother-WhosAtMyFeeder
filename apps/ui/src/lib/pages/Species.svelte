@@ -521,6 +521,7 @@
     }
 
     let heroInfo = $derived(summaryEnabled && topByCount ? getCachedSpeciesInfo(topByCount.species) : null);
+    let heroPortraitInfo = $derived(topByCount ? getCachedSpeciesInfo(topByCount.species) : null);
     let heroBlurb = $derived(getHeroBlurb(heroInfo));
     let heroSource = $derived(getHeroSource(heroInfo));
     function spanLabel(): string {
@@ -1458,28 +1459,42 @@
                         </svg>
                         {$_('leaderboard.featured')}
                     </div>
-                    <h3 class="mt-4 text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">{topByCount?.displayName || '—'}</h3>
-                    {#if topByCount?.subName}
-                        <p class="mt-1 text-sm italic text-slate-500 dark:text-slate-400">{topByCount.subName}</p>
-                    {/if}
-                    {#if heroBlurb}
-                        <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{heroBlurb}</p>
-                    {/if}
-                    <div class="mt-5 flex flex-wrap items-center gap-3">
-                        <button
-                            type="button"
-                            onclick={() => topByCount && (selectedSpecies = topByCount.species)}
-                            class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400"
+                    <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
+                        <span
+                            data-leaderboard-species-portrait
+                            class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white/90 bg-white/70 text-teal-500 shadow-md ring-1 ring-teal-200 dark:border-slate-800 dark:bg-slate-800 dark:text-teal-300 dark:ring-teal-700"
                         >
-                            {$_('leaderboard.view_details')}
-                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                        </button>
-                        {#if heroSource}
-                            <a href={heroSource.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-teal-700 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-teal-300">
-                                {heroSource.source === 'wikipedia' ? $_('actions.read_more_wikipedia') : $_('actions.read_more_source', { values: { source: $_('common.source_inaturalist', { default: 'iNaturalist' }) } })}
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6m0-6L10 14m-1-8H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
-                            </a>
-                        {/if}
+                            {#if heroPortraitInfo?.thumbnail_url}
+                                <img src={heroPortraitInfo.thumbnail_url} alt="" class="h-full w-full object-cover" />
+                            {:else}
+                                <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg>
+                            {/if}
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">{topByCount?.displayName || '—'}</h3>
+                            {#if topByCount?.subName}
+                                <p class="mt-1 text-sm italic text-slate-500 dark:text-slate-400">{topByCount.subName}</p>
+                            {/if}
+                            {#if heroBlurb}
+                                <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{heroBlurb}</p>
+                            {/if}
+                            <div class="mt-5 flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onclick={() => topByCount && (selectedSpecies = topByCount.species)}
+                                    class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400"
+                                >
+                                    {$_('leaderboard.view_details')}
+                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                                </button>
+                                {#if heroSource}
+                                    <a href={heroSource.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-teal-700 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-teal-300">
+                                        {heroSource.source === 'wikipedia' ? $_('actions.read_more_wikipedia') : $_('actions.read_more_source', { values: { source: $_('common.source_inaturalist', { default: 'iNaturalist' }) } })}
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6m0-6L10 14m-1-8H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
+                                    </a>
+                                {/if}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <dl class="grid grid-cols-2 border-t border-teal-200/70 bg-white/40 dark:border-teal-800/50 dark:bg-slate-950/15 lg:grid-cols-1 lg:border-l lg:border-t-0">
@@ -1533,7 +1548,7 @@
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold {index < 3 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
-                        <span class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                        <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-teal-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-teal-800">
                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                 <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
                             {:else}
@@ -1579,7 +1594,7 @@
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
-                                        <span class="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                                        <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-teal-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-teal-800">
                                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg></span>{/if}
                                         </span>
                                         <span class="min-w-0"><span class="flex items-center gap-2"><span class="block truncate font-semibold text-slate-900 group-hover:text-teal-700 dark:text-white dark:group-hover:text-teal-300">{item.displayName}</span>{#if item.audio_only}<svg class="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-label={$_('leaderboard.audio_only', { default: 'Audio only' })}><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0m7 7v4m-4 0h8M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5z" /></svg>{/if}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>

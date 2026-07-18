@@ -40,6 +40,11 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-teal-500');
     });
 
+    it('uses round species portraits throughout the ranking surface', () => {
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(3);
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(3);
+    });
+
     it('exposes toggle state and table headings to assistive technology', () => {
         expect(leaderboardSource).toContain("aria-pressed={span === 'month'}");
         expect(leaderboardSource).toContain("aria-pressed={sourceMode === 'seen'}");

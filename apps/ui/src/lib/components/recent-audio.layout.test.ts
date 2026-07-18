@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import recentAudioSource from './RecentAudio.svelte?raw';
 
 describe('RecentAudio dashboard widget layout', () => {
-    it('requests enough detections to fill the dashboard card', () => {
-        expect(recentAudioSource).toContain('const RECENT_AUDIO_LIMIT = 10;');
+    it('keeps the dashboard preview concise and links onward to history', () => {
+        expect(recentAudioSource).toContain('const RECENT_AUDIO_LIMIT = 4;');
         expect(recentAudioSource).toContain('fetchRecentAudio(RECENT_AUDIO_LIMIT)');
-        expect(recentAudioSource).not.toContain('fetchRecentAudio(5)');
+        expect(recentAudioSource).toContain("onNavigate?.('/audio')");
     });
 
     it('renders spectrograms as images instead of CSS backgrounds', () => {

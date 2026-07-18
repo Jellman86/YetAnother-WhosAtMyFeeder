@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The Dashboard is now a calm live observation desk.** A single first-run-inspired overview
+  replaces the row of repeated metric cards, the newest camera visitor stays the visual anchor, and
+  activity plus BirdNET-Go detections form a compact supporting rail instead of competing panels.
+  Top visitors are a ranked, touch-friendly field list with circular species recognition portraits,
+  while the separate discovery cards remain only where each detection is genuinely interactive.
+  The Leaderboard now uses the same circular portraits in its featured record and both ranking
+  layouts, keeping species recognition consistent across the application.
 - **The service-unavailable screen now belongs to the current application.** The legacy warning card
   is replaced by the same restrained teal, typography, spacing, and application identity used by
   first-run setup. It explains that feeder data remains safe, checks recovery automatically every

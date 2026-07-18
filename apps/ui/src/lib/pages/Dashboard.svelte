@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fade, fly } from 'svelte/transition';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -358,88 +357,97 @@
     }
 </script>
 
-<div class="space-y-8">
-    <!-- Stats Ribbon -->
+<div class="space-y-10">
+    <!-- Live overview -->
     {#if summary || detectionsStore.totalToday > 0}
-        <div in:fly={{ y: -20, duration: 500 }}>
-            <StatsRibbon
-                todayCount={last24hCount}
-                uniqueSpecies={last24hSpecies}
-                mostSeenSpecies={mostSeenName}
-                mostSeenCount={summary?.top_species[0]?.count ?? 0}
-                {audioConfirmations}
-                topVisitorImageUrl={topSpeciesInfo?.thumbnail_url ?? null}
-            />
-        </div>
+        <StatsRibbon
+            todayCount={last24hCount}
+            uniqueSpecies={last24hSpecies}
+            mostSeenSpecies={mostSeenName}
+            mostSeenCount={summary?.top_species[0]?.count ?? 0}
+            {audioConfirmations}
+            topVisitorImageUrl={topSpeciesInfo?.thumbnail_url ?? null}
+        />
     {:else if summaryLoading}
-        <div class="h-20 rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
+        <div class="h-40 animate-pulse rounded-3xl border border-slate-200/60 bg-slate-100/80 dark:border-slate-700/60 dark:bg-slate-800/60"></div>
     {/if}
 
-    <!-- Top Row: Hero & Histogram -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div class="lg:col-span-7 h-full">
+    <!-- Observation desk: the latest camera visitor is the anchor; supporting telemetry stays compact. -->
+    <section
+        data-dashboard-observation-desk
+        class="grid grid-cols-1 items-stretch gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]"
+    >
+        <div class="min-h-[420px] xl:min-h-[610px]">
             {#if heroDetection}
                 {#key heroDetection.frigate_event}
-                    <div in:fly={{ y: 20, duration: 500 }} class="h-full">
-                        <LatestDetectionHero 
-                            detection={heroDetection} 
+                    <div class="h-full">
+                        <LatestDetectionHero
+                            detection={heroDetection}
                             onclick={() => selectedEvent = heroDetection}
                             hideProgress={selectedEvent?.frigate_event === heroDetection.frigate_event}
                         />
                     </div>
                 {/key}
             {:else}
-                <div class="h-full min-h-[320px] card-base rounded-3xl flex items-center justify-center border-2 border-dashed border-slate-200/80 dark:border-slate-700/60">
-                    <p class="text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
+                <div class="flex h-full min-h-[420px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200/80 bg-white/35 px-6 text-center dark:border-slate-700/60 dark:bg-slate-900/20">
+                    <div>
+                        <svg class="mx-auto mb-3 h-9 w-9 text-teal-600 dark:text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /><path stroke-linecap="round" d="M16.5 8.5 20 7l-2.2 3" /></svg>
+                        <p class="font-medium text-slate-500 dark:text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
+                    </div>
                 </div>
             {/if}
         </div>
-        <div class="lg:col-span-5 flex flex-col gap-6 h-full">
+        <aside class="flex h-full flex-col gap-8 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
             {#if summary}
-                <div in:fade={{ duration: 800 }}>
-                    <DailyHistogram data={summary.hourly_distribution} />
-                </div>
+                <DailyHistogram data={summary.hourly_distribution} />
             {:else if summaryLoading}
-                <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
+                <div class="min-h-[210px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
             {/if}
             {#if birdnetEnabled}
-                <div in:fade={{ duration: 800, delay: 200 }} class="flex-1 min-h-[300px]">
+                <div class="min-h-[320px] flex-1">
                     <RecentAudio onNavigate={onnavigate} />
                 </div>
             {/if}
-        </div>
-    </div>
+        </aside>
+    </section>
 
-    <!-- Middle Row: Top Visitors -->
-    {#if summary && summary.top_species.length > 0}
-        <div in:fade={{ duration: 500, delay: 200 }}>
-            <TopVisitors 
-                species={summary.top_species} 
+    <section data-dashboard-top-visitors>
+        {#if summary && summary.top_species.length > 0}
+            <TopVisitors
+                species={summary.top_species}
                 onSpeciesClick={handleSpeciesSummaryClick}
             />
-        </div>
-    {:else if summaryLoading}
-        <div class="min-h-[200px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
-    {/if}
+        {:else if summaryLoading}
+            <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
+        {/if}
+    </section>
 
-    <!-- Bottom Row: Recent Feed -->
-    <div class="space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/50 pb-3">
+    <!-- Discovery cards remain separate because each detection is an interactive object. -->
+    <section data-dashboard-discovery-feed class="space-y-6">
+        <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-4 dark:border-slate-700/50">
             <div class="flex items-center gap-3">
-                <h2 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{$_('dashboard.discovery_feed')}</h2>
-                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-2.5 py-0.5 rounded-full border border-slate-200/60 dark:border-slate-700/50">{$_('dashboard.showing_last_3_days')}</span>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300" aria-hidden="true">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
+                </span>
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.discovery_feed')}</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.showing_last_3_days')}</p>
+                </div>
             </div>
-            <button onclick={() => onnavigate?.('/events')} class="text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">{$_('dashboard.see_full_history')}</button>
-        </div>
+            <button onclick={() => onnavigate?.('/events')} class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-teal-300 dark:hover:bg-teal-950/40">
+                {$_('dashboard.see_full_history')}
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            </button>
+        </header>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {#if detectionsStore.detections.length > 0}
                 {#each visibleFeedDetections as detection, index (detection.frigate_event || detection.id)}
-                    <div in:fly={{ y: 20, duration: 400 }}>
-                        <DetectionCard 
-                            {detection} 
+                    <div>
+                        <DetectionCard
+                            {detection}
                             {index}
-                            onclick={() => selectedEvent = detection} 
+                            onclick={() => selectedEvent = detection}
                             onPlay={() => {
                                 videoEventId = detection.frigate_event;
                                 videoPlayIntent = 'user';
@@ -459,17 +467,17 @@
                     <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
                 {/each}
             {:else}
-                <div class="col-span-full py-12 flex flex-col items-center justify-center text-center bg-white/50 dark:bg-slate-800/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700/50">
-                    <div class="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-slate-400 dark:text-slate-500">
-                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="col-span-full flex flex-col items-center justify-center border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700/50">
+                    <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                    <p class="text-slate-500 dark:text-slate-400 font-medium">{$_('dashboard.no_detections')}</p>
+                    <p class="font-medium text-slate-500 dark:text-slate-400">{$_('dashboard.no_detections')}</p>
                 </div>
             {/if}
         </div>
-    </div>
+    </section>
 </div>
 
 <!-- Event Detail Modal -->

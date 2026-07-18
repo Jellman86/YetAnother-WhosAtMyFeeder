@@ -121,7 +121,12 @@
     role="button"
     tabindex="0"
     onclick={onclick}
-    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onclick?.()}
+    onkeydown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onclick?.();
+        }
+    }}
     class="relative w-full h-[360px] sm:h-full rounded-3xl overflow-hidden group shadow-lg border-4 border-white dark:border-slate-800 text-left cursor-pointer focus:outline-none focus:ring-4 focus:ring-teal-500/30 transition-all"
 >
     <!-- Reclassification Overlay -->
@@ -147,26 +152,23 @@
             <!-- Badge row: time, confidence, audio -->
             <div class="flex flex-wrap items-center gap-2 mb-2">
                 <!-- Time badge with optional live pulse -->
-                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-teal-700 text-white text-[10px] font-bold uppercase tracking-widest rounded-md">
+                <span class="inline-flex items-center gap-1.5 rounded-md bg-teal-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                     {#if isFresh}
-                        <span class="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-300 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-200"></span>
-                        </span>
+                        <span class="h-2 w-2 shrink-0 rounded-full bg-teal-200" aria-hidden="true"></span>
                     {/if}
                     {getRelativeTime(detection.detection_time, $_)}
                 </span>
 
                 <!-- Confidence pill -->
                 {#if currentClassificationSource !== 'manual' && hasScore}
-                    <span class="px-2 py-0.5 {confidencePillClass} text-[10px] font-bold uppercase tracking-widest rounded-md">
+                    <span class="rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide {confidencePillClass}">
                         {confidencePct}% {$_('dashboard.hero.conf')}
                     </span>
                 {/if}
 
                 <!-- Audio badge -->
                 {#if hasAudioSignal}
-                    <span class="px-2 py-0.5 {detection.audio_confirmed ? 'bg-blue-500' : 'bg-slate-500'} text-white text-[10px] font-bold uppercase tracking-widest rounded-md flex items-center gap-1">
+                    <span class="flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white {detection.audio_confirmed ? 'bg-blue-500' : 'bg-slate-500'}">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
@@ -216,14 +218,22 @@
              The thumbnail container is always rendered at fixed size so the overlay
              height doesn't change when the async image URL resolves. -->
         <div class="flex flex-col items-end gap-2 self-end sm:self-auto shrink-0">
-            <div class="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-2xl" title={primaryName}>
+            <div
+                data-dashboard-hero-species-portrait
+                class="h-14 w-14 flex-shrink-0 rounded-full sm:h-16 sm:w-16"
+                title={primaryName}
+            >
                 {#if speciesThumbnailUrl}
-                    <div class="w-full h-full overflow-hidden rounded-2xl border-2 border-white/30 shadow-lg shadow-black/40 ring-1 ring-black/10">
+                    <div class="h-full w-full overflow-hidden rounded-full border-2 border-white/40 shadow-lg shadow-black/40 ring-1 ring-black/10">
                         <img
                             src={speciesThumbnailUrl}
-                            alt={primaryName}
-                            class="w-full h-full object-cover"
+                            alt=""
+                            class="h-full w-full object-cover"
                         />
+                    </div>
+                {:else}
+                    <div class="flex h-full w-full items-center justify-center rounded-full border-2 border-white/35 bg-black/20 text-white/75 shadow-lg ring-1 ring-black/10" aria-hidden="true">
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16c2.5-1.5 3.5-4 3.5-7.5 2.2 2.7 5.2 3.8 9 3.2-1.2 3.8-4.2 6.3-8.1 6.3H7l-2 2v-4z" /></svg>
                     </div>
                 {/if}
             </div>
