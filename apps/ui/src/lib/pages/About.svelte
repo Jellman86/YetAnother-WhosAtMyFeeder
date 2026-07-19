@@ -267,7 +267,7 @@
 <div class="max-w-7xl mx-auto space-y-8">
     {#snippet sectionHead(id: string, iconPath: string, title: string)}
         <div class="flex items-center gap-3">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" aria-hidden="true">
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d={iconPath} /></svg>
             </span>
             <h2 {id} class="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
@@ -289,7 +289,7 @@
                 href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-mono hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                class="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 font-mono shadow-sm transition-colors hover:border-brand-300/60 hover:text-brand-700 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-300"
                 title={$_('about.view_changelog')}
             >
                 v{versionInfo.base_version}
@@ -314,7 +314,7 @@
                     href={action.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
+                    class="btn btn-secondary px-2.5 py-1.5 text-xs"
                 >
                     {action.label}
                 </a>
@@ -323,7 +323,7 @@
                 href={repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-1.5 rounded-md border border-amber-400/80 bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-950 shadow-sm transition-colors hover:border-amber-500 hover:bg-amber-200 dark:border-amber-300/70 dark:bg-amber-200 dark:text-amber-950 dark:hover:bg-amber-100"
+                class="btn border border-amber-400/80 bg-amber-100 px-2.5 py-1.5 text-xs text-amber-950 shadow-sm hover:border-amber-500 hover:bg-amber-200 dark:border-amber-300/70 dark:bg-amber-200 dark:text-amber-950 dark:hover:bg-amber-100"
                 aria-label={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
                 title={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
             >
@@ -341,7 +341,7 @@
             {#each sectionLinks as section}
                 <a
                     href={`#${section.id}`}
-                    class="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-brand-500 dark:hover:text-brand-300"
+                    class="rounded-full border border-slate-200/80 px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-brand-300/60 hover:text-brand-700 dark:border-slate-700/60 dark:text-slate-300 dark:hover:text-brand-300"
                 >
                     {section.label}
                 </a>
@@ -371,7 +371,7 @@
                     <div class="space-y-3">
                         {#each column as step}
                             <div class="flex items-start gap-3">
-                                <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-700 dark:text-brand-300 font-bold">{step}</div>
+                                <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 font-bold text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300">{step}</div>
                                 <div>
                                     <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
                                     <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
@@ -391,7 +391,7 @@
             {#each features as feature}
                 <div class="card-base p-4">
                     <div class="flex items-start gap-3">
-                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-base">
+                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-base dark:border-brand-800 dark:bg-brand-950/40">
                             {feature.icon}
                         </span>
                         <div class="space-y-1">
@@ -440,9 +440,9 @@
                     href={resource.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
+                    class="group flex items-center gap-3 rounded-xl border border-slate-200/80 p-3 transition-all hover:border-brand-300/60 hover:bg-slate-50/80 dark:border-slate-700/60 dark:hover:bg-slate-800/70"
                 >
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300">
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path d={resource.iconPath} />
                         </svg>

@@ -31,6 +31,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   polls even if their lifecycle is retriggered. Existing `2.12.0` tabs are forced onto `2.12.1`,
   preventing stale owner sessions from flooding health and diagnostics endpoints and progressively
   slowing the interface.
+- **The About page now matches the rest of the refreshed interface.** Its section, feature, step and
+  resource icons use the same bordered, tinted chip as the Leaderboard and Species pages instead of
+  a flat wash that nearly disappeared against the dark background, and its links and buttons now come
+  from the shared button kit rather than hand-rolled styling, so their corner radius, surface and
+  hover colour match every other page and follow the active colour theme.
 
 ### Added
 - **Guided model install with on-hardware validation and device auto-tuning.** Setting up a
@@ -43,6 +48,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **A fresh install now opens in dark mode** instead of following the operating system setting, so
+  the interface matches the shipped bluetit and classic-typography defaults out of the box. Anyone
+  who has already chosen a theme keeps their choice, and Light / Dark / System remain available under
+  Settings → Appearance.
 - **Live camera status is now honest, lightweight, and useful before the viewer opens.** The header
   polls Frigate's stats feed through a normalized owner-only YA-WAMF endpoint instead of treating
   unfetched preview images as failed cameras: green means every camera is live, amber means a mixed

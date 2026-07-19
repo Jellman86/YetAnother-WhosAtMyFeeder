@@ -18,7 +18,9 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Accent tokens. Utilities use brand-* (primary) and accent-* (secondary);
    the active colour theme swaps these values, so the whole app follows it.
-   Default theme = teal + emerald. Bluetit theme = blue + amber.
+   The :root values below are teal + emerald; the bluetit theme is blue + amber.
+   Bluetit is what a new install actually gets — the shipped defaults live in
+   stores/theme.svelte.ts (bluetit + the classic font pairing + dark).
    ═══════════════════════════════════════════════════════════════════════ */
 :root {
   --brand-50: 240 253 250;  --brand-100: 204 251 241; --brand-200: 153 246 228;
