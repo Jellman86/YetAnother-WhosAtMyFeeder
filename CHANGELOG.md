@@ -48,6 +48,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **Python lint and formatting now cover every tracked Python path, enforced in CI.** `ruff check`
+  and `ruff format --check` previously ran only against `backend/` and `custom_components/yawamf/`,
+  leaving `scripts/` and `tests/` unchecked; both now run repo-wide from the repository root, so a
+  new top-level Python directory is covered automatically rather than silently skipped. The nine
+  bare `except:` clauses this exposed in the Playwright end-to-end suite now catch the specific
+  Playwright errors they were meant to tolerate, so a real failure surfaces instead of being
+  swallowed by a fallback path. Remaining unused imports, empty f-strings, unused locals, a lambda
+  assignment, and one-line conditionals in `scripts/` and `tests/` are cleared, and those files are
+  formatted to the repo style.
 - **A fresh install now opens in dark mode** instead of following the operating system setting, so
   the interface matches the shipped bluetit and classic-typography defaults out of the box. Anyone
   who has already chosen a theme keeps their choice, and Light / Dark / System remain available under

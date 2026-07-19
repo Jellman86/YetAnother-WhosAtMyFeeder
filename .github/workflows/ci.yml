@@ -38,10 +38,10 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Python lint
-        run: python -m ruff check backend custom_components/yawamf
+        run: python -m ruff check .
 
       - name: Python format
-        run: python -m ruff format --check backend custom_components/yawamf
+        run: python -m ruff format --check .
 
       - name: Migration smoke test
         run: |
