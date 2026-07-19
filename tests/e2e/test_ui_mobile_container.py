@@ -1,5 +1,4 @@
 import pytest
-import os
 from playwright.sync_api import sync_playwright
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS

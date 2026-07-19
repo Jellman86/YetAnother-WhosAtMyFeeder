@@ -59,7 +59,7 @@ def test_leaderboard_inspect():
                 names.append(rows.nth(i).locator("td").nth(1).inner_text().split("\n")[0].strip())
             return names
 
-        initial_names = top_rows_snapshot()
+        print(f"Initial top rows: {top_rows_snapshot()}")
 
         for label in ["Total", "Day", "Week", "Month"]:
             page.locator("button.tab-button", has_text=label).first.click()

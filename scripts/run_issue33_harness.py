@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from dataclasses import asdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -1628,12 +1628,14 @@ def main() -> int:
                 f"({len(replay_seed_events)} seed event(s), camera={args.frigate_camera})"
             )
         else:
-            frigate_payload_factory = lambda seq: base_soak._build_frigate_payload(
-                event_id=f"issue33-{run_label}-r0-{seq}",
-                camera=args.frigate_camera,
-                event_type=args.frigate_event_type,
-                false_positive=args.frigate_false_positive,
-            )
+
+            def frigate_payload_factory(seq):
+                return base_soak._build_frigate_payload(
+                    event_id=f"issue33-{run_label}-r0-{seq}",
+                    camera=args.frigate_camera,
+                    event_type=args.frigate_event_type,
+                    false_positive=args.frigate_false_positive,
+                )
 
     def _start_frigate_publishers(current_stop_event: threading.Event) -> list[threading.Thread]:
         started_threads: list[threading.Thread] = []

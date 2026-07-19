@@ -242,7 +242,7 @@ class TestClassifierService:
                 service = ClassifierService()
 
                 # Call classify_video
-                result = service.classify_video("/tmp/test.mp4", max_frames=5)
+                service.classify_video("/tmp/test.mp4", max_frames=5)
 
                 # Verify release() was called (memory leak fix)
                 mock_cap.release.assert_called_once()

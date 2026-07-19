@@ -1,4 +1,6 @@
 import pytest
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
@@ -42,7 +44,7 @@ def test_full_system_ui(page):
 
     try:
         page.wait_for_load_state("networkidle", timeout=5000)
-    except:
+    except PlaywrightTimeoutError:
         print("Network idle timeout, continuing...")
     
     # 1. Verify Title
@@ -66,7 +68,7 @@ def test_full_system_ui(page):
     # Note: In mobile view it might be different, but we set viewport to 1280x720 (Desktop)
     try:
         page.get_by_role("button", name="Explorer").click()
-    except:
+    except PlaywrightError:
         # Fallback if it's a link or different role
         page.get_by_text("Explorer").click()
         
@@ -83,7 +85,7 @@ def test_full_system_ui(page):
     print("\n[3] Navigating to Leaderboard...")
     try:
         page.get_by_role("button", name="Leaderboard").click()
-    except:
+    except PlaywrightError:
         page.get_by_text("Leaderboard").click()
         
     page.wait_for_load_state("domcontentloaded")
@@ -97,7 +99,7 @@ def test_full_system_ui(page):
     print("\n[4] Navigating to Settings...")
     try:
         page.get_by_role("button", name="Settings").click()
-    except:
+    except PlaywrightError:
         page.get_by_text("Settings").click()
         
     page.wait_for_load_state("domcontentloaded")

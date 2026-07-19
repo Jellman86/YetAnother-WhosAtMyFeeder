@@ -1,4 +1,5 @@
 import pytest
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 import time
 
@@ -41,7 +42,7 @@ def test_sidebar_collapse_layout(page):
     # Click Appearance tab
     try:
         page.get_by_role("button", name="Appearance").click()
-    except:
+    except PlaywrightError:
         page.get_by_text("Appearance").click()
         
     # Wait for tab content

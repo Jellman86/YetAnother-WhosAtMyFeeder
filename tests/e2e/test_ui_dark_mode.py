@@ -1,5 +1,5 @@
-import os
 import pytest
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
@@ -79,7 +79,7 @@ def test_dark_mode_ui(page):
     print("\n[2] Navigating to Events...")
     try:
         page.get_by_role("button", name="Explorer").click()
-    except:
+    except PlaywrightError:
         page.get_by_text("Explorer").click()
         
     page.wait_for_url("**/events")

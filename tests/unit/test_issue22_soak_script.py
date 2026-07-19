@@ -5,7 +5,6 @@ import threading
 import time
 from pathlib import Path
 
-import pytest
 
 
 SCRIPT_PATH = Path('/config/workspace/YA-WAMF/scripts/run_issue22_soak.py')

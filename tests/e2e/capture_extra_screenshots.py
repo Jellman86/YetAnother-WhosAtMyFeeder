@@ -1,4 +1,4 @@
-import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 import time
 import os
@@ -80,7 +80,7 @@ def capture_extra_screenshots():
                     screenshot_path = os.path.join(DOCS_IMG_DIR, "species_details_modal.png")
                     page.screenshot(path=screenshot_path)
                     print(f" - Saved to {screenshot_path}")
-                except:
+                except PlaywrightTimeoutError:
                     print(" [WARNING] Species modal did not appear or timed out.")
             else:
                  print(" [WARNING] No species cards found.")

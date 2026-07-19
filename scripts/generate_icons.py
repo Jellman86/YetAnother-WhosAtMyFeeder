@@ -32,7 +32,7 @@ def generate_icons(source_path, target_dir):
     # Generate ICO
     ico_path = os.path.join(target_dir, "favicon.ico")
     img.resize((32, 32), Image.Resampling.LANCZOS).save(ico_path, format="ICO", sizes=[(32, 32)])
-    print(f"Generated favicon.ico")
+    print("Generated favicon.ico")
 
 if __name__ == "__main__":
     source = "/config/workspace/YA-WAMF/agents/ChatGPT Image Feb 23, 2026, 06_51_04 P-trimM.png"

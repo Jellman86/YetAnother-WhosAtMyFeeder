@@ -57,15 +57,19 @@ def test_ui_comprehensive(page):
     def get_theme_toggle():
         # Try Desktop Sidebar (Text)
         btn = page.get_by_text("Dark Mode", exact=True)
-        if btn.is_visible(): return btn
+        if btn.is_visible():
+            return btn
         btn = page.get_by_text("Light Mode", exact=True)
-        if btn.is_visible(): return btn
+        if btn.is_visible():
+            return btn
         # Try Collapsed Sidebar (Title)
         btn = page.get_by_title(re.compile(r"Switch to (dark|light) mode", re.I))
-        if btn.is_visible(): return btn
+        if btn.is_visible():
+            return btn
         # Try Mobile Header
         btn = page.locator(".md\\:hidden button").first
-        if btn.is_visible(): return btn
+        if btn.is_visible():
+            return btn
         return None
 
     toggle_btn = get_theme_toggle()

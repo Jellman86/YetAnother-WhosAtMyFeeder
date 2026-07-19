@@ -47,7 +47,7 @@ def run():
                 };
             }
         """)
-        print(f"\n[4] Page state check:")
+        print("\n[4] Page state check:")
         print(f"  Settings element exists: {settings_loaded['settingsElementExists']}")
         print(f"  Body text preview: {settings_loaded['bodyText'][:100]}")
 
