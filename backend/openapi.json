@@ -5203,6 +5203,83 @@
         "title": "FocusedDiagnosticsResponse",
         "type": "object"
       },
+      "FrigateCameraStatusItem": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "camera_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Fps"
+          },
+          "detection_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Fps"
+          },
+          "process_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Fps"
+          },
+          "status": {
+            "enum": [
+              "online",
+              "offline",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "camera",
+          "status"
+        ],
+        "title": "FrigateCameraStatusItem",
+        "type": "object"
+      },
+      "FrigateCameraStatusResponse": {
+        "properties": {
+          "cameras": {
+            "items": {
+              "$ref": "#/components/schemas/FrigateCameraStatusItem"
+            },
+            "title": "Cameras",
+            "type": "array"
+          },
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cameras",
+          "checked_at"
+        ],
+        "title": "FrigateCameraStatusResponse",
+        "type": "object"
+      },
       "FrigateTestResponse": {
         "properties": {
           "frigate_url": {
@@ -17216,6 +17293,36 @@
           }
         ],
         "summary": "Proxy Latest Camera Snapshot"
+      }
+    },
+    "/api/frigate/cameras/status": {
+      "get": {
+        "description": "Return lightweight per-camera health derived from Frigate's stats feed.",
+        "operationId": "get_frigate_camera_status_api_frigate_cameras_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrigateCameraStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Frigate Camera Status"
       }
     },
     "/api/frigate/config": {

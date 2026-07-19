@@ -2175,18 +2175,29 @@
     "sidebar_label": "Actualización disponible"
   },
   "header": {
+    "cameras_all_offline": "Todas las cámaras están sin conexión",
+    "cameras_all_online": "Todas las cámaras están en línea",
+    "cameras_checking": "Comprobando cámaras…",
     "cameras_empty": "No hay cámaras configuradas. Añade cámaras en Ajustes → Conexión.",
+    "cameras_frame_alt": "Última imagen de {camera}",
+    "cameras_frame_unavailable": "Imagen no disponible",
     "cameras_label": "Estado de cámaras",
+    "cameras_next": "Cámara siguiente",
     "cameras_no_frame": "Sin fotograma",
     "cameras_none": "Sin cámaras configuradas",
     "cameras_online": "cámaras en línea",
+    "cameras_previous": "Cámara anterior",
+    "cameras_retry": "Reintentar",
     "cameras_role_feeder": "Comedero",
     "cameras_role_feeder_help": "Cámara de comedero — cada evento de Frigate es una visita nueva.",
     "cameras_role_nest": "Nido",
     "cameras_role_nest_help": "Cámara de caja nido — las detecciones repetidas se agrupan dentro de la ventana configurada.",
-    "cameras_status_offline": "Sin fotograma reciente",
+    "cameras_some_online": "Algunas cámaras requieren atención",
+    "cameras_status_offline": "Sin conexión",
     "cameras_status_online": "En línea",
-    "cameras_title": "Cámaras"
+    "cameras_status_unavailable": "Estado de las cámaras no disponible",
+    "cameras_title": "Cámaras",
+    "cameras_viewer": "Visor de cámaras en directo"
   },
   "page_subtitle": {
     "audio_history": "Explora las detecciones persistentes de BirdNET-Go y la actividad solo de audio.",

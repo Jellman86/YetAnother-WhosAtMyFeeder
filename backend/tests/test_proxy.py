@@ -310,6 +310,87 @@ async def test_latest_camera_snapshot_allows_owner_and_disables_caching(client: 
 
 
 @pytest.mark.asyncio
+async def test_camera_status_requires_owner_when_public_access_is_enabled(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    try:
+        with patch("app.routers.proxy.frigate_client.get", new_callable=AsyncMock) as mock_get:
+            response = await client.get("/api/frigate/cameras/status")
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Owner privileges required for this operation"
+        mock_get.assert_not_awaited()
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_camera_status_normalizes_frigate_stats_defensively(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    token = create_access_token("owner", AuthLevel.OWNER)
+
+    upstream = MagicMock()
+    upstream.raise_for_status = MagicMock()
+    upstream.json = MagicMock(
+        return_value={
+            "cameras": {
+                "front_feeder": {"camera_fps": 5.0, "process_fps": "4.8", "detection_fps": 2},
+                "nest_box": {"camera_fps": 0, "process_fps": 0, "detection_fps": 0},
+                "garage": {"camera_fps": None, "process_fps": "not-a-number"},
+                "invalid camera": {"camera_fps": 5},
+            }
+        }
+    )
+
+    try:
+        with patch("app.routers.proxy.frigate_client.get", new_callable=AsyncMock, return_value=upstream) as mock_get:
+            response = await client.get(
+                "/api/frigate/cameras/status",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store, max-age=0"
+        body = response.json()
+        assert [item["camera"] for item in body["cameras"]] == ["front_feeder", "nest_box", "garage"]
+        assert body["cameras"] == [
+            {
+                "camera": "front_feeder",
+                "status": "online",
+                "camera_fps": 5.0,
+                "process_fps": 4.8,
+                "detection_fps": 2.0,
+            },
+            {
+                "camera": "nest_box",
+                "status": "offline",
+                "camera_fps": 0.0,
+                "process_fps": 0.0,
+                "detection_fps": 0.0,
+            },
+            {
+                "camera": "garage",
+                "status": "unknown",
+                "camera_fps": None,
+                "process_fps": None,
+                "detection_fps": None,
+            },
+        ]
+        assert body["checked_at"].endswith("+00:00")
+        mock_get.assert_awaited_once_with("api/stats", timeout=10.0)
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
 async def test_proxy_recording_clip_allows_valid_share_token_without_auth(
     client: httpx.AsyncClient, mock_frigate_response
 ):

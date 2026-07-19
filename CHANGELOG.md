@@ -43,6 +43,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **Live camera status is now honest, lightweight, and useful before the viewer opens.** The header
+  polls Frigate's stats feed through a normalized owner-only YA-WAMF endpoint instead of treating
+  unfetched preview images as failed cameras: green means every camera is live, amber means a mixed
+  result, red means every known camera is offline, and a neutral state covers checking or unavailable
+  status. The preview is now one edge-to-edge camera surface with an overlaid name/status pill,
+  touch-sized previous/next controls, keyboard navigation, click-outside/Escape dismissal, and
+  infinite wrapping. Only the selected camera frame is fetched while the viewer is open, and hidden
+  tabs suspend both health and frame work.
 - **The Dashboard and About pages read more consistently.** The Dashboard overview no longer
   repeats the page title and subtitle inside its own card — it now leads with a "Last 24 hours"
   section header and a live indicator. The About page adopts the same calm section-header language

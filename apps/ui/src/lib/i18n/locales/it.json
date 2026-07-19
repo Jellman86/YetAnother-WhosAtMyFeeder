@@ -2175,18 +2175,29 @@
     "sidebar_label": "Aggiornamento disponibile"
   },
   "header": {
+    "cameras_all_offline": "Tutte le telecamere sono offline",
+    "cameras_all_online": "Tutte le telecamere sono online",
+    "cameras_checking": "Verifica delle telecamere…",
     "cameras_empty": "Nessuna telecamera configurata. Aggiungi telecamere in Impostazioni → Connessione.",
+    "cameras_frame_alt": "Ultimo fotogramma da {camera}",
+    "cameras_frame_unavailable": "Fotogramma non disponibile",
     "cameras_label": "Stato telecamere",
+    "cameras_next": "Telecamera successiva",
     "cameras_no_frame": "Nessun fotogramma",
     "cameras_none": "Nessuna telecamera configurata",
     "cameras_online": "telecamere online",
+    "cameras_previous": "Telecamera precedente",
+    "cameras_retry": "Riprova",
     "cameras_role_feeder": "Mangiatoia",
     "cameras_role_feeder_help": "Telecamera mangiatoia — ogni evento Frigate è una nuova visita.",
     "cameras_role_nest": "Nido",
     "cameras_role_nest_help": "Telecamera per nido — i rilevamenti ripetuti vengono deduplicati entro la finestra configurata.",
-    "cameras_status_offline": "Nessun fotogramma recente",
+    "cameras_some_online": "Alcune telecamere richiedono attenzione",
+    "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
-    "cameras_title": "Telecamere"
+    "cameras_status_unavailable": "Stato delle telecamere non disponibile",
+    "cameras_title": "Telecamere",
+    "cameras_viewer": "Visualizzatore live delle telecamere"
   },
   "page_subtitle": {
     "audio_history": "Sfoglia i rilevamenti BirdNET-Go salvati e l'attività solo audio.",

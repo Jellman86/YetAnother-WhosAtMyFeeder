@@ -2203,18 +2203,29 @@
     "stack_trace": "Stack trace:"
   },
   "header": {
+    "cameras_all_offline": "All cameras offline",
+    "cameras_all_online": "All cameras online",
+    "cameras_checking": "Checking cameras…",
     "cameras_empty": "No cameras configured. Add cameras in Settings → Connection.",
+    "cameras_frame_alt": "Latest frame from {camera}",
+    "cameras_frame_unavailable": "Frame unavailable",
     "cameras_label": "Camera status",
+    "cameras_next": "Next camera",
     "cameras_no_frame": "No frame",
     "cameras_none": "No cameras configured",
     "cameras_online": "cameras online",
+    "cameras_previous": "Previous camera",
+    "cameras_retry": "Retry",
     "cameras_role_feeder": "Feeder",
     "cameras_role_feeder_help": "Feeder cam — every Frigate event is a fresh visit.",
     "cameras_role_nest": "Nest",
     "cameras_role_nest_help": "Nest box cam — repeat detections deduped within the configured window.",
-    "cameras_status_offline": "No recent frame",
+    "cameras_some_online": "Some cameras need attention",
+    "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
-    "cameras_title": "Cameras"
+    "cameras_status_unavailable": "Camera status unavailable",
+    "cameras_title": "Cameras",
+    "cameras_viewer": "Live camera viewer"
   },
   "page_subtitle": {
     "about": "Version, changelog, contributors, and support links.",

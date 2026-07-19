@@ -114,6 +114,7 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/frigate/{event_id}/thumbnail.jpg`
 - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
+- `GET /api/frigate/cameras/status` (owner; normalized camera health from Frigate stats, never cached)
 - `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
 - `GET /api/frigate/test`
 - `GET /api/frigate/config`

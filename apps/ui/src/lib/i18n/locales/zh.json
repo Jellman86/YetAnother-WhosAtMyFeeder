@@ -2172,18 +2172,29 @@
     "sidebar_label": "有可用更新"
   },
   "header": {
+    "cameras_all_offline": "所有摄像头均已离线",
+    "cameras_all_online": "所有摄像头均在线",
+    "cameras_checking": "正在检查摄像头…",
     "cameras_empty": "尚未配置摄像头。请在 设置 → 连接 中添加。",
+    "cameras_frame_alt": "{camera} 的最新画面",
+    "cameras_frame_unavailable": "画面不可用",
     "cameras_label": "摄像头状态",
+    "cameras_next": "下一个摄像头",
     "cameras_no_frame": "无画面",
     "cameras_none": "尚未配置摄像头",
     "cameras_online": "台摄像头在线",
+    "cameras_previous": "上一个摄像头",
+    "cameras_retry": "重试",
     "cameras_role_feeder": "喂食器",
     "cameras_role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问。",
     "cameras_role_nest": "巢箱",
     "cameras_role_nest_help": "巢箱摄像头 — 在配置的时间窗口内合并重复检测。",
-    "cameras_status_offline": "没有最近的画面",
+    "cameras_some_online": "部分摄像头需要检查",
+    "cameras_status_offline": "离线",
     "cameras_status_online": "在线",
-    "cameras_title": "摄像头"
+    "cameras_status_unavailable": "无法获取摄像头状态",
+    "cameras_title": "摄像头",
+    "cameras_viewer": "实时摄像头查看器"
   },
   "page_subtitle": {
     "audio_history": "浏览已保存的 BirdNET-Go 检测和纯音频活动。",

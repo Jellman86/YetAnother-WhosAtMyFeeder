@@ -760,6 +760,17 @@ export interface components {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
 };
+    FrigateCameraStatusItem: {
+    camera: string;
+    camera_fps?: number | null;
+    detection_fps?: number | null;
+    process_fps?: number | null;
+    status: "online" | "offline" | "unknown";
+};
+    FrigateCameraStatusResponse: {
+    cameras: Array<components['schemas']['FrigateCameraStatusItem']>;
+    checked_at: string;
+};
     FrigateTestResponse: {
     frigate_url: string;
     status: string;
@@ -2504,6 +2515,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/frigate/cameras/status": {
+    get: {
+      operationId: "get_frigate_camera_status_api_frigate_cameras_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['FrigateCameraStatusResponse'];
     };
   };
   "/api/frigate/config": {

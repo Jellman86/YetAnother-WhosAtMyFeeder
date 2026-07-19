@@ -2175,18 +2175,29 @@
     "sidebar_label": "Доступно обновление"
   },
   "header": {
+    "cameras_all_offline": "Все камеры не в сети",
+    "cameras_all_online": "Все камеры в сети",
+    "cameras_checking": "Проверка камер…",
     "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Подключение.",
+    "cameras_frame_alt": "Последний кадр с камеры {camera}",
+    "cameras_frame_unavailable": "Кадр недоступен",
     "cameras_label": "Состояние камер",
+    "cameras_next": "Следующая камера",
     "cameras_no_frame": "Нет кадра",
     "cameras_none": "Камеры не настроены",
     "cameras_online": "камер в сети",
+    "cameras_previous": "Предыдущая камера",
+    "cameras_retry": "Повторить",
     "cameras_role_feeder": "Кормушка",
     "cameras_role_feeder_help": "Камера у кормушки — каждое событие Frigate — это новый визит.",
     "cameras_role_nest": "Гнездо",
     "cameras_role_nest_help": "Камера у гнездового домика — повторные обнаружения объединяются в заданном окне.",
-    "cameras_status_offline": "Нет недавнего кадра",
+    "cameras_some_online": "Некоторые камеры требуют внимания",
+    "cameras_status_offline": "Не в сети",
     "cameras_status_online": "В сети",
-    "cameras_title": "Камеры"
+    "cameras_status_unavailable": "Состояние камер недоступно",
+    "cameras_title": "Камеры",
+    "cameras_viewer": "Просмотр камер в реальном времени"
   },
   "page_subtitle": {
     "audio_history": "Просматривайте сохранённые обнаружения BirdNET-Go и активность только по аудио.",

@@ -59,6 +59,17 @@ export async function fetchLatestCameraSnapshot(camera: string, signal?: AbortSi
     return response.blob();
 }
 
+export type CameraStatusResponse = paths['/api/frigate/cameras/status']['get']['response'];
+
+export async function fetchCameraStatuses(signal?: AbortSignal): Promise<CameraStatusResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/cameras/status`, {
+        cache: 'no-store',
+        signal,
+        timeoutMs: 10_000
+    });
+    return handleResponse<CameraStatusResponse>(response);
+}
+
 export type VideoShareCreateResponse = paths['/api/video-share']['post']['response'];
 
 export type VideoShareInfoResponse = paths['/api/video-share/{event_id}']['get']['response'];

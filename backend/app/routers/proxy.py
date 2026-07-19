@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import re
 import hashlib
 import weakref
@@ -435,6 +436,19 @@ class FrigateTestResponse(BaseModel):
     status: str
     frigate_url: str
     version: str
+
+
+class FrigateCameraStatusItem(BaseModel):
+    camera: str
+    status: Literal["online", "offline", "unknown"]
+    camera_fps: float | None = None
+    process_fps: float | None = None
+    detection_fps: float | None = None
+
+
+class FrigateCameraStatusResponse(BaseModel):
+    cameras: list[FrigateCameraStatusItem]
+    checked_at: str
 
 
 class RecordingClipCapabilityResponse(BaseModel):
@@ -1593,6 +1607,76 @@ async def proxy_latest_camera_snapshot(
             status_code=502,
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
         )
+
+
+def _finite_camera_metric(value: object) -> float | None:
+    """Return a finite Frigate camera metric without trusting its JSON shape."""
+    if isinstance(value, bool):
+        return None
+    try:
+        metric = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return metric if math.isfinite(metric) and metric >= 0 else None
+
+
+@router.get("/frigate/cameras/status", response_model=FrigateCameraStatusResponse)
+async def get_frigate_camera_status(
+    request: Request,
+    response: Response,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Return lightweight per-camera health derived from Frigate's stats feed."""
+    lang = get_user_language(request)
+    try:
+        resp = await frigate_client.get("api/stats", timeout=10.0)
+        resp.raise_for_status()
+        payload = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=exc.response.status_code),
+        )
+    except (httpx.RequestError, json.JSONDecodeError, ValueError, TypeError):
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+        )
+
+    raw_cameras = payload.get("cameras") if isinstance(payload, dict) else None
+    camera_items: list[FrigateCameraStatusItem] = []
+    if isinstance(raw_cameras, dict):
+        for camera, raw_metrics in raw_cameras.items():
+            if not isinstance(camera, str) or not validate_camera_name(camera):
+                continue
+            metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
+            camera_fps = _finite_camera_metric(metrics.get("camera_fps"))
+            process_fps = _finite_camera_metric(metrics.get("process_fps"))
+            detection_fps = _finite_camera_metric(metrics.get("detection_fps"))
+            status: Literal["online", "offline", "unknown"]
+            if camera_fps is None:
+                status = "unknown"
+            elif camera_fps > 0:
+                status = "online"
+            else:
+                status = "offline"
+            camera_items.append(
+                FrigateCameraStatusItem(
+                    camera=camera,
+                    status=status,
+                    camera_fps=camera_fps,
+                    process_fps=process_fps,
+                    detection_fps=detection_fps,
+                )
+            )
+
+    response.headers.update(SNAPSHOT_NO_STORE_HEADERS)
+    return FrigateCameraStatusResponse(
+        cameras=camera_items,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
 
 
 @router.head("/frigate/{event_id}/clip.mp4")

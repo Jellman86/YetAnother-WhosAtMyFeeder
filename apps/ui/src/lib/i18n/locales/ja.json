@@ -2172,18 +2172,29 @@
     "sidebar_label": "更新があります"
   },
   "header": {
+    "cameras_all_offline": "すべてのカメラがオフラインです",
+    "cameras_all_online": "すべてのカメラがオンラインです",
+    "cameras_checking": "カメラを確認中…",
     "cameras_empty": "カメラが構成されていません。設定 → 接続 でカメラを追加してください。",
+    "cameras_frame_alt": "{camera} の最新フレーム",
+    "cameras_frame_unavailable": "フレームを取得できません",
     "cameras_label": "カメラの状態",
+    "cameras_next": "次のカメラ",
     "cameras_no_frame": "フレームなし",
     "cameras_none": "カメラが構成されていません",
     "cameras_online": "台のカメラがオンライン",
+    "cameras_previous": "前のカメラ",
+    "cameras_retry": "再試行",
     "cameras_role_feeder": "給餌台",
     "cameras_role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます。",
     "cameras_role_nest": "巣箱",
     "cameras_role_nest_help": "巣箱カメラ — 設定したウィンドウ内では重複した検出をまとめます。",
-    "cameras_status_offline": "最近のフレームなし",
+    "cameras_some_online": "一部のカメラを確認してください",
+    "cameras_status_offline": "オフライン",
     "cameras_status_online": "オンライン",
-    "cameras_title": "カメラ"
+    "cameras_status_unavailable": "カメラの状態を取得できません",
+    "cameras_title": "カメラ",
+    "cameras_viewer": "ライブカメラビューアー"
   },
   "page_subtitle": {
     "audio_history": "保存された BirdNET-Go の検出と音声のみのアクティビティを閲覧します。",

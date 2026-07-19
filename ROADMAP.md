@@ -156,7 +156,9 @@ ignore superseded responses, portrait enrichment has bounded concurrency and mem
 detection startup is single-flight, and full-visit checks no longer accumulate recurring timers or
 unbounded per-event state while browsing history. Dashboard audio, Settings maintenance status, and
 model-download status refreshes are also bounded against hidden tabs, stalled requests, overlapping
-ticks, and navigation cleanup.
+ticks, and navigation cleanup. Camera health now comes from one lightweight Frigate stats poll rather
+than image success, while its looping viewer fetches only the selected camera and pauses when closed
+or hidden.
 The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
 
 #### File-by-file code-quality review 🔬
