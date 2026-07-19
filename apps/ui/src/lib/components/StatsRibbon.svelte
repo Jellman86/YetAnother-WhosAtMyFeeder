@@ -32,14 +32,11 @@
 
                 </svg>
             </span>
-            <div>
-                <h1 class="font-display text-2xl font-bold tracking-tight text-slate-950 dark:text-white">{$_('dashboard.title')}</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('page_subtitle.dashboard')}</p>
-            </div>
+            <h2 class="font-display text-lg font-bold tracking-tight text-slate-950 dark:text-white">{$_('dashboard.histogram.last_24h')}</h2>
         </div>
-        <span class="inline-flex w-fit items-center gap-2 rounded-full border border-brand-200/80 bg-white/70 px-3 py-1.5 text-xs font-semibold text-brand-800 dark:border-brand-800/70 dark:bg-slate-900/60 dark:text-brand-200">
-            <span class="h-2 w-2 rounded-full bg-brand-500" aria-hidden="true"></span>
-            {$_('dashboard.histogram.last_24h')}
+        <span class="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200/80 bg-white/70 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800/70 dark:bg-slate-900/60 dark:text-emerald-300">
+            <span class="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
+            {$_('dashboard.live_feed')}
         </span>
     </header>
 

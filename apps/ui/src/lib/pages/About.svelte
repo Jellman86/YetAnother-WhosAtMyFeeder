@@ -144,10 +144,20 @@
     let techStack = $derived([
         { category: $_('about.tech.backend'), items: ['Python 3.12', 'FastAPI', 'SQLite', 'Alembic'] },
         { category: $_('about.tech.frontend'), items: ['Svelte 5', 'TypeScript', 'Tailwind CSS', 'Vite'] },
-        { category: $_('about.tech.ml'), items: ['ONNX Runtime', 'TensorFlow Lite', 'OpenCV'] },
+        { category: $_('about.tech.ml'), items: ['ONNX Runtime', 'OpenVINO', 'TensorFlow Lite', 'OpenCV'] },
         { category: $_('about.tech.messaging'), items: ['MQTT (aiomqtt)', 'Server-Sent Events'] },
         { category: $_('about.tech.deployment'), items: ['Docker', 'Docker Compose', 'Nginx'] }
     ]);
+
+    // Line icons for the calm section headers (match the refreshed pages' language).
+    const sectionIcon = {
+        project: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+        workflow: 'M13 10V3L4 14h7v7l9-11h-7z',
+        features: 'M5 4h6v6H5zM13 4h6v6h-6zM5 12h6v8H5zM13 14h6v6h-6z',
+        stack: 'M12 3 3 7.5 12 12l9-4.5L12 3zM3 12l9 4.5L21 12M3 16.5 12 21l9-4.5',
+        docs: 'M9 13h6m-6 4h4M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+        credits: 'M12 21s-7.5-4.6-10-9.5A5 5 0 0 1 12 6a5 5 0 0 1 10 5.5C19.5 16.4 12 21 12 21z'
+    };
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
     let docsRefBranch = $derived(
@@ -255,6 +265,15 @@
 </script>
 
 <div class="max-w-7xl mx-auto space-y-8">
+    {#snippet sectionHead(id: string, iconPath: string, title: string)}
+        <div class="flex items-center gap-3">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d={iconPath} /></svg>
+            </span>
+            <h2 {id} class="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
+        </div>
+    {/snippet}
+
     <!-- Tagline + version + quick links (PageHeader supplies the page title and icon cluster) -->
     <header class="text-center space-y-4">
         <img
@@ -316,7 +335,7 @@
 
     <nav aria-label={$_('about.jump_to')} class="card-base p-4">
         <div class="flex flex-wrap items-center justify-center gap-2">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {$_('about.jump_to')}
             </span>
             {#each sectionLinks as section}
@@ -332,7 +351,7 @@
 
     <!-- About the Project -->
     <section id="about-project" aria-labelledby="about-project-heading" class="card-base p-6 space-y-4">
-        <h2 id="about-project-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.title')}</h2>
+        {@render sectionHead('about-project-heading', sectionIcon.project, $_('about.title'))}
         <div class="space-y-3 text-slate-700 dark:text-slate-300">
             <p>
                 {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>{projectDescription.after}
@@ -345,7 +364,7 @@
 
     <!-- How It Works -->
     <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base p-6 space-y-4">
-        <h2 id="about-workflow-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.how_it_works')}</h2>
+        {@render sectionHead('about-workflow-heading', sectionIcon.workflow, $_('about.how_it_works'))}
         <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {#each stepColumns as column}
@@ -367,19 +386,19 @@
 
     <!-- Features Grid -->
     <section id="about-features" aria-labelledby="about-features-heading" class="space-y-4">
-        <h2 id="about-features-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.features')}</h2>
+        {@render sectionHead('about-features-heading', sectionIcon.features, $_('about.features'))}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each features as feature}
-                <div class="card-base p-4 hover:shadow-card-hover transition-shadow duration-200">
+                <div class="card-base p-4">
                     <div class="flex items-start gap-3">
-                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-100/60 text-base dark:bg-brand-900/30">
+                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-base">
                             {feature.icon}
                         </span>
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
                                 <h3 class="font-semibold text-slate-900 dark:text-white text-sm">{feature.title}</h3>
                                 {#if feature.badge}
-                                    <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200">
+                                    <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200">
                                         {feature.badge}
                                     </span>
                                 {/if}
@@ -394,7 +413,7 @@
 
     <!-- Tech Stack -->
     <section id="about-stack" aria-labelledby="about-stack-heading" class="card-base p-6 space-y-4">
-        <h2 id="about-stack-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.tech_stack')}</h2>
+        {@render sectionHead('about-stack-heading', sectionIcon.stack, $_('about.tech_stack'))}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each techStack as stack}
                 <div class="space-y-2">
@@ -414,7 +433,7 @@
 
     <!-- Documentation & Links -->
     <section id="about-docs" aria-labelledby="about-docs-heading" class="card-base p-6 space-y-4">
-        <h2 id="about-docs-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.docs_resources')}</h2>
+        {@render sectionHead('about-docs-heading', sectionIcon.docs, $_('about.docs_resources'))}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             {#each resourceLinks as resource}
                 <a
@@ -439,7 +458,7 @@
 
     <!-- Credits -->
     <section id="about-credits" aria-labelledby="about-credits-heading" class="card-base p-6 space-y-4">
-        <h2 id="about-credits-heading" class="text-2xl font-bold text-slate-900 dark:text-white">{$_('about.credits')}</h2>
+        {@render sectionHead('about-credits-heading', sectionIcon.credits, $_('about.credits'))}
         <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
             <p>{$_('about.credits_list.preamble')}</p>
             <ul class="list-disc list-inside space-y-1 ml-4">

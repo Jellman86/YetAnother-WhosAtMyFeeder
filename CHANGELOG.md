@@ -43,6 +43,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
 
 ### Changed
+- **The Dashboard and About pages read more consistently.** The Dashboard overview no longer
+  repeats the page title and subtitle inside its own card — it now leads with a "Last 24 hours"
+  section header and a live indicator. The About page adopts the same calm section-header language
+  used across the refreshed pages (a tinted accent icon beside each heading), quiets its feature
+  badges and jump-links, and lists OpenVINO in the machine-learning stack alongside ONNX Runtime.
 - **The interface leans harder on one calm teal identity.** Decorative accent colours that had
   drifted into the leaderboard (a violet, cyan, and sky section flourish) are folded back into the
   teal palette, while colours that actually carry meaning — chart-series keys, the temperature /
