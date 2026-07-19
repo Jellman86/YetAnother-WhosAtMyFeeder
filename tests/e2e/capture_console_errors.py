@@ -2,6 +2,7 @@
 """
 Capture browser console messages and page errors for a given URL.
 """
+
 import argparse
 import json
 import os
@@ -44,9 +45,7 @@ def run(url: str, output: str, wait_seconds: float) -> None:
             results["console"].append(entry)
 
         def on_pageerror(err):
-            results["pageerrors"].append(
-                {"timestamp": utc_now_iso(), "message": str(err)}
-            )
+            results["pageerrors"].append({"timestamp": utc_now_iso(), "message": str(err)})
 
         page.on("console", on_console)
         page.on("pageerror", on_pageerror)
@@ -57,11 +56,7 @@ def run(url: str, output: str, wait_seconds: float) -> None:
 
         browser.close()
 
-    results["console_errors"] = [
-        entry
-        for entry in results["console"]
-        if entry.get("type") in {"error", "warning"}
-    ]
+    results["console_errors"] = [entry for entry in results["console"] if entry.get("type") in {"error", "warning"}]
 
     with open(output, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)

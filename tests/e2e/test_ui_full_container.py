@@ -4,6 +4,7 @@ from playwright.sync_api import sync_playwright
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
 
+
 @pytest.fixture(scope="module")
 def browser():
     ws_url = PLAYWRIGHT_WS
@@ -18,22 +19,21 @@ def browser():
             print(f"Failed to connect to Playwright service: {e}")
             raise e
 
+
 @pytest.fixture(scope="module")
 def page(browser):
-    context = browser.new_context(
-        viewport={"width": 1280, "height": 720},
-        ignore_https_errors=True
-    )
+    context = browser.new_context(viewport={"width": 1280, "height": 720}, ignore_https_errors=True)
     page = context.new_page()
     yield page
     context.close()
 
+
 def test_full_system_ui(page):
     base_url = BASE_URL
-    
+
     print(f"\n[1] Navigating to Dashboard: {base_url}")
     page.goto(base_url, timeout=30000)
-    
+
     # Wait for DOM content instead of networkidle due to SSE connection
     page.wait_for_load_state("domcontentloaded")
 
@@ -45,10 +45,10 @@ def test_full_system_ui(page):
 
     # Wait for the logo or some main text to appear
     page.wait_for_selector("text=WhosAtMyFeeder", timeout=10000)
-    
+
     # 1. Verify Title
     print(f"Page Title: {page.title()}")
-    
+
     # 2. Verify Dashboard Components
     print("Checking Dashboard components...")
     page.screenshot(path="dashboard_load.png")
@@ -60,7 +60,7 @@ def test_full_system_ui(page):
         page.get_by_role("button", name="Explorer").click()
     except PlaywrightError:
         page.get_by_text("Explorer").click()
-        
+
     page.wait_for_url("**/events", timeout=10000)
     page.wait_for_load_state("domcontentloaded")
     print(f"Current URL: {page.url}")
@@ -73,13 +73,13 @@ def test_full_system_ui(page):
         page.get_by_role("button", name="Leaderboard").click()
     except PlaywrightError:
         page.get_by_text("Leaderboard").click()
-        
+
     page.wait_for_url("**/species", timeout=10000)
     page.wait_for_load_state("domcontentloaded")
     print(f"Current URL: {page.url}")
     assert "/species" in page.url
     page.screenshot(path="leaderboard_page.png")
-    
+
     # 5. Navigate to Settings
     print("\n[4] Navigating to Settings...")
     # The app can render nav items as buttons or links depending on layout.

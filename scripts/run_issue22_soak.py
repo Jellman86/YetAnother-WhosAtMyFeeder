@@ -515,7 +515,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--http-timeout-seconds", type=float, default=5.0)
     parser.add_argument("--trigger-analysis-interval-seconds", type=float, default=0.0)
     parser.add_argument("--mqtt-host", default=os.getenv("SOAK_MQTT_HOST", os.getenv("MQTT_SERVER", "127.0.0.1")))
-    parser.add_argument("--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883"))))
+    parser.add_argument(
+        "--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883")))
+    )
     parser.add_argument("--mqtt-username", default=os.getenv("SOAK_MQTT_USERNAME", os.getenv("MQTT_USERNAME")))
     parser.add_argument("--mqtt-password", default=os.getenv("SOAK_MQTT_PASSWORD", os.getenv("MQTT_PASSWORD")))
     parser.add_argument("--mqtt-publish-container", default=os.getenv("SOAK_MQTT_PUBLISH_CONTAINER", ""))
@@ -693,11 +695,7 @@ def main() -> int:
             timeout_seconds=args.http_timeout_seconds,
             limit=max(args.frigate_event_source_limit, len(replay_event_ids)),
         )
-        source_events_by_id = {
-            str(event["id"]): event
-            for event in source_events
-            if event.get("id")
-        }
+        source_events_by_id = {str(event["id"]): event for event in source_events if event.get("id")}
         for event_id in replay_event_ids:
             source_event = source_events_by_id.get(event_id)
             if source_event is None:
@@ -722,7 +720,9 @@ def main() -> int:
     analysis_triggers: list[dict[str, Any]] = []
     health_fetch_failures = 0
     deadline = time.time() + max(1, args.duration_seconds)
-    next_analysis_trigger = time.time() + args.trigger_analysis_interval_seconds if args.trigger_analysis_interval_seconds > 0 else None
+    next_analysis_trigger = (
+        time.time() + args.trigger_analysis_interval_seconds if args.trigger_analysis_interval_seconds > 0 else None
+    )
 
     while not stop_event.is_set() and time.time() < deadline:
         tick_started = time.time()
@@ -807,8 +807,7 @@ def main() -> int:
         )
         if replay_source_missing_event_ids:
             evaluation["failure_reasons"].append(
-                "Replay source events were not found in Frigate API: "
-                + ", ".join(replay_source_missing_event_ids)
+                "Replay source events were not found in Frigate API: " + ", ".join(replay_source_missing_event_ids)
             )
         if replay_publish_failures:
             evaluation["failure_reasons"].append(
@@ -817,8 +816,7 @@ def main() -> int:
             )
         if replay_result["missing_event_ids"]:
             evaluation["failure_reasons"].append(
-                "Replayed Frigate events were not saved by YA-WAMF: "
-                + ", ".join(replay_result["missing_event_ids"])
+                "Replayed Frigate events were not saved by YA-WAMF: " + ", ".join(replay_result["missing_event_ids"])
             )
         if baseline_event_count is not None and final_event_count is not None:
             replay_result["baseline_event_count"] = baseline_event_count

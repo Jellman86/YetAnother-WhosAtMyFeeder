@@ -6,9 +6,8 @@ import time
 from pathlib import Path
 
 
-
-SCRIPT_PATH = Path('/config/workspace/YA-WAMF/scripts/run_issue22_soak.py')
-spec = importlib.util.spec_from_file_location('run_issue22_soak', SCRIPT_PATH)
+SCRIPT_PATH = Path("/config/workspace/YA-WAMF/scripts/run_issue22_soak.py")
+spec = importlib.util.spec_from_file_location("run_issue22_soak", SCRIPT_PATH)
 soak = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = soak
 assert spec.loader is not None
@@ -34,11 +33,13 @@ class _FakeClient:
 
     def connect(self, host, port, keepalive=30):
         self.connect_args = (host, port, keepalive)
+
         def _complete_connect():
             time.sleep(0.01)
             self.connected = True
             if self.on_connect is not None:
                 self.on_connect(self, None, None, 0)
+
         threading.Thread(target=_complete_connect, daemon=True).start()
 
     def loop_start(self):
@@ -52,14 +53,14 @@ class _FakeClient:
 def test_build_frigate_payload_can_mark_false_positive():
     payload = json.loads(
         soak._build_frigate_payload(
-            event_id='evt-1',
-            event_type='update',
+            event_id="evt-1",
+            event_type="update",
             false_positive=True,
         )
     )
 
-    assert payload['type'] == 'update'
-    assert payload['after']['false_positive'] is True
+    assert payload["type"] == "update"
+    assert payload["after"]["false_positive"] is True
 
 
 def test_connect_mqtt_client_waits_for_connect_callback():
@@ -67,14 +68,14 @@ def test_connect_mqtt_client_waits_for_connect_callback():
 
     soak._connect_mqtt_client(
         client,
-        mqtt_host='mqtt',
+        mqtt_host="mqtt",
         mqtt_port=1883,
         timeout_seconds=0.5,
     )
 
     assert client.loop_started is True
     assert client.connected is True
-    assert client.connect_args == ('mqtt', 1883, 30)
+    assert client.connect_args == ("mqtt", 1883, 30)
 
 
 def test_publish_message_waits_until_broker_acknowledges_publish():
@@ -82,20 +83,22 @@ def test_publish_message_waits_until_broker_acknowledges_publish():
 
     soak._publish_message(
         client,
-        topic='frigate/events',
-        payload='{}',
+        topic="frigate/events",
+        payload="{}",
         timeout_seconds=0.5,
     )
 
-    assert client.published == [('frigate/events', '{}', 1, False)]
+    assert client.published == [("frigate/events", "{}", 1, False)]
 
 
 class _FakeClientWithoutCallback(_FakeClient):
     def connect(self, host, port, keepalive=30):
         self.connect_args = (host, port, keepalive)
+
         def _complete_connect():
             time.sleep(0.01)
             self.connected = True
+
         threading.Thread(target=_complete_connect, daemon=True).start()
 
     def is_connected(self):
@@ -107,7 +110,7 @@ def test_connect_mqtt_client_accepts_is_connected_without_callback_signal():
 
     soak._connect_mqtt_client(
         client,
-        mqtt_host='mqtt',
+        mqtt_host="mqtt",
         mqtt_port=1883,
         timeout_seconds=0.5,
     )
@@ -117,23 +120,32 @@ def test_connect_mqtt_client_accepts_is_connected_without_callback_signal():
 
 def test_build_mosquitto_pub_command_includes_auth_and_payload():
     command = soak._build_mosquitto_pub_command(
-        container_name='mosquitto',
-        mqtt_host='127.0.0.1',
+        container_name="mosquitto",
+        mqtt_host="127.0.0.1",
         mqtt_port=1883,
-        mqtt_username='user1',
-        mqtt_password='pass1',
-        topic='frigate/events',
+        mqtt_username="user1",
+        mqtt_password="pass1",
+        topic="frigate/events",
         payload='{"ok":true}',
     )
 
     assert command == [
-        'docker', 'exec', 'mosquitto', 'mosquitto_pub',
-        '-h', '127.0.0.1',
-        '-p', '1883',
-        '-u', 'user1',
-        '-P', 'pass1',
-        '-t', 'frigate/events',
-        '-m', '{"ok":true}',
+        "docker",
+        "exec",
+        "mosquitto",
+        "mosquitto_pub",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "1883",
+        "-u",
+        "user1",
+        "-P",
+        "pass1",
+        "-t",
+        "frigate/events",
+        "-m",
+        '{"ok":true}',
     ]
 
 
@@ -141,29 +153,29 @@ def test_build_frigate_replay_payload_uses_real_event_fields_and_defaults():
     payload = json.loads(
         soak._build_frigate_replay_payload(
             {
-                'id': 'evt-123',
-                'camera': 'BirdCam',
-                'label': 'bird',
-                'start_time': 123.4,
-                'end_time': 125.6,
-                'sub_label': None,
-                'top_score': None,
-                'score': None,
-                'false_positive': None,
+                "id": "evt-123",
+                "camera": "BirdCam",
+                "label": "bird",
+                "start_time": 123.4,
+                "end_time": 125.6,
+                "sub_label": None,
+                "top_score": None,
+                "score": None,
+                "false_positive": None,
             }
         )
     )
 
     assert payload == {
-        'type': 'new',
-        'after': {
-            'id': 'evt-123',
-            'camera': 'BirdCam',
-            'label': 'bird',
-            'start_time': 123.4,
-            'end_time': 125.6,
-            'false_positive': False,
-            'top_score': 0.99,
+        "type": "new",
+        "after": {
+            "id": "evt-123",
+            "camera": "BirdCam",
+            "label": "bird",
+            "start_time": 123.4,
+            "end_time": 125.6,
+            "false_positive": False,
+            "top_score": 0.99,
         },
     }
 
@@ -171,30 +183,30 @@ def test_build_frigate_replay_payload_uses_real_event_fields_and_defaults():
 def test_select_unsaved_replay_ids_filters_to_bird_snapshot_events_not_already_saved():
     selected = soak._select_unsaved_replay_ids(
         [
-            {'id': 'saved-bird', 'label': 'bird', 'has_snapshot': True},
-            {'id': 'missing-snapshot', 'label': 'bird', 'has_snapshot': False},
-            {'id': 'cat-event', 'label': 'cat', 'has_snapshot': True},
-            {'id': 'bird-1', 'label': 'bird', 'has_snapshot': True},
-            {'id': 'bird-2', 'label': 'bird', 'has_snapshot': True},
+            {"id": "saved-bird", "label": "bird", "has_snapshot": True},
+            {"id": "missing-snapshot", "label": "bird", "has_snapshot": False},
+            {"id": "cat-event", "label": "cat", "has_snapshot": True},
+            {"id": "bird-1", "label": "bird", "has_snapshot": True},
+            {"id": "bird-2", "label": "bird", "has_snapshot": True},
         ],
-        existing_event_ids={'saved-bird'},
+        existing_event_ids={"saved-bird"},
         limit=2,
     )
 
-    assert selected == ['bird-1', 'bird-2']
+    assert selected == ["bird-1", "bird-2"]
 
 
 def test_evaluate_replay_event_results_only_requires_new_targets():
     result = soak._evaluate_replay_event_results(
-        requested_event_ids=['already-saved', 'new-a', 'new-b'],
-        existing_before={'already-saved'},
-        existing_after={'already-saved', 'new-a'},
+        requested_event_ids=["already-saved", "new-a", "new-b"],
+        existing_before={"already-saved"},
+        existing_after={"already-saved", "new-a"},
     )
 
     assert result == {
-        'requested_event_ids': ['already-saved', 'new-a', 'new-b'],
-        'target_event_ids': ['new-a', 'new-b'],
-        'saved_event_ids': ['new-a'],
-        'missing_event_ids': ['new-b'],
-        'passed': False,
+        "requested_event_ids": ["already-saved", "new-a", "new-b"],
+        "target_event_ids": ["new-a", "new-b"],
+        "saved_event_ids": ["new-a"],
+        "missing_event_ids": ["new-b"],
+        "passed": False,
     }

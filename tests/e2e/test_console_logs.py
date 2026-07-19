@@ -2,10 +2,12 @@
 """
 Test specifically to capture console logs and check if isDirty is running
 """
+
 from playwright.sync_api import sync_playwright
 import time
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 
 def run():
     with sync_playwright() as p:
@@ -15,6 +17,7 @@ def run():
 
         # Store ALL console messages
         all_console = []
+
         def handle_console(msg):
             text = msg.text
             log_type = msg.type
@@ -83,7 +86,7 @@ def run():
             """)
             print(f"  Total buttons: {result['totalButtons']}")
             print(f"  Has Apply button: {result['hasApplyButton']}")
-            if result['hasApplyButton']:
+            if result["hasApplyButton"]:
                 print(f"  Apply button visible: {result['applyButtonVisible']}")
             print(f"  First 10 button texts: {result['buttonTexts']}")
         except Exception as e:
@@ -94,6 +97,7 @@ def run():
 
         print("\n" + "=" * 80)
         browser.close()
+
 
 if __name__ == "__main__":
     run()
