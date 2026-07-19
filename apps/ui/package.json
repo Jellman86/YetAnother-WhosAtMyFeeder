@@ -28,7 +28,7 @@
         "vitest": "^4.1.10"
     },
     "dependencies": {
-        "apexcharts": "^5.3.6",
+        "apexcharts": "^6.2.0",
         "flatpickr": "^4.6.13",
         "leaflet": "^1.9.4",
         "markdown-it": "^14.1.0",
