@@ -10,10 +10,10 @@
     "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql"
   },
   "dependencies": {
-    "hono": "^4.12.30"
+    "hono": "^4.12.31"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260718.1",
+    "@cloudflare/workers-types": "^5.20260719.1",
     "wrangler": "^4.112.0"
   }
 }
